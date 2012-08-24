@@ -73,6 +73,8 @@ private:
 
 public:
     ~volume(void){free_all();}
+    const dicom* get_dicom(unsigned int index) const{return index < dicom_reader.size() ? dicom_reader[index]:0;}
+    const nifti* get_nifti(unsigned int index) const{return index < nifti_reader.size() ? nifti_reader[index]:0;}
 
     template<typename voxel_size_type>
     void get_voxel_size(voxel_size_type voxel_size) const
