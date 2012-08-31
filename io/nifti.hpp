@@ -445,7 +445,7 @@ public:
         std::fill(pixdim,pixdim+8,1);
         pixdim[1] = pixel_size_from[0];
         pixdim[2] = pixel_size_from[1];
-        pixdim[3] = pixel_size_from[3];
+        pixdim[3] = pixel_size_from[2];
         std::copy(pixdim,pixdim+8,nif_header.pixdim);
     }
     
