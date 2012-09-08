@@ -3,7 +3,6 @@
 #define BASIC_OP_HPP
 #include "image/utility/basic_image.hpp"
 #include "numerical.hpp"
-
 namespace image
 {
 
@@ -658,6 +657,8 @@ void histogram(const ImageType& src,std::vector<unsigned int>& hist,
         return;
     float range = max_value;
     range -= min_value;
+    if(range + 1.0 == range)
+        range = 1.0;
     hist.clear();
     range = ((float)resolution_count-0.01)/range;
     hist.resize(resolution_count);
@@ -668,7 +669,9 @@ void histogram(const ImageType& src,std::vector<unsigned int>& hist,
         float value = *iter;
         value -= min_value;
         value *= range;
-        ++hist[std::floor(value)];
+        int index = std::floor(value);
+        if(index >= 0 && index < hist.size())
+            ++hist[index];
     }
 }
 
