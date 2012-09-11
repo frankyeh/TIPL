@@ -225,9 +225,9 @@ struct interpolation<weighting_function,3>
         float fx = std::floor(x);
         float fy = std::floor(y);
         float fz = std::floor(z);
-        unsigned int ix = fx;
-        unsigned int iy = fy;
-        unsigned int iz = fz;
+        int ix = fx;
+        int iy = fy;
+        int iz = fz;
         if (ix + 1 >= geo[0] || iy + 1 >= geo[1] || iz + 1 >= geo[2])
             return false;
         p[1] = y-fy;

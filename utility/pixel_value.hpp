@@ -20,13 +20,13 @@ struct rgb_color{
 	rgb_color(int color_):color(color_){}
 	rgb_color(const rgb_color& rhs):color(rhs.color){}
 	rgb_color(unsigned char r_,unsigned char g_,unsigned char b_):
-                r(r_),g(g_),b(b_),a(0){}
+                b(b_),g(g_),r(r_),a(0){}
         rgb_color(unsigned char r_,unsigned char g_,unsigned char b_,unsigned char a_):
-                r(r_),g(g_),b(b_),a(a_){}
+                b(b_),g(g_),r(r_),a(a_){}
         rgb_color(unsigned char gray):
-                r(gray),g(gray),b(gray),a(0){}
+                b(gray),g(gray),r(gray),a(0){}
         rgb_color(float gray):
-                r(gray),g(gray),b(gray),a(0){}
+                b(gray),g(gray),r(gray),a(0){}
 
 	operator unsigned char() const	{return (unsigned char)((((short)r)+((short)g)+((short)b))/3);}
 	operator short() const	{return (((short)r)+((short)g)+((short)b))/3;}
