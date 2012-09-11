@@ -251,6 +251,8 @@ OutputIterator upsampling_x(IteratorType from,IteratorType to,OutputIterator out
     return result;
 }
 
+
+
 template<typename IteratorType,typename OutputIterator>
 OutputIterator upsampling_y(IteratorType from,IteratorType to,OutputIterator out,int width,int height)
 {
@@ -329,21 +331,74 @@ void upsampling(ImageType& in)
     upsampling(in,in);
 }
 
+template<typename value_type>
+struct downsampling_facade{
+    value_type operator()(value_type v1,value_type v2)
+    {
+        return (v1+v2)/((value_type)2);
+    }
+};
+template<>
+struct downsampling_facade<int>{
+    int operator()(int v1,int v2)
+    {
+        v1 += v2;
+        return v1 >= 0 ? v1>> 1: v1/2;
+    }
+};
+template<>
+struct downsampling_facade<short>{
+    short operator()(short v1,short v2)
+    {
+        int v = v1;
+        v += v2;
+        return v >= 0 ? (v >> 1): v/2;
+    }
+};
+template<>
+struct downsampling_facade<char>{
+    char operator()(char v1,char v2)
+    {
+        short v = v1;
+        v += v2;
+        return v >= 0 ? (v >> 1): v/2;
+    }
+};
+template<>
+struct downsampling_facade<unsigned int>{
+    unsigned int operator()(unsigned int v1,unsigned int v2)
+    {
+         return (v1+v2) >> 1;
+    }
+};
+template<>
+struct downsampling_facade<unsigned short>{
+    unsigned short operator()(unsigned short v1,unsigned short v2)
+    {
+         return ((unsigned int)v1+(unsigned int)v2) >> 1;
+    }
+};
+template<>
+struct downsampling_facade<unsigned char>{
+    unsigned char operator()(unsigned char v1,unsigned char v2)
+    {
+         return ((unsigned short)v1+(unsigned short)v2) >> 1;
+    }
+};
 
 
 
 template<typename IteratorType,typename OutputIterator>
 OutputIterator downsampling_x(IteratorType from,IteratorType to,OutputIterator out,int width)
 {
+    typedef typename std::iterator_traits<IteratorType>::value_type value_type;
+    downsampling_facade<value_type> average;
     int half_width = width >> 1;
     for(;from != to;from += width)
     {
         IteratorType read_end = from + (half_width << 1);
         for(IteratorType read = from;read != read_end;++out,read += 2)
-        {
-            *out = (*read) + *(read+1);
-            *out /= 2.0;
-        }
+            *out = average((*read),*(read+1));
     }
     return out;
 }
@@ -351,6 +406,8 @@ OutputIterator downsampling_x(IteratorType from,IteratorType to,OutputIterator o
 template<typename IteratorType,typename OutputIterator>
 OutputIterator downsampling_y(IteratorType from,IteratorType to,OutputIterator out,int width,int height)
 {
+    typedef typename std::iterator_traits<IteratorType>::value_type value_type;
+    downsampling_facade<value_type> average;
     int half_height = height >> 1;
     int width2 = width << 1;
     int plane_size = width*height;
@@ -361,10 +418,7 @@ OutputIterator downsampling_y(IteratorType from,IteratorType to,OutputIterator o
         for(IteratorType line = from;line != line_end;line += width)
         {
             for(IteratorType end_line = line + width;line != end_line;++line,++out)
-            {
-                *out = *line + line[width];
-                *out /= 2.0;
-            }
+                *out = average(*line,line[width]);
         }
     }
     return out;
