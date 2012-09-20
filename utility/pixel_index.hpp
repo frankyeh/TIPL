@@ -657,30 +657,36 @@ public:
     template<typename rhs_type>
     vector<3,data_type> operator+(const rhs_type& rhs) const
     {
-        return vector<3,data_type>(*this)+=rhs;
+        vector<3,data_type> result(*this);result += rhs;
+        return result;
     }
     template<typename rhs_type>
     vector<3,data_type> operator-(const rhs_type& rhs) const
     {
-        return vector<3,data_type>(*this)-=rhs;
+        vector<3,data_type> result(*this);result -= rhs;
+        return result;
     }
 
     vector<3,data_type> operator+(data_type rhs) const
     {
-        return vector<3,data_type>(*this)+=rhs;
+        vector<3,data_type> result(*this);result += rhs;
+        return result;
     }
     vector<3,data_type> operator-(data_type rhs) const
     {
-        return vector<3,data_type>(*this)-=rhs;
+        vector<3,data_type> result(*this);result -= rhs;
+        return result;
     }
 
     vector<3,data_type> operator*(data_type rhs) const
     {
-        return vector<3,data_type>(*this)*=rhs;
+        vector<3,data_type> result(*this);result *= rhs;
+        return result;
     }
     vector<3,data_type> operator/(data_type rhs) const
     {
-        return vector<3,data_type>(*this)/=rhs;
+        vector<3,data_type> result(*this);result /= rhs;
+        return result;
     }
     vector<3,data_type> operator-(void) const
     {
