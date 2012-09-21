@@ -8,7 +8,7 @@
 #include <iostream>
 #include <limits>
 #include <vector>
-
+//#include "image/io/nifti.hpp"
 
 
 namespace image
@@ -182,7 +182,7 @@ public:
         std::copy(dest.begin(),dest.end(),src.begin());
     }
 };
-#include "image/io/nifti.hpp"
+
 template<typename pixel_type,typename vtor_type,unsigned int dimension,typename terminate_type>
 void dmdm(const std::vector<basic_image<pixel_type,dimension> >& I,// original images
           std::vector<basic_image<vtor_type,dimension> >& d,// displacement field
@@ -250,7 +250,7 @@ void dmdm(const std::vector<basic_image<pixel_type,dimension> >& I,// original i
             std::cout << "." << std::flush;
 
             // gradient of Ji
-            image::gradient_sobel(Ji[index],new_d[index]);
+            image::gradient_sobel(J0,new_d[index]);
 
             // dJi*sign(Ji-J0)
             for(unsigned int i = 0;i < Ji[index].size();++i)
@@ -266,9 +266,9 @@ void dmdm(const std::vector<basic_image<pixel_type,dimension> >& I,// original i
             for(unsigned int i = 0;i < Ji[index].size();++i)
                 new_d[index][i] *= Ji[index][i];
 
-            image::io::nifti header;
-            header << Ji[index];
-            header.save_to_file("c:/1.nii");
+            //image::io::nifti header;
+            //header << Ji[index];
+            //header.save_to_file("c:/1.nii");
 
             // solving the poisson equation using Jacobi method
             {
@@ -293,6 +293,105 @@ void dmdm(const std::vector<basic_image<pixel_type,dimension> >& I,// original i
         {
             new_d[index] *= lambda;
             image::add(new_d[index].begin(),new_d[index].end(),d[index].begin());
+        }
+        d.swap(new_d);
+    }
+    std::cout << std::endl;
+}
+
+template<typename pixel_type,typename vtor_type,unsigned int dimension,typename terminate_type>
+void dmdm_t(const basic_image<pixel_type,dimension>& I,// original images
+            const basic_image<pixel_type,dimension>& It,// original images
+            basic_image<vtor_type,dimension> & d,// displacement field
+            float theta,float reg,terminate_type& terminated)
+{
+    if (I.empty() || I.geometry() != It.geometry())
+        return;
+    geometry<dimension> geo = I.geometry();
+
+    d.resize(geo);
+
+    // multi resolution
+    if (*std::min_element(geo.begin(),geo.end()) > 16)
+    {
+        //downsampling
+        basic_image<pixel_type,dimension> rI,rIt;
+        dmdm_downsample(I,rI);
+        dmdm_downsample(It,rIt);
+        dmdm_t(rI,rIt,d,theta/2,reg,terminated);
+        // upsampling deformation
+        dmdm_upsample(d,d,geo);
+    }
+    std::cout << "dimension:" << geo[0] << "x" << geo[1] << "x" << geo[2] << std::endl;
+    basic_image<pixel_type,dimension> Ji;// transformed I
+    basic_image<vtor_type,dimension> new_d;// new displacements
+    double current_dif = std::numeric_limits<double>::max();
+    for (double dis = 0.5;dis > theta;)
+    {
+        // calculate Ji
+        image::compose_displacement(I,d,Ji);
+        // apply contrast
+        image::multiply(Ji.begin(),Ji.end(),dmdm_contrast(It,Ji));
+
+
+        double next_dif = dmdm_img_dif(Ji,It);
+        if(next_dif >= current_dif)
+        {
+            dis *= 0.5;
+            std::cout << "detail=(" << dis << ")" << std::flush;
+            // roll back
+            d.swap(new_d);
+            current_dif = std::numeric_limits<double>::max();
+            continue;
+        }
+        std::cout << next_dif;
+        current_dif = next_dif;
+        double max_d = 0;
+        {
+            std::cout << "." << std::flush;
+            // gradient of It
+            image::gradient_sobel(It,new_d);
+
+            // It*sign(Ji-J0)
+            for(unsigned int i = 0;i < Ji.size();++i)
+                if(Ji[i] < It[i])
+                    new_d[i] = -new_d[i];
+
+            {
+                basic_image<pixel_type,dimension> temp;
+                image::jacobian_determinant_dis(d,temp);
+                image::compose_displacement(temp,d,Ji);
+            }
+
+            image::multiply(new_d.begin(),new_d.end(),Ji.begin());
+
+            //image::io::nifti header;
+            //header << Ji[index];
+            //header.save_to_file("c:/1.nii");
+
+            // solving the poisson equation using Jacobi method
+            {
+                basic_image<vtor_type,dimension> solve_d(new_d.geometry());
+                for(int iter = 0;iter < 20;++iter)
+                {
+                    poisson_equation_solver<vtor_type,dimension>()(solve_d);
+                    image::add(solve_d.begin(),solve_d.end(),new_d.begin());
+                    image::divide_constant(solve_d.begin(),solve_d.end(),dimension*2);
+                }
+                new_d = solve_d;
+                image::minus_constant(new_d.begin(),new_d.end(),new_d[0]);
+            }
+
+            for (unsigned int i = 0; i < geo.size(); ++i)
+                if (new_d[i]*new_d[i] > max_d)
+                    max_d = std::sqrt(new_d[i]*new_d[i]);
+        }
+        // calculate the lambda
+        double lambda = -dis/max_d;
+        //for (unsigned int index = 0;index < n && !terminated;++index)
+        {
+            new_d[index] *= lambda;
+            image::add(new_d.begin(),new_d.end(),d.begin());
         }
         d.swap(new_d);
     }
