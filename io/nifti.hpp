@@ -452,7 +452,9 @@ public:
     template<typename float_type>
     void set_image_transformation(float_type R)
     {
-        std::copy(R,R+12,nif_header.srow_x);
+        std::copy(R,R+4,nif_header.srow_x);
+        std::copy(R+4,R+8,nif_header.srow_y);
+        std::copy(R+8,R+12,nif_header.srow_z);
     }
 
     template<typename pixel_size_type>
