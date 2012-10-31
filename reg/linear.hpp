@@ -32,8 +32,8 @@ namespace reg
                     to_pixel -= Ifrom[index.index()];
                     error += to_pixel*to_pixel;
                 }
-                else
-                    error += Ifrom[index.index()]*Ifrom[index.index()];
+                //else
+                //    error += Ifrom[index.index()]*Ifrom[index.index()];
 
             }
             return error;
