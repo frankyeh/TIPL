@@ -390,7 +390,7 @@ void dmdm_t(const basic_image<pixel_type,dimension>& I,// original images
         double lambda = -dis/max_d;
         //for (unsigned int index = 0;index < n && !terminated;++index)
         {
-            new_d[index] *= lambda;
+            new_d *= lambda;
             image::add(new_d.begin(),new_d.end(),d.begin());
         }
         d.swap(new_d);
