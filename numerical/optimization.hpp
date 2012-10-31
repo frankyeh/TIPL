@@ -118,6 +118,69 @@ end:
 };
 
 
+template<typename param_type,typename value_type,unsigned int max_iteration = 100>
+struct enhanced_brent{
+    param_type min;
+    param_type max;
+    bool ended;
+public:
+    enhanced_brent(void):ended(false) {}
+    template<typename eval_fun_type>
+    value_type minimize(eval_fun_type& f,value_type& out_arg_min,bool& terminated,value_type tol)
+    {
+        param_type cur_min = min;
+        param_type cur_max = max;
+        param_type arg_min = out_arg_min;
+        if(arg_min < min && arg_min > max)
+            arg_min = (max+min)/2.0;
+        for(unsigned int iter = 0;iter < max_iteration && !terminated;++iter)
+        {
+            std::deque<value_type> values;
+            std::deque<param_type> params;
+            param_type interval = (cur_max-cur_min)/10.0;
+            for(param_type x = arg_min;x > cur_min;x -= interval)
+            {
+                values.push_front(f(x));
+                params.push_front(x);
+            }
+            for(param_type x = arg_min+interval;x < cur_max;x += interval)
+            {
+                values.push_back(f(x));
+                params.push_back(x);
+            }
+            values.push_front(f(cur_min));
+            params.push_front(cur_min);
+            values.push_back(f(cur_max));
+            params.push_back(cur_max);
+            std::vector<unsigned char> greater(values.size()-1);
+            for(int i=0;i < greater.size();++i)
+                greater[i] = values[i] > values[i+1];
+            unsigned char change_sign = 0;
+            for(int i=1;i < greater.size();++i)
+                if(greater[i-1] != greater[i])
+                    change_sign++;
+
+            int min_index = std::min_element(values.begin(),values.end())-values.begin();
+
+            cur_min = params[std::max<int>(0,min_index-2)];
+            cur_max = params[std::min<int>(params.size()-1,min_index+2)];
+            arg_min = params[min_index];
+            if(change_sign <= 2) // monotonic or u-shape then use breant method
+                break;
+        }
+
+        float result = 0.0;
+        brent_method<param_type,value_type,max_iteration> brent;
+        brent.min = cur_min;
+        brent.max = cur_max;
+        result = brent.minimize(f,arg_min,terminated,tol);
+        ended = true;
+        out_arg_min = arg_min;
+        return result;
+    }
+
+};
+
 /**
 
     param_type::dimension
