@@ -32,6 +32,9 @@ namespace reg
                     to_pixel -= Ifrom[index.index()];
                     error += to_pixel*to_pixel;
                 }
+                else
+                    error += Ifrom[index.index()]*Ifrom[index.index()];
+
             }
             return error;
         }
@@ -172,7 +175,7 @@ void linear(const image_type& from,const image_type& to,
             return;
     }
     const unsigned int dimension = image_type::dimension;
-    image::optimization::powell_method<image::optimization::brent_method<value_type,value_type>,transform_type,value_type>
+    image::optimization::powell_method<image::optimization::enhanced_brent<value_type,value_type>,transform_type,value_type>
             opti_method(transform_type::total_size);
     for (int index = 0; index < transform_type::total_size; ++index)
             opti_method.search_methods[index].min = opti_method.search_methods[index].max = trans[index];
@@ -181,9 +184,8 @@ void linear(const image_type& from,const image_type& to,
         {
             int dim_dif = (int)to.geometry()[index]-
                                   (int)from.geometry()[index]*trans.scaling[index];
-            dim_dif = std::abs(dim_dif)*2.0;
-            opti_method.search_methods[index].max = dim_dif;
-            opti_method.search_methods[index].min = -dim_dif;
+            opti_method.search_methods[index].max = std::max(dim_dif,to.geometry()[index]/4);
+            opti_method.search_methods[index].min = std::min(-dim_dif,(int)to.geometry()[index]/-4);
         }
 
     if (reg_type & rotation)
