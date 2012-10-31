@@ -4,7 +4,6 @@
 #include <map>
 #include <sstream>
 #include <iterator>
-#include <algorithm>
 
 namespace image
 {
@@ -51,9 +50,8 @@ private:
                     accumulated_info += line;
                     accumulated_info += " ";
                 }
-                using namespace std;
-                accumulated_info.erase(remove(accumulated_info.begin(),accumulated_info.end(),'<'),accumulated_info.end());
-                accumulated_info.erase(remove(accumulated_info.begin(),accumulated_info.end(),'>'),accumulated_info.end());
+                accumulated_info.erase(std::remove(accumulated_info.begin(),accumulated_info.end(),'<'),accumulated_info.end());
+                accumulated_info.erase(std::remove(accumulated_info.begin(),accumulated_info.end(),'>'),accumulated_info.end());
                 info[name] = accumulated_info;
             }
         }
