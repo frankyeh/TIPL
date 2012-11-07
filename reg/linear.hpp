@@ -32,8 +32,8 @@ namespace reg
                     to_pixel -= Ifrom[index.index()];
                     error += to_pixel*to_pixel;
                 }
-                //else
-                //    error += Ifrom[index.index()]*Ifrom[index.index()];
+                else
+                    error += Ifrom[index.index()]*Ifrom[index.index()];
 
             }
             return error;
@@ -168,12 +168,6 @@ void linear(const image_type& from,const image_type& to,
     if(terminated)
         return;
     typedef typename transform_type::value_type value_type;
-    if(from.geometry()[0]*sampling > 32)
-    {
-        linear(from,to,trans,reg_type,cost_fun,terminated,tol,sampling*0.5);
-        if(terminated)
-            return;
-    }
     const unsigned int dimension = image_type::dimension;
     image::optimization::powell_method<image::optimization::enhanced_brent<value_type,value_type>,transform_type,value_type>
             opti_method(transform_type::total_size);
@@ -182,10 +176,8 @@ void linear(const image_type& from,const image_type& to,
     if (reg_type & translocation)
         for (unsigned int index = 0; index < dimension; ++index)
         {
-            int dim_dif = (int)to.geometry()[index]-
-                                  (int)from.geometry()[index]*trans.scaling[index];
-            opti_method.search_methods[index].max = std::max(dim_dif,to.geometry()[index]/4);
-            opti_method.search_methods[index].min = std::min(-dim_dif,(int)to.geometry()[index]/-4);
+            opti_method.search_methods[index].max = from.geometry()[index]/2;
+            opti_method.search_methods[index].min = from.geometry()[index]/-2;
         }
 
     if (reg_type & rotation)
@@ -208,7 +200,12 @@ void linear(const image_type& from,const image_type& to,
             opti_method.search_methods[index].max = 0.2;
             opti_method.search_methods[index].min = -0.2;
         }
-
+    if(from.geometry()[0]*sampling > 32)
+    {
+        linear(from,to,trans,reg_type,cost_fun,terminated,tol,sampling*0.5);
+        if(terminated)
+            return;
+    }
     if(sampling == 1.0)
     {
         cost_function_adoptor<image_type,CostFunctionType> cost_function(from,to,cost_fun,sampling);
