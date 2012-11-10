@@ -2,7 +2,13 @@
 #include <list>
 #include "image/numerical/index_algorithm.hpp"
 #include "image/numerical/numerical.hpp"
+#include "image/morphology/morphology.hpp"
+#include "image/segmentation/otsu.hpp"
 
+#ifdef DEBUG
+#include "image/io/bitmap.hpp"
+#include <sstream>
+#endif
 namespace image
 {
 
@@ -91,6 +97,80 @@ void watershed(const ImageType& input_image,LabelImageType& label)
     }
 }
 
+
+template<typename ImageType,typename LabelImageType>
+void watershed2(const ImageType& input_image,LabelImageType& label,unsigned int size_threshold,double detail_level = 1.0)
+{
+    typedef image::pixel_index<ImageType::dimension> pixel_type;
+    label.clear();
+    label.resize(input_image.geometry());
+    ImageType I(input_image);
+
+    float level = *std::max_element(input_image.begin(),input_image.end());
+    float otsu_level = image::segmentation::otsu_threshold(input_image)*detail_level;
+    unsigned int cur_region_num = 0;
+    for(double L = 0.9;level*L > otsu_level;L -= 0.05)
+    {
+        std::vector<std::vector<unsigned int> > regions;
+        image::basic_image<unsigned char,ImageType::dimension> mask;
+        LabelImageType cur_label;
+        image::threshold(I,mask,level*L);
+        image::morphology::connected_component_labeling(mask,cur_label,regions);
+
+        // merge
+        if(L != 2.0)
+        while(1)
+        {
+            std::vector<unsigned int> grow_pos;
+            std::vector<unsigned int> grow_index;
+            for(pixel_type pos;label.geometry().is_valid(pos);pos.next(label.geometry()))
+                if(cur_label[pos.index()])
+                {
+                    std::vector<pixel_type> neighbor_points;
+                    get_connected_neighbors(pos,label.geometry(),neighbor_points);
+                    for(unsigned int index = 0;index < neighbor_points.size();++index)
+                        if(label[neighbor_points[index].index()])
+                        {
+                            grow_pos.push_back(pos.index());
+                            grow_index.push_back(label[neighbor_points[index].index()]);
+                            cur_label[pos.index()] = 0;
+                            break;
+                        }
+
+                }
+            if(grow_pos.empty())
+                break;
+            for(unsigned int index = 0;index < grow_pos.size();++index)
+                label[grow_pos[index]] = grow_index[index];
+        }
+
+        // new regions
+        for(unsigned int pos = 0;pos < cur_label.size();++pos)
+            if(cur_label[pos])
+            {
+                if(regions[cur_label[pos]-1].size() < size_threshold)
+                    continue;
+                ++cur_region_num;
+                unsigned int region_id = cur_label[pos]-1;
+                for(unsigned int i = 0;i < regions[region_id].size();++i)
+                {
+                    unsigned int cur_pos = regions[region_id][i];
+                    cur_label[cur_pos] = 0;
+                    label[cur_pos] = cur_region_num;
+                    I[cur_pos] = 0;
+                }
+            }
+        #ifdef DEBUG
+        std::ostringstream name;
+        name << L << ".bmp";
+        image::basic_image<unsigned char,2> out;
+        image::normalize(label,out);
+        image::io::bitmap bmp;
+        bmp << out;
+        bmp.save_to_file(name.str().c_str());
+        #endif
+    }
+}
 
 }
 

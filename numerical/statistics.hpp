@@ -233,8 +233,8 @@ double least_square_fitting_slop(input_iterator x_from,input_iterator x_to,
 
 // fitting equation y=ax+b
 // return (a,b)
-template<typename input_iterator>
-std::pair<double,double> linear_regression(input_iterator x_from,input_iterator x_to,input_iterator y_from)
+template<typename input_iterator1,typename input_iterator2>
+std::pair<double,double> linear_regression(input_iterator1 x_from,input_iterator1 x_to,input_iterator2 y_from)
 {
     double mean_x = mean(x_from,x_to);
     double mean_y = mean(y_from,y_from+(x_to-x_from));

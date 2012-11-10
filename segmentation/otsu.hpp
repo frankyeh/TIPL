@@ -1,3 +1,5 @@
+#ifndef OTSU_HPP
+#define OTSU_HPP
 #include <vector>
 #include "image/numerical/basic_op.hpp"
 
@@ -65,3 +67,5 @@ void otsu(const ImageType& src,LabelImageType& label,typename LabelImageType::va
 
 }
 }
+
+#endif
