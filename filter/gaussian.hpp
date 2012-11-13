@@ -107,7 +107,7 @@ public:
     }
 };
 
-template<typename pixel_type,size_t dimension>
+template<typename pixel_type,unsigned int dimension>
 void gaussian(basic_image<pixel_type,dimension>& src)
 {
     gaussian_filter_imp<pixel_type,dimension>()(src);
