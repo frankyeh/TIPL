@@ -481,20 +481,20 @@ template<typename InputIter,typename OutputIter,typename value_type>
 void upper_threshold(InputIter from,InputIter to,OutputIter out,value_type upper)
 {
     for(;from != to;++from,++out)
-        out = std::min((value_type)*from,upper);
+        *out = std::min<value_type>(*from,upper);
 }
 template<typename InputIter,typename OutputIter,typename value_type>
 void lower_threshold(InputIter from,InputIter to,OutputIter out,value_type lower)
 {
     for(;from != to;++from,++out)
-        out = std::max((value_type)*from,lower);
+        *out = std::max<value_type>(*from,lower);
 }
 
 template<typename InputIter,typename OutputIter,typename value_type>
 void upper_lower_threshold(InputIter from,InputIter to,OutputIter out,value_type lower,value_type upper)
 {
     for(;from != to;++from,++out)
-        out = std::min(std::max((value_type)*from,lower),upper);
+        *out = std::min<value_type>(std::max<value_type>(*from,lower),upper);
 }
 
 template<typename ImageType,typename value_type>
@@ -503,7 +503,7 @@ void upper_lower_threshold(ImageType& data,value_type lower,value_type upper)
     typename ImageType::iterator from = data.begin();
     typename ImageType::iterator to = data.end();
     for(;from != to;++from)
-        *from = std::min(std::max((value_type)*from,lower),upper);
+        *from = std::min<value_type>(std::max<value_type>(*from,lower),upper);
 }
 
 template<typename ImageType>

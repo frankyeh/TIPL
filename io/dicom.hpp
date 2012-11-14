@@ -286,7 +286,7 @@ public:
         for (unsigned int index = 0; index < vals.size(); ++index)
             out << vals[index] << " ";
         lines += out.str();
-        lines += "\r\n";
+        lines += "\n";
     }
     const char* get_value(unsigned int index) const
     {
@@ -423,7 +423,7 @@ public:
                     if (count <= 128 && count >= 0)
                     {
                         unsigned int pos = 16;
-                        for (unsigned int index = 0; index < count && pos < data.size(); ++index)
+                        for (unsigned int index = 0; index < count && pos < ge->get().size(); ++index)
                         {
                             std::auto_ptr<dicom_csa_data> csa(new dicom_csa_data);
                             if (!csa->read(ge->get(),pos))
@@ -775,6 +775,8 @@ public:
             out << std::endl;
         }
         report = out.str();
+        for(unsigned int index = 0;index < csa_data.size();++index)
+            csa_data[index]->write_report(report);
         return *this;
     }
 };
