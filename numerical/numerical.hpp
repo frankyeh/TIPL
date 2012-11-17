@@ -483,11 +483,23 @@ void upper_threshold(InputIter from,InputIter to,OutputIter out,value_type upper
     for(;from != to;++from,++out)
         *out = std::min<value_type>(*from,upper);
 }
+template<typename InputIter,typename value_type>
+void upper_threshold(InputIter from,InputIter to,value_type upper)
+{
+    for(;from != to;++from)
+        *from = std::min<value_type>(*from,upper);
+}
 template<typename InputIter,typename OutputIter,typename value_type>
 void lower_threshold(InputIter from,InputIter to,OutputIter out,value_type lower)
 {
     for(;from != to;++from,++out)
         *out = std::max<value_type>(*from,lower);
+}
+template<typename InputIter,typename value_type>
+void lower_threshold(InputIter from,InputIter to,value_type lower)
+{
+    for(;from != to;++from)
+        *from = std::max<value_type>(*from,lower);
 }
 
 template<typename InputIter,typename OutputIter,typename value_type>
