@@ -595,7 +595,7 @@ public:
     }
     const transformation_matrix& operator=(const transformation_matrix& rhs)
     {
-        std::copy(rhs.data,rhs.data+total_size,(float*)data);
+        std::copy(rhs.data,rhs.data+total_size,data);
         return *this;
     }
     value_type* get(void)
@@ -626,11 +626,27 @@ public:
         M[7] = data[10];
         M[11] = data[11];
     }
+    void inverse(void)
+    {
+        std::vector<value_type> T(16);
+        save_to_transform(T.begin());
+        T[15] = 1.0;
+        math::matrix_inverse(T.begin(),math::dim<4,4>());
+        load_from_transform(T.begin());
+    }
 
     template<typename InputIterType,typename OutputIterType>
     void operator()(InputIterType in_iter,OutputIterType out_iter) const
     {
         vector_transformation(in_iter,out_iter,scaling_rotation,shift,vdim<dimension>());
+    }
+
+    template<typename IterType>
+    void operator()(IterType in_iter) const
+    {
+        value_type value[dimension];
+        vector_transformation(in_iter,value,scaling_rotation,shift,vdim<dimension>());
+        std::copy(value,value+dimension,in_iter);
     }
 
 };

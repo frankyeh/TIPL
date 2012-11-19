@@ -155,6 +155,32 @@ void jacobian_determinant(const basic_image<VectorType,3>& src,DetType& dest)
                                        (v1_0[2] - v1_1[2])*(d2_0*d3_1-d2_1*d3_0));
     }
 }
+template<typename VectorType>
+double jacobian_determinant_dis_at(const basic_image<VectorType,3>& src,const image::pixel_index<3>& index)
+{
+    unsigned int w = src.width();
+    unsigned int wh = src.plane_size();
+
+    const VectorType& v1_0 = src[index.index()+1];
+    const VectorType& v1_1 = src[index.index()-1];
+    const VectorType& v2_0 = src[index.index()+w];
+    const VectorType& v2_1 = src[index.index()-w];
+    const VectorType& v3_0 = src[index.index()+wh];
+    const VectorType& v3_1 = src[index.index()-wh];
+
+    double d2_0 = v2_0[0] - v2_1[0];
+    double d2_1 = v2_0[1] - v2_1[1]+1.0;
+    double d2_2 = v2_0[2] - v2_1[2];
+
+    double d3_0 = v3_0[0] - v3_1[0];
+    double d3_1 = v3_0[1] - v3_1[1];
+    double d3_2 = v3_0[2] - v3_1[2]+1.0;
+
+    return std::fabs((v1_0[0] - v1_1[0]+1.0)*(d2_1*d3_2-d2_2*d3_1)+
+                                   (v1_0[1] - v1_1[1])*(d2_2*d3_0-d2_0*d3_2)+
+                                   (v1_0[2] - v1_1[2])*(d2_0*d3_1-d2_1*d3_0));
+}
+
 template<typename VectorType,typename DetType>
 void jacobian_determinant_dis(const basic_image<VectorType,3>& src,DetType& dest)
 {
@@ -170,24 +196,7 @@ void jacobian_determinant_dis(const basic_image<VectorType,3>& src,DetType& dest
             dest[index.index()] = 1;
             continue;
         }
-        const VectorType& v1_0 = src[index.index()+1];
-        const VectorType& v1_1 = src[index.index()-1];
-        const VectorType& v2_0 = src[index.index()+w];
-        const VectorType& v2_1 = src[index.index()-w];
-        const VectorType& v3_0 = src[index.index()+wh];
-        const VectorType& v3_1 = src[index.index()-wh];
-
-        value_type d2_0 = v2_0[0] - v2_1[0];
-        value_type d2_1 = v2_0[1] - v2_1[1]+1.0;
-        value_type d2_2 = v2_0[2] - v2_1[2];
-
-        value_type d3_0 = v3_0[0] - v3_1[0];
-        value_type d3_1 = v3_0[1] - v3_1[1];
-        value_type d3_2 = v3_0[2] - v3_1[2]+1.0;
-
-        dest[index.index()] = std::fabs((v1_0[0] - v1_1[0]+1.0)*(d2_1*d3_2-d2_2*d3_1)+
-                                       (v1_0[1] - v1_1[1])*(d2_2*d3_0-d2_0*d3_2)+
-                                       (v1_0[2] - v1_1[2])*(d2_0*d3_1-d2_1*d3_0));
+        dest[index.index()] = jacobian_determinant_dis_at(src,index);
     }
 }
 //---------------------------------------------------------------------------
@@ -254,6 +263,17 @@ void jacobian_determinant(const basic_image<VectorType,2>& src,basic_image<Pixel
     }
 }
 
+template<typename VectorType>
+double jacobian_determinant_dis_at(const basic_image<VectorType,2>& src,const image::pixel_index<2>& index)
+{
+    unsigned int w = src.width();
+    const VectorType& v1_0 = src[index.index()+1];
+    const VectorType& v1_1 = src[index.index()];
+    const VectorType& v2_0 = src[index.index()+w];
+    const VectorType& v2_1 = src[index.index()];
+    return std::fabs((v1_0[0] - v1_1[0]+1.0)*(v2_0[1] - v2_1[1]+1.0)-(v1_0[1] - v1_1[1])*(v2_0[0] - v2_1[0]));
+}
+
 template<typename VectorType,typename PixelType>
 void jacobian_determinant_dis(const basic_image<VectorType,2>& src,basic_image<PixelType,2>& dest)
 {
@@ -267,11 +287,7 @@ void jacobian_determinant_dis(const basic_image<VectorType,2>& src,basic_image<P
             dest[index.index()] = 1;
             continue;
         }
-        const VectorType& v1_0 = src[index.index()+1];
-        const VectorType& v1_1 = src[index.index()];
-        const VectorType& v2_0 = src[index.index()+w];
-        const VectorType& v2_1 = src[index.index()];
-        dest[index.index()] = std::fabs((v1_0[0] - v1_1[0]+1.0)*(v2_0[1] - v2_1[1]+1.0)-(v1_0[1] - v1_1[1])*(v2_0[0] - v2_1[0]));
+        dest[index.index()] = jacobian_determinant_dis_at(src,index);
     }
 }
 

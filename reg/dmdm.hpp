@@ -65,7 +65,8 @@ double dmdm_contrast(const basic_image<pixel_type,dimension>& J0,
 }
 
 template<typename pixel_type,size_t dimension>
-void dmdm_update_contrast(const std::vector<basic_image<pixel_type,dimension> >& Ji,std::vector<double>& contrast)
+void dmdm_update_contrast(const std::vector<basic_image<pixel_type,dimension> >& Ji,
+                          std::vector<double>& contrast)
 {
     image::basic_image<pixel_type,dimension> J0;
     dmdm_average_img(Ji,J0);
@@ -299,103 +300,65 @@ void dmdm(const std::vector<basic_image<pixel_type,dimension> >& I,// original i
     std::cout << std::endl;
 }
 
+
 template<typename pixel_type,typename vtor_type,unsigned int dimension,typename terminate_type>
-void dmdm_t(const basic_image<pixel_type,dimension>& I,// original images
-            const basic_image<pixel_type,dimension>& It,// original images
-            basic_image<vtor_type,dimension> & d,// displacement field
-            float theta,float reg,terminate_type& terminated)
+void dmdm_pair(const basic_image<pixel_type,dimension>& It,
+            const basic_image<pixel_type,dimension>& Is,
+            basic_image<vtor_type,dimension>& d,// displacement field
+            float theta,terminate_type& terminated,unsigned int steps = 20)
 {
-    if (I.empty() || I.geometry() != It.geometry())
-        return;
-    geometry<dimension> geo = I.geometry();
-
+    geometry<dimension> geo = It.geometry();
     d.resize(geo);
-
     // multi resolution
     if (*std::min_element(geo.begin(),geo.end()) > 16)
     {
         //downsampling
-        basic_image<pixel_type,dimension> rI,rIt;
-        dmdm_downsample(I,rI);
+        basic_image<pixel_type,dimension> rIs,rIt;
         dmdm_downsample(It,rIt);
-        dmdm_t(rI,rIt,d,theta/2,reg,terminated);
-        // upsampling deformation
+        dmdm_downsample(Is,rIs);
+        dmdm_pair(rIt,rIs,d,theta/2,terminated,steps*2);
         dmdm_upsample(d,d,geo);
     }
-    std::cout << "dimension:" << geo[0] << "x" << geo[1] << "x" << geo[2] << std::endl;
-    basic_image<pixel_type,dimension> Ji;// transformed I
-    basic_image<vtor_type,dimension> new_d;// new displacements
-    double current_dif = std::numeric_limits<double>::max();
-    for (double dis = 0.5;dis > theta;)
+    basic_image<pixel_type,dimension> Js,jdet;// transformed I
+    basic_image<vtor_type,dimension> new_d(geo),gIt;// new displacements
+    double dis = theta;
+    image::gradient_sobel(It,gIt);
+    for (unsigned int index = 0;index < steps;++index)
     {
         // calculate Ji
-        image::compose_displacement(I,d,Ji);
-        // apply contrast
-        image::multiply(Ji.begin(),Ji.end(),dmdm_contrast(It,Ji));
+        image::jacobian_determinant_dis(d,jdet);
+        image::compose_displacement(Is,d,Js);
 
+        // calculate contrast, apply contrast
+        Js *= dmdm_contrast(It,Js);
 
-        double next_dif = dmdm_img_dif(Ji,It);
-        if(next_dif >= current_dif)
+        // dJi*sign(Ji-J0)
+        for(unsigned int i = 0;i < new_d.size();++i)
+            new_d[i] = (Js[i] < It[i]) ? -gIt[i]:gIt[i];
+
+        image::compose_displacement(jdet,d,Js);
+        image::multiply(new_d.begin(),new_d.end(),Js.begin());
+
+        // solving the poisson equation using Jacobi method
         {
-            dis *= 0.5;
-            std::cout << "detail=(" << dis << ")" << std::flush;
-            // roll back
-            d.swap(new_d);
-            current_dif = std::numeric_limits<double>::max();
-            continue;
+            basic_image<vtor_type,dimension> solve_d(new_d.geometry());
+            for(int iter = 0;iter < 20;++iter)
+            {
+                poisson_equation_solver<vtor_type,dimension>()(solve_d);
+                image::add(solve_d.begin(),solve_d.end(),new_d.begin());
+                image::divide_constant(solve_d.begin(),solve_d.end(),dimension*2);
+            }
+            new_d = solve_d;
+            image::minus_constant(new_d.begin(),new_d.end(),new_d[0]);
         }
-        std::cout << next_dif;
-        current_dif = next_dif;
+
         double max_d = 0;
-        {
-            std::cout << "." << std::flush;
-            // gradient of It
-            image::gradient_sobel(It,new_d);
-
-            // It*sign(Ji-J0)
-            for(unsigned int i = 0;i < Ji.size();++i)
-                if(Ji[i] < It[i])
-                    new_d[i] = -new_d[i];
-
-            {
-                basic_image<pixel_type,dimension> temp;
-                image::jacobian_determinant_dis(d,temp);
-                image::compose_displacement(temp,d,Ji);
-            }
-
-            image::multiply(new_d.begin(),new_d.end(),Ji.begin());
-
-            //image::io::nifti header;
-            //header << Ji[index];
-            //header.save_to_file("c:/1.nii");
-
-            // solving the poisson equation using Jacobi method
-            {
-                basic_image<vtor_type,dimension> solve_d(new_d.geometry());
-                for(int iter = 0;iter < 20;++iter)
-                {
-                    poisson_equation_solver<vtor_type,dimension>()(solve_d);
-                    image::add(solve_d.begin(),solve_d.end(),new_d.begin());
-                    image::divide_constant(solve_d.begin(),solve_d.end(),dimension*2);
-                }
-                new_d = solve_d;
-                image::minus_constant(new_d.begin(),new_d.end(),new_d[0]);
-            }
-
-            for (unsigned int i = 0; i < geo.size(); ++i)
-                if (new_d[i]*new_d[i] > max_d)
-                    max_d = std::sqrt(new_d[i]*new_d[i]);
-        }
-        // calculate the lambda
-        double lambda = -dis/max_d;
-        //for (unsigned int index = 0;index < n && !terminated;++index)
-        {
-            new_d *= lambda;
-            image::add(new_d.begin(),new_d.end(),d.begin());
-        }
-        d.swap(new_d);
+        for (unsigned int i = 0; i < geo.size(); ++i)
+            if (new_d[i]*new_d[i] > max_d)
+                max_d = std::sqrt(new_d[i]*new_d[i]);
+        new_d *= -dis/max_d;
+        image::add(d.begin(),d.end(),new_d.begin());
     }
-    std::cout << std::endl;
 }
 
 

@@ -353,6 +353,21 @@ public:
             *iter /= *iter2;
         return *this;
     }
+public:
+    template<typename format_type>
+    void save_to_file(const char* file_name)
+    {
+        format_type out;
+        out.load_from_image(*this);
+        out.save_to_file(file_name);
+    }
+    template<typename format_type>
+    void load_from_file(const char* file_name)
+    {
+        format_type out;
+        out.load_from_file(file_name);
+        out.save_to_image(*this);
+    }
 };
 
 typedef basic_image<rgb_color,2> color_image;
