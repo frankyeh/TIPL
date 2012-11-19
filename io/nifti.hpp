@@ -31,6 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <fstream>
 #include <sstream>
 #include <string>
+#include "interface.hpp"
 #include "image/utility/basic_image.hpp"
 #include "image/numerical/basic_op.hpp"
 
@@ -253,7 +254,7 @@ struct nifti_1_header
 /*
 
 */
-
+template<typename input_interface = std_istream,typename output_interface = std_ostream>
 class nifti
 {
 
@@ -265,7 +266,7 @@ public:
     };
     bool is_nii; // backward compatibility to ANALYE 7.5
 private:
-    std::auto_ptr<std::ifstream> input_stream;
+    std::auto_ptr<input_interface> input_stream;
     bool big_endian;
 private:
     const void* write_buf;
@@ -367,10 +368,13 @@ public:
     template<typename char_type>
     bool load_from_file(const char_type* pfile_name)
     {
-        input_stream.reset(new std::ifstream(pfile_name,std::ios::binary));
-        if (!(*input_stream))
+        input_stream.reset(new input_interface);
+        if (!input_stream->open(pfile_name))
+        {
+            input_stream.reset(0);
             return false;
-        input_stream->read((char*)&header,sizeof(header));
+        }
+        input_stream->read(&header,sizeof(header));
         // "ni1\0" or "n+1\0"
         if (nif_header.magic[0] == 'n' &&
                 nif_header.magic[2] == '1' &&
@@ -393,7 +397,7 @@ public:
         {
             //int padding = 0;
             //input_stream->read((char*)&padding,4);
-            input_stream->seekg(nif_header.vox_offset,std::ios::beg);
+            input_stream->seek(nif_header.vox_offset);
         }
         else
         {
@@ -405,7 +409,12 @@ public:
             string_type file_name_no_ext(file_name.begin(),file_name.end()-4);
             string_type data_file(file_name_no_ext);
             data_file += get_image_name(char_type());
-            input_stream.reset(new std::ifstream(data_file.c_str(),std::ios::binary));
+            input_stream.reset(new input_interface);
+            if(!input_stream->open(data_file.c_str()))
+            {
+                input_stream.reset(0);
+                return false;
+            }
         }
         return (*input_stream);
     }
@@ -541,7 +550,9 @@ public:
             nif_header.qform_code = 1;
             strcpy(nif_header.magic,"n+1");
         }
-        std::ofstream out(pfile_name,std::ios::binary);
+        output_interface out;
+        if(!out.open(pfile_name))
+            return false;
         out.write((const char*)&nif_header,sizeof(nif_header));
         int padding = 0;
         out.write((const char*)&padding,4);

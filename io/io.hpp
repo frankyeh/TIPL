@@ -2,6 +2,7 @@
 #define IO_HPP
 #include <vector>
 #include <string>
+#include <fstream>
 #include "nifti.hpp"
 #include "dicom.hpp"
 #include "image/utility/basic_image.hpp"
@@ -13,10 +14,12 @@ namespace image
 namespace io
 {
 
+
+
 class volume{
 private:
     std::vector<dicom*> dicom_reader;
-    std::vector<nifti*> nifti_reader;
+    std::vector<nifti<>*> nifti_reader;
     float orientation_matrix[9];
     float spatial_resolution[3];
     char dim_order[3]; // used to rotate the volume to axial view
@@ -74,7 +77,7 @@ private:
 public:
     ~volume(void){free_all();}
     const dicom* get_dicom(unsigned int index) const{return index < dicom_reader.size() ? dicom_reader[index]:0;}
-    const nifti* get_nifti(unsigned int index) const{return index < nifti_reader.size() ? nifti_reader[index]:0;}
+    const nifti<>* get_nifti(unsigned int index) const{return index < nifti_reader.size() ? nifti_reader[index]:0;}
 
     template<typename voxel_size_type>
     void get_voxel_size(voxel_size_type voxel_size) const
@@ -103,7 +106,7 @@ public:
             reorientation();
             return true;
         }
-        std::auto_ptr<nifti> nifti_header(new nifti);
+        std::auto_ptr<nifti<> > nifti_header(new nifti<>);
         if (nifti_header->load_from_file(file_name))
         {
             nifti_header->get_voxel_size(spatial_resolution);
@@ -138,7 +141,7 @@ public:
                 dicom_reader.push_back(dicom_header.release());
                 continue;
             }
-            std::auto_ptr<nifti> nifti_header(new nifti);
+            std::auto_ptr<nifti<> > nifti_header(new nifti<>);
             if (nifti_header->load_from_file(files[index].c_str()))
             {
                 if(nifti_reader.empty())
