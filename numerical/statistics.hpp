@@ -203,7 +203,7 @@ double correlation(input_iterator1 x_from,input_iterator1 x_to,
                   input_iterator2 y_from,double mean_x,double mean_y)
 {
     return covariance(x_from,x_to,y_from,mean_x,mean_y)
-           /variance(x_from,x_to,mean_x)/variance(y_from,y_from+(x_to-x_from),mean_y);
+           /standard_deviation(x_from,x_to,mean_x)/standard_deviation(y_from,y_from+(x_to-x_from),mean_y);
 }
 template<typename input_iterator1,typename input_iterator2>
 double correlation(input_iterator1 x_from,input_iterator1 x_to,
