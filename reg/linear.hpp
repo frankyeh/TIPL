@@ -183,8 +183,8 @@ void linear(const image_type& from,const image_type& to,
     if (reg_type & rotation)
         for (unsigned int index = dimension; index < dimension + dimension; ++index)
         {
-            opti_method.search_methods[index].max = 3.14159265358979323846*0.2;
-            opti_method.search_methods[index].min = -3.14159265358979323846*0.2;
+            opti_method.search_methods[index].max = 3.14159265358979323846*0.4;
+            opti_method.search_methods[index].min = -3.14159265358979323846*0.4;
         }
 
     if (reg_type & scaling)
