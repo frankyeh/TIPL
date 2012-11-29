@@ -248,37 +248,42 @@ bool is_edge(ImageType& image,image::pixel_index<3> index)
     return false;
 }
 
+template<typename ImageType>
+unsigned char get_neighbor_count(ImageType& image,std::vector<unsigned char>& act)
+{
+    act.resize(image.size());
+    neighbor_index_shift<ImageType::dimension> neighborhood(image.geometry());
+    for (unsigned int index = 0;index < neighborhood.index_shift.size();++index)
+    {
+        int shift = neighborhood.index_shift[index];
+        if (shift > 0)
+        {
+            typename ImageType::value_type* iter1 = &*act.begin() + shift;
+            typename ImageType::value_type* iter2 = &*image.begin();
+            typename ImageType::value_type* end = &*act.begin() + act.size();
+            for (;iter1 < end;++iter1,++iter2)
+                if (*iter2)
+                    (++*iter1);
+        }
+        if (shift < 0)
+        {
+            typename ImageType::value_type* iter1 = &*act.begin();
+            typename ImageType::value_type* iter2 = &*image.begin() - shift;
+            typename ImageType::value_type* end = &*image.begin() + image.size();
+            for (;iter2 < end;++iter1,++iter2)
+                if (*iter2)
+                    (++*iter1);
+        }
+    }
+    return neighborhood.index_shift.size();
+}
 
 template<typename ImageType>
 void closing(ImageType& image,typename ImageType::value_type assign_value = 1,int threshold_shift = 0)
 {
-    std::vector<typename ImageType::value_type> act(image.size());
-    neighbor_index_shift<ImageType::dimension> neighborhood(image.geometry());
-    unsigned int threshold = neighborhood.index_shift.size() >> 1;
+    std::vector<unsigned char> act;
+    unsigned int threshold = get_neighbor_count(I,act) >> 1;
     threshold += threshold_shift;
-    for (unsigned int index = 0;index < neighborhood.index_shift.size();++index)
-    {
-        int shift = neighborhood.index_shift[index];
-        if (shift > 0)
-        {
-            typename ImageType::value_type* iter1 = &*act.begin() + shift;
-            typename ImageType::value_type* iter2 = &*image.begin();
-            typename ImageType::value_type* end = &*act.begin() + act.size();
-            for (;iter1 < end;++iter1,++iter2)
-                if (*iter2)
-                    (++*iter1);
-        }
-        if (shift < 0)
-        {
-            typename ImageType::value_type* iter1 = &*act.begin();
-            typename ImageType::value_type* iter2 = &*image.begin() - shift;
-            typename ImageType::value_type* end = &*image.begin() + image.size();
-            for (;iter2 < end;++iter1,++iter2)
-                if (*iter2)
-                    (++*iter1);
-        }
-    }
-
     for (unsigned int index = 0;index < image.size();++index)
     {
         if (act[index] > threshold)
@@ -290,88 +295,71 @@ void closing(ImageType& image,typename ImageType::value_type assign_value = 1,in
 }
 
 template<typename ImageType>
-void opening(ImageType& image,int threshold_shift = 0)
+void opening(ImageType& I,int threshold_shift = 0)
 {
-    std::vector<typename ImageType::value_type> act(image.size());
-    neighbor_index_shift<ImageType::dimension> neighborhood(image.geometry());
-    unsigned int threshold = neighborhood.index_shift.size() >> 1;
+    std::vector<unsigned char> act;
+    unsigned int threshold = get_neighbor_count(I,act) >> 1;
     threshold += threshold_shift;
-    for (unsigned int index = 0;index < neighborhood.index_shift.size();++index)
-    {
-        int shift = neighborhood.index_shift[index];
-        if (shift > 0)
-        {
-            typename ImageType::value_type* iter1 = &*act.begin() + shift;
-            typename ImageType::value_type* iter2 = &*image.begin();
-            typename ImageType::value_type* end = &*act.begin() + act.size();
-            for (;iter1 < end;++iter1,++iter2)
-                if (*iter2)
-                    (++*iter1);
-        }
-        if (shift < 0)
-        {
-            typename ImageType::value_type* iter1 = &*act.begin();
-            typename ImageType::value_type* iter2 = &*image.begin() - shift;
-            typename ImageType::value_type* end = &*image.begin() + image.size();
-            for (;iter2 < end;++iter1,++iter2)
-                if (*iter2)
-                    (++*iter1);
-        }
-    }
-
-    for (unsigned int index = 0;index < image.size();++index)
+    for (unsigned int index = 0;index < I.size();++index)
     {
         if (act[index] < threshold)
         {
-            if (image[index])
-                image[index] = 0;
+            if (I[index])
+                I[index] = 0;
         }
     }
 }
 
 template<typename ImageType>
-void smoothing(ImageType& image,typename ImageType::value_type assign_value = 1)
+void smoothing(ImageType& I,typename ImageType::value_type assign_value = 1)
 {
-    std::vector<typename ImageType::value_type> act(image.size());
-    neighbor_index_shift<ImageType::dimension> neighborhood(image.geometry());
-    unsigned int threshold = neighborhood.index_shift.size() >> 1;
-    for (unsigned int index = 0;index < neighborhood.index_shift.size();++index)
-    {
-        int shift = neighborhood.index_shift[index];
-        if (shift > 0)
-        {
-            typename ImageType::value_type* iter1 = &*act.begin() + shift;
-            typename ImageType::value_type* iter2 = &*image.begin();
-            typename ImageType::value_type* end = &*act.begin() + act.size();
-            for (;iter1 < end;++iter1,++iter2)
-                if (*iter2)
-                    (++*iter1);
-        }
-        if (shift < 0)
-        {
-            typename ImageType::value_type* iter1 = &*act.begin();
-            typename ImageType::value_type* iter2 = &*image.begin() - shift;
-            typename ImageType::value_type* end = &*image.begin() + image.size();
-            for (;iter2 < end;++iter1,++iter2)
-                if (*iter2)
-                    (++*iter1);
-        }
-    }
-
-    for (unsigned int index = 0;index < image.size();++index)
+    std::vector<unsigned char> act;
+    unsigned int threshold = get_neighbor_count(I,act) >> 1;
+    for (unsigned int index = 0;index < I.size();++index)
     {
         if (act[index] > threshold)
         {
-            if (!image[index])
-                image[index] = assign_value;
+            if (!I[index])
+                I[index] = assign_value;
         }
         if (act[index] < threshold)
         {
-            if (image[index])
-                image[index] = 0;
+            if (I[index])
+                I[index] = 0;
         }
 
     }
+}
+
+template<typename ImageType>
+void recursive_smoothing(ImageType& I,typename ImageType::value_type assign_value = 1)
+{
+    bool has_change = false;
+    do{
+        has_change = false;
+        std::vector<unsigned char> act;
+        unsigned int threshold = get_neighbor_count(I,act) >> 1;
+        for (unsigned int index = 0;index < I.size();++index)
+        {
+            if (act[index] > threshold)
+            {
+                if (!I[index])
+                {
+                    I[index] = assign_value;
+                    has_change = true;
+                }
+            }
+            if (act[index] < threshold)
+            {
+                if (I[index])
+                {
+                    I[index] = 0;
+                    has_change = true;
+                }
+            }
+
+        }
+    }while(has_change);
 }
 
 

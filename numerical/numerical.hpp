@@ -221,11 +221,23 @@ void square(iterator lhs_from,iterator lhs_to)
     }
 }
 //---------------------------------------------------------------------------
+template<typename image_type>
+void square(image_type& I)
+{
+    square(I.begin(),I.end());
+}
+//---------------------------------------------------------------------------
 template<typename iterator>
 void square_root(iterator lhs_from,iterator lhs_to)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from = std::sqrt(*lhs_from);
+}
+//---------------------------------------------------------------------------
+template<typename image_type>
+void square_root(image_type& I)
+{
+    square_root(I.begin(),I.end());
 }
 //---------------------------------------------------------------------------
 template<typename iterator>
@@ -235,11 +247,23 @@ void log(iterator lhs_from,iterator lhs_to)
         *lhs_from = std::log(*lhs_from);
 }
 //---------------------------------------------------------------------------
+template<typename image_type>
+void log(image_type& I)
+{
+    log(I.begin(),I.end());
+}
+//---------------------------------------------------------------------------
 template<typename iterator>
 void absolute_value(iterator lhs_from,iterator lhs_to)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from = std::abs(*lhs_from);
+}
+//---------------------------------------------------------------------------
+template<typename image_type>
+void absolute_value(image_type& I)
+{
+    absolute_value(I.begin(),I.end());
 }
 //---------------------------------------------------------------------------
 template<typename iterator1,typename iterator2>
@@ -249,11 +273,23 @@ void add(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
         *lhs_from += *rhs_from;
 }
 //---------------------------------------------------------------------------
+template<typename image_type1,typename image_type2>
+void add(image_type1& I,const image_type2& I2)
+{
+    add(I.begin(),I.end(),I2.begin());
+}
+//---------------------------------------------------------------------------
 template<typename iterator1,typename iterator2>
 void minus(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
     for (; lhs_from != lhs_to; ++lhs_from,++rhs_from)
         *lhs_from -= *rhs_from;
+}
+//---------------------------------------------------------------------------
+template<typename image_type1,typename image_type2>
+void minus(image_type1& I,const image_type2& I2)
+{
+    minus(I.begin(),I.end(),I2.begin());
 }
 //---------------------------------------------------------------------------
 template<typename iterator1,typename iterator2>
@@ -263,11 +299,23 @@ void multiply(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
         *lhs_from *= *rhs_from;
 }
 //---------------------------------------------------------------------------
+template<typename image_type1,typename image_type2>
+void multiply(image_type1& I,const image_type2& I2)
+{
+    multiply(I.begin(),I.end(),I2.begin());
+}
+//---------------------------------------------------------------------------
 template<typename iterator1,typename iterator2>
 void divide(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
     for (; lhs_from != lhs_to; ++lhs_from,++rhs_from)
         *lhs_from /= *rhs_from;
+}
+//---------------------------------------------------------------------------
+template<typename image_type1,typename image_type2>
+void divide(image_type1& I,const image_type2& I2)
+{
+    divide(I.begin(),I.end(),I2.begin());
 }
 //---------------------------------------------------------------------------
 template<typename iterator1,typename value_type>
@@ -277,11 +325,23 @@ void add_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
         *lhs_from += value;
 }
 //---------------------------------------------------------------------------
+template<typename image_type,typename value_type>
+void add_constant(image_type& I,value_type value)
+{
+    add_constant(I.begin(),I.end(),value);
+}
+//---------------------------------------------------------------------------
 template<typename iterator1,typename value_type>
 void minus_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from -= value;
+}
+//---------------------------------------------------------------------------
+template<typename image_type,typename value_type>
+void minus_constant(image_type& I,value_type value)
+{
+    minus_constant(I.begin(),I.end(),value);
 }
 //---------------------------------------------------------------------------
 template<typename iterator1,typename value_type>
@@ -291,11 +351,23 @@ void multiply_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
         *lhs_from *= value;
 }
 //---------------------------------------------------------------------------
+template<typename image_type,typename value_type>
+void multiply_constant(image_type& I,value_type value)
+{
+    multiply_constant(I.begin(),I.end(),value);
+}
+//---------------------------------------------------------------------------
 template<typename iterator1,typename value_type>
 void divide_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from /= value;
+}
+//---------------------------------------------------------------------------
+template<typename image_type,typename value_type>
+void divide_constant(image_type& I,value_type value)
+{
+    divide_constant(I.begin(),I.end(),value);
 }
 //---------------------------------------------------------------------------
 // perform x <- x*pow(2,y)
@@ -332,6 +404,12 @@ void multiply_pow(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
             }
         }
     }
+}
+//---------------------------------------------------------------------------
+template<typename image_type1,typename image_type2>
+void multiply_pow(image_type1& I,const image_type2& I2)
+{
+    multiply_pow(I.begin(),I.end(),I2.begin());
 }
 //---------------------------------------------------------------------------
 // perform x <- x*2^pow
@@ -372,6 +450,12 @@ void multiply_pow_constant(iterator1 lhs_from,iterator1 lhs_to,value_type pow)
     }
 }
 //---------------------------------------------------------------------------
+template<typename image_type,typename value_type>
+void multiply_pow_constant(image_type& I,value_type value)
+{
+    multiply_pow_constant(I.begin(),I.end(),value);
+}
+//---------------------------------------------------------------------------
 // perform x <- x/pow(2,y)
 template<typename iterator1,typename iterator2>
 void divide_pow(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
@@ -406,6 +490,12 @@ void divide_pow(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
             }
         }
     }
+}
+//---------------------------------------------------------------------------
+template<typename image_type1,typename image_type2>
+void divide_pow(image_type1& I,const image_type2& I2)
+{
+    divide_pow(I.begin(),I.end(),I2.begin());
 }
 //---------------------------------------------------------------------------
 // perform x <- x/2^pow
@@ -445,7 +535,12 @@ void divide_pow_constant(iterator1 lhs_from,iterator1 lhs_to,value_type pow)
         }
     }
 }
-
+//---------------------------------------------------------------------------
+template<typename image_type,typename value_type>
+void divide_pow_constant(image_type& I,value_type value)
+{
+    divide_pow_constant(I.begin(),I.end(),value);
+}
 //---------------------------------------------------------------------------
 template<typename ValueType,int dimension>
 ValueType max_abs_value(const basic_image<ValueType,dimension>& image)
@@ -476,32 +571,47 @@ void normalize(InputIter from,InputIter to,OutputIter out,float upper_limit = 25
     for(;from != to;++from,++out)
         *out = (*from-min_max.first)*upper_limit;
 }
-
+//---------------------------------------------------------------------------
 template<typename InputIter,typename OutputIter,typename value_type>
 void upper_threshold(InputIter from,InputIter to,OutputIter out,value_type upper)
 {
     for(;from != to;++from,++out)
         *out = std::min<value_type>(*from,upper);
 }
+//---------------------------------------------------------------------------
 template<typename InputIter,typename value_type>
 void upper_threshold(InputIter from,InputIter to,value_type upper)
 {
     for(;from != to;++from)
         *from = std::min<value_type>(*from,upper);
 }
+//---------------------------------------------------------------------------
+template<typename image_type,typename value_type>
+void upper_threshold(image_type& I,value_type value)
+{
+    upper_threshold(I.begin(),I.end(),value);
+}
+//---------------------------------------------------------------------------
 template<typename InputIter,typename OutputIter,typename value_type>
 void lower_threshold(InputIter from,InputIter to,OutputIter out,value_type lower)
 {
     for(;from != to;++from,++out)
         *out = std::max<value_type>(*from,lower);
 }
+//---------------------------------------------------------------------------
 template<typename InputIter,typename value_type>
 void lower_threshold(InputIter from,InputIter to,value_type lower)
 {
     for(;from != to;++from)
         *from = std::max<value_type>(*from,lower);
 }
-
+//---------------------------------------------------------------------------
+template<typename image_type,typename value_type>
+void lower_threshold(image_type& I,value_type value)
+{
+    lower_threshold(I.begin(),I.end(),value);
+}
+//---------------------------------------------------------------------------
 template<typename InputIter,typename OutputIter,typename value_type>
 void upper_lower_threshold(InputIter from,InputIter to,OutputIter out,value_type lower,value_type upper)
 {
