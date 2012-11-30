@@ -332,11 +332,12 @@ void smoothing(ImageType& I,typename ImageType::value_type assign_value = 1)
 }
 
 template<typename ImageType>
-void recursive_smoothing(ImageType& I,typename ImageType::value_type assign_value = 1)
+void recursive_smoothing(ImageType& I,typename ImageType::value_type assign_value = 1,
+                         unsigned int max_iteration = 100)
 {
-    bool has_change = false;
-    do{
-        has_change = false;
+    for(unsigned int iter = 0;iter < max_iteration;++iter)
+    {
+        bool has_change = false;
         std::vector<unsigned char> act;
         unsigned int threshold = get_neighbor_count(I,act) >> 1;
         for (unsigned int index = 0;index < I.size();++index)
@@ -359,7 +360,9 @@ void recursive_smoothing(ImageType& I,typename ImageType::value_type assign_valu
             }
 
         }
-    }while(has_change);
+        if(!has_change)
+            break;
+    }
 }
 
 
