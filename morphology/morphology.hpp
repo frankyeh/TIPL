@@ -279,17 +279,17 @@ unsigned char get_neighbor_count(ImageType& image,std::vector<unsigned char>& ac
 }
 
 template<typename ImageType>
-void closing(ImageType& image,typename ImageType::value_type assign_value = 1,int threshold_shift = 0)
+void closing(ImageType& I,typename ImageType::value_type assign_value = 1,int threshold_shift = 0)
 {
     std::vector<unsigned char> act;
     unsigned int threshold = get_neighbor_count(I,act) >> 1;
     threshold += threshold_shift;
-    for (unsigned int index = 0;index < image.size();++index)
+    for (unsigned int index = 0;index < I.size();++index)
     {
         if (act[index] > threshold)
         {
-            if (!image[index])
-                image[index] = assign_value;
+            if (!I[index])
+                I[index] = assign_value;
         }
     }
 }
