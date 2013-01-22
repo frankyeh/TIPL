@@ -161,7 +161,7 @@ void linear(const image_type& from,const image_type& to,
                     int reg_type,
                     CostFunctionType cost_fun,
                     teminated_class& terminated,
-                    float tol = 0.02,
+                    float tol = 0.01,
                     float sampling = 1.0)
 
 {
@@ -226,25 +226,6 @@ void linear(const image_type& from,const image_type& to,
 
     }
 }
-
-
-template<typename image_type,typename transform_type,typename CostFunctionType,typename teminated_class>
-void linear_seq(const image_type& from,const image_type& to,
-                    transform_type& trans,
-                    int reg_type,
-                    CostFunctionType cost_fun,
-                    teminated_class& terminated,
-                    float tol = 0.02)
-{
-    image::reg::linear(from,to,trans,image::reg::translocation,cost_fun,terminated,tol);
-    if(reg_type >= image::reg::rigid_body)
-        image::reg::linear(from,to,trans,image::reg::rigid_body,cost_fun,terminated,tol);
-    if(reg_type >= image::reg::rigid_scaling)
-        image::reg::linear(from,to,trans,image::reg::rigid_scaling,cost_fun,terminated,tol);
-    if(reg_type >= image::reg::affine)
-        image::reg::linear(from,to,trans,image::reg::affine,cost_fun,terminated,tol);
-}
-
 
 
 }
