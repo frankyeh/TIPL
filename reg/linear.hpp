@@ -177,7 +177,7 @@ void linear(const image_type& from,const image_type& to,
         for (unsigned int index = 0; index < dimension; ++index)
         {
             opti_method.search_methods[index].max = from.geometry()[index]/2;
-            opti_method.search_methods[index].min = from.geometry()[index]/-2;
+            opti_method.search_methods[index].min = -opti_method.search_methods[index].max;
         }
 
     if (reg_type & rotation)
