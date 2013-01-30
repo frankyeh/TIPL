@@ -2,6 +2,7 @@
 #include <list>
 #include "image/numerical/index_algorithm.hpp"
 #include "image/numerical/numerical.hpp"
+#include "image/numerical/basic_op.hpp"
 #include "image/morphology/morphology.hpp"
 #include "image/segmentation/otsu.hpp"
 

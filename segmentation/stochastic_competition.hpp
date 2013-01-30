@@ -1,4 +1,5 @@
 #include "image/numerical/numerical.hpp"
+#include "image/numerical/basic_op.hpp"
 #include "image/morphology/morphology.hpp"
 #include <cstdlib>
 #include <ctime>
