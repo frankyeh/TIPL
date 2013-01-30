@@ -3,9 +3,6 @@
 #define NUMERICAL_HPP
 #include "image/utility/basic_image.hpp"
 #include "image/numerical/interpolation.hpp"
-#include "image/numerical/basic_op.hpp"
-
-
 
 namespace image
 {
@@ -559,11 +556,32 @@ ValueType max_abs_value(const basic_image<ValueType,dimension>& image)
     return max_value;
 }
 
+
+template<typename iterator_type>
+std::pair<typename std::iterator_traits<iterator_type>::value_type,typename std::iterator_traits<iterator_type>::value_type>
+min_max_value(iterator_type iter,iterator_type end)
+{
+    if(iter == end)
+        return std::make_pair(0,0);
+    typename std::iterator_traits<iterator_type>::value_type min_value = *iter;
+    typename std::iterator_traits<iterator_type>::value_type max_value = *iter;
+    typename std::iterator_traits<iterator_type>::value_type value;
+    for(++iter; iter != end; ++iter)
+    {
+        value = *iter;
+        if(value > max_value)
+            max_value = value;
+        else if(value < min_value)
+            min_value = value;
+    }
+    return std::make_pair(min_value,max_value);
+}
+
 template<typename InputIter,typename OutputIter>
 void normalize(InputIter from,InputIter to,OutputIter out,float upper_limit = 255.0)
 {
     typedef typename std::iterator_traits<InputIter>::value_type value_type;
-    std::pair<value_type,value_type> min_max(image::min_max_value(from,to));
+    std::pair<value_type,value_type> min_max(min_max_value(from,to));
     value_type range = min_max.second-min_max.first;
     if(range == 0)
         return;

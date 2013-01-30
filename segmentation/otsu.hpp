@@ -1,7 +1,7 @@
 #ifndef OTSU_HPP
 #define OTSU_HPP
 #include <vector>
-#include "image/numerical/basic_op.hpp"
+#include "image/numerical/numerical.hpp"
 
 namespace image{
 

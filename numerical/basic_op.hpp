@@ -2,7 +2,6 @@
 #ifndef BASIC_OP_HPP
 #define BASIC_OP_HPP
 #include "image/utility/basic_image.hpp"
-#include "numerical.hpp"
 namespace image
 {
 
@@ -608,26 +607,6 @@ void project(const image::basic_image<PixelType1,2>& src,OutImageType& result,un
         for(pixel_index<2> index; index.valid(src.geometry()); index.next(src.geometry()))
             result[index.x()] += src[index.index()];
     }
-}
-
-template<typename iterator_type>
-std::pair<typename std::iterator_traits<iterator_type>::value_type,typename std::iterator_traits<iterator_type>::value_type>
-min_max_value(iterator_type iter,iterator_type end)
-{
-    if(iter == end)
-        return std::make_pair(0,0);
-    typename std::iterator_traits<iterator_type>::value_type min_value = *iter;
-    typename std::iterator_traits<iterator_type>::value_type max_value = *iter;
-    typename std::iterator_traits<iterator_type>::value_type value;
-    for(++iter; iter != end; ++iter)
-    {
-        value = *iter;
-        if(value > max_value)
-            max_value = value;
-        else if(value < min_value)
-            min_value = value;
-    }
-    return std::make_pair(min_value,max_value);
 }
 
 template<typename ImageType>
