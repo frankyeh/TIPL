@@ -2,6 +2,7 @@
 #define OTSU_HPP
 #include <vector>
 #include "image/numerical/numerical.hpp"
+#include "image/numerical/basic_op.hpp"
 
 namespace image{
 
