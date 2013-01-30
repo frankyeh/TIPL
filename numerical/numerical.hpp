@@ -563,7 +563,7 @@ template<typename InputIter,typename OutputIter>
 void normalize(InputIter from,InputIter to,OutputIter out,float upper_limit = 255.0)
 {
     typedef typename std::iterator_traits<InputIter>::value_type value_type;
-    std::pair<value_type,value_type> min_max(min_max_value(from,to));
+    std::pair<value_type,value_type> min_max(image::min_max_value(from,to));
     value_type range = min_max.second-min_max.first;
     if(range == 0)
         return;
