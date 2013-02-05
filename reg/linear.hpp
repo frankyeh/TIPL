@@ -190,15 +190,15 @@ void linear(const image_type& from,const image_type& to,
     if (reg_type & scaling)
         for (unsigned int index = dimension + dimension; index < dimension+dimension+dimension; ++index)
         {
-            opti_method.search_methods[index].max = trans[index]*1.2;
-            opti_method.search_methods[index].min = trans[index]/1.2;
+            opti_method.search_methods[index].max = trans[index]*2.0;
+            opti_method.search_methods[index].min = trans[index]/2.0;
         }
 
     if (reg_type & tilt)
         for (unsigned int index = dimension + dimension + dimension; index < transform_type::total_size; ++index)
         {
-            opti_method.search_methods[index].max = 0.2;
-            opti_method.search_methods[index].min = -0.2;
+            opti_method.search_methods[index].max = 0.5;
+            opti_method.search_methods[index].min = -0.5;
         }
     if(from.geometry()[0]*sampling > 32)
     {
