@@ -621,8 +621,8 @@ void resample(const image::basic_image<PixelType,3>& source_image,
     }
 }
 
-template<typename ImageType,typename TransformType>
-void resample(const ImageType& from,ImageType& to,TransformType transform)
+template<typename ImageType,unsigned int dimension>
+void resample(const ImageType& from,ImageType& to,const image::transformation_matrix<dimension>& transform)
 {
     const unsigned int dim = ImageType::dimension;
     image::geometry<dim> geo(to.geometry());
@@ -634,10 +634,12 @@ void resample(const ImageType& from,ImageType& to,TransformType transform)
     }
 }
 
-template<typename ImageType,unsigned int dimension,typename transform_type>
-void resample(const ImageType& from,ImageType& to,const transform_type& trans)
+
+template<typename ImageType,typename value_type>
+void resample(const ImageType& from,ImageType& to,const std::vector<value_type>& trans)
 {
-    transformation_matrix<dimension> transform(trans);
+    image::transformation_matrix<ImageType::dimension> transform;
+    transform.load_from_transform(trans.begin());
     resample(from,to,transform);
 }
 
