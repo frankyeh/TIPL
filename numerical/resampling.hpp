@@ -621,8 +621,8 @@ void resample(const image::basic_image<PixelType,3>& source_image,
     }
 }
 
-template<typename ImageType,unsigned int dimension>
-void resample(const ImageType& from,ImageType& to,const image::transformation_matrix<dimension>& transform)
+template<typename ImageType,unsigned int dimension,typename value_type>
+void resample(const ImageType& from,ImageType& to,const image::transformation_matrix<dimension,value_type>& transform)
 {
     const unsigned int dim = ImageType::dimension;
     image::geometry<dim> geo(to.geometry());
