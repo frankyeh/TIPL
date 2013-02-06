@@ -1,9 +1,7 @@
 #ifndef TRANSFORMATION_HPP_INCLUDED
 #define TRANSFORMATION_HPP_INCLUDED
-
+#include "image/numerical/matrix.hpp"
 namespace image{
-
-
 
 template<unsigned int dim>
 struct vdim {};
@@ -627,6 +625,19 @@ public:
         M[11] = data[11];
     }
 
+    bool inverse(void)
+    {
+        value_type invert_scaling_rotation[scaling_rotation_size];
+        std::copy(scaling_rotation,scaling_rotation+scaling_rotation_size,invert_scaling_rotation);
+        if(!image::matrix::inverse(invert_scaling_rotation,image::dim<dimension,dimension>()))
+            return false;
+        value_type new_shift[dimension];
+        vector_rotation(shift,new_shift,invert_scaling_rotation,vdim<dimension>());
+        for(unsigned int d = 0;d < dimension;++d)
+            shift[d] = -new_shift[d];
+        std::copy(invert_scaling_rotation,invert_scaling_rotation+scaling_rotation_size,scaling_rotation);
+        return true;
+    }
 
     template<typename InputIterType,typename OutputIterType>
     void operator()(InputIterType in_iter,OutputIterType out_iter) const

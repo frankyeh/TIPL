@@ -6,6 +6,9 @@
 #include "image/numerical/basic_op.hpp"
 #include "image/numerical/transformation.hpp"
 #include "image/numerical/optimization.hpp"
+#include "image/numerical/statistics.hpp"
+#include "image/segmentation/otsu.hpp"
+#include "image/morphology/morphology.hpp"
 
 namespace image
 {
@@ -13,6 +16,30 @@ namespace image
 namespace reg
 {
 
+    template<typename I_type>
+    image::vector<3,double> center_of_mass(const I_type& Im)
+    {
+        image::basic_image<unsigned char,I_type::dimension> mask;
+        image::segmentation::otsu(Im,mask);
+        image::morphology::smoothing(mask);
+        image::morphology::smoothing(mask);
+        image::morphology::defragment(mask);
+        image::vector<I_type::dimension,double> sum_mass;
+        double total_w = 0.0;
+        for(image::pixel_index<I_type::dimension> index;
+            mask.geometry().is_valid(index);
+            index.next(mask.geometry()))
+            if(mask[index.index()])
+            {
+                total_w += 1.0;
+                image::vector<3,double> pos(index);
+                sum_mass += pos;
+            }
+        sum_mass /= total_w;
+        for(unsigned char dim = 0;dim < I_type::dimension;++dim)
+            sum_mass[dim] -= (double)Im.geometry()[dim]/2.0;
+        return sum_mass;
+    }
 
     struct square_error
     {
@@ -40,6 +67,35 @@ namespace reg
         }
     };
 
+
+    struct square_error2
+    {
+        template<typename ImageType,typename TransformType>
+        double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
+        {
+            TransformType inverse(transform);
+            inverse.inverse();
+            return square_error()(Ifrom,Ito,transform)+square_error()(Ito,Ifrom,inverse);
+        }
+    };
+
+    struct correlation
+    {
+        template<typename ImageType,typename TransformType>
+        double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
+        {
+            const unsigned int dim = ImageType::dimension;
+            image::geometry<dim> geo(Ifrom.geometry());
+            std::vector<double> y(geo.size());
+            double pos[dim];
+            for (image::pixel_index<dim> index; index.valid(geo); index.next(geo))
+            {
+                transform(index.begin(),pos);
+                linear_estimate(Ito,pos,y[index.index()]);
+            }
+            return image::correlation(Ifrom.begin(),Ifrom.end(),y.begin());
+        }
+    };
 
     struct mutual_information
     {
@@ -109,7 +165,7 @@ namespace reg
 
 
     template<typename geo_type,typename transform_type>
-    void linear_get_trans(
+    void shift_to_center(
             const geo_type& geo_from,
             const geo_type& geo_to,
             transform_type& T)
@@ -138,7 +194,7 @@ namespace reg
             const int dim = transform_type::dimension;
             transformation_matrix<dim,typename transform_type::value_type> T(trans);
             image::multiply_constant(T.shift,T.shift+dim,sampling);
-            linear_get_trans(from.geometry(),to.geometry(),T);
+            shift_to_center(from.geometry(),to.geometry(),T);
             return cost_function(from,to,T);
         }
     };
