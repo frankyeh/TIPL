@@ -17,8 +17,8 @@ struct brent_method
     bool ended;
 public:
     brent_method(void):ended(false) {}
-    template<typename eval_fun_type>
-    value_type minimize(eval_fun_type& f,value_type& arg_min,bool& terminated,value_type tol)
+    template<typename eval_fun_type,typename termination_type>
+    value_type minimize(eval_fun_type& f,value_type& arg_min,termination_type& terminated,value_type tol)
     {
         value_type bx = arg_min;
         value_type a = min;
@@ -125,8 +125,8 @@ struct enhanced_brent{
     bool ended;
 public:
     enhanced_brent(void):ended(false) {}
-    template<typename eval_fun_type>
-    value_type minimize(eval_fun_type& f,value_type& out_arg_min,bool& terminated,value_type tol)
+    template<typename eval_fun_type,typename termination_type>
+    value_type minimize(eval_fun_type& f,value_type& out_arg_min,termination_type& terminated,value_type tol)
     {
         param_type cur_min = min;
         param_type cur_max = max;
