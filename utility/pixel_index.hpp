@@ -752,7 +752,7 @@ public:
     }
     double length(void)	const
     {
-        return std::sqrt(x_*x_+y_*y_+z_*z_);
+        return std::sqrt((double)(x_*x_+y_*y_+z_*z_));
     }
 
     data_type normalize(void)
