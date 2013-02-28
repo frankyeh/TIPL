@@ -211,8 +211,8 @@ const int affine = translocation | rotation | scaling | tilt;
                         image::reg::mutual_information<>(),terminated);
 
 */
-template<typename image_type,typename opti_method_type,typename transform_type,typename CostFunctionType,typename teminated_class>
-void linear_multiple_resolution(const image_type& from,const image_type& to,
+template<typename image_type1,typename image_type2,typename opti_method_type,typename transform_type,typename CostFunctionType,typename teminated_class>
+void linear_multiple_resolution(const image_type1& from,const image_type2& to,
                     opti_method_type& opti_method,
                     transform_type& trans,
                     int reg_type,
@@ -223,7 +223,7 @@ void linear_multiple_resolution(const image_type& from,const image_type& to,
 
 {
     typedef typename transform_type::value_type value_type;
-    const unsigned int dimension = image_type::dimension;
+    const unsigned int dimension = image_type1::dimension;
     if(terminated)
         return;
     if(from.geometry()[0]*sampling > 32)
@@ -234,7 +234,7 @@ void linear_multiple_resolution(const image_type& from,const image_type& to,
     }
     if(sampling == 1.0)
     {
-        cost_function_adoptor<image_type,CostFunctionType> cost_function(from,to,cost_fun,sampling);
+        cost_function_adoptor<image_type1,CostFunctionType> cost_function(from,to,cost_fun,sampling);
         opti_method.minimize(cost_function,trans,terminated,tol);
     }
     else
@@ -253,8 +253,8 @@ void linear_multiple_resolution(const image_type& from,const image_type& to,
     }
 }
 
-template<typename image_type,typename transform_type,typename CostFunctionType,typename teminated_class>
-void linear(const image_type& from,const image_type& to,
+template<typename image_type1,typename image_type2,typename transform_type,typename CostFunctionType,typename teminated_class>
+void linear(const image_type1& from,const image_type2& to,
                     transform_type& trans,
                     int reg_type,
                     CostFunctionType cost_fun,
@@ -262,7 +262,7 @@ void linear(const image_type& from,const image_type& to,
                     float tol = 0.01)
 {
     typedef typename transform_type::value_type value_type;
-    const unsigned int dimension = image_type::dimension;
+    const unsigned int dimension = image_type1::dimension;
     image::optimization::powell_method<image::optimization::enhanced_brent<value_type,value_type>,transform_type,value_type>
             opti_method(transform_type::total_size);
     for (int index = 0; index < transform_type::total_size; ++index)
@@ -273,7 +273,7 @@ void linear(const image_type& from,const image_type& to,
     {
         for (unsigned int index = 0; index < dimension; ++index)
         {
-            opti_method.search_methods[index].max = from.geometry()[index]/2;
+            opti_method.search_methods[index].max = (to.geometry()[index]+from.geometry()[index]*trans[dimension*2+index])/2.0;
             opti_method.search_methods[index].min = -opti_method.search_methods[index].max;
         }
         linear_multiple_resolution(from,to,opti_method,trans,reg_type,cost_fun,terminated,tol);
