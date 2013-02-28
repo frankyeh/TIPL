@@ -211,8 +211,9 @@ const int affine = translocation | rotation | scaling | tilt;
                         image::reg::mutual_information<>(),terminated);
 
 */
-template<typename image_type,typename transform_type,typename CostFunctionType,typename teminated_class>
-void linear(const image_type& from,const image_type& to,
+template<typename image_type,typename opti_method_type,typename transform_type,typename CostFunctionType,typename teminated_class>
+void linear_multiple_resolution(const image_type& from,const image_type& to,
+                    opti_method_type& opti_method,
                     transform_type& trans,
                     int reg_type,
                     CostFunctionType cost_fun,
@@ -221,44 +222,13 @@ void linear(const image_type& from,const image_type& to,
                     float sampling = 1.0)
 
 {
-    if(terminated)
-        return;
     typedef typename transform_type::value_type value_type;
     const unsigned int dimension = image_type::dimension;
-    image::optimization::powell_method<image::optimization::enhanced_brent<value_type,value_type>,transform_type,value_type>
-            opti_method(transform_type::total_size);
-    for (int index = 0; index < transform_type::total_size; ++index)
-            opti_method.search_methods[index].min = opti_method.search_methods[index].max = trans[index];
-    if (reg_type & translocation)
-        for (unsigned int index = 0; index < dimension; ++index)
-        {
-            opti_method.search_methods[index].max = from.geometry()[index]/2;
-            opti_method.search_methods[index].min = -opti_method.search_methods[index].max;
-        }
-
-    if (reg_type & rotation)
-        for (unsigned int index = dimension; index < dimension + dimension; ++index)
-        {
-            opti_method.search_methods[index].max = 3.14159265358979323846*0.2;
-            opti_method.search_methods[index].min = -3.14159265358979323846*0.2;
-        }
-
-    if (reg_type & scaling)
-        for (unsigned int index = dimension + dimension; index < dimension+dimension+dimension; ++index)
-        {
-            opti_method.search_methods[index].max = trans[index]*2.0;
-            opti_method.search_methods[index].min = trans[index]/2.0;
-        }
-
-    if (reg_type & tilt)
-        for (unsigned int index = dimension + dimension + dimension; index < transform_type::total_size; ++index)
-        {
-            opti_method.search_methods[index].max = 0.5;
-            opti_method.search_methods[index].min = -0.5;
-        }
+    if(terminated)
+        return;
     if(from.geometry()[0]*sampling > 32)
     {
-        linear(from,to,trans,reg_type,cost_fun,terminated,tol,sampling*0.5);
+        linear_multiple_resolution(from,to,opti_method,trans,reg_type,cost_fun,terminated,tol,sampling*0.5);
         if(terminated)
             return;
     }
@@ -283,6 +253,62 @@ void linear(const image_type& from,const image_type& to,
     }
 }
 
+template<typename image_type,typename transform_type,typename CostFunctionType,typename teminated_class>
+void linear(const image_type& from,const image_type& to,
+                    transform_type& trans,
+                    int reg_type,
+                    CostFunctionType cost_fun,
+                    teminated_class& terminated,
+                    float tol = 0.01)
+{
+    typedef typename transform_type::value_type value_type;
+    const unsigned int dimension = image_type::dimension;
+    image::optimization::powell_method<image::optimization::enhanced_brent<value_type,value_type>,transform_type,value_type>
+            opti_method(transform_type::total_size);
+    for (int index = 0; index < transform_type::total_size; ++index)
+            opti_method.search_methods[index].min = opti_method.search_methods[index].max = trans[index];
+
+
+    if (reg_type & translocation)
+    {
+        for (unsigned int index = 0; index < dimension; ++index)
+        {
+            opti_method.search_methods[index].max = from.geometry()[index]/2;
+            opti_method.search_methods[index].min = -opti_method.search_methods[index].max;
+        }
+        linear_multiple_resolution(from,to,opti_method,trans,reg_type,cost_fun,terminated,tol);
+    }
+
+    if (reg_type & rotation)
+    {
+        for (unsigned int index = dimension; index < dimension + dimension; ++index)
+        {
+            opti_method.search_methods[index].max = 3.14159265358979323846*0.2;
+            opti_method.search_methods[index].min = -3.14159265358979323846*0.2;
+        }
+        linear_multiple_resolution(from,to,opti_method,trans,reg_type,cost_fun,terminated,tol);
+    }
+
+    if (reg_type & scaling)
+    {
+        for (unsigned int index = dimension + dimension; index < dimension+dimension+dimension; ++index)
+        {
+            opti_method.search_methods[index].max = trans[index]*2.0;
+            opti_method.search_methods[index].min = trans[index]/2.0;
+        }
+        linear_multiple_resolution(from,to,opti_method,trans,reg_type,cost_fun,terminated,tol);
+    }
+
+    if (reg_type & tilt)
+    {
+        for (unsigned int index = dimension + dimension + dimension; index < transform_type::total_size; ++index)
+        {
+            opti_method.search_methods[index].max = 0.5;
+            opti_method.search_methods[index].min = -0.5;
+        }
+        linear_multiple_resolution(from,to,opti_method,trans,reg_type,cost_fun,terminated,tol);
+    }
+}
 
 }
 }
