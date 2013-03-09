@@ -413,10 +413,6 @@ public:
                             (get_ge_text(0x0008,0x0008,image_type) && image_type.find("MOSAIC") != std::string::npos);
                 return true;
             }
-            if (ge->group == 0x0002 && ge->element == 0x0010 &&
-                    std::string(ge->data.begin()) == "1.2.840.10008.1.2.2") // Explicit VR Big Endian
-                return false;
-
             // Deal with CSA
             if (ge->group == 0x0029 && (ge->element == 0x1010 || ge->element == 0x1020))
             {
