@@ -601,7 +601,7 @@ void defragment(ImageType& image,float fragment_percentage)
 
     connected_component_labeling(image,labels,regions);
 
-    std::vector<unsigned char> region_filter(regions.size());
+    std::vector<unsigned char> region_filter(regions.size()+1);
 
     unsigned int area_threshold = image.size() * fragment_percentage;
     for (unsigned int index = 0;index < regions.size();++index)
