@@ -456,6 +456,12 @@ public:
         pixdim[2] = pixel_size_from[1];
         pixdim[3] = pixel_size_from[2];
         std::copy(pixdim,pixdim+8,nif_header.pixdim);
+        if(nif_header.srow_x[0] == 1.0)
+        {
+            nif_header.srow_x[0] = pixel_size_from[0];
+            nif_header.srow_y[1] = pixel_size_from[1];
+            nif_header.srow_z[2] = pixel_size_from[2];
+        }
     }
     
     template<typename float_type>

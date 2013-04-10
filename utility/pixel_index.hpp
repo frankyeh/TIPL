@@ -477,13 +477,13 @@ public:
     bool operator<(const vector<2,data_type>& rhs) const
     {
         if (y_ != rhs.y)
-            return y < rhs.y;
+            return y_ < rhs.y;
         return x_ < rhs.x_;
     }
     bool operator>(const vector<2,data_type>& rhs) const
     {
         if (y_ != rhs.y)
-            return y > rhs.y;
+            return y_ > rhs.y;
         return x_ > rhs.x_;
     }
     bool operator==(const vector<2,data_type>& rhs) const

@@ -83,7 +83,7 @@ public:
 
     bool empty(void) const
     {
-        return size == 0;
+        return size_ == 0;
     }
 public:
     void swap(pointer_memory& rhs)

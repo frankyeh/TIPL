@@ -73,6 +73,11 @@ struct mat_type_info<unsigned char>
 {
     static const unsigned int type = 50;
 };
+template<>
+struct mat_type_info<char>
+{
+    static const unsigned int type = 50;
+};
 
 
 
@@ -276,7 +281,7 @@ public:
     {
 		std::map<std::string,int>::const_iterator iter = name_table.find(name);
         if (iter == name_table.end())
-            return 0;
+            return;
 		get_matrix_as_image(iter->second,image_buf);
     }
 
