@@ -242,7 +242,7 @@ private:
     std::vector<mat_matrix*> dataset;
     std::map<std::string,int> name_table;
 public:
-    const void* get_matrix_as_type(int index,unsigned int& rows,unsigned int& cols,unsigned int type) const
+    const void* get_matrix_as_type(unsigned int index,unsigned int& rows,unsigned int& cols,unsigned int type) const
     {
         if (index >= dataset.size())
             return 0;

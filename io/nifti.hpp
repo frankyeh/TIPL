@@ -255,7 +255,7 @@ struct nifti_1_header
 
 */
 template<typename input_interface = std_istream,typename output_interface = std_ostream>
-class nifti
+class nifti_base
 {
 
 public:
@@ -357,8 +357,8 @@ private:
         }
     }
 private:
-    nifti(const nifti& rhs);
-    const nifti& operator=(const nifti& rhs);
+    nifti_base(const nifti_base& rhs);
+    const nifti_base& operator=(const nifti_base& rhs);
 public:
     bool load_from_file(const std::string& file_name)
 
@@ -463,7 +463,7 @@ public:
             nif_header.srow_z[2] = pixel_size_from[2];
         }
     }
-    
+
     template<typename float_type>
     void set_image_transformation(float_type R)
     {
@@ -507,7 +507,7 @@ public:
         strcpy(nif_header.descrip,des);
     }
 public:
-    nifti(void)
+    nifti_base(void)
     {
         init_header();
     }
@@ -642,19 +642,20 @@ public:
         save_to_buffer(out.begin(),out.size());
     }
     template<typename image_type>
-    const nifti& operator>>(image_type& source) const
+    const nifti_base& operator>>(image_type& source) const
     {
         save_to_image(source);
         return *this;
     }
     template<typename image_type>
-    nifti& operator<<(const image_type& source)
+    nifti_base& operator<<(const image_type& source)
     {
         load_from_image(source);
         return *this;
     }
 };
 
+typedef nifti_base<> nifti;
 
 }
 }
