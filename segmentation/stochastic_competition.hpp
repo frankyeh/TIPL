@@ -31,7 +31,7 @@ private:
     double log_mode;
     double var2;
 public:
-    size_t num;
+    unsigned int num;
     double mean;
     double var;
 
@@ -87,9 +87,9 @@ void stochastic_competition_init_model_param(
     const ImageType& src,const LabelImageType& label,
     std::vector<imp::intensity_likelihood<pixel_type> >& intensity_model)
 {
-    for(size_t index = 0; index < label.size(); ++index)
+    for(unsigned int index = 0; index < label.size(); ++index)
     {
-        size_t labeling = label[index];
+        unsigned int labeling = label[index];
         if(labeling >= intensity_model.size())
             intensity_model.resize(labeling + 1);
         intensity_model[labeling].push_back(src[index]);
@@ -101,10 +101,10 @@ template<typename GradientImageType>
 void stochastic_competition_init_gradient(GradientImageType& gre)
 {
     double max_gre = 0;
-    for(size_t index = 0; index < gre.size(); ++index)
+    for(unsigned int index = 0; index < gre.size(); ++index)
         if(max_gre < gre[index].length())
             max_gre = gre[index].length();
-    for(size_t index = 0; index < gre.size(); ++index)
+    for(unsigned int index = 0; index < gre.size(); ++index)
         gre[index] /= max_gre;
 }
 
@@ -113,11 +113,11 @@ template<typename LabelImageType,typename PivotMapType>
 void stochastic_competition_init_pivots(
     const LabelImageType& label,
     PivotMapType& pivot_map,
-    std::vector<size_t>& pivot_list)
+    std::vector<unsigned int>& pivot_list)
 {
     image::morphology::edge(label,pivot_map);
     pivot_list.clear();
-    for(size_t index = 0; index < pivot_map.size(); ++index)
+    for(unsigned int index = 0; index < pivot_map.size(); ++index)
         if(pivot_map[index])
         {
             pivot_list.push_back(index);
@@ -131,9 +131,9 @@ void stochastic_competition_update_pivots(
     const LabelImageType& label,
     const std::vector<index_type>& neighbor_list,
     PivotMapType& pivot_map,
-    std::vector<size_t>& pivot_list)
+    std::vector<unsigned int>& pivot_list)
 {
-    for(size_t index = 0; index < neighbor_list.size(); ++index)
+    for(unsigned int index = 0; index < neighbor_list.size(); ++index)
     {
         index_type cur_index = neighbor_list[index];
         if(image::morphology::is_edge(label,cur_index))
@@ -148,7 +148,7 @@ void stochastic_competition_update_pivots(
         {
             if(pivot_map[cur_index.index()])
             {
-                size_t replace_index = pivot_map[cur_index.index()];
+                unsigned int replace_index = pivot_map[cur_index.index()];
                 pivot_list[replace_index-1] = pivot_list.back();
                 pivot_map[pivot_list.back()] = replace_index;
                 pivot_list.resize(pivot_list.size()-1);
@@ -160,17 +160,17 @@ void stochastic_competition_update_pivots(
 
 
 // randomly select a pivot from pool
-inline size_t stochastic_competition_select_pivot(const std::vector<size_t>& pivot_list)
+inline unsigned int stochastic_competition_select_pivot(const std::vector<unsigned int>& pivot_list)
 {
-    size_t rand_32bit = ((size_t)std::rand() & 0x0007FFF) |
-                        (((size_t)std::rand() & 0x0007FFF) << 15);
+    unsigned int rand_32bit = ((unsigned int)std::rand() & 0x0007FFF) |
+                        (((unsigned int)std::rand() & 0x0007FFF) << 15);
     double rx = rand_32bit;
     rx /= (0x0007FFF | (0x0007FFF << 15));
     rx *= pivot_list.size();
     rx = std::floor(rx);
     if(rx >= pivot_list.size())
         rx = pivot_list.size()-1;
-    return pivot_list[rx];
+    return pivot_list[(unsigned int)rx];
 }
 
 }
@@ -185,13 +185,13 @@ void stochastic_competition_3region(LabelImageType& label,double inner_region_ra
 {
     typedef image::pixel_index<LabelImageType::dimension> index_type;
     std::vector<double> fdim(LabelImageType::dimension);
-    for(size_t index = 0; index < fdim.size(); ++index)
+    for(unsigned int index = 0; index < fdim.size(); ++index)
         fdim[index] = ((double)label.geometry()[index])/2.0;
     std::fill(label.begin(),label.end(),0);
     for(index_type iter; iter.valid(label.geometry()); iter.next(label.geometry()))
     {
         double ratio = 0;
-        for(size_t index = 0; index < fdim.size(); ++index)
+        for(unsigned int index = 0; index < fdim.size(); ++index)
         {
             double dim_r = 1.0-((double)iter[index])/fdim[index];
             dim_r *= dim_r; // dim_r 0~1.0
@@ -219,12 +219,12 @@ void stochastic_competition_debug(const ImageType& data,
                                   const PitvotList& pivot_list,
                                   const LabelImageType& label)
 {
-    static size_t total_loop = 0;
+    static unsigned int total_loop = 0;
     {
         // for debug
         image::basic_image<unsigned char,ImageType::dimension> image_data;
         image::normalize(data,image_data);
-        for(size_t index = 0; index < pivot_list.size(); ++index)
+        for(unsigned int index = 0; index < pivot_list.size(); ++index)
             if(label[pivot_list[index]])
                 image_data[pivot_list[index]] = 0x00FFFFFF;
 
@@ -263,8 +263,8 @@ void stochastic_competition_with_lostinfo(const ImageType& src,
     std::vector<imp::intensity_likelihood<pixel_type> > intensity_model;
     imp::stochastic_competition_init_model_param(src,label,intensity_model);
     // initialize pivot pool
-    image::basic_image<size_t,ImageType::dimension> pivot_map;
-    std::vector<size_t> pivot_list;
+    image::basic_image<unsigned int,ImageType::dimension> pivot_map;
+    std::vector<unsigned int> pivot_list;
     imp::stochastic_competition_init_pivots(label,pivot_map,pivot_list);
     // initialize gradient vector map
     image::basic_image<vector_type,ImageType::dimension> gre;
@@ -276,19 +276,19 @@ void stochastic_competition_with_lostinfo(const ImageType& src,
 #endif
     //stochastic EM
     double T = initT;
-    const size_t clique_radius = 2;
-    const size_t clique_size = 25;
+    const unsigned int clique_radius = 2;
+    const unsigned int clique_size = 25;
     Zr *= 2.0;
     Zc /= (double)clique_radius * std::sqrt(2.0f);
     Zr /= clique_size;
     Zc /= clique_size;
     long t = std::clock()+CLOCKS_PER_SEC*5;
-    for(size_t iteration = 0,success_pivot = 0;
+    for(unsigned int iteration = 0,success_pivot = 0;
         !pivot_list.empty() && std::clock() < t; ++iteration)
     {
         // E-step
         // 1: randomly select a pivot
-        size_t pivot_index = imp::stochastic_competition_select_pivot(pivot_list);
+        unsigned int pivot_index = imp::stochastic_competition_select_pivot(pivot_list);
         index_type pivot_full_index = index_type(pivot_index,label.geometry());
         pixel_type pivot_intensity = src[pivot_index];
         label_type cur_label = label[pivot_index];
@@ -305,9 +305,9 @@ void stochastic_competition_with_lostinfo(const ImageType& src,
             image::get_neighbors(pivot_full_index,label.geometry(),2,neighbor_list);
 
             std::vector<label_type> other_label;
-            for(size_t j = 0; j < neighbor_list.size(); ++j)
+            for(unsigned int j = 0; j < neighbor_list.size(); ++j)
             {
-                size_t neighbor_index = neighbor_list[j].index();
+                unsigned int neighbor_index = neighbor_list[j].index();
                 if(no_info_map[neighbor_index])
                     neighbor_without_info = true;
                 if(label[neighbor_index] != cur_label)
@@ -340,15 +340,15 @@ void stochastic_competition_with_lostinfo(const ImageType& src,
         // gradient likelihood
         if(!neighbor_without_info)
         {
-            size_t low_intensity_label;
+            unsigned int low_intensity_label;
             if(intensity_model[expected_label].mean > intensity_model[cur_label].mean)
                 low_intensity_label = cur_label;
             else
                 low_intensity_label = expected_label;
             double log_gre_dif = 0.0;
-            for(size_t j = 0; j < neighbor_list.size(); ++j)
+            for(unsigned int j = 0; j < neighbor_list.size(); ++j)
             {
-                size_t neighbor_index = neighbor_list[j].index();
+                unsigned int neighbor_index = neighbor_list[j].index();
                 // ignore high intensity pixels
                 if(label[neighbor_index] != low_intensity_label || neighbor_list[j] == pivot_full_index)
                     continue;
@@ -393,7 +393,7 @@ void stochastic_competition_with_lostinfo(const ImageType& src,
             {
                 if(intensity_model[0].num == 0)
                     break;
-                for(size_t index = 0; index < label.size(); ++index)
+                for(unsigned int index = 0; index < label.size(); ++index)
                     if(label[index] == 0)
                     {
                         intensity_model[2].push_back(src[index]);
@@ -412,7 +412,7 @@ void stochastic_competition_with_lostinfo(const ImageType& src,
         }
     }
 #ifdef TIPL_DEBUG
-    for(size_t index = 0; index < pivot_list.size(); ++index)
+    for(unsigned int index = 0; index < pivot_list.size(); ++index)
         if(label[pivot_list[index]] == 2)
             label[pivot_list[index]] = 0;
     stochastic_competition_debug(src,pivot_list,label);

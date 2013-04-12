@@ -39,7 +39,7 @@ struct bitmap_file_header
         out.write((const char*)&dummy,4);
         dummy = 54;
         out.write((const char*)&dummy,4);//bfOffBits
-        return out;
+        return !(!out);
     }
 };
 

@@ -138,7 +138,7 @@ public:
             data.resize(read_length);
             in.read((char*)&*(data.begin()),read_length);
         }
-        return in;
+        return !(!in);
     }
 
     unsigned int get_order(void) const
@@ -265,7 +265,7 @@ public:
         std::copy(data.begin() + from,data.begin() + from + sizeof(dicom_csa_header),(char*)&header);
         from += sizeof(dicom_csa_header);
         int xx[4];
-        for (unsigned int index = 0; index < header.nitems; ++index)
+        for (int index = 0; index < header.nitems; ++index)
         {
             if (from + sizeof(xx) >= data.size())
                 return false;
@@ -423,7 +423,7 @@ public:
                     if (count <= 128 && count >= 0)
                     {
                         unsigned int pos = 16;
-                        for (unsigned int index = 0; index < count && pos < ge->get().size(); ++index)
+                        for (unsigned int index = 0; index < (unsigned int)count && pos < ge->get().size(); ++index)
                         {
                             std::auto_ptr<dicom_csa_data> csa(new dicom_csa_data);
                             if (!csa->read(ge->get(),pos))

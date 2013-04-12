@@ -26,20 +26,20 @@ struct rgb_color{
         rgb_color(unsigned char gray):
                 b(gray),g(gray),r(gray),a(0){}
         rgb_color(float gray):
-                b(gray),g(gray),r(gray),a(0){}
+                b((unsigned char)gray),g((unsigned char)gray),r((unsigned char)gray),a(0){}
 
 	operator unsigned char() const	{return (unsigned char)((((short)r)+((short)g)+((short)b))/3);}
 	operator short() const	{return (((short)r)+((short)g)+((short)b))/3;}
-	operator float() const	{return (((float)r)+((float)g)+((float)b))/3.0;}
+	operator float() const	{return (((float)r)+((float)g)+((float)b))/3.0f;}
 	operator unsigned int() const	{return color;}
 	const rgb_color& operator=(unsigned int color_){color = color_;return *this;}
 	const rgb_color& operator=(int color_){color = color_;return *this;}
 	const rgb_color& operator=(const rgb_color& rhs){color = rhs.color;return *this;}
 	const rgb_color& operator=(unsigned char gray){r = g = b = gray;return *this;}
-	const rgb_color& operator=(unsigned short gray){r = g = b = gray;return *this;}
-	const rgb_color& operator=(short gray){r = g = b = gray;return *this;}
-	const rgb_color& operator=(float gray){r = g = b = gray;return *this;}
-	const rgb_color& operator=(double gray){r = g = b = gray;return *this;}
+	const rgb_color& operator=(unsigned short gray){r = g = b = (unsigned char)gray;return *this;}
+	const rgb_color& operator=(short gray){r = g = b = (unsigned char)gray;return *this;}
+	const rgb_color& operator=(float gray){r = g = b = (unsigned char)gray;return *this;}
+	const rgb_color& operator=(double gray){r = g = b = (unsigned char)gray;return *this;}
 		unsigned char& operator[](unsigned char index){return data[index];}
         const unsigned char& operator[](unsigned char index) const{return data[index];}
 

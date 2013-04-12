@@ -25,7 +25,7 @@ public:
     {
         in.seekg(pos,std::ios::beg);
     }
-    operator bool() const	{return in;}
+    operator bool() const	{return !(!in);}
     bool operator!() const	{return !in;}
 };
 
@@ -46,7 +46,7 @@ public:
     {
         out.close();
     }
-    operator bool() const	{return out;}
+    operator bool() const	{return !(!out);}
     bool operator!() const	{return !out;}
 };
 }
