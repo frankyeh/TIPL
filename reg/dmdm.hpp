@@ -1,7 +1,6 @@
 #ifndef DMDM_HPP
 #define DMDM_HPP
 #include "image/numerical/basic_op.hpp"
-#include "image/numerical/fft.hpp"
 #include "image/numerical/dif.hpp"
 #include "image/filter/gaussian.hpp"
 #include "image/filter/filter_model.hpp"

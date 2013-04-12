@@ -18,9 +18,9 @@ namespace reg
 {
 
 //------------------------------------------------------------------------------------
-template<typename pixel_type,typename vtor_type,size_t dimension>
-void fast_lddmm(basic_image<pixel_type,dimension>& I0,
-                basic_image<pixel_type,dimension>& I1,
+template<typename pixel_type,typename vtor_type,unsigned int dimension>
+void fast_lddmm(const basic_image<pixel_type,dimension>& I0,
+                const basic_image<pixel_type,dimension>& I1,
                 basic_image<pixel_type,dimension>& J0, // the deformed I0 images at different time frame
                 basic_image<pixel_type,dimension>& J1, // the deformed I0 images at different time frame
                 basic_image<vtor_type,dimension>& fs0,
@@ -28,6 +28,10 @@ void fast_lddmm(basic_image<pixel_type,dimension>& I0,
                 float dt = 0.2,float alpha = 0.02)
 {
     geometry<dimension> geo = I0.geometry();
+    if(I0.geometry() != I1.geometry())
+        throw std::runtime_error("The image size of I0 and I1 is not consistent.");
+    if(image::fft_round_up_geometry(geo) != geo)
+        throw std::runtime_error("The geometry must be rounded up to 2 to the power of n");
     J0 = I0;
     J1 = I1;
     float sigma = *std::max_element(I0.begin(),I0.end())/10.0;
@@ -35,7 +39,7 @@ void fast_lddmm(basic_image<pixel_type,dimension>& I0,
     basic_image<pixel_type,dimension> K(geo);
     image::basic_image<float,dimension> jdet(geo),dJ(geo);
     basic_image<vtor_type,dimension> v(geo),v2(geo),dv(geo),dv2(geo),dvimg(geo),s0(geo),s1(geo);
-    size_t res = 0;
+    unsigned int res = 0;
     float total_I = std::accumulate(I0.begin(),I0.end(),0.0) + std::accumulate(I1.begin(),I1.end(),0.0);
     float last_total_e = std::numeric_limits<float>::max();
     float total_e = std::numeric_limits<float>::max();
@@ -52,7 +56,7 @@ void fast_lddmm(basic_image<pixel_type,dimension>& I0,
 
     bool update_K = true;
     bool swi = true;
-    for(size_t k = 0; k < 1000 && res < 20; ++k)
+    for(unsigned int k = 0; k < 1000 && res < 20; ++k)
     {
         if(update_K)
         {
@@ -60,7 +64,7 @@ void fast_lddmm(basic_image<pixel_type,dimension>& I0,
             for(pixel_index<dimension> index; index.valid(K.geometry()); index.next(K.geometry()))
             {
                 float Ak = 0;
-                for(size_t dim = 0; dim < dimension; ++dim)
+                for(unsigned int dim = 0; dim < dimension; ++dim)
                     Ak += (1-std::cos(2.0*3.1415926*((float)index[dim])/bandwidth[dim]))*bandwidth[dim]*bandwidth[dim];
                 Ak = 1.0 + Ak*alpha;
                 K[index.index()] = 1.0 / Ak / Ak;
@@ -90,7 +94,7 @@ void fast_lddmm(basic_image<pixel_type,dimension>& I0,
             image::add(v2.begin(),v2.end(),dv.begin());
 
         float next_sum_dif = 0.0;
-        for(size_t index = 0; index < J0.size(); ++index)
+        for(unsigned int index = 0; index < J0.size(); ++index)
             next_sum_dif += std::abs(J0[index]);
 
         std::cout << "dif=" << (next_sum_dif*100.0/total_I) << "% iteration=" << k << " dt = " << dt << " alpha=" << alpha << std::endl;
@@ -99,7 +103,7 @@ void fast_lddmm(basic_image<pixel_type,dimension>& I0,
         {
             ++res;
             dt *= 0.5;
-            for(size_t d =0; d < dimension; ++d)
+            for(unsigned int d =0; d < dimension; ++d)
                 alpha *= 0.5;
             for (image::pixel_index<dimension> index; index.valid(geo); index.next(geo))
             {
@@ -168,16 +172,21 @@ International Journal of Computer Vision,
 Volume 61, Issue 2; February 2005.
 
 */
-template<typename pixel_type,typename vtor_type,size_t dimension>
+template<typename pixel_type,typename vtor_type,unsigned int dimension>
 void lddmm(const basic_image<pixel_type,dimension>& I0,
            const basic_image<pixel_type,dimension>& I1,
            std::vector<basic_image<pixel_type,dimension> >& J0, // the deformed I0 images at different time frame
            std::vector<basic_image<pixel_type,dimension> >& J1, // the deformed I1 images at different time frame
            std::vector<basic_image<vtor_type,dimension> >& s0,// the deformation metric of I0 at different time frame
            std::vector<basic_image<vtor_type,dimension> >& s1,// the deformation metric of I1 at different time frame
-           size_t T = 20,float dt = 0.2,float gamma = 1.0)
+           unsigned int T = 20,float dt = 0.2,float gamma = 1.0)
 {
+
     geometry<dimension> geo = I0.geometry();
+    if(I0.geometry() != I1.geometry())
+        throw std::runtime_error("The image size of I0 and I1 is not consistent.");
+    if(image::fft_round_up_geometry(geo) != geo)
+        throw std::runtime_error("The geometry must be rounded up to 2 to the power of n");
     J0.resize(T);
     J1.resize(T);
     s0.resize(T);
@@ -185,7 +194,7 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
 
     std::vector<basic_image<vtor_type,dimension> > v(T);   // the velocity function
     // initialize mapping J0,J1, s0, s1
-    for(size_t j = 0; j < T; ++j)
+    for(unsigned int j = 0; j < T; ++j)
     {
         J0[j] = I0;
         J1[j] = I1;
@@ -207,7 +216,7 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
 
     // calculate the invert(LL*) operator
     image::fftn<dimension> fft(geo);
-    basic_image<pixel_type,dimension> K(fft.padded_geometry());
+    basic_image<pixel_type,dimension> K(geo);
     float alpha = 0.02;
     //float gamma = 1.0;
     {
@@ -215,10 +224,10 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
         for(pixel_index<dimension> index; index.valid(K.geometry()); index.next(K.geometry()))
         {
             float Ak = 0;
-            for(size_t dim = 0; dim < dimension; ++dim)
-                Ak += (1-std::cos(2.0*3.1415926*((float)index[dim])/bandwidth[dim]))*bandwidth[dim]*bandwidth[dim];
+            for(unsigned int dim = 0; dim < dimension; ++dim)
+                Ak += (1-std::cos(2.0f*3.1415926f*((float)index[dim])/bandwidth[dim]))*bandwidth[dim]*bandwidth[dim];
             Ak = gamma + Ak*alpha;
-            K[index.index()] = 1.0 / Ak / Ak;
+            K[index.index()] = 1.0f / Ak / Ak;
         }
     }
 
@@ -227,7 +236,7 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
     image::basic_image<float,dimension> jdet(geo),dJ(geo),dif(geo);
     basic_image<vtor_type,dimension> dv(geo),dvimg(geo);
 
-    for(size_t k = 0; k < 200; ++k)
+    for(unsigned int k = 0; k < 200; ++k)
     {
 
         std::cout << "iteration:" << k << std::endl;
@@ -236,13 +245,13 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
             std::vector<float> v_length(T);
             for (image::pixel_index<dimension> index; index.valid(geo); index.next(geo))
             {
-                for(size_t j =0; j < T; ++j)
+                for(unsigned int j =0; j < T; ++j)
                     v_length[j] = v[j][index.index()].length();
                 float length = std::accumulate(v_length.begin(),v_length.end(),(float)0);
                 length /= (float)T;
                 if(length == 0)
                     continue;
-                for(size_t j =0; j < T; ++j)
+                for(unsigned int j =0; j < T; ++j)
                     if(v_length[j] > 0.0)
                         v[j][index.index()] *= length/v_length[j];
             }
@@ -250,7 +259,7 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
 
 
         // Calculate new estimate of velocity vk+1 = vk ? e vk E.
-        for(size_t j =0; j < T; ++j)
+        for(unsigned int j =0; j < T; ++j)
         {
             // calculate the gradient of J0
             image::gradient(J0[j],dv);
@@ -324,7 +333,7 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
             image::compose_mapping(I1,s1[j],J1[j]);
 
         float next_sum_dif = 0.0;
-        for(size_t index = 0; index < dif.size(); ++index)
+        for(unsigned int index = 0; index < dif.size(); ++index)
             next_sum_dif += std::abs(dif[index]);
 
         std::cout << "dif:" << next_sum_dif << std::endl;
@@ -336,11 +345,11 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
 }
 
 
-template<typename pixel_type,typename vtor_type,size_t dimension>
+template<typename pixel_type,typename vtor_type,unsigned int dimension>
 void lddmm(const basic_image<pixel_type,dimension>& I0,
            const basic_image<pixel_type,dimension>& I1,
            basic_image<vtor_type,dimension>& mapping,
-           size_t T = 20,float dt = 0.2,float gamma = 1.0)
+           unsigned int T = 20,float dt = 0.2,float gamma = 1.0)
 {
     std::vector<basic_image<pixel_type,dimension> > J0;// the deformed I0 images at different time frame
     std::vector<basic_image<pixel_type,dimension> > J1;// the deformed I1 images at different time frame

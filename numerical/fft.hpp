@@ -101,12 +101,30 @@ value_type fft_round_up_size(value_type num_)
     }
     return need_padding ? 1 << result : num_;
 }
-template<unsigned int dimension>
-geometry<dimension> fft_round_up_geometry(geometry<dimension> geo)
+template<typename geo_type>
+geo_type fft_round_up_geometry(const geo_type& geo)
 {
-    for(int dim = 0;dim < dimension;++dim)
-        geo[dim] = fft_round_up_size(geo[dim]);
-    return geo;
+    geo_type geo2;
+    for(int dim = 0;dim < geo_type::dimension;++dim)
+        geo2[dim] = fft_round_up_size(geo[dim]);
+    return geo2;
+}
+template<typename image_type,typename pos_type>
+void fft_round_up(image_type& I,pos_type& from,pos_type& to)
+{
+    image_type newI(fft_round_up_geometry(I.geometry()));
+    for(int dim = 0;dim < image_type::dimension;++dim)
+    {
+        from[dim] = (newI.geometry()[dim]-I.geometry()[dim]) >> 1;
+        to[dim] = from[dim] + I.geometry()[dim];
+    }
+    image::draw(I,newI,from);
+    I.swap(newI);
+}
+template<typename image_type,typename pos_type>
+void fft_round_down(image_type& I,const pos_type& from,const pos_type& to)
+{
+    image::crop(I,from,to);
 }
 
 template<unsigned int dimension,typename float_type = float>
