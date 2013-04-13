@@ -18,9 +18,9 @@ public:
     PixelAdapter(void):r_16(0) {}
     void add(IntegerType gray,unsigned int w_16)
     {
-        r_16 += ((size_t)gray)*w_16;
+        r_16 += ((unsigned int)gray)*w_16;
     }
-    void add(IntegerType gray,const size_t* w)
+    void add(IntegerType gray,const unsigned int* w)
     {
         r_16 += w[gray];
     }
@@ -39,11 +39,11 @@ public:
     PixelAdapter<rgb_color>(void):r_16(0),g_16(0),b_16(0) {}
     void add(rgb_color color,unsigned int w_16)
     {
-        r_16 += ((size_t)color.r)*w_16;
-        g_16 += ((size_t)color.g)*w_16;
-        b_16 += ((size_t)color.b)*w_16;
+        r_16 += ((unsigned int)color.r)*w_16;
+        g_16 += ((unsigned int)color.g)*w_16;
+        b_16 += ((unsigned int)color.b)*w_16;
     }
-    void add(rgb_color color,const size_t* w_16)
+    void add(rgb_color color,const unsigned int* w_16)
     {
         r_16 += w_16[color.r];
         g_16 += w_16[color.g];
@@ -62,16 +62,16 @@ void thumb(const basic_image<PixelType,2>& from,basic_image<PixelType,2>& to)
     enum MoveType {MoveFrom,MoveTo};
 
     const unsigned int value_16 = 1 << 16;
-    unsigned int height_r_16 = ((double)to.height())/((double)from.height())*((double)((size_t)1 << 16));
-    unsigned int width_r_16 = ((double)to.width())/((double)from.width())*((double)((size_t)1 << 16));
+    unsigned int height_r_16 = ((double)to.height())/((double)from.height())*((double)((unsigned int)1 << 16));
+    unsigned int width_r_16 = ((double)to.width())/((double)from.width())*((double)((unsigned int)1 << 16));
     unsigned int height_r_8 = height_r_16 >> 8;
     unsigned int width_r_8 = width_r_16 >> 8;
-    unsigned int rr_16 = ((double)to.size())/((double)from.size())*((double)((size_t)1 << 16));
+    unsigned int rr_16 = ((double)to.size())/((double)from.size())*((double)((unsigned int)1 << 16));
 
     unsigned int tmp_rr_16;
     bool rr_buffer;
 
-    //std::vector<size_t> rbuffer_16(PixelAdapter<PixelType>::max);
+    //std::vector<unsigned int> rbuffer_16(PixelAdapter<PixelType>::max);
     //for (unsigned int index = 0;index < PixelAdapter<PixelType>::max;++index)
     //    rbuffer_16[index] = rr_16*index;
 
