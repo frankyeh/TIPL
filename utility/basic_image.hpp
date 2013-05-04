@@ -4,6 +4,7 @@
 #include <vector>
 #include "geometry.hpp"
 #include "pixel_value.hpp"
+
 //---------------------------------------------------------------------------
 namespace image
 {
@@ -318,12 +319,12 @@ public:
     slice_type slice_at(unsigned int pos)
     {
         image::geometry<dim-1> slice_geo(geo.begin());
-        return slice_type(data.begin()+pos*slice_geo.size(),slice_geo);
+        return slice_type(&*data.begin()+pos*slice_geo.size(),slice_geo);
     }
     const_slice_type slice_at(unsigned int pos) const
     {
         image::geometry<dim-1> slice_geo(geo.begin());
-        return const_slice_type(data.begin()+pos*slice_geo.size(),slice_geo);
+        return const_slice_type(&*data.begin()+pos*slice_geo.size(),slice_geo);
     }
 public:
     template<typename value_type>
@@ -403,11 +404,13 @@ public:
         out.save_to_file(file_name);
     }
     template<typename format_type>
-    void load_from_file(const char* file_name)
+    bool load_from_file(const char* file_name)
     {
         format_type out;
-        out.load_from_file(file_name);
+        if(!out.load_from_file(file_name))
+            return false;
         out.save_to_image(*this);
+        return true;
     }
 };
 
