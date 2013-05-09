@@ -137,7 +137,7 @@ protected:
     std::vector<std::vector<float_type> > iwr,iwi;
 protected:
     template<typename ImageType>
-    void fft(ImageType& real,ImageType& img,bool invert)
+    void fft(ImageType& real,ImageType& img,bool invert) const
     {
         unsigned int nprev = 1;
         for(int dim = 0;dim < dimension;++dim)
@@ -242,18 +242,18 @@ public:
         }
     }
     template<typename ImageType>
-    void apply(ImageType& real,ImageType& img)
+    void apply(ImageType& real,ImageType& img) const
     {
-        if(real.geometry() != geo)
+        if(real.size() != geo.size())
             throw std::runtime_error("Inconsistent image size");
         img.clear();
         img.resize(geo);
         fft(real,img,false);
     }
     template<typename ImageType>
-    void apply_inverse(ImageType& real,ImageType& img)
+    void apply_inverse(ImageType& real,ImageType& img) const
     {
-        if(real.geometry() != geo || img.geometry() != geo)
+        if(real.size() != geo.size() || img.size() != geo.size())
             throw std::runtime_error("Inconsistent image size");
         fft(real,img,true);
     }

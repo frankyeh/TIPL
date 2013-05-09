@@ -675,15 +675,15 @@ bool bfnorm_warp_coordinate(const bfnorm_mapping<value_type>& mapping,const rhs_
 
     image::matrix::product(T.begin(),bx,temp,dyz_x,dx_1);
     image::matrix::product(temp,by,temp2,dz_y,dy_1);
-    to[0] += math::vector_op_dot(bz,bz+nz,temp2);
+    to[0] += image::vec::dot(bz,bz+nz,temp2);
 
     image::matrix::product(T.begin()+nxyz,bx,temp,dyz_x,dx_1);
     image::matrix::product(temp,by,temp2,dz_y,dy_1);
-    to[1] += math::vector_op_dot(bz,bz+nz,temp2);
+    to[1] += image::vec::dot(bz,bz+nz,temp2);
 
     image::matrix::product(T.begin()+(nxyz << 1),bx,temp,dyz_x,dx_1);
     image::matrix::product(temp,by,temp2,dz_y,dy_1);
-    to[2] += math::vector_op_dot(bz,bz+nz,temp2);
+    to[2] += image::vec::dot(bz,bz+nz,temp2);
     return true;
 }
 
@@ -729,41 +729,41 @@ void bfnorm_get_jacobian(const bfnorm_mapping<value_type>& mapping,const from_ty
     // f(x)/dx
     image::matrix::product(T.begin(),dbx,temp,dyz_x,dx_1);
     image::matrix::product(temp,by,temp2,dz_y,dy_1);
-    Jbet[0] = 1 + math::vector_op_dot(bz,bz+nz,temp2);
+    Jbet[0] = 1 + image::vec::dot(bz,bz+nz,temp2);
     // f(x)/dy
     image::matrix::product(T.begin(),bx,temp,dyz_x,dx_1);
     image::matrix::product(temp,dby,temp2,dz_y,dy_1);
-    Jbet[1] = math::vector_op_dot(bz,bz+nz,temp2);
+    Jbet[1] = image::vec::dot(bz,bz+nz,temp2);
     // f(x)/dz
     image::matrix::product(T.begin(),bx,temp,dyz_x,dx_1);
     image::matrix::product(temp,by,temp2,dz_y,dy_1);
-    Jbet[2] = math::vector_op_dot(dbz,dbz+nz,temp2);
+    Jbet[2] = image::vec::dot(dbz,dbz+nz,temp2);
 
     // f(y)/dx
     image::matrix::product(T.begin()+nxyz,dbx,temp,dyz_x,dx_1);
     image::matrix::product(temp,by,temp2,dz_y,dy_1);
-    Jbet[3] = math::vector_op_dot(bz,bz+nz,temp2);
+    Jbet[3] = image::vec::dot(bz,bz+nz,temp2);
     // f(y)/dy
     image::matrix::product(T.begin()+nxyz,bx,temp,dyz_x,dx_1);
     image::matrix::product(temp,dby,temp2,dz_y,dy_1);
-    Jbet[4] = 1 + math::vector_op_dot(bz,bz+nz,temp2);
+    Jbet[4] = 1 + image::vec::dot(bz,bz+nz,temp2);
     // f(y)/dz
     image::matrix::product(T.begin()+nxyz,bx,temp,dyz_x,dx_1);
     image::matrix::product(temp,by,temp2,dz_y,dy_1);
-    Jbet[5] = math::vector_op_dot(dbz,dbz+nz,temp2);
+    Jbet[5] = image::vec::dot(dbz,dbz+nz,temp2);
 
     // f(z)/dx
     image::matrix::product(T.begin()+(nxyz << 1),dbx,temp,dyz_x,dx_1);
     image::matrix::product(temp,by,temp2,dz_y,dy_1);
-    Jbet[6] = math::vector_op_dot(bz,bz+nz,temp2);
+    Jbet[6] = image::vec::dot(bz,bz+nz,temp2);
     // f(z)/dy
     image::matrix::product(T.begin()+(nxyz << 1),bx,temp,dyz_x,dx_1);
     image::matrix::product(temp,dby,temp2,dz_y,dy_1);
-    Jbet[7] = math::vector_op_dot(bz,bz+nz,temp2);
+    Jbet[7] = image::vec::dot(bz,bz+nz,temp2);
     // f(z)/dz
     image::matrix::product(T.begin()+(nxyz << 1),bx,temp,dyz_x,dx_1);
     image::matrix::product(temp,by,temp2,dz_y,dy_1);
-    Jbet[8] = 1 + math::vector_op_dot(dbz,dbz+nz,temp2);
+    Jbet[8] = 1 + image::vec::dot(dbz,dbz+nz,temp2);
 
     //image::matrix::product(affine_rotation,Jbet,M,math::dim<3,3>(),math::dim<3,3>());
 }
@@ -772,8 +772,8 @@ void bfnorm_get_jacobian(const bfnorm_mapping<value_type>& mapping,const from_ty
 template<typename value_type,typename image_type1,typename image_type2>
 void bfnorm_warp_image(const bfnorm_mapping<value_type>& mapping,const image_type1& I,image_type2& out)
 {
-    out.resize(VGgeo);
-    for(image::pixel_index<3> index;VGgeo.is_valid(index);index.next(VGgeo))
+    out.resize(mapping.VGgeo);
+    for(image::pixel_index<3> index;mapping.VGgeo.is_valid(index);index.next(mapping.VGgeo))
     {
         image::vector<3,double> pos;
         bfnorm_warp_coordinate(mapping,index,pos);

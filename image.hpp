@@ -67,4 +67,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "image/reg/bfnorm.hpp"
 
 
+
+#include "image/ml/utility.hpp"
+#include "image/ml/nb.hpp"
+#include "image/ml/lg.hpp"
+#include "image/ml/non_parametric.hpp"
+#include "image/ml/ada_boost.hpp"
+#include "image/ml/decision_tree.hpp"
+#include "image/ml/k_means.hpp"
+#include "image/ml/em.hpp"
+#include "image/ml/hmc.hpp"
+
+
 #endif//IMAGE_HPP
