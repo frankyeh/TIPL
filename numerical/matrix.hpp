@@ -385,7 +385,7 @@ void vector_product(left_input_iterator lhs,right_input_iterator x,output_iterat
     do
     {
         lhs_next = lhs + common_col_count;
-        *y = dot(lhs,lhs_next,x);
+        *y = image::vec::dot(lhs,lhs_next,x);
         if (lhs_next == lhs_end)
             return;
         lhs = lhs_next;

@@ -361,7 +361,6 @@ private:
     const nifti_base& operator=(const nifti_base& rhs);
 public:
     bool load_from_file(const std::string& file_name)
-
     {
         return load_from_file(file_name.c_str());
     }
