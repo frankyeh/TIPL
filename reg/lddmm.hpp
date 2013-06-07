@@ -193,6 +193,8 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
     s1.resize(T);
 
     std::vector<basic_image<vtor_type,dimension> > v(T);   // the velocity function
+    std::vector<basic_image<vtor_type,dimension> > alpha_dis(T);   // the displacement
+
     // initialize mapping J0,J1, s0, s1
     for(unsigned int j = 0; j < T; ++j)
     {
@@ -201,6 +203,7 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
         s0[j].resize(geo);
         s1[j].resize(geo);
         v[j].resize(geo);
+        alpha_dis[j].resize(geo);
         for (image::pixel_index<dimension> index; index.valid(geo); index.next(geo))
         {
             s0[j][index.index()] = index;
@@ -238,8 +241,6 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
 
     for(unsigned int k = 0; k < 200; ++k)
     {
-
-        std::cout << "iteration:" << k << std::endl;
         if(k %10 == 9)// reparameterize
         {
             std::vector<float> v_length(T);
@@ -298,37 +299,42 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
 
         }
 
-        //Calculate for j = N ? 1 to j = 0 the mapping £pk+1t j ,T (y) using Eq. (19).
-        for(int j = T-2; j >= 0; --j)
+        // calculate Î± using Eq. (20) Î± = Î´t * vt ( y âˆ’ Î± / 2);
+        // note that vt here is already scaled with Î´t
+        alpha_dis = v;
+        for(unsigned int j = 0;j < alpha_dis.size();++j)
         {
             basic_image<vtor_type,dimension>& vj = v[j];
+            basic_image<vtor_type,dimension>& alpha_j = alpha_dis[j];
             for (image::pixel_index<dimension> index; index.valid(geo); index.next(geo))
             {
-                vtor_type y(index);
-                vtor_type alpha = vj[index.index()];
-                // £pj(y) = £pj+1(y + £\).
-                y += alpha;
-                image::linear_estimate(s1[j+1],y,s1[j][index.index()]);
+                for(unsigned char i = 0;i < 5;++i)
+                    image::linear_estimate(vj,vtor_type(index)-alpha_j[index.index()]/2,
+                                           alpha_j[index.index()]);
             }
         }
 
-        // Calculate for j = 0 to j = N ? 1 the mapping £pk+1t j ,0 (y) using Eq. (18).
+        //Calculate for j = N ? 1 to j = 0 the mapping Â£pk+1t j ,T (y) using Eq. (19).
+        for(int j = T-2; j >= 0; --j)
+        {
+            basic_image<vtor_type,dimension>& alpha_j = alpha_dis[j];
+            // Â£pj(y) = Â£pj+1(y + Î±).
+            for (image::pixel_index<dimension> index; index.valid(geo); index.next(geo))
+                image::linear_estimate(s1[j+1],vtor_type(index)+alpha_j[index.index()],s1[j][index.index()]);
+        }
+
+        // Calculate for j = 0 to j = N ? 1 the mapping Â£pk+1t j ,0 (y) using Eq. (18).
         for(int j = 1; j < T; ++j)
         {
-            basic_image<vtor_type,dimension>& vj = v[j];
+            basic_image<vtor_type,dimension>& alpha_j = alpha_dis[j];
+            // Â£pj(y) = Â£pj-1(y - Î±).
             for (image::pixel_index<dimension> index; index.valid(geo); index.next(geo))
-            {
-                vtor_type y(index);
-                vtor_type alpha = vj[index.index()];
-                // £pj(y) = £pj-1(y - £\).
-                y -= alpha;
-                image::linear_estimate(s0[j-1],y,s0[j][index.index()]);
-            }
+                image::linear_estimate(s0[j-1],vtor_type(index)-alpha_j[index.index()],s0[j][index.index()]);
         }
-        // Calculate for j = 0 to j = N ? 1 the image J0j= I0 ? £pk+1 j,0
+        // Calculate for j = 0 to j = N ? 1 the image J0j= I0 ? Â£pk+1 j,0
         for(int j = 0; j < T; ++j)
             image::compose_mapping(I0,s0[j],J0[j]);
-        // Calculate for j = N - 1 to j = 0 the image J1j= I1 ? £pk+1 j,t
+        // Calculate for j = N - 1 to j = 0 the image J1j= I1 ? Â£pk+1 j,t
         for(int j = T - 1; j >= 0; --j)
             image::compose_mapping(I1,s1[j],J1[j]);
 
@@ -336,7 +342,7 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
         for(unsigned int index = 0; index < dif.size(); ++index)
             next_sum_dif += std::abs(dif[index]);
 
-        std::cout << "dif:" << next_sum_dif << std::endl;
+        std::cout << next_sum_dif << "..." << std::flush;
 
         if(total_e < next_sum_dif)
             break;
