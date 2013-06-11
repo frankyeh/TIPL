@@ -25,6 +25,10 @@ public:
     {
         in.seekg(pos,std::ios::beg);
     }
+    void seek_end(int pos)
+    {
+        in.seekg(pos,std::ios::end);
+    }
     operator bool() const	{return !(!in);}
     bool operator!() const	{return !in;}
 };

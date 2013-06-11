@@ -259,6 +259,16 @@ void trim(ImageType& image,
         crop(image,range_min,range_max);
 }
 
+template<typename ImageType>
+void trim(ImageType& image,typename ImageType::value_type background = 0)
+{
+    image::geometry<ImageType::dimension> range_min,range_max;
+    range(image,range_min,range_max,background);
+    if (range_min[0] < range_max[0])
+        crop(image,range_min,range_max);
+}
+
+
 /** get axis orientation from rotation matrix
     dim_order[3] = {2,1,0} means the iteration goes from z->y->x
     flip ={ 1,0,0} mean the first dimension need to be flipped
