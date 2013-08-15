@@ -103,7 +103,7 @@ private:
     void* data_ptr; // for write
     unsigned int element_size;
 public:
-    mat_matrix(void):type(0),rows(0),cols(0),data(0)
+    mat_matrix(void):type(0),rows(0),cols(0),count(0),namelen(0),data(0)
     {}
     mat_matrix(const std::string& name_):namelen(name_.size()+1),name(name_),data(0) {}
 
@@ -201,6 +201,8 @@ public:
         in.read((char*)&cols,4);
         in.read((char*)&imagf,4);
         in.read((char*)&namelen,4);
+        if(namelen == 0 || namelen > 255)
+            return false;
         std::vector<char> buffer(namelen+1);
         in.read((char*)&*buffer.begin(),namelen);
         count = rows*cols;
@@ -219,7 +221,7 @@ public:
         }
 		data = &*data_buf.begin();
         in.read((char*)data,get_total_size(type));
-        return in;
+        return true;
     }
     template<typename stream_type>
     bool write(stream_type& out)
