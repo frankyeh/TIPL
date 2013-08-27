@@ -69,6 +69,16 @@ void vector_transformation(input_iter1 vec_in,output_iter vec_out,input_iter2 ro
 }
 
 template<typename input_iter1,typename input_iter2,typename output_iter>
+void vector_rotation(input_iter1 vec_in,output_iter vec_out,input_iter2 rotation,vdim<2>)
+{
+    typedef typename std::iterator_traits<output_iter>::value_type value_type;
+    vec_out[0] = ((value_type)vec_in[0])*rotation[0] +
+                 ((value_type)vec_in[1])*rotation[1];
+    vec_out[1] = ((value_type)vec_in[0])*rotation[2] +
+                 ((value_type)vec_in[1])*rotation[3];
+}
+
+template<typename input_iter1,typename input_iter2,typename output_iter>
 void vector_rotation(input_iter1 vec_in,output_iter vec_out,input_iter2 rotation,vdim<3>)
 {
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
@@ -117,12 +127,12 @@ void matrix_product(input_iterator1 A,input_iterator2 B,output_iterator C,vdim<3
     C[8] = A[6] * B[2] + A[7] * B[5] + A[8] * B[8];
 }
 
-template<typename output_iter>
-void rotation_matrix(typename std::iterator_traits<output_iter>::value_type theta,output_iter m,vdim<2>)
+template<typename angle_type,typename output_iter>
+void rotation_matrix(angle_type theta,output_iter m,vdim<2>)
 {
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
-    value_type cos_theta = std::cos(theta);
-    value_type sin_theta = std::sin(theta);
+    value_type cos_theta = std::cos(theta[0]);
+    value_type sin_theta = std::sin(theta[0]);
     m[0] = cos_theta;
     m[1] = -sin_theta;
     m[2] = sin_theta;
@@ -164,7 +174,18 @@ void rotation_matrix(angle_type theta,output_type m,vdim<3>)
     m[7] = -sin_x_cos_z+cos_x_sin_z*sin_y;
     m[8] = cos_x*cos_y;
 }
-
+/*
+ Rotate*Scaling
+ */
+template<typename angle_type,typename scale_type,typename output_type>
+void rotation_scaling_matrix(angle_type theta,scale_type s,output_type m,vdim<2>)
+{
+    rotation_matrix(theta,m,vdim<2>());
+    m[0] *= s[0];
+    m[1] *= s[1];
+    m[2] *= s[0];
+    m[3] *= s[1];
+}
 /*
  Rx*Ry*Rz*Scaling
  */
@@ -182,6 +203,23 @@ void rotation_scaling_matrix(angle_type theta,scale_type s,output_type m,vdim<3>
     m[7] *= s[1];
     m[8] *= s[2];
 }
+
+/*
+ Rotate*Scaling*Affine
+
+Affine   = [1   	a[0]    0;
+            0   	1 	    0;
+            0   	0   	1];
+ */
+template<typename angle_type,typename scale_type,typename affine_type,typename output_type>
+void rotation_scaling_affine_matrix(angle_type theta,scale_type s,affine_type a,output_type m,vdim<2>)
+{
+    rotation_scaling_matrix(theta,s,m,vdim<2>());
+    m[1] += m[0]*a[0];
+    m[4] += m[3]*a[0];
+    m[7] += m[6]*a[0];
+}
+
 /*
  Rx*Ry*Rz*Scaling*Affine
 
@@ -505,8 +543,9 @@ public:
 };
 
 template<unsigned int dim,typename value_type_ = float>
-struct affine_transform
+class affine_transform
 {
+public:
     typedef value_type_ value_type;
     static const unsigned int dimension = dim;
     static const unsigned int affine_dim = (dimension-1)*(dimension)/2;
@@ -573,6 +612,8 @@ public:
     transformation_matrix(void)
     {
         std::fill((value_type*)data,(value_type*)data+total_size,0);
+        for(int d = 0,pos = 0;d < dimension;++d,pos += dimension+1)
+            scaling_rotation[pos] = 1;
     }
 
     // m = T*R1*R2*R3*Scaling*Affine;
@@ -602,7 +643,7 @@ public:
     }
     value_type operator[](unsigned int i) const{return data[i];}
     value_type& operator[](unsigned int i) {return data[i];}
- 
+
     // load from 4 x 3 M matrix
     template<typename InputIterType>
     void load_from_transform(InputIterType M)
