@@ -612,8 +612,6 @@ public:
     transformation_matrix(void)
     {
         std::fill((value_type*)data,(value_type*)data+total_size,0);
-        for(int d = 0,pos = 0;d < dimension;++d,pos += dimension+1)
-            scaling_rotation[pos] = 1;
     }
 
     // m = T*R1*R2*R3*Scaling*Affine;
