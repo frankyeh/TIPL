@@ -375,20 +375,20 @@ template<typename left_input_iterator,
 typename right_input_iterator,
 typename output_iterator,
 typename left_dim_type>
-void vector_product(left_input_iterator lhs,right_input_iterator x,output_iterator y,const left_dim_type& ldim)
+void vector_product(left_input_iterator A,right_input_iterator x,output_iterator y,const left_dim_type& ldim)
 {
-    left_input_iterator lhs_end = lhs + ldim.size();
-    if (lhs == lhs_end)
+    left_input_iterator A_end = A + ldim.size();
+    if (A == A_end)
         return;
     unsigned int common_col_count = ldim.col_count();
-    left_input_iterator lhs_next;
+    left_input_iterator A_next;
     do
     {
-        lhs_next = lhs + common_col_count;
-        *y = image::vec::dot(lhs,lhs_next,x);
-        if (lhs_next == lhs_end)
+        A_next = A + common_col_count;
+        *y = image::vec::dot(A,A_next,x);
+        if (A_next == A_end)
             return;
-        lhs = lhs_next;
+        A = A_next;
         ++y;
     }
     while (1);
