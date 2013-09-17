@@ -574,7 +574,7 @@ transpose(sym,dim<4,4>());
 \endcode
 */
 template<typename input_iterator,unsigned int matrix_dim>
-void inplace_transpose(input_iterator A,dim<matrix_dim,matrix_dim>)
+void transpose(input_iterator A,dim<matrix_dim,matrix_dim>)
 {
     if (matrix_dim > 1)
     {
@@ -622,7 +622,7 @@ void transpose(input_iterator in,output_iterator out,const dim_type& dim)
 }
 
 template<typename io_iterator,typename dim_type>
-void inplace_transpose(io_iterator io,const dim_type& dim)
+void transpose(io_iterator io,const dim_type& dim)
 {
     typedef typename std::iterator_traits<io_iterator>::value_type value_type;
     std::vector<value_type> temp(io,io+dim.size());
