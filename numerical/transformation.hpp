@@ -448,100 +448,6 @@ void create_affine_transformation_matrix(input_scaling_iter scaling,input_rotati
     create_transformation_matrixation_matrix(M,shift,m,vdim<3>());
 }
 
-template<typename input_rotation_iter,typename input_shift_iter,typename output_iter>
-void create_rigidbody_transformation_matrix(input_rotation_iter rotation,input_shift_iter shift,output_iter m,vdim<3>)
-{
-    typedef typename std::iterator_traits<output_iter>::value_type value_type;
-    value_type M[9];
-    rotation_matrix(rotation,M);
-    create_transformation_matrixation_matrix_3d(M,shift,m,vdim<3>());
-}
-
-
-template<unsigned int dim,typename value_type_ = float>
-struct rigid_body_transform
-{
-    typedef value_type_ value_type;
-    static const unsigned int dimension = dim;
-    static const unsigned int total_size = dimension+dimension;
-    union
-    {
-        struct
-        {
-            value_type translocation[dimension];
-            value_type rotation[dimension];
-        };
-        value_type data[total_size];
-    };
-private:
-    void assign(const rigid_body_transform& rhs)
-    {
-        std::copy(rhs.data,rhs.data+total_size,data);
-    }
-public:
-    rigid_body_transform(void)
-    {
-        std::fill(data,data+total_size,0);
-    }
-    rigid_body_transform(const rigid_body_transform& rhs)
-    {
-        assign(rhs);
-    }
-
-    const rigid_body_transform& operator=(const rigid_body_transform& rhs)
-    {
-        assign(rhs);
-        return *this;
-    }
-    value_type operator[](unsigned int i) const{return data[i];}
-    value_type& operator[](unsigned int i) {return data[i];}
-
-};
-
-
-template<unsigned int dim,typename value_type_ = float>
-struct rigid_scaling_transform
-{
-    typedef value_type_ value_type;
-    static const unsigned int dimension = dim;
-    static const unsigned int total_size = dimension+dimension+dimension;
-    union
-    {
-        struct
-        {
-            value_type translocation[dimension];
-            value_type rotation[dimension];
-            value_type scaling[dimension];
-        };
-        value_type data[total_size];
-    };
-private:
-    void assign(const rigid_scaling_transform& rhs)
-    {
-        std::copy(rhs.data,rhs.data+total_size,data);
-    }
-public:
-    rigid_scaling_transform(void)
-    {
-        std::fill(data,data+dimension+dimension,0);
-        std::fill(scaling,scaling+dimension,1);
-    }
-    rigid_scaling_transform(const rigid_scaling_transform& rhs)
-    {
-        assign(rhs);
-    }
-
-    const rigid_scaling_transform& operator=(const rigid_scaling_transform& rhs)
-    {
-        assign(rhs);
-        return *this;
-    }
-    value_type operator[](unsigned int i) const{return data[i];}
-    value_type& operator[](unsigned int i) {return data[i];}
-
-
-};
-
 template<unsigned int dim,typename value_type_ = float>
 class affine_transform
 {
@@ -572,6 +478,10 @@ public:
         std::fill(data,data+total_size,0);
         std::fill(scaling,scaling+dimension,1);
     }
+    affine_transform(const value_type* data_)
+    {
+        std::copy(data_,data_+total_size,data);
+    }
     affine_transform(const affine_transform& rhs)
     {
         assign(rhs);
@@ -584,6 +494,11 @@ public:
     }
     value_type operator[](unsigned int i) const{return data[i];}
     value_type& operator[](unsigned int i) {return data[i];}
+    const value_type* begin(void) const{return data;}
+    const value_type* end(void) const{return data+total_size;}
+    value_type* begin(void) {return data;}
+    value_type* end(void) {return data+total_size;}
+    unsigned int size(void) const{return total_size;}
 
 };
 
@@ -597,6 +512,18 @@ struct transformation_matrix
     static const unsigned int dimension = dim;
     static const unsigned int scaling_rotation_size = dimension*dimension;
     static const unsigned int total_size = dimension*dimension+dimension;
+private:
+    void shift_to_center(
+            const image::geometry<dim>& from,
+            const image::geometry<dim>& to)
+    {
+        for(int i = 0,index = 0;i < dim;++i)
+            for(int j = 0;j < dim;++j,++index)
+                shift[i] -= scaling_rotation[index]*from[j]/2.0;
+        for(int i = 0;i < dim;++i)
+            shift[i] += to[i]/2.0;
+    }
+
 public:
     union
     {
@@ -615,21 +542,15 @@ public:
     }
 
     // m = T*R1*R2*R3*Scaling*Affine;
-    transformation_matrix(const affine_transform<dim,value_type>& rb)
+    transformation_matrix(const affine_transform<dim,value_type>& rb,
+                          const image::geometry<dim>& from,
+                          const image::geometry<dim>& to)
     {
         rotation_scaling_affine_matrix(rb.rotation,rb.scaling,rb.affine,scaling_rotation,vdim<dimension>());
         std::copy(rb.translocation,rb.translocation+dimension,shift);
+        shift_to_center(from,to);
     }
-    transformation_matrix(const rigid_scaling_transform<dim,value_type>& rb)
-    {
-        rotation_scaling_matrix(rb.rotation,rb.scaling,scaling_rotation,vdim<dimension>());
-        std::copy(rb.translocation,rb.translocation+dimension,shift);
-    }
-    transformation_matrix(const rigid_body_transform<dim,value_type>& rb)
-    {
-        rotation_matrix(rb.rotation,scaling_rotation,vdim<dim>());
-        std::copy(rb.translocation,rb.translocation+dimension,shift);
-    }
+
     const transformation_matrix& operator=(const transformation_matrix& rhs)
     {
         std::copy(rhs.data,rhs.data+total_size,data);

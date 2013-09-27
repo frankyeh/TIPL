@@ -2,13 +2,185 @@
 #define optimization_hpp
 
 #include <limits>
+#include <vector>
 #include <map>
-
+#include "image/numerical/numerical.hpp"
+#include "image/numerical/matrix.hpp"
 namespace image
 {
 
 namespace optimization
 {
+
+// calculate fun(x+ei)
+template<typename iter_type1,typename tol_type,typename iter_type2,typename function_type>
+void estimate_change(iter_type1 x_beg,iter_type1 x_end,tol_type tol,iter_type2 fun_ei,function_type& fun)
+{
+    typedef typename std::iterator_traits<iter_type1>::value_type param_type;
+    unsigned int size = x_end-x_beg;
+    for(unsigned int i = 0;i < size;++i)
+    {
+        if(tol[i] == 0)
+            continue;
+        param_type old_x = x_beg[i];
+        x_beg[i] += *tol;
+        fun_ei[i] = fun(x_beg);
+        x_beg[i] = old_x;
+    }
+}
+
+template<typename iter_type1,typename tol_type,typename value_type,typename iter_type2,typename iter_type3>
+void gradient(iter_type1 x_beg,iter_type1 x_end,
+              tol_type tol,
+              value_type fun_x,
+              iter_type2 fun_x_ei,
+              iter_type3 g_beg)
+{
+    unsigned int size = x_end-x_beg;
+    std::copy(fun_x_ei,fun_x_ei+size,g_beg);
+    image::minus_constant(g_beg,g_beg+size,fun_x);
+    for(unsigned int i = 0;i < size;++i)
+        if(tol[i] == 0)
+            g_beg[i] = 0;
+        else
+            g_beg[i] /= tol[i];
+}
+
+template<typename iter_type1,typename tol_type,typename value_type,typename iter_type2,typename iter_type3,typename function_type>
+void hessian(iter_type1 x_beg,iter_type1 x_end,
+             tol_type tol,
+             value_type fun_x,
+             iter_type2 fun_x_ei,
+             iter_type3 h_iter,
+             function_type& fun)
+{
+    typedef typename std::iterator_traits<iter_type1>::value_type param_type;
+    unsigned int size = x_end-x_beg;
+    std::vector<param_type> old_x(x_beg,x_end);
+    // h = fun(x+ei+ej)+fun(x)-fun(ei)-fun(ej)
+    for(unsigned int i = 0; i < size;++i)
+    for(unsigned int j = 0,shift = 0; j < size;++j,++h_iter)
+    {
+        if(j < i)
+            continue;
+        param_type tol2 =  tol[i]*tol[j];
+        x_beg[i] += tol[i];
+        x_beg[j] += tol[j];
+        if(tol2 == 0)
+            *h_iter = (i == j ? 1.0:0.0);
+        else
+            *h_iter = (fun(x_beg)-fun_x_ei[i]-fun_x_ei[j]+fun_x)/tol2;
+        if(j != i)
+            *(h_iter + shift) = *h_iter;
+        x_beg[i] = old_x[i];
+        x_beg[j] = old_x[j];
+        shift += (size-1);
+    }
+}
+
+template<typename iter_type1,typename g_type,typename value_type,typename function_type>
+bool armijo_line_search(iter_type1 x_beg,iter_type1 x_end,
+                        iter_type1 x_upper,iter_type1 x_lower,
+                        g_type g_beg,
+                        value_type& fun_x,
+                        function_type& fun,double precision = 0.001)
+{
+    typedef typename std::iterator_traits<iter_type1>::value_type param_type;
+    unsigned int size = x_end-x_beg;
+    double step = 0.5;
+    double norm = image::norm2(g_beg,g_beg+size);
+    for(;step > precision;step *= 0.5)
+    {
+        image::multiply_constant(g_beg,g_beg+size,step);
+        std::vector<param_type> new_x(x_beg,x_end);
+        image::minus(new_x.begin(),new_x.end(),g_beg);
+        for(unsigned int j = 0;j < size;++j)
+            new_x[j] = std::min(std::max(new_x[j],x_lower[j]),x_upper[j]);
+        value_type new_fun_x(fun(new_x.begin()));
+        if(fun_x-new_fun_x >= 0.0001*step*norm)
+        {
+            std::copy(new_x.begin(),new_x.end(),x_beg);
+            fun_x = new_fun_x;
+            return true;
+        }
+    }
+    return false;
+}
+
+
+template<typename iter_type1,typename function_type,typename terminated_class>
+void quasi_newtons_minimize(
+                iter_type1 x_beg,iter_type1 x_end,
+                iter_type1 x_upper,iter_type1 x_lower,
+                function_type& fun,
+                terminated_class& terminated,double precision = 0.001)
+{
+    typedef typename std::iterator_traits<iter_type1>::value_type param_type;
+    typedef typename function_type::value_type value_type;
+    unsigned int size = x_end-x_beg;
+    value_type fun_x(fun(x_beg));
+    std::vector<param_type> tols(size);
+    for(unsigned int i = 0;i < size;++i)
+        tols[i] = (x_upper[i]-x_lower[i])*precision;
+    for(unsigned int iter = 0;iter < 500 && !terminated;++iter)
+    {
+        std::vector<value_type> fun_x_ei(size);
+        std::vector<param_type> g(size),h(size*size),p(size);
+        estimate_change(x_beg,x_end,tols.begin(),fun_x_ei.begin(),fun);
+        gradient(x_beg,x_end,tols.begin(),fun_x,fun_x_ei.begin(),g.begin());
+        hessian(x_beg,x_end,tols.begin(),fun_x,fun_x_ei.begin(),h.begin(),fun);
+
+        std::vector<unsigned int> pivot(size);
+        image::matrix::lu_decomposition(h.begin(),pivot.begin(),image::dyndim(size,size));
+        if(!image::matrix::lu_solve(h.begin(),pivot.begin(),g.begin(),p.begin(),image::dyndim(size,size)))
+            return;
+
+        if(!armijo_line_search(x_beg,x_end,x_upper,x_lower,p.begin(),fun_x,fun,precision))
+            return;
+    }
+}
+
+
+template<typename iter_type1,typename value_type,typename function_type,typename terminated_class>
+bool rand_search(iter_type1 x_beg,iter_type1 x_end,iter_type1 x_upper,iter_type1 x_lower,
+                 value_type& fun_x,function_type& fun,unsigned int trials,terminated_class& terminated,double variance)
+{
+    typedef typename std::iterator_traits<iter_type1>::value_type param_type;
+    bool improved = false;
+    while(--trials && !terminated)
+    {
+        std::vector<param_type> new_x(x_beg,x_end);
+        unsigned int size = x_end-x_beg;
+        {
+            unsigned int iter = 0;
+            unsigned int i;
+            do
+            {
+                i = std::rand()%size;
+                ++iter;
+            }
+            while(x_upper[i] == x_lower[i] && iter < 100);
+            float seed1 = std::rand()+1;
+            float seed2 = std::rand()+1;
+            seed1 /= RAND_MAX+1;
+            seed2 /= RAND_MAX+1;
+            seed1 *= 6.28318530718;
+            seed2 = std::sqrt(-2.0*std::log(seed2));
+            float r1 = seed2*std::cos(seed1);
+            new_x[i] += (x_upper[i]-x_lower[i])*r1/variance;
+            new_x[i] = std::min(std::max(new_x[i],x_lower[i]),x_upper[i]);
+        }
+        value_type new_fun_x(fun(new_x.begin()));
+        if(new_fun_x < fun_x)
+        {
+            fun_x = new_fun_x;
+            std::copy(new_x.begin(),new_x.end(),x_beg);
+            improved = true;
+        }
+    }
+    return improved;
+}
+
 template<typename param_type,typename value_type,unsigned int max_iteration = 100>
 struct brent_method
 {

@@ -208,6 +208,15 @@ void apply_fun(iterator lhs_from,iterator lhs_to,fun_type fun)
 }
 //---------------------------------------------------------------------------
 template<typename iterator>
+typename std::iterator_traits<iterator>::value_type norm2(iterator lhs_from,iterator lhs_to)
+{
+    typename std::iterator_traits<iterator>::value_type result(0);
+    for (; lhs_from != lhs_to; ++lhs_from)
+        result += (*lhs_from)*(*lhs_from);
+    return std::sqrt(result);
+}
+//---------------------------------------------------------------------------
+template<typename iterator>
 void square(iterator lhs_from,iterator lhs_to)
 {
     typename std::iterator_traits<iterator>::value_type tmp;

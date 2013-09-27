@@ -788,12 +788,6 @@ void ll_solve(io_iterator A,pivot_iterator p,input_iterator2 b,output_iterator x
     }
 }
 
-template<typename input_iterator,unsigned int count>
-typename std::iterator_traits<input_iterator>::value_type
-determinant(input_iterator iter,dim<count,count>)
-{
-    //not_yet_implemented();
-}
 
 template<typename input_iterator>
 typename std::iterator_traits<input_iterator>::value_type

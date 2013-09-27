@@ -1,6 +1,8 @@
 #ifndef IMAGE_REG_HPP
 #define IMAGE_REG_HPP
 #include <limits>
+#include <cstdlib>     /* srand, rand */
+#include <ctime>
 #include "image/numerical/interpolation.hpp"
 #include "image/numerical/numerical.hpp"
 #include "image/numerical/basic_op.hpp"
@@ -41,8 +43,19 @@ namespace reg
         return sum_mass;
     }
 
+    template<typename image_type>
+    void align_center(const image_type& from,const image_type& to,image::affine_transform<3,float>& arg_min)
+    {
+        image::vector<3,double> mF = image::reg::center_of_mass(from);
+        image::vector<3,double> mG = image::reg::center_of_mass(to);
+        arg_min.translocation[0] = mG[0]-mF[0]*arg_min.scaling[0];
+        arg_min.translocation[1] = mG[1]-mF[1]*arg_min.scaling[1];
+        arg_min.translocation[2] = mG[2]-mF[2]*arg_min.scaling[2];
+    }
+
     struct square_error
     {
+        typedef double value_type;
         template<typename ImageType,typename TransformType>
         double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
         {
@@ -70,6 +83,7 @@ namespace reg
 
     struct square_error2
     {
+        typedef double value_type;
         template<typename ImageType,typename TransformType>
         double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
         {
@@ -81,6 +95,7 @@ namespace reg
 
     struct correlation
     {
+        typedef double value_type;
         template<typename ImageType,typename TransformType>
         double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
         {
@@ -99,6 +114,7 @@ namespace reg
 
     struct mutual_information
     {
+        typedef double value_type;
         unsigned int band_width;
         unsigned int his_bandwidth;
         std::vector<unsigned int> from_hist;
@@ -163,39 +179,23 @@ namespace reg
         }
     };
 
-
-    template<typename geo_type,typename transform_type>
-    void shift_to_center(
-            const geo_type& geo_from,
-            const geo_type& geo_to,
-            transform_type& T)
-    {
-        for(int i = 0,index = 0;i < geo_type::dimension;++i)
-            for(int j = 0;j < geo_type::dimension;++j,++index)
-                T.shift[i] -= T.scaling_rotation[index]*geo_from[j]/2.0;
-        for(int i = 0;i < geo_type::dimension;++i)
-            T.shift[i] += geo_to[i]/2.0;
-    }
-
-    template<typename ImageType,typename CostFunctionType>
-    struct cost_function_adoptor
-    {
-        const ImageType& from;
-        const ImageType& to;
-        float sampling;
-        CostFunctionType& cost_function;
-        cost_function_adoptor(const ImageType& from_,const ImageType& to_,
-                              CostFunctionType& cost_function_,
-                              float sampling_):
-            from(from_),to(to_),cost_function(cost_function_),sampling(sampling_){}
-        template<typename transform_type>
-        double operator()(const transform_type& trans)
+    template<typename image_type,
+             typename transform_type,
+             typename fun_type>
+    class fun_adoptor{
+        const image_type& from;
+        const image_type& to;
+        fun_type fun;
+    public:
+        typedef typename fun_type::value_type value_type;
+    public:
+        fun_adoptor(const image_type& from_,const image_type& to_):from(from_),to(to_){}
+        template<typename iterator_type>
+        double operator()(iterator_type param)
         {
-            const int dim = transform_type::dimension;
-            transformation_matrix<dim,typename transform_type::value_type> T(trans);
-            image::multiply_constant(T.shift,T.shift+dim,sampling);
-            shift_to_center(from.geometry(),to.geometry(),T);
-            return cost_function(from,to,T);
+            transform_type affine(&*param);
+            image::transformation_matrix<3,typename transform_type::value_type> T(affine,from.geometry(),to.geometry());
+            return fun(from,to,T);
         }
     };
 
@@ -204,110 +204,150 @@ const int rigid_body = translocation | rotation;
 const int rigid_scaling = translocation | rotation | scaling;
 const int affine = translocation | rotation | scaling | tilt;
 
-/**
- usage:
-     image::reg::coregistration(image_from,image_to,transformation,
-                        image::reg::translocation | image::reg::rotation,
-                        image::reg::mutual_information<>(),terminated);
 
-*/
-template<typename image_type1,typename image_type2,typename opti_method_type,typename transform_type,typename CostFunctionType,typename teminated_class>
-void linear_multiple_resolution(const image_type1& from,const image_type2& to,
-                    opti_method_type& opti_method,
-                    transform_type& trans,
-                    int reg_type,
-                    CostFunctionType cost_fun,
-                    teminated_class& terminated,
-                    float tol = 0.01,
-                    float sampling = 1.0)
-
+template<typename image_type1,typename image_type2,typename transform_type>
+void get_bound(const image_type1& from,const image_type2& to,
+               const transform_type& trans,
+               transform_type& upper_trans,
+               transform_type& lower_trans,
+               int reg_type)
 {
     typedef typename transform_type::value_type value_type;
     const unsigned int dimension = image_type1::dimension;
-    if(terminated)
-        return;
-    if(from.geometry()[0]*sampling > 32)
-    {
-        linear_multiple_resolution(from,to,opti_method,trans,reg_type,cost_fun,terminated,tol,sampling*0.5);
-        if(terminated)
-            return;
-    }
-    if(sampling == 1.0)
-    {
-        cost_function_adoptor<image_type1,CostFunctionType> cost_function(from,to,cost_fun,sampling);
-        opti_method.minimize(cost_function,trans,terminated,tol);
-    }
-    else
-    {
-        image::basic_image<value_type,dimension> from_reduced,to_reduced;
-        downsampling(from,from_reduced);
-        downsampling(to,to_reduced);
-        for(float s = sampling*2.0;s < 0.99;s *= 2.0)
-        {
-            downsampling(from_reduced);
-            downsampling(to_reduced);
-        }
-        cost_function_adoptor<image::basic_image<value_type,dimension>,CostFunctionType> cost_function(from_reduced,to_reduced,cost_fun,sampling);
-        opti_method.minimize(cost_function,trans,terminated,tol);
-
-    }
-}
-
-template<typename image_type1,typename image_type2,typename transform_type,typename CostFunctionType,typename teminated_class>
-void linear(const image_type1& from,const image_type2& to,
-                    transform_type& trans,
-                    int reg_type,
-                    CostFunctionType cost_fun,
-                    teminated_class& terminated,
-                    float tol = 0.01)
-{
-    typedef typename transform_type::value_type value_type;
-    const unsigned int dimension = image_type1::dimension;
-    image::optimization::powell_method<image::optimization::enhanced_brent<value_type,value_type>,transform_type,value_type>
-            opti_method(transform_type::total_size);
-    for (int index = 0; index < transform_type::total_size; ++index)
-            opti_method.search_methods[index].min = opti_method.search_methods[index].max = trans[index];
-
-
+    upper_trans = trans;
+    lower_trans = trans;
     if (reg_type & translocation)
     {
         for (unsigned int index = 0; index < dimension; ++index)
         {
-            opti_method.search_methods[index].max = (to.geometry()[index]+from.geometry()[index]*trans[dimension*2+index])/2.0;
-            opti_method.search_methods[index].min = -opti_method.search_methods[index].max;
+            upper_trans[index] = (to.geometry()[index]+from.geometry()[index]*trans[dimension*2+index])/2.0;
+            lower_trans[index] = -upper_trans[index];
         }
-        linear_multiple_resolution(from,to,opti_method,trans,reg_type,cost_fun,terminated,tol);
     }
 
     if (reg_type & rotation)
     {
         for (unsigned int index = dimension; index < dimension + dimension; ++index)
         {
-            opti_method.search_methods[index].max = 3.14159265358979323846*0.2;
-            opti_method.search_methods[index].min = -3.14159265358979323846*0.2;
+            upper_trans[index] = 3.14159265358979323846*0.25;
+            lower_trans[index] = -3.14159265358979323846*0.25;
         }
-        linear_multiple_resolution(from,to,opti_method,trans,reg_type,cost_fun,terminated,tol);
     }
 
     if (reg_type & scaling)
     {
         for (unsigned int index = dimension + dimension; index < dimension+dimension+dimension; ++index)
         {
-            opti_method.search_methods[index].max = trans[index]*2.0;
-            opti_method.search_methods[index].min = trans[index]/2.0;
+            upper_trans[index] = trans[index]*1.5;
+            lower_trans[index] = trans[index]/1.5;
         }
-        linear_multiple_resolution(from,to,opti_method,trans,reg_type,cost_fun,terminated,tol);
     }
 
     if (reg_type & tilt)
     {
         for (unsigned int index = dimension + dimension + dimension; index < transform_type::total_size; ++index)
         {
-            opti_method.search_methods[index].max = 0.5;
-            opti_method.search_methods[index].min = -0.5;
+            upper_trans[index] = 0.5;
+            lower_trans[index] = -0.5;
         }
-        linear_multiple_resolution(from,to,opti_method,trans,reg_type,cost_fun,terminated,tol);
     }
+}
+
+
+template<typename image_type,typename transform_type,typename CostFunctionType,typename teminated_class>
+void linear(const image_type& from,const image_type& to,
+                    transform_type& arg_min,
+                    int reg_type,
+                    CostFunctionType,
+                    teminated_class& terminated)
+{
+    transform_type upper,lower;
+    image::reg::get_bound(from,to,arg_min,upper,lower,reg_type);
+    image::reg::fun_adoptor<image_type,transform_type,CostFunctionType> fun(from,to);
+    std::srand(0);
+    double optimal_value = fun(arg_min.begin());
+    for(float variance = 4;variance < 100 && !terminated;variance *= 2)
+    {
+        while(image::optimization::rand_search(arg_min.begin(),arg_min.end(),
+                                               upper.begin(),lower.begin(),
+                                               optimal_value,fun,arg_min.size()*20,
+                                               terminated,variance))
+            ;
+    }
+    image::optimization::quasi_newtons_minimize(arg_min.begin(),arg_min.end(),upper.begin(),lower.begin(),fun,terminated,0.01);
+}
+
+template<typename thread_class,typename transform_type,typename fun_type,typename terminate_type>
+struct linear_mutlithread_imp{
+    std::auto_ptr<thread_class> thread;
+private:
+    transform_type& arg_min,upper,lower;
+    fun_type& fun;
+    double& optimal_value;
+    terminate_type& terminated;
+public:
+    linear_mutlithread_imp(transform_type& arg_min_,
+                           transform_type& upper_,
+                           transform_type& lower_,
+                           double& optimal_value_,
+                           fun_type& fun_,
+                           terminate_type& terminated_):
+        arg_min(arg_min_),upper(upper_),lower(lower_),fun(fun_),optimal_value(optimal_value_),
+        terminated(terminated_)
+    {
+
+    }
+    void run(unsigned int iteration_count,double variance)
+    {
+        image::optimization::rand_search(
+                    arg_min.begin(),arg_min.end(),
+                    upper.begin(),lower.begin(),
+                    optimal_value,fun,iteration_count,terminated,variance);
+    }
+    void create_thread(unsigned int iteration_count,double variance)
+    {
+        thread.reset(new thread_class(&linear_mutlithread_imp::run,this,iteration_count,variance));
+    }
+    void join(void)
+    {
+        thread->join();
+    }
+};
+
+template<typename thread_class,typename image_type,typename transform_type,typename CostFunctionType,typename teminated_class>
+void linear(const image_type& from,const image_type& to,
+                    transform_type& arg_min,
+                    int reg_type,
+                    CostFunctionType,
+                    unsigned int thread_count,
+                    teminated_class& terminated)
+{
+    typedef image::reg::fun_adoptor<image_type,transform_type,CostFunctionType> fun_type;
+    typedef linear_mutlithread_imp<thread_class,transform_type,fun_type,teminated_class> thread_facade_type;
+    transform_type upper,lower;
+    image::reg::get_bound(from,to,arg_min,upper,lower,reg_type);
+    fun_type fun(from,to);
+    std::srand(0);
+    std::vector<thread_facade_type*> threads(thread_count);
+    double optimal_value = fun(arg_min.begin());
+    for(unsigned int i = 0;i < thread_count;++i)
+        threads[i] = new thread_facade_type(arg_min,upper,lower,optimal_value,fun,terminated);
+    for(float variance = 4;variance < 100 && !terminated;variance *= 2)
+    {
+        double old_value;
+        do
+        {
+            old_value = optimal_value;
+            for(unsigned int i = 1;i < thread_count;++i)
+                threads[i]->create_thread(arg_min.size()*20/thread_count,variance);
+            threads[0]->run(arg_min.size()*20/thread_count,variance);
+            for(unsigned int i = 1;i < thread_count;++i)
+                threads[i]->join();
+        }while(old_value != optimal_value && !terminated);
+    }
+    for(unsigned int i = 0;i < thread_count;++i)
+        delete threads[i];
+    image::optimization::quasi_newtons_minimize(arg_min.begin(),arg_min.end(),upper.begin(),lower.begin(),fun,terminated);
 }
 
 }
