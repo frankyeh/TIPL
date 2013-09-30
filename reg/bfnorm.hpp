@@ -104,7 +104,48 @@ public:
             }
         }
     }
+    template<typename rhs_type1,typename rhs_type2>
+    void operator()(const rhs_type1& from,rhs_type2& to) const
+    {
+        to = from;
+        if(!VGgeo.is_valid(from))
+            return;
+        int nx = k_base[0];
+        int ny = k_base[1];
+        int nz = k_base[2];
+        int nyz =ny*nz;
+        int nxyz = k_base.size();
 
+        image::dyndim dyz_x(nyz,nx),dz_y(nz,ny),dx_1(nx,1),dy_1(ny,1);
+        std::vector<value_type> bx_(nx),by_(ny),bz_(nz),temp_(nyz),temp2_(nz);
+        value_type *bx = &bx_[0];
+        value_type *by = &by_[0];
+        value_type *bz = &bz_[0];
+        value_type *temp = &temp_[0];
+        value_type *temp2 = &temp2_[0];
+
+        for(unsigned char dim = 0;dim < 3;++dim)
+        {
+        for(unsigned int k = 0,index = from[0];k < nx;++k,index += VGgeo[0])
+            bx[k] = bas[0][index];
+        for(unsigned int k = 0,index = from[1];k < ny;++k,index += VGgeo[1])
+            by[k] = bas[1][index];
+        for(unsigned int k = 0,index = from[2];k < nz;++k,index += VGgeo[2])
+            bz[k] = bas[2][index];
+        }
+
+        image::matrix::product(T.begin(),bx,temp,dyz_x,dx_1);
+        image::matrix::product(temp,by,temp2,dz_y,dy_1);
+        to[0] += image::vec::dot(bz,bz+nz,temp2);
+
+        image::matrix::product(T.begin()+nxyz,bx,temp,dyz_x,dx_1);
+        image::matrix::product(temp,by,temp2,dz_y,dy_1);
+        to[1] += image::vec::dot(bz,bz+nz,temp2);
+
+        image::matrix::product(T.begin()+(nxyz << 1),bx,temp,dyz_x,dx_1);
+        image::matrix::product(temp,by,temp2,dz_y,dy_1);
+        to[2] += image::vec::dot(bz,bz+nz,temp2);
+    }
 };
 
 template<typename parameter_type>
@@ -566,8 +607,8 @@ void bfnorm_mrqcof(const image_type& VG,
 
 
 
-template<typename ImageType,typename value_type>
-void bfnorm(const ImageType& VG,const ImageType& VF,bfnorm_mapping<value_type>& mapping,
+template<typename ImageType,typename value_type,typename terminator_type>
+void bfnorm(const ImageType& VG,const ImageType& VF,bfnorm_mapping<value_type>& mapping,terminator_type& terminated,
              value_type sample_rate = (value_type)8.0,int iteration = 16)
 {
     static const int dim = ImageType::dimension;
@@ -608,7 +649,7 @@ void bfnorm(const ImageType& VG,const ImageType& VF,bfnorm_mapping<value_type>& 
     std::vector<value_type> alpha,beta;
     value_type var,fw,pvar = std::numeric_limits<value_type>::max();
 
-    for(int iter = 0;iter < iteration;++iter)
+    for(int iter = 0;iter < iteration && !terminated;++iter)
     {
         bfnorm_mrqcof(VG,VF,mapping,sample_rate,fwhm2,alpha,beta,var,fw);
         {
@@ -641,51 +682,7 @@ void bfnorm(const ImageType& VG,const ImageType& VF,bfnorm_mapping<value_type>& 
     }
 }
 
-template<typename value_type,typename rhs_type1,typename rhs_type2>
-bool bfnorm_warp_coordinate(const bfnorm_mapping<value_type>& mapping,const rhs_type1& from,rhs_type2& to)
-{
-    to = from;
-    if(!mapping.VGgeo.is_valid(from))
-        return false;
-    int nx = mapping.k_base[0];
-    int ny = mapping.k_base[1];
-    int nz = mapping.k_base[2];
-    int nyz =ny*nz;
-    int nxyz = mapping.k_base.size();
 
-    const std::vector<value_type>& T = mapping.T;
-
-    image::dyndim dyz_x(nyz,nx),dz_y(nz,ny),dx_1(nx,1),dy_1(ny,1);
-    std::vector<value_type> bx_(nx),by_(ny),bz_(nz),temp_(nyz),temp2_(nz);
-    value_type *bx = &bx_[0];
-    value_type *by = &by_[0];
-    value_type *bz = &bz_[0];
-    value_type *temp = &temp_[0];
-    value_type *temp2 = &temp2_[0];
-
-    for(unsigned char dim = 0;dim < 3;++dim)
-    {
-    for(unsigned int k = 0,index = from[0];k < nx;++k,index += mapping.VGgeo[0])
-        bx[k] = mapping.bas[0][index];
-    for(unsigned int k = 0,index = from[1];k < ny;++k,index += mapping.VGgeo[1])
-        by[k] = mapping.bas[1][index];
-    for(unsigned int k = 0,index = from[2];k < nz;++k,index += mapping.VGgeo[2])
-        bz[k] = mapping.bas[2][index];
-    }
-
-    image::matrix::product(T.begin(),bx,temp,dyz_x,dx_1);
-    image::matrix::product(temp,by,temp2,dz_y,dy_1);
-    to[0] += image::vec::dot(bz,bz+nz,temp2);
-
-    image::matrix::product(T.begin()+nxyz,bx,temp,dyz_x,dx_1);
-    image::matrix::product(temp,by,temp2,dz_y,dy_1);
-    to[1] += image::vec::dot(bz,bz+nz,temp2);
-
-    image::matrix::product(T.begin()+(nxyz << 1),bx,temp,dyz_x,dx_1);
-    image::matrix::product(temp,by,temp2,dz_y,dy_1);
-    to[2] += image::vec::dot(bz,bz+nz,temp2);
-    return true;
-}
 
 template<typename value_type,typename from_type,typename matrix_type>
 void bfnorm_get_jacobian(const bfnorm_mapping<value_type>& mapping,const from_type& from,matrix_type Jbet)
@@ -768,19 +765,6 @@ void bfnorm_get_jacobian(const bfnorm_mapping<value_type>& mapping,const from_ty
     //image::matrix::product(affine_rotation,Jbet,M,math::dim<3,3>(),math::dim<3,3>());
 }
 
-
-template<typename value_type,typename image_type1,typename image_type2>
-void bfnorm_warp_image(const bfnorm_mapping<value_type>& mapping,const image_type1& I,image_type2& out)
-{
-    out.resize(mapping.VGgeo);
-    for(image::pixel_index<3> index;mapping.VGgeo.is_valid(index);index.next(mapping.VGgeo))
-    {
-        image::vector<3,double> pos;
-        bfnorm_warp_coordinate(mapping,index,pos);
-        image::interpolation<image::linear_weighting,3> trilinear_interpolation;
-        trilinear_interpolation.estimate(I,pos,out[index.index()]);
-    }
-}
 
 
 }// reg

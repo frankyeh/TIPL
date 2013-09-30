@@ -599,19 +599,19 @@ public:
         return true;
     }
 
-    template<typename InputIterType,typename OutputIterType>
-    void operator()(InputIterType in_iter,OutputIterType out_iter) const
+    template<typename vtype1,typename vtype2>
+    void operator()(const vtype1& from,vtype2& to) const
     {
-        vector_transformation(in_iter,out_iter,scaling_rotation,shift,vdim<dimension>());
+        vector_transformation(from.begin(),to.begin(),scaling_rotation,shift,vdim<dimension>());
+    }
+    template<typename vtype>
+    void operator()(vtype& pos) const
+    {
+        vtype result;
+        vector_transformation(pos.begin(),result.begin(),scaling_rotation,shift,vdim<dimension>());
+        pos = result;
     }
 
-    template<typename IterType>
-    void operator()(IterType in_iter) const
-    {
-        value_type value[dimension];
-        vector_transformation(in_iter,value,scaling_rotation,shift,vdim<dimension>());
-        std::copy(value,value+dimension,in_iter);
-    }
 
 };
 

@@ -397,7 +397,7 @@ public:
     }
 public:
     template<typename format_type>
-    void save_to_file(const char* file_name)
+    void save_to_file(const char* file_name) const
     {
         format_type out;
         out.load_from_image(*this);

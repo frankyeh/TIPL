@@ -9,6 +9,7 @@
 #include "image/numerical/transformation.hpp"
 #include "image/numerical/optimization.hpp"
 #include "image/numerical/statistics.hpp"
+#include "image/numerical/resampling.hpp"
 #include "image/segmentation/otsu.hpp"
 #include "image/morphology/morphology.hpp"
 
@@ -43,8 +44,8 @@ namespace reg
         return sum_mass;
     }
 
-    template<typename image_type>
-    void align_center(const image_type& from,const image_type& to,image::affine_transform<3,float>& arg_min)
+    template<typename image_type1,typename image_type2>
+    void align_center(const image_type1& from,const image_type2& to,image::affine_transform<3,float>& arg_min)
     {
         image::vector<3,double> mF = image::reg::center_of_mass(from);
         image::vector<3,double> mG = image::reg::center_of_mass(to);
@@ -62,10 +63,10 @@ namespace reg
             const unsigned int dim = ImageType::dimension;
             image::geometry<dim> geo(Ifrom.geometry());
             double error = 0.0;
-            double pos[dim];
+            image::vector<dim,double> pos;
             for (image::pixel_index<dim> index; index.valid(geo); index.next(geo))
             {
-                transform(index.begin(),pos);
+                transform(index,pos);
                 double to_pixel;
                 if (linear_estimate(Ito,pos,to_pixel))
                 {
@@ -102,12 +103,7 @@ namespace reg
             const unsigned int dim = ImageType::dimension;
             image::geometry<dim> geo(Ifrom.geometry());
             std::vector<double> y(geo.size());
-            double pos[dim];
-            for (image::pixel_index<dim> index; index.valid(geo); index.next(geo))
-            {
-                transform(index.begin(),pos);
-                linear_estimate(Ito,pos,y[index.index()]);
-            }
+            image::resample(Ito,y,transform);
             return image::correlation(Ifrom.begin(),Ifrom.end(),y.begin());
         }
     };
@@ -143,11 +139,11 @@ namespace reg
             // obtain the histogram
             image::geometry<dimension> geo(from_.geometry());
             image::interpolation<image::linear_weighting,dimension> interp;
-            double pos[dimension];
+            image::vector<dimension,double> pos;
             for (image::pixel_index<dimension> index; index.valid(geo); index.next(geo))
             {
                 unsigned int from_index = from[index.index()];
-                transform(index.begin(),pos);
+                transform(index,pos);
                 if (!interp.get_location(to_.geometry(),pos))
                 {
                     to_hist[0] += 1.0;
@@ -253,7 +249,6 @@ void get_bound(const image_type1& from,const image_type2& to,
     }
 }
 
-
 template<typename image_type,typename transform_type,typename CostFunctionType,typename teminated_class>
 void linear(const image_type& from,const image_type& to,
                     transform_type& arg_min,
@@ -266,88 +261,15 @@ void linear(const image_type& from,const image_type& to,
     image::reg::fun_adoptor<image_type,transform_type,CostFunctionType> fun(from,to);
     std::srand(0);
     double optimal_value = fun(arg_min.begin());
-    for(float variance = 4;variance < 100 && !terminated;variance *= 2)
-    {
-        while(image::optimization::rand_search(arg_min.begin(),arg_min.end(),
-                                               upper.begin(),lower.begin(),
-                                               optimal_value,fun,arg_min.size()*20,
-                                               terminated,variance))
-            ;
-    }
-    image::optimization::quasi_newtons_minimize(arg_min.begin(),arg_min.end(),upper.begin(),lower.begin(),fun,terminated,0.01);
-}
-
-template<typename thread_class,typename transform_type,typename fun_type,typename terminate_type>
-struct linear_mutlithread_imp{
-    std::auto_ptr<thread_class> thread;
-private:
-    transform_type& arg_min,upper,lower;
-    fun_type& fun;
-    double& optimal_value;
-    terminate_type& terminated;
-public:
-    linear_mutlithread_imp(transform_type& arg_min_,
-                           transform_type& upper_,
-                           transform_type& lower_,
-                           double& optimal_value_,
-                           fun_type& fun_,
-                           terminate_type& terminated_):
-        arg_min(arg_min_),upper(upper_),lower(lower_),fun(fun_),optimal_value(optimal_value_),
-        terminated(terminated_)
-    {
-
-    }
-    void run(unsigned int iteration_count,double variance)
-    {
-        image::optimization::rand_search(
-                    arg_min.begin(),arg_min.end(),
-                    upper.begin(),lower.begin(),
-                    optimal_value,fun,iteration_count,terminated,variance);
-    }
-    void create_thread(unsigned int iteration_count,double variance)
-    {
-        thread.reset(new thread_class(&linear_mutlithread_imp::run,this,iteration_count,variance));
-    }
-    void join(void)
-    {
-        thread->join();
-    }
-};
-
-template<typename thread_class,typename image_type,typename transform_type,typename CostFunctionType,typename teminated_class>
-void linear(const image_type& from,const image_type& to,
-                    transform_type& arg_min,
-                    int reg_type,
-                    CostFunctionType,
-                    unsigned int thread_count,
-                    teminated_class& terminated)
-{
-    typedef image::reg::fun_adoptor<image_type,transform_type,CostFunctionType> fun_type;
-    typedef linear_mutlithread_imp<thread_class,transform_type,fun_type,teminated_class> thread_facade_type;
-    transform_type upper,lower;
-    image::reg::get_bound(from,to,arg_min,upper,lower,reg_type);
-    fun_type fun(from,to);
-    std::srand(0);
-    std::vector<thread_facade_type*> threads(thread_count);
-    double optimal_value = fun(arg_min.begin());
-    for(unsigned int i = 0;i < thread_count;++i)
-        threads[i] = new thread_facade_type(arg_min,upper,lower,optimal_value,fun,terminated);
-    for(float variance = 4;variance < 100 && !terminated;variance *= 2)
-    {
-        double old_value;
-        do
+    image::optimization::graient_descent(arg_min.begin(),arg_min.end(),upper.begin(),lower.begin(),fun,optimal_value,terminated,0.001);
+    for(unsigned int iter = 0;iter < arg_min.size()*10 && !terminated;++iter)
+        if(image::optimization::rand_search(arg_min.begin(),arg_min.end(),
+                                           upper.begin(),lower.begin(),
+                                           optimal_value,fun,5))
         {
-            old_value = optimal_value;
-            for(unsigned int i = 1;i < thread_count;++i)
-                threads[i]->create_thread(arg_min.size()*20/thread_count,variance);
-            threads[0]->run(arg_min.size()*20/thread_count,variance);
-            for(unsigned int i = 1;i < thread_count;++i)
-                threads[i]->join();
-        }while(old_value != optimal_value && !terminated);
-    }
-    for(unsigned int i = 0;i < thread_count;++i)
-        delete threads[i];
-    image::optimization::quasi_newtons_minimize(arg_min.begin(),arg_min.end(),upper.begin(),lower.begin(),fun,terminated);
+            image::optimization::graient_descent(arg_min.begin(),arg_min.end(),upper.begin(),lower.begin(),fun,optimal_value,terminated,0.001);
+            iter = 0;
+        }
 }
 
 }

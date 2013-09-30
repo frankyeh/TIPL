@@ -12,6 +12,25 @@ namespace image
 namespace optimization
 {
 
+template<typename image_type,typename iter_type1,typename function_type>
+void plot_fun_2d(
+                image_type& I,
+                iter_type1 x_beg,iter_type1 x_end,
+                iter_type1 x_upper,iter_type1 x_lower,
+                function_type& fun,
+                unsigned int dim1,unsigned int dim2,unsigned int sample_frequency = 100)
+{
+    typedef typename std::iterator_traits<iter_type1>::value_type param_type;
+    I.resize(image::geometry<2>(sample_frequency,sample_frequency));
+    for(image::pixel_index<2> index;index.valid(I.geometry());index.next(I.geometry()))
+    {
+        std::vector<param_type> x(x_beg,x_end);
+        x[dim1] = (x_upper[dim1]-x_lower[dim1])*index[0]/(float)sample_frequency+x_lower[dim1];
+        x[dim2] = (x_upper[dim2]-x_lower[dim2])*index[1]/(float)sample_frequency+x_lower[dim2];
+        I[index.index()] = fun(x.begin());
+    }
+}
+
 // calculate fun(x+ei)
 template<typename iter_type1,typename tol_type,typename iter_type2,typename function_type>
 void estimate_change(iter_type1 x_beg,iter_type1 x_end,tol_type tol,iter_type2 fun_ei,function_type& fun)
@@ -23,10 +42,16 @@ void estimate_change(iter_type1 x_beg,iter_type1 x_end,tol_type tol,iter_type2 f
         if(tol[i] == 0)
             continue;
         param_type old_x = x_beg[i];
-        x_beg[i] += *tol;
+        x_beg[i] += tol[i];
         fun_ei[i] = fun(x_beg);
         x_beg[i] = old_x;
     }
+}
+// calculate fun(x+ei)
+template<typename storage_type,typename tol_storage_type,typename fun_type,typename function_type>
+void estimate_change(const storage_type& x,const tol_storage_type& tol,fun_type& fun_ei,function_type& fun)
+{
+    estimate_change(x.begin(),x.end(),tol.begin(),fun_ei.begin(),fun);
 }
 
 template<typename iter_type1,typename tol_type,typename value_type,typename iter_type2,typename iter_type3>
@@ -44,6 +69,11 @@ void gradient(iter_type1 x_beg,iter_type1 x_end,
             g_beg[i] = 0;
         else
             g_beg[i] /= tol[i];
+}
+template<typename storage_type,typename tol_storage_type,typename value_type,typename storage_type2,typename storage_type3>
+void gradient(const storage_type& x,const tol_storage_type& tol,value_type fun_x,const storage_type2& fun_x_ei,storage_type3& g)
+{
+    gradient(x.begin(),x.end(),tol.begin(),fun_x,fun_x_ei.begin(),g.begin());
 }
 
 template<typename iter_type1,typename tol_type,typename value_type,typename iter_type2,typename iter_type3,typename function_type>
@@ -78,35 +108,57 @@ void hessian(iter_type1 x_beg,iter_type1 x_end,
     }
 }
 
-template<typename iter_type1,typename g_type,typename value_type,typename function_type>
+template<typename storage_type,typename tol_storage_type,typename value_type,typename storage_type2,typename storage_type3,typename function_type>
+void hessian(const storage_type& x,const tol_storage_type& tol,value_type fun_x,const storage_type2& fun_x_ei,storage_type3& h,function_type& fun)
+{
+    hessian(x.begin(),x.end(),tol.begin(),fun_x,fun_x_ei.begin(),h.begin(),fun);
+}
+
+template<typename iter_type1,typename iter_type2,typename g_type,typename value_type,typename function_type>
 bool armijo_line_search(iter_type1 x_beg,iter_type1 x_end,
-                        iter_type1 x_upper,iter_type1 x_lower,
+                        iter_type2 x_upper,iter_type2 x_lower,
                         g_type g_beg,
                         value_type& fun_x,
                         function_type& fun,double precision = 0.001)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
     unsigned int size = x_end-x_beg;
-    double step = 0.5;
     double norm = image::norm2(g_beg,g_beg+size);
-    for(;step > precision;step *= 0.5)
+    for(double step = 1.0;step > precision;step *= 0.5)
     {
-        image::multiply_constant(g_beg,g_beg+size,step);
         std::vector<param_type> new_x(x_beg,x_end);
-        image::minus(new_x.begin(),new_x.end(),g_beg);
+        image::vec::aypx(g_beg,g_beg+size,-step,new_x.begin());
         for(unsigned int j = 0;j < size;++j)
             new_x[j] = std::min(std::max(new_x[j],x_lower[j]),x_upper[j]);
         value_type new_fun_x(fun(new_x.begin()));
         if(fun_x-new_fun_x >= 0.0001*step*norm)
         {
-            std::copy(new_x.begin(),new_x.end(),x_beg);
             fun_x = new_fun_x;
+            std::copy(new_x.begin(),new_x.end(),x_beg);
+            //std::cout << fun_x << std::endl;
             return true;
         }
     }
     return false;
 }
+template<typename storage_type,typename g_storage_type,typename value_type,typename function_type>
+bool armijo_line_search(storage_type& x,
+                        const storage_type& upper,
+                        const storage_type& lower,
+                        const g_storage_type& g_beg,
+                        value_type& fun_x,
+                        function_type& fun,double precision = 0.001)
+{
+    armijo_line_search(x.begin(),x.end(),upper.begin(),lower.begin(),g_beg.begin(),fun_x,fun,precision);
+}
 
+template<typename tol_type,typename iter_type>
+double calculate_resolution(tol_type& tols,iter_type x_upper,iter_type x_lower,double precision = 0.001)
+{
+    for(unsigned int i = 0;i < tols.size();++i)
+        tols[i] = (x_upper[i]-x_lower[i])*precision;
+    return image::norm2(tols.begin(),tols.end());
+}
 
 template<typename iter_type1,typename function_type,typename terminated_class>
 void quasi_newtons_minimize(
@@ -120,8 +172,7 @@ void quasi_newtons_minimize(
     unsigned int size = x_end-x_beg;
     value_type fun_x(fun(x_beg));
     std::vector<param_type> tols(size);
-    for(unsigned int i = 0;i < size;++i)
-        tols[i] = (x_upper[i]-x_lower[i])*precision;
+    double tol_length = calculate_resolution(tols,x_upper,x_lower,precision);
     for(unsigned int iter = 0;iter < 500 && !terminated;++iter)
     {
         std::vector<value_type> fun_x_ei(size);
@@ -130,24 +181,101 @@ void quasi_newtons_minimize(
         gradient(x_beg,x_end,tols.begin(),fun_x,fun_x_ei.begin(),g.begin());
         hessian(x_beg,x_end,tols.begin(),fun_x,fun_x_ei.begin(),h.begin(),fun);
 
+        // regularize hessian
+        //image::normalize(h,1.0);
+        //for(unsigned int i = 0;i < size;++i)
+        //    h[i + i*size] += 1.0;
+
         std::vector<unsigned int> pivot(size);
         image::matrix::lu_decomposition(h.begin(),pivot.begin(),image::dyndim(size,size));
         if(!image::matrix::lu_solve(h.begin(),pivot.begin(),g.begin(),p.begin(),image::dyndim(size,size)))
             return;
 
+        image::multiply(p,tols); // scale the unit to parameter unit
+        double length = image::norm2(p.begin(),p.end());
+        image::multiply_constant(p,tol_length/length);
         if(!armijo_line_search(x_beg,x_end,x_upper,x_lower,p.begin(),fun_x,fun,precision))
+            return;
+    }
+}
+template<typename iter_type1,typename iter_type2,typename function_type,typename terminated_class>
+void graient_descent(
+                iter_type1 x_beg,iter_type1 x_end,
+                iter_type2 x_upper,iter_type2 x_lower,
+                function_type& fun,
+                typename function_type::value_type& fun_x,
+                terminated_class& terminated,double precision = 0.001)
+{
+    typedef typename std::iterator_traits<iter_type1>::value_type param_type;
+    typedef typename function_type::value_type value_type;
+    unsigned int size = x_end-x_beg;
+    std::vector<param_type> tols(size);
+    double tol_length = calculate_resolution(tols,x_upper,x_lower,precision);
+    for(unsigned int iter = 0;iter < 1000 && !terminated;++iter)
+    {
+        std::vector<value_type> fun_x_ei(size);
+        std::vector<param_type> g(size);
+        estimate_change(x_beg,x_end,tols.begin(),fun_x_ei.begin(),fun);
+        gradient(x_beg,x_end,tols.begin(),fun_x,fun_x_ei.begin(),g.begin());
+
+        image::multiply(g,tols); // scale the unit to parameter unit
+        double length = image::norm2(g.begin(),g.end());
+        image::multiply_constant(g,tol_length/length);
+        if(!armijo_line_search(x_beg,x_end,x_upper,x_lower,g.begin(),fun_x,fun,precision))
             return;
     }
 }
 
 
-template<typename iter_type1,typename value_type,typename function_type,typename terminated_class>
-bool rand_search(iter_type1 x_beg,iter_type1 x_end,iter_type1 x_upper,iter_type1 x_lower,
-                 value_type& fun_x,function_type& fun,unsigned int trials,terminated_class& terminated,double variance)
+template<typename iter_type1,typename iter_type2,typename function_type,typename terminated_class>
+void conjugate_descent(
+                iter_type1 x_beg,iter_type1 x_end,
+                iter_type2 x_upper,iter_type2 x_lower,
+                function_type& fun,
+                typename function_type::value_type& fun_x,
+                terminated_class& terminated,double precision = 0.001)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
-    bool improved = false;
-    while(--trials && !terminated)
+    typedef typename function_type::value_type value_type;
+    unsigned int size = x_end-x_beg;
+    std::vector<param_type> tols(size);
+    double tol_length = calculate_resolution(tols,x_upper,x_lower,precision);
+
+    std::vector<param_type> g(size),d(size),y(size);
+    for(unsigned int iter = 0;iter < 1000 && !terminated;++iter)
+    {
+        std::vector<value_type> fun_x_ei(size);
+        estimate_change(x_beg,x_end,tols.begin(),fun_x_ei.begin(),fun);
+        gradient(x_beg,x_end,tols.begin(),fun_x,fun_x_ei.begin(),g.begin());
+        if(iter == 0)
+            d = g;
+        else
+        {
+            image::minus(y.begin(),y.end(),g.begin());      // y = g_k-g_k_1
+            double dt_yk = image::vec::dot(d.begin(),d.end(),y.begin());
+            double y2 = image::vec::dot(y.begin(),y.end(),y.begin());
+            image::vec::axpy(y.begin(),y.end(),-2.0*y2/dt_yk,d.begin()); // y = yk-(2|y|^2/dt_yk)dk
+            double beta = image::vec::dot(y.begin(),y.end(),g.begin())/dt_yk;
+            image::multiply_constant(d.begin(),d.end(),-beta);
+            image::add(d,g);
+        }
+        y.swap(g);
+        g = d;
+
+        image::multiply(g,tols); // scale the unit to parameter unit
+        double length = image::norm2(g.begin(),g.end());
+        image::multiply_constant(g,tol_length/length);
+        if(!armijo_line_search(x_beg,x_end,x_upper,x_lower,g.begin(),fun_x,fun,precision))
+            return;
+    }
+}
+
+
+template<typename iter_type1,typename iter_type2,typename value_type,typename function_type>
+bool rand_search(iter_type1 x_beg,iter_type1 x_end,iter_type2 x_upper,iter_type2 x_lower,
+                 value_type& fun_x,function_type& fun,double variance)
+{
+    typedef typename std::iterator_traits<iter_type1>::value_type param_type;
     {
         std::vector<param_type> new_x(x_beg,x_end);
         unsigned int size = x_end-x_beg;
@@ -175,11 +303,13 @@ bool rand_search(iter_type1 x_beg,iter_type1 x_end,iter_type1 x_upper,iter_type1
         {
             fun_x = new_fun_x;
             std::copy(new_x.begin(),new_x.end(),x_beg);
-            improved = true;
+            //std::cout << fun_x << std::endl;
+            return true;
         }
     }
-    return improved;
+    return false;
 }
+
 
 template<typename param_type,typename value_type,unsigned int max_iteration = 100>
 struct brent_method
@@ -510,77 +640,6 @@ struct BFGS
 
 };
 */
-template<typename coordinate_type,typename gradient_function_type>
-void conjugate_descent(coordinate_type& x0,const gradient_function_type& g,double precision = 0.0001)
-{
-    coordinate_type x = x0;
-    coordinate_type g_k = g(x);
-    coordinate_type d_k = -g_k;
-    coordinate_type y,alpha_d_k,g_k_1;
-    double alpha = 0;
-    do
-    {
-        y = x;
-        y -= g_k;
-        alpha = 1.0/(1.0-(d_k*g(y))/(d_k*g_k));
-
-        alpha_d_k = d_k;
-        alpha_d_k *= alpha;
-        x += alpha_d_k;
-
-        g_k_1 = g(x);
-
-        d_k *= (g_k_1*g_k_1)/(g_k*g_k);
-
-        d_k -= g_k_1;
-        g_k = g_k_1;
-    }
-    while (std::abs(alpha) > precision);
-    x0 = x;
-}
-
-template<typename coordinate_type,typename gradient_function_type,typename function_type,typename value_type>
-void gradient_descent(coordinate_type& x,const function_type& f,const gradient_function_type& g,value_type radius,value_type precision = 0.001)
-{
-    coordinate_type g_k = -g(x);
-    coordinate_type dx;
-	
-	value_type line_search_rate = 0.5;
-	value_type c1 = 0.0001;
-	value_type dir_g_x0 = g_k * g_k;
-	
-	precision *= precision;
-	precision *= dir_g_x0;
-    radius /= std::sqrt(dir_g_x0); 
-	for (unsigned int index = 0;index < 100;++index)
-    {
-        value_type f_x0 = f(x);
-		value_type alpha_k = radius;
-		do//back tracking
-            {
-				coordinate_type x_alpha_dir = g_k;
-				x_alpha_dir *= alpha_k;
-				x_alpha_dir += x;
-				// condition 1
-				// the Armijo rule
-				if (f(x_alpha_dir) <= f_x0 + c1*alpha_k*dir_g_x0)
-					break;
-                alpha_k *= line_search_rate;
-            }
-            while (alpha_k > 0.0);
-		dx = g_k;
-        dx *= alpha_k;
-		coordinate_type next_x(x);
-		next_x += dx;
-		if(next_x == x)
-			break;
-        x = next_x;
-		g_k = -g(x);
-		dir_g_x0 = g_k * g_k;
-        if (dir_g_x0 < precision || alpha_k == 0.0)
-            break;
-    }
-}
 
 
 
