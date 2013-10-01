@@ -201,13 +201,14 @@ public:
         in.read((char*)&cols,4);
         in.read((char*)&imagf,4);
         in.read((char*)&namelen,4);
-        if(namelen == 0 || namelen > 255)
+        if(!in || namelen == 0 || namelen > 255)
             return false;
         std::vector<char> buffer(namelen+1);
         in.read((char*)&*buffer.begin(),namelen);
         count = rows*cols;
+        if(!count)
+            return false;
         name = &*buffer.begin();
-
         if (!in)
             return false;
 
@@ -224,7 +225,7 @@ public:
         return true;
     }
     template<typename stream_type>
-    bool write(stream_type& out)
+    bool write(stream_type& out) const
     {
         unsigned int imagf = 0;
         out.write((const char*)&type,4);
@@ -261,14 +262,14 @@ public:
         return read_as_type(iter->second,rows,cols,type);
     }
     template<typename out_type>
-    void read(int index,unsigned int& rows,unsigned int& cols,const out_type*& out) const
+    const out_type*& read(int index,unsigned int& rows,unsigned int& cols,const out_type*& out) const
     {
-        out = (const out_type*)read_as_type(index,rows,cols,mat_type_info<out_type>::type);
+        return out = (const out_type*)read_as_type(index,rows,cols,mat_type_info<out_type>::type);
     }
     template<typename out_type>
-    void read(const char* name,unsigned int& rows,unsigned int& cols,const out_type*& out) const
+    const out_type*& read(const char* name,unsigned int& rows,unsigned int& cols,const out_type*& out) const
     {
-        out = (const out_type*)read_as_type(name,rows,cols,mat_type_info<out_type>::type);
+        return out = (const out_type*)read_as_type(name,rows,cols,mat_type_info<out_type>::type);
     }
 	template<typename data_type>
     void read_as_image(int index,image::basic_image<data_type,2>& image_buf) const
@@ -305,6 +306,7 @@ public:
         input_interface in;
         if(!in.open(file_name))
             return false;
+        clear();
         while(in)
         {
             std::auto_ptr<mat_matrix> matrix(new mat_matrix);
@@ -333,15 +335,17 @@ public:
             return;
         std::copy(buf,buf+image_data.size(),image_data.begin());
     }
-
-    unsigned int read_count(void) const
-    {
-        return dataset.size();
-    }
-    const char* read_name(unsigned int index) const
+    const char* name(unsigned int index) const
     {
         return dataset[index]->get_name().c_str();
     }
+
+    unsigned int size(void) const
+    {
+        return dataset.size();
+    }
+    mat_matrix& operator[](unsigned int index){return *dataset[index];}
+    const mat_matrix& operator[](unsigned int index) const {return *dataset[index];}
 
     template<typename image_type>
     const mat_read_base& operator>>(image_type& source) const
@@ -371,6 +375,11 @@ public:
         matrix.assign(data_ptr,rows,cols);
         matrix.write(out);
     }
+    void write(const mat_matrix& data)
+    {
+        data.write(out);
+    }
+
 public:
 
     template<typename image_type>
@@ -386,6 +395,8 @@ public:
         load_from_image(source);
         return *this;
     }
+    operator bool() const	{return !(!out);}
+    bool operator!() const	{return !out;}
 
 };
 
