@@ -293,7 +293,7 @@ bool rand_search(iter_type1 x_beg,iter_type1 x_end,iter_type2 x_upper,iter_type2
             seed1 /= (float)RAND_MAX+1.0;
             seed2 /= (float)RAND_MAX+1.0;
             seed1 *= 6.28318530718;
-            seed2 = std::sqrt(std::max<float>(0,-2.0*std::log(seed2)));
+            seed2 = std::sqrt(std::max<float>(0.0,-2.0*std::log(seed2)));
             float r1 = seed2*std::cos(seed1);
             new_x[i] += (x_upper[i]-x_lower[i])*r1/variance;
             new_x[i] = std::min(std::max(new_x[i],x_lower[i]),x_upper[i]);

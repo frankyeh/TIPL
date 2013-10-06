@@ -173,6 +173,17 @@ void rotation_matrix(angle_type theta,output_type m,vdim<3>)
     m[6] = sin_x_sin_z+cos_x_cos_z*sin_y;
     m[7] = -sin_x_cos_z+cos_x_sin_z*sin_y;
     m[8] = cos_x*cos_y;
+    /* Euler angle
+    m[0] = cos_x_cos_z - cos_y*sin_x_sin_z;
+    m[1] = sin_x_cos_z + cos_y*cos_x_sin_z;
+    m[2] = sin_z*sin_y;
+    m[3] = -cos_x_sin_z - cos_y*sin_x_cos_z;
+    m[4] = -sin_x_sin_z + cos_y*cos_x_cos_z;
+    m[5] = cos_z*sin_y;
+    m[6] = sin_y*sin_x;
+    m[7] = -sin_y*cos_x;
+    m[8] = cos_y;
+     */
 }
 /*
  Rotate*Scaling
