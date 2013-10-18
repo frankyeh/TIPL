@@ -157,6 +157,89 @@ public:
         return vr;
     }
 
+    bool is_string(void) const
+    {
+        return (lt0 == 'D' ||  // DA DS DT
+                lt0 == 'P' ||  // PN
+                lt0 == 'T' ||  // TM
+                lt0 == 'L' ||  // LO LT
+                lt1 == 'I' ||  // UI
+                lt1 == 'H' ||  // SH
+                (lt0 != 'A' && lt1 == 'T') || // ST UT LT
+                (lt0 == 'A' && lt1 == 'E') || // AE
+                (lt0 == 'A' || lt0 == 'C' || lt0 == 'I') && lt1 == 'S');//AS CS IS
+    }
+    bool is_int16(void) const
+    {
+        return (lt0 == 'A' && lt1 == 'T') ||
+                (lt0 == 'O' && lt1 == 'W') ||
+                (lt0 == 'S' && lt1 == 'S') ||
+                (lt0 == 'U' && lt1 == 'S');
+    }
+    bool is_int32(void) const
+    {
+        return (lt0 == 'S' && lt1 == 'L') ||
+                (lt0 == 'U' && lt1 == 'L');
+    }
+    bool is_float(void) const
+    {
+        //FL
+        return (lt0 == 'F' && lt1 == 'L') || (lt0 == 'O' && lt1 == 'F');
+    }
+    bool is_double(void) const
+    {
+        //FD
+        return (lt0 == 'F' && lt1 == 'D');
+    }
+
+    template<typename value_type>
+    void get_value(value_type& value) const
+    {
+        if(data.empty())
+            return;
+        if (is_string())
+        {
+            std::istringstream in((const char*)&*data.begin());
+            in >> value;
+            return;
+        }
+        if (is_float() && data.size() >= 4) // float
+        {
+            value = *(const float*)&*data.begin();
+            return;
+        }
+        if (is_double() && data.size() >= 8) // double
+        {
+            value = *(const double*)&*data.begin();
+            return;
+        }
+        if (is_int16() && data.size() >= 2) // uint16type
+        {
+            value = *(const short*)&*data.begin();
+            return;
+        }
+        if (is_int32() && data.size() >= 4)
+        {
+            value = *(const int*)&*data.begin();
+            return;
+        }
+
+        if (data.size() == 2) // uint16type
+        {
+            value = *(const short*)&*data.begin();
+            return;
+        }
+        if (data.size() == 4)
+        {
+            value = *(const int*)&*data.begin();
+            return;
+        }
+        if (data.size() == 8)
+        {
+            value = *(const double*)&*data.begin();
+            return;
+        }
+    }
 
     template<typename stream_type>
     void operator>> (stream_type& out) const
@@ -166,14 +249,14 @@ public:
             out << "(null)";
             return;
         }
-        if (lt0 == 'F' && lt1 == 'L' && data.size() >= 4) // float
+        if (is_float() && data.size() >= 4) // float
         {
             const float* iter = (const float*)&*data.begin();
             for (unsigned int index = 3;index < data.size();index += 4,++iter)
                 out << *iter << " ";
             return;
         }
-        if (lt0 == 'F' && lt1 == 'D' && data.size() >= 8) // double
+        if (is_double() && data.size() >= 8) // double
         {
             const double* iter = (const double*)&*data.begin();
             for (unsigned int index = 7;index < data.size();index += 8,++iter)
@@ -182,9 +265,7 @@ public:
         }
 
         bool is_ascii = true;
-        if (((lt0 == 'A' || lt0 == 'C' || lt0 == 'D'|| lt0 == 'I')&& lt1 == 'S') ||
-                (lt0 == 'P' && lt1 == 'N') || (lt0 == 'U' && lt1 == 'I') ||
-                (lt0 == 'L' && lt1 == 'T') || (lt0 == 'L' && lt1 == 'O')) // String
+        if (is_string()) // String
             {/* ascii*/}
         else
             for (unsigned int index = 0;index < data.size() && (data[index] || index <= 2);++index)
@@ -204,16 +285,16 @@ public:
             }
             return;
         }
-        if (data.size() == 2) // uint16type
+        if (is_int16() && data.size() >= 2)
         {
             for (unsigned int index = 1;index < data.size();index+=2)
-                out << *(short*)&*(data.begin()+index-1) << " ";
+                out << *(const short*)&*(data.begin()+index-1) << " ";
             return;
         }
-        if (data.size() == 4)
+        if (is_int32() && data.size() == 4)
         {
             for (unsigned int index = 3;index < data.size();index+=4)
-                out << *(int*)&*(data.begin()+index-3) << " ";
+                out << *(const int*)&*(data.begin()+index-3) << " ";
             return;
         }
         out << "..." << data.size() << " bytes";
@@ -412,8 +493,8 @@ public:
                     return false;
                 image_size = ge->length;
                 std::string image_type;
-                is_mosaic = get_ge_uint16(0x0019,0x100A) > 1 ||   // multiple frame (new version)
-                            (get_ge_text(0x0008,0x0008,image_type) && image_type.find("MOSAIC") != std::string::npos);
+                is_mosaic = get_int(0x0019,0x100A) > 1 ||   // multiple frame (new version)
+                            (get_text(0x0008,0x0008,image_type) && image_type.find("MOSAIC") != std::string::npos);
                 return true;
             }
             // Deal with CSA
@@ -453,49 +534,66 @@ public:
         return csa_data[iter->second]->get_value(index);
     }
 
-    const unsigned char* get_ge_data(unsigned short group,unsigned short element,unsigned int& length) const
+    const unsigned char* get_data(unsigned short group,unsigned short element,unsigned int& length) const
     {
-        unsigned int order = group;
-        order <<= 16;
-        order |= element;
-        std::map<unsigned int,unsigned int>::const_iterator iter = ge_map.find(order);
+        std::map<unsigned int,unsigned int>::const_iterator iter =
+                ge_map.find(((unsigned int)group << 16) | (unsigned int)element);
         if (iter == ge_map.end())
         {
             length = 0;
             return 0;
         }
-        unsigned int index = iter->second;
-        length = data[index]->get().size();
+        length = data[iter->second]->get().size();
         if (!length)
             return 0;
-        return (const unsigned char*)&*data[index]->get().begin();
+        return (const unsigned char*)&*data[iter->second]->get().begin();
     }
 
-    bool get_ge_text(unsigned short group,unsigned short element,std::string& result) const
+    bool get_text(unsigned short group,unsigned short element,std::string& result) const
     {
         unsigned int length = 0;
-        const char* text = (const char*)get_ge_data(group,element,length);
+        const char* text = (const char*)get_data(group,element,length);
         if (!text)
             return false;
         result = std::string(text,text+length);
         return true;
     }
 
-    unsigned short get_ge_uint16(unsigned short group,unsigned short element) const
+    template<typename value_type>
+    bool get_value(unsigned short group,unsigned short element,value_type& value) const
     {
-        unsigned int tmp;
-        const unsigned short* value = (const unsigned short*)get_ge_data(group,element,tmp);
-        if (value)
-            return *value;
-        return 0;
+        std::map<unsigned int,unsigned int>::const_iterator iter =
+                ge_map.find(((unsigned int)group << 16) | (unsigned int)element);
+        if (iter == ge_map.end())
+            return false;
+        data[iter->second]->get_value(value);
+        return true;
+    }
+    unsigned int get_int(unsigned short group,unsigned short element) const
+    {
+        unsigned int value = 0;
+        get_value(group,element,value);
+        return value;
+    }
+    float get_float(unsigned short group,unsigned short element) const
+    {
+        float value = 0.0;
+        get_value(group,element,value);
+        return value;
+    }
+    double get_double(unsigned short group,unsigned short element) const
+    {
+        double value = 0.0;
+        get_value(group,element,value);
+        return value;
     }
     template<typename voxel_size_type>
     void get_voxel_size(voxel_size_type voxel_size) const
     {
         std::string slice_dis,pixel_spacing;
-        if (!get_ge_text(0x0018,0x0088,slice_dis) && !get_ge_text(0x0018,0x0050,slice_dis))
+        if (!get_text(0x0018,0x0088,slice_dis) && !get_text(0x0018,0x0050,slice_dis))
             return;
-        if (!get_ge_text(0x0028,0x0030,pixel_spacing))
+        if (!get_text(0x0028,0x0030,pixel_spacing))
             return;
         std::replace(pixel_spacing.begin(),pixel_spacing.end(),'\\',' ');
         std::istringstream(pixel_spacing) >> voxel_size[0] >> voxel_size[1];
@@ -513,8 +611,8 @@ public:
     {
         //float image_row_orientation[3];
         std::string image_orientation;
-        if (!get_ge_text(0x0020,0x0037,image_orientation) &&
-                !get_ge_text(0x0020,0x0035,image_orientation))
+        if (!get_text(0x0020,0x0037,image_orientation) &&
+                !get_text(0x0020,0x0035,image_orientation))
             return;
         std::replace(image_orientation.begin(),image_orientation.end(),'\\',' ');
         std::istringstream(image_orientation)
@@ -528,8 +626,8 @@ public:
         //float image_col_orientation[3];
         float temp;
         std::string image_orientation;
-        if (!get_ge_text(0x0020,0x0037,image_orientation) &&
-                !get_ge_text(0x0020,0x0035,image_orientation))
+        if (!get_text(0x0020,0x0037,image_orientation) &&
+                !get_text(0x0020,0x0035,image_orientation))
             return;
         std::replace(image_orientation.begin(),image_orientation.end(),'\\',' ');
         std::istringstream(image_orientation)
@@ -566,7 +664,7 @@ public:
     float get_slice_location(void) const
     {
         std::string slice_location;
-        if (!get_ge_text(0x0020,0x1041,slice_location))
+        if (!get_text(0x0020,0x1041,slice_location))
             return 0.0;
         float data;
         std::istringstream(slice_location) >> data;
@@ -577,10 +675,10 @@ public:
     {
         std::string date,gender,age,id;
         date = gender = age = id = "_";
-        get_ge_text(0x0008,0x0022,date);
-        get_ge_text(0x0010,0x0040,gender);
-        get_ge_text(0x0010,0x1010,age);
-        get_ge_text(0x0010,0x0010,id);
+        get_text(0x0008,0x0022,date);
+        get_text(0x0010,0x0040,gender);
+        get_text(0x0010,0x1010,age);
+        get_text(0x0010,0x0010,id);
         using namespace std;
         gender.erase(remove(gender.begin(),gender.end(),' '),gender.end());
         id.erase(remove(id.begin(),id.end(),' '),id.end());
@@ -597,8 +695,8 @@ public:
     {
         std::string series_num,series_des;
         series_num = series_des = "_";
-        get_ge_text(0x0020,0x0011,series_num);
-        get_ge_text(0x0008,0x103E,series_des);
+        get_text(0x0020,0x0011,series_num);
+        get_text(0x0008,0x103E,series_des);
         using namespace std;
         series_num.erase(remove(series_num.begin(),series_num.end(),' '),series_num.end());
         series_des.erase(remove(series_des.begin(),series_des.end(),' '),series_des.end());
@@ -618,8 +716,8 @@ public:
     {
         std::string series_des,image_num;
         series_des = image_num = "_";
-        get_ge_text(0x0008,0x103E,series_des);
-        get_ge_text(0x0020,0x0013,image_num);
+        get_text(0x0008,0x103E,series_des);
+        get_text(0x0020,0x0013,image_num);
         using namespace std;
         series_des.erase(remove(series_des.begin(),series_des.end(),' '),series_des.end());
         std::replace(series_des.begin(),series_des.end(),'-','_');
@@ -630,32 +728,24 @@ public:
         info += ".dcm";
     }
 
-    unsigned short width(void) const
+    unsigned int width(void) const
     {
-        return get_ge_uint16(0x0028,0x0011);
+        return get_int(0x0028,0x0011);
     }
 
-    unsigned short height(void) const
+    unsigned int height(void) const
     {
-        return get_ge_uint16(0x0028,0x0010);
+        return get_int(0x0028,0x0010);
     }
 
     unsigned int frame_num(void) const
     {
-        unsigned int length = 0;
-        // GE header
-        const char* value = (const char*)get_ge_data(0x0028,0x0008,length);// B-vector
-        if (!value)
-            return 0;
-
-        unsigned int result;
-        std::istringstream((std::string(value,value+length))) >> result;
-        return result;
+        return get_int(0x0028,0x0008);
     }
 
-    unsigned short get_bit_count(void) const
+    unsigned int get_bit_count(void) const
     {
-        return get_ge_uint16(0x0028,0x0100);
+        return get_int(0x0028,0x0100);
     }
 
     void get_image_dimension(image::geometry<2>& geo) const
@@ -667,7 +757,7 @@ public:
     void get_image_dimension(image::geometry<3>& geo) const
     {
         unsigned int length = 0;
-        const short* acq_matrix = (const short*)get_ge_data(0x0018,0x1310,length);
+        const short* acq_matrix = (const short*)get_data(0x0018,0x1310,length);
         geo[2] = 0;
         // could be mosaic
         if (is_mosaic)
@@ -682,7 +772,7 @@ public:
             else
                 geo[0] = acq_matrix[2];
             // get the number of slices
-            geo[2] = get_ge_uint16(0x0019,0x100A);
+            geo[2] = get_int(0x0019,0x100A);
         }
         if (!geo[0] || !geo[1])
         {
