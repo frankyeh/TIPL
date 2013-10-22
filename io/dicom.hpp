@@ -199,7 +199,9 @@ public:
             return;
         if (is_string())
         {
-            std::istringstream in((const char*)&*data.begin());
+            std::string str(data.begin(),data.end());
+            str.push_back(0);
+            std::istringstream in(str);
             in >> value;
             return;
         }
