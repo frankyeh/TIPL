@@ -34,6 +34,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <set>
 #include <algorithm>
 #include <memory>
+#include <locale>
 #include "image/numerical/basic_op.hpp"
 //---------------------------------------------------------------------------
 namespace image
@@ -864,9 +865,21 @@ public:
             out << std::setw( 8 ) << std::setfill( '0' ) << std::hex << std::uppercase <<
             iter->first << " ";
             out << std::dec;
-            unsigned short vr = data[iter->second]->vr;
-            out << (char)(vr & 0xFF) << (char)(vr >> 8) << " ";
-            *(data[iter->second]) >> out;
+            if(data[iter->second]->data.empty())
+            {
+                out << std::setw( 8 ) << std::setfill( '0' ) << std::hex << std::uppercase <<
+                data[iter->second]->length << " ";
+                out << std::dec;
+            }
+            else
+            {
+                unsigned short vr = data[iter->second]->vr;
+                if((vr & 0xFF) && (vr >> 8))
+                    out << (char)(vr & 0xFF) << (char)(vr >> 8) << " ";
+                else
+                    out << "   ";
+                *(data[iter->second]) >> out;
+            }
             out << std::endl;
         }
         report = out.str();
