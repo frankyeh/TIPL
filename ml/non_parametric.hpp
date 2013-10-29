@@ -2,6 +2,7 @@
 #define ML_NON_PARAMETRIC_HPP
 #include <map>
 #include <limits>
+#include "utility.hpp"
 
 
 namespace image{
@@ -123,9 +124,10 @@ public:
     {
         sample_size = attributes_to-attributes_from;
         attribute_dimension = attribute_dimension_;
-        attributes.swap(normalized_attributes<attribute_type>(attributes_from,attributes_to,attribute_dimension));
-
-        classification.swap(std::vector<classification_type>(classifications_from,classifications_from+sample_size));
+        normalized_attributes<attribute_type> new_att(attributes_from,attributes_to,attribute_dimension);
+        attributes.swap(new_att);
+        std::vector<classification_type> new_class(classifications_from,classifications_from+sample_size);
+        classification.swap(new_class);
     }
 
     template<typename sample_iterator_type>

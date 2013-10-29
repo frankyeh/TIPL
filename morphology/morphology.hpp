@@ -538,7 +538,7 @@ void connected_component_labeling_pass(const ImageType& image,
 }
 
 template<typename PixelType,typename StorageType,typename LabelImageType>
-void connected_component_labeling(basic_image<PixelType,1,StorageType>& image,
+void connected_component_labeling(const basic_image<PixelType,1,StorageType>& image,
                                   LabelImageType& labels,
                                   std::vector<std::vector<unsigned int> >& regions,
                                   PixelType background = 0)
@@ -547,7 +547,7 @@ void connected_component_labeling(basic_image<PixelType,1,StorageType>& image,
 }
 
 template<typename PixelType,typename StorageType,typename LabelImageType>
-void connected_component_labeling(basic_image<PixelType,2,StorageType>& image,
+void connected_component_labeling(const basic_image<PixelType,2,StorageType>& image,
                                   LabelImageType& labels,
                                   std::vector<std::vector<unsigned int> >& regions,
                                   PixelType background = 0)
@@ -558,7 +558,7 @@ void connected_component_labeling(basic_image<PixelType,2,StorageType>& image,
 
 
 template<typename PixelType,typename StorageType,typename LabelImageType>
-void connected_component_labeling(basic_image<PixelType,3,StorageType>& image,
+void connected_component_labeling(const basic_image<PixelType,3,StorageType>& image,
                                   LabelImageType& labels,
                                   std::vector<std::vector<unsigned int> >& regions,
                                   PixelType background = 0)
