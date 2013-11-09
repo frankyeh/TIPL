@@ -20,6 +20,13 @@ public:
     {
         clear();
     }
+    geometry(int x,int y,int z,int t)
+    {
+        dim[0] = x;
+        dim[1] = y;
+        dim[2] = z;
+        dim[3] = t;
+    }
     geometry(const geometry<Dim>& rhs)
     {
         *this = rhs;
