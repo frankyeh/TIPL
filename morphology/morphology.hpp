@@ -428,20 +428,17 @@ template<typename ImageType>
 void convex_y(ImageType& image,typename ImageType::value_type assign_value = 1)
 {
     unsigned int plane_size = image.plane_size();
-    typename ImageType::iterator iter_plane = image.begin();
-    typename ImageType::iterator end = iter_plane+image.size();
-    for(;iter_plane != end;iter_plane += plane_size)
+    for(unsigned int iter_plane = 0;iter_plane < image.size();iter_plane += plane_size)
     {
-        typename ImageType::iterator iter_x = iter_plane;
-        typename ImageType::iterator iter_x_end = iter_x + image.width();
-        for(;iter_x != iter_x_end;++iter_x)
+        for(int iter_x = iter_plane,iter_x_end = iter_x + image.width()
+                ;iter_x < iter_x_end;++iter_x)
         {
-            typename ImageType::iterator iter_y = iter_x;
-            typename ImageType::iterator iter_y_end = iter_y+(plane_size-image.width());
-            typename ImageType::iterator first,last;
+            int iter_y = iter_x;
+            int iter_y_end = iter_y+(plane_size-image.width());
+            int first,last;
             int find_count = 0;
             for(;iter_y <= iter_y_end;iter_y += image.width())
-                if(*iter_y > 0)
+                if(image[iter_y] > 0)
                 {
                     ++find_count;
                     if(find_count == 1)
@@ -452,7 +449,7 @@ void convex_y(ImageType& image,typename ImageType::value_type assign_value = 1)
             if(find_count >= 2)
             {
                 for(first += image.width();first != last;first += image.width())
-                    *first = assign_value;
+                    image[first] = assign_value;
             }
         }
     }
