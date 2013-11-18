@@ -433,15 +433,12 @@ void stochastic_competition(const ImageType& src,
     image::basic_image<unsigned char,LabelImageType::dimension> outter_contour(initial_contour);
     image::geometry<ImageType::dimension> range_max,range_min,new_geo;
 
-    image::range(initial_contour,range_min,range_max,0);
+    image::bounding_box(initial_contour,range_min,range_max,0);
 
-    for(unsigned int index = 0;index < (range_max[0]-range_min[0])/5;++index)
-    {
-        image::morphology::dilation(outter_contour);
-        image::morphology::erosion(initial_contour);
-    }
+    image::morphology::dilation2(outter_contour,(range_max[0]-range_min[0])/5);
+    image::morphology::erosion2(initial_contour,(range_max[0]-range_min[0])/5);
 
-    image::range(outter_contour,range_min,range_max,0);
+    image::bounding_box(outter_contour,range_min,range_max,0);
 
     for(int dim = 0;dim < ImageType::dimension;++dim)
     {

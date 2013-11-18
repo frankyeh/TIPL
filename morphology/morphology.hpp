@@ -4,6 +4,7 @@
 #include <map>
 #include <list>
 #include <set>
+#include "image/numerical/basic_op.hpp"
 #include "image/utility/basic_image.hpp"
 #include "image/utility/pixel_index.hpp"
 #include "image/numerical/index_algorithm.hpp"
@@ -17,13 +18,12 @@ namespace morphology
 {
 
 template<typename ImageType>
-void erosion(ImageType& image)
+void erosion(ImageType& image,const std::vector<int>& index_shift)
 {
     std::vector<typename ImageType::value_type> act(image.size());
-    neighbor_index_shift_narrow<ImageType::dimension> neighborhood(image.geometry());
-    for (unsigned int index = 0;index < neighborhood.index_shift.size();++index)
+    for (unsigned int index = 0;index < index_shift.size();++index)
     {
-        int shift = neighborhood.index_shift[index];
+        int shift = index_shift[index];
         if (shift > 0)
         {
             typename ImageType::value_type* iter1 = &*act.begin() + shift;
@@ -50,13 +50,26 @@ void erosion(ImageType& image)
 }
 
 template<typename ImageType>
-void dilation(ImageType& image)
+void erosion(ImageType& image)
+{
+    neighbor_index_shift_narrow<ImageType::dimension> neighborhood(image.geometry());
+    erosion(image,neighborhood.index_shift);
+}
+
+template<typename ImageType>
+void erosion2(ImageType& image,int radius)
+{
+    neighbor_index_shift<ImageType::dimension> neighborhood(image.geometry(),radius);
+    erosion(image,neighborhood.index_shift);
+}
+
+template<typename ImageType>
+void dilation(ImageType& image,const std::vector<int>& index_shift)
 {
     std::vector<typename ImageType::value_type> act(image.size());
-    neighbor_index_shift_narrow<ImageType::dimension> neighborhood(image.geometry());
-    for (unsigned int index = 0;index < neighborhood.index_shift.size();++index)
+    for (unsigned int index = 0;index < index_shift.size();++index)
     {
-        int shift = neighborhood.index_shift[index];
+        int shift = index_shift[index];
         if (shift > 0)
         {
             typename ImageType::value_type* iter1 = &*act.begin() + shift;
@@ -77,6 +90,20 @@ void dilation(ImageType& image)
 
     for (unsigned int index = 0;index < image.size();++index)
         image[index] |= act[index];
+}
+
+template<typename ImageType>
+void dilation(ImageType& image)
+{
+    neighbor_index_shift_narrow<ImageType::dimension> neighborhood(image.geometry());
+    dilation(image,neighborhood.index_shift);
+}
+
+template<typename ImageType>
+void dilation2(ImageType& image,int radius)
+{
+    neighbor_index_shift<ImageType::dimension> neighborhood(image.geometry(),radius);
+    dilation(image,neighborhood.index_shift);
 }
 
 /*
@@ -279,7 +306,7 @@ unsigned char get_neighbor_count(ImageType& image,std::vector<unsigned char>& ac
 }
 
 template<typename ImageType>
-void closing(ImageType& I,typename ImageType::value_type assign_value = 1,int threshold_shift = 0)
+void closing(ImageType& I,int threshold_shift = 0)
 {
     std::vector<unsigned char> act;
     unsigned int threshold = get_neighbor_count(I,act) >> 1;
@@ -289,7 +316,7 @@ void closing(ImageType& I,typename ImageType::value_type assign_value = 1,int th
         if (act[index] > threshold)
         {
             if (!I[index])
-                I[index] = assign_value;
+                I[index] = 1;
         }
     }
 }
@@ -311,7 +338,7 @@ void opening(ImageType& I,int threshold_shift = 0)
 }
 
 template<typename ImageType>
-void smoothing(ImageType& I,typename ImageType::value_type assign_value = 1)
+void smoothing(ImageType& I)
 {
     std::vector<unsigned char> act;
     unsigned int threshold = get_neighbor_count(I,act) >> 1;
@@ -320,7 +347,7 @@ void smoothing(ImageType& I,typename ImageType::value_type assign_value = 1)
         if (act[index] > threshold)
         {
             if (!I[index])
-                I[index] = assign_value;
+                I[index] = 1;
         }
         if (act[index] < threshold)
         {
@@ -332,8 +359,7 @@ void smoothing(ImageType& I,typename ImageType::value_type assign_value = 1)
 }
 
 template<typename ImageType>
-void recursive_smoothing(ImageType& I,typename ImageType::value_type assign_value = 1,
-                         unsigned int max_iteration = 100)
+void recursive_smoothing(ImageType& I,unsigned int max_iteration = 100)
 {
     for(unsigned int iter = 0;iter < max_iteration;++iter)
     {
@@ -346,7 +372,7 @@ void recursive_smoothing(ImageType& I,typename ImageType::value_type assign_valu
             {
                 if (!I[index])
                 {
-                    I[index] = assign_value;
+                    I[index] = 1;
                     has_change = true;
                 }
             }
@@ -398,6 +424,46 @@ void region_growing(const ImageType& image,const IndexType& seed_point,
     }
     seeds.swap(grown_region);
 }
+
+template<typename ImageType>
+void convex_xy(ImageType& image,typename ImageType::value_type assign_value = 1)
+{
+    image::geometry<ImageType::dimension> range_min,range_max;
+    bounding_box(image,range_min,range_max);
+    if (range_min[0] < range_max[0])
+        crop(image,range_min,range_max);
+
+    // get the bounding box first
+    int dirs[8][2] = {{1,0},{2,1},{1,1},{1,2},{0,1},{-1,2},{-1,1},{-2,1}};
+    std::vector<unsigned int> fill_buf;
+    for(unsigned int i = 0;i < 8;++i)
+    {
+        int shift = dirs[i][0] + image.width()*dirs[i][1];
+        if(shift <= 0)
+            continue;
+        std::vector<unsigned char> label(image.size());
+        for(pixel_index<ImageType::dimension> index;
+            index.is_valid(image.geometry());
+            index.next(image.geometry()))
+        {
+            if(index[0] < range_min[0] || index[0] >= range_max[0] ||
+               index[1] < range_min[1] || index[1] >= range_max[0] ||
+                    label[index.index()])
+                continue;
+            int beg_index = -1;
+            int end_index = -1;
+            fill_buf.clear();
+            for(pixel_index<ImageType::dimension> index2(index);
+                index.is_valid(image.geometry());
+                index.next(image.geometry()))
+            {
+
+            }
+
+        }
+    }
+}
+
 /*
  convex in x direction
 */
@@ -425,7 +491,7 @@ void convex_x(ImageType& image,typename ImageType::value_type assign_value = 1)
 }
 
 template<typename ImageType>
-void convex_y(ImageType& image,typename ImageType::value_type assign_value = 1)
+void convex_y(ImageType& image)
 {
     unsigned int plane_size = image.plane_size();
     for(unsigned int iter_plane = 0;iter_plane < image.size();iter_plane += plane_size)
@@ -449,7 +515,7 @@ void convex_y(ImageType& image,typename ImageType::value_type assign_value = 1)
             if(find_count >= 2)
             {
                 for(first += image.width();first != last;first += image.width())
-                    image[first] = assign_value;
+                    image[first] = 1;
             }
         }
     }
@@ -467,8 +533,7 @@ template<typename ImageType,typename LabelImageType>
 void connected_component_labeling_pass(const ImageType& image,
                                        LabelImageType& labels,
                                        std::vector<std::vector<unsigned int> >& regions,
-                                       unsigned int shift,
-                                       typename ImageType::value_type background = 0)
+                                       unsigned int shift)
 {
     typedef typename std::vector<unsigned int>::const_iterator region_iterator;
     if (shift == 1) // growing in one dimension
@@ -485,7 +550,7 @@ void connected_component_labeling_pass(const ImageType& image,
                 x = 0;
                 group_id = 0;
             }
-            if (image[index] == background)
+            if (image[index] == 0)
             {
                 group_id = 0;
                 labels[index] = 0;
@@ -507,7 +572,7 @@ void connected_component_labeling_pass(const ImageType& image,
         {
             for (unsigned int index = x,group_id = 0;index < image.size();index += shift)
             {
-                if (group_id && labels[index] != background && group_id != labels[index])
+                if (group_id && labels[index] != 0 && group_id != labels[index])
                 {
                     unsigned int from_id = group_id-1;
                     unsigned int to_id = labels[index]-1;
@@ -537,32 +602,29 @@ void connected_component_labeling_pass(const ImageType& image,
 template<typename PixelType,typename StorageType,typename LabelImageType>
 void connected_component_labeling(const basic_image<PixelType,1,StorageType>& image,
                                   LabelImageType& labels,
-                                  std::vector<std::vector<unsigned int> >& regions,
-                                  PixelType background = 0)
+                                  std::vector<std::vector<unsigned int> >& regions)
 {
-    connected_component_labeling_pass(image,labels,regions,1,background);
+    connected_component_labeling_pass(image,labels,regions,1);
 }
 
 template<typename PixelType,typename StorageType,typename LabelImageType>
 void connected_component_labeling(const basic_image<PixelType,2,StorageType>& image,
                                   LabelImageType& labels,
-                                  std::vector<std::vector<unsigned int> >& regions,
-                                  PixelType background = 0)
+                                  std::vector<std::vector<unsigned int> >& regions)
 {
-    connected_component_labeling_pass(image,labels,regions,1,background);
-    connected_component_labeling_pass(image,labels,regions,image.width(),background);
+    connected_component_labeling_pass(image,labels,regions,1);
+    connected_component_labeling_pass(image,labels,regions,image.width());
 }
 
 
 template<typename PixelType,typename StorageType,typename LabelImageType>
 void connected_component_labeling(const basic_image<PixelType,3,StorageType>& image,
                                   LabelImageType& labels,
-                                  std::vector<std::vector<unsigned int> >& regions,
-                                  PixelType background = 0)
+                                  std::vector<std::vector<unsigned int> >& regions)
 {
-    connected_component_labeling_pass(image,labels,regions,1,background);
-    connected_component_labeling_pass(image,labels,regions,image.width(),background);
-    connected_component_labeling_pass(image,labels,regions,image.geometry().plane_size(),background);
+    connected_component_labeling_pass(image,labels,regions,1);
+    connected_component_labeling_pass(image,labels,regions,image.width());
+    connected_component_labeling_pass(image,labels,regions,image.geometry().plane_size());
 }
 
 template<typename ImageType>

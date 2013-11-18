@@ -26,7 +26,9 @@ void watershed(const ImageType& input_image,LabelImageType& label)
     image::normalize(input_image,image);
 
     std::vector<std::list<pixel_index<ImageType::dimension> > > presort_table(256);
-    for (pixel_index<ImageType::dimension> index; index.valid(image.geometry()); index.next(image.geometry()))
+    for (pixel_index<ImageType::dimension> index;
+         index.is_valid(image.geometry());
+         index.next(image.geometry()))
         presort_table[image[index.index()]].push_back(index);
 
     std::list<std::pair<pixel_index<ImageType::dimension>,size_t> > flooding_points;

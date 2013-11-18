@@ -118,7 +118,7 @@ void gradient_multiple_sampling(const image::basic_image<pixel_type,2,container_
     }
 
     dest.resize(src.geometry());
-    for (image::pixel_index<2> iter; iter.valid(src.geometry()); iter.next(src.geometry()))
+    for (image::pixel_index<2> iter; iter.is_valid(src.geometry()); iter.next(src.geometry()))
     {
         vector_type dist;
         unsigned int total_dir = 0;

@@ -466,7 +466,7 @@ public:
         // get all the edge cubes
         {
             std::vector<typename ImageType::value_type> pixels;
-            for (pixel_index<3> iter;iter.valid(source_image.geometry());iter.next(source_image.geometry()))
+            for (pixel_index<3> iter;iter.is_valid(source_image.geometry());iter.next(source_image.geometry()))
             {
                 pixels.clear();
                 get_window(iter,source_image,pixels);

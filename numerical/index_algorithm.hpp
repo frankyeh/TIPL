@@ -315,6 +315,17 @@ public:
                     index_shift.push_back(x + yw);
             }
     }
+    neighbor_index_shift(const geometry<2>& geo,int radius)
+    {
+        int w = geo.width();
+            for (int y = -radius;y <= radius; ++y)
+            {
+                int yw = y*w;
+                for (int x = -radius;x <= radius; ++x)
+                    if(x*x + y*y < radius*radius)
+                        index_shift.push_back(x + yw);
+            }
+    }
 };
 
 
@@ -336,6 +347,22 @@ public:
                 int yw = y*w;
                 for (int x = -1;x <= 1; ++x)
                     index_shift.push_back(x + yw + zwh);
+            }
+        }
+    }
+    neighbor_index_shift(const geometry<3>& geo,int radius)
+    {
+        int wh = geo.plane_size();
+        int w = geo.width();
+        for (int z = -radius;z <= radius; ++z)
+        {
+            int zwh = z*wh;
+            for (int y = -radius;y <= radius; ++y)
+            {
+                int yw = y*w;
+                for (int x = -radius;x <= radius; ++x)
+                    if(x*x + y*y + z*z < radius*radius)
+                        index_shift.push_back(x + yw + zwh);
             }
         }
     }

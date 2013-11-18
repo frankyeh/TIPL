@@ -625,7 +625,7 @@ template<typename ImageType,typename transform_type>
 void resample(const ImageType& from,ImageType& to,const transform_type& transform)
 {
     image::geometry<ImageType::dimension> geo(to.geometry());
-    for (image::pixel_index<ImageType::dimension> index;index.valid(geo);index.next(geo))
+    for (image::pixel_index<ImageType::dimension> index;index.is_valid(geo);index.next(geo))
     {
         image::vector<ImageType::dimension,double> pos;
         transform(index,pos);

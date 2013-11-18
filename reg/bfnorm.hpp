@@ -629,7 +629,7 @@ void bfnorm(const ImageType& VG,const ImageType& VF,bfnorm_mapping<value_type>& 
         }
         int ICO_ = mapping.k_base.size();
         value_type IC0_co = reg*std::pow(stabilise,6);
-        for(image::pixel_index<dim> pos;pos.valid(mapping.k_base);pos.next(mapping.k_base))
+        for(image::pixel_index<dim> pos;pos.is_valid(mapping.k_base);pos.next(mapping.k_base))
         {
             int m = pos[0];
             int j = pos[1];

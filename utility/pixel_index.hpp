@@ -125,7 +125,7 @@ public:
         offset_[0] = 0;
         ++offset_[1];
     }
-    bool valid(const geometry<2>& geo) const
+    bool is_valid(const geometry<2>& geo) const
     {
         return offset_[1] < geo[1];
     }
@@ -266,7 +266,7 @@ public:
         offset_[1] = 0;
         ++offset_[2];
     }
-    bool valid(const geometry<3>& geo) const
+    bool is_valid(const geometry<3>& geo) const
     {
         return offset_[2] < geo[2];
     }

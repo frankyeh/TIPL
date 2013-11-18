@@ -219,7 +219,7 @@ void move(basic_image<PixelType,3>& src,PosType pos)
 }
 //---------------------------------------------------------------------------
 template<typename ImageType,typename DimensionType>
-void range(ImageType& image,
+void bounding_box(ImageType& image,
           DimensionType& range_min,
           DimensionType& range_max,
           typename ImageType::value_type background = 0)
@@ -230,7 +230,7 @@ void range(ImageType& image,
         range_min[di] = image.geometry()[di]-1;
         range_max[di] = 0;
     }
-    for (pixel_index<ImageType::dimension> iter; iter.valid(image.geometry()); iter.next(image.geometry()))
+    for (pixel_index<ImageType::dimension> iter; iter.is_valid(image.geometry()); iter.next(image.geometry()))
     {
         if (image[iter.index()] == background)
             continue;
@@ -248,22 +248,11 @@ void range(ImageType& image,
 
 }
 
-template<typename ImageType,typename DimensionType>
-void trim(ImageType& image,
-          DimensionType& range_min,
-          DimensionType& range_max,
-          typename ImageType::value_type background = 0)
-{
-    range(image,range_min,range_max,background);
-    if (range_min[0] < range_max[0])
-        crop(image,range_min,range_max);
-}
-
 template<typename ImageType>
 void trim(ImageType& image,typename ImageType::value_type background = 0)
 {
     image::geometry<ImageType::dimension> range_min,range_max;
-    range(image,range_min,range_max,background);
+    bounding_box(image,range_min,range_max,background);
     if (range_min[0] < range_max[0])
         crop(image,range_min,range_max);
 }

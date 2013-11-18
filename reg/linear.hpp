@@ -30,7 +30,7 @@ namespace reg
         image::vector<I_type::dimension,double> sum_mass;
         double total_w = 0.0;
         for(image::pixel_index<I_type::dimension> index;
-            mask.geometry().is_valid(index);
+            index.is_valid(mask.geometry());
             index.next(mask.geometry()))
             if(mask[index.index()])
             {
@@ -140,7 +140,7 @@ namespace reg
             image::geometry<dimension> geo(from_.geometry());
             image::interpolation<image::linear_weighting,dimension> interp;
             image::vector<dimension,double> pos;
-            for (image::pixel_index<dimension> index; index.valid(geo); index.next(geo))
+            for (image::pixel_index<dimension> index; index.is_valid(geo); index.next(geo))
             {
                 unsigned int from_index = from[index.index()];
                 transform(index,pos);
@@ -163,7 +163,7 @@ namespace reg
             {
                 float sum = 0.0;
                 image::geometry<2> geo(mutual_hist.geometry());
-                for (image::pixel_index<2> index; index.valid(geo); index.next(geo))
+                for (image::pixel_index<2> index; index.is_valid(geo); index.next(geo))
                 {
                     float mu = mutual_hist[index.index()];
                     if (mu == 0.0)
