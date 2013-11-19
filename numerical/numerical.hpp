@@ -76,6 +76,7 @@ void gradient_multiple_sampling(const image::basic_image<pixel_type,3,container_
                                 unsigned int line_sampling_num = 3,
                                 unsigned int sampling_dir_num = 8)
 {
+    gradient(src,dest);
 }
 template<typename pixel_type,typename container_type,typename VectorImageType>
 void gradient_multiple_sampling(const image::basic_image<pixel_type,2,container_type>& src,

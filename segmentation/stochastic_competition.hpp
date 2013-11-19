@@ -77,7 +77,11 @@ public:
 
 
 
-struct no_info_disabled{
+struct intensity_disabled{
+    bool operator[](int)const {return false;}
+};
+
+struct intensity_enabled{
     bool operator[](int)const {return false;}
 };
 
@@ -426,10 +430,9 @@ template<typename ImageType,typename LabelImageType>
 void stochastic_competition(const ImageType& src,
                             LabelImageType& initial_contour,
                             double Zc = 30.0,
-                            double Zr = 5.0)
+                            double Zr = 5.0,
+                            bool consider_region_intensity = true)
 {
-    imp::no_info_disabled dummy;
-
     image::basic_image<unsigned char,LabelImageType::dimension> outter_contour(initial_contour);
     image::geometry<ImageType::dimension> range_max,range_min,new_geo;
 
@@ -463,7 +466,10 @@ void stochastic_competition(const ImageType& src,
     image::crop(outter_contour,range_min,range_max);
     image::crop(crop_image,range_min,range_max);
 
-    stochastic_competition_with_lostinfo(crop_image,outter_contour,dummy,Zc,Zr);
+    if(consider_region_intensity)
+        stochastic_competition_with_lostinfo(crop_image,outter_contour,imp::intensity_enabled(),Zc,Zr);
+    else
+        stochastic_competition_with_lostinfo(crop_image,outter_contour,imp::intensity_disabled(),Zc,Zr);
 
     std::replace(outter_contour.begin(),outter_contour.end(),0,1);
     std::replace(outter_contour.begin(),outter_contour.end(),2,0);

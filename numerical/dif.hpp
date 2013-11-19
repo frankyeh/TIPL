@@ -7,21 +7,21 @@ namespace image
 template<typename vtor_type,unsigned int dimension>
 void make_identity(basic_image<vtor_type,dimension>& s)
 {
-    for (image::pixel_index<dimension> index; index.valid(s.geometry());index.next(s.geometry()))
+    for (image::pixel_index<dimension> index; index.is_valid(s.geometry());index.next(s.geometry()))
         s[index.index()] = index;
 }
 //---------------------------------------------------------------------------
 template<typename vtor_type,unsigned int dimension>
 void displacement_to_mapping(basic_image<vtor_type,dimension>& s)
 {
-    for (image::pixel_index<dimension> index; index.valid(s.geometry());index.next(s.geometry()))
+    for (image::pixel_index<dimension> index; index.is_valid(s.geometry());index.next(s.geometry()))
         s[index.index()] += index;
 }
 //---------------------------------------------------------------------------
 template<typename vtor_type,unsigned int dimension>
 void mapping_to_displacement(basic_image<vtor_type,dimension>& s)
 {
-    for (image::pixel_index<dimension> index; index.valid(s.geometry());index.next(s.geometry()))
+    for (image::pixel_index<dimension> index; index.is_valid(s.geometry());index.next(s.geometry()))
         s[index.index()] -= index;
 }
 //---------------------------------------------------------------------------
@@ -43,7 +43,7 @@ void compose_displacement(const ImageType& src,const ComposeImageType& displace,
     image::geometry<ImageType::dimension> geo(src.geometry());
     dest.clear();
     dest.resize(geo);
-    for(pixel_index<ImageType::dimension> index;index.valid(geo);index.next(geo))
+    for(pixel_index<ImageType::dimension> index;index.is_valid(geo);index.next(geo))
     {
         typename ComposeImageType::value_type vtor(index);
         vtor += displace[index.index()];
@@ -128,7 +128,7 @@ void jacobian_determinant(const basic_image<VectorType,3>& src,DetType& dest)
     dest.resize(geo);
     int w = src.width();
     int wh = src.plane_size();
-    for (image::pixel_index<3> index; index.valid(geo); index.next(geo))
+    for (image::pixel_index<3> index; index.is_valid(geo); index.next(geo))
     {
         if (geo.is_edge(index))
         {
@@ -189,7 +189,7 @@ void jacobian_determinant_dis(const basic_image<VectorType,3>& src,DetType& dest
     dest.resize(geo);
     int w = src.width();
     int wh = src.plane_size();
-    for (image::pixel_index<3> index; index.valid(geo); index.next(geo))
+    for (image::pixel_index<3> index; index.is_valid(geo); index.next(geo))
     {
         if (geo.is_edge(index))
         {
@@ -208,7 +208,7 @@ void jacobian_determine(const std::vector<ImageType>& src,DetType& dest)
     geometry<3> geo(src[0].geometry());
     dest.resize(geo);
 
-    for (image::pixel_index<3> index; index.valid(geo); index.next(geo))
+    for (image::pixel_index<3> index; index.is_valid(geo); index.next(geo))
     {
         if (geo.is_edge(index))
         {
@@ -248,7 +248,7 @@ void jacobian_determinant(const basic_image<VectorType,2>& src,basic_image<Pixel
     geometry<2> geo(src.geometry());
     dest.resize(geo);
     int w = src.width();
-    for (image::pixel_index<2> index; index.valid(geo); index.next(geo))
+    for (image::pixel_index<2> index; index.is_valid(geo); index.next(geo))
     {
         if (geo.is_edge(index))
         {
@@ -280,7 +280,7 @@ void jacobian_determinant_dis(const basic_image<VectorType,2>& src,basic_image<P
     geometry<2> geo(src.geometry());
     dest.resize(geo);
     int w = src.width();
-    for (image::pixel_index<2> index; index.valid(geo); index.next(geo))
+    for (image::pixel_index<2> index; index.is_valid(geo); index.next(geo))
     {
         if (geo.is_edge(index))
         {
