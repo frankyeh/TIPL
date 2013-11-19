@@ -73,7 +73,11 @@ public:
     {
         return y_;
     }
-    unsigned int index(void) const
+    value_type index(void) const
+    {
+        return index_;
+    }
+    value_type& index(void)
     {
         return index_;
     }
@@ -210,7 +214,11 @@ public:
     {
         return z_;
     }
-    unsigned int index(void) const
+    value_type index(void) const
+    {
+        return index_;
+    }
+    value_type& index(void)
     {
         return index_;
     }

@@ -426,40 +426,55 @@ void region_growing(const ImageType& image,const IndexType& seed_point,
 }
 
 template<typename ImageType>
-void convex_xy(ImageType& image,typename ImageType::value_type assign_value = 1)
+void convex_xy(ImageType& I)
 {
     image::geometry<ImageType::dimension> range_min,range_max;
-    bounding_box(image,range_min,range_max);
-    if (range_min[0] < range_max[0])
-        crop(image,range_min,range_max);
-
+    bounding_box(I,range_min,range_max);
     // get the bounding box first
     int dirs[8][2] = {{1,0},{2,1},{1,1},{1,2},{0,1},{-1,2},{-1,1},{-2,1}};
     std::vector<unsigned int> fill_buf;
     for(unsigned int i = 0;i < 8;++i)
     {
-        int shift = dirs[i][0] + image.width()*dirs[i][1];
+        int shift = dirs[i][0] + I.width()*dirs[i][1];
         if(shift <= 0)
             continue;
-        std::vector<unsigned char> label(image.size());
+        std::vector<unsigned char> label(I.size());
         for(pixel_index<ImageType::dimension> index;
-            index.is_valid(image.geometry());
-            index.next(image.geometry()))
+            index.is_valid(I.geometry());
+            index.next(I.geometry()))
         {
             if(index[0] < range_min[0] || index[0] >= range_max[0] ||
-               index[1] < range_min[1] || index[1] >= range_max[0] ||
+               index[1] < range_min[1] || index[1] >= range_max[1] ||
                     label[index.index()])
                 continue;
-            int beg_index = -1;
-            int end_index = -1;
+            bool has_first = false;
             fill_buf.clear();
             for(pixel_index<ImageType::dimension> index2(index);
-                index.is_valid(image.geometry());
-                index.next(image.geometry()))
+                index.is_valid(I.geometry());)
             {
-
+                if(I[index2.index()])
+                {
+                    if(!has_first)
+                        has_first = true;
+                    else
+                    {
+                        for(unsigned int i = 0;i < fill_buf.size();++i)
+                            I[fill_buf[i]] = 1;
+                        fill_buf.clear();
+                    }
+                }
+                else
+                {
+                    if(has_first)
+                        fill_buf.push_back(index2.index());
+                }
+                index2[0] += dirs[i][0];
+                index2[1] += dirs[i][1];
+                index2.index() += shift;
+                if(index2[0] < range_min[0] || index2[0] >= range_max[0] ||
+                   index2[1] < range_min[1] || index2[1] >= range_max[1])
+                    break;
             }
-
         }
     }
 }
