@@ -1,7 +1,9 @@
 //---------------------------------------------------------------------------
 #ifndef BASIC_OP_HPP
 #define BASIC_OP_HPP
+#include "image/utility/pixel_index.hpp"
 #include "image/utility/basic_image.hpp"
+
 namespace image
 {
 
@@ -219,7 +221,7 @@ void move(basic_image<PixelType,3>& src,PosType pos)
 }
 //---------------------------------------------------------------------------
 template<typename ImageType,typename DimensionType>
-void bounding_box(ImageType& image,
+void bounding_box(ImageType& I,
           DimensionType& range_min,
           DimensionType& range_max,
           typename ImageType::value_type background = 0)
@@ -227,12 +229,12 @@ void bounding_box(ImageType& image,
     //get_border(image,range_min,range_max);
     for (unsigned int di = 0; di < ImageType::dimension; ++di)
     {
-        range_min[di] = image.geometry()[di]-1;
+        range_min[di] = I.geometry()[di]-1;
         range_max[di] = 0;
     }
-    for (pixel_index<ImageType::dimension> iter; iter.is_valid(image.geometry()); iter.next(image.geometry()))
+    for (pixel_index<ImageType::dimension> iter; iter.is_valid(I.geometry()); iter.next(I.geometry()))
     {
-        if (image[iter.index()] == background)
+        if (I[iter.index()] == background)
             continue;
         for (unsigned int di = 0; di < ImageType::dimension; ++di)
         {
@@ -603,7 +605,7 @@ void project(const image::basic_image<PixelType1,2>& src,OutImageType& result,un
     {
         result.clear();
         result.resize(src.width());
-        for(pixel_index<2> index; index.valid(src.geometry()); index.next(src.geometry()))
+        for(pixel_index<2> index; index.is_valid(src.geometry()); index.next(src.geometry()))
             result[index.x()] += src[index.index()];
     }
 }
