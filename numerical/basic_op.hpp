@@ -298,62 +298,90 @@ void get_inverse_orientation(int dim,iterator_type rotation_matrix,dim_order_typ
             }
     }
 }
-template<typename value_type,typename dim_order_type,typename flip_type>
-void reorder(const image::basic_image<value_type,2>& volume,
-             image::basic_image<value_type,2>& volume_out,
-             dim_order_type dim_order,flip_type flip)
+//---------------------------------------------------------------------------
+template<typename image_type1,typename image_type2>
+void reorder(const image_type1& volume,image_type2& volume_out,int origin[],int shift[],int index_dim)
 {
-    image::geometry<2> old_geometry(volume.geometry());
-    image::geometry<2> new_geometry;
-    bool need_reorder = false;
-    // get the dimension mapping
-    for (unsigned int index = 0; index < 2; ++index)
+    unsigned int index = 0;
+    unsigned int base_index = 0;
+    while(index < volume.size())
     {
-        new_geometry[dim_order[index]] = old_geometry[index];
-        if (dim_order[index] != index)
-            need_reorder = true;
+        if(index_dim == 2)
+        {
+            int y_index = base_index + origin[1];
+            for (unsigned int y = 0; y < volume.height(); ++y)
+            {
+                int x_index = y_index + origin[0];
+                for (unsigned int x = 0; x < volume.width(); ++x,++index)
+                {
+                    volume_out[x_index] = volume[index];
+                    x_index += shift[0];
+                }
+                y_index += shift[1];
+            }
+            base_index += volume_out.plane_size();
+        }
+        if(index_dim == 3)
+        {
+            int z_index = base_index + origin[2];
+            for (unsigned int z = 0; z < volume.geometry()[2]; ++z)
+            {
+                int y_index = z_index + origin[1];
+                for (unsigned int y = 0; y < volume.height(); ++y)
+                {
+                    int x_index = y_index + origin[0];
+                    for (unsigned int x = 0; x < volume.width(); ++x,++index)
+                    {
+                        volume_out[x_index] = volume[index];
+                        x_index += shift[0];
+                    }
+                    y_index += shift[1];
+                }
+                z_index += shift[2];
+            }
+            base_index += volume_out.plane_size()*volume.depth();
+        }
     }
-    int shift_vector[2];
-    int xyz_origin_index[2];
-    int xyz_shift_index[2];
+}
+//---------------------------------------------------------------------------
+template<typename geo_type,typename dim_order_type,typename flip_type,typename origin_type,typename shift_type>
+bool reorder_shift_index(const geo_type& geo,
+                         dim_order_type dim_order,
+                         flip_type flip,
+                         geo_type new_geo,
+                         origin_type origin_index,
+                         shift_type shift_index)
+{
 
+    bool need_update = false;
+    // get the dimension mapping
+    for (unsigned char index = 0; index < geo_type::dimension; ++index)
+    {
+        new_geo[dim_order[index]] = geo[index];
+        if (dim_order[index] != index)
+            need_update = true;
+    }
+
+    std::vector<int> shift_vector(geo_type::dimension);
     shift_vector[0] = 1;
-    shift_vector[1] = new_geometry.width();
+    for(unsigned char dim = 1;dim < geo_type::dimension;++dim)
+        shift_vector[dim] = shift_vector[dim-1]*new_geo[dim-1];
 
-    for (unsigned int index = 0; index < 2; ++index)
+    for (unsigned int index = 0; index < geo_type::dimension;++index)
     {
         if (flip[index])
         {
-            xyz_origin_index[index] = shift_vector[dim_order[index]]*(new_geometry[dim_order[index]]-1);
-            xyz_shift_index[index] = -shift_vector[dim_order[index]];
-            need_reorder = true;
+            origin_index[index] = shift_vector[dim_order[index]]*(new_geo[dim_order[index]]-1);
+            shift_index[index] = -shift_vector[dim_order[index]];
+            need_update = true;
         }
         else
         {
-            xyz_origin_index[index] = 0;
-            xyz_shift_index[index] = shift_vector[dim_order[index]];
+            origin_index[index] = 0;
+            shift_index[index] = shift_vector[dim_order[index]];
         }
     }
-    if (!need_reorder)
-    {
-        volume_out = volume;
-        return;
-    }
-    image::basic_image<value_type,2> new_volume(new_geometry);
-
-    int y_index = xyz_origin_index[1];
-        for (unsigned int y = 0,index = 0; y < old_geometry.height(); ++y)
-        {
-            int x_index = y_index + xyz_origin_index[0];
-            for (unsigned int x = 0; x < old_geometry.width(); ++x,++index)
-            {
-                new_volume[x_index] = volume[index];
-                x_index += xyz_shift_index[0];
-            }
-            y_index += xyz_shift_index[1];
-        }
-
-    new_volume.swap(volume_out);
+    return need_update;
 }
 
 
@@ -361,74 +389,28 @@ void reorder(const image::basic_image<value_type,2>& volume,
    dim_order[3] = {2,1,0} flip = {1,0,0}
    output (-z,y,x) <- input(x,y,z);
 */
-template<typename value_type,typename dim_order_type,typename flip_type>
-void reorder(const image::basic_image<value_type,3>& volume,
-             image::basic_image<value_type,3>& volume_out,
-             dim_order_type dim_order,flip_type flip)
+
+template<typename image_type1,typename image_type2,typename dim_order_type,typename flip_type>
+void reorder(const image_type1& volume,image_type2& volume_out,dim_order_type dim_order,flip_type flip)
 {
-    image::geometry<3> old_geometry(volume.geometry());
-    image::geometry<3> new_geometry;
-    bool need_reorder = false;
-    // get the dimension mapping
-    for (unsigned int index = 0; index < 3; ++index)
-    {
-        new_geometry[dim_order[index]] = old_geometry[index];
-        if (dim_order[index] != index)
-            need_reorder = true;
-    }
-    int shift_vector[3];
-    int xyz_origin_index[3];
-    int xyz_shift_index[3];
-
-    shift_vector[0] = 1;
-    shift_vector[1] = new_geometry.width();
-    shift_vector[2] = new_geometry.plane_size();
-
-    for (unsigned int index = 0; index < 3; ++index)
-    {
-        if (flip[index])
-        {
-            xyz_origin_index[index] = shift_vector[dim_order[index]]*(new_geometry[dim_order[index]]-1);
-            xyz_shift_index[index] = -shift_vector[dim_order[index]];
-            need_reorder = true;
-        }
-        else
-        {
-            xyz_origin_index[index] = 0;
-            xyz_shift_index[index] = shift_vector[dim_order[index]];
-        }
-    }
-    if (!need_reorder)
+    image::geometry<image_type1::dimension> new_geo;
+    int origin[image_type1::dimension];
+    int shift[image_type1::dimension];
+    if (!reorder_shift_index(volume.geometry(),dim_order,flip,new_geo,origin,shift))
     {
         volume_out = volume;
         return;
     }
-    image::basic_image<value_type,3> new_volume(new_geometry);
-    int z_index = xyz_origin_index[2];
-    for (unsigned int z = 0,index = 0; z < old_geometry.depth(); ++z)
-    {
-        int y_index = z_index + xyz_origin_index[1];
-        for (unsigned int y = 0; y < old_geometry.height(); ++y)
-        {
-            int x_index = y_index + xyz_origin_index[0];
-            for (unsigned int x = 0; x < old_geometry.width(); ++x,++index)
-            {
-                new_volume[x_index] = volume[index];
-                x_index += xyz_shift_index[0];
-            }
-            y_index += xyz_shift_index[1];
-        }
-        z_index += xyz_shift_index[2];
-    }
-    new_volume.swap(volume_out);
+    volume_out.resize(new_geo);
+    reorder(volume,volume_out,origin,shift,image_type1::dimension);
 }
 //---------------------------------------------------------------------------
 template<typename image_type,typename dim_order_type,typename flip_type>
 void reorder(image_type& volume,dim_order_type dim_order,flip_type flip)
 {
-    image_type volume_out;
+    image::basic_image<typename image_type::value_type,image_type::dimension> volume_out;
     reorder(volume,volume_out,dim_order,flip);
-    volume.swap(volume_out);
+    std::copy(volume_out.begin(),volume_out.end(),volume.begin());
 }
 
 //---------------------------------------------------------------------------
@@ -483,15 +465,96 @@ void flip_y(ImageType& image)
 }
 //---------------------------------------------------------------------------
 template<typename ImageType>
-void flip_xy(ImageType& image)
-{
-    flip_block(image.begin(),image.end(),image.height() * image.width());
-}
-//---------------------------------------------------------------------------
-template<typename ImageType>
 void flip_z(ImageType& image)
 {
     flip_block_line(image.begin(),image.end(),image.geometry().plane_size() * image.depth(),image.geometry().plane_size());
+}
+//---------------------------------------------------------------------------
+template<typename ImageType>
+void flip_xy(ImageType& I)
+{
+    flip_block(I.begin(),I.end(),I.height() * I.width());
+}
+
+template<typename ImageType>
+void swap_xy(ImageType& I)
+{
+    typedef typename ImageType::value_type value_type;
+    image::geometry<ImageType::dimension> new_geo(I.geometry());
+    std::swap(new_geo[0],new_geo[1]);
+    image::basic_image<value_type,3> new_volume(new_geo);
+    int origin[2] = {0,0};
+    int shift[2];
+    shift[0] = new_geo.width();
+    shift[1] = 1;
+    reorder(I,new_volume,origin,shift,2);
+
+    I.resize(new_geo);
+    std::copy(new_volume.begin(),new_volume.end(),I.begin());
+}
+//---------------------------------------------------------------------------
+template<typename ImageType>
+void swap_xz(ImageType& I)
+{
+    typedef typename ImageType::value_type value_type;
+    image::geometry<ImageType::dimension> new_geo(I.geometry());
+    std::swap(new_geo[0],new_geo[2]);
+    image::basic_image<value_type,3> new_volume(new_geo);
+
+    int origin[3] = {0,0,0};
+    int shift[3];
+    shift[0] = new_geo.plane_size();
+    shift[1] = new_geo.width();
+    shift[2] = 1;
+    reorder(I,new_volume,origin,shift,3);
+
+    I.resize(new_geo);
+    std::copy(new_volume.begin(),new_volume.end(),I.begin());
+}
+//---------------------------------------------------------------------------
+template<typename ImageType>
+void swap_yz(ImageType& I)
+{
+    typedef typename ImageType::value_type value_type;
+    image::geometry<ImageType::dimension> new_geo(I.geometry());
+    std::swap(new_geo[1],new_geo[2]);
+    image::basic_image<value_type,3> new_volume(new_geo);
+
+    int origin[3] = {0,0,0};
+    int shift[3];
+    shift[0] = 1;
+    shift[1] = new_geo.plane_size();
+    shift[2] = new_geo.width();
+    reorder(I,new_volume,origin,shift,3);
+
+    I.resize(new_geo);
+    std::copy(new_volume.begin(),new_volume.end(),I.begin());
+}
+//---------------------------------------------------------------------------
+template<typename ImageType>
+void flip(ImageType& image,unsigned char dim)
+{
+    switch(dim)
+    {
+    case 0:
+        flip_x(image);
+    break;
+    case 1:
+        flip_y(image);
+    break;
+    case 2:
+        flip_z(image);
+    break;
+    case 3:
+        swap_xy(image);
+    break;
+    case 4:
+        swap_yz(image);
+    break;
+    case 5:
+        swap_xz(image);
+    break;
+    }
 }
 //---------------------------------------------------------------------------
 template<typename ImageType>
