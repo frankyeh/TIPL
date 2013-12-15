@@ -633,20 +633,6 @@ void resample(const ImageType& from,ImageType& to,const transform_type& transfor
     }
 }
 
-template<typename ImageType,typename transform_type>
-void resample(ImageType& from,const transform_type& transform)
-{
-    image::basic_image<typename ImageType::value_type,ImageType::dimension> I(from.geometry());
-    for (image::pixel_index<ImageType::dimension> index;
-            index.is_valid(from.geometry());index.next(from.geometry()))
-    {
-        image::vector<ImageType::dimension,double> pos;
-        transform(index,pos);
-        linear_estimate(from,pos,I[index.index()]);
-    }
-}
-
-
 template<typename ImageType,typename value_type>
 void resample(const ImageType& from,ImageType& to,const std::vector<value_type>& trans)
 {
