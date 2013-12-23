@@ -369,15 +369,15 @@ public:
 public:
 
     template<typename Type>
-    void write(const char* name,const Type* data_ptr,unsigned int rows,unsigned int cols)
+    bool write(const char* name,const Type* data_ptr,unsigned int rows,unsigned int cols)
     {
         mat_matrix matrix(name);
         matrix.assign(data_ptr,rows,cols);
-        matrix.write(out);
+        return matrix.write(out);
     }
-    void write(const mat_matrix& data)
+    bool write(const mat_matrix& data)
     {
-        data.write(out);
+        return data.write(out);
     }
 
 public:
