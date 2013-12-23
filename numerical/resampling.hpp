@@ -542,7 +542,7 @@ void fast_resample(const image::basic_image<PixelType,3>& source_image,
 }
 
 template<typename PixelType>
-void resample(const image::basic_image<PixelType,3>& source_image,
+void scale(const image::basic_image<PixelType,3>& source_image,
               image::basic_image<PixelType,3>& des_image)
 {
     double dx = (double)(source_image.width()-1)/(double)(des_image.width()-1);
@@ -574,7 +574,7 @@ void resample(const image::basic_image<PixelType,3>& source_image,
 }
 
 template<typename PixelType>
-void resample(const image::basic_image<PixelType,2>& source_image,
+void scale(const image::basic_image<PixelType,2>& source_image,
               image::basic_image<PixelType,2>& des_image)
 {
     double dx = (double)(source_image.width()-1)/(double)(des_image.width()-1);
@@ -632,6 +632,20 @@ void resample(const ImageType& from,ImageType& to,const transform_type& transfor
         linear_estimate(from,pos,to[index.index()]);
     }
 }
+
+template<typename ImageType,typename transform_type>
+void resample(ImageType& from,const transform_type& transform)
+{
+    image::basic_image<typename ImageType::value_type,ImageType::dimension> I(from.geometry());
+    for (image::pixel_index<ImageType::dimension> index;
+            index.is_valid(from.geometry());index.next(from.geometry()))
+    {
+        image::vector<ImageType::dimension,double> pos;
+        transform(index,pos);
+        linear_estimate(from,pos,I[index.index()]);
+    }
+}
+
 
 template<typename ImageType,typename value_type>
 void resample(const ImageType& from,ImageType& to,const std::vector<value_type>& trans)
