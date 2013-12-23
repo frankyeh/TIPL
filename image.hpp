@@ -77,6 +77,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "image/ml/k_means.hpp"
 #include "image/ml/em.hpp"
 #include "image/ml/hmc.hpp"
+#include "image/ml/svm.hpp"
 
 
 #endif//IMAGE_HPP
