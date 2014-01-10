@@ -198,14 +198,6 @@ public:
     {
         if(data.empty())
             return;
-        if (is_string())
-        {
-            std::string str(data.begin(),data.end());
-            str.push_back(0);
-            std::istringstream in(str);
-            in >> value;
-            return;
-        }
         if (is_float() && data.size() >= 4) // float
         {
             value = *(const float*)&*data.begin();
@@ -226,7 +218,22 @@ public:
             value = *(const int*)&*data.begin();
             return;
         }
-
+        bool is_ascii = true;
+        if(!is_string())
+        for (unsigned int index = 0;index < data.size() && (data[index] || index <= 2);++index)
+            if (!::isprint(data[index]))
+            {
+                is_ascii = false;
+                break;
+            }
+        if (is_ascii)
+        {
+            std::string str(data.begin(),data.end());
+            str.push_back(0);
+            std::istringstream in(str);
+            in >> value;
+            return;
+        }
         if (data.size() == 2) // uint16type
         {
             value = *(const short*)&*data.begin();
@@ -266,28 +273,6 @@ public:
                 out << *iter << " ";
             return;
         }
-
-        bool is_ascii = true;
-        if (is_string()) // String
-            {/* ascii*/}
-        else
-            for (unsigned int index = 0;index < data.size() && (data[index] || index <= 2);++index)
-                if (!::isprint(data[index]))
-                {
-                    is_ascii = false;
-                    break;
-                }
-        if (is_ascii)
-        {
-            for (unsigned int index = 0;index < data.size();++index)
-            {
-                char ch = data[index];
-                if (!ch)
-                    break;
-                out << ch;
-            }
-            return;
-        }
         if (is_int16() && data.size() >= 2)
         {
             for (unsigned int index = 1;index < data.size();index+=2)
@@ -298,6 +283,25 @@ public:
         {
             for (unsigned int index = 3;index < data.size();index+=4)
                 out << *(const int*)&*(data.begin()+index-3) << " ";
+            return;
+        }
+        bool is_ascii = true;
+        if (!is_string()) // String
+        for (unsigned int index = 0;index < data.size() && (data[index] || index <= 2);++index)
+            if (!::isprint(data[index]))
+            {
+            is_ascii = false;
+            break;
+            }
+        if (is_ascii)
+        {
+            for (unsigned int index = 0;index < data.size();++index)
+            {
+                char ch = data[index];
+                if (!ch)
+                    break;
+                out << ch;
+            }
             return;
         }
         out << "..." << data.size() << " bytes";
@@ -483,7 +487,7 @@ public:
             // switch to another DICOM format
             input_io->seekg(0,std::ios::beg);
             input_io->read((char*)&dicom_mark,4);
-            if(dicom_mark != 8)
+            if(dicom_mark & 0x0000FFFF != 8)
                 return false;
             input_io->seekg(0,std::ios::beg);
         }
