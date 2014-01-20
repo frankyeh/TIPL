@@ -263,11 +263,19 @@ inline void get_neighbors(const pixel_index<2>& index,const geometry<2>& geo,int
     int tx = std::min<int>(index.x() + range,geo.width()-1);
     int ty = std::min<int>(index.y() + range,geo.height()-1);
     int y_index = fy*geo.width()+fx;
+    int radius2 = range*range;
     for (int y = fy;y <= ty;++y,y_index += geo.width())
     {
         int x_index = y_index;
+        int dy = (int)index.y()-y;
+        int dy2 = dy*dy;
         for (int x = fx;x <= tx;++x,++x_index)
-            iterations.push_back(pixel_index<2>(x,y,x_index));
+        {
+            int dx = (int)index.x()-x;
+            int dx2 = dx*dx;
+            if(dx2+dy2 <= radius2)
+                iterations.push_back(pixel_index<2>(x,y,x_index));
+        }
     }
 }
 
@@ -283,14 +291,23 @@ inline void get_neighbors(const pixel_index<3>& index,const geometry<3>& geo,int
     int ty = std::min<size_t>(index.y() + range,geo.height()-1);
     int tz = std::min<size_t>(index.z() + range,geo.depth()-1);
     int z_index = (fz*geo.height()+fy)*geo.width()+fx;
+    int radius2 = range*range;
     for (int z = fz;z <= tz;++z,z_index += wh)
     {
         int y_index = z_index;
+        int dz = (int)index.z()-z;
+        int dz2 = dz*dz;
         for (int y = fy;y <= ty;++y,y_index += geo.width())
         {
             int x_index = y_index;
+            int dy = (int)index.y()-y;
+            int dyz2 = dy*dy+dz2;
             for (int x = fx;x <= tx;++x,++x_index)
-                iterations.push_back(pixel_index<3>(x,y,z,x_index));
+            {
+                int dx = (int)index.x()-x;
+                if(dx*dx+dyz2 <= radius2);
+                    iterations.push_back(pixel_index<3>(x,y,z,x_index));
+            }
         }
     }
 }
