@@ -652,6 +652,40 @@ public:
         load_from_image(source);
         return *this;
     }
+
+    //from RAS to LPS
+    template<typename image_type>
+    void toLPS(image_type& out)
+    {
+        save_to_image(out);
+        // from +x = Right  +y = Anterior +z = Superior
+        // to +x = Left  +y = Posterior +z = Superior
+        if(nif_header.srow_x[0] > 0)
+        {
+            for(unsigned int index = 0;index < 4;++index)
+                nif_header.srow_x[index] = -nif_header.srow_x[index];
+            nif_header.srow_x[3] = out.width()-1-nif_header.srow_x[3];
+            if(nif_header.srow_y[1] > 0)
+            {
+                image::flip_xy(out);
+                for(unsigned int index = 0;index < 4;++index)
+                    nif_header.srow_y[index] = -nif_header.srow_y[index];
+                nif_header.srow_y[3] = out.height()-1-nif_header.srow_y[3];
+            }
+            else
+                image::flip_x(out);
+        }
+        else
+        {
+            if(nif_header.srow_y[1] > 0)
+            {
+                image::flip_y(out);
+                for(unsigned int index = 0;index < 4;++index)
+                    nif_header.srow_y[index] = -nif_header.srow_y[index];
+                nif_header.srow_y[3] = out.height()-1-nif_header.srow_y[3];
+            }
+        }
+    }
 };
 
 typedef nifti_base<> nifti;
