@@ -482,7 +482,7 @@ void swap_xy(ImageType& I)
     typedef typename ImageType::value_type value_type;
     image::geometry<ImageType::dimension> new_geo(I.geometry());
     std::swap(new_geo[0],new_geo[1]);
-    image::basic_image<value_type,3> new_volume(new_geo);
+    image::basic_image<value_type,ImageType::dimension> new_volume(new_geo);
     int origin[2] = {0,0};
     int shift[2];
     shift[0] = new_geo.width();
@@ -499,7 +499,7 @@ void swap_xz(ImageType& I)
     typedef typename ImageType::value_type value_type;
     image::geometry<ImageType::dimension> new_geo(I.geometry());
     std::swap(new_geo[0],new_geo[2]);
-    image::basic_image<value_type,3> new_volume(new_geo);
+    image::basic_image<value_type,ImageType::dimension> new_volume(new_geo);
 
     int origin[3] = {0,0,0};
     int shift[3];
@@ -518,7 +518,7 @@ void swap_yz(ImageType& I)
     typedef typename ImageType::value_type value_type;
     image::geometry<ImageType::dimension> new_geo(I.geometry());
     std::swap(new_geo[1],new_geo[2]);
-    image::basic_image<value_type,3> new_volume(new_geo);
+    image::basic_image<value_type,ImageType::dimension> new_volume(new_geo);
 
     int origin[3] = {0,0,0};
     int shift[3];

@@ -57,6 +57,10 @@ public:
             prod *= dim[index];
         return prod;
     }
+    int plane_size(void) const
+    {
+        return dim[0]*dim[1];
+    }
     void clear(void)
     {
         std::fill(dim,dim+Dim,0);
@@ -121,6 +125,7 @@ public:
     {
         return dim[2];
     }
+
 public:
     bool operator==(const geometry<Dim>& rhs) const
     {
