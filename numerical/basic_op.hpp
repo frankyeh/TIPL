@@ -348,7 +348,7 @@ template<typename geo_type,typename dim_order_type,typename flip_type,typename o
 bool reorder_shift_index(const geo_type& geo,
                          dim_order_type dim_order,
                          flip_type flip,
-                         geo_type new_geo,
+                         geo_type& new_geo,
                          origin_type origin_index,
                          shift_type shift_index)
 {
