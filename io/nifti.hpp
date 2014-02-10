@@ -655,28 +655,37 @@ public:
 
     //from RAS to LPS
     template<typename image_type>
-    void toLPS(image_type& out)
+    void toLPS(image_type& out,bool change_header = true)
     {
         save_to_image(out);
         if(std::fabs(nif_header.srow_x[0]) < std::fabs(nif_header.srow_x[1]))
         {
-            std::swap(nif_header.srow_x[0],nif_header.srow_x[1]);
-            std::swap(nif_header.srow_y[0],nif_header.srow_y[1]);
-            std::swap(nif_header.srow_z[0],nif_header.srow_z[1]);
+            if(change_header)
+            {
+                std::swap(nif_header.srow_x[0],nif_header.srow_x[1]);
+                std::swap(nif_header.srow_y[0],nif_header.srow_y[1]);
+                std::swap(nif_header.srow_z[0],nif_header.srow_z[1]);
+            }
             image::swap_xy(out);
         }
         if(std::fabs(nif_header.srow_x[0]) < std::fabs(nif_header.srow_x[2]))
         {
-            std::swap(nif_header.srow_x[0],nif_header.srow_x[2]);
-            std::swap(nif_header.srow_y[0],nif_header.srow_y[2]);
-            std::swap(nif_header.srow_z[0],nif_header.srow_z[2]);
+            if(change_header)
+            {
+                std::swap(nif_header.srow_x[0],nif_header.srow_x[2]);
+                std::swap(nif_header.srow_y[0],nif_header.srow_y[2]);
+                std::swap(nif_header.srow_z[0],nif_header.srow_z[2]);
+            }
             image::swap_xz(out);
         }
         if(std::fabs(nif_header.srow_y[1]) < std::fabs(nif_header.srow_y[2]))
         {
-            std::swap(nif_header.srow_x[1],nif_header.srow_x[2]);
-            std::swap(nif_header.srow_y[1],nif_header.srow_y[2]);
-            std::swap(nif_header.srow_z[1],nif_header.srow_z[2]);
+            if(change_header)
+            {
+                std::swap(nif_header.srow_x[1],nif_header.srow_x[2]);
+                std::swap(nif_header.srow_y[1],nif_header.srow_y[2]);
+                std::swap(nif_header.srow_z[1],nif_header.srow_z[2]);
+            }
             image::swap_yz(out);
         }
 
@@ -685,27 +694,35 @@ public:
         if(nif_header.srow_x[0] > 0)
         {
             image::flip_x(out);
-            for(unsigned int index = 0;index < 4;++index)
-                nif_header.srow_x[index] = -nif_header.srow_x[index];
-            nif_header.srow_x[3] = out.width()-1-nif_header.srow_x[3];
+            if(change_header)
+            {
+                for(unsigned int index = 0;index < 4;++index)
+                    nif_header.srow_x[index] = -nif_header.srow_x[index];
+                nif_header.srow_x[3] = out.width()-1-nif_header.srow_x[3];
+            }
         }
 
         if(nif_header.srow_y[1] > 0)
         {
             image::flip_y(out);
-            for(unsigned int index = 0;index < 4;++index)
-                nif_header.srow_y[index] = -nif_header.srow_y[index];
-            nif_header.srow_y[3] = out.height()-1-nif_header.srow_y[3];
+            if(change_header)
+            {
+                for(unsigned int index = 0;index < 4;++index)
+                    nif_header.srow_y[index] = -nif_header.srow_y[index];
+                nif_header.srow_y[3] = out.height()-1-nif_header.srow_y[3];
+            }
         }
 
         if(nif_header.srow_z[2] < 0)
         {
             image::flip_z(out);
-            for(unsigned int index = 0;index < 4;++index)
-                nif_header.srow_z[index] = -nif_header.srow_z[index];
-            nif_header.srow_z[3] = out.depth()-1-nif_header.srow_z[3];
+            if(change_header)
+            {
+                for(unsigned int index = 0;index < 4;++index)
+                    nif_header.srow_z[index] = -nif_header.srow_z[index];
+                nif_header.srow_z[3] = out.depth()-1-nif_header.srow_z[3];
+            }
         }
-
     }
 };
 
