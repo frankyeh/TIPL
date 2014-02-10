@@ -609,7 +609,7 @@ void bfnorm_mrqcof(const image_type& VG,
 
 template<typename ImageType,typename value_type,typename terminator_type>
 void bfnorm(const ImageType& VG,const ImageType& VF,bfnorm_mapping<value_type>& mapping,terminator_type& terminated,
-             value_type sample_rate = (value_type)8.0,int iteration = 16)
+             value_type sample_rate = (value_type)1.0,int iteration = 16)
 {
     static const int dim = ImageType::dimension;
     value_type fwhm2= 30;
@@ -678,7 +678,7 @@ void bfnorm(const ImageType& VG,const ImageType& VF,bfnorm_mapping<value_type>& 
             image::matrix::ll_solve(&*alpha.begin(),&*piv.begin(),&*beta.begin(),&*mapping.T.begin(),image::dyndim(mapping.T.size(),mapping.T.size()));
         }
         fwhm2 = std::min(fw,fwhm2);
-        //std::cout << "FWHM = " << fw << " Var = " << var <<std::endl;
+        std::cout << "FWHM = " << fw << " Var = " << var <<std::endl;
     }
 }
 
