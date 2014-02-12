@@ -696,9 +696,8 @@ public:
             image::flip_x(out);
             if(change_header)
             {
-                for(unsigned int index = 0;index < 4;++index)
-                    nif_header.srow_x[index] = -nif_header.srow_x[index];
-                nif_header.srow_x[3] = out.width()-1-nif_header.srow_x[3];
+                nif_header.srow_x[3] += nif_header.srow_x[0]*(out.width()-1);
+                nif_header.srow_x[0] = -nif_header.srow_x[0];
             }
         }
 
@@ -707,9 +706,8 @@ public:
             image::flip_y(out);
             if(change_header)
             {
-                for(unsigned int index = 0;index < 4;++index)
-                    nif_header.srow_y[index] = -nif_header.srow_y[index];
-                nif_header.srow_y[3] = out.height()-1-nif_header.srow_y[3];
+                nif_header.srow_y[3] += nif_header.srow_y[1]*(out.height()-1);
+                nif_header.srow_y[1] = -nif_header.srow_y[1];
             }
         }
 
@@ -718,9 +716,8 @@ public:
             image::flip_z(out);
             if(change_header)
             {
-                for(unsigned int index = 0;index < 4;++index)
-                    nif_header.srow_z[index] = -nif_header.srow_z[index];
-                nif_header.srow_z[3] = out.depth()-1-nif_header.srow_z[3];
+                nif_header.srow_z[3] += nif_header.srow_z[2]*(out.depth()-1);
+                nif_header.srow_z[2] = -nif_header.srow_z[2];
             }
         }
     }

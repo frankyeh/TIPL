@@ -678,7 +678,7 @@ void bfnorm(const ImageType& VG,const ImageType& VF,bfnorm_mapping<value_type>& 
             image::matrix::ll_solve(&*alpha.begin(),&*piv.begin(),&*beta.begin(),&*mapping.T.begin(),image::dyndim(mapping.T.size(),mapping.T.size()));
         }
         fwhm2 = std::min(fw,fwhm2);
-        std::cout << "FWHM = " << fw << " Var = " << var <<std::endl;
+        //std::cout << "FWHM = " << fw << " Var = " << var <<std::endl;
     }
 }
 
