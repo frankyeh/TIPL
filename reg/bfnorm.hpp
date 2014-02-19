@@ -124,14 +124,13 @@ public:
         value_type *temp = &temp_[0];
         value_type *temp2 = &temp2_[0];
 
-        for(unsigned char dim = 0;dim < 3;++dim)
         {
-        for(unsigned int k = 0,index = from[0];k < nx;++k,index += VGgeo[0])
-            bx[k] = bas[0][index];
-        for(unsigned int k = 0,index = from[1];k < ny;++k,index += VGgeo[1])
-            by[k] = bas[1][index];
-        for(unsigned int k = 0,index = from[2];k < nz;++k,index += VGgeo[2])
-            bz[k] = bas[2][index];
+            for(unsigned int k = 0,index = from[0];k < nx;++k,index += VGgeo[0])
+                bx[k] = bas[0][index];
+            for(unsigned int k = 0,index = from[1];k < ny;++k,index += VGgeo[1])
+                by[k] = bas[1][index];
+            for(unsigned int k = 0,index = from[2];k < nz;++k,index += VGgeo[2])
+                bz[k] = bas[2][index];
         }
 
         image::matrix::product(T.begin(),bx,temp,dyz_x,dx_1);
