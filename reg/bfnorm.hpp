@@ -8,15 +8,15 @@ namespace image {
 
 namespace reg {
 
-template<typename ImageType>
-double resample_d(const ImageType& vol,double& gradx,double& grady,double& gradz,double x,double y,double z)
+template<typename ImageType,typename value_type>
+value_type resample_d(const ImageType& vol,value_type& gradx,value_type& grady,value_type& gradz,value_type x,value_type y,value_type z)
 {
-    const double TINY = 5e-2;
+    const value_type TINY = 5e-2;
     int xdim = vol.width();
     int ydim = vol.height();
     int zdim = vol.depth();
     {
-        double xi,yi,zi;
+        value_type xi,yi,zi;
         xi=x-1.0;
         yi=y-1.0;
         zi=z-1.0;
@@ -24,8 +24,8 @@ double resample_d(const ImageType& vol,double& gradx,double& grady,double& gradz
                 yi>=-TINY && yi<ydim+TINY-1 &&
                 xi>=-TINY && xi<xdim+TINY-1)
         {
-            double k111,k112,k121,k122,k211,k212,k221,k222;
-            double dx1, dx2, dy1, dy2, dz1, dz2;
+            value_type k111,k112,k121,k122,k211,k212,k221,k222;
+            value_type dx1, dx2, dy1, dy2, dz1, dz2;
             int off1, off2, offx, offy, offz, xcoord, ycoord, zcoord;
 
             xcoord = (int)floor(xi);
@@ -100,13 +100,13 @@ public:
 public:
     bfnorm_mapping(const image::geometry<3>& geo_,const image::geometry<dim>& k_base_):VGgeo(geo_),k_base(k_base_)
     {
-        //void initialize_basis_function(double stabilise) // bounding offset
+        //void initialize_basis_function(value_type stabilise) // bounding offset
         value_type stabilise = 8;
         bas.resize(dim);
         dbas.resize(dim);
         for(int d = 0; d < dim; ++d)
         {
-            value_type pi_inv_mni_dim = 3.14159265358979323846/(double)VGgeo[d];
+            value_type pi_inv_mni_dim = 3.14159265358979323846/value_type(VGgeo[d]);
             bas[d].resize(VGgeo[d]*k_base[d]);
             dbas[d].resize(VGgeo[d]*k_base[d]);
             // C(:,1)=ones(size(n,1),1)/sqrt(N);
@@ -116,9 +116,9 @@ public:
                 for(int n = 0; n < VGgeo[d]; ++n,++index)
                 {
                     // C(:,k) = sqrt(2/N)*cos(pi*(2*n+1)*(k-1)/(2*N));
-                    bas[d][index] = stabilise*std::sqrt(2.0/(double)VGgeo[d])*std::cos(pi_inv_mni_dim*(value_type)i*((value_type)n+0.5));
+                    bas[d][index] = stabilise*std::sqrt(2.0/value_type(VGgeo[d]))*std::cos(pi_inv_mni_dim*(value_type)i*((value_type)n+0.5));
                     // C(:,k) = -2^(1/2)*(1/N)^(1/2)*sin(1/2*pi*(2*n*k-2*n+k-1)/N)*pi*(k-1)/N;
-                    dbas[d][index] = -stabilise*std::sqrt(2.0/(double)VGgeo[d])*std::sin(pi_inv_mni_dim*(value_type)i*((value_type)n+0.5))*pi_inv_mni_dim*i;
+                    dbas[d][index] = -stabilise*std::sqrt(2.0/value_type(VGgeo[d]))*std::sin(pi_inv_mni_dim*(value_type)i*((value_type)n+0.5))*pi_inv_mni_dim*i;
                 }
         }
 
@@ -204,10 +204,10 @@ private:
     const std::vector<value_type>& dB0;
     const std::vector<value_type>& dB1;
     const std::vector<value_type>& dB2;
-    const double *bz3[3], *by3[3], *bx3[3];
+    const value_type *bz3[3], *by3[3], *bx3[3];
 public:
     std::vector<value_type> alphaxy,alphax,betaxy,betax,Tz,Ty;
-    std::vector<std::vector<std::vector<double> > > Jz,Jy;
+    std::vector<std::vector<std::vector<value_type> > > Jz,Jy;
     int s0[3];
 public:
     unsigned int thread_id,thread_count;
@@ -305,29 +305,21 @@ public:
     }
 public:// calculation results to accumulate
     value_type ss,nsamp,ss_deriv[3];
-    std::vector<value_type> alpha,beta;
-    void accumulate(std::vector<value_type>& alpha_,std::vector<value_type>& beta_,
-                    value_type& ss_,value_type& nsamp_,value_type* ss_deriv_)
+    void accumulate(value_type& ss_,value_type& nsamp_,value_type* ss_deriv_)
     {
         ss_ += ss;
         nsamp_ += nsamp;
         ss_deriv_[0] += ss_deriv[0];
         ss_deriv_[1] += ss_deriv[1];
         ss_deriv_[2] += ss_deriv[2];
-        image::add(alpha_.begin(),alpha_.end(),alpha.begin());
-        image::add(beta_.begin(),beta_.end(),beta.begin());
     }
 public:
     template<typename terminated_type>
-    void run(const terminated_type& terminated)
+    void run(std::vector<value_type>& alpha,std::vector<value_type>& beta,const terminated_type& terminated)
     {
         ss = 0.0;
         nsamp = 0.0;
         std::fill(ss_deriv,ss_deriv+3,0.0);
-        alpha.clear();
-        beta.clear();
-        alpha.resize((nxyz3+4)*(nxyz3+4)); // plhs[0]
-        beta.resize(nxyz3+4); // plhs[1]
         //started from slice 1
         for(s0[2]=thread_id+1; s0[2]<dim1[2] && !terminated; s0[2]+=samp[2]*thread_count) /* For each plane of the template images */
         {
@@ -498,7 +490,7 @@ public:
                 /* Kronecker tensor products */
                 for(int y1=0; y1<ny; y1++)
                 {
-                    double wt1 = B1[dim1_1_values[y1]+s0[1]];
+                    value_type wt1 = B1[dim1_1_values[y1]+s0[1]];
 
                     for(int i1=0; i1<3; i1++)	/* loop over deformations in x, y and z */
                     {
@@ -508,7 +500,7 @@ public:
                             for(int y2=0; y2<=y1; y2++)
                             {
                                 /* Kronecker tensor products with B1'*B1 */
-                                double wt2 = wt1 * B1[dim1_1_values[y2]+s0[1]];
+                                value_type wt2 = wt1 * B1[dim1_1_values[y2]+s0[1]];
 
                                 value_type* ptr1 = &alphaxy[nx*(m1*(ny_values[i1] + y1) + ny_values[i2] + y2)];
                                 value_type* ptr2 = &alphax[nx*(m2*i1 + i2)];
@@ -554,7 +546,7 @@ public:
             /* Kronecker tensor products */
             for(int z1=0; z1<nz; z1++)
             {
-                double wt1 = B2[dim1_2_values[z1]+s0[2]];
+                value_type wt1 = B2[dim1_2_values[z1]+s0[2]];
 
                 for(int i1=0; i1<3; i1++)	/* loop over deformations in x, y and z */
                 {
@@ -564,7 +556,7 @@ public:
                         for(int z2=0; z2<=z1; z2++)
                         {
                             /* Kronecker tensor products with B2'*B2 */
-                            double wt2 = wt1 * B2[dim1_2_values[z2]+s0[2]];
+                            value_type wt2 = wt1 * B2[dim1_2_values[z2]+s0[2]];
 
                             value_type* ptr1 = &alpha[nxy*(m1*(nz_values[i1] + z1) + nz_values[i2] + z2)];
                             value_type* ptr2 = &alphaxy[nxy*(m2*i1 + i2)];
@@ -624,7 +616,7 @@ private: // slice temporary data
     std::vector<bfnorm_slice_data<image_type,value_type>*> data;
 public:
     std::vector<value_type> IC0;
-    std::vector<value_type> alpha;
+    std::vector<value_type> alpha,beta;
 public:
     std::vector<value_type>& T;
 public:
@@ -654,7 +646,7 @@ public:
         samp[2] = ((samp[2]<1) ? 1 : samp[2]);
 
         alpha.resize((nxyz3+4)*(nxyz3+4)); // plhs[0]
-
+        beta.resize(nxyz3+4);
         IC0.resize(3*mapping.k_base.size()+4);
         const int dim = image_type::dimension;
 
@@ -699,22 +691,23 @@ public:
     {
         for(unsigned int index = 0;index < data.size();++index)
             data[index]->init();
+        //bfnorm_mrqcof_zero_half(alpha,nxyz3+4);
+        std::fill(alpha.begin(),alpha.end(),0.0);
+        std::fill(beta.begin(),beta.end(),0.0);
     }
 
     template<typename terminated_type>
     void run(unsigned int thread_id,const terminated_type& terminateded)
     {
-        data[thread_id]->run(terminateded);
+        data[thread_id]->run(alpha,beta,terminateded);
     }
 
     void end(void)
     {
         value_type ss = 0.0,nsamp = 0.0,ss_deriv[3];
-        std::vector<value_type> beta(nxyz3+4);
-        bfnorm_mrqcof_zero_half(alpha,nxyz3+4);
         std::fill(ss_deriv,ss_deriv+3,0.0);
         for(unsigned int index = 0;index < data.size();++index)
-            data[index]->accumulate(alpha,beta,ss,nsamp,ss_deriv);
+            data[index]->accumulate(ss,nsamp,ss_deriv);
 
         // update alpha
         int m1 = nxyz3+4;
@@ -764,6 +757,9 @@ public:
         ss /= (std::min(samp[0]/(fwhm2*1.0645),1.0) *
                std::min(samp[1]/(fwhm2*1.0645),1.0) *
                std::min(samp[2]/(fwhm2*1.0645),1.0)) * (nsamp - (nxyz3 + 4));
+
+        std::cout << "FWHM = " << fw << " Var = " << ss <<std::endl;
+
         image::divide_constant(alpha.begin(),alpha.end(), ss);
         image::divide_constant(beta.begin(),beta.end(), ss);
 
@@ -773,6 +769,7 @@ public:
             image::matrix::vector_product(alpha.begin(),T.begin(),alphaT.begin(),image::dyndim(T.size(),T.size()));
             image::add(beta.begin(),beta.end(),alphaT.begin());
         }
+
 
         //Alpha + IC0*scal
         value_type pvar = std::numeric_limits<value_type>::max();
@@ -787,13 +784,25 @@ public:
                 alpha[i] += IC0[j];
 
         // solve T = (Alpha + IC0*scal)\(Alpha*T + Beta);
+
+        for(unsigned int i = 0;i < 20;++i)
         {
-            std::vector<value_type> piv(T.size());
-            image::matrix::ll_decomposition(&*alpha.begin(),&*piv.begin(),image::dyndim(T.size(),T.size()));
-            image::matrix::ll_solve(&*alpha.begin(),&*piv.begin(),&*beta.begin(),&*T.begin(),image::dyndim(T.size(),T.size()));
+            for(unsigned int i = 0;i < 10;++i)
+                std::cout << T[i] << " ";
+            std::cout << std::endl;
+
+            if(!image::matrix::jacobi_solve(&*alpha.begin(),&*beta.begin(),&*T.begin(),image::dyndim(T.size(),T.size())))
+            {
+                // use LL decomposition instead
+                std::vector<value_type> piv(T.size());
+                image::matrix::ll_decomposition(&*alpha.begin(),&*piv.begin(),image::dyndim(T.size(),T.size()));
+                image::matrix::ll_solve(&*alpha.begin(),&*piv.begin(),&*beta.begin(),&*T.begin(),image::dyndim(T.size(),T.size()));
+                break;
+            }
         }
+
         fwhm2 = std::min(fw,fwhm2);
-        std::cout << "FWHM = " << fw << " Var = " << ss <<std::endl;
+
     }
 };
 
@@ -823,15 +832,15 @@ void bfnorm_get_jacobian(const bfnorm_mapping<value_type>& mapping,const from_ty
 
     const std::vector<value_type>& T = mapping.T;
 
-    std::vector<double> bx_(nx),by_(ny),bz_(nz),dbx_(nx),dby_(ny),dbz_(nz),temp_(nyz),temp2_(nz);
-    double *bx = &bx_[0];
-    double *by = &by_[0];
-    double *bz = &bz_[0];
-    double *dbx = &dbx_[0];
-    double *dby = &dby_[0];
-    double *dbz = &dbz_[0];
-    double *temp = &temp_[0];
-    double *temp2 = &temp2_[0];
+    std::vector<value_type> bx_(nx),by_(ny),bz_(nz),dbx_(nx),dby_(ny),dbz_(nz),temp_(nyz),temp2_(nz);
+    value_type *bx = &bx_[0];
+    value_type *by = &by_[0];
+    value_type *bz = &bz_[0];
+    value_type *dbx = &dbx_[0];
+    value_type *dby = &dby_[0];
+    value_type *dbz = &dbz_[0];
+    value_type *temp = &temp_[0];
+    value_type *temp2 = &temp2_[0];
 
     for(unsigned int k = 0,index = from[0]; k < nx; ++k,index += mapping.VGgeo[0])
     {
