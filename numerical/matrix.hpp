@@ -791,32 +791,50 @@ void ll_solve(io_iterator A,pivot_iterator p,input_iterator2 b,output_iterator x
     May modify matrix A and b to enlarge the diagnoal elements
  */
 template<typename io_iterator,typename input_iterator2,typename dim_type>
-bool jacobi_regularize(io_iterator A,input_iterator2 b,const dim_type& dim)
+bool jacobi_regularize(io_iterator A,input_iterator2 piv,const dim_type& dim)
 {
     typedef typename std::iterator_traits<io_iterator>::value_type value_type;
     const unsigned int dimension = dim.row_count();
-    io_iterator A_row_i = A;
-    for(unsigned int i = 0,dia = 0;i < dimension;++i,A_row_i += dimension,dia += dimension+1)
+    std::vector<unsigned char> selected(dimension);
+    for(int row = dimension-1;row >= 0;--row)
     {
         value_type max_value = 0.0;
-        unsigned int max_row = 0;
-        io_iterator A_row_j = A,A_row_max = A;
-        for(unsigned int j = 0;j < dimension;++j,A_row_j += dimension)
-            if(A_row_j[i] != 0.0 && A_row_i[j] != 0.0 &&
-               std::fabs(A_row_j[i])+std::fabs(A_row_i[j]) > max_value)
+        unsigned int max_col = 0;
+        io_iterator A_row = A + row*dimension;
+        for(unsigned int col = 0;col < dimension;++col,++A_row)
+            if(std::fabs(*A_row) > max_value && !selected[col])
             {
-                max_row = j;
-                A_row_max = A_row_j;
-                max_value = std::fabs(A_row_j[i]);
+                max_col = col;
+                max_value = std::fabs(*A_row);
             }
         if(max_value == 0.0)
             return false;
-        if(i != max_row)// swap rows
-        {
-            for(unsigned int j = 0;j < dimension;++j)
-                std::swap(A_row_i[j],A_row_max[j]);
-            std::swap(b[i],b[max_row]);
-        }
+        selected[max_col] = 1;
+        piv[row] = max_col;
+    }
+    return true;
+}
+
+
+template<typename io_iterator,typename pivot_iterator,typename input_iterator2,
+         typename output_iterator,typename dim_type>
+void jacobi_solve(io_iterator A,pivot_iterator p,input_iterator2 b,output_iterator x,const dim_type& dim)
+{
+    typedef typename std::iterator_traits<output_iterator>::value_type value_type;
+    const unsigned int dimension = dim.row_count();
+    io_iterator Arow_j = A;
+    for(unsigned int i = 0;i < dimension;++i)
+    {
+        x[i] = b[i];
+        value_type scale = 0.0;
+        for(unsigned int j = 0;j < dimension;++j,++Arow_j)
+            if(j != p[i])
+                x[i] -= (*Arow_j)*x[j];
+            else
+                scale = (*Arow_j);
+        if(scale == 0.0)
+            return false;
+        x[i] /= scale;
     }
     return true;
 }
@@ -826,18 +844,19 @@ bool jacobi_solve(io_iterator A,input_iterator2 b,output_iterator x,const dim_ty
 {
     typedef typename std::iterator_traits<output_iterator>::value_type value_type;
     const unsigned int dimension = dim.row_count();
-    io_iterator A_row = A;
-    for(unsigned int i = 0;i < dimension;++i,A_row += dimension)
+    io_iterator Arow_j = A;
+    for(unsigned int i = 0;i < dimension;++i)
     {
         x[i] = b[i];
         value_type scale = 0.0;
-        for(unsigned int j = 0;j < dimension;++j)
+        for(unsigned int j = 0;j < dimension;++j,++Arow_j)
             if(i != j)
-                x[i] -= A_row[j]*x[j];
+                x[i] -= (*Arow_j)*x[j];
             else
-                scale = A_row[j];
+                scale = (*Arow_j);
         if(scale == 0.0)
             return false;
+        // can be improve by weighted jacobi method
         x[i] /= scale;
     }
     return true;

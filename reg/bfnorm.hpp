@@ -757,12 +757,11 @@ public:
         ss /= (std::min(samp[0]/(fwhm2*1.0645),1.0) *
                std::min(samp[1]/(fwhm2*1.0645),1.0) *
                std::min(samp[2]/(fwhm2*1.0645),1.0)) * (nsamp - (nxyz3 + 4));
-
         std::cout << "FWHM = " << fw << " Var = " << ss <<std::endl;
+        fwhm2 = std::min(fw,fwhm2);
 
         image::divide_constant(alpha.begin(),alpha.end(), ss);
         image::divide_constant(beta.begin(),beta.end(), ss);
-
         {
             // beta = beta + alpha*T;
             std::vector<value_type> alphaT(T.size());
@@ -785,11 +784,9 @@ public:
 
         // solve T = (Alpha + IC0*scal)\(Alpha*T + Beta);
 
+        /*
         for(unsigned int i = 0;i < 20;++i)
         {
-            for(unsigned int i = 0;i < 10;++i)
-                std::cout << T[i] << " ";
-            std::cout << std::endl;
 
             if(!image::matrix::jacobi_solve(&*alpha.begin(),&*beta.begin(),&*T.begin(),image::dyndim(T.size(),T.size())))
             {
@@ -799,10 +796,47 @@ public:
                 image::matrix::ll_solve(&*alpha.begin(),&*piv.begin(),&*beta.begin(),&*T.begin(),image::dyndim(T.size(),T.size()));
                 break;
             }
+        }*/
+    }
+    void run2(unsigned int thread_id,unsigned int iteration)
+    {
+        // solve T = (Alpha + IC0*scal)\(Alpha*T + Beta);
+        // alpha is a diagonal dominant matrix, which can use Jacobi method to solve
+        //image::matrix::jacobi_solve(&*alpha.begin(),&*beta.begin(),&*T.begin(),image::dyndim(T.size(),T.size()));
+        for(unsigned int iter = 0;iter < iteration;++iter)
+        {
+            /*
+            if(thread_id == 0)
+            {
+                for(unsigned int i = 0;i < 5;++i)
+                    std::cout << T[i] << " ";
+                std::cout << std::endl;
+            }
+            */
+            unsigned int dimension = T.size();
+            unsigned int thread_count = data.size();
+            unsigned int step = thread_count * dimension;
+            const value_type* A_row = &*(alpha.end() - dimension - thread_id*dimension);
+            // going bacward because because alpha values is incremental
+            for(int i = dimension-1-thread_id;i >= 0;i -= thread_count,A_row -= step)
+            {
+                value_type new_T_value = beta[i];
+                value_type scale = 0.0;
+                for(unsigned int j = 0;j < dimension;++j)
+                    if(j != i)
+                        new_T_value -= A_row[j]*T[j];
+                    else
+                        scale = A_row[j];
+                if(scale == 0.0)
+                    return;
+                new_T_value /= scale;
+                // stablize using weighted jacobi method
+                new_T_value /= 3;
+                new_T_value *= 2;
+                new_T_value += T[i] /3;
+                T[i] = new_T_value;
+            }
         }
-
-        fwhm2 = std::min(fw,fwhm2);
-
     }
 };
 
@@ -816,6 +850,7 @@ void bfnorm(const ImageType& VG,const ImageType& VF,bfnorm_mapping<value_type>& 
         bf_optimize.start();
         bf_optimize.run(0,terminated);
         bf_optimize.end();
+        bf_optimize.run2(0,40);
     }
 }
 
