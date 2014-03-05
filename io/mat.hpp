@@ -87,25 +87,20 @@ private:
     unsigned int type;
     unsigned int rows;
     unsigned int cols;
-    unsigned int count;
+    std::string name;
     unsigned int namelen;
 private:
-    std::string name;
     std::vector<unsigned char> data_buf;
-    unsigned char* data; // for read
+    void* data_ptr; // for read
 private:
-    unsigned int get_total_size(unsigned int ty)
+    unsigned int get_total_size(unsigned int ty) const
     {
         unsigned int element_size_array[10] = {8,4,4,2,2,1,0,0,0,0};
-        return count*element_size_array[(ty%100)/10];
+        return rows*cols*element_size_array[(ty%100)/10];
     }
-private:
-    void* data_ptr; // for write
-    unsigned int element_size;
 public:
-    mat_matrix(void):type(0),rows(0),cols(0),count(0),namelen(0),data(0)
-    {}
-    mat_matrix(const std::string& name_):namelen(name_.size()+1),name(name_),data(0) {}
+    mat_matrix(void):type(0),rows(0),cols(0),namelen(0),data_ptr(0){}
+    mat_matrix(const std::string& name_):type(0),rows(0),cols(0),namelen(name_.size()+1),name(name_),data_ptr(0) {}
 
     template<typename Type>
     void assign(const Type* data_ptr_,unsigned int rows_,unsigned int cols_)
@@ -114,7 +109,6 @@ public:
         rows = rows_;
         cols = cols_;
         type = mat_type_info<Type>::type;
-        element_size = sizeof(Type);
     }
 	template<typename OutType>
     void copy_data(OutType out)
@@ -122,22 +116,22 @@ public:
         switch (type)
         {
         case 0://double
-            std::copy((const double*)data,((const double*)data) + count,out);
+            std::copy((const double*)data_ptr,((const double*)data_ptr) + rows*cols,out);
             break;
         case 10://float
-            std::copy((const float*)data,((const float*)data) + count,out);
+            std::copy((const float*)data_ptr,((const float*)data_ptr) + rows*cols,out);
             break;
         case 20://unsigned int
-            std::copy((const unsigned int*)data,((const unsigned int*)data) + count,out);
+            std::copy((const unsigned int*)data_ptr,((const unsigned int*)data_ptr) + rows*cols,out);
             break;
         case 30://short
-            std::copy((const short*)data,((const short*)data) + count,out);
+            std::copy((const short*)data_ptr,((const short*)data_ptr) + rows*cols,out);
             break;
         case 40://unsigned short
-            std::copy((const unsigned short*)data,((const unsigned short*)data) + count,out);
+            std::copy((const unsigned short*)data_ptr,((const unsigned short*)data_ptr) + rows*cols,out);
             break;
         case 50://unsigned char
-            std::copy((const unsigned char*)data,((const unsigned char*)data) + count,out);
+            std::copy((const unsigned char*)data_ptr,((const unsigned char*)data_ptr) + rows*cols,out);
             break;
         }
     }
@@ -147,9 +141,9 @@ public:
             return 0;
         // same type or unsigned short v.s. short
         if (get_type == type || (type == 40 && get_type == 30) || (type == 30 && get_type == 40))
-            return data;
+            return data_ptr;
         std::vector<unsigned char> allocator(get_total_size(get_type));
-        unsigned char* new_data = &*allocator.begin();
+        void* new_data = (void*)&*allocator.begin();
         switch (get_type)
         {
         case 0://double
@@ -171,10 +165,10 @@ public:
             copy_data((unsigned char*)new_data);
             break;
         }
-        std::swap(data,new_data);
+        std::swap(data_ptr,new_data);
         allocator.swap(data_buf);
         type = get_type;
-        return data;
+        return data_ptr;
     }
     unsigned int get_rows(void) const
     {
@@ -205,8 +199,7 @@ public:
             return false;
         std::vector<char> buffer(namelen+1);
         in.read((char*)&*buffer.begin(),namelen);
-        count = rows*cols;
-        if(!count)
+        if(rows*cols == 0)
             return false;
         name = &*buffer.begin();
         if (!in)
@@ -220,8 +213,8 @@ public:
 		{
 			return false;
         }
-		data = &*data_buf.begin();
-        in.read((char*)data,get_total_size(type));
+        data_ptr = &*data_buf.begin();
+        in.read((char*)data_ptr,get_total_size(type));
         return true;
     }
     template<typename stream_type>
@@ -234,7 +227,7 @@ public:
         out.write((const char*)&imagf,4);
         out.write((const char*)&namelen,4);
         out.write((const char*)&*name.begin(),namelen);
-        out.write((const char*)data_ptr,element_size*rows*cols);
+        out.write((const char*)data_ptr,get_total_size(type));
         return out;
     }
 };
