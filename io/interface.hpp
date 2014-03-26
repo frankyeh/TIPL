@@ -17,9 +17,9 @@ public:
         in.open(file_name,std::ios::binary);
         return in;
     }
-    void read(void* buf,size_t size)
+    bool read(void* buf,size_t size)
     {
-        in.read((char*)buf,size);
+        return in.read((char*)buf,size);
     }
     void seek(size_t pos)
     {

@@ -566,23 +566,26 @@ public:
         return out;
     }
     template<typename pointer_type>
-    void save_to_buffer(pointer_type ptr,unsigned int pixel_count) const
+    bool save_to_buffer(pointer_type ptr,unsigned int pixel_count) const
     {
         const int byte_per_pixel = header.dime.bitpix/8;
         typedef typename std::iterator_traits<pointer_type>::value_type value_type;
         if(compatible(nifti_type_info<value_type>::data_type,nif_header.datatype))
         {
-            input_stream->read((char*)&*ptr,pixel_count*byte_per_pixel);
+            if(!input_stream->read((char*)&*ptr,pixel_count*byte_per_pixel))
+                return false;
             if (big_endian)
                 change_endian(&*ptr,pixel_count);
+            return true;
         }
         else
         {
             std::vector<char> buf(pixel_count*byte_per_pixel);
             if(buf.empty())
-                return;
+                return false;
             void* buf_ptr = &*buf.begin();
-            input_stream->read((char*)buf_ptr,buf.size());
+            if(!input_stream->read((char*)buf_ptr,buf.size()))
+                return false;
             if (big_endian)
             {
                 switch (byte_per_pixel)
@@ -602,43 +605,51 @@ public:
             {
             case 2://DT_UNSIGNED_CHAR 2
                 std::copy((const unsigned char*)buf_ptr,(const unsigned char*)buf_ptr+pixel_count,ptr);
-                return;
+                break;
             case 4://DT_SIGNED_SHORT 4
                 std::copy((const short*)buf_ptr,(const short*)buf_ptr+pixel_count,ptr);
-                return;
+                break;
             case 8://DT_SIGNED_INT 8
                 std::copy((const int*)buf_ptr,(const int*)buf_ptr+pixel_count,ptr);
-                return;
+                break;
             case 16://DT_FLOAT 16
                 std::copy((const float*)buf_ptr,(const float*)buf_ptr+pixel_count,ptr);
-                return;
+                break;
             case 64://DT_DOUBLE 64
                 std::copy((const double*)buf_ptr,(const double*)buf_ptr+pixel_count,ptr);
-                return;
+                break;
             case 128://DT_RGB
                 for(unsigned int index = 0;index < buf.size();index +=3,++ptr)
                     *ptr = (short)image::rgb_color(buf[index],buf[index+1],buf[index+2]);
-                return;
+                break;
             case 256: // DT_INT8
                 std::copy((const char*)&*buf.begin(),(const char*)buf_ptr+pixel_count,ptr);
-                return;
+                break;
             case 512: // DT_UINT16
                 std::copy((const unsigned short*)buf_ptr,(const unsigned short*)buf_ptr+pixel_count,ptr);
-                return;
+                break;
             case 768: // DT_UINT32
                 std::copy((const unsigned int*)buf_ptr,(const unsigned int*)buf_ptr+pixel_count,ptr);
-                return;
+                break;
             }
+            return true;
         }
     }
 
-    template<typename image_type>
-    void save_to_image(image_type& out) const
+    bool has_data(void) const
     {
         if(!input_stream.get() || !(*input_stream))
-            return;
+            return false;
+        return true;
+    }
+
+    template<typename image_type>
+    bool save_to_image(image_type& out) const
+    {
+        if(!has_data())
+            return false;
         out.resize(image::geometry<image_type::dimension>(nif_header.dim+1));
-        save_to_buffer(out.begin(),out.size());
+        return save_to_buffer(out.begin(),out.size());
     }
     template<typename image_type>
     const nifti_base& operator>>(image_type& source) const
@@ -655,9 +666,10 @@ public:
 
     //from RAS to LPS
     template<typename image_type>
-    void toLPS(image_type& out,bool change_header = true)
+    bool toLPS(image_type& out,bool change_header = true)
     {
-        save_to_image(out);
+        if(!save_to_image(out))
+            return false;
         if(std::fabs(nif_header.srow_x[0]) < std::fabs(nif_header.srow_x[1]))
         {
             if(change_header)
@@ -720,6 +732,7 @@ public:
                 nif_header.srow_z[2] = -nif_header.srow_z[2];
             }
         }
+        return true;
     }
 };
 

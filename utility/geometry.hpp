@@ -374,6 +374,10 @@ public:
     {
         return h;
     }
+    int depth(void) const
+    {
+        return 1;
+    }
     int plane_size(void) const
     {
         return w*h;
