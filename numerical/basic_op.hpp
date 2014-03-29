@@ -59,9 +59,9 @@ void threshold(const ImageType& image,LabelImageType& out,typename ImageType::va
 }
 
 //--------------------------------------------------------------------------
-template<typename PixelType,typename DimensionType>
-void crop(const basic_image<PixelType,2>& from_image,
-          basic_image<PixelType,2>& to_image,
+template<typename PixelType,typename DimensionType,typename storage_type>
+void crop(const basic_image<PixelType,2,storage_type>& from_image,
+          basic_image<PixelType,2,storage_type>& to_image,
           const DimensionType& from,
           const DimensionType& to)
 {
@@ -79,9 +79,9 @@ void crop(const basic_image<PixelType,2>& from_image,
 
 }
 //--------------------------------------------------------------------------
-template<typename PixelType,typename DimensionType>
-void crop(const basic_image<PixelType,3>& from_image,
-          basic_image<PixelType,3>& to_image,
+template<typename PixelType,typename DimensionType,typename storage_type>
+void crop(const basic_image<PixelType,3,storage_type>& from_image,
+          basic_image<PixelType,3,storage_type>& to_image,
           const DimensionType& from,
           const DimensionType& to)
 {

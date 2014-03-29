@@ -38,6 +38,12 @@ namespace reg
                 image::vector<3,double> pos(index);
                 sum_mass += pos;
             }
+        if(total_w == 0)
+        {
+            for(unsigned char dim = 0;dim < I_type::dimension;++dim)
+                sum_mass[dim] = (double)Im.geometry()[dim]/2.0;
+            return sum_mass;
+        }
         sum_mass /= total_w;
         for(unsigned char dim = 0;dim < I_type::dimension;++dim)
             sum_mass[dim] -= (double)Im.geometry()[dim]/2.0;
