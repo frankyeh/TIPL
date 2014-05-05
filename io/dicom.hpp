@@ -304,7 +304,13 @@ public:
             }
             return;
         }
-        out << "..." << data.size() << " bytes";
+        out << data.size() << " bytes";
+        if(data.size() == 8)
+            out << ", double=" << *(double*)&*data.begin() << " ";
+        if(data.size() == 4)
+            out << ", int=" << *(int*)&*data.begin() << ", float=" << *(float*)&*data.begin() << " ";
+        if(data.size() == 2)
+            out << ", short=" << *(short*)&*data.begin() << " ";
         return;
     }
 

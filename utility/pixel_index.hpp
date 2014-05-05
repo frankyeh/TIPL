@@ -737,6 +737,7 @@ public:
         y_ = function(y_);
         z_ = function(z_);
 	}
+
     void floor(void)
     {
         x_ = std::floor(x_);
