@@ -597,6 +597,33 @@ void scale(const image::basic_image<PixelType,2>& source_image,
     }
 }
 
+template<typename PixelType>
+void scale_nearest(const image::basic_image<PixelType,2>& source_image,
+              image::basic_image<PixelType,2>& des_image)
+{
+    double dx = (double)(source_image.width()-1)/(double)(des_image.width()-1);
+    double dy = (double)(source_image.height()-1)/(double)(des_image.height()-1);
+    double maxx = source_image.width()-1;
+    double maxy = source_image.height()-1;
+    double coord[2];
+    coord[1] = 0.0;
+    for (unsigned int y = 0,index = 0;y < des_image.height();++y,coord[1] += dy)
+    {
+        if (coord[1] > maxy)
+            coord[1] = maxy;
+        coord[0] = 0.0;
+        for (unsigned int x = 0;x < des_image.width();++x,++index,coord[0] += dx)
+        {
+            if (coord[0] > maxx)
+                coord[0] = maxx;
+            int ix = std::floor(coord[0]+0.5);
+            int iy = std::floor(coord[1]+0.5);
+            if(source_image.geometry().is_valid(ix,iy))
+                des_image[index] = source_image.at(ix,iy);
+        }
+    }
+}
+
 template<typename PixelType,typename CoordinateType,typename ScaleVecType>
 void resample(const image::basic_image<PixelType,3>& source_image,
               image::basic_image<PixelType,3>& des_image,

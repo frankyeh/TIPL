@@ -69,9 +69,9 @@ struct weighting_sum<unsigned char>
     template<typename data_iterator_type,typename weighting_iterator,typename output_type>
     void operator()(data_iterator_type from,data_iterator_type to,weighting_iterator w,output_type& result_)
     {
-        float result = (*from)*(*w);
+        float result = ((float)(*from))*(*w);
         for (++from,++w;from != to;++from,++w)
-            result += (*from)*(*w);
+            result += ((float)(*from))*(*w);
         result_ = result;
     }
 };
