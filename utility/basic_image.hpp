@@ -290,6 +290,14 @@ public:
     {
         return data.empty();
     }
+    pixel_type front(void) const
+    {
+        return data.front();
+    }
+    pixel_type back(void) const
+    {
+        return data.back();
+    }
     pixel_type operator[](unsigned int index) const
     {
         return data[index];
