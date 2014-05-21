@@ -8,9 +8,16 @@
 #include <limits.h>
 #include <locale.h>
 #include "svm.hpp"
-int libsvm_version = LIBSVM_VERSION;
+
 typedef float Qfloat;
 typedef signed char schar;
+
+namespace image{
+
+namespace ml{
+
+int libsvm_version = LIBSVM_VERSION;
+
 #ifndef min
 template <class T> static inline T min(T x,T y) { return (x<y)?x:y; }
 #endif
@@ -1890,7 +1897,7 @@ static void multiclass_probability(int k, double **r, double *p)
 }
 
 // Cross-validation decision values for probability estimates
-static void svm_binary_svc_probability(
+void svm_binary_svc_probability(
 	const svm_problem *prob, const svm_parameter *param,
 	double Cp, double Cn, double& probA, double& probB)
 {
@@ -1965,10 +1972,10 @@ static void svm_binary_svc_probability(
 				// ensure +1 -1 order; reason not using CV subroutine
 				dec_values[perm[j]] *= submodel->label[0];
 			}		
-			svm_free_and_destroy_model(&submodel);
+            svm_free_and_destroy_model(&submodel);
 			svm_destroy_param(&subparam);
 		}
-		free(subprob.x);
+        free(subprob.x);
 		free(subprob.y);
 	}		
 	sigmoid_train(prob->l,dec_values,prob->y,probA,probB);
@@ -3155,4 +3162,8 @@ void svm_set_print_string_function(void (*print_func)(const char *))
 		svm_print_string = &print_string_stdout;
 	else
 		svm_print_string = print_func;
+}
+
+}
+
 }

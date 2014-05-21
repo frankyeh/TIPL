@@ -2,8 +2,12 @@
 #define ML_SYM_HPP
 #include <memory>
 #include <vector>
-
 #define LIBSVM_VERSION 317
+
+namespace image{
+
+namespace ml{
+
 
 extern int libsvm_version;
 
@@ -95,9 +99,7 @@ int svm_check_probability_model(const struct svm_model *model);
 
 void svm_set_print_string_function(void (*print_func)(const char *));
 
-namespace image{
 
-namespace ml{
 
 template<typename attribute_type,typename classification_type>
 class svm
