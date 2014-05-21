@@ -109,6 +109,19 @@ void crop(ImageType& in_image,
     in_image.swap(out_image);
 }
 //--------------------------------------------------------------------------
+template<typename pixel_type,typename storage_type,typename PosType>
+void fill_rect(basic_image<pixel_type,2,storage_type>& I,PosType from,PosType to,pixel_type value)
+{
+    int line_pos = from[0] + from[1]*I.width();
+    int line_width = to[0]-from[0];
+    for(int y = from[1];y < to[1];++y)
+    {
+        std::fill(I.begin()+line_pos,I.begin()+line_pos+line_width,value);
+        line_pos += I.width();
+    }
+}
+
+//--------------------------------------------------------------------------
 template<typename pixel_type1,typename storage_type1,
          typename pixel_type2,typename storage_type2,typename PosType>
 void draw(const basic_image<pixel_type1,2,storage_type1>& from_image,
