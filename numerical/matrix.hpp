@@ -818,7 +818,7 @@ bool jacobi_regularize(io_iterator A,input_iterator2 piv,const dim_type& dim)
 
 template<typename io_iterator,typename pivot_iterator,typename input_iterator2,
          typename output_iterator,typename dim_type>
-void jacobi_solve(io_iterator A,pivot_iterator p,input_iterator2 b,output_iterator x,const dim_type& dim)
+bool jacobi_solve(io_iterator A,pivot_iterator p,input_iterator2 b,output_iterator x,const dim_type& dim)
 {
     typedef typename std::iterator_traits<output_iterator>::value_type value_type;
     const unsigned int dimension = dim.row_count();
