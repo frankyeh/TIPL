@@ -648,13 +648,13 @@ void resample(const image::basic_image<PixelType,3>& source_image,
     }
 }
 
-template<typename ImageType,typename transform_type>
-void resample(const ImageType& from,ImageType& to,const transform_type& transform)
+template<typename ImageType1,typename ImageType2,typename transform_type>
+void resample(const ImageType1& from,ImageType2& to,const transform_type& transform)
 {
-    image::geometry<ImageType::dimension> geo(to.geometry());
-    for (image::pixel_index<ImageType::dimension> index;index.is_valid(geo);index.next(geo))
+    image::geometry<ImageType1::dimension> geo(to.geometry());
+    for (image::pixel_index<ImageType1::dimension> index;index.is_valid(geo);index.next(geo))
     {
-        image::vector<ImageType::dimension,double> pos;
+        image::vector<ImageType1::dimension,double> pos;
         transform(index,pos);
         linear_estimate(from,pos,to[index.index()]);
     }
