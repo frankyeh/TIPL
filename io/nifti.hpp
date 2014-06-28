@@ -31,6 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <stdint.h>
 #include "interface.hpp"
 #include "image/utility/basic_image.hpp"
 #include "image/numerical/basic_op.hpp"
@@ -591,10 +592,10 @@ public:
                 switch (byte_per_pixel)
                 {
                     case 2:
-                        change_endian((short*)buf_ptr,buf.size()/2);
+                        change_endian((int16_t*)buf_ptr,buf.size()/2);
                         break;
                     case 4:
-                        change_endian((int*)buf_ptr,buf.size()/4);
+                        change_endian((int32_t*)buf_ptr,buf.size()/4);
                         break;
                     case 8:
                         change_endian((double*)buf_ptr,buf.size()/8);
@@ -607,10 +608,10 @@ public:
                 std::copy((const unsigned char*)buf_ptr,(const unsigned char*)buf_ptr+pixel_count,ptr);
                 break;
             case 4://DT_SIGNED_SHORT 4
-                std::copy((const short*)buf_ptr,(const short*)buf_ptr+pixel_count,ptr);
+                std::copy((const int16_t*)buf_ptr,(const int16_t*)buf_ptr+pixel_count,ptr);
                 break;
             case 8://DT_SIGNED_INT 8
-                std::copy((const int*)buf_ptr,(const int*)buf_ptr+pixel_count,ptr);
+                std::copy((const int32_t*)buf_ptr,(const int32_t*)buf_ptr+pixel_count,ptr);
                 break;
             case 16://DT_FLOAT 16
                 std::copy((const float*)buf_ptr,(const float*)buf_ptr+pixel_count,ptr);
@@ -626,10 +627,10 @@ public:
                 std::copy((const char*)&*buf.begin(),(const char*)buf_ptr+pixel_count,ptr);
                 break;
             case 512: // DT_UINT16
-                std::copy((const unsigned short*)buf_ptr,(const unsigned short*)buf_ptr+pixel_count,ptr);
+                std::copy((const uint16_t*)buf_ptr,(const uint16_t*)buf_ptr+pixel_count,ptr);
                 break;
             case 768: // DT_UINT32
-                std::copy((const unsigned int*)buf_ptr,(const unsigned int*)buf_ptr+pixel_count,ptr);
+                std::copy((const uint32_t*)buf_ptr,(const uint32_t*)buf_ptr+pixel_count,ptr);
                 break;
             }
             return true;
