@@ -4,6 +4,7 @@
 #include <map>
 #include <sstream>
 #include <iterator>
+#include <stdint.h>
 
 namespace image
 {
@@ -85,11 +86,6 @@ class bruker_2dseq
 
     // spatial resolution
     float resolution[3];
-
-    // pixel data type
-    // 0: short
-    // 1: int
-    unsigned char data_type;
 private:
     std::string tmp;
     std::wstring wtmp;
@@ -114,22 +110,6 @@ private:
             return false;
         return true;
     }
-
-    const char* load_d3proc(const char* filename)
-    {
-        std::string str = filename;
-        tmp = std::string(str.begin(),str.end()-5);
-        tmp += "d3proc";
-        return tmp.c_str();
-    }
-    const wchar_t* load_d3proc(const wchar_t* filename)
-    {
-        std::wstring str = filename;
-        wtmp = std::wstring(str.begin(),str.end()-5);
-        wtmp += L"d3proc";
-        return wtmp.c_str();
-    }
-
     const char* load_reco(const char* filename)
     {
         std::string str = filename;
@@ -154,117 +134,91 @@ public:
     {
         if(!check_name(file_name))
             return false;
-        bruker_info info1,info2;
-        if(!info1.load_from_file(load_d3proc(file_name)))
-            return false;
 
         // read image dimension
         unsigned int total_size = 0;
+        bruker_info info;
+        if(!info.load_from_file(load_reco(file_name)))
+            return false;
+
+        // get slope
+        std::vector<float> slopes;
         {
-            std::fill(dim,dim+4,1);
-            std::istringstream(info1["IM_SIX"]) >> dim[0];
-            std::istringstream(info1["IM_SIY"]) >> dim[1];
-            std::istringstream(info1["IM_SIZ"]) >> dim[2];
-            total_size = dim[0]*dim[1]*dim[2];
-	    if(!total_size)
-                return false;
+            std::istringstream slope_text_parser(info["RECO_map_slope"]);
+            std::copy(std::istream_iterator<double>(slope_text_parser),
+                      std::istream_iterator<double>(),
+                      std::back_inserter(slopes));
+        }
+        if(slopes.empty())
+            return false;
+
+        // get image dimension
+        std::istringstream(info["RECO_size"]) >> dim[0] >> dim[1];
+        dim[2] = slopes.size();
+        dim[3] = 1;
+
+
+        // get resolution
+        {
+            std::vector<float> fov_data; // in cm
+            std::istringstream fov_text(info["RECO_fov"]);
+            std::copy(std::istream_iterator<float>(fov_text),
+                      std::istream_iterator<float>(),
+                      std::back_inserter(fov_data));
+            std::fill(resolution,resolution+3,0.0);
+            for(unsigned int index = 0;index < 3 && index < fov_data.size();++index)
+                resolution[index] = fov_data[index]*10.0/(float)dim[index]; // in mm
         }
 
-        // set default type to short
-        data_type = 0;
-        if(info1["DATTYPE"] == std::string("ip_int"))
-            data_type = 1;
+        std::vector<char> buffer;
+        std::ifstream in(file_name,std::ios::binary);
+        in.seekg(0, std::ifstream::end);
+        buffer.resize(in.tellg());
+        in.seekg(0, std::ifstream::beg);
+        in.read((char*)&*buffer.begin(),buffer.size());
 
-        // read 2dseq
+        int word_size = 1;
+        if (info["RECO_wordtype"].find("16BIT") != std::string::npos)
+            word_size = 2;
+        if (info["RECO_wordtype"].find("32BIT") != std::string::npos)
+            word_size = 4;
+        if(info["RECO_byte_order"] == std::string("bigEndian"))
         {
-            std::vector<char> buffer;
-            {
-                switch(data_type)
-                {
-                case 0:
-                    buffer.resize(total_size*2);
-                    break;
-                case 1:
-                    buffer.resize(total_size*4);
-                    break;
-                }
-
-                std::ifstream in(file_name,std::ios::binary);
-                in.read((char*)&*buffer.begin(),buffer.size());
-            }
-            data.resize(total_size);
-            switch (data_type)
-            {
-                case 0:
-                    std::copy((short*)&buffer[0],(short*)&buffer[0]+total_size,data.begin());
-                    break;
-                case 1:
-                    std::copy((int*)&buffer[0],(int*)&buffer[0]+total_size,data.begin());
-                    break;
-            }
+            if (word_size == 2)
+                change_endian((short*)&buffer[0],buffer.size()/word_size);
+            if (word_size == 4)
+                change_endian((int*)&buffer[0],buffer.size()/word_size);
         }
+        // read 2dseq and convert to float
+        data.resize(buffer.size()/word_size);
+        if (info["RECO_wordtype"] == std::string("_8BIT_SGN_INT"))
+            std::copy((char*)&buffer[0],(char*)&buffer[0]+data.size(),data.begin());
+        if (info["RECO_wordtype"] == std::string("_8BIT_USGN_INT"))
+            std::copy((unsigned char*)&buffer[0],(unsigned char*)&buffer[0]+data.size(),data.begin());
+        if (info["RECO_wordtype"] == std::string("_16BIT_SGN_INT"))
+            std::copy((int16_t*)&buffer[0],(int16_t*)&buffer[0]+data.size(),data.begin());
+        if (info["RECO_wordtype"] == std::string("_16BIT_USGN_INT"))
+            std::copy((uint16_t*)&buffer[0],(uint16_t*)&buffer[0]+data.size(),data.begin());
+        if (info["RECO_wordtype"] == std::string("_32BIT_USGN_INT"))
+            std::copy((uint32_t*)&buffer[0],(uint32_t*)&buffer[0]+data.size(),data.begin());
+        if (info["RECO_wordtype"] == std::string("_32BIT_SGN_INT"))
+            std::copy((int32_t*)&buffer[0],(int32_t*)&buffer[0]+data.size(),data.begin());
+        if (info["RECO_wordtype"] == std::string("_32BIT_FLOAT"))
+            std::copy((float*)&buffer[0],(float*)&buffer[0]+data.size(),data.begin());
 
-        if(info2.load_from_file(load_reco(file_name)))
+        if(!slopes.empty())
         {
+            unsigned int plane_size = dim[0]*dim[1];
+            unsigned int plane_num = total_size/plane_size;
+            std::vector<float>::iterator iter = data.begin();
+            for(unsigned int z = 0;z < plane_num;++z)
             {
-                unsigned short reco_dim[3] = {0,0,0};
-                std::istringstream(info2["RECO_size"]) >> reco_dim[0] >> reco_dim[1] >> reco_dim[2];
-                if(reco_dim[2] && reco_dim[2] != dim[2] && (reco_dim[2] % dim[2] == 0))
-                {
-                    dim[3] = dim[2]/reco_dim[2];
-                    dim[2] = reco_dim[2];
-                }
-
-                // get sptial resolution
-                {
-                    std::vector<float> fov_data; // in cm
-                    std::istringstream fov_text(info2["RECO_fov"]);
-                    std::copy(std::istream_iterator<float>(fov_text),
-                              std::istream_iterator<float>(),
-                              std::back_inserter(fov_data));
-                    std::fill(resolution,resolution+3,0.0);
-                    for(unsigned int index = 0;index < 3 && index < fov_data.size();++index)
-                        resolution[index] = fov_data[index]*10.0/(float)dim[index]; // in mm
-                }
-
-            }
-            if(info2["RECO_byte_order"] == std::string("bigEndian"))
-            {
-                switch (data_type)
-                {
-                case 0:
-                    change_endian((short*)&data[0],total_size);
-                    break;
-                case 1:
-                    change_endian((int*)&data[0],total_size);
-                    break;
-                }
-            }
-
-            // get slope
-            std::vector<float> slopes;
-            {
-                std::istringstream slope_text_parser(info2["RECO_map_slope"]);
-                std::copy(std::istream_iterator<double>(slope_text_parser),
-                          std::istream_iterator<double>(),
-                          std::back_inserter(slopes));
-            }
-
-            // correct slope
-            if(!slopes.empty())
-            {
-                unsigned int plane_size = dim[0]*dim[1];
-                unsigned int plane_num = total_size/plane_size;
-                std::vector<float>::iterator iter = data.begin();
-                for(unsigned int z = 0;z < plane_num;++z)
-                {
-                    int slope_index = std::floor(float(z)*slopes.size()/plane_num);
-                    if(slope_index >= slopes.size())
-                       slope_index = slopes.size()-1;
-                    float s = slopes[slope_index];
-                    for(unsigned int index = 0;index < plane_size;++index,++iter)
-                        *iter /= s;
-                }
+                int slope_index = std::floor(float(z)*slopes.size()/plane_num);
+                if(slope_index >= slopes.size())
+                   slope_index = slopes.size()-1;
+                float s = slopes[slope_index];
+                for(unsigned int index = 0;index < plane_size;++index,++iter)
+                    *iter /= s;
             }
         }
         return true;
