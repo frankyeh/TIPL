@@ -490,12 +490,14 @@ public:
         input_io->read((char*)&dicom_mark,4);
         if (dicom_mark != 0x4d434944) //DICM
         {
+            return false;
+            /*
             // switch to another DICOM format
             input_io->seekg(0,std::ios::beg);
             input_io->read((char*)&dicom_mark,4);
             if(dicom_mark & 0x0000FFFF != 8)
                 return false;
-            input_io->seekg(0,std::ios::beg);
+            input_io->seekg(0,std::ios::beg);*/
         }
         while (*input_io)
         {
