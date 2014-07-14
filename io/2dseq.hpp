@@ -217,6 +217,9 @@ public:
             std::copy(std::istream_iterator<double>(slope_text_parser),
                       std::istream_iterator<double>(),
                       std::back_inserter(slopes));
+            float max_slope = *std::max_element(slopes.begin(),slopes.end());
+            for(unsigned int i = 0;i < slopes.size();++i)
+                slopes[i] /= max_slope;
         }
         if(!slopes.empty())
         {
