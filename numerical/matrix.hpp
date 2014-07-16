@@ -394,6 +394,25 @@ void vector_product(left_input_iterator A,right_input_iterator x,output_iterator
     while (1);
 }
 
+/*
+perform y = xA
+*/
+
+template<typename left_input_iterator,
+typename right_input_iterator,
+typename output_iterator,
+typename left_dim_type>
+void left_vector_product(left_input_iterator A,right_input_iterator x,output_iterator y,const left_dim_type& ldim)
+{
+    std::fill(y,y+ldim.col_count(),0);
+    for(left_input_iterator A_end = A + ldim.size();A != A_end;A+=ldim.col_count(),++x)
+    {
+        typename std::iterator_traits<left_input_iterator>::value_type x_row = *x;
+        for(unsigned int col = 0;col < ldim.col_count();++col)
+            y[col] += x_row*A[col];
+    }
+}
+
 
 /**
 perform A*B
@@ -661,6 +680,9 @@ void identity(iterator_type I,const dim_type& dim)
     for (unsigned int index = 0;index < size;index += leap_size)
         I[index] = value_type(1);
 }
+
+
+
 
 /**
 
