@@ -809,6 +809,131 @@ void ll_solve(io_iterator A,pivot_iterator p,input_iterator2 b,output_iterator x
         x[i] = sum/p[i];
     }
 }
+
+
+
+template<typename io_iterator,typename output_iterator1,typename output_iterator2,typename dim_type>
+bool qr_decomposition(io_iterator A,output_iterator1 c,output_iterator2 d,const dim_type& dim)
+{
+    typedef typename std::iterator_traits<io_iterator>::value_type value_type;
+    bool singular = false;
+    unsigned int m = dim.row_count();
+    unsigned int n = dim.col_count();
+    unsigned int min = std::min<unsigned int>(m,n);
+    io_iterator A_row_k = A;
+    for (unsigned int k = 0;k < min;k++,A_row_k += n)
+    {
+        value_type scale(0);
+        {
+            io_iterator A_i_k = A_row_k+k;
+            for (unsigned int i=k;i<m;i++,A_i_k += n)
+                scale=std::max<value_type>(scale,*A_i_k < 0 ? -*A_i_k : *A_i_k);
+        }
+        if (scale == 0.0)
+        {
+            c[k]=d[k]=0.0;
+            singular = true;
+        }
+        else
+        {
+            value_type sum(0);
+            io_iterator A_i_k = A_row_k+k;
+            for (unsigned int i=k;i<m;i++,A_i_k += n)
+            {
+                value_type t = (*A_i_k /= scale);
+                sum += t*t;
+            }
+            value_type sigma = (A_row_k[k] >= 0) ? std::sqrt(sum):-std::sqrt(sum);
+            A_row_k[k] += sigma;
+            c[k]=sigma*A_row_k[k];
+            d[k] = -scale*sigma;
+
+
+            for (unsigned int j=k+1;j < n;j++)
+            {
+                io_iterator A_row_i = A_row_k;
+                sum = 0.0;
+                for (unsigned int i=k;i<m;i++,A_row_i += n)
+                    sum += A_row_i[k]*A_row_i[j];
+                value_type tau=sum/c[k];
+                A_row_i = A_row_k;
+                for (unsigned int i=k;i<m;i++,A_row_i += n)
+                    A_row_i[j] -= tau*A_row_i[k];
+            }
+        }
+    }
+    return !singular;
+}
+
+template<typename io_iterator,typename output_iterator1,typename output_iterator2,typename dim_type>
+bool lq_decomposition(io_iterator A,output_iterator1 c,output_iterator2 d,const dim_type& dim)
+{
+    typedef typename std::iterator_traits<io_iterator>::value_type value_type;
+    bool singular = false;
+    unsigned int m = dim.row_count();
+    unsigned int n = dim.col_count();
+    unsigned int min = std::min<unsigned int>(m,n);
+    io_iterator A_row_k = A;
+    for (unsigned int k = 0;k < min;k++,A_row_k += n)
+    {
+        value_type scale(0);
+        {
+            io_iterator A_k_i = A_row_k+k;
+            io_iterator A_k_n = A_row_k+n;
+            for (;A_k_i<A_k_n;A_k_i++)
+                scale=std::max<value_type>(scale,*A_k_i < 0 ? -*A_k_i : *A_k_i);
+        }
+        if (scale == 0.0)
+        {
+            c[k]=d[k]=0.0;
+            singular = true;
+        }
+        else
+        {
+            value_type sum(0);
+            io_iterator A_k_i = A_row_k+k;
+            io_iterator A_k_n = A_row_k+n;
+            for (;A_k_i<A_k_n;A_k_i++)
+            {
+                value_type t = (*A_k_i /= scale);
+                sum += t*t;
+            }
+            value_type sigma = (A_row_k[k] >= 0) ? std::sqrt(sum):-std::sqrt(sum);
+            A_row_k[k] += sigma;
+            c[k]=sigma*A_row_k[k];
+            d[k] = -scale*sigma;
+
+            io_iterator A_row_j = A_row_k+n;
+            for (unsigned int j=k+1;j < m;j++,A_row_j += n)
+            {
+                sum = 0.0;
+                for (unsigned int i=k;i<n;i++)
+                    sum += A_row_k[i]*A_row_j[i];
+                value_type tau=sum/c[k];
+                for (unsigned int i=k;i<n;i++)
+                    A_row_j[i] -= tau*A_row_k[i];
+            }
+        }
+    }
+    return !singular;
+}
+
+template<typename io_iterator1,typename io_iterator2,typename output_iterator,typename dim_type>
+void lq_get_l(io_iterator1 A,io_iterator2 d,output_iterator L,const dim_type& dim)
+{
+    unsigned int m = dim.row_count();
+    unsigned int n = dim.col_count();
+    unsigned int min = std::min<unsigned int>(m,n);
+    if(A != L)
+        std::copy(A,A+m*n,L);
+    for(unsigned int i = 0,pos = 0;i < min;++i,pos += n+1)
+    {
+        L[pos] = d[i];
+        for(unsigned int j = 1;j < n-i;++j)
+            L[pos+j] = 0;
+    }
+}
+
 /*
     May modify matrix A and b to enlarge the diagnoal elements
  */
@@ -1146,7 +1271,88 @@ bool inverse(input_iterator A_,output_iterator A,dim_type dim)
 }
 
 
+/** example:
+ *
+    float A[] = {5, 1, 3, 12, 16,
+                 0, 4, 2, -8, -5,
+                 0, 0, 12, -1, -4,
+                 0, 0, 0,  11, -3,
+                 0, 0, 0,   0,  3};
+    image::matrix::inverse_upper(A,image::dyndim(5,5));
+ */
+template<typename input_iterator,typename dim_type>
+bool inverse_upper(input_iterator U,dim_type dim)
+{
+    typedef typename std::iterator_traits<input_iterator>::value_type value_type;
+    unsigned int n = dim.col_count();
+    unsigned int n_1 = n+1;
+    // inverse the diagonal
+    unsigned int pos = 0;
+    for(unsigned int col = 0;col < n;++col,pos += n_1)
+    {
+        if(U[pos] + value_type(1) == value_type(1))
+            return false;
+        U[pos] = value_type(1)/U[pos];
+    }
+    // calculate the off diagonals
+    input_iterator U_row = U + pos - n - n - n;
+    for(int col = n-1;col >= 0;--col,U_row -= n)
+    {
+        input_iterator U_row_i = U_row;
+        for(int row = col - 1;row >= 0;--row,U_row_i -= n)
+        {
+            // adding up to the diagonal
+            value_type sum(0);
+            input_iterator iU_row = U_row_i + col + n;
+            for(unsigned int i = row + 1;i <= col;++i,iU_row += n)
+                sum += U_row_i[i]*(*iU_row);
+            U_row_i[col] = -sum*U_row_i[row];
+        }
+    }
 
+    return true;
+}
+
+
+/** example:
+ *
+    float A[] = {4, 0, 0, 0, 0,
+                 1, 3, 0, 0, 0,
+                 -5, 2, 4, 0, 0,
+                 1,  -6, 2, 10, 0,
+                 4, -10, 11, -30,22};
+    image::matrix::inverse_lower(A,image::dyndim(5,5));
+ */
+template<typename input_iterator,typename dim_type>
+bool inverse_lower(input_iterator U,dim_type dim)
+{
+    typedef typename std::iterator_traits<input_iterator>::value_type value_type;
+    unsigned int n = dim.col_count();
+    unsigned int n_1 = n+1;
+    // inverse the diagonal
+    unsigned int pos = 0;
+    for(unsigned int col = 0;col < n;++col,pos += n_1)
+    {
+        if(U[pos] + value_type(1) == value_type(1))
+            return false;
+        U[pos] = value_type(1)/U[pos];
+    }
+    // calculate the off diagonals
+    input_iterator U_row = U + pos - n - n;
+    for(int row = n-1;row >= 0;--row,U_row -= n)
+    {
+        for(int col = row - 1;col >= 0;--col)
+        {
+            // adding up to the diagonal
+            value_type sum(0);
+            input_iterator iU_row = U_row +col;
+            for(unsigned int i = row;i > col;--i, iU_row -= n)
+                sum += U_row[i]*(*iU_row);
+            U_row[col] = -sum*(*iU_row);
+        }
+    }
+    return true;
+}
 
 
 /** Apply housholder reduction to make column (c) to be 0 below row (r)
