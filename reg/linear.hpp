@@ -70,7 +70,7 @@ namespace reg
             image::geometry<dim> geo(Ifrom.geometry());
             double error = 0.0;
             image::vector<dim,double> pos;
-            for (image::pixel_index<dim> index; index.valid(geo); index.next(geo))
+            for (image::pixel_index<dim> index; index.is_valid(geo); index.next(geo))
             {
                 transform(index,pos);
                 double to_pixel;

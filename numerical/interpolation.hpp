@@ -56,42 +56,11 @@ struct weighting_sum
     template<typename data_iterator_type,typename weighting_iterator,typename output_type>
     void operator()(data_iterator_type from,data_iterator_type to,weighting_iterator w,output_type& result_)
     {
-        output_type result = (*from)*(*w);
-        for (++from,++w;from != to;++from,++w)
-            result += (*from)*(*w);
-        result_ = result;
-    }
-};
-
-template<>
-struct weighting_sum<unsigned char>
-{
-    template<typename data_iterator_type,typename weighting_iterator,typename output_type>
-    void operator()(data_iterator_type from,data_iterator_type to,weighting_iterator w,output_type& result_)
-    {
         float result = ((float)(*from))*(*w);
         for (++from,++w;from != to;++from,++w)
             result += ((float)(*from))*(*w);
         result_ = result;
     }
-};
-
-template<>struct weighting_sum<unsigned short>
-{
-    template<typename data_iterator_type,typename weighting_iterator,typename output_type>
-    void operator()(data_iterator_type from,data_iterator_type to,weighting_iterator w,output_type& result_)
-{
-    weighting_sum<unsigned char>()(from,to,w,result_);
-}
-};
-
-template<>struct weighting_sum<short>
-{
-    template<typename data_iterator_type,typename weighting_iterator,typename output_type>
-    void operator()(data_iterator_type from,data_iterator_type to,weighting_iterator w,output_type& result_)
-{
-    weighting_sum<unsigned char>()(from,to,w,result_);
-}
 };
 
 template<>
