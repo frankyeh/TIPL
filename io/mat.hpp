@@ -93,6 +93,17 @@ private:
     std::vector<unsigned char> data_buf;
     void* data_ptr; // for read
 private:
+    void copy(const mat_matrix& rhs)
+    {
+        type = rhs.type;
+        rows = rhs.rows;
+        cols = rhs.cols;
+        name = rhs.name;
+        namelen = rhs.namelen;
+        data_buf = rhs.data_buf;
+        data_ptr = data_buf.empty() ? 0 : &*data_buf.begin();
+    }
+
     unsigned int get_total_size(unsigned int ty) const
     {
         unsigned int element_size_array[10] = {8,4,4,2,2,1,0,0,0,0};
@@ -101,7 +112,12 @@ private:
 public:
     mat_matrix(void):type(0),rows(0),cols(0),namelen(0),data_ptr(0){}
     mat_matrix(const std::string& name_):type(0),rows(0),cols(0),namelen(name_.size()+1),name(name_),data_ptr(0) {}
-
+    mat_matrix(const mat_matrix& rhs){copy(rhs);}
+    const mat_matrix& operator=(const mat_matrix& rhs)
+    {
+        copy(rhs);
+        return *this;
+    }
     template<typename Type>
     void assign(const Type* data_ptr_,unsigned int rows_,unsigned int cols_)
     {
@@ -238,7 +254,27 @@ class mat_read_base
 private:
     std::vector<mat_matrix*> dataset;
     std::map<std::string,int> name_table;
+private:
+    void copy(const mat_read_base& rhs)
+    {
+        for(unsigned int index = 0;index < dataset.size();++index)
+        {
+            std::auto_ptr<mat_matrix> matrix(new mat_matrix);
+            *(matrix.get()) = *(rhs.dataset[index]);
+            dataset.push_back(matrix.release());
+        }
+        name_table = rhs.name_table;
+    }
+
 public:
+    mat_read_base(void){}
+    mat_read_base(const mat_read_base& rhs){copy(rhs);}
+    const mat_read_base& operator=(const mat_read_base& rhs)
+    {
+        copy(rhs);
+        return *this;
+    }
+
     const void* read_as_type(unsigned int index,unsigned int& rows,unsigned int& cols,unsigned int type) const
     {
         if (index >= dataset.size())
@@ -360,13 +396,21 @@ public:
         out.open(file_name);
     }
 public:
-
     template<typename Type>
-    bool write(const char* name,const Type* data_ptr,unsigned int rows,unsigned int cols)
+    bool write(const char* name_,const Type* data_ptr,unsigned int rows,unsigned int cols)
     {
-        mat_matrix matrix(name);
-        matrix.assign(data_ptr,rows,cols);
-        return matrix.write(out);
+        unsigned int imagf = 0;
+        unsigned int type = mat_type_info<Type>::type;
+        std::string name(name_);
+        unsigned int namelen = name.length()+1;
+        out.write((const char*)&type,4);
+        out.write((const char*)&rows,4);
+        out.write((const char*)&cols,4);
+        out.write((const char*)&imagf,4);
+        out.write((const char*)&namelen,4);
+        out.write((const char*)&*name.begin(),namelen);
+        out.write((const char*)data_ptr,rows*cols*sizeof(Type));
+        return out;
     }
     bool write(const mat_matrix& data)
     {
