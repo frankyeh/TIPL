@@ -19,10 +19,10 @@ public:
     typedef pixel_type& reference;
 protected:
     iterator from,to;
-    unsigned int size_;
+    size_t size_;
 public:
     pointer_container(void):from(0),to(0),size_(0){}
-    pointer_container(unsigned int size_):from(0),to(0),size_(size_){}
+    pointer_container(size_t size_):from(0),to(0),size_(size_){}
     template<typename any_iterator_type>
     pointer_container(any_iterator_type from_,any_iterator_type to_):
         from(&*from_),to(0),size_(to_-from_){to = from + size_;}
@@ -75,7 +75,7 @@ public:
         return to;
     }
 
-    unsigned int size(void)            const
+    size_t size(void)            const
     {
         return size_;
     }
@@ -97,7 +97,7 @@ public:
         std::swap(to,rhs.to);
         std::swap(size_,rhs.size_);
     }
-    void resize(unsigned int new_size) 
+    void resize(size_t new_size)
     {
         size_ = new_size;
         to = from + size_;
@@ -114,10 +114,10 @@ public:
     typedef const pixel_type& reference;
 protected:
     const_iterator from,to;
-    unsigned int size_;
+    size_t size_;
 public:
     const_pointer_container(void):from(0),to(0),size_(0){}
-    const_pointer_container(unsigned int size_):from(0),to(0),size_(size_){}
+    const_pointer_container(size_t size_):from(0),to(0),size_(size_){}
     template<typename any_iterator_type>
     const_pointer_container(any_iterator_type from_,any_iterator_type to_):
         from(&*from_),to(0),size_(to_-from_){to = from + size_;}
@@ -172,7 +172,7 @@ public:
         return to;
     }
 
-    unsigned int size(void) const
+    size_t size(void) const
     {
         return size_;
     }
@@ -188,7 +188,7 @@ public:
         std::swap(to,rhs.to);
         std::swap(size_,rhs.size_);
     }
-    void resize(unsigned int new_size)
+    void resize(size_t new_size)
     {
         size_ = new_size;
         to = from + size_;
@@ -282,7 +282,7 @@ public:
         data.clear();
         std::fill(geo.begin(),geo.end(),0);
     }
-    unsigned int size(void) const
+    size_t size(void) const
     {
         return data.size();
     }

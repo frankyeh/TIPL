@@ -50,16 +50,16 @@ public:
         return *this;
     }
 public:
-    int size(void) const
+    size_t size(void) const
     {
-        int prod = dim[0];
+        size_t prod = dim[0];
         for (int index = 1;index < Dim;++index)
-            prod *= dim[index];
+            prod *= (size_t)dim[index];
         return prod;
     }
-    int plane_size(void) const
+    size_t plane_size(void) const
     {
-        return dim[0]*dim[1];
+        return (size_t)dim[0]*(size_t)dim[1];
     }
     void clear(void)
     {

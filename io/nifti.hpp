@@ -271,7 +271,7 @@ private:
     bool big_endian;
 private:
     const void* write_buf;
-    unsigned int write_size;
+    size_t write_size;
 private:
     bool compatible(long type1,long type2) const
     {
@@ -538,7 +538,7 @@ public:
         nif_header.datatype = nifti_type_info<typename image_type::value_type>::data_type;
         nif_header.bitpix = nifti_type_info<typename image_type::value_type>::bit_pix;
         set_dim(source.geometry());
-        write_size = source.size()*(nif_header.bitpix/8);
+        write_size = source.size()*(size_t)(nif_header.bitpix/8);
         write_buf = &*source.begin();
         is_nii = true;
     }
