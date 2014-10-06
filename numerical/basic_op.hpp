@@ -234,7 +234,7 @@ void move(basic_image<PixelType,3>& src,PosType pos)
 }
 //---------------------------------------------------------------------------
 template<typename ImageType,typename DimensionType>
-void bounding_box(ImageType& I,
+void bounding_box(const ImageType& I,
           DimensionType& range_min,
           DimensionType& range_max,
           typename ImageType::value_type background = 0)

@@ -4,6 +4,7 @@
 #include <deque>
 #include <algorithm>
 #include <iosfwd>
+#include <cmath>
 #include "geometry.hpp"
 
 namespace image
