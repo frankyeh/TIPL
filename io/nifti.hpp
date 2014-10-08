@@ -31,6 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <memory>
 #include <stdint.h>
 #include "interface.hpp"
 #include "image/utility/basic_image.hpp"
