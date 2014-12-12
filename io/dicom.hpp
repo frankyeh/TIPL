@@ -725,19 +725,27 @@ public:
         info += "_";
         info += series_des;
     }
+    std::string get_image_num(void)
+    {
+        std::string image_num;
+        get_text(0x0020,0x0013,image_num);
+        using namespace std;
+        if(!image_num.empty())
+            image_num.erase(remove(image_num.begin(),image_num.end(),' '),image_num.end());
+        return image_num;
+    }
+
     void get_image_name(std::string& info)
     {
-        std::string series_des,image_num;
-        series_des = image_num = "_";
+        std::string series_des;
+        series_des = "_";
         get_text(0x0008,0x103E,series_des);
-        get_text(0x0020,0x0013,image_num);
         using namespace std;
         series_des.erase(remove(series_des.begin(),series_des.end(),' '),series_des.end());
         std::replace(series_des.begin(),series_des.end(),'-','_');
-        image_num.erase(remove(image_num.begin(),image_num.end(),' '),image_num.end());
         info = series_des;
         info += "_i";
-        info += image_num;
+        info += get_image_num();
         info += ".dcm";
     }
 
