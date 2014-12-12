@@ -712,6 +712,9 @@ public:
             {
                 nif_header.srow_x[3] += nif_header.srow_x[0]*(out.width()-1);
                 nif_header.srow_x[0] = -nif_header.srow_x[0];
+                nif_header.srow_y[0] = -nif_header.srow_y[0];
+                nif_header.srow_z[0] = -nif_header.srow_z[0];
+
             }
         }
 
@@ -721,7 +724,9 @@ public:
             if(change_header)
             {
                 nif_header.srow_y[3] += nif_header.srow_y[1]*(out.height()-1);
+                nif_header.srow_x[1] = -nif_header.srow_x[1];
                 nif_header.srow_y[1] = -nif_header.srow_y[1];
+                nif_header.srow_z[1] = -nif_header.srow_z[1];
             }
         }
 
@@ -731,6 +736,8 @@ public:
             if(change_header)
             {
                 nif_header.srow_z[3] += nif_header.srow_z[2]*(out.depth()-1);
+                nif_header.srow_x[2] = -nif_header.srow_x[2];
+                nif_header.srow_y[2] = -nif_header.srow_y[2];
                 nif_header.srow_z[2] = -nif_header.srow_z[2];
             }
         }
