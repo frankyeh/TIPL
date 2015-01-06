@@ -140,7 +140,8 @@ private:
     }
     
 public:
-    
+    std::vector<float> slopes;
+
 
     template<typename char_type>
     bool load_from_file(const char_type* file_name)
@@ -211,7 +212,6 @@ public:
             for(unsigned int index = 0;index < 3 && index < fov_data.size();++index)
                 resolution[index] = fov_data[index]*10.0/(float)dim[index]; // in mm
         }
-        std::vector<float> slopes;
         {
             std::istringstream slope_text_parser(info["RECO_map_slope"]);
             std::copy(std::istream_iterator<double>(slope_text_parser),
