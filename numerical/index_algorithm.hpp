@@ -305,7 +305,7 @@ inline void get_neighbors(const pixel_index<3>& index,const geometry<3>& geo,int
             for (int x = fx;x <= tx;++x,++x_index)
             {
                 int dx = (int)index.x()-x;
-                if(dx*dx+dyz2 <= radius2);
+                if(dx*dx+dyz2 <= radius2)
                     iterations.push_back(pixel_index<3>(x,y,z,x_index));
             }
         }
