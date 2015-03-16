@@ -149,7 +149,7 @@ bool armijo_line_search(storage_type& x,
                         value_type& fun_x,
                         function_type& fun,double precision = 0.001)
 {
-    armijo_line_search(x.begin(),x.end(),upper.begin(),lower.begin(),g_beg.begin(),fun_x,fun,precision);
+    return armijo_line_search(x.begin(),x.end(),upper.begin(),lower.begin(),g_beg.begin(),fun_x,fun,precision);
 }
 
 template<typename tol_type,typename iter_type>
