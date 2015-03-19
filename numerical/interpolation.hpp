@@ -88,7 +88,7 @@ struct weighting_sum<rgb_color>
 struct linear_weighting
 {
     template<typename value_type>
-    void operator()(value_type& value) {}
+    void operator()(value_type&) {}
 };
 
 struct gaussian_radial_basis_weighting
@@ -100,7 +100,7 @@ struct gaussian_radial_basis_weighting
     {
         value_type dx = (1.0-value)/sd;
         dx *= dx;
-        dx /= 2.0;
+        dx *= 0.5;
         value = std::exp(-dx);
     }
 };
@@ -132,7 +132,7 @@ struct interpolation<weighting_function,2>
             return false;
         p[1] = y-fy;
         p[0] = x-fx;
-        dindex[0] = iy*geo[0] + ix;
+        dindex[ 0] = iy*geo[0] + ix;
         dindex[1] = dindex[0] + 1;
         dindex[2] = dindex[0] + geo[0];
         dindex[3] = dindex[2] + 1;
@@ -203,7 +203,7 @@ struct interpolation<weighting_function,3>
         p[0] = x-fx;
         p[2] = z-fz;
         unsigned int wh = geo.plane_size();
-        dindex[0] = iz*wh + iy*geo[0] + ix;
+        dindex[ 0] = iz*wh + iy*geo[0] + ix;
         dindex[1] = dindex[0] + 1;
         dindex[2] = dindex[0] + geo[0];
         dindex[3] = dindex[2] + 1;
@@ -264,19 +264,251 @@ struct interpolation<weighting_function,3>
     }
 };
 
-template<typename ImageType,typename VTorType,typename PixelType>
-bool linear_estimate(const ImageType& source,const VTorType& location,PixelType& pixel)
+
+/** Interpolation on the unit interval without exact derivatives
+ * p[0] sampled at floor(x)-1
+ * p[1] sampled at floor(x)
+ * p[2] sampled at floor(x)+1
+ * p[3] sampled at floor(x)+2
+ * value to estimate is at 0<x<1
+ *                                      -1  2 -1  0    x^3
+ *                                       3 -5  0  2    x^2
+ * CINT(p,x) = [ p[0] p[1] p[2] [3] ] [ -3  4  1  0 ] [x  ]    *  0.5
+ *                                       1 -1  0  0    1
+ *
+ */
+
+// this scaled by 0.5
+template<typename iterator_type>
+inline float cubic_imp(iterator_type p, float x,float x2,float x3)
 {
-	return interpolation<linear_weighting,ImageType::dimension>().estimate(source,location,pixel);
+    typedef typename std::iterator_traits<iterator_type>::value_type value_type;
+    value_type p1_p2 = (p[1] - p[2]);
+    value_type p1_p2_2 = p1_p2 + p1_p2;
+    value_type p1_p2_3 = p1_p2_2 + p1_p2;
+    value_type p1_p2_4 = p1_p2_2 + p1_p2_2;
+    value_type _p0_p3 = p[3] - p[0];
+    x3 *= (_p0_p3  + p1_p2_3);
+    x2 *= (p[0] - p[1]- p1_p2_4 - _p0_p3);
+    x  *= (-p[0]           + p[2]          );
+    return (p[1] + p[1]) + (x3+x2+x);
+}
+
+// this scaled by 0.25
+template<typename iterator_type>
+inline float cubic_imp(iterator_type p, float x, float x2,float x3,
+                                           float y, float y2,float y3)
+{
+    float arr[4];
+    arr[0] = cubic_imp(p, y, y2, y3);
+    arr[1] = cubic_imp(p+4, y, y2, y3);
+    arr[2] = cubic_imp(p+8, y, y2, y3);
+    arr[3] = cubic_imp(p+16, y, y2, y3);
+    return cubic_imp(arr, x, x2, x3);
+}
+
+// this scaled by 0.125
+template<typename iterator_type>
+inline float cubic_imp(iterator_type p,float x, float x2,float x3,
+                                             float y, float y2,float y3,
+                                             float z, float z2,float z3)
+{
+    float arr[4];
+    arr[0] = cubic_imp(p, y, y2, y3, z, z2, z3);
+    arr[1] = cubic_imp(p+16, y, y2, y3, z, z2, z3);
+    arr[2] = cubic_imp(p+32, y, y2, y3, z, z2, z3);
+    arr[3] = cubic_imp(p+48, y, y2, y3, z, z2, z3);
+    return cubic_imp(arr, x, x2, x3);
+}
+
+
+template<typename v>
+struct calculation_type{typedef v value_type;};
+
+template<>
+struct calculation_type<char>{typedef short value_type;};
+
+template<>
+struct calculation_type<unsigned char>{typedef short value_type;};
+
+template<>
+struct calculation_type<short>{typedef int value_type;};
+
+template<>
+struct calculation_type<unsigned short>{typedef int value_type;};
+
+
+template<unsigned int dimension>
+struct cubic_interpolation{};
+
+
+template<>
+struct cubic_interpolation<2>{
+
+    float dx,dx2,dx3,dy,dy2,dy3;
+    int dindex[16];
+
+    template<typename VTorType>
+    bool get_location(const geometry<2>& geo,const VTorType& location)
+    {
+        float x = location[0];
+        float y = location[1];
+        if (x < 0 || y < 0)
+            return false;
+        float fx = std::floor(x);
+        float fy = std::floor(y);
+        int ix = x;
+        int iy = y;
+        if (ix + 1 >= geo[0] || iy + 1 >= geo[1])
+            return false;
+        dx = x-fx;
+        dy = y-fy;
+        dx2 = dx*dx;
+        dy2 = dy*dy;
+        dx3 = dx2*dx;
+        dy3 = dy2*dy;
+        int x_shift[4],y_shift[4];
+        x_shift[1] = ix;
+        x_shift[0] = std::max<int>(0,ix-1);
+        x_shift[2] = std::min<int>(ix+1,geo.width()-1);
+        x_shift[3] = std::min<int>(ix+2,geo.width()-1);
+
+        y_shift[1] = iy*geo.width();
+        y_shift[0] = std::max<int>(0,y_shift[1]-geo.width());
+        y_shift[2] = std::min<int>(y_shift[1]+geo.width(),geo.plane_size()-geo.width());
+        y_shift[3] = std::min<int>(y_shift[1]+geo.width()+geo.width(),geo.plane_size()-geo.width());
+
+        for(int x = 0,index = 0;x <= 3;++x)
+            for(int y = 0;y <= 3;++y,++index)
+                    dindex[index] = x_shift[x] + y_shift[y];
+        return true;
+    }
+
+    template<typename ImageType,typename VTorType,typename PixelType>
+    bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel)
+    {
+        if (get_location(source.geometry(),location))
+        {
+            estimate(source,pixel);
+            return true;
+        }
+        return false;
+    }
+    template<typename ImageType,typename PixelType>
+    void estimate(const ImageType& source,PixelType& pixel)
+    {
+        typename calculation_type<typename ImageType::value_type>::value_type p[16];
+        for(unsigned int index = 0;index < 16;++index)
+            p[index] = source[dindex[index]];
+        pixel = cubic_imp(p,dx,dx2,dx3,dy,dy2,dy3)*0.25;
+    }
+};
+
+
+template<>
+struct cubic_interpolation<3>{
+
+    float dx,dx2,dx3,dy,dy2,dy3,dz,dz2,dz3;
+    int dindex[64];
+
+    template<typename VTorType>
+    bool get_location(const geometry<3>& geo,const VTorType& location)
+    {
+        float x = location[0];
+        float y = location[1];
+        float z = location[2];
+        if (x < 0 || y < 0 || z < 0)
+            return false;
+        float fx = std::floor(x);
+        float fy = std::floor(y);
+        float fz = std::floor(z);
+        int ix = x;
+        int iy = y;
+        int iz = z;
+        if (ix + 1 >= geo[0] || iy + 1 >= geo[1] || iz + 1 >= geo[2])
+            return false;
+        dx = x-fx;
+        dy = y-fy;
+        dz = z-fz;
+        dx2 = dx*dx;
+        dy2 = dy*dy;
+        dz2 = dz*dz;
+        dx3 = dx2*dx;
+        dy3 = dy2*dy;
+        dz3 = dz2*dz;
+        int x_shift[4],y_shift[4],z_shift[4];
+        x_shift[1] = ix;
+        x_shift[0] = std::max<int>(0,ix-1);
+        x_shift[2] = std::min<int>(ix+1,geo.width()-1);
+        x_shift[3] = std::min<int>(ix+2,geo.width()-1);
+
+        y_shift[1] = iy*geo.width();
+        y_shift[0] = std::max<int>(0,y_shift[1]-geo.width());
+        y_shift[2] = std::min<int>(y_shift[1]+geo.width(),geo.plane_size()-geo.width());
+        y_shift[3] = std::min<int>(y_shift[1]+geo.width()+geo.width(),geo.plane_size()-geo.width());
+
+        z_shift[1] = iz*geo.plane_size();
+        z_shift[0] = std::max<int>(0,z_shift[1]-geo.plane_size());
+        z_shift[2] = std::min<int>(z_shift[1]+geo.plane_size(),geo.size()-geo.plane_size());
+        z_shift[3] = std::min<int>(z_shift[1]+geo.plane_size()+geo.plane_size(),geo.size()-geo.plane_size());
+
+        for(int x = 0,index = 0;x <= 3;++x)
+            for(int y = 0;y <= 3;++y)
+                for(int z = 0;z <= 3;++z,++index)
+                    dindex[index] = x_shift[x] + y_shift[y] + z_shift[z];
+        return true;
+    }
+
+    template<typename ImageType,typename VTorType,typename PixelType>
+    bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel)
+    {
+        if (get_location(source.geometry(),location))
+        {
+            estimate(source,pixel);
+            return true;
+        }
+        return false;
+    }
+    template<typename ImageType,typename PixelType>
+    void estimate(const ImageType& source,PixelType& pixel)
+    {
+        typename calculation_type<typename ImageType::value_type>::value_type p[64];
+        for(unsigned int index = 0;index < 64;++index)
+            p[index] = source[dindex[index]];
+        pixel = cubic_imp(p,dx,dx2,dx3,dy,dy2,dy3,dz,dz2,dz3)*0.125;
+    }
+};
+
+enum interpolation_type {linear, cubic};
+
+
+template<typename ImageType,typename VTorType,typename PixelType>
+bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel,interpolation_type type = linear)
+{
+    if(type == linear)
+        return interpolation<linear_weighting,ImageType::dimension>().estimate(source,location,pixel);
+    if(type == cubic)
+        return cubic_interpolation<ImageType::dimension>().estimate(source,location,pixel);
+    return false;
 }
 
 template<typename ImageType,typename VTorType>
-typename ImageType::value_type linear_estimate(const ImageType& source,const VTorType& location)
+typename ImageType::value_type estimate(const ImageType& source,const VTorType& location,interpolation_type type = linear)
 {
-	typename ImageType::value_type result(0);
-	interpolation<linear_weighting,ImageType::dimension>().estimate(source,location,result);
-	return result;
+    typename ImageType::value_type result(0);
+    if(type == linear)
+    {
+        interpolation<linear_weighting,ImageType::dimension>().estimate(source,location,result);
+        return result;
+    }
+    if(type == cubic)
+    {
+        cubic_interpolation<ImageType::dimension>().estimate(source,location,result);
+        return result;
+    }
+    return result;
 }
+
 
 
 }

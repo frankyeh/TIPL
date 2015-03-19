@@ -34,7 +34,7 @@ void compose_mapping(const ImageType& src,const ComposeImageType& compose,OutIma
     typename ComposeImageType::const_iterator end = compose.end();
     typename OutImageType::iterator out = dest.begin();
     for (; iter != end; ++iter,++out)
-        image::linear_estimate(src,*iter,*out);
+        image::estimate(src,*iter,*out);
 }
 //---------------------------------------------------------------------------
 template<typename ImageType,typename ComposeImageType,typename OutImageType>
@@ -47,7 +47,7 @@ void compose_displacement(const ImageType& src,const ComposeImageType& displace,
     {
         typename ComposeImageType::value_type vtor(index);
         vtor += displace[index.index()];
-        image::linear_estimate(src,vtor,dest[index.index()]);
+        image::estimate(src,vtor,dest[index.index()]);
     }
 }
 //---------------------------------------------------------------------------

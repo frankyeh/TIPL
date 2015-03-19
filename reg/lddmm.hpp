@@ -126,10 +126,10 @@ void fast_lddmm(const basic_image<pixel_type,dimension>& I0,
         */
         if(swi)
             for (image::pixel_index<dimension> index; index.valid(geo); index.next(geo))
-                image::linear_estimate(s0,vtor_type(index)-v[index.index()],s0_next[index.index()]);
+                image::estimate(s0,vtor_type(index)-v[index.index()],s0_next[index.index()]);
         else
             for (image::pixel_index<dimension> index; index.valid(geo); index.next(geo))
-                image::linear_estimate(s1,vtor_type(index)+v2[index.index()],s1_next[index.index()]);
+                image::estimate(s1,vtor_type(index)+v2[index.index()],s1_next[index.index()]);
 
         s0 = s0_next;
         s1 = s1_next;
@@ -309,7 +309,7 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
             for (image::pixel_index<dimension> index; index.valid(geo); index.next(geo))
             {
                 for(unsigned char i = 0;i < 5;++i)
-                    image::linear_estimate(vj,vtor_type(index)-alpha_j[index.index()]/2,
+                    image::estimate(vj,vtor_type(index)-alpha_j[index.index()]/2,
                                            alpha_j[index.index()]);
             }
         }
@@ -320,7 +320,7 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
             basic_image<vtor_type,dimension>& alpha_j = alpha_dis[j];
             // £pj(y) = £pj+1(y + α).
             for (image::pixel_index<dimension> index; index.valid(geo); index.next(geo))
-                image::linear_estimate(s1[j+1],vtor_type(index)+alpha_j[index.index()],s1[j][index.index()]);
+                image::estimate(s1[j+1],vtor_type(index)+alpha_j[index.index()],s1[j][index.index()]);
         }
 
         // Calculate for j = 0 to j = N ? 1 the mapping £pk+1t j ,0 (y) using Eq. (18).
@@ -329,7 +329,7 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
             basic_image<vtor_type,dimension>& alpha_j = alpha_dis[j];
             // £pj(y) = £pj-1(y - α).
             for (image::pixel_index<dimension> index; index.valid(geo); index.next(geo))
-                image::linear_estimate(s0[j-1],vtor_type(index)-alpha_j[index.index()],s0[j][index.index()]);
+                image::estimate(s0[j-1],vtor_type(index)-alpha_j[index.index()],s0[j][index.index()]);
         }
         // Calculate for j = 0 to j = N ? 1 the image J0j= I0 ? £pk+1 j,0
         for(int j = 0; j < T; ++j)

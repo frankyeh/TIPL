@@ -567,7 +567,7 @@ void scale(const image::basic_image<PixelType,3>& source_image,
             {
                 if (coord[0] > maxx)
                     coord[0] = maxx;
-                image::linear_estimate(source_image,coord,des_image[index]);
+                image::estimate(source_image,coord,des_image[index],linear);
             }
         }
     }
@@ -592,7 +592,7 @@ void scale(const image::basic_image<PixelType,2>& source_image,
         {
             if (coord[0] > maxx)
                 coord[0] = maxx;
-            image::linear_estimate(source_image,coord,des_image[index]);
+            image::estimate(source_image,coord,des_image[index],linear);
         }
     }
 }
@@ -628,7 +628,8 @@ template<typename PixelType,typename CoordinateType,typename ScaleVecType>
 void resample(const image::basic_image<PixelType,3>& source_image,
               image::basic_image<PixelType,3>& des_image,
               const CoordinateType& from_position,
-              const ScaleVecType& scales)
+              const ScaleVecType& scales,
+              interpolation_type type)
 {
     CoordinateType z_base = from_position;
     for (unsigned int z = 0,index = 0;z < des_image.depth();++z)
@@ -639,7 +640,7 @@ void resample(const image::basic_image<PixelType,3>& source_image,
             CoordinateType position = y_base;
             for (unsigned int x = 0;x < des_image.width();++x,++index)
             {
-                linear_estimate(source_image,position,des_image[index]);
+                estimate(source_image,position,des_image[index],type);
                 position += scales[0];
             }
             y_base += scales[1];
@@ -649,19 +650,19 @@ void resample(const image::basic_image<PixelType,3>& source_image,
 }
 
 template<typename ImageType1,typename ImageType2,typename transform_type>
-void resample(const ImageType1& from,ImageType2& to,const transform_type& transform)
+void resample(const ImageType1& from,ImageType2& to,const transform_type& transform,interpolation_type type)
 {
     image::geometry<ImageType1::dimension> geo(to.geometry());
     for (image::pixel_index<ImageType1::dimension> index;index.is_valid(geo);index.next(geo))
     {
         image::vector<ImageType1::dimension,double> pos;
         transform(index,pos);
-        linear_estimate(from,pos,to[index.index()]);
+        estimate(from,pos,to[index.index()],type);
     }
 }
 
 template<typename ImageType,typename transform_type>
-void resample(ImageType& from,const transform_type& transform)
+void resample(ImageType& from,const transform_type& transform,interpolation_type type)
 {
     image::basic_image<typename ImageType::value_type,ImageType::dimension> I(from.geometry());
     for (image::pixel_index<ImageType::dimension> index;
@@ -669,25 +670,25 @@ void resample(ImageType& from,const transform_type& transform)
     {
         image::vector<ImageType::dimension,double> pos;
         transform(index,pos);
-        linear_estimate(from,pos,I[index.index()]);
+        estimate(from,pos,I[index.index()],type);
     }
 }
 
 
 template<typename ImageType,typename value_type>
-void resample(const ImageType& from,ImageType& to,const std::vector<value_type>& trans)
+void resample(const ImageType& from,ImageType& to,const std::vector<value_type>& trans,interpolation_type type)
 {
     image::transformation_matrix<ImageType::dimension> transform;
     transform.load_from_transform(trans.begin());
-    resample(from,to,transform);
+    resample(from,to,transform,type);
 }
 
 template<typename ImageType,typename value_type>
-void resample(ImageType& from,const std::vector<value_type>& trans)
+void resample(ImageType& from,const std::vector<value_type>& trans,interpolation_type type)
 {
     image::transformation_matrix<ImageType::dimension> transform;
     transform.load_from_transform(trans.begin());
-    resample(from,transform);
+    resample(from,transform,type);
 }
 
 }

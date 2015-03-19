@@ -74,7 +74,7 @@ namespace reg
             {
                 transform(index,pos);
                 double to_pixel;
-                if (linear_estimate(Ito,pos,to_pixel))
+                if (estimate(Ito,pos,to_pixel,image::linear))
                 {
                     to_pixel -= Ifrom[index.index()];
                     error += to_pixel*to_pixel;
