@@ -353,14 +353,12 @@ struct cubic_interpolation<2>{
     {
         float x = location[0];
         float y = location[1];
-        if (x < 0 || y < 0)
+        if (x < 0 || y < 0 || x > geo[0] || y > geo[1])
             return false;
         float fx = std::floor(x);
         float fy = std::floor(y);
         int ix = x;
         int iy = y;
-        if (ix + 1 >= geo[0] || iy + 1 >= geo[1])
-            return false;
         dx = x-fx;
         dy = y-fy;
         dx2 = dx*dx;
@@ -400,7 +398,7 @@ struct cubic_interpolation<2>{
         typename calculation_type<typename ImageType::value_type>::value_type p[16];
         for(unsigned int index = 0;index < 16;++index)
             p[index] = source[dindex[index]];
-        pixel = cubic_imp(p,dx,dx2,dx3,dy,dy2,dy3)*0.25;
+        pixel = std::max(0.0,cubic_imp(p,dx,dx2,dx3,dy,dy2,dy3)*0.25);
     }
 };
 
@@ -417,7 +415,7 @@ struct cubic_interpolation<3>{
         float x = location[0];
         float y = location[1];
         float z = location[2];
-        if (x < 0 || y < 0 || z < 0)
+        if (x < 0 || y < 0 || z < 0 || x > geo[0] || y > geo[1] || z > geo[2])
             return false;
         float fx = std::floor(x);
         float fy = std::floor(y);
@@ -425,8 +423,6 @@ struct cubic_interpolation<3>{
         int ix = x;
         int iy = y;
         int iz = z;
-        if (ix + 1 >= geo[0] || iy + 1 >= geo[1] || iz + 1 >= geo[2])
-            return false;
         dx = x-fx;
         dy = y-fy;
         dz = z-fz;
@@ -475,7 +471,7 @@ struct cubic_interpolation<3>{
         typename calculation_type<typename ImageType::value_type>::value_type p[64];
         for(unsigned int index = 0;index < 64;++index)
             p[index] = source[dindex[index]];
-        pixel = cubic_imp(p,dx,dx2,dx3,dy,dy2,dy3,dz,dz2,dz3)*0.125;
+        pixel = std::max(0.0,cubic_imp(p,dx,dx2,dx3,dy,dy2,dy3,dz,dz2,dz3)*0.125);
     }
 };
 

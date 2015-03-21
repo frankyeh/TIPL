@@ -108,8 +108,8 @@ namespace reg
         {
             const unsigned int dim = ImageType::dimension;
             image::geometry<dim> geo(Ifrom.geometry());
-            std::vector<double> y(geo.size());
-            image::resample(Ito,y,transform);
+            image::basic_image<float,3> y(geo);
+            image::resample(Ito,y,transform,image::linear);
             return image::correlation(Ifrom.begin(),Ifrom.end(),y.begin());
         }
     };
@@ -277,7 +277,6 @@ void linear(const image_type& from,const image_type& to,
             iter = 0;
         }
 }
-
 }
 }
 
