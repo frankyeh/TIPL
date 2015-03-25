@@ -51,6 +51,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "image/io/bitmap.hpp"
 #include "image/io/mat.hpp"
 #include "image/io/2dseq.hpp"
+#include "image/io/avi.hpp"
+
 
 #include "image/filter/filter_model.hpp"
 #include "image/filter/anisotropic_diffusion.hpp"
