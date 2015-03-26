@@ -3,23 +3,24 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include "bitmap.hpp"
 
-namespace image{
+namespace image {
 
 
-namespace io{
+namespace io {
 
-struct fourcc{
-    union{
-    unsigned int value;
-    char cc[4];
+struct fourcc {
+    union {
+        unsigned int value;
+        char cc[4];
     };
-    fourcc(void):value(0){}
+    fourcc(void):value(0) {}
     fourcc(const char* cc_)
     {
         cc[0] = cc_[0];cc[1] = cc_[1];cc[2] = cc_[2];cc[3] = cc_[3];
     }
-    fourcc(const fourcc& rhs):value(rhs.value){}
+    fourcc(const fourcc& rhs):value(rhs.value) {}
     const fourcc& operator=(const fourcc& rhs)
     {
         value = rhs.value;
@@ -34,68 +35,61 @@ struct fourcc{
 
 struct avi_header_t
 {
-    fourcc label;
-    unsigned int headersize;
-    unsigned int time_delay;
-    unsigned int data_rate;
-    unsigned int reserved;
-    unsigned int flags;
-    unsigned int number_of_frames;
-    unsigned int initial_frames;
-    unsigned int data_streams;
-    unsigned int buffer_size;
-    unsigned int width;
-    unsigned int height;
-    unsigned int time_scale;
-    unsigned int playback_data_rate;
-    unsigned int starting_time;
-    unsigned int data_length;
+    fourcc fcc;
+    unsigned int   cb;
+    unsigned int   dwMicroSecPerFrame;
+    unsigned int   dwMaxBytesPerSec;
+    unsigned int   dwPaddingGranularity;
+    unsigned int   dwFlags;
+    unsigned int   dwTotalFrames;
+    unsigned int   dwInitialFrames;
+    unsigned int   dwStreams;
+    unsigned int   dwSuggestedBufferSize;
+    unsigned int   dwWidth;
+    unsigned int   dwHeight;
+    unsigned int   dwReserved[4];
 public:
     avi_header_t(void)
     {
         memset(this,0,sizeof(*this));
-        label = "avih";
-        headersize = sizeof(avi_header_t)-8;
-        flags = 0x10;
-        data_streams = 1; // no audio supported
-    }
-
-    void write(std::ofstream *out) const
-    {
-        out->write((char*)this,sizeof(avi_header_t));
+        fcc = "avih";
+        cb = sizeof(avi_header_t)-8;
+        dwFlags = 0x10;
+        dwStreams = 1; // no audio supported
     }
 };
 
 struct avi_stream_header_t
 {
-    fourcc label;
-    unsigned int headersize;
-    fourcc data_type;
-    fourcc codec;
-    unsigned int flags;
-    unsigned int priority;
-    unsigned int initial_frames;
-    unsigned int time_scale;
-    unsigned int data_rate;
-    unsigned int start_time;
-    unsigned int data_length;
-    unsigned int buffer_size;
-    unsigned int video_quality;
-    unsigned int sample_size;
-    unsigned int reserved[2];
+    fourcc fcc;
+    unsigned int  cb;
+    fourcc fccType;
+    fourcc fccHandler;
+    unsigned int  dwFlags;
+    unsigned short   wPriority;
+    unsigned short   wLanguage;
+    unsigned int  dwInitialFrames;
+    unsigned int  dwScale;
+    unsigned int  dwRate;
+    unsigned int  dwStart;
+    unsigned int  dwLength;
+    unsigned int  dwSuggestedBufferSize;
+    unsigned int  dwQuality;
+    unsigned int  dwSampleSize;
+    struct {
+        short int left;
+        short int top;
+        short int right;
+        short int bottom;
+    } rcFrame;
 public:
     avi_stream_header_t(void)
     {
         memset(this,0,sizeof(*this));
-        label = "strh";
-        data_type = "vids";
-        headersize = sizeof(avi_stream_header_t)-8;
-        time_scale = 1;
-    }
-public:
-    void write(std::ofstream *out) const
-    {
-        out->write((char*)this,sizeof(avi_stream_header_t));
+        fcc = "strh";
+        fccType = "vids";
+        cb = sizeof(avi_stream_header_t)-8;
+        dwScale = 1;
     }
 };
 
@@ -103,37 +97,22 @@ struct avi_stream_format_t
 {
     fourcc label;
     unsigned int headersize;
-    unsigned int header_size;
-    unsigned int width;
-    unsigned int height;
-    unsigned short int num_planes;
-    unsigned short int bits_per_pixel;
-    fourcc compression_type;
-    unsigned int image_size;
-    unsigned int x_pels_per_meter;
-    unsigned int y_pels_per_meter;
-    unsigned int colors_used;
-    unsigned int colors_important;
+    image::io::bitmap_info_header bh;
 public:
     avi_stream_format_t(void)
     {
         memset(this,0,sizeof(*this));
         label = "strf";
         headersize = sizeof(avi_stream_format_t)-8;
-        header_size = 40;
-        num_planes = 1;
-        bits_per_pixel = 24;
-    }
-public:
-    void write(std::ofstream *out) const
-    {
-        out->write((char*)this,sizeof(avi_stream_format_t));
+        bh.biSize = sizeof(bitmap_info_header);
+        bh.biPlanes = 1;
+        bh.biBitCount = 24;
     }
 };
 
 
 
-struct riff_header{
+struct riff_header {
     unsigned int pos;
     std::ofstream *out;
     riff_header(const char* fourcc,std::ofstream *out_):out(out_)
@@ -154,13 +133,17 @@ struct riff_header{
     }
 };
 
-class avi{
+class avi {
     std::auto_ptr<std::ofstream> out;
     long marker;
     std::vector<unsigned int> offsets;
     std::vector<riff_header> riff;
-    void write(unsigned int value){out->write((const char*)&value,4);}
-    void write(const char* cc){out->write(cc,4);}
+    void write(unsigned int value) {
+        out->write((const char*)&value,4);
+    }
+    void write(const char* cc) {
+        out->write(cc,4);
+    }
 private:
     unsigned int frame_count;
     unsigned int number_of_frames_pos;
@@ -181,18 +164,18 @@ public:
 
         /* set avi header */
         unsigned int frame_size = width*height*3;
-        ah.time_delay= 1000000 / fps;
-        ah.data_rate = frame_size;
-        ah.width = width;
-        ah.height = height;
-        ah.buffer_size = frame_size;
-        sh.codec = codec;
-        sh.data_rate = fps;
-        sh.buffer_size = frame_size;
-        sf.width = width;
-        sf.height = height;
-        sf.compression_type = codec;
-        sf.image_size = frame_size;
+        ah.dwMicroSecPerFrame= 1000000 / fps;
+        ah.dwMaxBytesPerSec = frame_size;
+        ah.dwWidth = width;
+        ah.dwHeight = height;
+        ah.dwSuggestedBufferSize = frame_size;
+        sh.fccHandler = codec;
+        sh.dwRate = fps;
+        sh.dwSuggestedBufferSize = frame_size;
+        sf.bh.biWidth = width;
+        sf.bh.biHeight = height;
+        sf.bh.biCompression = codec.value;
+        sf.bh.biSizeImage = frame_size;
 
 
         riff.push_back(riff_header("RIFF",out.get()));
@@ -200,19 +183,19 @@ public:
         riff.push_back(riff_header("LIST",out.get()));
         write("hdrl");
         number_of_frames_pos = (unsigned int)out->tellp()+24; // the number of frame will be updated at close
-        ah.write(out.get());
+        out->write((const char*)&ah,sizeof(ah));
         riff.push_back(riff_header("LIST",out.get()));
         write("strl");
         data_length_pos = (unsigned int)out->tellp()+40; // the data length will be updated at close
-        sh.write(out.get());
-        sf.write(out.get());
+        out->write((const char*)&sh,sizeof(sh));
+        out->write((const char*)&sf,sizeof(sf));
         riff.pop_back(); // "LIST"
         riff.pop_back(); // "LIST"
         riff.push_back(riff_header("LIST",out.get()));
         write("movi");
         return true;
     }
-    void add_frame(unsigned char *buffer, unsigned int len)
+    void add_frame(unsigned char *buffer, unsigned int len, bool compressed)
     {
         if(!buffer)
             return;
@@ -221,7 +204,7 @@ public:
         pad = len % 4;
         if (pad > 0)
             pad = 4 - pad;
-        write("00dc");
+        write(compressed ? "00dc" : "00db");
         offsets.push_back(len + pad);
         write(offsets.back());
         out->write((const char*)buffer,len);
