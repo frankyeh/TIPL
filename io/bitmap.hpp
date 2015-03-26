@@ -10,14 +10,7 @@ namespace io
 
 struct bitmap_file_header
 {
-    /*
-    unsigned short  bfType;   //BM
-    unsigned long   bfSize;
-    unsigned short  bfReserved1;
-    unsigned short  bfReserved2;
-    unsigned long   bfOffBits;//54
-    */
-    unsigned long   bfSize;
+    unsigned int bfSize;
     bool read(std::istream& in)
     {
         unsigned short bfType;
@@ -46,17 +39,17 @@ struct bitmap_file_header
 
 struct bitmap_info_header
 {
-    unsigned long      biSize;
-    long       biWidth;
-    long       biHeight;
-    unsigned short       biPlanes;
-    unsigned short       biBitCount;
-    unsigned long      biCompression;
-    unsigned long      biSizeImage;
-    long       biXPelsPerMeter;
-    long       biYPelsPerMeter;
-    unsigned long      biClrUsed;
-    unsigned long      biClrImportant;
+    unsigned int biSize;
+    unsigned int biWidth;
+    unsigned int biHeight;
+    unsigned short biPlanes;
+    unsigned short biBitCount;
+    unsigned int biCompression;
+    unsigned int biSizeImage;
+    unsigned int biXPelsPerMeter;
+    unsigned int biYPelsPerMeter;
+    unsigned int biClrUsed;
+    unsigned int biClrImportant;
 };
 class bitmap
 {
