@@ -159,8 +159,6 @@ public:
         std::fill(dim,dim+4,1);
         std::istringstream(visu["VisuCoreSize"]) >> dim[0] >> dim[1] >> dim[2];
 
-
-
         std::vector<char> buffer;
         std::ifstream in(file_name,std::ios::binary);
         in.seekg(0, std::ifstream::end);
@@ -203,14 +201,17 @@ public:
 
         // get resolution
         {
-            std::vector<float> fov_data; // in cm
-            std::istringstream fov_text(info["RECO_fov"]);
-            std::copy(std::istream_iterator<float>(fov_text),
+            std::vector<float> fov_data,size; // in cm
+            std::istringstream in1(info["RECO_fov"]),in2(info["RECO_size"]);
+            std::copy(std::istream_iterator<float>(in1),
                       std::istream_iterator<float>(),
                       std::back_inserter(fov_data));
+            std::copy(std::istream_iterator<float>(in2),
+                      std::istream_iterator<float>(),
+                      std::back_inserter(size));
             std::fill(resolution,resolution+3,0.0);
-            for(unsigned int index = 0;index < 3 && index < fov_data.size();++index)
-                resolution[index] = fov_data[index]*10.0/(float)dim[index]; // in mm
+            for(unsigned int index = 0;index < 3 && index < fov_data.size() && index < size.size();++index)
+                resolution[index] = fov_data[index]*10.0/size[index]; // in mm
         }
         {
             std::istringstream slope_text_parser(info["RECO_map_slope"]);
