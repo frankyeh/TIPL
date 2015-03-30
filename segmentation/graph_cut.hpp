@@ -123,6 +123,24 @@ void graph_cut(const image_type& I,label_type& out,float c,unsigned int min_size
     }
 }
 
+template<typename label_type1,typename label_type2>
+void refine_contour(const label_type1& I,label_type2& out)
+{
+    std::vector<unsigned int> region_list_yes((*std::max_element(I.begin(),I.end()))+1);
+    std::vector<unsigned int> region_list_no(region_list_yes.size());
+    for(unsigned int index = 0;index < I.size();++index)
+        if(out[index])
+            ++region_list_yes[I[index]];
+        else
+            ++region_list_no[I[index]];
+
+    for(unsigned int index = 0;index < I.size();++index)
+        if(region_list_yes[I[index]] > region_list_no[I[index]])
+            out[index] = 1;
+        else
+            out[index] = 0;
+}
+
 
 }
 }
