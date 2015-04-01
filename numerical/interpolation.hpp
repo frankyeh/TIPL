@@ -366,15 +366,17 @@ struct cubic_interpolation<2>{
         dx3 = dx2*dx;
         dy3 = dy2*dy;
         int x_shift[4],y_shift[4];
-        x_shift[1] = ix;
+        int max_x = geo.width()-1;
+        x_shift[1] = std::min<int>(ix,max_x);
         x_shift[0] = std::max<int>(0,ix-1);
-        x_shift[2] = std::min<int>(ix+1,geo.width()-1);
-        x_shift[3] = std::min<int>(ix+2,geo.width()-1);
+        x_shift[2] = std::min<int>(ix+1,max_x);
+        x_shift[3] = std::min<int>(ix+2,max_x);
 
-        y_shift[1] = iy*geo.width();
+        int max_y = geo.plane_size()-geo.width();
+        y_shift[1] = std::min<int>(iy*geo.width(),max_y);
         y_shift[0] = std::max<int>(0,y_shift[1]-geo.width());
-        y_shift[2] = std::min<int>(y_shift[1]+geo.width(),geo.plane_size()-geo.width());
-        y_shift[3] = std::min<int>(y_shift[1]+geo.width()+geo.width(),geo.plane_size()-geo.width());
+        y_shift[2] = std::min<int>(y_shift[1]+geo.width(),max_y);
+        y_shift[3] = std::min<int>(y_shift[1]+geo.width()+geo.width(),max_y);
 
         for(int x = 0,index = 0;x <= 3;++x)
             for(int y = 0;y <= 3;++y,++index)
@@ -433,20 +435,23 @@ struct cubic_interpolation<3>{
         dy3 = dy2*dy;
         dz3 = dz2*dz;
         int x_shift[4],y_shift[4],z_shift[4];
-        x_shift[1] = ix;
+        int max_x = geo.width()-1;
+        x_shift[1] = std::min<int>(ix,max_x);
         x_shift[0] = std::max<int>(0,ix-1);
-        x_shift[2] = std::min<int>(ix+1,geo.width()-1);
-        x_shift[3] = std::min<int>(ix+2,geo.width()-1);
+        x_shift[2] = std::min<int>(ix+1,max_x);
+        x_shift[3] = std::min<int>(ix+2,max_x);
 
-        y_shift[1] = iy*geo.width();
+        int max_y = geo.plane_size()-geo.width();
+        y_shift[1] = std::min<int>(iy*geo.width(),max_y);
         y_shift[0] = std::max<int>(0,y_shift[1]-geo.width());
-        y_shift[2] = std::min<int>(y_shift[1]+geo.width(),geo.plane_size()-geo.width());
-        y_shift[3] = std::min<int>(y_shift[1]+geo.width()+geo.width(),geo.plane_size()-geo.width());
+        y_shift[2] = std::min<int>(y_shift[1]+geo.width(),max_y);
+        y_shift[3] = std::min<int>(y_shift[1]+geo.width()+geo.width(),max_y);
 
-        z_shift[1] = iz*geo.plane_size();
+        int max_z = geo.size()-geo.plane_size();
+        z_shift[1] = std::min<int>(iz*geo.plane_size(),max_z);
         z_shift[0] = std::max<int>(0,z_shift[1]-geo.plane_size());
-        z_shift[2] = std::min<int>(z_shift[1]+geo.plane_size(),geo.size()-geo.plane_size());
-        z_shift[3] = std::min<int>(z_shift[1]+geo.plane_size()+geo.plane_size(),geo.size()-geo.plane_size());
+        z_shift[2] = std::min<int>(z_shift[1]+geo.plane_size(),max_z);
+        z_shift[3] = std::min<int>(z_shift[1]+geo.plane_size()+geo.plane_size(),max_z);
 
         for(int x = 0,index = 0;x <= 3;++x)
             for(int y = 0;y <= 3;++y)
