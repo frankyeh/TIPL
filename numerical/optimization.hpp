@@ -130,7 +130,7 @@ bool armijo_line_search(iter_type1 x_beg,iter_type1 x_end,
         image::vec::aypx(g_beg,g_beg+size,-step,new_x.begin());
         for(unsigned int j = 0;j < size;++j)
             new_x[j] = std::min(std::max(new_x[j],x_lower[j]),x_upper[j]);
-        value_type new_fun_x(fun(new_x.begin()));
+        value_type new_fun_x(fun(&*new_x.begin()));
         if(fun_x-new_fun_x >= 0.0001*step*norm)
         {
             fun_x = new_fun_x;
@@ -271,41 +271,59 @@ void conjugate_descent(
 }
 
 
-template<typename iter_type1,typename iter_type2,typename value_type,typename function_type>
-bool rand_search(iter_type1 x_beg,iter_type1 x_end,iter_type2 x_upper,iter_type2 x_lower,
-                 value_type& fun_x,function_type& fun,double variance)
+template<typename value_type,typename value_type2,typename value_type3,typename function_type>
+bool rand_search(value_type& x,value_type2 x_upper,value_type2 x_lower,
+                 value_type3& fun_x,function_type& fun,double variance)
 {
-    typedef typename std::iterator_traits<iter_type1>::value_type param_type;
+    value_type new_x(x);
     {
-        std::vector<param_type> new_x(x_beg,x_end);
-        unsigned int size = x_end-x_beg;
-        {
-            unsigned int iter = 0;
-            unsigned int i;
-            do
-            {
-                i = std::rand()%size;
-                ++iter;
-            }
-            while(x_upper[i] == x_lower[i] && iter < 100);
-            float seed1 = (float)std::rand()+1.0;
-            float seed2 = (float)std::rand()+1.0;
-            seed1 /= (float)RAND_MAX+1.0;
-            seed2 /= (float)RAND_MAX+1.0;
-            seed1 *= 6.28318530718;
-            seed2 = std::sqrt(std::max<float>(0.0,-2.0*std::log(seed2)));
-            float r1 = seed2*std::cos(seed1);
-            new_x[i] += (x_upper[i]-x_lower[i])*r1/variance;
-            new_x[i] = std::min(std::max(new_x[i],x_lower[i]),x_upper[i]);
-        }
-        value_type new_fun_x(fun(new_x.begin()));
-        if(new_fun_x < fun_x)
-        {
-            fun_x = new_fun_x;
-            std::copy(new_x.begin(),new_x.end(),x_beg);
-            //std::cout << fun_x << std::endl;
-            return true;
-        }
+        float seed1 = (float)std::rand()+1.0;
+        float seed2 = (float)std::rand()+1.0;
+        seed1 /= (float)RAND_MAX+1.0;
+        seed2 /= (float)RAND_MAX+1.0;
+        seed1 *= 6.28318530718;
+        seed2 = std::sqrt(std::max<float>(0.0,-2.0*std::log(seed2)));
+        float r1 = seed2*std::cos(seed1);
+        new_x += (x_upper-x_lower)*r1/variance;
+        new_x = std::min(std::max(new_x,x_lower),x_upper);
+    }
+    value_type new_fun_x(fun(new_x));
+    if(new_fun_x < fun_x)
+    {
+        fun_x = new_fun_x;
+        x = new_x;
+        return true;
+    }
+    return false;
+}
+
+template<typename value_type,typename value_type2,typename value_type3,typename function_type>
+bool rand_search2(value_type& x,value_type2 x_upper,value_type2 x_lower,
+                         value_type3& fun_x,function_type& fun)
+{
+    value_type new_x;
+    value_type new_fun_x(fun(new_x = std::min(std::max((x_upper-x_lower)*((float)std::rand()/(float)RAND_MAX) + x_lower,x_lower),x_upper)));
+    if (new_fun_x < fun_x)
+    {
+        fun_x = new_fun_x;
+        x = new_x;
+        return true;
+    }
+    return false;
+}
+
+
+template<typename value_type,typename value_type2,typename value_type3,typename function_type>
+bool simulated_annealing(value_type& x,value_type2 x_upper,value_type2 x_lower,
+                         value_type3& fun_x,function_type& fun,double T)
+{
+    value_type new_x;
+    value_type new_fun_x(fun(new_x = std::min(std::max((x_upper-x_lower)*((float)std::rand()/(float)RAND_MAX) + x_lower,x_lower),x_upper)));
+    if (new_fun_x < fun_x || std::rand() <= std::exp((fun_x-new_fun_x)/T)*(float)RAND_MAX)
+    {
+        fun_x = new_fun_x;
+        x = new_x;
+        return true;
     }
     return false;
 }

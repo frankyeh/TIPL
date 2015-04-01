@@ -182,21 +182,35 @@ namespace reg
     };
 
     template<typename image_type,
+             typename param_type,
              typename transform_type,
              typename fun_type>
     class fun_adoptor{
         const image_type& from;
         const image_type& to;
+        param_type& param;
         fun_type fun;
     public:
+        unsigned int cur_dim;
+        unsigned int count;
         typedef typename fun_type::value_type value_type;
+        typedef typename param_type::value_type param_value_type;
     public:
-        fun_adoptor(const image_type& from_,const image_type& to_):from(from_),to(to_){}
-        template<typename iterator_type>
-        double operator()(iterator_type param)
+        fun_adoptor(const image_type& from_,const image_type& to_,param_type& param_):
+            from(from_),to(to_),param(param_),count(0),cur_dim(0){}
+        double operator()(param_value_type param_value)
+        {
+            transform_type affine(param);
+            affine[cur_dim] = param_value;
+            image::transformation_matrix<3,typename transform_type::value_type> T(affine,from.geometry(),to.geometry());
+            ++count;
+            return fun(from,to,T);
+        }
+        double operator()(const param_value_type* param)
         {
             transform_type affine(&*param);
             image::transformation_matrix<3,typename transform_type::value_type> T(affine,from.geometry(),to.geometry());
+            ++count;
             return fun(from,to,T);
         }
     };
@@ -264,18 +278,17 @@ void linear(const image_type& from,const image_type& to,
 {
     transform_type upper,lower;
     image::reg::get_bound(from,to,arg_min,upper,lower,reg_type);
-    image::reg::fun_adoptor<image_type,transform_type,CostFunctionType> fun(from,to);
+    image::reg::fun_adoptor<image_type,transform_type,transform_type,CostFunctionType> fun(from,to,arg_min);
     std::srand(0);
-    double optimal_value = fun(arg_min.begin());
-    image::optimization::graient_descent(arg_min.begin(),arg_min.end(),upper.begin(),lower.begin(),fun,optimal_value,terminated,0.001);
-    for(unsigned int iter = 0;iter < arg_min.size()*10 && !terminated;++iter)
-        if(image::optimization::rand_search(arg_min.begin(),arg_min.end(),
-                                           upper.begin(),lower.begin(),
-                                           optimal_value,fun,5))
-        {
-            image::optimization::graient_descent(arg_min.begin(),arg_min.end(),upper.begin(),lower.begin(),fun,optimal_value,terminated,0.001);
-            iter = 0;
-        }
+    double optimal_value = fun(arg_min[0]);
+    while(fun.count < 100 && !terminated)
+        for(fun.cur_dim = 0;fun.cur_dim < arg_min.size() && !terminated;++fun.cur_dim)
+            if(upper[fun.cur_dim] != lower[fun.cur_dim])
+               image::optimization::rand_search2(arg_min[fun.cur_dim],
+                                                        upper[fun.cur_dim],lower[fun.cur_dim],
+                                                        optimal_value,fun);
+    if(!terminated)
+        image::optimization::graient_descent(arg_min.begin(),arg_min.end(),upper.begin(),lower.begin(),fun,optimal_value,terminated,0.001);
 }
 }
 }
