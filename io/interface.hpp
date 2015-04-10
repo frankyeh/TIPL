@@ -15,11 +15,11 @@ public:
     bool open(const char_type* file_name)
     {
         in.open(file_name,std::ios::binary);
-        return in;
+        return in.good();
     }
     bool read(void* buf,size_t size)
     {
-        return in.read((char*)buf,size);
+        return in.read((char*)buf,size).good();
     }
     void seek(size_t pos)
     {
@@ -29,8 +29,8 @@ public:
     {
         in.seekg(pos,std::ios::end);
     }
-    operator bool() const	{return !(!in);}
-    bool operator!() const	{return !in;}
+    operator bool() const	{return in.good();}
+    bool operator!() const	{return !in.good();}
 };
 
 class std_ostream{
@@ -40,7 +40,7 @@ public:
     bool open(const char_type* file_name)
     {
         out.open(file_name,std::ios::binary);
-        return out;
+        return out.good();
     }
     void write(const void* buf,size_t size)
     {
@@ -50,8 +50,8 @@ public:
     {
         out.close();
     }
-    operator bool() const	{return !(!out);}
-    bool operator!() const	{return !out;}
+    operator bool() const	{return out.good();}
+    bool operator!() const	{return !out.good();}
 };
 }
 }
