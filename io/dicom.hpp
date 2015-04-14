@@ -556,7 +556,7 @@ public:
             length = 0;
             return 0;
         }
-        length = data[iter->second]->get().size();
+        length = (unsigned int)data[iter->second]->get().size();
         if (!length)
             return 0;
         return (const unsigned char*)&*data[iter->second]->get().begin();

@@ -118,14 +118,14 @@ struct riff_header {
     riff_header(const char* fourcc,std::ofstream *out_):out(out_)
     {
         out->write((const char*)fourcc,4);
-        pos = out->tellp();
+        pos = (unsigned int)out->tellp();
         unsigned int dummy = 0;
         out->write((const char*)&dummy,4);
     }
 
     ~riff_header(void)
     {
-        unsigned int cur_pos = out->tellp();
+        unsigned int cur_pos = (unsigned int)out->tellp();
         out->seekp(pos);
         unsigned int size = cur_pos-pos-4;
         out->write((const char*)&size,4);
@@ -230,7 +230,7 @@ public:
 
         // update frame count
         {
-            unsigned int cur_pos = out->tellp();
+            unsigned int cur_pos = (unsigned int)out->tellp();
             out->seekp(number_of_frames_pos);
             write(frame_count);
             out->seekp(data_length_pos);

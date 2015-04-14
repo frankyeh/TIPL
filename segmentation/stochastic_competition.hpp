@@ -173,7 +173,7 @@ inline unsigned int stochastic_competition_select_pivot(const std::vector<unsign
     rx *= pivot_list.size();
     rx = std::floor(rx);
     if(rx >= pivot_list.size())
-        rx = pivot_list.size()-1;
+        rx = (double)pivot_list.size()-1;
     return pivot_list[(unsigned int)rx];
 }
 

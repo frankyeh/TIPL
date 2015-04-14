@@ -111,7 +111,7 @@ private:
     }
 public:
     mat_matrix(void):type(0),rows(0),cols(0),namelen(0),data_ptr(0){}
-    mat_matrix(const std::string& name_):type(0),rows(0),cols(0),namelen(name_.size()+1),name(name_),data_ptr(0) {}
+    mat_matrix(const std::string& name_):type(0),rows(0),cols(0),namelen((unsigned int)name_.size()+1),name(name_),data_ptr(0) {}
     mat_matrix(const mat_matrix& rhs){copy(rhs);}
     const mat_matrix& operator=(const mat_matrix& rhs)
     {
