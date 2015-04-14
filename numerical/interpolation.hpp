@@ -303,7 +303,7 @@ inline float cubic_imp(iterator_type p, float x, float x2,float x3,
     arr[0] = cubic_imp(p, y, y2, y3);
     arr[1] = cubic_imp(p+4, y, y2, y3);
     arr[2] = cubic_imp(p+8, y, y2, y3);
-    arr[3] = cubic_imp(p+16, y, y2, y3);
+    arr[3] = cubic_imp(p+12, y, y2, y3);
     return cubic_imp(arr, x, x2, x3);
 }
 
