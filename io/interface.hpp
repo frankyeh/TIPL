@@ -9,12 +9,20 @@ namespace io
 {
 
 class std_istream{
+    size_t size_;
     std::ifstream in;
 public:
+    std_istream(void):size_(0){}
     template<typename char_type>
     bool open(const char_type* file_name)
     {
         in.open(file_name,std::ios::binary);
+        if(in)
+        {
+            in.seekg(0,std::ios::end);
+            size_ = in.tellg();
+            in.seekg(0,std::ios::beg);
+        }
         return in.good();
     }
     bool read(void* buf,size_t size)
@@ -29,6 +37,15 @@ public:
     {
         in.seekg(pos,std::ios::end);
     }
+    size_t cur(void)
+    {
+        return in.tellg();
+    }
+    size_t size(void)
+    {
+        return size_;
+    }
+
     operator bool() const	{return in.good();}
     bool operator!() const	{return !in.good();}
 };

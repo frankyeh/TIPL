@@ -287,9 +287,9 @@ inline void get_neighbors(const pixel_index<3>& index,const geometry<3>& geo,int
     int fx = (index.x() > range) ? index.x() - range:0;
     int fy = (index.y() > range) ? index.y() - range:0;
     int fz = (index.z() > range) ? index.z() - range:0;
-    int tx = std::min<size_t>(index.x() + range,geo.width()-1);
-    int ty = std::min<size_t>(index.y() + range,geo.height()-1);
-    int tz = std::min<size_t>(index.z() + range,geo.depth()-1);
+    int tx = std::min<int>(index.x() + range,geo.width()-1);
+    int ty = std::min<int>(index.y() + range,geo.height()-1);
+    int tz = std::min<int>(index.z() + range,geo.depth()-1);
     int z_index = (fz*geo.height()+fy)*geo.width()+fx;
     int radius2 = range*range;
     for (int z = fz;z <= tz;++z,z_index += wh)
