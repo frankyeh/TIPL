@@ -200,22 +200,22 @@ public:
             return;
         if (is_float() && data.size() >= 4) // float
         {
-            value = *(const float*)&*data.begin();
+            value = value_type(*(const float*)&*data.begin());
             return;
         }
         if (is_double() && data.size() >= 8) // double
         {
-            value = *(const double*)&*data.begin();
+            value = value_type(*(const double*)&*data.begin());
             return;
         }
         if (is_int16() && data.size() >= 2) // uint16type
         {
-            value = *(const short*)&*data.begin();
+            value = value_type(*(const short*)&*data.begin());
             return;
         }
         if (is_int32() && data.size() >= 4)
         {
-            value = *(const int*)&*data.begin();
+            value = value_type(*(const int*)&*data.begin());
             return;
         }
         bool is_ascii = true;
@@ -236,17 +236,17 @@ public:
         }
         if (data.size() == 2) // uint16type
         {
-            value = *(const short*)&*data.begin();
+            value = value_type(*(const short*)&*data.begin());
             return;
         }
         if (data.size() == 4)
         {
-            value = *(const int*)&*data.begin();
+            value = value_type(*(const int*)&*data.begin());
             return;
         }
         if (data.size() == 8)
         {
-            value = *(const double*)&*data.begin();
+            value = value_type(*(const double*)&*data.begin());
             return;
         }
     }

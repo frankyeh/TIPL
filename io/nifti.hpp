@@ -523,7 +523,10 @@ public:
         nif_header.srow_x[0] = 1.0;
         nif_header.srow_y[1] = 1.0;
         nif_header.srow_z[2] = 1.0;
-        strcpy(nif_header.magic,"n+1");
+        nif_header.magic[0] = 'n';
+        nif_header.magic[1] = '+';
+        nif_header.magic[2] = '1';
+        nif_header.magic[3] = 0;
         is_nii = true;
     }
 public:
