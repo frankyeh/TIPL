@@ -196,7 +196,15 @@ namespace reg
     public:
         fun_adoptor(const image_type& from_,const image_type& to_,param_type& param_):
             from(from_),to(to_),param(param_),count(0),cur_dim(0){}
-        double operator()(param_value_type param_value)
+        float operator()(const param_type& new_param)
+        {
+            transform_type affine(new_param);
+            image::transformation_matrix<3,typename transform_type::value_type> T(affine,from.geometry(),to.geometry());
+            ++count;
+            return fun(from,to,T);
+        }
+
+        float operator()(param_value_type param_value)
         {
             transform_type affine(param);
             affine[cur_dim] = param_value;
@@ -204,7 +212,7 @@ namespace reg
             ++count;
             return fun(from,to,T);
         }
-        double operator()(const param_value_type* param)
+        float operator()(const param_value_type* param)
         {
             transform_type affine(&*param);
             image::transformation_matrix<3,typename transform_type::value_type> T(affine,from.geometry(),to.geometry());
@@ -287,7 +295,12 @@ void linear(const image_type& from,const image_type& to,
                                                         optimal_value,fun);
     if(!terminated)
         image::optimization::graient_descent(arg_min.begin(),arg_min.end(),upper.begin(),lower.begin(),fun,optimal_value,terminated,0.001);
+    //image::optimization::powell_method(image::optimization::brent_method_object(),fun,upper,lower,arg_min,terminated,0.1);
 }
+
+
+
+
 }
 }
 

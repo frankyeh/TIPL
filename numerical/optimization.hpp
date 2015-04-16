@@ -331,249 +331,212 @@ bool simulated_annealing(value_type& x,value_type2 x_upper,value_type2 x_lower,
 }
 
 
-template<typename param_type,typename value_type,unsigned int max_iteration = 100>
-struct brent_method
+template<typename eval_fun_type,typename value_type,typename termination_type>
+void brent_method(eval_fun_type& f,value_type b/*max*/,value_type a/*min*/,value_type& arg_min,
+                        termination_type& terminated,value_type tol)
 {
-    param_type min;
-    param_type max;
-    bool ended;
-public:
-    brent_method(void):ended(false) {}
-    template<typename eval_fun_type,typename termination_type>
-    value_type minimize(eval_fun_type& f,value_type& arg_min,termination_type& terminated,value_type tol)
+    const unsigned int max_iteration = 100;
+    value_type bx = arg_min;
+    std::map<value_type,value_type> record;
+    const value_type gold_ratio=0.3819660;
+    const value_type ZEPS=std::numeric_limits<double>::epsilon()*1.0e-3;
+    value_type d=0.0,e=0.0;
+    value_type etemp = f(bx);
+    value_type tol1,tol2,xm;
+
+    record[bx] = etemp;
+
+    std::pair<value_type,value_type> x(bx,etemp),w(bx,etemp),v(bx,etemp),u(0.0,0.0);
+
+    for (unsigned int iter=0;iter< max_iteration && !terminated;iter++)
     {
-        value_type bx = arg_min;
-        value_type a = min;
-        value_type b = max;
-        struct assign
+        xm=(a+b)/2.0;
+        tol2=2.0*(tol1=tol*std::abs(x.first)+ZEPS);
+        if (std::abs(x.first-xm) <= (tol2-0.5*(b-a)))
         {
-            void operator()(std::pair<value_type,value_type>& lhs,const std::pair<value_type,value_type>& rhs)
-            {
-                lhs.first = rhs.first;
-                lhs.second = rhs.second;
-            }
-        };
-        std::map<value_type,value_type> record;
-        const value_type gold_ratio=0.3819660;
-        const value_type ZEPS=std::numeric_limits<double>::epsilon()*1.0e-3;
-        value_type d=0.0,e=0.0;
-        value_type etemp = f(bx);
-        value_type tol1,tol2,xm;
-
-        record[bx] = etemp;
-
-        std::pair<value_type,value_type> x(bx,etemp),w(bx,etemp),v(bx,etemp),u(0.0,0.0);
-
-        for (unsigned int iter=0;iter< max_iteration && !terminated;iter++)
+            arg_min = x.first;
+            return;
+        }
+        if (std::abs(e) > tol1)
         {
-            xm=(a+b)/2.0;
-            tol2=2.0*(tol1=tol*std::abs(x.first)+ZEPS);
-            if (std::abs(x.first-xm) <= (tol2-0.5*(b-a)))
-            {
-                goto end;
-            }
-            if (std::abs(e) > tol1)
-            {
-                value_type r=(x.first-w.first)*(x.second-v.second);
-                value_type q=(x.first-v.first)*(x.second-w.second);
-                value_type p=(x.first-v.first)*q-(x.first-w.first)*r;
-                q=2.0*(q-r);
-                if (q > 0.0)
-                    p = -p;
-                if (q < 0.0)
-                    q = -q;
-                etemp=e;
-                e=d;
-                if (std::abs(p) >= std::abs(0.5*q*etemp) || p <= q*(a-x.first) || p >= q*(b-x.first))
-                    d=gold_ratio*(e=(x.first >= xm ? a-x.first : b-x.first));
-                else
-                {
-                    d=p/q;
-                    u.first=x.first+d;
-                    if (u.first-a < tol2 || b-u.first < tol2)
-                        d=tol1 >= 0 ? xm-x.first:x.first-xm;
-                }
-            }
-            else
+            value_type r=(x.first-w.first)*(x.second-v.second);
+            value_type q=(x.first-v.first)*(x.second-w.second);
+            value_type p=(x.first-v.first)*q-(x.first-w.first)*r;
+            q=2.0*(q-r);
+            if (q > 0.0)
+                p = -p;
+            if (q < 0.0)
+                q = -q;
+            etemp=e;
+            e=d;
+            if (std::abs(p) >= std::abs(0.5*q*etemp) || p <= q*(a-x.first) || p >= q*(b-x.first))
                 d=gold_ratio*(e=(x.first >= xm ? a-x.first : b-x.first));
-            u.first=(std::abs(d) >= tol1 ? x.first + d : (x.first + (d >= 0) ? tol1:-tol1));
-
-            typename std::map<value_type,value_type>::const_iterator past_result = record.find(u.first);
-            if (past_result != record.end())
-                u.second=past_result->second;
             else
             {
-                u.second=f(u.first);
-                record[u.first] = u.second;
-            }
-            if (u.second <= x.second)
-            {
-                if (u.first >= x.first)
-                    a=x.first;
-                else
-                    b=x.first;
-                assign()(v,w);
-                assign()(w,x);
-                assign()(x,u);
-            }
-            else
-            {
-                if (u.first < x.first)
-                    a=u.first;
-                else
-                    b=u.first;
-                if (u.second <= w.second || w.first == x.first)
-                {
-                    assign()(v,w);
-                    assign()(w,u);
-                }
-                else
-                    if (u.second <= v.second || v.first == x.first || v.first == w.first)
-                        assign()(v,u);
+                d=p/q;
+                u.first=x.first+d;
+                if (u.first-a < tol2 || b-u.first < tol2)
+                    d=tol1 >= 0 ? xm-x.first:x.first-xm;
             }
         }
-end:
-        arg_min = x.first;
-        ended = true;
-        return x.second;
-    }
-};
+        else
+            d=gold_ratio*(e=(x.first >= xm ? a-x.first : b-x.first));
+        u.first=(std::abs(d) >= tol1 ? x.first + d : (x.first + (d >= 0) ? tol1:-tol1));
 
-
-template<typename param_type,typename value_type,unsigned int max_iteration = 100>
-struct enhanced_brent{
-    param_type min;
-    param_type max;
-    bool ended;
-public:
-    enhanced_brent(void):ended(false) {}
-    template<typename eval_fun_type,typename termination_type>
-    value_type minimize(eval_fun_type& f,value_type& out_arg_min,termination_type& terminated,value_type tol)
-    {
-        param_type cur_min = min;
-        param_type cur_max = max;
-        param_type arg_min = out_arg_min;
-        if(arg_min < min && arg_min > max)
-            arg_min = (max+min)/2.0;
-        for(unsigned int iter = 0;iter < max_iteration && !terminated;++iter)
+        typename std::map<value_type,value_type>::const_iterator past_result = record.find(u.first);
+        if (past_result != record.end())
+            u.second=past_result->second;
+        else
         {
-            std::deque<value_type> values;
-            std::deque<param_type> params;
-            param_type interval = (cur_max-cur_min)/10.0;
-            for(param_type x = arg_min;x > cur_min;x -= interval)
-            {
-                values.push_front(f(x));
-                params.push_front(x);
-            }
-            for(param_type x = arg_min+interval;x < cur_max;x += interval)
-            {
-                values.push_back(f(x));
-                params.push_back(x);
-            }
-            values.push_front(f(cur_min));
-            params.push_front(cur_min);
-            values.push_back(f(cur_max));
-            params.push_back(cur_max);
-            std::vector<unsigned char> greater(values.size()-1);
-            for(int i=0;i < greater.size();++i)
-                greater[i] = values[i] > values[i+1];
-            unsigned char change_sign = 0;
-            for(int i=1;i < greater.size();++i)
-                if(greater[i-1] != greater[i])
-                    change_sign++;
-
-            int min_index = std::min_element(values.begin(),values.end())-values.begin();
-
-            cur_min = params[std::max<int>(0,min_index-2)];
-            cur_max = params[std::min<int>(params.size()-1,min_index+2)];
-            arg_min = params[min_index];
-            if(change_sign <= 2) // monotonic or u-shape then use breant method
-                break;
+            u.second=f(u.first);
+            record[u.first] = u.second;
         }
-
-        float result = 0.0;
-        brent_method<param_type,value_type,max_iteration> brent;
-        brent.min = cur_min;
-        brent.max = cur_max;
-        result = brent.minimize(f,arg_min,terminated,tol);
-        ended = true;
-        out_arg_min = arg_min;
-        return result;
+        if (u.second <= x.second)
+        {
+            if (u.first >= x.first)
+                a=x.first;
+            else
+                b=x.first;
+            v = w;
+            w = x;
+            x = u;
+        }
+        else
+        {
+            if (u.first < x.first)
+                a=u.first;
+            else
+                b=u.first;
+            if (u.second <= w.second || w.first == x.first)
+            {
+                v = w;
+                w = u;
+            }
+            else
+                if (u.second <= v.second || v.first == x.first || v.first == w.first)
+                    v = u;
+        }
     }
+    arg_min = x.first;
+}
 
+struct brent_method_object{
+    template<typename eval_fun_type,typename value_type,typename termination_type>
+    void operator()(eval_fun_type& f,value_type b/*max*/,value_type a/*min*/,value_type& arg_min,
+                            termination_type& terminated,value_type tol)
+    {
+        brent_method(f,b,a,arg_min,terminated,tol);
+    }
 };
 
-/**
 
-    param_type::dimension
-	param_type::operator[]
 
-	eval_fun_type::operator()(parameter_type)
 
-*/
-template<typename method_type,typename param_type_,typename value_type_,unsigned int max_iteration = 100>
-struct powell_method
+template<typename value_type,typename eval_fun_type,typename termination_type>
+value_type enhanced_brent(eval_fun_type& f,value_type cur_max,value_type cur_min,value_type& out_arg_min,
+                          termination_type& terminated,value_type tol)
 {
-public:
-    typedef param_type_ param_type;
-    typedef value_type_ value_type;
-    std::vector<method_type> search_methods;
-    bool ended;
-public:
-    powell_method(unsigned int dimension):search_methods(dimension),ended(false) {}
-
-    template<typename eval_fun_type,typename value_type>
-    struct powell_fasade
+    const unsigned int max_iteration = 100;
+    value_type arg_min = out_arg_min;
+    if(arg_min < cur_min || arg_min > cur_max)
+        arg_min = (cur_min+cur_max)/2.0;
+    for(unsigned int iter = 0;iter < max_iteration && !terminated;++iter)
     {
-        eval_fun_type& eval_fun;
-        param_type param;
-        unsigned int current_dim;
-public:
-        powell_fasade(eval_fun_type& eval_fun_,param_type param_,unsigned int current_dim_):
-                eval_fun(eval_fun_),param(param_),current_dim(current_dim_) {}
-
-        template<typename input_param_type>
-        value_type operator()(input_param_type next_param)
+        std::deque<value_type> values;
+        std::deque<value_type> params;
+        value_type interval = (cur_max-cur_min)/10.0;
+        for(value_type x = arg_min;x > cur_min;x -= interval)
         {
-            param[current_dim] = next_param;
-            return eval_fun(param);
+            values.push_front(f(x));
+            params.push_front(x);
         }
-    };
-
-
-
-    template<typename eval_fun_type,typename teminated_class>
-    value_type minimize(eval_fun_type& fun,param_type& arg_min,teminated_class& terminated,value_type tol = 0.01)
-    {
-        // estimate the acceptable error level
-        std::vector<value_type> eplson(search_methods.size());
-        for (unsigned int j = 0; j < search_methods.size();++j)
-            eplson[j] = tol*0.05*(search_methods[j].max - search_methods[j].min);
-
-        value_type min_value = 0;
-        bool improved = true;
-        powell_fasade<eval_fun_type,value_type> search_fun(fun,arg_min,0);
-        for (unsigned int i = 0; i < max_iteration && improved && !terminated;++i)
+        for(value_type x = arg_min+interval;x < cur_max;x += interval)
         {
-            improved = false;
-            for (unsigned int j = 0; j < search_methods.size() && !terminated;++j)
-            {
-                search_fun.current_dim = j;
-                search_fun.param[j] = arg_min[j];
-                if (search_methods[j].min >= search_methods[j].max)
-                    continue;
-                value_type next_value = search_methods[j].minimize(search_fun,search_fun.param[j],terminated,tol);
-                if (!improved && next_value != min_value && std::abs(arg_min[j] - search_fun.param[j]) > eplson[j])
-                    improved = true;
-                arg_min[j] = search_fun.param[j];
-                min_value = next_value;
-            }
+            values.push_back(f(x));
+            params.push_back(x);
         }
-        ended = true;
-        return min_value;
+        values.push_front(f(cur_min));
+        params.push_front(cur_min);
+        values.push_back(f(cur_max));
+        params.push_back(cur_max);
+        std::vector<unsigned char> greater(values.size()-1);
+        for(int i=0;i < greater.size();++i)
+            greater[i] = values[i] > values[i+1];
+        unsigned char change_sign = 0;
+        for(int i=1;i < greater.size();++i)
+            if(greater[i-1] != greater[i])
+                change_sign++;
+
+        int min_index = std::min_element(values.begin(),values.end())-values.begin();
+
+        cur_min = params[std::max<int>(0,min_index-2)];
+        cur_max = params[std::min<int>(params.size()-1,min_index+2)];
+        arg_min = params[min_index];
+        if(change_sign <= 2) // monotonic or u-shape then use brent method
+            break;
     }
 
+    brent_method(f,cur_max,cur_min,arg_min,terminated,tol);
+    out_arg_min = arg_min;
+}
+struct enhanced_brent_object{
+    template<typename value_type,typename eval_fun_type,typename termination_type>
+    void operator()(eval_fun_type& f,value_type cur_max,value_type cur_min,value_type& out_arg_min,
+                              termination_type& terminated,value_type tol)
+    {
+        enhanced_brent(f,cur_max,cur_min,out_arg_min,terminated,tol);
+    }
 };
+
+
+template<typename eval_fun_type,typename param_type>
+struct powell_fasade
+{
+    eval_fun_type& eval_fun;
+    param_type& param;
+    unsigned int current_dim;
+public:
+    powell_fasade(eval_fun_type& eval_fun_,param_type& param_,unsigned int current_dim_):
+            eval_fun(eval_fun_),param(param_),current_dim(current_dim_) {}
+
+    template<typename input_param_type>
+    float operator()(input_param_type next_param)
+    {
+        param_type temp(param);
+        temp[current_dim] = next_param;
+        return eval_fun(temp);
+    }
+};
+
+template<typename optimization_method,typename eval_fun_type,typename param_type,typename teminated_class>
+void powell_method(optimization_method optimize,
+                         eval_fun_type& fun,
+                         param_type& upper,param_type& lower,param_type& arg_min,
+                         teminated_class& terminated,float tol = 0.01)
+{
+    // estimate the acceptable error level
+    const unsigned int max_iteration = 100;
+    std::vector<param_type::value_type> eplson(arg_min.size());
+    for (unsigned int j = 0; j < arg_min.size();++j)
+        eplson[j] = tol*0.05*std::fabs(upper[j] - lower[j]);
+
+    bool improved = true;
+    for (unsigned int i = 0; i < max_iteration && improved && !terminated;++i)
+    {
+        improved = false;
+        for (unsigned int j = 0; j < arg_min.size() && !terminated;++j)
+        {
+            if (lower[j] >= upper[j])
+                continue;
+            powell_fasade<eval_fun_type,param_type> search_fun(fun,arg_min,j);
+            param_type::value_type old_value = arg_min[j];
+            optimize(search_fun,upper[j],lower[j],arg_min[j],terminated,tol);
+            if (!improved && std::abs(arg_min[j] - old_value) > eplson[j])
+                improved = true;
+        }
+    }
+}
+
 /*
 template<typename param_type,typename value_type>
 struct BFGS
