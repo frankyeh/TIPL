@@ -73,14 +73,12 @@ namespace reg
             for (image::pixel_index<dim> index; index.is_valid(geo); index.next(geo))
             {
                 transform(index,pos);
-                double to_pixel;
-                if (estimate(Ito,pos,to_pixel,image::linear))
-                {
+                double to_pixel = 0;
+                if (estimate(Ito,pos,to_pixel,image::linear) && to_pixel != 0)
                     to_pixel -= Ifrom[index.index()];
-                    error += to_pixel*to_pixel;
-                }
                 else
-                    error += Ifrom[index.index()]*Ifrom[index.index()];
+                    to_pixel = Ifrom[index.index()];
+                error += to_pixel*to_pixel;
 
             }
             return error;

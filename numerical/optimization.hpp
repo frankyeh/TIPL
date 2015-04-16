@@ -220,6 +220,8 @@ void graient_descent(
 
         image::multiply(g,tols); // scale the unit to parameter unit
         double length = image::norm2(g.begin(),g.end());
+        if(length == 0.0)
+            return;
         image::multiply_constant(g,tol_length/length);
         if(!armijo_line_search(x_beg,x_end,x_upper,x_lower,g.begin(),fun_x,fun,precision))
             return;
