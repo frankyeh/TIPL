@@ -285,16 +285,16 @@ unsigned char get_neighbor_count(ImageType& image,std::vector<unsigned char>& ac
         int shift = neighborhood.index_shift[index];
         if (shift > 0)
         {
-            typename ImageType::value_type* iter1 = &*act.begin() + shift;
+            unsigned char* iter1 = &*act.begin() + shift;
             typename ImageType::value_type* iter2 = &*image.begin();
-            typename ImageType::value_type* end = &*act.begin() + act.size();
+            unsigned char* end = &*act.begin() + act.size();
             for (;iter1 < end;++iter1,++iter2)
                 if (*iter2)
                     (++*iter1);
         }
         if (shift < 0)
         {
-            typename ImageType::value_type* iter1 = &*act.begin();
+            unsigned char* iter1 = &*act.begin();
             typename ImageType::value_type* iter2 = &*image.begin() - shift;
             typename ImageType::value_type* end = &*image.begin() + image.size();
             for (;iter2 < end;++iter1,++iter2)
