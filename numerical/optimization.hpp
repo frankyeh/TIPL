@@ -516,7 +516,7 @@ void powell_method(optimization_method optimize,
 {
     // estimate the acceptable error level
     const unsigned int max_iteration = 100;
-    std::vector<param_type::value_type> eplson(arg_min.size());
+    std::vector<typename param_type::value_type> eplson(arg_min.size());
     for (unsigned int j = 0; j < arg_min.size();++j)
         eplson[j] = tol*0.05*std::fabs(upper[j] - lower[j]);
 
@@ -529,7 +529,7 @@ void powell_method(optimization_method optimize,
             if (lower[j] >= upper[j])
                 continue;
             powell_fasade<eval_fun_type,param_type> search_fun(fun,arg_min,j);
-            param_type::value_type old_value = arg_min[j];
+            typename param_type::value_type old_value = arg_min[j];
             optimize(search_fun,upper[j],lower[j],arg_min[j],terminated,tol);
             if (!improved && std::abs(arg_min[j] - old_value) > eplson[j])
                 improved = true;
