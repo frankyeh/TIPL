@@ -1,5 +1,5 @@
 #ifndef ML_SVM_HPP
-#define ML_SYM_HPP
+#define ML_SVM_HPP
 #include <memory>
 #include <vector>
 #define LIBSVM_VERSION 317
