@@ -85,19 +85,6 @@ namespace reg
         }
     };
 
-
-    struct square_error2
-    {
-        typedef double value_type;
-        template<typename ImageType,typename TransformType>
-        double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
-        {
-            TransformType inverse(transform);
-            inverse.inverse();
-            return square_error()(Ifrom,Ito,transform)+square_error()(Ito,Ifrom,inverse);
-        }
-    };
-
     struct correlation
     {
         typedef double value_type;
@@ -108,7 +95,7 @@ namespace reg
             image::geometry<dim> geo(Ifrom.geometry());
             image::basic_image<float,3> y(geo);
             image::resample(Ito,y,transform,image::linear);
-            return image::correlation(Ifrom.begin(),Ifrom.end(),y.begin());
+            return -image::correlation(Ifrom.begin(),Ifrom.end(),y.begin());
         }
     };
 

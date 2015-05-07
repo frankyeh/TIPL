@@ -212,9 +212,9 @@ struct interpolation<weighting_function,3>
         dindex[6] = dindex[2] + wh;
         dindex[7] = dindex[3] + wh;
 
-        n[0] = 1.0-p[0];
-        n[1] = 1.0-p[1];
-        n[2] = 1.0-p[2];
+        n[0] = (float)1.0-p[0];
+        n[1] = (float)1.0-p[1];
+        n[2] = (float)1.0-p[2];
 
         weighting(p[0]);
         weighting(p[1]);
