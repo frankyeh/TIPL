@@ -95,7 +95,32 @@ namespace reg
             image::geometry<dim> geo(Ifrom.geometry());
             image::basic_image<float,3> y(geo);
             image::resample(Ito,y,transform,image::linear);
-            return -image::correlation(Ifrom.begin(),Ifrom.end(),y.begin());
+            float c = image::correlation(Ifrom.begin(),Ifrom.end(),y.begin());
+            return -c*c;
+        }
+    };
+    struct correlation2
+    {
+        typedef double value_type;
+        template<typename ImageType,typename TransformType>
+        double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
+        {
+            const unsigned int dim = ImageType::dimension;
+            std::vector<float> x,y;
+            x.reserve(Ito.size());
+            y.reserve(Ito.size());
+            for (image::pixel_index<dim> index;index.index() < Ito.size();index.next(Ito.geometry()))
+                if(Ito[index.index()] != 0)
+                {
+                    image::vector<dim> pos;
+                    transform(index,pos);
+                    float value = 0.0;
+                    image::estimate(Ifrom,pos,value,image::linear);
+                    x.push_back(Ito[index.index()]);
+                    y.push_back(value);
+                }
+            float c = image::correlation(x.begin(),x.end(),y.begin());
+            return -c*c;
         }
     };
 
