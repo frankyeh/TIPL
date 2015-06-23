@@ -27,6 +27,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 #include <vector>
 #include <fstream>
+#include <iterator>
 #include <map>
 #include "interface.hpp"
 namespace image
@@ -246,6 +247,35 @@ public:
         out.write((const char*)data_ptr,get_total_size(type));
         return out;
     }
+    void get_info(std::string& info) const
+    {
+        std::ostringstream out;
+        unsigned int out_count = std::min<int>(5,rows*cols);
+        switch (type)
+        {
+        case 0://double
+            std::copy((const double*)data_ptr,((const double*)data_ptr) + out_count,std::ostream_iterator<double>(out," "));
+            break;
+        case 10://float
+            std::copy((const float*)data_ptr,((const float*)data_ptr) + out_count,std::ostream_iterator<float>(out," "));
+            break;
+        case 20://unsigned int
+            std::copy((const unsigned int*)data_ptr,((const unsigned int*)data_ptr) + out_count,std::ostream_iterator<unsigned int>(out," "));
+            break;
+        case 30://short
+            std::copy((const short*)data_ptr,((const short*)data_ptr) + out_count,std::ostream_iterator<short>(out," "));
+            break;
+        case 40://unsigned short
+            std::copy((const unsigned short*)data_ptr,((const unsigned short*)data_ptr) + out_count,std::ostream_iterator<unsigned short>(out," "));
+            break;
+        case 50://unsigned char
+            std::copy((const unsigned char*)data_ptr,((const unsigned char*)data_ptr) + out_count,std::ostream_iterator<unsigned char>(out," "));
+            break;
+        }
+        info = out.str();
+        if(rows*cols > 5)
+            info += "...";
+    }
 };
 
 template<typename input_interface = std_istream>
@@ -363,6 +393,21 @@ public:
         if(!buf || r*c != image_data.size())
             return;
         std::copy(buf,buf+image_data.size(),image_data.begin());
+    }
+    template<typename voxel_size_type>
+    void get_voxel_size(voxel_size_type voxel_size) const
+    {
+        unsigned int r,c,r2,c2;
+        const unsigned short* m = 0;
+        read("dimension",r,c,m);
+        if(!m)
+            return;
+        const float* vs = 0;
+        read("dimension",r2,c2,vs);
+        if(!vs || r*c != r2*c2)
+            return;
+        for(unsigned int i = 0;i < r*c;++i)
+            voxel_size[i] = vs[i];
     }
     const char* name(unsigned int index) const
     {
