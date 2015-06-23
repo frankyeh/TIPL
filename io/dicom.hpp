@@ -376,7 +376,7 @@ public:
     void write_report(std::string& lines) const
     {
         std::ostringstream out;
-        out << "CSA::" << header.name << "::VM-" << header.vm << "::VR-" << header.vr << "::Syn-" << header.syngodt << "::ni-" << header.nitems << " = ";
+        out << header.name << ":" << header.vm << ":" << header.vr << ":" << header.syngodt << ":" << header.nitems << "=";
         for (unsigned int index = 0; index < vals.size(); ++index)
             out << vals[index] << " ";
         lines += out.str();
@@ -493,7 +493,8 @@ public:
             // switch to another DICOM format
             input_io->seekg(0,std::ios::beg);
             input_io->read((char*)&dicom_mark,4);
-            if(dicom_mark != 0x00050008)
+            if(dicom_mark != 0x00050008 &&
+               dicom_mark != 0x00000008)
                 return false;
             input_io->seekg(0,std::ios::beg);
         }
@@ -704,16 +705,21 @@ public:
         info += "_";
         info += id;
     }
+    void get_sequence_id(std::string& seq)
+    {
+        get_text(0x0008,0x103E,seq);
+        using namespace std;
+        seq.erase(remove(seq.begin(),seq.end(),' '),seq.end());
+        std::replace(seq.begin(),seq.end(),'-','_');
+    }
     void get_sequence(std::string& info)
     {
         std::string series_num,series_des;
         series_num = series_des = "_";
         get_text(0x0020,0x0011,series_num);
-        get_text(0x0008,0x103E,series_des);
+        get_sequence_id(series_des);
         using namespace std;
         series_num.erase(remove(series_num.begin(),series_num.end(),' '),series_num.end());
-        series_des.erase(remove(series_des.begin(),series_des.end(),' '),series_des.end());
-        std::replace(series_des.begin(),series_des.end(),'-','_');
         if (series_num.size() == 1)
         {
             info = std::string("0");
@@ -739,10 +745,7 @@ public:
     {
         std::string series_des;
         series_des = "_";
-        get_text(0x0008,0x103E,series_des);
-        using namespace std;
-        series_des.erase(remove(series_des.begin(),series_des.end(),' '),series_des.end());
-        std::replace(series_des.begin(),series_des.end(),'-','_');
+        get_sequence_id(series_des);
         info = series_des;
         info += "_i";
         info += get_image_num();
@@ -881,7 +884,7 @@ public:
         for (;iter != end;++iter)
         {
             out << std::setw( 8 ) << std::setfill( '0' ) << std::hex << std::uppercase <<
-            iter->first << " ";
+            iter->first << "=";
             out << std::dec;
             if(data[iter->second]->data.empty())
             {
