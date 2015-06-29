@@ -304,7 +304,10 @@ public:
         copy(rhs);
         return *this;
     }
-
+    bool has(const char* name) const
+    {
+        return name_table.find(name) != name_table.end();
+    }
     const void* read_as_type(unsigned int index,unsigned int& rows,unsigned int& cols,unsigned int type) const
     {
         if (index >= dataset.size())
