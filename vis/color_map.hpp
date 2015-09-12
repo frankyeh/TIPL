@@ -109,4 +109,3 @@ public:
 #endif//COLOR_MAP_HPP
 
  
-
