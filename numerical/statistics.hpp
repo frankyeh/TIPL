@@ -171,6 +171,22 @@ double root_mean_suqare(input_iterator from,input_iterator to)
     return std::sqrt(mean_square(from,to));
 }
 
+template<typename input_iterator,typename input_iterator2>
+double root_mean_suqare_error(input_iterator from,input_iterator to,input_iterator2 from2)
+{
+    double rmse = 0.0;
+    while (from != to)
+    {
+        double t = *from-*from2;
+        rmse += t*t;
+        ++from;
+        ++from2;
+    }
+    if(to != from)
+        rmse /= to-from;
+    return std::sqrt(rmse);
+}
+
 template<typename input_iterator>
 double variance(input_iterator from,input_iterator to,double mean)
 {

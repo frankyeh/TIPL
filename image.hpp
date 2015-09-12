@@ -30,7 +30,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "image/morphology/morphology.hpp"
 #include "image/segmentation/segmentation.hpp"
-#include "image/algo/march_cube.hpp"
 
 #include "image/numerical/transformation.hpp"
 #include "image/numerical/index_algorithm.hpp"
@@ -80,6 +79,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "image/ml/em.hpp"
 #include "image/ml/hmc.hpp"
 #include "image/ml/svm.hpp"
+
+#include "image/vis/march_cube.hpp"
+#include "image/vis/color_map.hpp"
+
 
 
 #endif//IMAGE_HPP
