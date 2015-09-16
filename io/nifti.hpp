@@ -482,7 +482,7 @@ public:
     }
 
     template<typename float_type>
-    void get_image_orientation(float_type R) const
+    void get_image_orientation(float_type R)
     {
         handle_qform();
         std::copy(nif_header.srow_x,nif_header.srow_x+3,R);
@@ -490,20 +490,20 @@ public:
         std::copy(nif_header.srow_z,nif_header.srow_z+3,R+6);
     }
     template<typename float_type>
-    void get_image_transformation(float_type R) const
+    void get_image_transformation(float_type R)
     {
         handle_qform();
         std::copy(nif_header.srow_x,nif_header.srow_x+12,R);
     }
 
 
-    const float* get_transformation(void) const
+    const float* get_transformation(void)
     {
         handle_qform();
         return nif_header.srow_x;
     }
 
-    unsigned short get_bit_count(void) const
+    unsigned short get_bit_count(void)
     {
         return nif_header.bitpix;
     }
