@@ -468,6 +468,8 @@ public:
     template<typename float_type>
     void set_image_transformation(float_type R)
     {
+        nif_header.sform_code = 1.0;
+        nif_header.qform_code = 0.0;
         std::copy(R,R+4,nif_header.srow_x);
         std::copy(R+4,R+8,nif_header.srow_y);
         std::copy(R+8,R+12,nif_header.srow_z);
@@ -482,6 +484,7 @@ public:
     template<typename float_type>
     void get_image_orientation(float_type R) const
     {
+        handle_qform();
         std::copy(nif_header.srow_x,nif_header.srow_x+3,R);
         std::copy(nif_header.srow_y,nif_header.srow_y+3,R+3);
         std::copy(nif_header.srow_z,nif_header.srow_z+3,R+6);
@@ -489,12 +492,14 @@ public:
     template<typename float_type>
     void get_image_transformation(float_type R) const
     {
+        handle_qform();
         std::copy(nif_header.srow_x,nif_header.srow_x+12,R);
     }
 
 
     const float* get_transformation(void) const
     {
+        handle_qform();
         return nif_header.srow_x;
     }
 
@@ -669,12 +674,54 @@ public:
         return *this;
     }
 
+    void handle_qform(void)
+    {
+        if(nif_header.qform_code > 0 && nif_header.sform_code == 0)
+        {
+            float b = nif_header.quatern_b;
+            float c = nif_header.quatern_c;
+            float d = nif_header.quatern_d;
+            float b2 = b*b;
+            float c2 = c*c;
+            float d2 = d*d;
+            float sum = b2+c2+d2;
+            float a2 = (sum > 1.0) ? 0.0:1.0-sum;
+            float a = std::sqrt(a2);
+            float ab2 = 2.0*a*b;
+            float ac2 = 2.0*a*c;
+            float ad2 = 2.0*a*d;
+            float bc2 = 2.0*b*c;
+            float bd2 = 2.0*b*d;
+            float cd2 = 2.0*c*d;
+
+            float qfac = nif_header.pixdim[0];
+            if(qfac == 0.0)
+                qfac = 1.0;
+            nif_header.srow_x[0] = (a2+b2-c2-d2)*nif_header.pixdim[1];
+            nif_header.srow_x[1] = bc2-ad2;
+            nif_header.srow_x[2] = bd2+ac2;
+            nif_header.srow_x[3] = nif_header.qoffset_x;
+            nif_header.srow_y[0] = bc2+ad2;
+            nif_header.srow_y[1] = (a2+c2-b2-d2)*nif_header.pixdim[2];
+            nif_header.srow_y[2] = cd2-ab2;
+            nif_header.srow_y[3] = nif_header.qoffset_y;
+            nif_header.srow_z[0] = bd2-ac2;
+            nif_header.srow_z[1] = cd2+ab2;
+            nif_header.srow_z[2] = (a2+d2-c2-b2)*nif_header.pixdim[3]*qfac;
+            nif_header.srow_z[3] = nif_header.qoffset_z;
+            nif_header.sform_code = 1;
+        }
+    }
+
     //from RAS to LPS
     template<typename image_type>
     bool toLPS(image_type& out,bool change_header = true)
     {
         if(!save_to_image(out))
             return false;
+        handle_qform();
+
+
         if(std::fabs(nif_header.srow_x[0]) < std::fabs(nif_header.srow_x[1]))
         {
             if(change_header)
