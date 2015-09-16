@@ -1,8 +1,10 @@
 #ifndef COLOR_MAP_HPP
 #define COLOR_MAP_HPP
 #include <vector>
+#include <fstream>
+#include <iterator>
 #include "image/utility/basic_image.hpp"
-
+#include "image/numerical/basic_op.hpp"
 namespace image{
 
 inline unsigned char color_spectrum_value(unsigned char center, unsigned char value)
@@ -52,7 +54,10 @@ struct color_map{
     std::vector<image::vector<3,float> > color;
 public:
     color_map(void):color(256){}
-    const image::vector<3,float>& operator[](unsigned int index) const{return color[std::min<unsigned int>(255,index)];}
+    unsigned int size(void)const{return color.size();}
+    const image::vector<3,float>& operator[](unsigned int index) const{return color[255,index];}
+    image::vector<3,float> min_color(void)const{return color.front();}
+    image::vector<3,float> max_color(void)const{return color.back();}
     void two_color(image::rgb_color from_color,image::rgb_color to_color)
     {
         color.resize(256);
@@ -80,7 +85,10 @@ struct color_map_rgb{
     std::vector<image::rgb_color> color;
 public:
     color_map_rgb(void):color(256){}
-    const image::rgb_color& operator[](unsigned int index) const{return color[std::min<unsigned int>(255,index)];}
+    unsigned int size(void)const{return color.size();}
+    const image::rgb_color& operator[](unsigned int index) const{return color[index];}
+    image::rgb_color min_color(void)const{return color.front();}
+    image::rgb_color max_color(void)const{return color.back();}
     void two_color(image::rgb_color from_color,image::rgb_color to_color)
     {
         for(unsigned int index = 0;index < 256;++index)
@@ -98,25 +106,57 @@ public:
             color[index][0] = image::color_spectrum_value(64,index);
         }
     }
+    bool load_from_file(const char* file_name)
+    {
+        std::ifstream in(file_name);
+        if(!in)
+            return false;
+        std::vector<float> values;
+        std::copy(std::istream_iterator<float>(in),
+                  std::istream_iterator<float>(),std::back_inserter(values));
+        float max_value = *std::max_element(values.begin(),values.end());
+        if(max_value < 2.0 && max_value != 0.0)
+        {
+            for(unsigned int i = 0;i < values.size();++i)
+                values[i] = std::max<int>(0,std::min<int>(255,std::floor(values[i]*256.0/max_value)));
+        }
+        if(values.size() < 3)
+            return false;
+        color.clear();
+        for(unsigned int i = 2;i < values.size();i += 3)
+            color.push_back(image::rgb_color(values[i-2],values[i-1],values[i]));
+        return true;
+    }
 };
 
 template<typename value_type>
 struct value_to_color{
 private:
-    value_type min_value,r;
+    value_type min_value,max_value,r;
     image::color_map_rgb map;
 public:
     value_to_color(void):min_value(0),r(1){}
+    image::rgb_color min_color(void)const{return map.min_color();}
+    image::rgb_color max_color(void)const{return map.max_color();}
+
     void set_range(value_type min_value_,value_type max_value_)
     {
         min_value = min_value_;
+        max_value = max_value_;
         max_value_ -= min_value_;
-        r = (max_value_ == 0.0) ? 1.0:256.0/max_value_;
+        r = (max_value_ == 0.0) ? 1.0:(float)map.size()/max_value_;
     }
     void set_color_map(const image::color_map_rgb& rhs)
     {
         map = rhs;
+        r = max_value-min_value;
+        r = (r == 0.0) ? 1.0:(float)map.size()/r;
     }
+    void two_color(image::rgb_color from_color,image::rgb_color to_color)
+    {
+        map.two_color(from_color,to_color);
+    }
+
     const image::rgb_color& operator[](value_type value)const
     {
         value -= min_value;
