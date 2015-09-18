@@ -294,6 +294,12 @@ void linear(const image_type& from,const image_type& to,
                     CostFunctionType,
                     teminated_class& terminated)
 {
+    for(int i = 3;i >= 1;--i)
+        if(reg_type & (1 << i))
+        {
+            linear(from,to,arg_min,reg_type-(1 << i),CostFunctionType(),terminated);
+            break;
+        }
     transform_type upper,lower;
     image::reg::get_bound(from,to,arg_min,upper,lower,reg_type);
     image::reg::fun_adoptor<image_type,transform_type,transform_type,CostFunctionType> fun(from,to,arg_min);
