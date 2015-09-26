@@ -161,6 +161,45 @@ void edge(ImageType& image)
 	image = out;
 }
 
+template<typename ImageType,typename LabelType>
+void inner_edge(const ImageType& image,LabelType& act)
+{
+    act.resize(image.geometry());
+    neighbor_index_shift<ImageType::dimension> neighborhood(image.geometry());
+    for (unsigned int index = 0;index < neighborhood.index_shift.size();++index)
+    {
+        int shift = neighborhood.index_shift[index];
+        if (shift > 0)
+        {
+            typename LabelType::value_type* iter1 = &*act.begin() + shift;
+            const typename ImageType::value_type* iter2 = &*image.begin();
+            const typename ImageType::value_type* iter3 = &*image.begin()+shift;
+            typename LabelType::value_type* end = &*act.begin() + act.size();
+            for (;iter1 < end;++iter1,++iter2,++iter3)
+                if (*iter2 < *iter3)
+                    *iter1 = 1;
+        }
+        if (shift < 0)
+        {
+            typename LabelType::value_type* iter1 = &*act.begin();
+            const typename ImageType::value_type* iter2 = &*image.begin() - shift;
+            const typename ImageType::value_type* iter3 = &*image.begin();
+            const typename ImageType::value_type* end = &*image.begin() + image.size();
+            for (;iter2 < end;++iter1,++iter2,++iter3)
+                if (*iter2 < *iter3)
+                    *iter1 = 1;
+        }
+    }
+}
+
+template<typename ImageType>
+void inner_edge(ImageType& image)
+{
+        ImageType out;
+        inner_edge(image,out);
+        image = out;
+}
+
 template<typename ImageType>
 bool is_edge(ImageType& image,image::pixel_index<2> index)
 {
