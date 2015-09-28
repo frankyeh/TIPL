@@ -30,7 +30,7 @@ private:
     {
         iV.resize(covariance.size());
         id.resize(dim);
-        image::matrix::eigen_decomposition_sym(covariance.begin(),iV.begin(),id.begin(),image::dyndim(dim,dim));
+        image::mat::eigen_decomposition_sym(covariance.begin(),iV.begin(),id.begin(),image::dyndim(dim,dim));
         constant = 1.0;
         unsigned int dimension = 0;
         for (unsigned int i = 0;i < id.size();++i)
@@ -122,7 +122,7 @@ public:
         for (unsigned int i = 0;i < dx.size();++i)
             dx[i] -= attributes[i];
         std::vector<double> idx(dx.size());
-        image::matrix::vector_product(iV.begin(),dx.begin(),idx.begin(),image::dyndim(dim,dim));
+        image::mat::vector_product(iV.begin(),dx.begin(),idx.begin(),image::dyndim(dim,dim));
         double sum = 0.0;
         for (unsigned int i = 0;i < id.size();++i)
             sum += idx[i]*idx[i]*id[i];

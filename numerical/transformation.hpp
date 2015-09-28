@@ -540,7 +540,7 @@ public:
     {
         struct
         {
-            image::matrix::mat<dim,dim,value_type> scaling_rotation;
+            image::matrix<dim,dim,value_type> scaling_rotation;
             value_type shift[dimension];
         };
         value_type data[total_size];
@@ -598,8 +598,8 @@ public:
 
     bool inverse(void)
     {
-        image::matrix::mat<dim,dim,value_type> invert_scaling_rotation(scaling_rotation);
-        if(!image::matrix::inverse(scaling_rotation.begin(),invert_scaling_rotation.begin(),image::dim<dimension,dimension>()))
+        image::matrix<dim,dim,value_type> invert_scaling_rotation(scaling_rotation);
+        if(!invert_scaling_rotation.inv())
             return false;
         value_type new_shift[dimension];
         vector_rotation(shift,new_shift,invert_scaling_rotation.begin(),vdim<dimension>());

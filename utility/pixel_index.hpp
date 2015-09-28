@@ -490,6 +490,34 @@ public:
         vector<2,data_type> proj = *this;
         return *this*(*this*rhs/length2());
     }
+    template<typename tran_type>
+    void to(const tran_type& m)
+    {
+        data_type x__(x_),y__(y_);
+        x_ = x__*m[0] + y__*m[1] + m[2];
+        y_ = x__*m[3] + y__*m[4] + m[5];
+    }
+    template<typename tran_type>
+    void to(const tran_type* m)
+    {
+        data_type x__(x_),y__(y_);
+        x_ = x__*m[0] + y__*m[1] + m[2];
+        y_ = x__*m[3] + y__*m[4] + m[5];
+    }
+    template<typename tran_type>
+    void rotate(const tran_type& m)
+    {
+        data_type x__(x_),y__(y_);
+        x_ = x__*m[0] + y__*m[1];
+        y_ = x__*m[2] + y__*m[3];
+    }
+    template<typename tran_type>
+    void rotate(const tran_type* m)
+    {
+        data_type x__(x_),y__(y_);
+        x_ = x__*m[0] + y__*m[1];
+        y_ = x__*m[2] + y__*m[3];
+    }
 public:
     bool operator<(const vector<2,data_type>& rhs) const
     {
@@ -521,6 +549,8 @@ public:
         out << point.x_ << " " << point.y_ << " ";
         return out;
     }
+
+
 public:
     data_type x(void) const
     {
@@ -825,7 +855,38 @@ public:
 	{
 		return std::sqrt(distance2(rhs));
 	}
-
+        template<typename tran_type>
+        void to(const tran_type& m)
+        {
+            data_type x__(x_),y__(y_),z__(z_);
+            x_ = x__*m[0] + y__*m[1] + z__*m[2] + m[3];
+            y_ = x__*m[4] + y__*m[5] + z__*m[6] + m[7];
+            z_ = x__*m[8] + y__*m[9] + z__*m[10] + m[11];
+        }
+        template<typename tran_type>
+        void to(const tran_type* m)
+        {
+            data_type x__(x_),y__(y_),z__(z_);
+            x_ = x__*m[0] + y__*m[1] + z__*m[2] + m[3];
+            y_ = x__*m[4] + y__*m[5] + z__*m[6] + m[7];
+            z_ = x__*m[8] + y__*m[9] + z__*m[10] + m[11];
+        }
+        template<typename tran_type>
+        void rotate(const tran_type& m)
+        {
+            data_type x__(x_),y__(y_),z__(z_);
+            x_ = x__*m[0] + y__*m[1] + z__*m[2];
+            y_ = x__*m[3] + y__*m[4] + z__*m[5];
+            z_ = x__*m[6] + y__*m[7] + z__*m[8];
+        }
+        template<typename tran_type>
+        void rotate(const tran_type* m)
+        {
+            data_type x__(x_),y__(y_),z__(z_);
+            x_ = x__*m[0] + y__*m[1] + z__*m[2];
+            y_ = x__*m[3] + y__*m[4] + z__*m[5];
+            z_ = x__*m[6] + y__*m[7] + z__*m[8];
+        }
 public:
     bool operator<(const vector<3,data_type>& rhs) const
     {

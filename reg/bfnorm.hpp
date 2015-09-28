@@ -154,16 +154,16 @@ public:
                 bz[k] = bas[2][index];
         }
 
-        image::matrix::product(T.begin(),bx,temp,dyz_x,dx_1);
-        image::matrix::product(temp,by,temp2,dz_y,dy_1);
+        image::mat::product(T.begin(),bx,temp,dyz_x,dx_1);
+        image::mat::product(temp,by,temp2,dz_y,dy_1);
         to[0] += image::vec::dot(bz,bz+nz,temp2);
 
-        image::matrix::product(T.begin()+nxyz,bx,temp,dyz_x,dx_1);
-        image::matrix::product(temp,by,temp2,dz_y,dy_1);
+        image::mat::product(T.begin()+nxyz,bx,temp,dyz_x,dx_1);
+        image::mat::product(temp,by,temp2,dz_y,dy_1);
         to[1] += image::vec::dot(bz,bz+nz,temp2);
 
-        image::matrix::product(T.begin()+(nxyz << 1),bx,temp,dyz_x,dx_1);
-        image::matrix::product(temp,by,temp2,dz_y,dy_1);
+        image::mat::product(T.begin()+(nxyz << 1),bx,temp,dyz_x,dx_1);
+        image::mat::product(temp,by,temp2,dz_y,dy_1);
         to[2] += image::vec::dot(bz,bz+nz,temp2);
     }
 };
@@ -765,7 +765,7 @@ public:
         {
             // beta = beta + alpha*T;
             std::vector<value_type> alphaT(T.size());
-            image::matrix::vector_product(alpha.begin(),T.begin(),alphaT.begin(),image::dyndim(T.size(),T.size()));
+            image::mat::vector_product(alpha.begin(),T.begin(),alphaT.begin(),image::dyndim(T.size(),T.size()));
             image::add(beta.begin(),beta.end(),alphaT.begin());
         }
 
@@ -788,12 +788,12 @@ public:
         for(unsigned int i = 0;i < 20;++i)
         {
 
-            if(!image::matrix::jacobi_solve(&*alpha.begin(),&*beta.begin(),&*T.begin(),image::dyndim(T.size(),T.size())))
+            if(!image::mat::jacobi_solve(&*alpha.begin(),&*beta.begin(),&*T.begin(),image::dyndim(T.size(),T.size())))
             {
                 // use LL decomposition instead
                 std::vector<value_type> piv(T.size());
-                image::matrix::ll_decomposition(&*alpha.begin(),&*piv.begin(),image::dyndim(T.size(),T.size()));
-                image::matrix::ll_solve(&*alpha.begin(),&*piv.begin(),&*beta.begin(),&*T.begin(),image::dyndim(T.size(),T.size()));
+                image::mat::ll_decomposition(&*alpha.begin(),&*piv.begin(),image::dyndim(T.size(),T.size()));
+                image::mat::ll_solve(&*alpha.begin(),&*piv.begin(),&*beta.begin(),&*T.begin(),image::dyndim(T.size(),T.size()));
                 break;
             }
         }*/
@@ -802,7 +802,7 @@ public:
     {
         // solve T = (Alpha + IC0*scal)\(Alpha*T + Beta);
         // alpha is a diagonal dominant matrix, which can use Jacobi method to solve
-        //image::matrix::jacobi_solve(&*alpha.begin(),&*beta.begin(),&*T.begin(),image::dyndim(T.size(),T.size()));
+        //image::mat::jacobi_solve(&*alpha.begin(),&*beta.begin(),&*T.begin(),image::dyndim(T.size(),T.size()));
         for(unsigned int iter = 0;iter < iteration;++iter)
         {
             /*
@@ -896,45 +896,45 @@ void bfnorm_get_jacobian(const bfnorm_mapping<value_type>& mapping,const from_ty
 
 
     // f(x)/dx
-    image::matrix::product(T.begin(),dbx,temp,dyz_x,dx_1);
-    image::matrix::product(temp,by,temp2,dz_y,dy_1);
+    image::mat::product(T.begin(),dbx,temp,dyz_x,dx_1);
+    image::mat::product(temp,by,temp2,dz_y,dy_1);
     Jbet[0] = 1 + image::vec::dot(bz,bz+nz,temp2);
     // f(x)/dy
-    image::matrix::product(T.begin(),bx,temp,dyz_x,dx_1);
-    image::matrix::product(temp,dby,temp2,dz_y,dy_1);
+    image::mat::product(T.begin(),bx,temp,dyz_x,dx_1);
+    image::mat::product(temp,dby,temp2,dz_y,dy_1);
     Jbet[1] = image::vec::dot(bz,bz+nz,temp2);
     // f(x)/dz
-    image::matrix::product(T.begin(),bx,temp,dyz_x,dx_1);
-    image::matrix::product(temp,by,temp2,dz_y,dy_1);
+    image::mat::product(T.begin(),bx,temp,dyz_x,dx_1);
+    image::mat::product(temp,by,temp2,dz_y,dy_1);
     Jbet[2] = image::vec::dot(dbz,dbz+nz,temp2);
 
     // f(y)/dx
-    image::matrix::product(T.begin()+nxyz,dbx,temp,dyz_x,dx_1);
-    image::matrix::product(temp,by,temp2,dz_y,dy_1);
+    image::mat::product(T.begin()+nxyz,dbx,temp,dyz_x,dx_1);
+    image::mat::product(temp,by,temp2,dz_y,dy_1);
     Jbet[3] = image::vec::dot(bz,bz+nz,temp2);
     // f(y)/dy
-    image::matrix::product(T.begin()+nxyz,bx,temp,dyz_x,dx_1);
-    image::matrix::product(temp,dby,temp2,dz_y,dy_1);
+    image::mat::product(T.begin()+nxyz,bx,temp,dyz_x,dx_1);
+    image::mat::product(temp,dby,temp2,dz_y,dy_1);
     Jbet[4] = 1 + image::vec::dot(bz,bz+nz,temp2);
     // f(y)/dz
-    image::matrix::product(T.begin()+nxyz,bx,temp,dyz_x,dx_1);
-    image::matrix::product(temp,by,temp2,dz_y,dy_1);
+    image::mat::product(T.begin()+nxyz,bx,temp,dyz_x,dx_1);
+    image::mat::product(temp,by,temp2,dz_y,dy_1);
     Jbet[5] = image::vec::dot(dbz,dbz+nz,temp2);
 
     // f(z)/dx
-    image::matrix::product(T.begin()+(nxyz << 1),dbx,temp,dyz_x,dx_1);
-    image::matrix::product(temp,by,temp2,dz_y,dy_1);
+    image::mat::product(T.begin()+(nxyz << 1),dbx,temp,dyz_x,dx_1);
+    image::mat::product(temp,by,temp2,dz_y,dy_1);
     Jbet[6] = image::vec::dot(bz,bz+nz,temp2);
     // f(z)/dy
-    image::matrix::product(T.begin()+(nxyz << 1),bx,temp,dyz_x,dx_1);
-    image::matrix::product(temp,dby,temp2,dz_y,dy_1);
+    image::mat::product(T.begin()+(nxyz << 1),bx,temp,dyz_x,dx_1);
+    image::mat::product(temp,dby,temp2,dz_y,dy_1);
     Jbet[7] = image::vec::dot(bz,bz+nz,temp2);
     // f(z)/dz
-    image::matrix::product(T.begin()+(nxyz << 1),bx,temp,dyz_x,dx_1);
-    image::matrix::product(temp,by,temp2,dz_y,dy_1);
+    image::mat::product(T.begin()+(nxyz << 1),bx,temp,dyz_x,dx_1);
+    image::mat::product(temp,by,temp2,dz_y,dy_1);
     Jbet[8] = 1 + image::vec::dot(dbz,dbz+nz,temp2);
 
-    //image::matrix::product(affine_rotation,Jbet,M,math::dim<3,3>(),math::dim<3,3>());
+    //image::mat::product(affine_rotation,Jbet,M,math::dim<3,3>(),math::dim<3,3>());
 }
 
 }// reg
