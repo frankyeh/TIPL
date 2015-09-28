@@ -2602,6 +2602,88 @@ void pseudo_inverse(input_iterator A_,output_iterator A,dim_type dim)
 	std::copy(At,At+size,out);
 }
 
+template<typename right_type>
+struct inverse_delegate{
+    const right_type* rhs;
+    inverse_delegate(const right_type* rhs_):rhs(rhs_){;}
+    const inverse_delegate& operator=(const inverse_delegate& rhs)
+    {
+        rhs = rhs.rhs;
+        return *this;
+    }
+};
+
+
+
+template<typename left_type,typename right_type>
+struct product_delegate{
+    const left_type* lhs;
+    const right_type* rhs;
+    product_delegate(const left_type* lhs_,const right_type* rhs_):lhs(lhs_),rhs(rhs_){;}
+    const product_delegate& operator=(const product_delegate& rhs)
+    {
+        lhs = rhs.lhs;
+        rhs = rhs.rhs;
+        return *this;
+    }
+};
+
+
+template<int row_count,int col_count,typename value_type>
+struct mat{
+    static const unsigned int mat_size = row_count*col_count;
+    value_type value[mat_size];
+    typedef mat<row_count,col_count,value_type> type;
+    typedef dim<row_count,col_count> dim_type;
+public:
+    mat(void){}
+    template<typename rhs_type>
+    mat(const rhs_type& rhs){std::copy(rhs.begin(),rhs.end(),value);}
+    template<typename rhs_type>
+    mat(const rhs_type* rhs){std::copy(rhs,rhs+mat_size,value);}
+public:
+    value_type& operator[](unsigned int index){return value[index];}
+    const value_type& operator[](unsigned int index) const{return value[index];}
+    value_type* begin(void){return value;}
+    const value_type* begin(void) const{return value;}
+    value_type* end(void){return value+mat_size;}
+    const value_type* end(void) const{return value+mat_size;}
+public:
+    template<typename rhs_type>
+    const mat& operator=(const rhs_type& rhs)
+    {
+        std::copy(rhs.begin(),rhs.end(),value);
+        return *this;
+    }
+    template<typename rhs_type>
+    const mat& operator=(const rhs_type* rhs)
+    {
+        std::copy(rhs,rhs+row_count*col_count,value);
+        return *this;
+    }
+
+    template<typename rhs_type>
+    product_delegate<typename type,rhs_type> operator*(const rhs_type& rhs)
+    {
+        return product_delegate<typename type,rhs_type>(this,&rhs);
+    }
+    template<typename lhs_type,typename rhs_type>
+    const mat& operator=(const product_delegate<lhs_type,rhs_type>& prod)
+    {
+        product(prod.lhs->begin(),prod.rhs->begin(),value,lhs_type::dim_type(),rhs_type::dim_type());
+        return *this;
+    }
+    template<typename rhs_type>
+    const mat& operator=(const inverse_delegate<rhs_type>& inv)
+    {
+        inverse(inv.rhs->begin(),value,rhs_type::dim_type());
+        return *this;
+    }
+    bool inv(void)
+    {
+        return inverse(this,dim_type);
+    }
+};
 
 }//namespace matrix
 
