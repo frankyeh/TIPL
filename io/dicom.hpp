@@ -797,6 +797,10 @@ public:
                 geo[0] = acq_matrix[2];
             // get the number of slices
             geo[2] = get_int(0x0019,0x100A);
+            if(width()%geo[0]) // in some case, the matrix size is not equal to the inset size
+                geo[0] = width()/std::ceil(std::sqrt(geo[2]));
+            if(height()%geo[1])
+                geo[1] = height()/std::ceil(std::sqrt(geo[2]));
         }
         if (!geo[0] || !geo[1])
         {
