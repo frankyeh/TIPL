@@ -2671,6 +2671,11 @@ public:
     value_type* end(void){return value+mat_size;}
     const value_type* end(void) const{return value+mat_size;}
 public:
+    const matrix& operator=(const matrix& rhs)
+    {
+        std::copy(rhs.begin(),rhs.end(),value);
+        return *this;
+    }
     template<typename rhs_type>
     const matrix& operator=(const rhs_type& rhs)
     {
