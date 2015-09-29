@@ -2693,9 +2693,9 @@ public:
     }
 
     template<typename rhs_type>
-    product_delegate<typename type,rhs_type> operator*(const rhs_type& rhs)
+    product_delegate<type,rhs_type> operator*(const rhs_type& rhs)
     {
-        return product_delegate<typename type,rhs_type>(this,&rhs);
+        return product_delegate<type,rhs_type>(this,&rhs);
     }
     template<typename lhs_type,typename rhs_type>
     const matrix& operator=(const product_delegate<lhs_type,rhs_type>& prod)
@@ -2767,9 +2767,9 @@ public:
     }
 
     template<typename rhs_type>
-    product_delegate<typename type,rhs_type> operator*(const rhs_type& rhs)
+    product_delegate<type,rhs_type> operator*(const rhs_type& rhs)
     {
-        return product_delegate<typename type,rhs_type>(this,&rhs);
+        return product_delegate<type,rhs_type>(this,&rhs);
     }
     template<typename lhs_type,typename rhs_type>
     const matrix_buf& operator=(const product_delegate<lhs_type,rhs_type>& prod)
