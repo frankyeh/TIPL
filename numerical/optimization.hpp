@@ -187,8 +187,8 @@ void quasi_newtons_minimize(
         //    h[i + i*size] += 1.0;
 
         std::vector<unsigned int> pivot(size);
-        image::matrix::lu_decomposition(h.begin(),pivot.begin(),image::dyndim(size,size));
-        if(!image::matrix::lu_solve(h.begin(),pivot.begin(),g.begin(),p.begin(),image::dyndim(size,size)))
+        image::mat::lu_decomposition(h.begin(),pivot.begin(),image::dyndim(size,size));
+        if(!image::mat::lu_solve(h.begin(),pivot.begin(),g.begin(),p.begin(),image::dyndim(size,size)))
             return;
 
         image::multiply(p,tols); // scale the unit to parameter unit
