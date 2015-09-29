@@ -2656,10 +2656,8 @@ struct matrix{
 public:
     matrix(void){}
     matrix(const matrix& rhs){std::copy(rhs.begin(),rhs.end(),value);}
-    template<typename rhs_type>
-    matrix(const rhs_type& rhs){std::copy(rhs.begin(),rhs.end(),value);}
-    template<typename rhs_type>
-    matrix(const rhs_type* rhs){std::copy(rhs,rhs+mat_size,value);}
+    template<typename iterator_type>
+    matrix(iterator_type iter){std::copy(iter,iter+mat_size,value);}
     template<int c,typename lhs_type,typename rhs_type>
     matrix(const product_delegate<c,lhs_type,rhs_type>& prod)
     {
