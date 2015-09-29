@@ -2799,7 +2799,7 @@ public:
     template<int c,typename lhs_type,typename rhs_type>
     const matrix_buf& operator=(const product_delegate<c,lhs_type,rhs_type>& prod)
     {
-        image::mat::product(prod.lhs,prod.rhs,value,dim<row_count,c>(),dim<c,col_count>());
+        image::mat::product(prod.lhs,prod.rhs,iter,dim<row_count,c>(),dim<c,col_count>());
         return *this;
     }
     template<typename rhs_type>
