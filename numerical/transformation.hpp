@@ -540,7 +540,7 @@ public:
     {
         struct
         {
-            image::matrix<dim,dim,value_type> scaling_rotation;
+            value_type scaling_rotation[dim*dim];
             value_type shift[dimension];
         };
         value_type data[total_size];
@@ -557,7 +557,7 @@ public:
                           const image::geometry<dim>& from,
                           const image::geometry<dim>& to)
     {
-        rotation_scaling_affine_matrix(rb.rotation,rb.scaling,rb.affine,scaling_rotation.begin(),vdim<dimension>());
+        rotation_scaling_affine_matrix(rb.rotation,rb.scaling,rb.affine,scaling_rotation,vdim<dimension>());
         std::copy(rb.translocation,rb.translocation+dimension,shift);
         shift_to_center(from,to);
     }
@@ -567,10 +567,8 @@ public:
         std::copy(rhs.data,rhs.data+total_size,data);
         return *this;
     }
-    value_type* get(void)
-    {
-        return data;
-    }
+    value_type* get(void){return data;}
+    const value_type* get(void) const{return data;}
     value_type operator[](unsigned int i) const{return data[i];}
     value_type& operator[](unsigned int i) {return data[i];}
 
@@ -598,27 +596,27 @@ public:
 
     bool inverse(void)
     {
-        image::matrix<dim,dim,value_type> invert_scaling_rotation(scaling_rotation);
-        if(!invert_scaling_rotation.inv())
+        image::matrix<dim,dim,value_type> iT(scaling_rotation);
+        if(!iT.inv())
             return false;
         value_type new_shift[dimension];
-        vector_rotation(shift,new_shift,invert_scaling_rotation.begin(),vdim<dimension>());
+        vector_rotation(shift,new_shift,iT.begin(),vdim<dimension>());
         for(unsigned int d = 0;d < dimension;++d)
             shift[d] = -new_shift[d];
-        scaling_rotation = invert_scaling_rotation;
+        std::copy(iT.begin(),iT.end(),scaling_rotation);
         return true;
     }
 
     template<typename vtype1,typename vtype2>
     void operator()(const vtype1& from,vtype2& to) const
     {
-        vector_transformation(from.begin(),to.begin(),scaling_rotation.begin(),shift,vdim<dimension>());
+        vector_transformation(from.begin(),to.begin(),scaling_rotation,shift,vdim<dimension>());
     }
     template<typename vtype>
     void operator()(vtype& pos) const
     {
         vtype result;
-        vector_transformation(pos.begin(),result.begin(),scaling_rotation.begin(),shift,vdim<dimension>());
+        vector_transformation(pos.begin(),result.begin(),scaling_rotation,shift,vdim<dimension>());
         pos = result;
     }
 
