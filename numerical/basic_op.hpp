@@ -109,8 +109,8 @@ void crop(ImageType& in_image,
     in_image.swap(out_image);
 }
 //--------------------------------------------------------------------------
-template<typename pixel_type,typename storage_type,typename PosType>
-void fill_rect(basic_image<pixel_type,2,storage_type>& I,PosType from,PosType to,pixel_type value)
+template<typename image_type,typename PosType,typename pixel_type>
+void fill_rect(image_type& I,PosType from,PosType to,pixel_type value)
 {
     int line_pos = from[0] + from[1]*I.width();
     int line_width = to[0]-from[0];
