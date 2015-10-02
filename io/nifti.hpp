@@ -126,6 +126,12 @@ struct nifti_type_info<unsigned char>
     static const long data_type = 2;
     static const long bit_pix = 8;
 };
+template<>
+struct nifti_type_info<char>
+{
+    static const long data_type = 2;
+    static const long bit_pix = 8;
+};
 
 template<>
 struct nifti_type_info<short>

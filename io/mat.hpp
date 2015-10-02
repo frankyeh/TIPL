@@ -250,7 +250,7 @@ public:
     void get_info(std::string& info) const
     {
         std::ostringstream out;
-        unsigned int out_count = std::min<int>(5,rows*cols);
+        unsigned int out_count = std::min<int>(20,rows*cols);
         switch (type)
         {
         case 0://double
@@ -273,7 +273,7 @@ public:
             break;
         }
         info = out.str();
-        if(rows*cols > 5)
+        if(rows*cols > 20)
             info += "...";
     }
 };
