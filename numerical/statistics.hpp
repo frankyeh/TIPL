@@ -135,6 +135,7 @@ std::pair<double,double> mean_variance(input_iterator from,input_iterator to)
 {
     double sum = 0.0;
     double rms = 0.0;
+    unsigned int size = to-from;
     while (from != to)
     {
         double t = *from;
@@ -144,8 +145,8 @@ std::pair<double,double> mean_variance(input_iterator from,input_iterator to)
     }
     if(to != from)
     {
-        sum /= to-from;
-        rms /= to-from;
+        sum /= size;
+        rms /= size;
     }
     return std::make_pair(sum,rms-sum*sum);
 }
@@ -154,6 +155,7 @@ template<typename input_iterator>
 double mean_square(input_iterator from,input_iterator to)
 {
     double ms = 0.0;
+    unsigned int size = to-from;
     while (from != to)
     {
         double t = *from;
@@ -161,7 +163,7 @@ double mean_square(input_iterator from,input_iterator to)
         ++from;
     }
     if(to != from)
-        ms /= to-from;
+        ms /= size;
     return ms;
 }
 
@@ -175,6 +177,7 @@ template<typename input_iterator,typename input_iterator2>
 double root_mean_suqare_error(input_iterator from,input_iterator to,input_iterator2 from2)
 {
     double rmse = 0.0;
+    unsigned int size = to-from;
     while (from != to)
     {
         double t = *from-*from2;
@@ -183,7 +186,7 @@ double root_mean_suqare_error(input_iterator from,input_iterator to,input_iterat
         ++from2;
     }
     if(to != from)
-        rmse /= to-from;
+        rmse /= size;
     return std::sqrt(rmse);
 }
 
@@ -208,6 +211,7 @@ double covariance(input_iterator1 x_from,input_iterator1 x_to,
                   input_iterator2 y_from,double mean_x,double mean_y)
 {
     double co = 0.0;
+    unsigned int size = x_to-x_from;
     while (x_from != x_to)
     {
         co += *x_from*(*y_from);
@@ -215,7 +219,7 @@ double covariance(input_iterator1 x_from,input_iterator1 x_to,
         ++y_from;
     }
     if(x_to != x_from)
-        co /= (x_to-x_from);
+        co /= size;
     return co-mean_x*mean_y;
 }
 
