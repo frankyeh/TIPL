@@ -143,7 +143,7 @@ std::pair<double,double> mean_variance(input_iterator from,input_iterator to)
         rms += t*t;
         ++from;
     }
-    if(to != from)
+    if(size)
     {
         sum /= size;
         rms /= size;
@@ -162,7 +162,7 @@ double mean_square(input_iterator from,input_iterator to)
         ms += t*t;
         ++from;
     }
-    if(to != from)
+    if(size)
         ms /= size;
     return ms;
 }
@@ -185,7 +185,7 @@ double root_mean_suqare_error(input_iterator from,input_iterator to,input_iterat
         ++from;
         ++from2;
     }
-    if(to != from)
+    if(size)
         rmse /= size;
     return std::sqrt(rmse);
 }
@@ -218,7 +218,7 @@ double covariance(input_iterator1 x_from,input_iterator1 x_to,
         ++x_from;
         ++y_from;
     }
-    if(x_to != x_from)
+    if(size)
         co /= size;
     return co-mean_x*mean_y;
 }
