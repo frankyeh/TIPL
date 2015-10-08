@@ -16,7 +16,9 @@ namespace io
 
 class bruker_info
 {
-    std::map<std::string,std::string> info;
+    typedef std::map<std::string,std::string> info_type;
+    info_type info;
+    std::string dummy;
     /*
     ##$RECO_size=( 2 )
     128 128                 <--info
@@ -30,14 +32,13 @@ private:
         {
             if(line.size() < 4 ||
                     line[0] != '#' ||
-                    line[1] != '#' ||
-                    line[2] != '$')
+                    line[1] != '#')
                 continue;
 
             std::string::iterator sep = std::find(line.begin(),line.end(),'=');
             if(sep == line.end())
                 continue;
-            std::string name(line.begin()+3,sep);
+            std::string name(line.begin()+((line[2] == '$') ? 3: 2),sep);
             info[name] =
                 std::string(sep+1,line.end());
             if(*(sep+1) == '(')
@@ -69,9 +70,12 @@ public:
         load_info(info);
         return true;
     }
-    const std::string& operator[](const std::string& tag)
+    const std::string& operator[](const std::string& tag) const
     {
-        return info[tag];
+        info_type::const_iterator iter = info.find(tag);
+        if(iter == info.end())
+            return dummy;
+        return iter->second;
     }
 };
 
