@@ -456,6 +456,11 @@ public:
         x_ = std::floor(x_);
         y_ = std::floor(y_);
     }
+    void abs(void)
+    {
+        x_ = std::abs(x_);
+        y_ = std::abs(y_);
+    }
     template<typename rhs_type>
     data_type operator*(const vector<2,rhs_type>& rhs) const
     {
@@ -774,6 +779,12 @@ public:
         x_ = std::floor(x_);
         y_ = std::floor(y_);
         z_ = std::floor(z_);
+    }
+    void abs(void)
+    {
+        x_ = std::abs(x_);
+        y_ = std::abs(y_);
+        z_ = std::abs(z_);
     }
 
     void ceil(void)
