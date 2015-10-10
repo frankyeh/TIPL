@@ -377,6 +377,13 @@ void opening(ImageType& I,int threshold_shift = 0)
 }
 
 template<typename ImageType>
+void negate(ImageType& I)
+{
+    for (unsigned int index = 0;index < I.size();++index)
+        I[index] = I[index] ? 0:1;
+}
+
+template<typename ImageType>
 void smoothing(ImageType& I)
 {
     std::vector<unsigned char> act;
