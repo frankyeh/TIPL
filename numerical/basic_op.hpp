@@ -716,7 +716,7 @@ void histogram(const ImageType& src,std::vector<unsigned int>& hist,
     if(range + 1.0 == range)
         range = 1.0;
     hist.clear();
-    range = ((float)resolution_count-0.01)/range;
+    range = (float)resolution_count/range;
     hist.resize(resolution_count);
     typename ImageType::const_iterator iter = src.begin();
     typename ImageType::const_iterator end = src.end();
@@ -726,9 +726,50 @@ void histogram(const ImageType& src,std::vector<unsigned int>& hist,
         value -= min_value;
         value *= range;
         int index = std::floor(value);
-        if(index >= 0 && index < hist.size())
-            ++hist[index];
+        if(index < 0)
+            index = 0;
+        if(index >= hist.size())
+            index = hist.size()-1;
+        ++hist[index];
     }
+}
+template<typename image_type1,typename image_type2>
+void hist_norm(const image_type1& I1,image_type2& I2,unsigned int bin_count)
+{
+    std::pair<typename image_type1::const_iterator,typename image_type1::const_iterator>
+            min_max = std::minmax_element(I1.begin(),I1.end());
+    typename image_type1::value_type min_v = *(min_max.first);
+    typename image_type1::value_type max_v = *(min_max.second);
+
+    std::vector<unsigned int> hist;
+    image::histogram(I1,hist,min_v,max_v,bin_count);
+
+    for(unsigned int i = 1;i < hist.size();++i)
+        hist[i] += hist[i-1];
+    if(I2.size() != I1.size())
+        I2.resize(I1.geometry());
+    float range = max_v-min_v;
+    if(range == 0)
+        range = 1;
+    float r = (hist.size()+1)/range;
+    for(unsigned int i = 1;i < I1.size();++i)
+    {
+        int rank = std::floor((float)(I1[i]-min_v)*r);
+        if(rank <= 0)
+            I2[i] = min_v;
+        else
+        {
+            --rank;
+            if(rank >= hist.size())
+                rank = hist.size()-1;
+            I2[i] = range*(float)hist[rank]/(float)hist.back()+min_v;
+        }
+    }
+}
+template<typename image_type>
+void hist_norm(image_type& I1,unsigned int bin_count)
+{
+    hist_norm(I1,I1,bin_count);
 }
 
 template<typename type>
