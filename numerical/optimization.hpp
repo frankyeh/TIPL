@@ -119,27 +119,35 @@ bool armijo_line_search(iter_type1 x_beg,iter_type1 x_end,
                         iter_type2 x_upper,iter_type2 x_lower,
                         g_type g_beg,
                         value_type& fun_x,
-                        function_type& fun,double precision = 0.001)
+                        function_type& fun,double precision)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
     unsigned int size = x_end-x_beg;
-    double norm = image::norm2(g_beg,g_beg+size);
-    for(double step = 1.0;step > precision;step *= 0.5)
+    bool new_cost = false;
+    value_type lowest_fun_x = fun_x;
+    std::vector<param_type> lowest_x;
+    for(double step = 0.1;step <= 100.0;step *= 2)
     {
         std::vector<param_type> new_x(x_beg,x_end);
         image::vec::aypx(g_beg,g_beg+size,-step,new_x.begin());
         for(unsigned int j = 0;j < size;++j)
             new_x[j] = std::min(std::max(new_x[j],x_lower[j]),x_upper[j]);
         value_type new_fun_x(fun(&*new_x.begin()));
-        if(fun_x-new_fun_x >= 0.0001*step*norm)
+        if(lowest_fun_x-new_fun_x > 0)
         {
-            fun_x = new_fun_x;
-            std::copy(new_x.begin(),new_x.end(),x_beg);
-            //std::cout << fun_x << std::endl;
-            return true;
+            lowest_fun_x = new_fun_x;
+            lowest_x.swap(new_x);
+            new_cost = true;
         }
+        else
+            break;
     }
-    return false;
+    if(new_cost)
+    {
+        fun_x = lowest_fun_x;
+        std::copy(lowest_x.begin(),lowest_x.end(),x_beg);
+    }
+    return new_cost;
 }
 template<typename storage_type,typename g_storage_type,typename value_type,typename function_type>
 bool armijo_line_search(storage_type& x,

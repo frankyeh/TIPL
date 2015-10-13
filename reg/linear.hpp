@@ -84,6 +84,27 @@ namespace reg
             return error;
         }
     };
+    struct negative_product
+    {
+        typedef double value_type;
+        template<typename ImageType,typename TransformType>
+        double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
+        {
+            const unsigned int dim = ImageType::dimension;
+            image::geometry<dim> geo(Ifrom.geometry());
+            double error = 0.0;
+            image::vector<dim,double> pos;
+            for (image::pixel_index<dim> index; index.is_valid(geo); index.next(geo))
+            if(Ifrom[index.index()])
+            {
+                transform(index,pos);
+                double to_pixel = 0;
+                if (estimate(Ito,pos,to_pixel,image::linear) && to_pixel != 0)
+                    error -= to_pixel*Ifrom[index.index()];
+            }
+            return error;
+        }
+    };
 
     struct correlation
     {
@@ -96,30 +117,6 @@ namespace reg
             image::basic_image<float,3> y(geo);
             image::resample(Ito,y,transform,image::linear);
             float c = image::correlation(Ifrom.begin(),Ifrom.end(),y.begin());
-            return -c*c;
-        }
-    };
-    struct correlation2
-    {
-        typedef double value_type;
-        template<typename ImageType,typename TransformType>
-        double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
-        {
-            const unsigned int dim = ImageType::dimension;
-            std::vector<float> x,y;
-            x.reserve(Ito.size());
-            y.reserve(Ito.size());
-            for (image::pixel_index<dim> index;index.index() < Ito.size();index.next(Ito.geometry()))
-                if(Ito[index.index()] != 0)
-                {
-                    image::vector<dim> pos;
-                    transform(index,pos);
-                    float value = 0.0;
-                    image::estimate(Ifrom,pos,value,image::linear);
-                    x.push_back(Ito[index.index()]);
-                    y.push_back(value);
-                }
-            float c = image::correlation(x.begin(),x.end(),y.begin());
             return -c*c;
         }
     };
@@ -288,35 +285,47 @@ void get_bound(const image_type1& from,const image_type2& to,
 }
 
 template<typename image_type,typename transform_type,typename CostFunctionType,typename teminated_class>
-void linear(const image_type& from,const image_type& to,
+float linear(const image_type& from,const image_type& to,
                     transform_type& arg_min,
                     int reg_type,
                     CostFunctionType,
-                    teminated_class& terminated)
+                    teminated_class& terminated,double precision = 0.005)
 {
-    for(int i = 3;i >= 1;--i)
-        if(reg_type & (1 << i))
-        {
-            linear(from,to,arg_min,reg_type-(1 << i),CostFunctionType(),terminated);
-            break;
-        }
-    transform_type upper,lower;
-    image::reg::get_bound(from,to,arg_min,upper,lower,reg_type);
-    image::reg::fun_adoptor<image_type,transform_type,transform_type,CostFunctionType> fun(from,to,arg_min);
     std::srand(0);
-    double optimal_value = fun(arg_min[0]);
-    while(fun.count < 100 && !terminated)
-        for(fun.cur_dim = 0;fun.cur_dim < arg_min.size() && !terminated;++fun.cur_dim)
-            if(upper[fun.cur_dim] != lower[fun.cur_dim])
-               image::optimization::rand_search2(arg_min[fun.cur_dim],
-                                                        upper[fun.cur_dim],lower[fun.cur_dim],
-                                                        optimal_value,fun);
-    if(!terminated)
-        image::optimization::graient_descent(arg_min.begin(),arg_min.end(),upper.begin(),lower.begin(),fun,optimal_value,terminated,0.001);
-    //image::optimization::powell_method(image::optimization::brent_method_object(),fun,upper,lower,arg_min,terminated,0.1);
+    int reg_list[4] = {1,3,7,15};
+    double optimal_value = 0.0;
+    transform_type upper,lower;
+    image::reg::fun_adoptor<image_type,transform_type,transform_type,CostFunctionType> fun(from,to,arg_min);
+    std::vector<unsigned char> search_count(arg_min.size());
+    unsigned int random_search_count = std::sqrt(1/precision);
+    for(unsigned char type = 0;type < 4 && reg_list[type] <= reg_type && !terminated;++type)
+    {
+        image::reg::get_bound(from,to,arg_min,upper,lower,reg_list[type]);
+        if(type == 0)
+            optimal_value = fun(arg_min[0]);
+        while(!terminated)
+        {
+            bool running = false;
+            for(fun.cur_dim = 0;fun.cur_dim < arg_min.size() && !terminated;++fun.cur_dim)
+                if(upper[fun.cur_dim] != lower[fun.cur_dim] && search_count[fun.cur_dim] < random_search_count)
+                {
+                    image::optimization::rand_search2(arg_min[fun.cur_dim],
+                                                            upper[fun.cur_dim],lower[fun.cur_dim],
+                                                            optimal_value,fun);
+                    ++search_count[fun.cur_dim];
+                    running = true;
+                }
+            if(!running)
+                break;
+        }
+        if(!terminated)
+            image::optimization::graient_descent(arg_min.begin(),arg_min.end(),upper.begin(),lower.begin(),fun,optimal_value,terminated,precision);
+    //    std::cout << "type=" << reg_list[type] <<" count=" << fun.count << " cost=" << optimal_value << std::endl;
+    }
+    image::optimization::graient_descent(arg_min.begin(),arg_min.end(),upper.begin(),lower.begin(),fun,optimal_value,terminated,precision/10);
+    //std::cout << "count=" << fun.count << " cost=" << optimal_value << std::endl;
+    return optimal_value;
 }
-
-
 
 
 }
