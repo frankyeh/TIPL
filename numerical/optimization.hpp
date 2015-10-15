@@ -192,7 +192,6 @@ void quasi_newtons_minimize(
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
     typedef typename function_type::value_type value_type;
     unsigned int size = x_end-x_beg;
-    value_type fun_x(fun(x_beg));
     std::vector<param_type> tols(size);
     double tol_length = calculate_resolution(tols,x_upper,x_lower,precision);
     for(unsigned int iter = 0;iter < 500 && !terminated;++iter)
