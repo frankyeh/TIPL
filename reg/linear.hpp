@@ -143,7 +143,7 @@ namespace reg
         ~mt_correlation(void)
         {
             end = true;
-            for(std::list<thread_type*>::iterator it=threads.begin(),end=threads.end();it!=end;++it)
+            for(std::list<typename thread_type*>::iterator it=threads.begin(),end=threads.end();it!=end;++it)
             {
                 if ((*it)->joinable())
                     (*it)->join();
