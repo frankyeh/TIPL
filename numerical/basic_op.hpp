@@ -736,10 +736,8 @@ void histogram(const ImageType& src,std::vector<unsigned int>& hist,
 template<typename image_type1,typename image_type2>
 void hist_norm(const image_type1& I1,image_type2& I2,unsigned int bin_count)
 {
-    std::pair<typename image_type1::const_iterator,typename image_type1::const_iterator>
-            min_max = std::minmax_element(I1.begin(),I1.end());
-    typename image_type1::value_type min_v = *(min_max.first);
-    typename image_type1::value_type max_v = *(min_max.second);
+    typename image_type1::value_type min_v = *std::min_element(I1.begin(),I1.end());
+    typename image_type1::value_type max_v = *std::max_element(I1.begin(),I1.end());
 
     std::vector<unsigned int> hist;
     image::histogram(I1,hist,min_v,max_v,bin_count);
