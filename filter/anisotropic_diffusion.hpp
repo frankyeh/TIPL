@@ -20,18 +20,17 @@ namespace filter
     iteration: diffusion iteration
 */
 
-template<typename pixel_type,size_t dimension>
-void anisotropic_diffusion(image::basic_image<pixel_type,dimension>& src,
-                           float conductance_parameter = 1.0,
-                           size_t iteration = 5)
+template<typename image_type>
+void anisotropic_diffusion(image_type& src,float conductance_parameter = 1.0,int iteration = 5)
 {
+
     conductance_parameter *= conductance_parameter;
     conductance_parameter *= 1.38629436; // 2.0*ln(2)   the ln(2) is used to change the base from ln to ln2
     std::vector<int> gx(src.size()),gx2(src.size()),total_gx(src.size());
-    for (size_t iter = 0;iter != iteration;++iter)
+    for (int iter = 0;iter != iteration;++iter)
     {
-        size_t shift = 1;
-        for (size_t index = 0;index < dimension;++index)
+        unsigned int shift = 1;
+        for (unsigned char index = 0;index < image_type::dimension;++index)
         {
             // gx = gradien(I), the gradient at the current dimension
             image::gradient(src.begin(),src.end(),gx.begin(),shift,shift);
@@ -67,7 +66,7 @@ void anisotropic_diffusion(image::basic_image<pixel_type,dimension>& src,
         // perform I <= I + total_gx * delta_t
         // delta_t = 1.0/(1 << dimension);
         // scale back the multiplication of 8
-        image::divide_pow_constant(total_gx.begin(),total_gx.end(),dimension+8);
+        image::divide_pow_constant(total_gx.begin(),total_gx.end(),image_type::dimension+8);
         image::add(src.begin(),src.end(),total_gx.begin());
     }
 }
