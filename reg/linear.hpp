@@ -157,7 +157,7 @@ namespace reg
                 if(status[id] == 1)
                 {
                     unsigned int size = I1->size();
-                    unsigned int thread_size = (size/mcc_thread_count)+1;
+                    unsigned int thread_size = (size/thread_count_type()())+1;
                     unsigned int from_size = id*thread_size;
                     unsigned int to_size = std::min<unsigned int>(size,(id+1)*thread_size);
                     image::geometry<image_type::dimension> geo(I1->geometry());
