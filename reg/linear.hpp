@@ -114,9 +114,91 @@ namespace reg
         {
             const unsigned int dim = ImageType::dimension;
             image::geometry<dim> geo(Ifrom.geometry());
-            image::basic_image<float,3> y(geo);
+            ImageType y(geo);
             image::resample(Ito,y,transform,image::linear);
             float c = image::correlation(Ifrom.begin(),Ifrom.end(),y.begin());
+            return -c*c;
+        }
+    };
+
+    template<typename image_type,typename transform_type,typename thread_type,typename thread_count_type>
+    struct mt_correlation
+    {
+        typedef double value_type;
+        std::list<thread_type*> threads;
+        std::vector<unsigned char> status;
+        const image_type* I1;
+        const image_type* I2;
+        image_type Y;
+        transform_type T;
+        double mean_from;
+        double sd_from;
+        bool end;
+        mt_correlation(int dummy){}
+        mt_correlation(void):end(false),status(thread_count_type()()),I1(0)
+        {
+            for(unsigned int index = 1;index < thread_count_type()();++index)
+                threads.push_back(new thread_type(&mt_correlation::evaluate,this,index));
+        }
+        ~mt_correlation(void)
+        {
+            end = true;
+            for(std::list<thread_type*>::iterator it=threads.begin(),end=threads.end();it!=end;++it)
+            {
+                if ((*it)->joinable())
+                    (*it)->join();
+                delete *it;
+            }
+        }
+        void evaluate(unsigned int id)
+        {
+            while(!end)
+            {
+                if(status[id] == 1)
+                {
+                    unsigned int size = I1->size();
+                    unsigned int thread_size = (size/mcc_thread_count)+1;
+                    unsigned int from_size = id*thread_size;
+                    unsigned int to_size = std::min<unsigned int>(size,(id+1)*thread_size);
+                    image::geometry<image_type::dimension> geo(I1->geometry());
+                    for (image::pixel_index<image_type::dimension> index(from_size,geo);
+                         index.index() < to_size;index.next(geo))
+                    {
+                        image::vector<image_type::dimension,double> pos;
+                        T(index,pos);
+                        image::estimate(*I2,pos,Y[index.index()],image::linear);
+                    }
+                    status[id] = 2;
+                }
+                if(id == 0)
+                    return;
+            }
+        }
+
+        double operator()(const image_type& Ifrom,const image_type& Ito,
+                          const transform_type& transform)
+        {
+            if(!I1)
+            {
+                I1 = &Ifrom;
+                I2 = &Ito;
+                mean_from = image::mean(Ifrom.begin(),Ifrom.end());
+                sd_from = image::standard_deviation(Ifrom.begin(),Ifrom.end(),mean_from);
+                Y.resize(Ifrom.geometry());
+            }
+            T = transform;
+            image_type y(Ifrom.geometry());
+            Y.swap(y);
+            std::fill(status.begin(),status.end(),1);
+            evaluate(0);
+            for(unsigned int index = 1;index < status.size();++index)
+                if(status[index] == 1)
+                    --index;
+            double mean_to = image::mean(Y.begin(),Y.end());
+            double sd_to = image::standard_deviation(Y.begin(),Y.end(),mean_to);
+            if(sd_from == 0 || sd_to == 0)
+                return 0;
+            float c = image::covariance(Ifrom.begin(),Ifrom.end(),Y.begin(),mean_from,mean_to)/sd_from/sd_to;
             return -c*c;
         }
     };
@@ -278,8 +360,8 @@ void get_bound(const image_type1& from,const image_type2& to,
     {
         for (unsigned int index = dimension + dimension + dimension; index < transform_type::total_size; ++index)
         {
-            upper_trans[index] = 0.5;
-            lower_trans[index] = -0.5;
+            upper_trans[index] = 0.1;
+            lower_trans[index] = -0.1;
         }
     }
 }

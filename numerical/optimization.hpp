@@ -37,14 +37,15 @@ void estimate_change(iter_type1 x_beg,iter_type1 x_end,tol_type tol,iter_type2 f
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
     unsigned int size = x_end-x_beg;
+    std::vector<param_type> x(x_beg,x_end);
     for(unsigned int i = 0;i < size;++i)
     {
         if(tol[i] == 0)
             continue;
-        param_type old_x = x_beg[i];
-        x_beg[i] += tol[i];
-        fun_ei[i] = fun(x_beg);
-        x_beg[i] = old_x;
+        param_type old_x = x[i];
+        x[i] += tol[i];
+        fun_ei[i] = fun(&x[0]);
+        x[i] = old_x;
     }
 }
 // calculate fun(x+ei)
@@ -114,6 +115,34 @@ void hessian(const storage_type& x,const tol_storage_type& tol,value_type fun_x,
     hessian(x.begin(),x.end(),tol.begin(),fun_x,fun_x_ei.begin(),h.begin(),fun);
 }
 
+
+template<typename param_type,typename g_type,typename value_type,typename function_type>
+bool armijo_line_search_1d(param_type& x,
+                        param_type upper,param_type lower,
+                        g_type g,
+                        value_type& fun_x,
+                        function_type& fun,double precision)
+{
+    bool has_new_x = false;
+    param_type old_x = x;
+    for(double step = 0.1;step <= 100.0;step *= 2)
+    {
+        param_type new_x = old_x;
+        new_x -= g*step;
+        new_x = std::min(std::max(new_x,lower),upper);
+        value_type new_fun_x = fun(new_x);
+        if(fun_x-new_fun_x > 0)
+        {
+            fun_x = new_fun_x;
+            x = new_x;
+            has_new_x = true;
+        }
+        else
+            break;
+    }
+    return has_new_x;
+}
+
 template<typename iter_type1,typename iter_type2,typename g_type,typename value_type,typename function_type>
 bool armijo_line_search(iter_type1 x_beg,iter_type1 x_end,
                         iter_type2 x_upper,iter_type2 x_lower,
@@ -123,41 +152,25 @@ bool armijo_line_search(iter_type1 x_beg,iter_type1 x_end,
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
     unsigned int size = x_end-x_beg;
-    bool new_cost = false;
-    value_type lowest_fun_x = fun_x;
-    std::vector<param_type> lowest_x;
+    bool has_new_x = false;
+    std::vector<param_type> old_x(x_beg,x_end);
     for(double step = 0.1;step <= 100.0;step *= 2)
     {
-        std::vector<param_type> new_x(x_beg,x_end);
+        std::vector<param_type> new_x(old_x);
         image::vec::aypx(g_beg,g_beg+size,-step,new_x.begin());
         for(unsigned int j = 0;j < size;++j)
             new_x[j] = std::min(std::max(new_x[j],x_lower[j]),x_upper[j]);
         value_type new_fun_x(fun(&*new_x.begin()));
-        if(lowest_fun_x-new_fun_x > 0)
+        if(fun_x-new_fun_x > 0)
         {
-            lowest_fun_x = new_fun_x;
-            lowest_x.swap(new_x);
-            new_cost = true;
+            fun_x = new_fun_x;
+            std::copy(new_x.begin(),new_x.end(),x_beg);
+            has_new_x = true;
         }
         else
             break;
     }
-    if(new_cost)
-    {
-        fun_x = lowest_fun_x;
-        std::copy(lowest_x.begin(),lowest_x.end(),x_beg);
-    }
-    return new_cost;
-}
-template<typename storage_type,typename g_storage_type,typename value_type,typename function_type>
-bool armijo_line_search(storage_type& x,
-                        const storage_type& upper,
-                        const storage_type& lower,
-                        const g_storage_type& g_beg,
-                        value_type& fun_x,
-                        function_type& fun,double precision = 0.001)
-{
-    return armijo_line_search(x.begin(),x.end(),upper.begin(),lower.begin(),g_beg.begin(),fun_x,fun,precision);
+    return has_new_x;
 }
 
 template<typename tol_type,typename iter_type>
@@ -173,6 +186,7 @@ void quasi_newtons_minimize(
                 iter_type1 x_beg,iter_type1 x_end,
                 iter_type1 x_upper,iter_type1 x_lower,
                 function_type& fun,
+                typename function_type::value_type& fun_x,
                 terminated_class& terminated,double precision = 0.001)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
@@ -206,6 +220,25 @@ void quasi_newtons_minimize(
             return;
     }
 }
+
+template<typename param_type,typename function_type,typename value_type,typename terminated_class>
+void graient_descent_1d(param_type& x,param_type upper,param_type lower,
+                     function_type& fun,value_type& fun_x,terminated_class& terminated,double precision = 0.001)
+{
+    param_type tol = (upper-lower)*precision;
+    if(tol == 0)
+        return;
+    for(unsigned int iter = 0;iter < 1000 && !terminated;++iter)
+    {
+        param_type g = (fun(x+tol)-fun_x);
+        if(g == 0.0)
+            return;
+        g *= tol/std::fabs(g);
+        if(!armijo_line_search_1d(x,upper,lower,g,fun_x,fun,precision))
+            return;
+    }
+}
+
 template<typename iter_type1,typename iter_type2,typename function_type,typename terminated_class>
 void graient_descent(
                 iter_type1 x_beg,iter_type1 x_end,
@@ -339,9 +372,9 @@ bool simulated_annealing(value_type& x,value_type2 x_upper,value_type2 x_lower,
 }
 
 
-template<typename eval_fun_type,typename value_type,typename termination_type>
+template<typename eval_fun_type,typename value_type,typename termination_type,typename tol_type>
 void brent_method(eval_fun_type& f,value_type b/*max*/,value_type a/*min*/,value_type& arg_min,
-                        termination_type& terminated,value_type tol)
+                        termination_type& terminated,tol_type tol)
 {
     const unsigned int max_iteration = 100;
     value_type bx = arg_min;
@@ -361,10 +394,7 @@ void brent_method(eval_fun_type& f,value_type b/*max*/,value_type a/*min*/,value
         xm=(a+b)/2.0;
         tol2=2.0*(tol1=tol*std::abs(x.first)+ZEPS);
         if (std::abs(x.first-xm) <= (tol2-0.5*(b-a)))
-        {
-            arg_min = x.first;
             return;
-        }
         if (std::abs(e) > tol1)
         {
             value_type r=(x.first-w.first)*(x.second-v.second);
@@ -424,8 +454,9 @@ void brent_method(eval_fun_type& f,value_type b/*max*/,value_type a/*min*/,value
                 if (u.second <= v.second || v.first == x.first || v.first == w.first)
                     v = u;
         }
+        arg_min = x.first;
+
     }
-    arg_min = x.first;
 }
 
 struct brent_method_object{
