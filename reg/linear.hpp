@@ -360,8 +360,8 @@ void get_bound(const image_type1& from,const image_type2& to,
     {
         for (unsigned int index = dimension + dimension + dimension; index < transform_type::total_size; ++index)
         {
-            upper_trans[index] = 0.1;
-            lower_trans[index] = -0.1;
+            upper_trans[index] = 0.2;
+            lower_trans[index] = -0.2;
         }
     }
 }
