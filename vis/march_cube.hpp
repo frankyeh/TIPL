@@ -338,25 +338,6 @@ struct CompareVector
     }
 };
 
-struct march_cube_tri_index
-{
-    unsigned int p[3];
-    march_cube_tri_index(unsigned int p1,unsigned int p2,unsigned int p3)
-    {
-        p[0] = p1;
-        p[1] = p2;
-        p[2] = p3;
-    }
-    unsigned int operator[](unsigned int index) const
-    {
-        return p[index];
-    }
-    unsigned int& operator[](unsigned int index)
-    {
-        return p[index];
-    }
-};
-
 template<typename VectorType>
 class march_cube
 {
@@ -378,7 +359,7 @@ public:
     std::map<VectorType,unsigned int,CompareVector<VectorType> > points_map;
     std::vector<VectorType> point_list;
     std::vector<VectorType> normal_list;
-    std::vector<march_cube_tri_index> tri_list;
+    std::vector<image::vector<3,unsigned int> > tri_list;
 public:
 
 
@@ -462,7 +443,7 @@ public:
     march_cube(const ImageType& source_image,typename ImageType::value_type isolevel)
     {
         w = source_image.geometry()[0];
-        wh = source_image.geometry()[0]*source_image.geometry()[1];
+        wh = source_image.geometry().plane_size();
         // get all the edge cubes
         {
             std::vector<typename ImageType::value_type> pixels;
@@ -559,7 +540,7 @@ public:
             /* Create the triangle */
             for (unsigned int i=0;MarchCubeData::triTable[cubeindex][i]!=-1;i+=3)
                 tri_list.push_back(
-                    march_cube_tri_index(
+                    image::vector<3,unsigned int>(
                         getIndex(MarchCubeData::triTable[cubeindex][i  ]),
                         getIndex(MarchCubeData::triTable[cubeindex][i+1]),
                         getIndex(MarchCubeData::triTable[cubeindex][i+2])));
