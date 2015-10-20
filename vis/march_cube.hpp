@@ -343,12 +343,6 @@ class march_cube
 {
 
 public:
-
-    struct TriangleMesh
-    {
-        VectorType p[3];
-    };
-
     struct GridCell
     {
         VectorType corner[8];
@@ -553,9 +547,9 @@ public:
         VectorType center_point;
         for (unsigned int index = 0;index < tri_list.size();++index)
         {
-            center_point += point_list[tri_list[index].p[0]];
-            center_point += point_list[tri_list[index].p[1]];
-            center_point += point_list[tri_list[index].p[2]];
+            center_point += point_list[tri_list[index][0]];
+            center_point += point_list[tri_list[index][1]];
+            center_point += point_list[tri_list[index][2]];
         }
         center_point /= ((double)tri_list.size())*3.0;
         return center_point;
