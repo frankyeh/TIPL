@@ -41,7 +41,7 @@ namespace image
 {
 namespace io
 {
-
+enum transfer_syntax_type {lee,bee,lei};
 //---------------------------------------------------------------------------
 const char dicom_long_flag[] = "OBUNOWSQ";
 const char dicom_short_flag[] = "AEASATCSDADSDTFLFDISLOLTPNSHSLSSSTTMUIULUS";
@@ -114,19 +114,35 @@ public:
         return *this;
     }
 
-    bool read(std::ifstream& in)
+    bool read(std::ifstream& in,transfer_syntax_type transfer_syntax)
     {
         if (!in.read(gel,8))
             return false;
+        if(transfer_syntax == bee)
+        {
+            if(group == 0x0002)
+                transfer_syntax = lee;
+            else
+            {
+                change_endian(group);
+                change_endian(element);
+            }
+        }
         unsigned int read_length = length;
         if (flag_contains(dicom_long_flag,4))
         {
             if (!in.read((char*)&read_length,4))
                 return false;
+            if(transfer_syntax == bee)
+                change_endian(read_length);
         }
-        else if (flag_contains(dicom_short_flag,21))
-            read_length = new_length;
-
+        else
+            if (flag_contains(dicom_short_flag,21))
+            {
+                if(transfer_syntax == bee)
+                    change_endian(new_length);
+                read_length = new_length;
+            }
         if (read_length == 0xFFFFFFFF)
             read_length = 0;
         if (read_length)
@@ -138,6 +154,17 @@ public:
             }
             data.resize(read_length);
             in.read((char*)&*(data.begin()),read_length);
+            if(transfer_syntax == bee)
+            {
+                if (is_float()) // float
+                    change_endian((float*)&*data.begin(),data.size()/sizeof(float));
+                if (is_double()) // double
+                    change_endian((double*)&*data.begin(),data.size()/sizeof(double));
+                if (is_int16()) // uint16type
+                    change_endian((short*)&*data.begin(),data.size()/sizeof(short));
+                if (is_int32() && data.size() >= 4)
+                    change_endian((int*)&*data.begin(),data.size()/sizeof(int));
+            }
         }
         return !(!in);
     }
@@ -400,6 +427,7 @@ private:
     std::auto_ptr<std::ifstream> input_io;
     unsigned int image_size;
     bool is_mosaic;
+    transfer_syntax_type transfer_syntax;
 private:
     std::map<unsigned int,unsigned int> ge_map;
     std::vector<dicom_group_element*> data;
@@ -455,7 +483,7 @@ private:
 
     }
 public:
-    dicom(void) {}
+    dicom(void):transfer_syntax(lee) {}
     dicom(const dicom& rhs)
     {
         assign(rhs);
@@ -501,7 +529,7 @@ public:
         while (*input_io)
         {
             std::auto_ptr<dicom_group_element> ge(new dicom_group_element);
-            if (!ge->read(*input_io))
+            if (!ge->read(*input_io,transfer_syntax))
             {
                 if (!(*input_io))
                     return false;
@@ -510,6 +538,16 @@ public:
                 is_mosaic = get_int(0x0019,0x100A) > 1 ||   // multiple frame (new version)
                             (get_text(0x0008,0x0008,image_type) && image_type.find("MOSAIC") != std::string::npos);
                 return true;
+            }
+            // detect transfer syntax at 0x0002,0x0010
+            if (ge->group == 0x0002 && ge->element == 0x0010)
+            {
+                if(std::string((char*)&*ge->data.begin()) == std::string("1.2.840.10008.1.2"))
+                    transfer_syntax = lei;//Little Endian Implicit
+                if(std::string((char*)&*ge->data.begin()) == std::string("1.2.840.10008.1.2.1"))
+                    transfer_syntax = lee;//Little Endian Explicit
+                if(std::string((char*)&*ge->data.begin()) == std::string("1.2.840.10008.1.2.2"))
+                    transfer_syntax = bee;//Big Endian Explicit
             }
             // Deal with CSA
             if (ge->group == 0x0029 && (ge->element == 0x1010 || ge->element == 0x1020))
