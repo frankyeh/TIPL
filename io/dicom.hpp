@@ -642,14 +642,20 @@ public:
     template<typename voxel_size_type>
     void get_voxel_size(voxel_size_type voxel_size) const
     {
-        std::string slice_dis,pixel_spacing;
-        if (!get_text(0x0018,0x0088,slice_dis) && !get_text(0x0018,0x0050,slice_dis))
-            return;
-        if (!get_text(0x0028,0x0030,pixel_spacing))
-            return;
-        std::replace(pixel_spacing.begin(),pixel_spacing.end(),'\\',' ');
-        std::istringstream(pixel_spacing) >> voxel_size[0] >> voxel_size[1];
-        std::istringstream(slice_dis) >> voxel_size[2];
+        std::string slice_dis;
+        if (get_text(0x0018,0x0088,slice_dis) || get_text(0x0018,0x0050,slice_dis))
+            std::istringstream(slice_dis) >> voxel_size[2];
+        else
+            voxel_size[2] = 1.0;
+
+        std::string pixel_spacing;
+        if (get_text(0x0028,0x0030,pixel_spacing))
+        {
+            std::replace(pixel_spacing.begin(),pixel_spacing.end(),'\\',' ');
+            std::istringstream(pixel_spacing) >> voxel_size[0] >> voxel_size[1];
+        }
+        else
+            voxel_size[0] = voxel_size[1] = voxel_size[2];
     }
 
     /**
