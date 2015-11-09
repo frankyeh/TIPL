@@ -50,16 +50,6 @@ namespace reg
         return sum_mass;
     }
 
-    template<typename image_type1,typename image_type2>
-    void align_center(const image_type1& from,const image_type2& to,image::affine_transform<3,float>& arg_min)
-    {
-        image::vector<3,double> mF = image::reg::center_of_mass(from);
-        image::vector<3,double> mG = image::reg::center_of_mass(to);
-        arg_min.translocation[0] = mG[0]-mF[0]*arg_min.scaling[0];
-        arg_min.translocation[1] = mG[1]-mF[1]*arg_min.scaling[1];
-        arg_min.translocation[2] = mG[2]-mF[2]*arg_min.scaling[2];
-    }
-
     struct square_error
     {
         typedef double value_type;
@@ -271,12 +261,15 @@ namespace reg
     };
 
     template<typename image_type,
+             typename vs_type,
              typename param_type,
              typename transform_type,
              typename fun_type>
     class fun_adoptor{
         const image_type& from;
         const image_type& to;
+        const vs_type& from_vs;
+        const vs_type& to_vs;
         param_type& param;
         fun_type fun;
     public:
@@ -285,12 +278,15 @@ namespace reg
         typedef typename fun_type::value_type value_type;
         typedef typename param_type::value_type param_value_type;
     public:
-        fun_adoptor(const image_type& from_,const image_type& to_,param_type& param_):
-            from(from_),to(to_),param(param_),count(0),cur_dim(0){}
+        fun_adoptor(const image_type& from_,const vs_type& from_vs_,
+                    const image_type& to_,const vs_type& to_vs_,param_type& param_):
+            from(from_),from_vs(from_vs_),
+            to(to_),to_vs(to_vs_),
+            param(param_),count(0),cur_dim(0){}
         float operator()(const param_type& new_param)
         {
             transform_type affine(new_param);
-            image::transformation_matrix<3,typename transform_type::value_type> T(affine,from.geometry(),to.geometry());
+            image::transformation_matrix<typename transform_type::value_type> T(affine,from.geometry(),from_vs,to.geometry(),to_vs);
             ++count;
             return fun(from,to,T);
         }
@@ -299,14 +295,14 @@ namespace reg
         {
             transform_type affine(param);
             affine[cur_dim] = param_value;
-            image::transformation_matrix<3,typename transform_type::value_type> T(affine,from.geometry(),to.geometry());
+            image::transformation_matrix<typename transform_type::value_type> T(affine,from.geometry(),from_vs,to.geometry(),to_vs);
             ++count;
             return fun(from,to,T);
         }
         float operator()(const param_value_type* param)
         {
             transform_type affine(&*param);
-            image::transformation_matrix<3,typename transform_type::value_type> T(affine,from.geometry(),to.geometry());
+            image::transformation_matrix<typename transform_type::value_type> T(affine,from.geometry(),from_vs,to.geometry(),to_vs);
             ++count;
             return fun(from,to,T);
         }
@@ -333,7 +329,7 @@ void get_bound(const image_type1& from,const image_type2& to,
     {
         for (unsigned int index = 0; index < dimension; ++index)
         {
-            upper_trans[index] = (to.geometry()[index]+from.geometry()[index]*trans[dimension*2+index])/2.0;
+            upper_trans[index] = from.geometry()[index]*0.5;
             lower_trans[index] = -upper_trans[index];
         }
     }
@@ -351,8 +347,8 @@ void get_bound(const image_type1& from,const image_type2& to,
     {
         for (unsigned int index = dimension + dimension; index < dimension+dimension+dimension; ++index)
         {
-            upper_trans[index] = trans[index]*1.5;
-            lower_trans[index] = trans[index]/1.5;
+            upper_trans[index] = 1.5;
+            lower_trans[index] = 1.0/1.5;
         }
     }
 
@@ -366,8 +362,9 @@ void get_bound(const image_type1& from,const image_type2& to,
     }
 }
 
-template<typename image_type,typename transform_type,typename CostFunctionType,typename teminated_class>
-float linear(const image_type& from,const image_type& to,
+template<typename image_type,typename vs_type,typename transform_type,typename CostFunctionType,typename teminated_class>
+float linear(const image_type& from,const vs_type& from_vs,
+             const image_type& to  ,const vs_type& to_vs,
                     transform_type& arg_min,
                     int reg_type,
                     CostFunctionType,
@@ -377,7 +374,7 @@ float linear(const image_type& from,const image_type& to,
     int reg_list[4] = {1,3,7,15};
     double optimal_value = 0.0;
     transform_type upper,lower;
-    image::reg::fun_adoptor<image_type,transform_type,transform_type,CostFunctionType> fun(from,to,arg_min);
+    image::reg::fun_adoptor<image_type,vs_type,transform_type,transform_type,CostFunctionType> fun(from,from_vs,to,to_vs,arg_min);
     std::vector<unsigned char> search_count(arg_min.size());
     unsigned int random_search_count = std::sqrt(1/precision);
     for(unsigned char type = 0;type < 4 && reg_list[type] <= reg_type && !terminated;++type)

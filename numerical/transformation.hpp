@@ -186,37 +186,37 @@ void rotation_matrix(angle_type theta,output_type m,vdim<3>)
      */
 }
 /*
- Rotate*Scaling
+ Scaling*Rotate
  */
 template<typename angle_type,typename scale_type,typename output_type>
 void rotation_scaling_matrix(angle_type theta,scale_type s,output_type m,vdim<2>)
 {
     rotation_matrix(theta,m,vdim<2>());
     m[0] *= s[0];
-    m[1] *= s[1];
-    m[2] *= s[0];
+    m[1] *= s[0];
+    m[2] *= s[1];
     m[3] *= s[1];
 }
 /*
- Rx*Ry*Rz*Scaling
+ Scaling*Rx*Ry*Rz
  */
 template<typename angle_type,typename scale_type,typename output_type>
 void rotation_scaling_matrix(angle_type theta,scale_type s,output_type m,vdim<3>)
 {
     rotation_matrix(theta,m,vdim<3>());
     m[0] *= s[0];
-    m[1] *= s[1];
-    m[2] *= s[2];
-    m[3] *= s[0];
+    m[1] *= s[0];
+    m[2] *= s[0];
+    m[3] *= s[1];
     m[4] *= s[1];
-    m[5] *= s[2];
-    m[6] *= s[0];
-    m[7] *= s[1];
+    m[5] *= s[1];
+    m[6] *= s[2];
+    m[7] *= s[2];
     m[8] *= s[2];
 }
 
 /*
- Rotate*Scaling*Affine
+ Affine*Scaling*R
 
 Affine   = [1   	a[0]    0;
             0   	1 	    0;
@@ -226,13 +226,12 @@ template<typename angle_type,typename scale_type,typename affine_type,typename o
 void rotation_scaling_affine_matrix(angle_type theta,scale_type s,affine_type a,output_type m,vdim<2>)
 {
     rotation_scaling_matrix(theta,s,m,vdim<2>());
-    m[1] += m[0]*a[0];
-    m[4] += m[3]*a[0];
-    m[7] += m[6]*a[0];
+    m[0] += m[2]*a[0];
+    m[1] += m[3]*a[0];
 }
 
 /*
- Rx*Ry*Rz*Scaling*Affine
+ Affine*Scaling*R1*R2*R3
 
 Affine   = [1   	a[0]    a[1]   0;
             0   	1 	a[2]   0;
@@ -243,14 +242,13 @@ template<typename angle_type,typename scale_type,typename affine_type,typename o
 void rotation_scaling_affine_matrix(angle_type theta,scale_type s,affine_type a,output_type m,vdim<3>)
 {
     rotation_scaling_matrix(theta,s,m,vdim<3>());
-    m[2] += m[0]*a[1]+m[1]*a[2];
-    m[1] += m[0]*a[0];
+    m[0] += m[3]*a[0]+m[6]*a[1];
+    m[1] += m[4]*a[0]+m[7]*a[1];
+    m[2] += m[5]*a[0]+m[8]*a[1];
 
-    m[5] += m[3]*a[1]+m[4]*a[2];
-    m[4] += m[3]*a[0];
-
-    m[8] += m[6]*a[1]+m[7]*a[2];
-    m[7] += m[6]*a[0];
+    m[3] += m[6]*a[2];
+    m[4] += m[7]*a[2];
+    m[5] += m[8]*a[2];
 }
 
 template<typename output_iter>
@@ -455,28 +453,28 @@ void create_affine_transformation_matrix(input_scaling_iter scaling,input_rotati
 {
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
     value_type M[9];
-    scaling_rotation_matrix(scaling,rotation,M);
+    sr_matrix(scaling,rotation,M);
     create_transformation_matrixation_matrix(M,shift,m,vdim<3>());
 }
 
-template<unsigned int dim,typename value_type_ = float>
+template<typename value_type_ = float>
 class affine_transform
 {
 public:
     typedef value_type_ value_type;
-    static const unsigned int dimension = dim;
-    static const unsigned int affine_dim = (dimension-1)*(dimension)/2;
-    static const unsigned int total_size = dimension+dimension+dimension+affine_dim;
+    static const unsigned int dimension = 3;
+    static const unsigned int affine_dim = 3;
+    static const unsigned int total_size = 12;
     union
     {
         struct
         {
-            value_type translocation[dimension];
-            value_type rotation[dimension];
-            value_type scaling[dimension];
-            value_type affine[affine_dim];
+            value_type translocation[3];
+            value_type rotation[3];
+            value_type scaling[3];
+            value_type affine[3];
         };
-        value_type data[total_size];
+        value_type data[12];
     };
 private:
     void assign(const affine_transform& rhs)
@@ -516,34 +514,22 @@ public:
 
 
 
-template<unsigned int dim,typename value_type_ = float>
+template<typename value_type_ = float>
 struct transformation_matrix
 {
     typedef value_type_ value_type;
-    static const unsigned int dimension = dim;
-    static const unsigned int scaling_rotation_size = dimension*dimension;
-    static const unsigned int total_size = dimension*dimension+dimension;
-private:
-    void shift_to_center(
-            const image::geometry<dim>& from,
-            const image::geometry<dim>& to)
-    {
-        for(int i = 0,index = 0;i < dim;++i)
-            for(int j = 0;j < dim;++j,++index)
-                shift[i] -= scaling_rotation[index]*from[j]/2.0;
-        for(int i = 0;i < dim;++i)
-            shift[i] += to[i]/2.0;
-    }
-
+    static const unsigned int dimension = 3;
+    static const unsigned int sr_size = 9;
+    static const unsigned int total_size = 12;
 public:
     union
     {
         struct
         {
-            value_type scaling_rotation[dim*dim];
-            value_type shift[dimension];
+            value_type sr[9];
+            value_type shift[3];
         };
-        value_type data[total_size];
+        value_type data[12];
     };
 
 public:
@@ -552,14 +538,61 @@ public:
         std::fill((value_type*)data,(value_type*)data+total_size,0);
     }
 
-    // m = T*R1*R2*R3*Scaling*Affine;
-    transformation_matrix(const affine_transform<dim,value_type>& rb,
-                          const image::geometry<dim>& from,
-                          const image::geometry<dim>& to)
+    // (Affine*Scaling*R1*R2*R3*vs*Translocation*shift_center)*from = (vs*shift_center)*to;
+    transformation_matrix(const affine_transform<value_type>& rb,
+                          const image::geometry<3>& from,
+                          const image::vector<3>& from_vs,
+                          const image::geometry<3>& to,
+                          const image::vector<3>& to_vs)
     {
-        rotation_scaling_affine_matrix(rb.rotation,rb.scaling,rb.affine,scaling_rotation,vdim<dimension>());
-        std::copy(rb.translocation,rb.translocation+dimension,shift);
-        shift_to_center(from,to);
+        //now sr = Affine*Scaling*R1*R2*R3
+        rotation_scaling_affine_matrix(rb.rotation,rb.scaling,rb.affine,sr,vdim<dimension>());
+        // calculate (vs*Translocation*shift_center)
+        image::vector<3> t(from[0],from[1],from[2]);
+        t *= -0.5;
+        t += rb.translocation;
+        t[0] *= from_vs[0];
+        t[1] *= from_vs[1];
+        t[2] *= from_vs[2];
+        // (Affine*Scaling*R1*R2*R3)*(vs*Translocation*shift_center)
+        shift[0] = sr[0]*t[0]+sr[1]*t[1]+sr[2]*t[2];
+        shift[1] = sr[3]*t[0]+sr[4]*t[1]+sr[5]*t[2];
+        shift[2] = sr[6]*t[0]+sr[7]*t[1]+sr[8]*t[2];
+        sr[0] *= from_vs[0];
+        sr[1] *= from_vs[1];
+        sr[2] *= from_vs[2];
+        sr[3] *= from_vs[0];
+        sr[4] *= from_vs[1];
+        sr[5] *= from_vs[2];
+        sr[6] *= from_vs[0];
+        sr[7] *= from_vs[1];
+        sr[8] *= from_vs[2];
+        // inv(vs) ... = inv(vs)(vs*shift_center)...
+        if(to_vs[0] != 1.0)
+        {
+            sr[0] /= to_vs[0];
+            sr[1] /= to_vs[0];
+            sr[2] /= to_vs[0];
+            shift[0] /= to_vs[0];
+        }
+        if(to_vs[1] != 1.0)
+        {
+            sr[3] /= to_vs[1];
+            sr[4] /= to_vs[1];
+            sr[5] /= to_vs[1];
+            shift[1] /= to_vs[1];
+        }
+        if(to_vs[2] != 1.0)
+        {
+            sr[6] /= to_vs[2];
+            sr[7] /= to_vs[2];
+            sr[8] /= to_vs[2];
+            shift[2] /= to_vs[2];
+        }
+        // inv(shift_center) ... = inv(shift_center)(shift_center)...
+        shift[0] += to[0]*0.5;
+        shift[1] += to[1]*0.5;
+        shift[2] += to[2]*0.5;
     }
 
     const transformation_matrix& operator=(const transformation_matrix& rhs)
@@ -596,27 +629,27 @@ public:
 
     bool inverse(void)
     {
-        image::matrix<dim,dim,value_type> iT(scaling_rotation);
+        image::matrix<3,3,value_type> iT(sr);
         if(!iT.inv())
             return false;
-        value_type new_shift[dimension];
-        vector_rotation(shift,new_shift,iT.begin(),vdim<dimension>());
-        for(unsigned int d = 0;d < dimension;++d)
+        value_type new_shift[3];
+        vector_rotation(shift,new_shift,iT.begin(),vdim<3>());
+        for(unsigned int d = 0;d < 3;++d)
             shift[d] = -new_shift[d];
-        std::copy(iT.begin(),iT.end(),scaling_rotation);
+        std::copy(iT.begin(),iT.end(),sr);
         return true;
     }
 
     template<typename vtype1,typename vtype2>
     void operator()(const vtype1& from,vtype2& to) const
     {
-        vector_transformation(from.begin(),to.begin(),scaling_rotation,shift,vdim<dimension>());
+        vector_transformation(from.begin(),to.begin(),sr,shift,vdim<3>());
     }
     template<typename vtype>
     void operator()(vtype& pos) const
     {
         vtype result;
-        vector_transformation(pos.begin(),result.begin(),scaling_rotation,shift,vdim<dimension>());
+        vector_transformation(pos.begin(),result.begin(),sr,shift,vdim<3>());
         pos = result;
     }
 

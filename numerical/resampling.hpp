@@ -678,14 +678,14 @@ void resample(ImageType& from,const transform_type& transform,interpolation_type
 template<typename ImageType1,typename ImageType2,typename value_type>
 void resample(const ImageType1& from,ImageType2& to,const std::vector<value_type>& trans,interpolation_type type)
 {
-    image::transformation_matrix<ImageType1::dimension> transform;
+    image::transformation_matrix<float> transform;
     transform.load_from_transform(trans.begin());
     resample(from,to,transform,type);
 }
 template<typename ImageType1,typename ImageType2,int r,int c,typename value_type>
 void resample(const ImageType1& from,ImageType2& to,const image::matrix<r,c,value_type>& trans,interpolation_type type)
 {
-    image::transformation_matrix<ImageType1::dimension> transform;
+    image::transformation_matrix<float> transform;
     transform.load_from_transform(trans.begin());
     resample(from,to,transform,type);
 }
@@ -693,14 +693,14 @@ void resample(const ImageType1& from,ImageType2& to,const image::matrix<r,c,valu
 template<typename ImageType,typename value_type>
 void resample(ImageType& from,const std::vector<value_type>& trans,interpolation_type type)
 {
-    image::transformation_matrix<ImageType::dimension> transform;
+    image::transformation_matrix<float> transform;
     transform.load_from_transform(trans.begin());
     resample(from,transform,type);
 }
 template<typename ImageType,int r,int c,typename value_type>
 void resample(ImageType& from,const image::matrix<r,c,value_type>& trans,interpolation_type type)
 {
-    image::transformation_matrix<ImageType::dimension> transform;
+    image::transformation_matrix<float> transform;
     transform.load_from_transform(trans.begin());
     resample(from,transform,type);
 }
