@@ -87,25 +87,26 @@ void hessian(iter_type1 x_beg,iter_type1 x_end,
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
     unsigned int size = x_end-x_beg;
-    std::vector<param_type> old_x(x_beg,x_end);
-    // h = fun(x+ei+ej)+fun(x)-fun(ei)-fun(ej)
-    for(unsigned int i = 0; i < size;++i)
-    for(unsigned int j = 0,shift = 0; j < size;++j,++h_iter)
+    std::vector<param_type> x(x_beg,x_end);
+    for(unsigned int i = 0,index = 0; i < size;++i)
+    for(unsigned int j = 0,sym_index = i; j < size;++j,++index,sym_index += size)
     {
         if(j < i)
             continue;
         param_type tol2 =  tol[i]*tol[j];
-        x_beg[i] += tol[i];
-        x_beg[j] += tol[j];
         if(tol2 == 0)
-            *h_iter = (i == j ? 1.0:0.0);
+            h_iter[index] = (i == j ? 1.0:0.0);
         else
-            *h_iter = (fun(x_beg)-fun_x_ei[i]-fun_x_ei[j]+fun_x)/tol2;
+        {
+            x[i] += tol[i];
+            x[j] += tol[j];
+            // h = fun(x+ei+ej)+fun(x)-fun(ei)-fun(ej)/tol(i)/tol(j);
+            h_iter[index] = (fun(&x[0])-fun_x_ei[i]-fun_x_ei[j]+fun_x)/tol2;
+            x[i] = x_beg[i];
+            x[j] = x_beg[j];
+        }
         if(j != i)
-            *(h_iter + shift) = *h_iter;
-        x_beg[i] = old_x[i];
-        x_beg[j] = old_x[j];
-        shift += (size-1);
+            h_iter[sym_index] = h_iter[index];
     }
 }
 
@@ -202,20 +203,19 @@ void quasi_newtons_minimize(
         gradient(x_beg,x_end,tols.begin(),fun_x,fun_x_ei.begin(),g.begin());
         hessian(x_beg,x_end,tols.begin(),fun_x,fun_x_ei.begin(),h.begin(),fun);
 
-        // regularize hessian
-        //image::normalize(h,1.0);
-        //for(unsigned int i = 0;i < size;++i)
-        //    h[i + i*size] += 1.0;
-
         std::vector<unsigned int> pivot(size);
-        image::mat::lu_decomposition(h.begin(),pivot.begin(),image::dyndim(size,size));
+        if(!image::mat::lu_decomposition(h.begin(),pivot.begin(),image::dyndim(size,size)))
+            return;
         if(!image::mat::lu_solve(h.begin(),pivot.begin(),g.begin(),p.begin(),image::dyndim(size,size)))
             return;
-
-        image::multiply(p,tols); // scale the unit to parameter unit
-        double length = image::norm2(p.begin(),p.end());
-        image::multiply_constant(p,tol_length/length);
-        if(!armijo_line_search(x_beg,x_end,x_upper,x_lower,p.begin(),fun_x,fun,precision))
+        std::vector<param_type> new_x(x_beg,x_end);
+        image::vec::aypx(p.begin(),p.end(),-0.25,new_x.begin());
+        typename function_type::value_type new_fun_x = fun(&new_x[0]);
+        if(new_fun_x > fun_x)
+            return;
+        std::copy(new_x.begin(),new_x.end(),x_beg);
+        fun_x = new_fun_x;
+        if(image::vec::norm2(p.begin(),p.end()) < tol_length)
             return;
     }
 }
