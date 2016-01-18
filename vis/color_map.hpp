@@ -40,7 +40,7 @@ public:
     {
         for(unsigned int index = 1;index < height();++index)
         {
-            float findex = (float)index*255.0/height();
+            float findex = (float)index*(float)255.0/height();
             image::rgb_color color;
             color.r = image::color_spectrum_value(64,findex);
             color.g = image::color_spectrum_value(128,findex);
@@ -54,7 +54,7 @@ struct color_map{
     std::vector<image::vector<3,float> > color;
 public:
     color_map(void):color(256){}
-    unsigned int size(void)const{return color.size();}
+    size_t size(void)const{return color.size();}
     const image::vector<3,float>& operator[](unsigned int index) const{return color[255,index];}
     image::vector<3,float> min_color(void)const{return color.front();}
     image::vector<3,float> max_color(void)const{return color.back();}

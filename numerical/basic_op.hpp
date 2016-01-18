@@ -812,8 +812,8 @@ inline void change_endian(float& data)
     change_endian(*(int*)&data);
 }
 
-template<typename datatype>
-void change_endian(datatype* data,unsigned int count)
+template<typename datatype,typename size_type>
+void change_endian(datatype* data,size_type count)
 {
     for (unsigned int index = 0; index < count; ++index)
         change_endian(data[index]);
