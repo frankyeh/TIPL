@@ -127,7 +127,20 @@ public:
         cols = cols_;
         type = mat_type_info<Type>::type;
     }
-	template<typename OutType>
+    template<typename Type>
+    void assign(const char* name_,const Type* data_ptr_,unsigned int rows_,unsigned int cols_)
+    {
+        name = name_;
+        type = mat_type_info<Type>::type;
+        namelen = name.length();
+        rows = rows_;
+        cols = cols_;
+        data_buf.resize(rows*cols*sizeof(Type));
+        std::copy((const char*)data_ptr_,(const char*)data_ptr_+data_buf.size(),data_buf.begin());
+        data_ptr = &*data_buf.begin();
+    }
+
+    template<typename OutType>
     void copy_data(OutType out)
     {
         switch (type)
@@ -380,7 +393,14 @@ public:
             name_table[dataset[index]->get_name()] = index;
         return true;
     }
-
+    template<typename Type>
+    void add(const char* name_,const Type* data_ptr,unsigned int rows,unsigned int cols)
+    {
+        std::auto_ptr<mat_matrix> matrix(new mat_matrix);
+        matrix->assign(name_,data_ptr,rows,cols);
+        dataset.push_back(matrix.release());
+        name_table[name_] = dataset.size()-1;
+    }
 
     template<typename image_type>
     void save_to_image(image_type& image_data) const
