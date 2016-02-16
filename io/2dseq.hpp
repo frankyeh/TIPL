@@ -36,7 +36,7 @@ private:
                 continue;
 
             std::string::iterator sep = std::find(line.begin(),line.end(),'=');
-            if(sep == line.end())
+            if(sep == line.end() || sep+1 == line.end())
                 continue;
             std::string name(line.begin()+((line[2] == '$') ? 3: 2),sep);
             info[name] =

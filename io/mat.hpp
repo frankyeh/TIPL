@@ -376,6 +376,26 @@ public:
         dataset.clear();
     }
     template<typename char_type>
+    bool load_from_file(const char_type* file_name,unsigned int max_count,std::string stop_name)
+    {
+        input_interface in;
+        if(!in.open(file_name))
+            return false;
+        clear();
+        for(unsigned int i = 0;i < max_count && in;++i)
+        {
+            std::auto_ptr<mat_matrix> matrix(new mat_matrix);
+            if (!matrix->read(in))
+                break;
+            dataset.push_back(matrix.release());
+            if(dataset.back()->get_name() == stop_name)
+                break;
+        }
+        for (unsigned int index = 0; index < dataset.size(); ++index)
+            name_table[dataset[index]->get_name()] = index;
+        return true;
+    }
+    template<typename char_type>
     bool load_from_file(const char_type* file_name)
     {
         input_interface in;
