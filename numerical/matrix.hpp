@@ -648,6 +648,18 @@ void transpose(io_iterator io,const dim_type& dim)
     transpose(temp.begin(),io,dim);
 }
 
+template<typename input_iterator,typename dim_type>
+typename std::iterator_traits<input_iterator>::value_type
+trace(input_iterator A,const dim_type& dim)
+{
+    typedef typename std::iterator_traits<input_iterator>::value_type value_type;
+    value_type result = A[0];
+    unsigned int leap_size = dim.col_count()+1;
+    for (unsigned int index = leap_size;index < dim.size();index += leap_size)
+        result += A[index];
+    return result;
+}
+
 
 template<typename input_iterator,typename value_type>
 void col_rotate_dyn(input_iterator col1,input_iterator col2,
