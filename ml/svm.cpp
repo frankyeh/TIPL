@@ -2200,36 +2200,36 @@ svm_model *svm_train(const svm_problem *prob, const svm_parameter *param)
 		for(i=0;i<nr_class;i++)
 			for(int j=i+1;j<nr_class;j++)
 			{
-				svm_problem sub_prob;
+                svm_problem sub_prob;
 				int si = start[i], sj = start[j];
 				int ci = count[i], cj = count[j];
-				sub_prob.l = ci+cj;
-				sub_prob.x = Malloc(svm_node *,sub_prob.l);
-				sub_prob.y = Malloc(double,sub_prob.l);
+                sub_prob.l = ci+cj;
+                sub_prob.x = Malloc(svm_node *,sub_prob.l);
+                sub_prob.y = Malloc(double,sub_prob.l);
 				int k;
 				for(k=0;k<ci;k++)
 				{
-					sub_prob.x[k] = x[si+k];
-					sub_prob.y[k] = +1;
+                    sub_prob.x[k] = x[si+k];
+                    sub_prob.y[k] = +1;
 				}
 				for(k=0;k<cj;k++)
 				{
-					sub_prob.x[ci+k] = x[sj+k];
-					sub_prob.y[ci+k] = -1;
+                    sub_prob.x[ci+k] = x[sj+k];
+                    sub_prob.y[ci+k] = -1;
 				}
 
 				if(param->probability)
-					svm_binary_svc_probability(&sub_prob,param,weighted_C[i],weighted_C[j],probA[p],probB[p]);
+                    svm_binary_svc_probability(&sub_prob,param,weighted_C[i],weighted_C[j],probA[p],probB[p]);
 
-				f[p] = svm_train_one(&sub_prob,param,weighted_C[i],weighted_C[j]);
+                f[p] = svm_train_one(&sub_prob,param,weighted_C[i],weighted_C[j]);
 				for(k=0;k<ci;k++)
 					if(!nonzero[si+k] && fabs(f[p].alpha[k]) > 0)
 						nonzero[si+k] = true;
 				for(k=0;k<cj;k++)
 					if(!nonzero[sj+k] && fabs(f[p].alpha[ci+k]) > 0)
 						nonzero[sj+k] = true;
-				free(sub_prob.x);
-				free(sub_prob.y);
+                free(sub_prob.x);
+                free(sub_prob.y);
 				++p;
 			}
 
@@ -2447,10 +2447,10 @@ void svm_cross_validation(const svm_problem *prob, const svm_parameter *param, i
 		if(param->probability && 
 		   (param->svm_type == C_SVC || param->svm_type == NU_SVC))
 		{
-			double *prob_estimates=Malloc(double,svm_get_nr_class(submodel));
+            double *prob_estimates=Malloc(double,svm_get_nr_class(submodel));
 			for(j=begin;j<end;j++)
-				target[perm[j]] = svm_predict_probability(submodel,prob->x[perm[j]],prob_estimates);
-			free(prob_estimates);			
+                target[perm[j]] = svm_predict_probability(submodel,prob->x[perm[j]],prob_estimates);
+            free(prob_estimates);
 		}
 		else
 			for(j=begin;j<end;j++)
@@ -2597,7 +2597,7 @@ double svm_predict(const svm_model *model, const svm_node *x)
 }
 
 double svm_predict_probability(
-	const svm_model *model, const svm_node *x, double *prob_estimates)
+    const svm_model *model, const svm_node *x, double *prob_estimates)
 {
 	if ((model->param.svm_type == C_SVC || model->param.svm_type == NU_SVC) &&
 	    model->probA!=NULL && model->probB!=NULL)
@@ -2619,17 +2619,17 @@ double svm_predict_probability(
 				pairwise_prob[j][i]=1-pairwise_prob[i][j];
 				k++;
 			}
-		multiclass_probability(nr_class,pairwise_prob,prob_estimates);
+        multiclass_probability(nr_class,pairwise_prob,prob_estimates);
 
-		int prob_max_idx = 0;
+        int prob_max_idx = 0;
 		for(i=1;i<nr_class;i++)
-			if(prob_estimates[i] > prob_estimates[prob_max_idx])
-				prob_max_idx = i;
+            if(prob_estimates[i] > prob_estimates[prob_max_idx])
+                prob_max_idx = i;
 		for(i=0;i<nr_class;i++)
 			free(pairwise_prob[i]);
 		free(dec_values);
 		free(pairwise_prob);	     
-		return model->label[prob_max_idx];
+        return model->label[prob_max_idx];
 	}
 	else 
 		return svm_predict(model, x);
