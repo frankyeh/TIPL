@@ -79,9 +79,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "image/ml/em.hpp"
 #include "image/ml/hmc.hpp"
 #include "image/ml/svm.hpp"
+#include "image/ml/cnn.hpp"
 
 #include "image/vis/march_cube.hpp"
 #include "image/vis/color_map.hpp"
+
 
 
 
