@@ -353,6 +353,19 @@ void add_constant(image_type& I,value_type value)
 }
 //---------------------------------------------------------------------------
 template<typename iterator1,typename value_type>
+void mod_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
+{
+    for (; lhs_from != lhs_to; ++lhs_from)
+        *lhs_from %= value;
+}
+//---------------------------------------------------------------------------
+template<typename image_type,typename value_type>
+void mod_constant(image_type& I,value_type value)
+{
+    mod_constant(I.begin(),I.end(),value);
+}
+//---------------------------------------------------------------------------
+template<typename iterator1,typename value_type>
 void minus_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
