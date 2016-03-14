@@ -334,7 +334,7 @@ public:
         in_dim = in_dim_;
         out_dim = out_dim_;
         if(out_dim != image::geometry<3>(in_dim_.width()/ pool_size, in_dim_.height() / pool_size, in_dim_.depth()))
-            throw std::exception("invalid size in the max pooling layer");
+            throw std::runtime_error("invalid size in the max pooling layer");
         init_connection(pool_size);
         weight_base = std::sqrt(6.0 / (float)(o2i[0].size()+1));
     }
@@ -453,7 +453,7 @@ public:
         in_dim = in_dim_;
         out_dim = out_dim_;
         if(out_dim != image::geometry<3>(in_dim_.width()/ pool_size, in_dim_.height() / pool_size, in_dim_.depth()))
-            throw std::exception("invalid size in the max pooling layer");
+            throw std::runtime_error("invalid size in the max pooling layer");
         init_connection(pool_size);
         weight_base = std::sqrt(6.0 / (float)(max_size(o2w_1) + max_size(i2w_1)));
     }
@@ -539,7 +539,7 @@ public:
         out_dim = out_dim_;
         if(in_dim.width()-out_dim.width()+1 != kernel_size ||
            in_dim.height()-out_dim.height()+1 != kernel_size)
-            throw std::exception("invalid layer dimension");
+            throw std::runtime_error("invalid layer dimension");
         weight_dim = image::geometry<3>(kernel_size,kernel_size,in_dim_.depth() * out_dim_.depth()),
         basic_layer::init(in_dim_.size(), out_dim_.size(),weight_dim.size(), out_dim_.depth());
         weight_base = std::sqrt(6.0 / (float)(weight_dim.plane_size() * in_dim.depth() + weight_dim.plane_size() * out_dim.depth()));
@@ -673,7 +673,7 @@ public:
     void init(const image::geometry<3>& in_dim_,const image::geometry<3>& out_dim_) override
     {
         if(in_dim_.size() != out_dim_.size())
-            throw std::exception("invalid layer dimension");
+            throw std::runtime_error("invalid layer dimension");
         dim =in_dim_.size();
         basic_layer::init(dim,dim,0,0);
     }
