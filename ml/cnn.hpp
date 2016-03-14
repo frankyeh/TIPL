@@ -1,3 +1,5 @@
+#ifndef CNN_HPP
+#define CNN_HPP
 #include <algorithm>
 #include <exception>
 #include <set>
@@ -840,12 +842,14 @@ public:
     }
 };
 
-network& operator << (network& n, basic_layer* layer)
+template<typename type>
+network& operator << (network& n, type* layer)
 {
     n.add(layer);
     return n;
 }
-network& operator << (network& n, const image::geometry<3>& dim)
+template<typename type>
+network& operator << (network& n, const type& dim)
 {
     n.add(dim);
     return n;
@@ -871,3 +875,5 @@ std::basic_istream<Char, CharTraits>& operator >> (std::basic_istream<Char, Char
 }//cnn
 }//ml
 }//image
+
+#endif//CNN_HPP
