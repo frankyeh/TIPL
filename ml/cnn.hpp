@@ -104,37 +104,10 @@ public:
         std::fill(&dweight[0],&dweight[0]+ dweight.size(),0);
         std::fill(&dbias[0],&dbias[0]+ dbias.size(),0);
     }
-
-    virtual std::string name() const = 0;
-    void save(std::ostream& os) const
-    {
-        for(auto w : weight) os << w << " ";
-        for(auto b : bias) os << b << " ";
-    }
-
-    void load(std::istream& is)
-    {
-        for(auto& w : weight) is >> w;
-        for(auto& b : bias) is >> b;
-    }
     virtual void init(const image::geometry<3>& in_dim,const image::geometry<3>& out_dim) = 0;
     virtual void forward_propagation(std::vector<float>& in) = 0;
     virtual void back_propagation(std::vector<float>& in_dE_da,const std::vector<float>& prev_out) = 0;
 };
-
-template <typename Char, typename CharTraits>
-std::basic_ostream<Char, CharTraits>& operator << (std::basic_ostream<Char, CharTraits>& os, const basic_layer& v)
-{
-    v.save(os);
-    return os;
-}
-
-template <typename Char, typename CharTraits>
-std::basic_istream<Char, CharTraits>& operator >> (std::basic_istream<Char, CharTraits>& os, basic_layer& v)
-{
-    v.load(os);
-    return os;
-}
 
 
 
@@ -196,16 +169,14 @@ public:
         image::add(dbias,in_dE_da);
         dE_da.swap(in_dE_da);
     }
-    std::string name() const override
-    {
-        return "fully-connected";
-    }
-
 };
 
 
 class partial_connected_layer : public basic_layer
 {
+protected:
+    std::vector<std::vector<int> > w2o_1,w2o_2,o2w_1,o2w_2,i2w_1,i2w_2,b2o;
+    std::vector<int> o2b;
 public:
     partial_connected_layer(activation_type af_): basic_layer(af_){}
     void init(int in_dim, int out_dim, int weight_dim, int bias_dim)
@@ -310,9 +281,7 @@ public:
         }
         dE_da.swap(in_dE_da);
     }
-protected:
-    std::vector<std::vector<int> > w2o_1,w2o_2,o2w_1,o2w_2,i2w_1,i2w_2,b2o;
-    std::vector<int> o2b;
+
 };
 
 
@@ -338,7 +307,6 @@ public:
         init_connection(pool_size);
         weight_base = std::sqrt(6.0 / (float)(o2i[0].size()+1));
     }
-
     void forward_propagation(std::vector<float>& in) override
     {
         std::vector<float> wx(basic_layer::output_size);
@@ -408,10 +376,6 @@ public:
             }
         dE_da.swap(in_dE_da);
     }
-    std::string name() const override
-    {
-        return "max-pool";
-    }
 private:
     void init_connection(int pool_size)
     {
@@ -440,31 +404,16 @@ private:
 
 class average_pooling_layer : public partial_connected_layer
 {
-    geometry<3> in_dim;
-    geometry<3> out_dim;
     int pool_size;
 public:
-    typedef partial_connected_layer basic_layer;
     average_pooling_layer(activation_type af_,int pool_size_)
-        : basic_layer(af_),pool_size(pool_size_){}
-    void init(const image::geometry<3>& in_dim_,const image::geometry<3>& out_dim_) override
+        : partial_connected_layer(af_),pool_size(pool_size_){}
+    void init(const image::geometry<3>& in_dim,const image::geometry<3>& out_dim) override
     {
-        basic_layer::init(in_dim_.size(),in_dim_.size()/pool_size/pool_size,in_dim_.depth(), in_dim_.depth());
-        in_dim = in_dim_;
-        out_dim = out_dim_;
-        if(out_dim != image::geometry<3>(in_dim_.width()/ pool_size, in_dim_.height() / pool_size, in_dim_.depth()))
+        partial_connected_layer::init(in_dim.size(),in_dim.size()/pool_size/pool_size,in_dim.depth(), in_dim.depth());
+        if(out_dim != image::geometry<3>(in_dim.width()/ pool_size, in_dim.height() / pool_size, in_dim.depth()) ||
+                in_dim.depth() != out_dim.depth())
             throw std::runtime_error("invalid size in the max pooling layer");
-        init_connection(pool_size);
-        weight_base = std::sqrt(6.0 / (float)(max_size(o2w_1) + max_size(i2w_1)));
-    }
-    std::string name() const override
-    {
-        return "ave-pool";
-    }
-
-private:
-    void init_connection(int pool_size)
-    {
         for(int c = 0; c < in_dim.depth(); ++c)
             for(int y = 0; y < in_dim.height(); y += pool_size)
                 for(int x = 0; x < in_dim.width(); x += pool_size)
@@ -487,6 +436,7 @@ private:
                     o2b[index] = c;
                     b2o[c].push_back(index);
                 }
+        weight_base = std::sqrt(6.0 / (float)(max_size(o2w_1) + max_size(i2w_1)));
     }
 
 };
@@ -651,10 +601,6 @@ public:
         dE_da.swap(in_dE_da);
     }
 
-    std::string name() const override
-    {
-        return "conv";
-    }
 };
 
 class dropout_layer : public basic_layer
@@ -701,10 +647,6 @@ public:
             drop[i] = bernoulli(dropout_rate);
     }
 
-    std::string name() const override
-    {
-        return "dropout";
-    }
 };
 
 
@@ -759,26 +701,27 @@ public:
                 int size = std::min<int>(batch_size,data.size()-i);
                 par_for(size, [&](int m)
                 {
-                    std::vector<std::vector<float> > out(layers.size());
+                    std::vector<std::vector<float> > out(layers.size()+1);
+                    out[0] = data[i + m];
                     for(int k = 0;k < layers.size();++k)
                     {
-                        out[k] = (k == 0 ? data[i + m] : out[k-1]);
-                        layers[k]->forward_propagation(out[k]);
+                        out[k+1] = out[k];
+                        layers[k]->forward_propagation(out[k+1]);
                     }
                     std::vector<float> output = out.back();
                     image::minus(output,label[i + m]);// diff of mse
                     if(layers.back()->af == activation_type::tanh)
                         for(int i = 0; i < out.size(); i++)
-                            output[i] *= tanh_df(output[i]);
+                            output[i] *= tanh_df(out.back()[i]);
                     if(layers.back()->af == activation_type::sigmoid)
                         for(int i = 0; i < out.size(); i++)
-                            output[i] *= sigmoid_df(output[i]);
+                            output[i] *= sigmoid_df(out.back()[i]);
                     if(layers.back()->af == activation_type::relu)
                         for(int i = 0; i < out.size(); i++)
-                            output[i] *= relu_df(output[i]);
+                            output[i] *= relu_df(out.back()[i]);
 
                     for(int k = layers.size()-1;k >= 0;--k)
-                        layers[k]->back_propagation(output,k == 0? data[i + m] : out[k-1]);
+                        layers[k]->back_propagation(output,out[k]);
                 });
                 for(auto& layer : layers)
                     layer->update(learning_rate/batch_size);
@@ -802,19 +745,6 @@ public:
         {
             test_result[i] = predict_label(data[i]);
         });
-    }
-    void save(std::ostream& os) const
-    {
-        os.precision(std::numeric_limits<float>::digits10);
-        for(auto layer : layers)
-            layer->save(os);
-    }
-
-    void load(std::istream& is)
-    {
-        is.precision(std::numeric_limits<float>::digits10);
-        for(auto layer : layers)
-            layer->load(is);
     }
     float target_value_min() const
     {

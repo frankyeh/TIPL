@@ -3,15 +3,14 @@
 #include <future>
 namespace image{
 template <typename T, typename Func>
-void par_for(T size, Func f)
+void par_for(T size, Func f, int thread_count = std::thread::hardware_concurrency())
 {
     std::vector<std::future<void> > futures;
-    for(int id = 0; id < std::thread::hardware_concurrency(); id++)
+    for(int id = 0; id < thread_count; id++)
     {
-        futures.push_back(std::move(std::async(std::launch::async, [id,size,&f]
+        futures.push_back(std::move(std::async(std::launch::async, [id,size,thread_count,&f]
         {
-            int thread = std::thread::hardware_concurrency();
-            for(int i = id; i < size; i += thread)
+            for(int i = id; i < size; i += thread_count)
                 f(i);
         })));
     }
