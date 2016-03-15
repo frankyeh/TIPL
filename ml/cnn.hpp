@@ -785,20 +785,6 @@ network& operator << (network& n, const type& dim)
     return n;
 }
 
-template <typename Char, typename CharTraits>
-std::basic_ostream<Char, CharTraits>& operator << (std::basic_ostream<Char, CharTraits>& os, const network& n)
-{
-    n.save(os);
-    return os;
-}
-
-template <typename Char, typename CharTraits>
-std::basic_istream<Char, CharTraits>& operator >> (std::basic_istream<Char, CharTraits>& os, network& n)
-{
-    n.load(os);
-    return os;
-}
-
 
 
 
