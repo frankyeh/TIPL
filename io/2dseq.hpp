@@ -4,7 +4,7 @@
 #include <map>
 #include <sstream>
 #include <iterator>
-#include <stdint.h>
+#include <memory>
 
 namespace image
 {
