@@ -275,6 +275,19 @@ void log(image_type& I)
 }
 //---------------------------------------------------------------------------
 template<typename iterator>
+void exp(iterator lhs_from,iterator lhs_to)
+{
+    for (; lhs_from != lhs_to; ++lhs_from)
+        *lhs_from = std::exp(*lhs_from);
+}
+//---------------------------------------------------------------------------
+template<typename image_type>
+void exp(image_type& I)
+{
+    exp(I.begin(),I.end());
+}
+//---------------------------------------------------------------------------
+template<typename iterator>
 void absolute_value(iterator lhs_from,iterator lhs_to)
 {
     for (; lhs_from != lhs_to; ++lhs_from)

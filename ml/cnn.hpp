@@ -26,14 +26,17 @@ namespace image
 {
 namespace ml
 {
-namespace cnn
-{
 
+const float bias_cap = 50.0;
 enum activation_type { tanh, sigmoid, relu, identity};
 
 template<typename value_type>
 inline float tanh_f(value_type v)
 {
+    if(v < -10.0)
+        return -1.0;
+    if(v > 10.0)
+        return 1.0;
     const float ep = std::exp(v + v);
     return (ep - float(1)) / (ep + float(1));
 }
@@ -47,6 +50,10 @@ inline float tanh_df(value_type y)
 template<typename value_type>
 inline float sigmoid_f(value_type v)
 {
+    if(v < -10.0)
+        return 0.0;
+    if(v > 10.0)
+        return 1.0;
     return float(1) / (float(1) + std::exp(-v));
 }
 template<typename value_type>
@@ -71,23 +78,21 @@ class basic_layer
 {
 
 public:
-    activation_type af,previous_af;
+    activation_type af;
     int input_size;
     int output_size;
     float weight_base;
-    std::vector<float> weight,bias,dweight,dbias;
+    std::vector<float> weight,bias;
 public:
 
     virtual ~basic_layer() {}
-    basic_layer(activation_type af_ = activation_type::tanh):af(af_),previous_af(activation_type::identity),weight_base(1){}
+    basic_layer(activation_type af_ = activation_type::tanh):af(af_),weight_base(1){}
     void init( int input_size_, int output_size_, int weight_dim, int bias_dim)
     {
         input_size = input_size_;
         output_size = output_size_;
         weight.resize(weight_dim);
         bias.resize(bias_dim);
-        dweight.resize(weight_dim);
-        dbias.resize(bias_dim);
     }
     void reset(void)
     {
@@ -95,18 +100,45 @@ public:
             weight[i] = uniform(-weight_base, weight_base);
         std::fill(bias.begin(), bias.end(), 0);
     }
-    virtual void update(float learning_rate)
+    virtual void update(const std::vector<float>& dweight,
+                        const std::vector<float>& dbias,float learning_rate)
     {
         if(weight.empty())
             return;
         image::vec::axpy(&weight[0],&weight[0] + weight.size(),-learning_rate,&dweight[0]);
         image::vec::axpy(&bias[0],&bias[0] + bias.size(),-learning_rate,&dbias[0]);
-        std::fill(&dweight[0],&dweight[0]+ dweight.size(),0);
-        std::fill(&dbias[0],&dbias[0]+ dbias.size(),0);
     }
     virtual void init(const image::geometry<3>& in_dim,const image::geometry<3>& out_dim) = 0;
-    virtual void forward_propagation(std::vector<float>& in) = 0;
-    virtual void back_propagation(std::vector<float>& in_dE_da,const std::vector<float>& prev_out) = 0;
+    virtual void forward_propagation(std::vector<float>& data) = 0;
+    void forward_af(std::vector<float>& data)
+    {
+        if(af == activation_type::tanh)
+            for(int i = 0; i < data.size(); ++i)
+                data[i] = tanh_f(data[i]);
+        if(af == activation_type::sigmoid)
+            for(int i = 0; i < data.size(); ++i)
+                data[i] = sigmoid_f(data[i]);
+        if(af == activation_type::relu)
+            for(int i = 0; i < data.size(); ++i)
+                data[i] = relu_f(data[i]);
+    }
+
+    virtual void back_propagation(std::vector<float>& dE_da,
+                                  const std::vector<float>& prev_out,
+                                  std::vector<float>& dweight,
+                                  std::vector<float>& dbias) = 0;
+    void back_af(std::vector<float>& dE_da,const std::vector<float>& prev_out)
+    {
+        if(af == activation_type::tanh)
+            for(int i = 0; i < dE_da.size(); ++i)
+                dE_da[i] *= tanh_df(prev_out[i]);
+        if(af == activation_type::sigmoid)
+            for(int i = 0; i < dE_da.size(); ++i)
+                dE_da[i] *= sigmoid_df(prev_out[i]);
+        if(af == activation_type::relu)
+            for(int i = 0; i < dE_da.size(); ++i)
+                dE_da[i] *= relu_df(prev_out[i]);
+    }
 };
 
 
@@ -114,59 +146,32 @@ public:
 class fully_connected_layer : public basic_layer
 {
 public:
-    fully_connected_layer(activation_type act):basic_layer(af){}
+    fully_connected_layer(activation_type af_):basic_layer(af_){}
     void init(const image::geometry<3>& in_dim,const image::geometry<3>& out_dim) override
     {
         basic_layer::init(in_dim.size(), out_dim.size(),in_dim.size() * out_dim.size(), out_dim.size());
         weight_base = std::sqrt(6.0 / (float)(input_size+output_size));
     }
 
-    void forward_propagation(std::vector<float>& in) override
+    void forward_propagation(std::vector<float>& data) override
     {
-        std::vector<float> wx(output_size);
-        for(int i = 0;i < output_size;++i)
-        {
-            float sum(0);
-            for(int c = 0, c_index = i; c < input_size; c++, c_index += output_size)
-                sum += weight[c_index] * in[c];
-            sum += bias[i];
-            wx[i] = sum;
-        }
-
-        if(af == activation_type::tanh)
-            for(int i = 0; i < output_size; ++i)
-                wx[i] = tanh_f(wx[i]);
-        if(af == activation_type::sigmoid)
-            for(int i = 0; i < output_size; ++i)
-                wx[i] = sigmoid_f(wx[i]);
-        if(af == activation_type::relu)
-            for(int i = 0; i < output_size; ++i)
-                wx[i] = relu_f(wx[i]);
-        in.swap(wx);
+        std::vector<float> wx(bias);
+        for(int i = 0,i_pos = 0;i < output_size;++i,i_pos += input_size)
+            wx[i] += image::vec::dot(&weight[i_pos],&weight[i_pos]+input_size,&data[0]);
+        data.swap(wx);
     }
 
-    void back_propagation(std::vector<float>& in_dE_da,const std::vector<float>& prev_out) override
+    void back_propagation(std::vector<float>& in_dE_da,
+                          const std::vector<float>& prev_out,
+                          std::vector<float>& dweight,
+                          std::vector<float>& dbias) override
     {
-        std::vector<float> dE_da(input_size);
-        for(int c = 0,c_index = 0; c < input_size; c++,c_index += output_size)
-            dE_da[c] = vec::dot(&in_dE_da[0], &in_dE_da[0] + output_size, &weight[c_index]);
-
-
-        if(previous_af == activation_type::tanh)
-            for(int c = 0; c < input_size; c++)
-                dE_da[c] *= tanh_df(prev_out[c]);
-        if(previous_af == activation_type::sigmoid)
-            for(int c = 0; c < input_size; c++)
-                dE_da[c] *= sigmoid_df(prev_out[c]);
-        if(previous_af == activation_type::relu)
-            for(int c = 0; c < input_size; c++)
-                dE_da[c] *= relu_df(prev_out[c]);
-
-        float* dw_ptr = &dweight[0];
-        for(int c = 0; c < input_size; c++,dw_ptr += output_size)
-            if(prev_out[c] != float(0))
-                image::vec::axpy(dw_ptr,dw_ptr+output_size,prev_out[c],&in_dE_da[0]);
         image::add(dbias,in_dE_da);
+        for(int i = 0,i_pos = 0; i < output_size; i++,i_pos += input_size)
+            if(in_dE_da[i] != float(0))
+                image::vec::axpy(&dweight[i_pos],&dweight[i_pos]+input_size,in_dE_da[i],&prev_out[0]);
+        std::vector<float> dE_da(input_size);
+        image::mat::left_vector_product(&weight[0],&in_dE_da[0],&dE_da[0],image::dyndim(in_dE_da.size(),dE_da.size()));
         dE_da.swap(in_dE_da);
     }
 };
@@ -214,7 +219,7 @@ public:
     }
 
 
-    void forward_propagation(std::vector<float>& in) override
+    void forward_propagation(std::vector<float>& data) override
     {
         std::vector<float> wx(output_size);
         for(int i = 0; i < output_size; ++i)
@@ -223,44 +228,17 @@ public:
             const std::vector<int>& o2w_2i = o2w_2[i];
             float sum(0);
             for(int j = 0;j < o2w_1i.size();++j)
-                sum += weight[o2w_1i[j]] * in[o2w_2i[j]];
+                sum += weight[o2w_1i[j]] * data[o2w_2i[j]];
             wx[i] = sum + bias[o2b[i]];
         }
-
-        if(af == activation_type::tanh)
-            for(int i = 0; i < output_size; ++i)
-                wx[i] = tanh_f(wx[i]);
-        if(af == activation_type::sigmoid)
-            for(int i = 0; i < output_size; ++i)
-                wx[i] = sigmoid_f(wx[i]);
-        if(af == activation_type::relu)
-            for(int i = 0; i < output_size; ++i)
-                wx[i] = relu_f(wx[i]);
-        in.swap(wx);
+        data.swap(wx);
     }
 
-    void back_propagation(std::vector<float>& in_dE_da,const std::vector<float>& prev_out) override
+    void back_propagation(std::vector<float>& in_dE_da,
+                          const std::vector<float>& prev_out,
+                          std::vector<float>& dweight,
+                          std::vector<float>& dbias) override
     {
-        std::vector<float> dE_da(input_size);
-
-        for(int i = 0; i != input_size; i++)
-        {
-            const std::vector<int>& i2w_1i = i2w_1[i];
-            const std::vector<int>& i2w_2i = i2w_2[i];
-
-            float sum(0);
-            for(int j = 0;j < i2w_1i.size();++j)
-                sum += weight[i2w_1i[j]] * in_dE_da[i2w_2i[j]];
-
-            if(previous_af == activation_type::tanh)
-                dE_da[i] = sum * tanh_df(prev_out[i]);
-            if(previous_af == activation_type::sigmoid)
-                dE_da[i] = sum * sigmoid_df(prev_out[i]);
-            if(previous_af == activation_type::relu)
-                dE_da[i] = sum * relu_df(prev_out[i]);
-
-        }
-
         for(int i = 0; i < w2o_1.size(); i++)
         {
             const std::vector<int>& w2o_1i = w2o_1[i];
@@ -279,124 +257,19 @@ public:
                 sum += in_dE_da[outs[j]];
             dbias[i] += sum;
         }
-        dE_da.swap(in_dE_da);
-    }
 
-};
-
-
-
-class max_pooling_layer : public basic_layer
-{
-    int pool_size;
-    std::vector<std::vector<int> > o2i;
-    std::vector<int> i2o;
-    geometry<3> in_dim;
-    geometry<3> out_dim;
-
-public:
-    max_pooling_layer(activation_type af_,int pool_size_)
-        : basic_layer(af_),pool_size(pool_size_){}
-    void init(const image::geometry<3>& in_dim_,const image::geometry<3>& out_dim_) override
-    {
-        basic_layer::init(in_dim_.size(),in_dim_.size()/pool_size/pool_size,0,0);
-        in_dim = in_dim_;
-        out_dim = out_dim_;
-        if(out_dim != image::geometry<3>(in_dim_.width()/ pool_size, in_dim_.height() / pool_size, in_dim_.depth()))
-            throw std::runtime_error("invalid size in the max pooling layer");
-        init_connection(pool_size);
-        weight_base = std::sqrt(6.0 / (float)(o2i[0].size()+1));
-    }
-    void forward_propagation(std::vector<float>& in) override
-    {
-        std::vector<float> wx(basic_layer::output_size);
-
-        for(int i = 0; i < basic_layer::output_size; i++)
-        {
-            float max_value = std::numeric_limits<float>::lowest();
-            for(auto j : o2i[i])
-            {
-                if(in[j] > max_value)
-                    max_value = in[j];
-            }
-            wx[i] = max_value;
-        }
-        if(af == activation_type::tanh)
-            for(int i = 0; i < basic_layer::output_size; ++i)
-                wx[i] = tanh_f(wx[i]);
-        if(af == activation_type::sigmoid)
-            for(int i = 0; i < basic_layer::output_size; ++i)
-                wx[i] = sigmoid_f(wx[i]);
-        if(af == activation_type::relu)
-            for(int i = 0; i < basic_layer::output_size; ++i)
-                wx[i] = relu_f(wx[i]);
-        in.swap(wx);
-    }
-
-    void back_propagation(std::vector<float>& in_dE_da,const std::vector<float>& prev_out) override
-    {
         std::vector<float> dE_da(input_size);
-        std::vector<int> max_idx(out_dim.size());
-
-        for(int i = 0; i < basic_layer::output_size; i++)
+        for(int i = 0; i != input_size; i++)
         {
-            float max_value = std::numeric_limits<float>::lowest();
-            for(auto j : o2i[i])
-            {
-                if(prev_out[j] > max_value)
-                {
-                    max_value = prev_out[j];
-                    max_idx[i] = j;
-                }
-            }
+            const std::vector<int>& i2w_1i = i2w_1[i];
+            const std::vector<int>& i2w_2i = i2w_2[i];
+
+            float sum(0);
+            for(int j = 0;j < i2w_1i.size();++j)
+                sum += weight[i2w_1i[j]] * in_dE_da[i2w_2i[j]];
+            dE_da[i] = sum;
         }
-        if(previous_af == activation_type::tanh)
-            for(int i = 0; i < input_size; i++)
-            {
-                int outi = i2o[i];
-                dE_da[i] = (max_idx[outi] == i) ? in_dE_da[outi] * tanh_df(prev_out[i]) : float(0);
-            }
-        if(previous_af == activation_type::sigmoid)
-            for(int i = 0; i < input_size; i++)
-            {
-                int outi = i2o[i];
-                dE_da[i] = (max_idx[outi] == i) ? in_dE_da[outi] * sigmoid_df(prev_out[i]) : float(0);
-            }
-        if(previous_af == activation_type::relu)
-            for(int i = 0; i < input_size; i++)
-            {
-                int outi = i2o[i];
-                dE_da[i] = (max_idx[outi] == i) ? in_dE_da[outi] * relu_df(prev_out[i]) : float(0);
-            }
-        if(previous_af == activation_type::identity)
-            for(int i = 0; i < input_size; i++)
-            {
-                int outi = i2o[i];
-                dE_da[i] = (max_idx[outi] == i) ? in_dE_da[outi] : float(0);
-            }
         dE_da.swap(in_dE_da);
-    }
-private:
-    void init_connection(int pool_size)
-    {
-        i2o.resize(in_dim.size());
-        o2i.resize(out_dim.size());
-        for(int c = 0,out_index = 0; c < in_dim.depth(); ++c)
-            for(int y = 0; y < out_dim.height(); ++y)
-                for(int x = 0; x < out_dim.width(); ++x,++out_index)
-                {
-                    int from_x = x * pool_size;
-                    int from_y = y * pool_size;
-                    for(int dy = 0; dy < pool_size; dy++)
-                        for(int dx = 0; dx < pool_size; dx++)
-                        if(from_x + dx < in_dim.width() &&
-                           from_y + dy < in_dim.height())
-                        {
-                            int in_index = (in_dim.height() * c + from_y + dy) * in_dim.width() + from_x + dx;
-                            i2o[in_index] = out_index;
-                            o2i[out_index].push_back(in_index);
-                        }
-                }
     }
 
 };
@@ -440,6 +313,98 @@ public:
     }
 
 };
+
+class max_pooling_layer : public basic_layer
+{
+    int pool_size;
+    std::vector<std::vector<int> > o2i;
+    std::vector<int> i2o;
+    geometry<3> in_dim;
+    geometry<3> out_dim;
+
+public:
+    max_pooling_layer(activation_type af_,int pool_size_)
+        : basic_layer(af_),pool_size(pool_size_){}
+    void init(const image::geometry<3>& in_dim_,const image::geometry<3>& out_dim_) override
+    {
+        basic_layer::init(in_dim_.size(),in_dim_.size()/pool_size/pool_size,0,0);
+        in_dim = in_dim_;
+        out_dim = out_dim_;
+        if(out_dim != image::geometry<3>(in_dim_.width()/ pool_size, in_dim_.height() / pool_size, in_dim_.depth()))
+            throw std::runtime_error("invalid size in the max pooling layer");
+        init_connection(pool_size);
+        weight_base = std::sqrt(6.0 / (float)(o2i[0].size()+1));
+    }
+    void forward_propagation(std::vector<float>& data) override
+    {
+        std::vector<float> wx(basic_layer::output_size);
+
+        for(int i = 0; i < basic_layer::output_size; i++)
+        {
+            float max_value = std::numeric_limits<float>::lowest();
+            for(auto j : o2i[i])
+            {
+                if(data[j] > max_value)
+                    max_value = data[j];
+            }
+            wx[i] = max_value;
+        }
+        data.swap(wx);
+    }
+
+    void back_propagation(std::vector<float>& in_dE_da,
+                          const std::vector<float>& prev_out,
+                          std::vector<float>& dweight,
+                          std::vector<float>& dbias) override
+    {
+        std::vector<int> max_idx(out_dim.size());
+
+        for(int i = 0; i < basic_layer::output_size; i++)
+        {
+            float max_value = std::numeric_limits<float>::lowest();
+            for(auto j : o2i[i])
+            {
+                if(prev_out[j] > max_value)
+                {
+                    max_value = prev_out[j];
+                    max_idx[i] = j;
+                }
+            }
+        }
+        std::vector<float> dE_da(input_size);
+        for(int i = 0; i < input_size; i++)
+        {
+            int outi = i2o[i];
+            dE_da[i] = (max_idx[outi] == i) ? in_dE_da[outi] : float(0);
+        }
+        dE_da.swap(in_dE_da);
+    }
+private:
+    void init_connection(int pool_size)
+    {
+        i2o.resize(in_dim.size());
+        o2i.resize(out_dim.size());
+        for(int c = 0,out_index = 0; c < in_dim.depth(); ++c)
+            for(int y = 0; y < out_dim.height(); ++y)
+                for(int x = 0; x < out_dim.width(); ++x,++out_index)
+                {
+                    int from_x = x * pool_size;
+                    int from_y = y * pool_size;
+                    for(int dy = 0; dy < pool_size; dy++)
+                        for(int dx = 0; dx < pool_size; dx++)
+                        if(from_x + dx < in_dim.width() &&
+                           from_y + dy < in_dim.height())
+                        {
+                            int in_index = (in_dim.height() * c + from_y + dy) * in_dim.width() + from_x + dx;
+                            i2o[in_index] = out_index;
+                            o2i[out_index].push_back(in_index);
+                        }
+                }
+    }
+
+};
+
+
 
 struct connection_table
 {
@@ -495,7 +460,7 @@ public:
         weight_base = std::sqrt(6.0 / (float)(weight_dim.plane_size() * in_dim.depth() + weight_dim.plane_size() * out_dim.depth()));
     }
 
-    void forward_propagation(std::vector<float>& in) override
+    void forward_propagation(std::vector<float>& data) override
     {
         std::vector<float> wx(output_size);
         for(int o = 0, o_index = 0,o_index2 = 0; o < out_dim.depth(); ++o, o_index += out_dim.plane_size())
@@ -508,7 +473,7 @@ public:
                         for(int x = 0; x < out_dim.width(); x++, ++index)
                         {
                             const float * w = &weight[o_index2];
-                            const float * p = &in[inc_index] + y_index + x;
+                            const float * p = &data[inc_index] + y_index + x;
                             float sum(0);
                             for(int wy = 0; wy < weight_dim.height(); wy++)
                             {
@@ -520,57 +485,17 @@ public:
                         }
                     }
                 }
-
-            if(!bias.empty())
-                image::add_constant(&wx[o_index],&wx[o_index]+out_dim.plane_size(),bias[o]);
+            image::add_constant(&wx[o_index],&wx[o_index]+out_dim.plane_size(),bias[o]);
         }
 
-        if(af == activation_type::tanh)
-            for(int i = 0; i < output_size; ++i)
-                wx[i] = tanh_f(wx[i]);
-        if(af == activation_type::sigmoid)
-            for(int i = 0; i < output_size; ++i)
-                wx[i] = sigmoid_f(wx[i]);
-        if(af == activation_type::relu)
-            for(int i = 0; i < output_size; ++i)
-                wx[i] = relu_f(wx[i]);
-        in.swap(wx);
+        data.swap(wx);
     }
 
-    void back_propagation(std::vector<float>& in_dE_da,const std::vector<float>& prev_out) override
+    void back_propagation(std::vector<float>& in_dE_da,
+                          const std::vector<float>& prev_out,
+                          std::vector<float>& dweight,
+                          std::vector<float>& dbias) override
     {
-        std::vector<float> dE_da(input_size);
-        // propagate delta to previous layer
-        for(int outc = 0, outc_pos = 0,w_index = 0; outc < out_dim.depth(); ++outc, outc_pos += out_dim.plane_size())
-        {
-            for(int inc = 0, inc_pos = 0; inc < in_dim.depth(); ++inc, inc_pos += in_dim.plane_size(),w_index += weight_dim.plane_size())
-            if(connection.is_connected(outc, inc))
-            {
-                const float *pdelta_src = &in_dE_da[outc_pos];
-                float *pdelta_dst = &dE_da[inc_pos];
-                for(int y = 0, y_pos = 0, index = 0; y < out_dim.height(); y++, y_pos += in_dim.width())
-                    for(int x = 0; x < out_dim.width(); x++, ++index)
-                    {
-                        const float * ppw = &weight[w_index];
-                        const float ppdelta_src = pdelta_src[index];
-                        float *p = pdelta_dst + y_pos + x;
-                        for(int wy = 0; wy < weight_dim.height(); wy++,ppw += weight_dim.width(),p += in_dim.width())
-                            image::vec::axpy(p,p+weight_dim.width(),ppdelta_src,ppw);
-                    }
-
-            }
-        }
-
-        if(previous_af == activation_type::tanh)
-            for(int i = 0; i < in_dim.size(); ++i)
-                dE_da[i] *= tanh_df(prev_out[i]);
-        if(previous_af == activation_type::sigmoid)
-            for(int i = 0; i < in_dim.size(); ++i)
-                dE_da[i] *= sigmoid_df(prev_out[i]);
-        if(previous_af == activation_type::relu)
-            for(int i = 0; i < in_dim.size(); ++i)
-                dE_da[i] *= relu_df(prev_out[i]);
-
         // accumulate dw
         for(int outc = 0, outc_pos = 0, w_index = 0; outc < out_dim.depth(); outc++, outc_pos += out_dim.plane_size())
         {
@@ -596,6 +521,27 @@ public:
             {
                 const float *delta = &in_dE_da[outc_pos];
                 dbias[outc] += std::accumulate(delta, delta + out_dim.plane_size(), float(0));
+            }
+        }
+        std::vector<float> dE_da(input_size);
+        // propagate delta to previous layer
+        for(int outc = 0, outc_pos = 0,w_index = 0; outc < out_dim.depth(); ++outc, outc_pos += out_dim.plane_size())
+        {
+            for(int inc = 0, inc_pos = 0; inc < in_dim.depth(); ++inc, inc_pos += in_dim.plane_size(),w_index += weight_dim.plane_size())
+            if(connection.is_connected(outc, inc))
+            {
+                const float *pdelta_src = &in_dE_da[outc_pos];
+                float *pdelta_dst = &dE_da[inc_pos];
+                for(int y = 0, y_pos = 0, index = 0; y < out_dim.height(); y++, y_pos += in_dim.width())
+                    for(int x = 0; x < out_dim.width(); x++, ++index)
+                    {
+                        const float * ppw = &weight[w_index];
+                        const float ppdelta_src = pdelta_src[index];
+                        float *p = pdelta_dst + y_pos + x;
+                        for(int wy = 0; wy < weight_dim.height(); wy++,ppw += weight_dim.width(),p += in_dim.width())
+                            image::vec::axpy(p,p+weight_dim.width(),ppdelta_src,ppw);
+                    }
+
             }
         }
         dE_da.swap(in_dE_da);
@@ -624,10 +570,18 @@ public:
         basic_layer::init(dim,dim,0,0);
     }
 
-    void back_propagation(std::vector<float>& in_dE_da,const std::vector<float>& prev_out) override
+    void back_propagation(std::vector<float>& in_dE_da,
+                          const std::vector<float>& prev_out,
+                          std::vector<float>& dweight,
+                          std::vector<float>& dbias) override
     {
         if(drop.empty())
+        {
+            drop.resize(dim);
+            for(int i = 0;i < dim;++i)
+                drop[i] = bernoulli(dropout_rate);
             return;
+        }
         for(int i = 0; i < drop.size(); i++)
             if(drop[i])
                 in_dE_da[i] = 0;
@@ -640,15 +594,43 @@ public:
             if(drop[i])
                 data[i] = 0;
     }
-    void update(float learning_rate) override
-    {
-        drop.resize(dim);
-        for(int i = 0;i < dim;++i)
-            drop[i] = bernoulli(dropout_rate);
-    }
-
 };
 
+class soft_max_layer : public basic_layer{
+public:
+    soft_max_layer(void)
+        : basic_layer(activation_type::identity)
+    {
+    }
+    void init(const image::geometry<3>& in_dim,const image::geometry<3>& out_dim) override
+    {
+        if(in_dim.size() != out_dim.size())
+            throw std::runtime_error("invalid layer dimension");
+        basic_layer::init(in_dim.size(),in_dim.size(),0,0);
+    }
+    void forward_propagation(std::vector<float>& data) override
+    {
+        image::exp(data);
+        float sum = std::accumulate(data.begin(),data.end(),float(0));
+        if(sum != 0)
+            image::divide_constant(data.begin(),data.end(),sum);
+    }
+    void back_propagation(std::vector<float>& in_dE_da,
+                          const std::vector<float>& prev_out,
+                          std::vector<float>& dweight,
+                          std::vector<float>& dbias) override
+    {
+        std::vector<float> dE_da(in_dE_da.size());
+        for(int i = 0;i < in_dE_da.size();++i)
+        {
+            float sum = float(0);
+            for(int j = 0;j < in_dE_da.size();++j)
+                sum += (i == j) ?  in_dE_da[j]*(float(1)-prev_out[i]) : -in_dE_da[j]*prev_out[i];
+            dE_da[i] = sum;
+        }
+        dE_da.swap(in_dE_da);
+    }
+};
 
 class network
 {
@@ -656,11 +638,13 @@ class network
     image::geometry<3> cur_dim;
 public:
     network(){}
+    void reset(void)
+    {
+        layers.clear();
+    }
 
     void add(basic_layer* new_layer)
     {
-        if(!layers.empty())
-            new_layer->previous_af = layers.back()->af;
         layers.push_back(std::shared_ptr<basic_layer>(new_layer));
     }
     void add(const image::geometry<3>& dim)
@@ -673,7 +657,10 @@ public:
     void predict(std::vector<float>& in)
     {
         for(auto layer : layers)
+        {
             layer->forward_propagation(in);
+            layer->forward_af(in);
+        }
     }
     int predict_label(const std::vector<float>& in)
     {
@@ -685,46 +672,71 @@ public:
 
 
     template <typename data_type,typename label_type,typename iter_type>
-    void train(const data_type& data,const label_type& label,int iteration_count,iter_type iter_fun = [&]{},bool reset_weights = true)
+    void train(const data_type& data,const label_type& label,int iteration_count,bool &termminated,
+               iter_type iter_fun = [&]{},bool reset_weights = true)
     {
         if(reset_weights)
         {
             for(auto layer : layers)
                 layer->reset();
         }
+        int thread_count = std::thread::hardware_concurrency();
+        std::vector<std::vector<std::vector<float> > > dweight(thread_count),dbias(thread_count);
+        for(int i = 0;i < thread_count;++i)
+        {
+            dweight[i].resize(layers.size());
+            dbias[i].resize(layers.size());
+            for(int j = 0;j < layers.size();++j)
+            {
+                dweight[i][j].resize(layers[j]->weight.size());
+                dbias[i][j].resize(layers[j]->bias.size());
+            }
+        }
+
         float learning_rate = 0.02;
         int batch_size = 20;
-        for(int iter = 0; iter < iteration_count; iter++,learning_rate *= 0.85,iter_fun())
+        for(int iter = 0; iter < iteration_count; iter++ && !termminated,learning_rate *= 0.85,iter_fun())
         {
-            for(int i = 0;i < data.size();i += batch_size)
+            for(int i = 0;i < data.size() && !termminated;i += batch_size)
             {
                 int size = std::min<int>(batch_size,data.size()-i);
-                par_for(size, [&](int m)
+                par_for2(size, [&](int m, int thread_id)
                 {
+                    if(termminated)
+                        return;
                     std::vector<std::vector<float> > out(layers.size()+1);
                     out[0] = data[i + m];
                     for(int k = 0;k < layers.size();++k)
                     {
                         out[k+1] = out[k];
                         layers[k]->forward_propagation(out[k+1]);
+                        layers[k]->forward_af(out[k+1]);
                     }
                     std::vector<float> output = out.back();
                     image::minus(output,label[i + m]);// diff of mse
-                    if(layers.back()->af == activation_type::tanh)
-                        for(int i = 0; i < out.size(); i++)
-                            output[i] *= tanh_df(out.back()[i]);
-                    if(layers.back()->af == activation_type::sigmoid)
-                        for(int i = 0; i < out.size(); i++)
-                            output[i] *= sigmoid_df(out.back()[i]);
-                    if(layers.back()->af == activation_type::relu)
-                        for(int i = 0; i < out.size(); i++)
-                            output[i] *= relu_df(out.back()[i]);
-
                     for(int k = layers.size()-1;k >= 0;--k)
-                        layers[k]->back_propagation(output,out[k]);
+                    {
+                        layers[k]->back_af(output,out[k+1]);
+                        layers[k]->back_propagation(output,out[k],dweight[thread_id][k],dbias[thread_id][k]);
+                    }
+
+                },thread_count);
+                par_for(layers.size(),[&](int j)
+                {
+                    if(layers[j]->weight.empty())
+                        return;
+                    std::vector<float> dw(layers[j]->weight.size());
+                    std::vector<float> db(layers[j]->bias.size());
+                    for(int k = 0;k < thread_count;++k)
+                    {
+                        image::add(dw,dweight[k][j]);
+                        image::add(db,dbias[k][j]);
+                        std::fill(dweight[k][j].begin(),dweight[k][j].end(),float(0));
+                        std::fill(dweight[k][j].begin(),dweight[k][j].end(),float(0));
+                    }
+                    layers[j]->update(dw,db,learning_rate/batch_size);
+                    image::upper_lower_threshold(layers[j]->bias,-bias_cap,bias_cap);
                 });
-                for(auto& layer : layers)
-                    layer->update(learning_rate/batch_size);
             }
         }
     }
@@ -785,10 +797,6 @@ network& operator << (network& n, const type& dim)
     return n;
 }
 
-
-
-
-}//cnn
 }//ml
 }//image
 
