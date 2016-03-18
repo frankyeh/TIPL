@@ -16,7 +16,7 @@
 #include <stdexcept>
 #include <thread>
 #include <vector>
-#include <random>
+
 #include "image/numerical/matrix.hpp"
 #include "image/numerical/numerical.hpp"
 #include "image/utility/geometry.hpp"
@@ -26,21 +26,6 @@ namespace image
 {
 namespace ml
 {
-
-
-template<typename T>
-T uniform(T min, T max)
-{
-    static std::mt19937 gen(0);
-    std::uniform_real_distribution<float> dst(min, max);
-    return dst(gen);
-}
-//---------------------------------------------------------------------------
-template<typename T>
-bool bernoulli(T p)
-{
-    return uniform(float(0), float(1)) <= p;
-}
 
 const float bias_cap = 50.0;
 enum activation_type { tanh, sigmoid, relu, identity};
