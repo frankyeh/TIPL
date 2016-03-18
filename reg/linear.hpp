@@ -1,6 +1,9 @@
 #ifndef IMAGE_REG_HPP
 #define IMAGE_REG_HPP
 #include <limits>
+#include <future>
+#include <list>
+#include <memory>
 #include <cstdlib>     /* srand, rand */
 #include <ctime>
 #include "image/numerical/interpolation.hpp"
@@ -111,11 +114,11 @@ namespace reg
         }
     };
 
-    template<typename image_type,typename transform_type,typename thread_type,typename thread_count_type>
+    template<typename image_type,typename transform_type,typename thread_count_type>
     struct mt_correlation
     {
         typedef double value_type;
-        std::list<thread_type*> threads;
+        std::list<std::shared_ptr<std::future<void> > > threads;
         std::vector<unsigned char> status;
         const image_type* I1;
         const image_type* I2;
@@ -128,17 +131,14 @@ namespace reg
         mt_correlation(void):end(false),status(thread_count_type()()),I1(0)
         {
             for(unsigned int index = 1;index < thread_count_type()();++index)
-                threads.push_back(new thread_type(&mt_correlation::evaluate,this,index));
+                threads.push_back(std::make_shared<std::future<void> >(std::async(std::launch::async,
+                                                                                  [this,index](){evaluate(index);})));
         }
         ~mt_correlation(void)
         {
             end = true;
-            for(typename std::list<thread_type*>::iterator it=threads.begin(),end=threads.end();it!=end;++it)
-            {
-                if ((*it)->joinable())
-                    (*it)->join();
-                delete *it;
-            }
+            for(auto& i:threads)
+                i->wait();
         }
         void evaluate(unsigned int id)
         {
