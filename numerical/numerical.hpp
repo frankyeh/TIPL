@@ -1,25 +1,11 @@
 //---------------------------------------------------------------------------
 #ifndef NUMERICAL_HPP
 #define NUMERICAL_HPP
-#include <random>
 #include "image/utility/basic_image.hpp"
 #include "image/numerical/interpolation.hpp"
 
 namespace image
 {
-template<typename T>
-T uniform(T min, T max)
-{
-    static std::mt19937 gen(0);
-    std::uniform_real_distribution<float> dst(min, max);
-    return dst(gen);
-}
-//---------------------------------------------------------------------------
-template<typename T>
-bool bernoulli(T p)
-{
-    return uniform(float(0), float(1)) <= p;
-}
 //---------------------------------------------------------------------------
 template<typename input_iterator,typename output_iterator>
 inline void gradient(input_iterator src_from,input_iterator src_to,
