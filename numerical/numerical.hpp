@@ -7,19 +7,55 @@
 
 namespace image
 {
+
 template<typename T>
-T uniform(T min, T max)
-{
-    static std::mt19937 gen(0);
-    std::uniform_real_distribution<float> dst(min, max);
-    return dst(gen);
-}
-//---------------------------------------------------------------------------
+struct normal_dist{
+    std::mt19937 gen;
+    std::normal_distribution<T> dst;
+    normal_dist(unsigned int seed = 0):gen(seed){}
+    T operator()(void){
+        return dst(gen);
+    }
+};
+
 template<typename T>
-bool bernoulli(T p)
-{
-    return uniform(float(0), float(1)) <= p;
-}
+struct uniform_dist{
+    std::mt19937 gen;
+    std::uniform_real<T> dst;
+    uniform_dist(T min = T(0), T max = T(1),unsigned int seed = 0):gen(seed),dst(min, max){}
+    T operator()(void){
+        return dst(gen);
+    }
+};
+template<>
+struct uniform_dist<int>{
+    std::mt19937 gen;
+    std::uniform_int<int> dst;
+    uniform_dist(int min, int max,unsigned int seed = 0):gen(seed),dst(min, max){}
+    uniform_dist(int size, unsigned int seed = 0):gen(seed),dst(0, size-1){}
+    uniform_dist(unsigned int seed = 0):gen(seed),dst(){}
+    int operator()(void){
+        return dst(gen);
+    }
+    int operator()(unsigned int size){
+        return dst(gen,size);
+    }
+    void reset(int seed = 0)
+    {
+        gen.seed(seed);
+    }
+};
+
+struct bernoulli{
+    float p;
+    std::mt19937 gen;
+    std::uniform_real_distribution<float> dst;
+    bernoulli(float p_,unsigned int seed = 0):p(p_),gen(seed),dst(float(0), float(1)){}
+    bool operator()(void){
+        return dst(gen) <= p;
+    }
+};
+
 //---------------------------------------------------------------------------
 template<typename input_iterator,typename output_iterator>
 inline void gradient(input_iterator src_from,input_iterator src_to,

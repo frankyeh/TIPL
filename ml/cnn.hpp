@@ -96,8 +96,9 @@ public:
     }
     void reset(void)
     {
+        image::uniform_dist<float> gen(-weight_base, weight_base);
         for(int i = 0; i < weight.size(); ++i)
-            weight[i] = uniform(-weight_base, weight_base);
+            weight[i] = gen();
         std::fill(bias.begin(), bias.end(), 0);
     }
     virtual void update(const std::vector<float>& dweight,
@@ -555,10 +556,11 @@ private:
     float dropout_rate;
     unsigned int dim;
     std::vector<bool> drop;
+    image::bernoulli bgen;
 public:
-    dropout_layer(float dropout_rate_)
+    dropout_layer(float dropout_rate)
         : basic_layer(activation_type::identity),
-          dropout_rate(dropout_rate_),
+          bgen(dropout_rate),
           drop(0)
     {
     }
@@ -579,7 +581,7 @@ public:
         {
             drop.resize(dim);
             for(int i = 0;i < dim;++i)
-                drop[i] = bernoulli(dropout_rate);
+                drop[i] = bgen();
             return;
         }
         for(int i = 0; i < drop.size(); i++)
