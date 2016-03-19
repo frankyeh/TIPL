@@ -39,7 +39,7 @@ struct uniform_dist<int>{
     }
     int operator()(unsigned int size){
         std::uniform_int_distribution<int> temp_dst(0,size-1);
-        return temp_dst(gen,size);
+        return temp_dst(gen);
     }
     void reset(int seed = 0)
     {
