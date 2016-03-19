@@ -21,7 +21,7 @@ struct normal_dist{
 template<typename T>
 struct uniform_dist{
     std::mt19937 gen;
-    std::uniform_real<T> dst;
+    std::uniform_real_distribution<T> dst;
     uniform_dist(T min = T(0), T max = T(1),unsigned int seed = 0):gen(seed),dst(min, max){}
     T operator()(void){
         return dst(gen);
@@ -30,7 +30,7 @@ struct uniform_dist{
 template<>
 struct uniform_dist<int>{
     std::mt19937 gen;
-    std::uniform_int<int> dst;
+    std::uniform_int_distribution<int> dst;
     uniform_dist(int min, int max,unsigned int seed = 0):gen(seed),dst(min, max){}
     uniform_dist(int size, unsigned int seed = 0):gen(seed),dst(0, size-1){}
     uniform_dist(unsigned int seed = 0):gen(seed),dst(){}
