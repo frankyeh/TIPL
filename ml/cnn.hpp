@@ -1,6 +1,7 @@
 #ifndef CNN_HPP
 #define CNN_HPP
 #include <algorithm>
+#include <regex>
 #include <exception>
 #include <set>
 #include <deque>
@@ -278,8 +279,8 @@ public:
 
 class average_pooling_layer : public partial_connected_layer
 {
-    int pool_size;
 public:
+    int pool_size;
     average_pooling_layer(activation_type af_,int pool_size_)
         : partial_connected_layer(af_),pool_size(pool_size_){}
     void init(const image::geometry<3>& in_dim,const image::geometry<3>& out_dim) override
@@ -287,7 +288,7 @@ public:
         partial_connected_layer::init(in_dim.size(),in_dim.size()/pool_size/pool_size,in_dim.depth(), in_dim.depth());
         if(out_dim != image::geometry<3>(in_dim.width()/ pool_size, in_dim.height() / pool_size, in_dim.depth()) ||
                 in_dim.depth() != out_dim.depth())
-            throw std::runtime_error("invalid size in the max pooling layer");
+            throw std::runtime_error("invalid size in the average pooling layer");
         for(int c = 0; c < in_dim.depth(); ++c)
             for(int y = 0; y < in_dim.height(); y += pool_size)
                 for(int x = 0; x < in_dim.width(); x += pool_size)
@@ -317,12 +318,13 @@ public:
 
 class max_pooling_layer : public basic_layer
 {
-    int pool_size;
     std::vector<std::vector<int> > o2i;
     std::vector<int> i2o;
     geometry<3> in_dim;
     geometry<3> out_dim;
 
+public:
+    int pool_size;
 public:
     max_pooling_layer(activation_type af_,int pool_size_)
         : basic_layer(af_),pool_size(pool_size_){}
@@ -440,9 +442,9 @@ class convolutional_layer : public basic_layer
 {
     connection_table connection;
     geometry<3> in_dim,out_dim,weight_dim;
+public:
     int kernel_size;
 public:
-
     convolutional_layer(activation_type af_,int kernel_size_,const connection_table& connection_ = connection_table())
         : basic_layer(af_),
           kernel_size(kernel_size_),
@@ -455,7 +457,7 @@ public:
         out_dim = out_dim_;
         if(in_dim.width()-out_dim.width()+1 != kernel_size ||
            in_dim.height()-out_dim.height()+1 != kernel_size)
-            throw std::runtime_error("invalid layer dimension");
+            throw std::runtime_error("invalid layer dimension at the convolutional layer");
         weight_dim = image::geometry<3>(kernel_size,kernel_size,in_dim_.depth() * out_dim_.depth()),
         basic_layer::init(in_dim_.size(), out_dim_.size(),weight_dim.size(), out_dim_.depth());
         weight_base = std::sqrt(6.0 / (float)(weight_dim.plane_size() * in_dim.depth() + weight_dim.plane_size() * out_dim.depth()));
@@ -553,7 +555,6 @@ public:
 class dropout_layer : public basic_layer
 {
 private:
-    float dropout_rate;
     unsigned int dim;
     std::vector<bool> drop;
     image::bernoulli bgen;
@@ -567,7 +568,7 @@ public:
     void init(const image::geometry<3>& in_dim_,const image::geometry<3>& out_dim_) override
     {
         if(in_dim_.size() != out_dim_.size())
-            throw std::runtime_error("invalid layer dimension");
+            throw std::runtime_error("invalid layer dimension in the dropout layer");
         dim =in_dim_.size();
         basic_layer::init(dim,dim,0,0);
     }
@@ -607,7 +608,7 @@ public:
     void init(const image::geometry<3>& in_dim,const image::geometry<3>& out_dim) override
     {
         if(in_dim.size() != out_dim.size())
-            throw std::runtime_error("invalid layer dimension");
+            throw std::runtime_error("invalid layer dimension at soft_max_layer");
         basic_layer::init(in_dim.size(),in_dim.size(),0,0);
     }
     void forward_propagation(std::vector<float>& data) override
@@ -637,12 +638,13 @@ public:
 class network
 {
     std::vector<std::shared_ptr<basic_layer> > layers;
-    image::geometry<3> cur_dim;
+    std::vector<image::geometry<3> > geo;
 public:
     network(){}
     void reset(void)
     {
         layers.clear();
+        geo.clear();
     }
 
     void add(basic_layer* new_layer)
@@ -652,8 +654,132 @@ public:
     void add(const image::geometry<3>& dim)
     {
         if(!layers.empty())
-            layers.back()->init(cur_dim,dim);
-        cur_dim = dim;
+            layers.back()->init(geo.back(),dim);
+        geo.push_back(dim);
+    }
+    void add(const std::string& text)
+    {
+        std::regex reg(",");
+        std::sregex_token_iterator first{text.begin(), text.end(),reg, -1},last;
+        std::vector<std::string> list = {first, last};
+
+        {
+            std::regex integer("(\\+|-)?[[:digit:]]+");
+            if(list.size() == 3 &&
+               std::regex_match(list[0],integer) &&
+               std::regex_match(list[1],integer) &&
+               std::regex_match(list[2],integer))
+            {
+                int x,y,z;
+                std::istringstream(list[0]) >> x;
+                std::istringstream(list[1]) >> y;
+                std::istringstream(list[2]) >> z;
+                add(image::geometry<3>(x,y,z));
+                return;
+            }
+        }
+        if(list.size() < 2)
+            throw std::runtime_error(std::string("Invalid network construction text:") + text);
+        activation_type af;
+        if(list[1] == "tanh")
+            af = activation_type::tanh;
+        else
+            if(list[1] == "sigmoid")
+                af = activation_type::sigmoid;
+            else
+                if(list[1] == "relu")
+                    af = activation_type::relu;
+                else
+                    if(list[1] == "identity")
+                        af = activation_type::identity;
+                    else
+                        throw std::runtime_error(std::string("Invalid activation function type:") + text);
+
+        if(list[0] == "full")
+        {
+            add(new fully_connected_layer(af));
+            return;
+        }
+        if(list.size() < 3)
+            throw std::runtime_error(std::string("Invalid network construction text:") + text);
+        int param;
+        std::istringstream(list[2]) >> param;
+        if(list[0] == "avg_pooling")
+        {
+            add(new average_pooling_layer(af,param));
+            return;
+        }
+        if(list[0] == "max_pooling")
+        {
+            add(new max_pooling_layer(af,param));
+            return;
+        }
+        if(list[0] == "conv")
+        {
+            add(new convolutional_layer(af,param));
+            return;
+        }
+        throw std::runtime_error(std::string("Invalid network layer text:") + text);
+    }
+    void save_to_file(const char* file_name)
+    {
+        std::ofstream out(file_name);
+        for(int i = 0;i < geo.size();++i)
+        {
+            if(i)
+                out << "|";
+            out << geo[i][0] << "," << geo[i][1] << "," << geo[i][2];
+            if(i < layers.size())
+            {
+                out << "|";
+                std::string af_type;
+                if(layers[i]->af == activation_type::tanh)
+                    af_type = "tanh";
+                if(layers[i]->af == activation_type::sigmoid)
+                    af_type = "sigmoid";
+                if(layers[i]->af == activation_type::relu)
+                    af_type = "relu";
+                if(layers[i]->af == activation_type::identity)
+                    af_type = "identity";
+
+                if(dynamic_cast<convolutional_layer*>(layers[i].get()))
+                    out << "conv," << af_type << "," << dynamic_cast<convolutional_layer*>(layers[i].get())->kernel_size;
+                if(dynamic_cast<max_pooling_layer*>(layers[i].get()))
+                    out << "max_pooling," << af_type << "," << dynamic_cast<max_pooling_layer*>(layers[i].get())->pool_size;
+                if(dynamic_cast<average_pooling_layer*>(layers[i].get()))
+                    out << "avg_pooling," << af_type << "," << dynamic_cast<average_pooling_layer*>(layers[i].get())->pool_size;
+                if(dynamic_cast<fully_connected_layer*>(layers[i].get()))
+                    out << "full," << af_type;
+            }
+        }
+        out << std::endl;
+        for(auto& layer : layers)
+            if(!layer->weight.empty())
+            {
+                std::copy(layer->weight.begin(),layer->weight.end(),std::ostream_iterator<float>(out," "));
+                out << std::endl;
+                std::copy(layer->bias.begin(),layer->bias.end(),std::ostream_iterator<float>(out," "));
+                out << std::endl;
+            }
+    }
+    void load_from_file(const char* file_name)
+    {
+        std::ifstream in(file_name);
+        std::string line;
+        std::getline(in,line);
+        add(line);
+        for(auto& layer : layers)
+            if(!layer->weight.empty())
+            {
+                std::getline(in,line);
+                std::istringstream in(line);
+                std::vector<float> w((std::istream_iterator<float>(in)),(std::istream_iterator<float>()));
+                layer->weight.swap(w);
+                std::getline(in,line);
+                std::istringstream in2(line);
+                std::vector<float> b((std::istream_iterator<float>(in2)),(std::istream_iterator<float>()));
+                layer->bias.swap(b);
+            }
     }
 
     void predict(std::vector<float>& in)
@@ -674,13 +800,21 @@ public:
 
 
     template <typename data_type,typename label_type,typename iter_type>
-    void train(const data_type& data,const label_type& label,int iteration_count,bool &termminated,
-               iter_type iter_fun = [&]{},bool reset_weights = true)
+    void train(const data_type& data,const label_type& label_,int iteration_count,bool &termminated,
+               iter_type iter_fun = [&]{},float learning_rate = 0.0001,bool reset_weights = true)
     {
         if(reset_weights)
         {
             for(auto layer : layers)
                 layer->reset();
+        }
+        int label_size = *std::max_element(label_.begin(),label_.end())+1;
+        std::vector<std::vector<float> > label(label_.size());
+        for(int i = 0;i < label_.size();++i)
+        {
+            label[i].resize(label_size);
+            for(int j = 0;j < label_size;++j)
+                label[i][j] = (j == label_[i]) ? target_value_max():target_value_min();
         }
         int thread_count = std::thread::hardware_concurrency();
         std::vector<std::vector<std::vector<float> > > dweight(thread_count),dbias(thread_count);
@@ -694,8 +828,6 @@ public:
                 dbias[i][j].resize(layers[j]->bias.size());
             }
         }
-
-        float learning_rate = 0.02;
         int batch_size = 20;
         for(int iter = 0; iter < iteration_count; iter++ && !termminated,learning_rate *= 0.85,iter_fun())
         {
@@ -714,6 +846,7 @@ public:
                         layers[k]->forward_propagation(out[k+1]);
                         layers[k]->forward_af(out[k+1]);
                     }
+
                     std::vector<float> output = out.back();
                     image::minus(output,label[i + m]);// diff of mse
                     for(int k = layers.size()-1;k >= 0;--k)
@@ -739,6 +872,7 @@ public:
                     layers[j]->update(dw,db,learning_rate/batch_size);
                     image::upper_lower_threshold(layers[j]->bias,-bias_cap,bias_cap);
                 });
+
             }
         }
     }
@@ -784,21 +918,36 @@ public:
             return 0.9;
         return 1;
     }
+
+
 };
 
-template<typename type>
-network& operator << (network& n, type* layer)
+inline network& operator << (network& n, basic_layer* layer)
 {
     n.add(layer);
     return n;
 }
-template<typename type>
-network& operator << (network& n, const type& dim)
+inline network& operator << (network& n, const image::geometry<3>& dim)
 {
     n.add(dim);
     return n;
 }
-
+inline network& operator << (network& n, const std::string& text)
+{
+    {
+        std::regex reg("[|]");
+        std::sregex_token_iterator first{text.begin(), text.end(),reg, -1},last;
+        std::vector<std::string> list = {first, last};
+        if(list.size() > 1)
+        {
+            for(auto& str: list)
+                n.add(str);
+            return n;
+        }
+    }
+    n.add(text);
+    return n;
+}
 }//ml
 }//image
 
