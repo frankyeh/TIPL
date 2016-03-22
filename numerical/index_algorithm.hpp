@@ -21,16 +21,16 @@ inline void get_connected_neighbors(const pixel_index<2>& index,const geometry<2
     iterations.clear();
     iterations.reserve(4);
     if (index.x() >= 1)
-        iterations.push_back(pixel_index<2>(index.x()-1,index.y(),index.index()-1));
+        iterations.push_back(pixel_index<2>(index.x()-1,index.y(),index.index()-1,geo));
 
     if (index.x()+1 < geo.width())
-        iterations.push_back(pixel_index<2>(index.x()+1,index.y(),index.index()+1));
+        iterations.push_back(pixel_index<2>(index.x()+1,index.y(),index.index()+1,geo));
 
     if (index.y() >= 1)
-        iterations.push_back(pixel_index<2>(index.x(),index.y()-1,index.index()-geo.width()));
+        iterations.push_back(pixel_index<2>(index.x(),index.y()-1,index.index()-geo.width(),geo));
 
     if (index.y()+1 < geo.height())
-        iterations.push_back(pixel_index<2>(index.x(),index.y()+1,index.index()+geo.width()));
+        iterations.push_back(pixel_index<2>(index.x(),index.y()+1,index.index()+geo.width(),geo));
 }
 
 /**
@@ -46,22 +46,22 @@ inline void get_connected_neighbors(const pixel_index<3>& index,const geometry<3
     iterations.reserve(6);
 
     if (index.x() >= 1)
-        iterations.push_back(pixel_index<3>(index.x()-1,index.y(),index.z(),index.index()-1));
+        iterations.push_back(pixel_index<3>(index.x()-1,index.y(),index.z(),index.index()-1,geo));
 
     if (index.x()+1 < geo.width())
-        iterations.push_back(pixel_index<3>(index.x()+1,index.y(),index.z(),index.index()+1));
+        iterations.push_back(pixel_index<3>(index.x()+1,index.y(),index.z(),index.index()+1,geo));
 
     if (index.y() >= 1)
-        iterations.push_back(pixel_index<3>(index.x(),index.y()-1,index.z(),index.index()-geo.width()));
+        iterations.push_back(pixel_index<3>(index.x(),index.y()-1,index.z(),index.index()-geo.width(),geo));
 
     if (index.y()+1 < geo.height())
-        iterations.push_back(pixel_index<3>(index.x(),index.y()+1,index.z(),index.index()+geo.width()));
+        iterations.push_back(pixel_index<3>(index.x(),index.y()+1,index.z(),index.index()+geo.width(),geo));
 
     if (index.z() >= 1)
-        iterations.push_back(pixel_index<3>(index.x(),index.y(),index.z()-1,index.index()-geo.plane_size()));
+        iterations.push_back(pixel_index<3>(index.x(),index.y(),index.z()-1,index.index()-geo.plane_size(),geo));
 
     if (index.z()+1 < geo.depth())
-        iterations.push_back(pixel_index<3>(index.x(),index.y(),index.z()+1,index.index()+geo.plane_size()));
+        iterations.push_back(pixel_index<3>(index.x(),index.y(),index.z()+1,index.index()+geo.plane_size(),geo));
 }
 
 /**
@@ -86,30 +86,30 @@ inline void get_neighbors(const pixel_index<2>& index,const geometry<2>& geo,
         int y_top = index.y()-1;
         int base_index = index.index()-geo.width();
         if (has_left)
-            iterations.push_back(pixel_index<2>(x_left,y_top,base_index-1));
+            iterations.push_back(pixel_index<2>(x_left,y_top,base_index-1,geo));
 
-        iterations.push_back(pixel_index<2>(index.x()  ,y_top,base_index));
+        iterations.push_back(pixel_index<2>(index.x()  ,y_top,base_index,geo));
         if (has_right)
-            iterations.push_back(pixel_index<2>(x_right,y_top,base_index+1));
+            iterations.push_back(pixel_index<2>(x_right,y_top,base_index+1,geo));
     }
     {
         if (has_left)
-            iterations.push_back(pixel_index<2>(x_left,index.y(),index.index()-1));
+            iterations.push_back(pixel_index<2>(x_left,index.y(),index.index()-1,geo));
 
         //iterations.push_back(pixel_index<2>(index.x()  ,index.y(),index.index()));
         if (has_right)
-            iterations.push_back(pixel_index<2>(x_right,index.y(),index.index()+1));
+            iterations.push_back(pixel_index<2>(x_right,index.y(),index.index()+1,geo));
     }
     if (index.y()+1 < geo.height())
     {
         int y_bottom = index.y()+1;
         int base_index = index.index()+geo.width();
         if (has_left)
-            iterations.push_back(pixel_index<2>(x_left,y_bottom,base_index-1));
+            iterations.push_back(pixel_index<2>(x_left,y_bottom,base_index-1,geo));
 
-        iterations.push_back(pixel_index<2>(index.x()  ,y_bottom,base_index));
+        iterations.push_back(pixel_index<2>(index.x()  ,y_bottom,base_index,geo));
         if (has_right)
-            iterations.push_back(pixel_index<2>(x_right,y_bottom,base_index+1));
+            iterations.push_back(pixel_index<2>(x_right,y_bottom,base_index+1,geo));
     }
 
 }
@@ -143,32 +143,32 @@ inline void get_neighbors(const pixel_index<3>& index,const geometry<3>& geo,
         {
             int base_index2 = base_index - y_offset;
             if (has_left)
-                iterations.push_back(pixel_index<3>(x_left,y_top,z,base_index2-1));
+                iterations.push_back(pixel_index<3>(x_left,y_top,z,base_index2-1,geo));
 
-            iterations.push_back(pixel_index<3>(index.x()  ,y_top,z,base_index2));
+            iterations.push_back(pixel_index<3>(index.x()  ,y_top,z,base_index2,geo));
 
             if (has_right)
-                iterations.push_back(pixel_index<3>(x_right,y_top,z,base_index2+1));
+                iterations.push_back(pixel_index<3>(x_right,y_top,z,base_index2+1,geo));
         }
         {
             if (has_left)
-                iterations.push_back(pixel_index<3>(x_left,index.y(),z,base_index-1));
+                iterations.push_back(pixel_index<3>(x_left,index.y(),z,base_index-1,geo));
 
-            iterations.push_back(pixel_index<3>(index.x()  ,index.y(),z,base_index));
+            iterations.push_back(pixel_index<3>(index.x()  ,index.y(),z,base_index,geo));
 
             if (has_right)
-                iterations.push_back(pixel_index<3>(x_right,index.y(),z,base_index+1));
+                iterations.push_back(pixel_index<3>(x_right,index.y(),z,base_index+1,geo));
         }
         if (has_bottom)
         {
             int base_index2 = base_index + y_offset;
             if (has_left)
-                iterations.push_back(pixel_index<3>(x_left,y_bottom,z,base_index2-1));
+                iterations.push_back(pixel_index<3>(x_left,y_bottom,z,base_index2-1,geo));
 
-            iterations.push_back(pixel_index<3>(index.x()  ,y_bottom,z,base_index2));
+            iterations.push_back(pixel_index<3>(index.x()  ,y_bottom,z,base_index2,geo));
 
             if (has_right)
-                iterations.push_back(pixel_index<3>(x_right,y_bottom,z,base_index2+1));
+                iterations.push_back(pixel_index<3>(x_right,y_bottom,z,base_index2+1,geo));
         }
     }
 
@@ -177,32 +177,32 @@ inline void get_neighbors(const pixel_index<3>& index,const geometry<3>& geo,
         {
             int base_index2 = index.index() - y_offset;
             if (has_left)
-                iterations.push_back(pixel_index<3>(x_left,y_top,index.z(),base_index2-1));
+                iterations.push_back(pixel_index<3>(x_left,y_top,index.z(),base_index2-1,geo));
 
-            iterations.push_back(pixel_index<3>(index.x()  ,y_top,index.z(),base_index2));
+            iterations.push_back(pixel_index<3>(index.x()  ,y_top,index.z(),base_index2,geo));
 
             if (has_right)
-                iterations.push_back(pixel_index<3>(x_right,y_top,index.z(),base_index2+1));
+                iterations.push_back(pixel_index<3>(x_right,y_top,index.z(),base_index2+1,geo));
         }
         {
             if (has_left)
-                iterations.push_back(pixel_index<3>(x_left,index.y(),index.z(),index.index()-1));
+                iterations.push_back(pixel_index<3>(x_left,index.y(),index.z(),index.index()-1,geo));
 
             //iterations.push_back(pixel_index<3>(index.x()  ,index.y(),index.z(),index.index()  ));
 
             if (has_right)
-                iterations.push_back(pixel_index<3>(x_right,index.y(),index.z(),index.index()+1));
+                iterations.push_back(pixel_index<3>(x_right,index.y(),index.z(),index.index()+1,geo));
         }
         if (has_bottom)
         {
             int base_index2 = index.index() + y_offset;
             if (has_left)
-                iterations.push_back(pixel_index<3>(x_left,y_bottom,index.z(),base_index2-1));
+                iterations.push_back(pixel_index<3>(x_left,y_bottom,index.z(),base_index2-1,geo));
 
-            iterations.push_back(pixel_index<3>(index.x()  ,y_bottom,index.z(),base_index2));
+            iterations.push_back(pixel_index<3>(index.x()  ,y_bottom,index.z(),base_index2,geo));
 
             if (has_right)
-                iterations.push_back(pixel_index<3>(x_right,y_bottom,index.z(),base_index2+1));
+                iterations.push_back(pixel_index<3>(x_right,y_bottom,index.z(),base_index2+1,geo));
         }
 
     }
@@ -214,32 +214,32 @@ inline void get_neighbors(const pixel_index<3>& index,const geometry<3>& geo,
         {
             int base_index2 = base_index - y_offset;
             if (has_left)
-                iterations.push_back(pixel_index<3>(x_left,y_top,z,base_index2-1));
+                iterations.push_back(pixel_index<3>(x_left,y_top,z,base_index2-1,geo));
 
-            iterations.push_back(pixel_index<3>(index.x()  ,y_top,z,base_index2));
+            iterations.push_back(pixel_index<3>(index.x()  ,y_top,z,base_index2,geo));
 
             if (has_right)
-                iterations.push_back(pixel_index<3>(x_right,y_top,z,base_index2+1));
+                iterations.push_back(pixel_index<3>(x_right,y_top,z,base_index2+1,geo));
         }
         {
             if (has_left)
-                iterations.push_back(pixel_index<3>(x_left,index.y(),z,base_index-1));
+                iterations.push_back(pixel_index<3>(x_left,index.y(),z,base_index-1,geo));
 
-            iterations.push_back(pixel_index<3>(index.x()  ,index.y(),z,base_index));
+            iterations.push_back(pixel_index<3>(index.x()  ,index.y(),z,base_index,geo));
 
             if (has_right)
-                iterations.push_back(pixel_index<3>(x_right,index.y(),z,base_index+1));
+                iterations.push_back(pixel_index<3>(x_right,index.y(),z,base_index+1,geo));
         }
         if (has_bottom)
         {
             int base_index2 = base_index + y_offset;
             if (has_left)
-                iterations.push_back(pixel_index<3>(x_left,y_bottom,z,base_index2-1));
+                iterations.push_back(pixel_index<3>(x_left,y_bottom,z,base_index2-1,geo));
 
-            iterations.push_back(pixel_index<3>(index.x()  ,y_bottom,z,base_index2));
+            iterations.push_back(pixel_index<3>(index.x()  ,y_bottom,z,base_index2,geo));
 
             if (has_right)
-                iterations.push_back(pixel_index<3>(x_right,y_bottom,z,base_index2+1));
+                iterations.push_back(pixel_index<3>(x_right,y_bottom,z,base_index2+1,geo));
         }
     }
 
@@ -274,7 +274,7 @@ inline void get_neighbors(const pixel_index<2>& index,const geometry<2>& geo,int
             int dx = (int)index.x()-x;
             int dx2 = dx*dx;
             if(dx2+dy2 <= radius2)
-                iterations.push_back(pixel_index<2>(x,y,x_index));
+                iterations.push_back(pixel_index<2>(x,y,x_index,geo));
         }
     }
 }
@@ -306,7 +306,7 @@ inline void get_neighbors(const pixel_index<3>& index,const geometry<3>& geo,int
             {
                 int dx = (int)index.x()-x;
                 if(dx*dx+dyz2 <= radius2)
-                    iterations.push_back(pixel_index<3>(x,y,z,x_index));
+                    iterations.push_back(pixel_index<3>(x,y,z,x_index,geo));
             }
         }
     }

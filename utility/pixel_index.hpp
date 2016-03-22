@@ -17,37 +17,37 @@ template<>
 class pixel_index<2>
 {
 public:
-    typedef int value_type;
     static const unsigned int dimension = 2;
 protected:
     union
     {
-        value_type offset_[2];
+        int offset_[2];
         struct
         {
-            value_type x_;
-            value_type y_;
+            int x_;
+            int y_;
         };
     };
-    value_type index_;
+    int index_;
+    int w;
 public:
-    pixel_index(void):x_(0),y_(0),index_(0){}
+    pixel_index(const geometry<2>& geo):x_(0),y_(0),index_(0),w(geo[0]){}
     pixel_index(const pixel_index& rhs)
     {
         *this = rhs;
     }
     template<typename vtype>
-    pixel_index(vtype x,vtype y,value_type i):
-            x_(x),y_(y),index_(i){}
+    pixel_index(vtype x,vtype y,vtype index,const geometry<2>& geo):
+            x_(x),y_(y),index_(index),w(geo[0]){}
     template<typename vtype>
     pixel_index(vtype x,vtype y,const geometry<2>& geo):
-            x_(x),y_(y),index_(y*geo.width()+x){}
+            x_(x),y_(y),index_(y*geo.width()+x),w(geo[0]){}
     template<typename vtype>
     pixel_index(vtype* offset,const geometry<2>& geo):
-            x_(offset[0]),y_(offset[1]),index_(offset[1]*geo.width()+offset[0]){}
+            x_(offset[0]),y_(offset[1]),index_(offset[1]*geo.width()+offset[0]),w(geo[0]){}
     template<typename vtype>
     pixel_index(vtype y,const geometry<2>& geo):
-            x_(y % geo.width()),y_(y / geo.width()),index_(y){}
+            x_(y % geo.width()),y_(y / geo.width()),index_(y),w(geo[0]){}
 
     const pixel_index& operator=(const pixel_index<2>& rhs)
     {
@@ -66,44 +66,44 @@ public:
     }
 
 public:
-    value_type x(void) const
+    int x(void) const
     {
         return x_;
     }
-    value_type y(void) const
+    int y(void) const
     {
         return y_;
     }
-    value_type index(void) const
+    int index(void) const
     {
         return index_;
     }
-    value_type& index(void)
+    int& index(void)
     {
         return index_;
     }
 public:
-    const value_type* begin(void) const
+    const int* begin(void) const
     {
         return offset_;
     }
-    const value_type* end(void) const
+    const int* end(void) const
     {
         return offset_+2;
     }
-    value_type* begin(void)
+    int* begin(void)
     {
         return offset_;
     }
-    value_type* end(void)
+    int* end(void)
     {
         return offset_+2;
     }
-    value_type operator[](unsigned int index) const
+    int operator[](unsigned int index) const
     {
         return offset_[index];
     }
-    value_type& operator[](unsigned int index)
+    int& operator[](unsigned int index)
     {
         return offset_[index];
     }
@@ -120,19 +120,28 @@ public:
     {
         return index_ != rhs.index_;
     }
+    bool operator<(int rhs) const
+    {
+        return index_ < rhs;
+    }
+    bool operator==(int rhs) const
+    {
+        return index_ == rhs;
+    }
+    bool operator!=(int rhs) const
+    {
+        return index_ != rhs;
+    }
 public:
-    void next(const geometry<2>& geo)
+    pixel_index<2>& operator++(void)
     {
         ++offset_[0];
         ++index_;
-        if (offset_[0] < geo[0])
-            return;
+        if (offset_[0] < w)
+            return *this;
         offset_[0] = 0;
         ++offset_[1];
-    }
-    bool is_valid(const geometry<2>& geo) const
-    {
-        return offset_[1] < geo[1];
+        return *this;
     }
     template<typename stream_type>
     friend stream_type& operator>>(stream_type& in,pixel_index& rhs)
@@ -147,37 +156,38 @@ template<>
 class pixel_index<3>
 {
 public:
-    typedef int value_type;
     static const unsigned int dimension = 3;
 protected:
     union
     {
-        value_type offset_[3];
+        int offset_[3];
         struct
         {
-            value_type x_;
-            value_type y_;
-            value_type z_;
+            int x_;
+            int y_;
+            int z_;
         };
     };
-    value_type index_;
+    int index_;
+    int w,h;
 public:
-    pixel_index(void):x_(0),y_(0),z_(0),index_(0){}
+    pixel_index(const geometry<3>& geo):x_(0),y_(0),z_(0),index_(0),w(geo[0]),h(geo[1]){}
     pixel_index(const pixel_index& rhs)
     {
         *this = rhs;
     }
     template<typename vtype>
-    pixel_index(vtype x,vtype y,vtype z,value_type i):x_(x),y_(y),z_(z),index_(i){}
+    pixel_index(vtype x,vtype y,vtype z,int i,const geometry<3>& geo):x_(x),y_(y),z_(z),index_(i),w(geo[0]),h(geo[1]){}
     template<typename vtype>
     pixel_index(vtype x,vtype y,vtype z,const geometry<3>& geo):
-            x_(x),y_(y),z_(z),index_((z*geo.height() + y)*geo.width()+x){}
+            x_(x),y_(y),z_(z),index_((z*geo.height() + y)*geo.width()+x),w(geo[0]),h(geo[1]){}
     template<typename vtype>
     pixel_index(vtype* offset,const geometry<3>& geo):
             x_(offset[0]),y_(offset[1]),z_(offset[2]),
-				index_((offset[2]*geo.height() + offset[1])*geo.width()+offset[0]){}
+            index_((offset[2]*geo.height() + offset[1])*geo.width()+offset[0]),
+            w(geo[0]),h(geo[1]){}
     template<typename vtype>
-    pixel_index(vtype i,const geometry<3>& geo):index_(i)
+    pixel_index(vtype i,const geometry<3>& geo):index_(i),w(geo[0]),h(geo[1])
     {
         x_ = i % geo.width();
         i /= geo.width();
@@ -203,48 +213,48 @@ public:
         return *this;
     }
 public:
-    value_type x(void) const
+    int x(void) const
     {
         return x_;
     }
-    value_type y(void) const
+    int y(void) const
     {
         return y_;
     }
-    value_type z(void) const
+    int z(void) const
     {
         return z_;
     }
-    value_type index(void) const
+    int index(void) const
     {
         return index_;
     }
-    value_type& index(void)
+    int& index(void)
     {
         return index_;
     }
 public:
-    const value_type* begin(void) const
+    const int* begin(void) const
     {
         return offset_;
     }
-    const value_type* end(void) const
+    const int* end(void) const
     {
         return offset_+3;
     }
-    value_type* begin(void)
+    int* begin(void)
     {
         return offset_;
     }
-    value_type* end(void)
+    int* end(void)
     {
         return offset_+3;
     }
-    value_type operator[](unsigned int index) const
+    int operator[](unsigned int index) const
     {
         return offset_[index];
     }
-    value_type& operator[](unsigned int index)
+    int& operator[](unsigned int index)
     {
         return offset_[index];
     }
@@ -261,19 +271,32 @@ public:
     {
         return index_ != rhs.index_;
     }
+    bool operator<(int rhs) const
+    {
+        return index_ < rhs;
+    }
+    bool operator==(int rhs) const
+    {
+        return index_ == rhs;
+    }
+    bool operator!=(int rhs) const
+    {
+        return index_ != rhs;
+    }
 public:
-    void next(const geometry<3>& geo)
+    pixel_index<3>& operator++(void)
     {
         ++offset_[0];
         ++index_;
-        if (offset_[0] < geo[0])
-            return;
+        if (offset_[0] < w)
+            return *this;
         offset_[0] = 0;
         ++offset_[1];
-        if (offset_[1] < geo[1])
-            return;
+        if (offset_[1] < h)
+            return *this;
         offset_[1] = 0;
         ++offset_[2];
+        return *this;
     }
     bool is_valid(const geometry<3>& geo) const
     {
@@ -286,7 +309,6 @@ public:
         return in;
     }
 };
-
 
 
 template<int dim,typename data_type = float>

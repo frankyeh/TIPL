@@ -441,7 +441,7 @@ public:
         // get all the edge cubes
         {
             std::vector<typename ImageType::value_type> pixels;
-            for (pixel_index<3> iter;iter.is_valid(source_image.geometry());iter.next(source_image.geometry()))
+            for (pixel_index<3> iter(source_image.geometry());iter < source_image.size();++iter)
             {
                 pixels.clear();
                 get_window(iter,source_image,pixels);
@@ -475,13 +475,13 @@ public:
     void addCube(const ImageType& source_image,const pixel_index<3>& point,double isolevel)
     {
         pixel_index<3> iter0(point);
-        pixel_index<3> iter1(point[0]+1,point[1],point[2],point.index()+1);
-        pixel_index<3> iter2(point[0]+1,point[1]+1,point[2],point.index()+1+w);
-        pixel_index<3> iter3(point[0],point[1]+1,point[2],point.index()+w);
-        pixel_index<3> iter4(point[0],point[1],point[2]+1,point.index()+wh);
-        pixel_index<3> iter5(point[0]+1,point[1],point[2]+1,point.index()+1+wh);
-        pixel_index<3> iter6(point[0]+1,point[1]+1,point[2]+1,point.index()+1+w+wh);
-        pixel_index<3> iter7(point[0],point[1]+1,point[2]+1,point.index()+w+wh);
+        pixel_index<3> iter1(point[0]+1,point[1],point[2],point.index()+1,source_image.geometry());
+        pixel_index<3> iter2(point[0]+1,point[1]+1,point[2],point.index()+1+w,source_image.geometry());
+        pixel_index<3> iter3(point[0],point[1]+1,point[2],point.index()+w,source_image.geometry());
+        pixel_index<3> iter4(point[0],point[1],point[2]+1,point.index()+wh,source_image.geometry());
+        pixel_index<3> iter5(point[0]+1,point[1],point[2]+1,point.index()+1+wh,source_image.geometry());
+        pixel_index<3> iter6(point[0]+1,point[1]+1,point[2]+1,point.index()+1+w+wh,source_image.geometry());
+        pixel_index<3> iter7(point[0],point[1]+1,point[2]+1,point.index()+w+wh,source_image.geometry());
 
         GridCell cell;
         cell.corner[0] = iter0;

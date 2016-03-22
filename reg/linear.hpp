@@ -63,7 +63,7 @@ namespace reg
             image::geometry<dim> geo(Ifrom.geometry());
             double error = 0.0;
             image::vector<dim,double> pos;
-            for (image::pixel_index<dim> index; index.is_valid(geo); index.next(geo))
+            for (image::pixel_index<dim> index(geo);index < geo.size();++index)
             {
                 transform(index,pos);
                 double to_pixel = 0;
@@ -152,7 +152,7 @@ namespace reg
                     unsigned int to_size = std::min<unsigned int>(size,(id+1)*thread_size);
                     image::geometry<image_type::dimension> geo(I1->geometry());
                     for (image::pixel_index<image_type::dimension> index(from_size,geo);
-                         index.index() < to_size;index.next(geo))
+                         index < to_size;++index)
                     {
                         image::vector<image_type::dimension,double> pos;
                         T(index,pos);
@@ -225,7 +225,7 @@ namespace reg
             image::geometry<dimension> geo(from_.geometry());
             image::interpolation<image::linear_weighting,dimension> interp;
             image::vector<dimension,double> pos;
-            for (image::pixel_index<dimension> index; index.is_valid(geo); index.next(geo))
+            for (image::pixel_index<dimension> index(geo);index < geo.size();++index)
             {
                 unsigned int from_index = from[index.index()];
                 transform(index,pos);
@@ -248,7 +248,7 @@ namespace reg
             {
                 float sum = 0.0;
                 image::geometry<2> geo(mutual_hist.geometry());
-                for (image::pixel_index<2> index; index.is_valid(geo); index.next(geo))
+                for (image::pixel_index<2> index(geo);index < geo.size();++index)
                 {
                     float mu = mutual_hist[index.index()];
                     if (mu == 0.0)

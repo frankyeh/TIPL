@@ -653,7 +653,7 @@ template<typename ImageType1,typename ImageType2,typename transform_type>
 void resample(const ImageType1& from,ImageType2& to,const transform_type& transform,interpolation_type type)
 {
     image::geometry<ImageType1::dimension> geo(to.geometry());
-    for (image::pixel_index<ImageType1::dimension> index;index.is_valid(geo);index.next(geo))
+    for (image::pixel_index<ImageType1::dimension> index(geo);index < geo.size();++index)
     {
         image::vector<ImageType1::dimension,double> pos;
         transform(index,pos);
@@ -665,8 +665,7 @@ template<typename ImageType,typename transform_type>
 void resample(ImageType& from,const transform_type& transform,interpolation_type type)
 {
     image::basic_image<typename ImageType::value_type,ImageType::dimension> I(from.geometry());
-    for (image::pixel_index<ImageType::dimension> index;
-            index.is_valid(from.geometry());index.next(from.geometry()))
+    for (image::pixel_index<ImageType::dimension> index(from.geometry());index < from.size();++index)
     {
         image::vector<ImageType::dimension,double> pos;
         transform(index,pos);

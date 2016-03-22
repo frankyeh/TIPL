@@ -245,7 +245,7 @@ void bounding_box(const ImageType& I,
         range_min[di] = I.geometry()[di]-1;
         range_max[di] = 0;
     }
-    for (pixel_index<ImageType::dimension> iter; iter.is_valid(I.geometry()); iter.next(I.geometry()))
+    for (pixel_index<ImageType::dimension> iter(I.geometry());iter < I.size();++iter)
     {
         if (I[iter.index()] == background)
             continue;
