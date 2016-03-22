@@ -659,6 +659,17 @@ public:
     }
     void add(const std::string& text)
     {
+        {
+            std::regex reg("[|]");
+            std::sregex_token_iterator first{text.begin(), text.end(),reg, -1},last;
+            std::vector<std::string> list = {first, last};
+            if(list.size() > 1)
+            {
+                for(auto& str: list)
+                    add(str);
+                return;
+            }
+        }
         std::regex reg(",");
         std::sregex_token_iterator first{text.begin(), text.end(),reg, -1},last;
         std::vector<std::string> list = {first, last};
@@ -934,17 +945,6 @@ inline network& operator << (network& n, const image::geometry<3>& dim)
 }
 inline network& operator << (network& n, const std::string& text)
 {
-    {
-        std::regex reg("[|]");
-        std::sregex_token_iterator first{text.begin(), text.end(),reg, -1},last;
-        std::vector<std::string> list = {first, last};
-        if(list.size() > 1)
-        {
-            for(auto& str: list)
-                n.add(str);
-            return n;
-        }
-    }
     n.add(text);
     return n;
 }
