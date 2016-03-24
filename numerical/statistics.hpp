@@ -283,5 +283,115 @@ std::pair<double,double> linear_regression(input_iterator1 x_from,input_iterator
     return std::pair<double,double>(a,b);
 }
 
+
+/*
+    float y[] = {1,2,2,2,3};
+    float X[] = {1,1,1,
+                  1,2,8,
+                  1,3,27,
+                  1,4,64,
+                  1,5,125};
+
+    float b[3]={0,0,0};
+    float t[3]={0,0,0};
+    // b = 0.896551724, 0.33646813, 0.002089864
+    multiple_regression<float> m;
+    m.set_variables(X,3,5);
+    m.regress(y,b,t);
+ */
+template<typename value_type>
+class multiple_regression{
+    // the subject data are stored in each row
+    std::vector<value_type> X,Xt,XtX;
+    std::vector<value_type> X_cov;
+    std::vector<int> piv;
+    unsigned int feature_count;
+    unsigned int subject_count;
+public:
+    multiple_regression(void){}
+    template<typename iterator>
+    bool set_variables(iterator X_,
+                       unsigned int feature_count_,
+                       unsigned int subject_count_)
+    {
+        feature_count = feature_count_;
+        subject_count = subject_count_;
+        X.resize(feature_count*subject_count);
+        std::copy(X_,X_+X.size(),X.begin());
+        Xt.resize(X.size());
+        image::mat::transpose(&*X.begin(),&*Xt.begin(),image::dyndim(subject_count,feature_count));
+
+        XtX.resize(feature_count*feature_count); // trans(x)*y    p by p
+        image::mat::product_transpose(&*Xt.begin(),&*Xt.begin(),
+                                         &*XtX.begin(),
+                                         image::dyndim(feature_count,subject_count),
+                                         image::dyndim(feature_count,subject_count));
+        piv.resize(feature_count);
+        image::mat::lu_decomposition(&*XtX.begin(),&*piv.begin(),image::dyndim(feature_count,feature_count));
+
+
+        // calculate the covariance
+        {
+            X_cov = Xt;
+            std::vector<value_type> c(feature_count),d(feature_count);
+            if(!image::mat::lq_decomposition(&*X_cov.begin(),&*c.begin(),&*d.begin(),image::dyndim(feature_count,subject_count)))
+                return false;
+            image::mat::lq_get_l(&*X_cov.begin(),&*d.begin(),&*X_cov.begin(),
+                                    image::dyndim(feature_count,subject_count));
+        }
+
+
+        // make l a squre matrix, get rid of the zero part
+        for(unsigned int row = 1,pos = subject_count,pos2 = feature_count;row < feature_count;++row,pos += subject_count,pos2 += feature_count)
+            std::copy(X_cov.begin() + pos,X_cov.begin() + pos + feature_count,X_cov.begin() + pos2);
+
+        image::mat::inverse_lower(&*X_cov.begin(),image::dyndim(feature_count,feature_count));
+
+        image::square(X_cov.begin(),X_cov.begin()+feature_count*feature_count);
+
+        // sum column wise
+        for(unsigned int row = 1,pos = feature_count;row < feature_count;++row,pos += feature_count)
+            image::add(X_cov.begin(),X_cov.begin()+feature_count,X_cov.begin()+pos);
+        image::square_root(X_cov.begin(),X_cov.begin()+feature_count);
+
+        std::vector<value_type> new_X_cov(X_cov.begin(),X_cov.begin()+feature_count);
+        new_X_cov.swap(X_cov);
+        return true;
+    }
+    /*
+     *       y0       x00 ...x0p
+     *       y1       x10 ...x1p    b0
+     *     [ :  ] = [  :        ][  :  ]
+     *       :         :            bp
+     *       yn       xn0 ...xnp
+     *
+     **/
+
+    template<typename iterator1,typename iterator2,typename iterator3>
+    void regress(iterator1 y,iterator2 b,iterator3 t) const
+    {
+        regress(y,b);
+        // calculate residual
+        std::vector<value_type> y_(subject_count);
+        image::mat::left_vector_product(&*Xt.begin(),b,&*y_.begin(),image::dyndim(feature_count,subject_count));
+        image::minus(y_.begin(),y_.end(),y);
+        image::square(y_);
+        value_type rmse = std::sqrt(std::accumulate(y_.begin(),y_.end(),0.0)/(subject_count-feature_count));
+
+        for(unsigned int index = 0;index < feature_count;++index)
+            t[index] = b[index]/X_cov[index]/rmse;
+    }
+    template<typename iterator1,typename iterator2>
+    void regress(iterator1 y,iterator2 b) const
+    {
+        std::vector<value_type> xty(feature_count); // trans(x)*y    p by 1
+        image::mat::vector_product(&*Xt.begin(),y,&*xty.begin(),image::dyndim(feature_count,subject_count));
+        image::mat::lu_solve(&*XtX.begin(),&*piv.begin(),&*xty.begin(),b,
+                                image::dyndim(feature_count,feature_count));
+    }
+
+};
+
+
 }
 #endif
