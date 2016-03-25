@@ -114,7 +114,7 @@ namespace reg
         }
     };
 
-    template<typename image_type,typename transform_type,typename thread_count_type>
+    template<typename image_type,typename transform_type>
     struct mt_correlation
     {
         typedef double value_type;
@@ -128,9 +128,9 @@ namespace reg
         double sd_from;
         bool end;
         mt_correlation(int dummy){}
-        mt_correlation(void):end(false),status(thread_count_type()()),I1(0)
+        mt_correlation(void):end(false),status(std::thread::hardware_concurrency()),I1(0)
         {
-            for(unsigned int index = 1;index < thread_count_type()();++index)
+            for(unsigned int index = 1;index < status.size();++index)
                 threads.push_back(std::make_shared<std::future<void> >(std::async(std::launch::async,
                                                                                   [this,index](){evaluate(index);})));
         }
@@ -147,7 +147,7 @@ namespace reg
                 if(status[id] == 1)
                 {
                     unsigned int size = I1->size();
-                    unsigned int thread_size = (size/thread_count_type()())+1;
+                    unsigned int thread_size = (size/status.size())+1;
                     unsigned int from_size = id*thread_size;
                     unsigned int to_size = std::min<unsigned int>(size,(id+1)*thread_size);
                     image::geometry<image_type::dimension> geo(I1->geometry());
@@ -308,10 +308,7 @@ namespace reg
         }
     };
 
-enum coreg_type {translocation = 1,rotation = 2,scaling = 4,tilt = 8};
-const int rigid_body = translocation | rotation;
-const int rigid_scaling = translocation | rotation | scaling;
-const int affine = translocation | rotation | scaling | tilt;
+enum reg_type {none = 0,translocation = 1,rotation = 2,rigid_body = 3,scaling = 4,rigid_scaling = 7,tilt = 8,affine = 15};
 
 
 template<typename image_type1,typename image_type2,typename transform_type>
@@ -319,13 +316,13 @@ void get_bound(const image_type1& from,const image_type2& to,
                const transform_type& trans,
                transform_type& upper_trans,
                transform_type& lower_trans,
-               int reg_type)
+               reg_type type)
 {
     typedef typename transform_type::value_type value_type;
     const unsigned int dimension = image_type1::dimension;
     upper_trans = trans;
     lower_trans = trans;
-    if (reg_type & translocation)
+    if (type & translocation)
     {
         for (unsigned int index = 0; index < dimension; ++index)
         {
@@ -334,7 +331,7 @@ void get_bound(const image_type1& from,const image_type2& to,
         }
     }
 
-    if (reg_type & rotation)
+    if (type & rotation)
     {
         for (unsigned int index = dimension; index < dimension + dimension; ++index)
         {
@@ -343,7 +340,7 @@ void get_bound(const image_type1& from,const image_type2& to,
         }
     }
 
-    if (reg_type & scaling)
+    if (type & scaling)
     {
         for (unsigned int index = dimension + dimension; index < dimension+dimension+dimension; ++index)
         {
@@ -352,7 +349,7 @@ void get_bound(const image_type1& from,const image_type2& to,
         }
     }
 
-    if (reg_type & tilt)
+    if (type & tilt)
     {
         for (unsigned int index = dimension + dimension + dimension; index < transform_type::total_size; ++index)
         {
@@ -366,18 +363,18 @@ template<typename image_type,typename vs_type,typename transform_type,typename C
 float linear(const image_type& from,const vs_type& from_vs,
              const image_type& to  ,const vs_type& to_vs,
                     transform_type& arg_min,
-                    int reg_type,
+                    reg_type base_type,
                     CostFunctionType,
                     teminated_class& terminated,double precision = 0.005)
 {
     std::srand(0);
-    int reg_list[4] = {1,3,7,15};
+    reg_type reg_list[4] = {translocation,rigid_body,rigid_scaling,affine};
     double optimal_value = 0.0;
     transform_type upper,lower;
     image::reg::fun_adoptor<image_type,vs_type,transform_type,transform_type,CostFunctionType> fun(from,from_vs,to,to_vs,arg_min);
     std::vector<unsigned char> search_count(arg_min.size());
     unsigned int random_search_count = std::sqrt(1/precision);
-    for(unsigned char type = 0;type < 4 && reg_list[type] <= reg_type && !terminated;++type)
+    for(unsigned char type = 0;type < 4 && reg_list[type] <= base_type && !terminated;++type)
     {
         image::reg::get_bound(from,to,arg_min,upper,lower,reg_list[type]);
         if(type == 0)
@@ -399,7 +396,7 @@ float linear(const image_type& from,const vs_type& from_vs,
         }
         if(!terminated)
             image::optimization::graient_descent(arg_min.begin(),arg_min.end(),upper.begin(),lower.begin(),fun,optimal_value,terminated,precision);
-    //    std::cout << "type=" << reg_list[type] <<" count=" << fun.count << " cost=" << optimal_value << std::endl;
+        //std::cout << "type=" << reg_list[type] <<" count=" << fun.count << " cost=" << optimal_value << std::endl;
     }
     image::optimization::graient_descent(arg_min.begin(),arg_min.end(),upper.begin(),lower.begin(),fun,optimal_value,terminated,precision/10);
     //std::cout << "count=" << fun.count << " cost=" << optimal_value << std::endl;

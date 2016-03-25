@@ -125,8 +125,14 @@ public:
         T.resize(3*k_base.size()+4);
         T[3*k_base.size()] = 1;
     }
-    template<typename rhs_type1,typename rhs_type2>
-    void operator()(const rhs_type1& from,rhs_type2& to) const
+
+    template<typename rhs_type>
+    void operator()(const image::pixel_index<3>& from,rhs_type& to) const
+    {
+        return (*this)(image::vector<3,int>(from[0],from[1],from[2]),to);
+    }
+    template<typename rhs_type>
+    void operator()(const image::vector<3,int>& from,rhs_type& to) const
     {
         to = from;
         if(!VGgeo.is_valid(from))
@@ -146,11 +152,11 @@ public:
         value_type *temp2 = &temp2_[0];
 
         {
-            for(unsigned int k = 0,index = from[0]; k < nx; ++k,index += VGgeo[0])
+            for(int k = 0,index = from[0]; k < nx; ++k,index += VGgeo[0])
                 bx[k] = bas[0][index];
-            for(unsigned int k = 0,index = from[1]; k < ny; ++k,index += VGgeo[1])
+            for(int k = 0,index = from[1]; k < ny; ++k,index += VGgeo[1])
                 by[k] = bas[1][index];
-            for(unsigned int k = 0,index = from[2]; k < nz; ++k,index += VGgeo[2])
+            for(int k = 0,index = from[2]; k < nz; ++k,index += VGgeo[2])
                 bz[k] = bas[2][index];
         }
 
@@ -840,17 +846,35 @@ public:
     }
 };
 
-
 template<typename ImageType,typename value_type,typename terminator_type>
-void bfnorm(const ImageType& VG,const ImageType& VF,bfnorm_mapping<value_type>& mapping,const terminator_type& terminated,int iteration = 16)
+void bfnorm(bfnorm_mapping<value_type>& mapping,
+            const ImageType& VG,
+            const ImageType& VFF,unsigned int thread_count,terminator_type& terminated,int& iteration)
 {
-    bfnorm_mrqcof<ImageType,value_type> bf_optimize(VG,VF,mapping,1);
-    for(int iter = 0; iter < iteration && !terminated; ++iter)
+    bfnorm_mrqcof<ImageType,value_type> bf_optimize(VG,VFF,mapping,thread_count);
+    // image::reg::bfnorm(VG,VFF,*mni.get(),terminated);
+    for(iteration = 0; iteration < 16 && !terminated; ++iteration)
     {
         bf_optimize.start();
-        bf_optimize.run(0,terminated);
+
+        std::vector<std::shared_ptr<std::future<void> > > threads;
+        bool terminated_buf = false;
+        for (unsigned int index = 1;index < thread_count;++index)
+            threads.push_back(std::make_shared<std::future<void> >(std::async(std::launch::async,
+                    [&bf_optimize,index,&terminated_buf](){bf_optimize.run(index,terminated_buf);})));
+
+        bf_optimize.run(0,terminated_buf);
+        for(int i = 0;i < threads.size();++i)
+            threads[i]->wait();
+
         bf_optimize.end();
+        std::vector<std::shared_ptr<std::future<void> > > threads2;
+        for (unsigned int index = 1;index < thread_count;++index)
+                threads2.push_back(std::make_shared<std::future<void> >(std::async(std::launch::async,
+                                   [&bf_optimize,index](){bf_optimize.run2(index,40);})));
         bf_optimize.run2(0,40);
+        for(int i = 0;i < threads2.size();++i)
+            threads2[i]->wait();
     }
 }
 

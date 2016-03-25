@@ -66,6 +66,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "image/reg/lddmm.hpp"
 #include "image/reg/dmdm.hpp"
 #include "image/reg/bfnorm.hpp"
+#include "image/reg/reg.hpp"
 
 
 

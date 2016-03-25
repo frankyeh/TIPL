@@ -160,7 +160,7 @@ bool armijo_line_search(iter_type1 x_beg,iter_type1 x_end,
         std::vector<param_type> new_x(old_x);
         image::vec::aypx(g_beg,g_beg+size,-step,new_x.begin());
         for(unsigned int j = 0;j < size;++j)
-            new_x[j] = std::min(std::max(new_x[j],x_lower[j]),x_upper[j]);
+            new_x[j] = std::min<double>(std::max<double>(new_x[j],x_lower[j]),x_upper[j]);
         value_type new_fun_x(fun(&*new_x.begin()));
         if(fun_x-new_fun_x > 0)
         {
