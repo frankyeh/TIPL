@@ -28,17 +28,17 @@ namespace image
 namespace ml
 {
 
-const float bias_cap = 50.0;
+const float bias_cap = 10.0f;
 enum activation_type { tanh, sigmoid, relu, identity};
 
 template<typename value_type>
 inline float tanh_f(value_type v)
 {
-    if(v < -10.0)
+    if(v < -bias_cap)
         return -1.0;
-    if(v > 10.0)
-        return 1.0;
-    const float ep = std::exp(v + v);
+    if(v > bias_cap)
+        return 1.0f;
+    const float ep = std::expf(v + v);
     return (ep - float(1)) / (ep + float(1));
 }
 template<typename value_type>
@@ -51,11 +51,11 @@ inline float tanh_df(value_type y)
 template<typename value_type>
 inline float sigmoid_f(value_type v)
 {
-    if(v < -10.0)
-        return 0.0;
-    if(v > 10.0)
-        return 1.0;
-    return float(1) / (float(1) + std::exp(-v));
+    if(v < -bias_cap)
+        return 0.0f;
+    if(v > bias_cap)
+        return 1.0f;
+    return float(1) / (float(1) + std::expf(-v));
 }
 template<typename value_type>
 inline float sigmoid_df(value_type y)
@@ -773,7 +773,7 @@ public:
                 out << std::endl;
             }
     }
-    void load_from_file(const char* file_name)
+    bool load_from_file(const char* file_name)
     {
         std::ifstream in(file_name);
         std::string line;
@@ -783,14 +783,17 @@ public:
             if(!layer->weight.empty())
             {
                 std::getline(in,line);
-                std::istringstream in(line);
-                std::vector<float> w((std::istream_iterator<float>(in)),(std::istream_iterator<float>()));
+                std::vector<float> w((std::istream_iterator<float>(std::istringstream(line))),(std::istream_iterator<float>()));
+                if(w.size() != layer->weight.size())
+                    return false;
                 layer->weight.swap(w);
                 std::getline(in,line);
-                std::istringstream in2(line);
-                std::vector<float> b((std::istream_iterator<float>(in2)),(std::istream_iterator<float>()));
+                std::vector<float> b((std::istream_iterator<float>(std::istringstream(line))),(std::istream_iterator<float>()));
+                if(b.size() != layer->bias.size())
+                    return false;
                 layer->bias.swap(b);
             }
+        return true;
     }
 
     void predict(std::vector<float>& in)
@@ -808,10 +811,18 @@ public:
         return std::max_element(result.begin(),result.end())-result.begin();
     }
 
+    template<class input_type>
+    int predict_label(const input_type& in)
+    {
+        std::vector<float> result(in.begin(),in.end());
+        predict(result);
+        return std::max_element(result.begin(),result.end())-result.begin();
+    }
 
 
     template <typename data_type,typename label_type,typename iter_type>
-    void train(const data_type& data,const label_type& label_,int iteration_count,bool &termminated,
+    void train(const data_type& data,
+               const label_type& label_,int iteration_count,bool &termminated,
                iter_type iter_fun = [&]{},float learning_rate = 0.0001,bool reset_weights = true)
     {
         if(reset_weights)
@@ -867,6 +878,22 @@ public:
                     }
 
                 },thread_count);
+
+
+                if(i % 50 == 0)
+                {
+                    for(auto& layer : layers)
+                    if(!layer->weight.empty())
+                    {
+                        std::cout << " wmax:" << int(*std::max_element(layer->weight.begin(),layer->weight.end())*1000.0)
+                                  << " wmin:" << int(*std::min_element(layer->weight.begin(),layer->weight.end())*1000.0)
+                                  << " bmax:" << int(*std::max_element(layer->bias.begin(),layer->bias.end())*1000.0)
+                                  << " bmin:" << int(*std::min_element(layer->bias.begin(),layer->bias.end())*1000.0) << "|";
+                    }
+                    std::cout << std::endl;
+                }
+
+
                 par_for(layers.size(),[&](int j)
                 {
                     if(layers[j]->weight.empty())

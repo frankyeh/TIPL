@@ -35,6 +35,40 @@ void par_for2(T size, Func f, int thread_count = std::thread::hardware_concurren
 }
 
 
+class thread{
+private:
+    std::shared_ptr<std::future<void> > th;
+    bool started;
+public:
+    bool terminated;
+public:
+    thread(void):started(false),terminated(false){}
+    ~thread(void){clear();}
+    void clear(void)
+    {
+        if(th.get())
+        {
+            terminated = true;
+            th->wait();
+            th.reset();
+        }
+    }
+    template<class lambda_type>
+    void run(lambda_type&& fun)
+    {
+        if(started)
+            clear();
+        started = true;
+        th.reset(new std::future<void>(std::async(std::launch::async,fun)));
+    }
+    void wait(void)
+    {
+        th->wait();
+    }
+    bool has_started(void)const{return started;}
+};
+
+
 }
 #endif // MULTI_THREAD_HPP
 
