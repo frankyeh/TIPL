@@ -304,6 +304,8 @@ private:
             return true;
         if((type1 == 8 && type2 == 768) || (type1 == 768 && type2 == 8))
             return true;
+        if((type1 == 1024 && type2 == 1280) || (type1 == 1280 && type2 == 1024))
+            return true;
         return false;
     }
     const char* get_header_name(char)const{return ".hdr";}

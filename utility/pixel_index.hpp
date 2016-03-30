@@ -38,10 +38,10 @@ public:
     }
     template<typename vtype>
     pixel_index(vtype x,vtype y,vtype index,const geometry<2>& geo):
-            x_(x),y_(y),index_(index),w(geo[0]){}
+            x_(int(x)),y_(int(y)),index_(index),w(geo[0]){}
     template<typename vtype>
     pixel_index(vtype x,vtype y,const geometry<2>& geo):
-            x_(x),y_(y),index_(y*geo.width()+x),w(geo[0]){}
+            x_(int(x)),y_(int(y)),index_(int(y)*geo.width()+int(x)),w(geo[0]){}
     template<typename vtype>
     pixel_index(vtype* offset,const geometry<2>& geo):
             x_(offset[0]),y_(offset[1]),index_(offset[1]*geo.width()+offset[0]),w(geo[0]){}
@@ -177,10 +177,10 @@ public:
         *this = rhs;
     }
     template<typename vtype>
-    pixel_index(vtype x,vtype y,vtype z,int i,const geometry<3>& geo):x_(x),y_(y),z_(z),index_(i),w(geo[0]),h(geo[1]){}
+    pixel_index(vtype x,vtype y,vtype z,int i,const geometry<3>& geo):x_(int(x)),y_(int(y)),z_(int(z)),index_(i),w(geo[0]),h(geo[1]){}
     template<typename vtype>
     pixel_index(vtype x,vtype y,vtype z,const geometry<3>& geo):
-            x_(x),y_(y),z_(z),index_((z*geo.height() + y)*geo.width()+x),w(geo[0]),h(geo[1]){}
+            x_(int(x)),y_(int(y)),z_(int(z)),index_((int(z)*geo.height() + int(y))*geo.width()+int(x)),w(geo[0]),h(geo[1]){}
     template<typename vtype>
     pixel_index(vtype* offset,const geometry<3>& geo):
             x_(offset[0]),y_(offset[1]),z_(offset[2]),
