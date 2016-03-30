@@ -134,26 +134,26 @@ struct nifti_type_info<char>
 };
 
 template<>
-struct nifti_type_info<short>
+struct nifti_type_info<int16_t>
 {
     static const long data_type = 4;
     static const long bit_pix = 16;
 };
 template<>
-struct nifti_type_info<unsigned short>
+struct nifti_type_info<uint16_t>
 {
     static const long data_type = 4;
     static const long bit_pix = 16;
 };
 
 template<>
-struct nifti_type_info<int>
+struct nifti_type_info<int32_t>
 {
     static const long data_type = 8;
     static const long bit_pix = 32;
 };
 template<>
-struct nifti_type_info<unsigned int>
+struct nifti_type_info<uint32_t>
 {
     static const long data_type = 8;
     static const long bit_pix = 32;
@@ -169,6 +169,20 @@ template<>
 struct nifti_type_info<double>
 {
     static const long data_type = 64;
+    static const long bit_pix = 64;
+};
+
+template<>
+struct nifti_type_info<int64_t>
+{
+    static const long data_type = 1024;
+    static const long bit_pix = 64;
+};
+
+template<>
+struct nifti_type_info<uint64_t>
+{
+    static const long data_type = 1280;
     static const long bit_pix = 64;
 };
 
@@ -620,32 +634,38 @@ public:
             switch (nif_header.datatype)
             {
             case 2://DT_UNSIGNED_CHAR 2
-                std::copy((const unsigned char*)buf_ptr,(const unsigned char*)buf_ptr+pixel_count,ptr);
+                image::copy_ptr((const unsigned char*)buf_ptr,ptr,pixel_count);
                 break;
             case 4://DT_SIGNED_SHORT 4
-                std::copy((const int16_t*)buf_ptr,(const int16_t*)buf_ptr+pixel_count,ptr);
+                image::copy_ptr((const int16_t*)buf_ptr,ptr,pixel_count);
                 break;
             case 8://DT_SIGNED_INT 8
-                std::copy((const int32_t*)buf_ptr,(const int32_t*)buf_ptr+pixel_count,ptr);
+                image::copy_ptr((const int32_t*)buf_ptr,ptr,pixel_count);
                 break;
             case 16://DT_FLOAT 16
-                std::copy((const float*)buf_ptr,(const float*)buf_ptr+pixel_count,ptr);
+                image::copy_ptr((const float*)buf_ptr,ptr,pixel_count);
                 break;
             case 64://DT_DOUBLE 64
-                std::copy((const double*)buf_ptr,(const double*)buf_ptr+pixel_count,ptr);
+                image::copy_ptr((const double*)buf_ptr,ptr,pixel_count);
                 break;
             case 128://DT_RGB
                 for(unsigned int index = 0;index < buf.size();index +=3,++ptr)
                     *ptr = (short)image::rgb_color(buf[index],buf[index+1],buf[index+2]);
                 break;
             case 256: // DT_INT8
-                std::copy((const char*)&*buf.begin(),(const char*)buf_ptr+pixel_count,ptr);
+                image::copy_ptr((const char*)&*buf.begin(),ptr,pixel_count);
                 break;
             case 512: // DT_UINT16
-                std::copy((const uint16_t*)buf_ptr,(const uint16_t*)buf_ptr+pixel_count,ptr);
+                image::copy_ptr((const uint16_t*)buf_ptr,ptr,pixel_count);
                 break;
             case 768: // DT_UINT32
-                std::copy((const uint32_t*)buf_ptr,(const uint32_t*)buf_ptr+pixel_count,ptr);
+                image::copy_ptr((const uint32_t*)buf_ptr,ptr,pixel_count);
+                break;
+            case 1024: // DT_UINT32
+                image::copy_ptr((const int64_t*)buf_ptr,ptr,pixel_count);
+                break;
+            case 1280: // DT_UINT32
+                image::copy_ptr((const uint64_t*)buf_ptr,ptr,pixel_count);
                 break;
             }
             return true;
