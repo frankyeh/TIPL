@@ -7,6 +7,13 @@
 namespace image
 {
 
+template<typename iterator_type1,typename iterator_type2,typename int_type>
+inline void copy_ptr(iterator_type1 iter1,iterator_type2 iter2,int_type size)
+{
+    for(iterator_type1 end = iter1+size; iter1 != end; ++iter1,++iter2)
+        *iter2 = typename std::iterator<iterator_type2>::value_type(*iter1);
+}
+
 template<typename iterator_type1,typename iterator_type2,typename fun_type>
 inline void for_each(iterator_type1 iter1,iterator_type1 end,iterator_type2 iter2,fun_type fun)
 {
