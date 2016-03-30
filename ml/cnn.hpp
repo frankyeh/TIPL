@@ -20,6 +20,7 @@
 
 #include "image/numerical/matrix.hpp"
 #include "image/numerical/numerical.hpp"
+#include "image/numerical/basic_op.hpp"
 #include "image/utility/geometry.hpp"
 #include "image/utility/multi_thread.hpp"
 
@@ -111,25 +112,27 @@ public:
         image::vec::axpy(&bias[0],&bias[0] + bias.size(),-learning_rate,&dbias[0]);
     }
     virtual void init(const image::geometry<3>& in_dim,const image::geometry<3>& out_dim) = 0;
-    virtual void forward_propagation(std::vector<float>& data) = 0;
-    void forward_af(std::vector<float>& data)
+    virtual void forward_propagation(const float* data,float* out) = 0;
+    void forward_af(float* data)
     {
         if(af == activation_type::tanh)
-            for(int i = 0; i < data.size(); ++i)
+            for(int i = 0; i < output_size; ++i)
                 data[i] = tanh_f(data[i]);
         if(af == activation_type::sigmoid)
-            for(int i = 0; i < data.size(); ++i)
+            for(int i = 0; i < output_size; ++i)
                 data[i] = sigmoid_f(data[i]);
         if(af == activation_type::relu)
-            for(int i = 0; i < data.size(); ++i)
+            for(int i = 0; i < output_size; ++i)
                 data[i] = relu_f(data[i]);
     }
 
-    virtual void back_propagation(std::vector<float>& dE_da,
-                                  const std::vector<float>& prev_out,
+    virtual void calculate_dwdb(std::vector<float>& dE_da,
+                                  const float* prev_out,
                                   std::vector<float>& dweight,
-                                  std::vector<float>& dbias) = 0;
-    void back_af(std::vector<float>& dE_da,const std::vector<float>& prev_out)
+                                  std::vector<float>& dbias){}
+    virtual void back_propagation(std::vector<float>& dE_da,
+                                  const float* prev_out) = 0;
+    void back_af(std::vector<float>& dE_da,const float* prev_out)
     {
         if(af == activation_type::tanh)
             for(int i = 0; i < dE_da.size(); ++i)
@@ -155,23 +158,25 @@ public:
         weight_base = std::sqrt(6.0 / (float)(input_size+output_size));
     }
 
-    void forward_propagation(std::vector<float>& data) override
+    void forward_propagation(const float* data,float* out) override
     {
-        std::vector<float> wx(bias);
         for(int i = 0,i_pos = 0;i < output_size;++i,i_pos += input_size)
-            wx[i] += image::vec::dot(&weight[i_pos],&weight[i_pos]+input_size,&data[0]);
-        data.swap(wx);
+            out[i] = bias[i] + image::vec::dot(&weight[i_pos],&weight[i_pos]+input_size,&data[0]);
     }
-
-    void back_propagation(std::vector<float>& in_dE_da,
-                          const std::vector<float>& prev_out,
-                          std::vector<float>& dweight,
-                          std::vector<float>& dbias) override
+    void calculate_dwdb(std::vector<float>& in_dE_da,
+                        const float* prev_out,
+                        std::vector<float>& dweight,
+                        std::vector<float>& dbias) override
     {
         image::add(dbias,in_dE_da);
         for(int i = 0,i_pos = 0; i < output_size; i++,i_pos += input_size)
             if(in_dE_da[i] != float(0))
-                image::vec::axpy(&dweight[i_pos],&dweight[i_pos]+input_size,in_dE_da[i],&prev_out[0]);
+                image::vec::axpy(&dweight[i_pos],&dweight[i_pos]+input_size,in_dE_da[i],prev_out);
+    }
+
+    void back_propagation(std::vector<float>& in_dE_da,
+                          const float*) override
+    {
         std::vector<float> dE_da(input_size);
         image::mat::left_vector_product(&weight[0],&in_dE_da[0],&dE_da[0],image::dyndim(in_dE_da.size(),dE_da.size()));
         dE_da.swap(in_dE_da);
@@ -221,9 +226,8 @@ public:
     }
 
 
-    void forward_propagation(std::vector<float>& data) override
+    void forward_propagation(const float* data,float* out) override
     {
-        std::vector<float> wx(output_size);
         for(int i = 0; i < output_size; ++i)
         {
             const std::vector<int>& o2w_1i = o2w_1[i];
@@ -231,15 +235,13 @@ public:
             float sum(0);
             for(int j = 0;j < o2w_1i.size();++j)
                 sum += weight[o2w_1i[j]] * data[o2w_2i[j]];
-            wx[i] = sum + bias[o2b[i]];
+            out[i] = sum + bias[o2b[i]];
         }
-        data.swap(wx);
     }
-
-    void back_propagation(std::vector<float>& in_dE_da,
-                          const std::vector<float>& prev_out,
-                          std::vector<float>& dweight,
-                          std::vector<float>& dbias) override
+    void calculate_dwdb(std::vector<float>& in_dE_da,
+                        const float* prev_out,
+                        std::vector<float>& dweight,
+                        std::vector<float>& dbias) override
     {
         for(int i = 0; i < w2o_1.size(); i++)
         {
@@ -259,7 +261,10 @@ public:
                 sum += in_dE_da[outs[j]];
             dbias[i] += sum;
         }
-
+    }
+    void back_propagation(std::vector<float>& in_dE_da,
+                          const float*) override
+    {
         std::vector<float> dE_da(input_size);
         for(int i = 0; i != input_size; i++)
         {
@@ -338,10 +343,8 @@ public:
         init_connection(pool_size);
         weight_base = std::sqrt(6.0 / (float)(o2i[0].size()+1));
     }
-    void forward_propagation(std::vector<float>& data) override
+    void forward_propagation(const float* data,float* out) override
     {
-        std::vector<float> wx(basic_layer::output_size);
-
         for(int i = 0; i < basic_layer::output_size; i++)
         {
             float max_value = std::numeric_limits<float>::lowest();
@@ -350,15 +353,11 @@ public:
                 if(data[j] > max_value)
                     max_value = data[j];
             }
-            wx[i] = max_value;
+            out[i] = max_value;
         }
-        data.swap(wx);
     }
-
     void back_propagation(std::vector<float>& in_dE_da,
-                          const std::vector<float>& prev_out,
-                          std::vector<float>& dweight,
-                          std::vector<float>& dbias) override
+                          const float* prev_out) override
     {
         std::vector<int> max_idx(out_dim.size());
 
@@ -463,11 +462,11 @@ public:
         weight_base = std::sqrt(6.0 / (float)(weight_dim.plane_size() * in_dim.depth() + weight_dim.plane_size() * out_dim.depth()));
     }
 
-    void forward_propagation(std::vector<float>& data) override
+    void forward_propagation(const float* data,float* out) override
     {
-        std::vector<float> wx(output_size);
         for(int o = 0, o_index = 0,o_index2 = 0; o < out_dim.depth(); ++o, o_index += out_dim.plane_size())
         {
+            std::fill(out+o_index,out+o_index+out_dim.plane_size(),bias[o]);
             for(int inc = 0, inc_index = 0; inc < in_dim.depth(); inc++, inc_index += in_dim.plane_size(),o_index2 += weight_dim.plane_size())
                 if(connection.is_connected(o, inc))
                 {
@@ -484,20 +483,16 @@ public:
                                 w += weight_dim.width();
                                 p += in_dim.width();
                             }
-                            wx[o_index+index] += sum;
+                            out[o_index+index] += sum;
                         }
                     }
                 }
-            image::add_constant(&wx[o_index],&wx[o_index]+out_dim.plane_size(),bias[o]);
         }
-
-        data.swap(wx);
     }
-
-    void back_propagation(std::vector<float>& in_dE_da,
-                          const std::vector<float>& prev_out,
-                          std::vector<float>& dweight,
-                          std::vector<float>& dbias) override
+    void calculate_dwdb(std::vector<float>& in_dE_da,
+                        const float* prev_out,
+                        std::vector<float>& dweight,
+                        std::vector<float>& dbias) override
     {
         // accumulate dw
         for(int outc = 0, outc_pos = 0, w_index = 0; outc < out_dim.depth(); outc++, outc_pos += out_dim.plane_size())
@@ -509,7 +504,7 @@ public:
                 {
                     for(int wx = 0; wx < weight_dim.width(); wx++, ++index)
                     {
-                        const float * prevo = &prev_out[(in_dim.height() * inc + wy) * in_dim.width() + wx];
+                        const float * prevo = prev_out + (in_dim.height() * inc + wy) * in_dim.width() + wx;
                         const float * delta = &in_dE_da[outc_pos];
                         float sum(0);
                         for(int y = 0; y < out_dim.height(); y++, prevo += in_dim.width(), delta += out_dim.width())
@@ -526,6 +521,11 @@ public:
                 dbias[outc] += std::accumulate(delta, delta + out_dim.plane_size(), float(0));
             }
         }
+    }
+    void back_propagation(std::vector<float>& in_dE_da,
+                          const float*) override
+    {
+
         std::vector<float> dE_da(input_size);
         // propagate delta to previous layer
         for(int outc = 0, outc_pos = 0,w_index = 0; outc < out_dim.depth(); ++outc, outc_pos += out_dim.plane_size())
@@ -552,6 +552,7 @@ public:
 
 };
 
+/*
 class dropout_layer : public basic_layer
 {
 private:
@@ -574,9 +575,7 @@ public:
     }
 
     void back_propagation(std::vector<float>& in_dE_da,
-                          const std::vector<float>& prev_out,
-                          std::vector<float>& dweight,
-                          std::vector<float>& dbias) override
+                          const std::vector<float>& prev_out) override
     {
         if(drop.empty())
         {
@@ -589,7 +588,7 @@ public:
             if(drop[i])
                 in_dE_da[i] = 0;
     }
-    void forward_propagation(std::vector<float>& data) override
+    void forward_propagation(const float* data,float* out) override
     {
         if(drop.empty())
             return;
@@ -598,6 +597,7 @@ public:
                 data[i] = 0;
     }
 };
+*/
 
 class soft_max_layer : public basic_layer{
 public:
@@ -611,17 +611,16 @@ public:
             throw std::runtime_error("invalid layer dimension at soft_max_layer");
         basic_layer::init(in_dim.size(),in_dim.size(),0,0);
     }
-    void forward_propagation(std::vector<float>& data) override
+    void forward_propagation(const float* data,float* out) override
     {
-        image::exp(data);
-        float sum = std::accumulate(data.begin(),data.end(),float(0));
+        for(int i = 0;i < input_size;++i)
+            out[i] = std::expf(data[i]);
+        float sum = std::accumulate(out,out+output_size,float(0));
         if(sum != 0)
-            image::divide_constant(data.begin(),data.end(),sum);
+            image::divide_constant(out,out+output_size,sum);
     }
     void back_propagation(std::vector<float>& in_dE_da,
-                          const std::vector<float>& prev_out,
-                          std::vector<float>& dweight,
-                          std::vector<float>& dbias) override
+                          const float* prev_out) override
     {
         std::vector<float> dE_da(in_dE_da.size());
         for(int i = 0;i < in_dE_da.size();++i)
@@ -639,12 +638,14 @@ class network
 {
     std::vector<std::shared_ptr<basic_layer> > layers;
     std::vector<image::geometry<3> > geo;
+    unsigned int data_size;
 public:
-    network(){}
+    network():data_size(0){}
     void reset(void)
     {
         layers.clear();
         geo.clear();
+        data_size = 0;
     }
 
     void add(basic_layer* new_layer)
@@ -656,6 +657,7 @@ public:
         if(!layers.empty())
             layers.back()->init(geo.back(),dim);
         geo.push_back(dim);
+        data_size += dim.size();
     }
     void add(const std::string& text)
     {
@@ -689,6 +691,14 @@ public:
                 return;
             }
         }
+
+        if(list.empty())
+            throw std::runtime_error(std::string("Invalid network construction text:") + text);
+        if(list[0] == "soft_max")
+        {
+            add(new soft_max_layer());
+            return;
+        }
         if(list.size() < 2)
             throw std::runtime_error(std::string("Invalid network construction text:") + text);
         activation_type af;
@@ -711,6 +721,7 @@ public:
             add(new fully_connected_layer(af));
             return;
         }
+
         if(list.size() < 3)
             throw std::runtime_error(std::string("Invalid network construction text:") + text);
         int param;
@@ -761,6 +772,8 @@ public:
                     out << "avg_pooling," << af_type << "," << dynamic_cast<average_pooling_layer*>(layers[i].get())->pool_size;
                 if(dynamic_cast<fully_connected_layer*>(layers[i].get()))
                     out << "full," << af_type;
+                if(dynamic_cast<soft_max_layer*>(layers[i].get()))
+                    out << "soft_max";
             }
         }
         out << std::endl;
@@ -798,10 +811,13 @@ public:
 
     void predict(std::vector<float>& in)
     {
+        std::vector<float> out;
         for(auto layer : layers)
         {
-            layer->forward_propagation(in);
-            layer->forward_af(in);
+            out.resize(layer->output_size);
+            layer->forward_propagation(&in[0],&out[0]);
+            layer->forward_af(&out[0]);
+            in.swap(out);
         }
     }
     int predict_label(const std::vector<float>& in)
@@ -838,8 +854,12 @@ public:
             for(int j = 0;j < label_size;++j)
                 label[i][j] = (j == label_[i]) ? target_value_max():target_value_min();
         }
+
         int thread_count = std::thread::hardware_concurrency();
         std::vector<std::vector<std::vector<float> > > dweight(thread_count),dbias(thread_count);
+        std::vector<std::vector<float> > in_out(thread_count);
+        std::vector<float*> in_out_ptr(thread_count);
+
         for(int i = 0;i < thread_count;++i)
         {
             dweight[i].resize(layers.size());
@@ -849,6 +869,8 @@ public:
                 dweight[i][j].resize(layers[j]->weight.size());
                 dbias[i][j].resize(layers[j]->bias.size());
             }
+            in_out[i].resize(data_size);
+            in_out_ptr[i] = &in_out[i][0];
         }
         int batch_size = 20;
         for(int iter = 0; iter < iteration_count; iter++ && !termminated,learning_rate *= 0.85,iter_fun())
@@ -860,27 +882,32 @@ public:
                 {
                     if(termminated)
                         return;
-                    std::vector<std::vector<float> > out(layers.size()+1);
-                    out[0] = data[i + m];
+                    float* out_ptr = in_out_ptr[thread_id];
+                    std::copy(data[i+m].begin(),data[i+m].end(),out_ptr);
                     for(int k = 0;k < layers.size();++k)
                     {
-                        out[k+1] = out[k];
-                        layers[k]->forward_propagation(out[k+1]);
-                        layers[k]->forward_af(out[k+1]);
+                        float* next_ptr = out_ptr + layers[k]->input_size;
+                        layers[k]->forward_propagation(out_ptr,next_ptr);
+                        layers[k]->forward_af(next_ptr);
+                        out_ptr = next_ptr;
                     }
-
-                    std::vector<float> output = out.back();
+                    out_ptr = in_out_ptr[thread_id] + data_size - layers.back()->output_size;
+                    std::vector<float> output(out_ptr,out_ptr + layers.back()->output_size);
                     image::minus(output,label[i + m]);// diff of mse
                     for(int k = layers.size()-1;k >= 0;--k)
                     {
-                        layers[k]->back_af(output,out[k+1]);
-                        layers[k]->back_propagation(output,out[k],dweight[thread_id][k],dbias[thread_id][k]);
+                        layers[k]->back_af(output,out_ptr);
+                        float* next_ptr = out_ptr - layers[k]->input_size;
+                        if(!layers[k]->weight.empty())
+                            layers[k]->calculate_dwdb(output,next_ptr,dweight[thread_id][k],dbias[thread_id][k]);
+                        layers[k]->back_propagation(output,next_ptr);
+                        out_ptr = next_ptr;
                     }
 
                 },thread_count);
 
 
-                if(i % 50 == 0)
+                if(i % 500 == 0)
                 {
                     for(auto& layer : layers)
                     if(!layer->weight.empty())
@@ -915,7 +942,8 @@ public:
         }
     }
 
-    void test(const std::vector<std::vector<float>>& data,std::vector<std::vector<float> >& test_result)
+    void test(const std::vector<std::vector<float>>& data,
+              std::vector<std::vector<float> >& test_result)
     {
         test_result.resize(data.size());
         par_for((int)data.size(), [&](int i)
@@ -924,7 +952,8 @@ public:
             predict(test_result[i]);
         });
     }
-    void test(const std::vector<std::vector<float>>& data,std::vector<int>& test_result)
+    void test(const std::vector<std::vector<float>>& data,
+              std::vector<int>& test_result)
     {
         test_result.resize(data.size());
         par_for((int)data.size(), [&](int i)
