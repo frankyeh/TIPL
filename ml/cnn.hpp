@@ -126,22 +126,23 @@ public:
                 data[i] = relu_f(data[i]);
     }
 
-    virtual void calculate_dwdb(std::vector<float>& dE_da,
+    virtual void calculate_dwdb(const float* dE_da,
                                   const float* prev_out,
                                   std::vector<float>& dweight,
                                   std::vector<float>& dbias){}
-    virtual void back_propagation(std::vector<float>& dE_da,
-                                  const float* prev_out) = 0;
-    void back_af(std::vector<float>& dE_da,const float* prev_out)
+    virtual void back_propagation(float* in_dE_da,
+                                  float* out_dE_da,
+                                  const float*) = 0;
+    void back_af(float* dE_da,const float* prev_out)
     {
         if(af == activation_type::tanh)
-            for(int i = 0; i < dE_da.size(); ++i)
+            for(int i = 0; i < output_size; ++i)
                 dE_da[i] *= tanh_df(prev_out[i]);
         if(af == activation_type::sigmoid)
-            for(int i = 0; i < dE_da.size(); ++i)
+            for(int i = 0; i < output_size; ++i)
                 dE_da[i] *= sigmoid_df(prev_out[i]);
         if(af == activation_type::relu)
-            for(int i = 0; i < dE_da.size(); ++i)
+            for(int i = 0; i < output_size; ++i)
                 dE_da[i] *= relu_df(prev_out[i]);
     }
 };
@@ -163,23 +164,22 @@ public:
         for(int i = 0,i_pos = 0;i < output_size;++i,i_pos += input_size)
             out[i] = bias[i] + image::vec::dot(&weight[i_pos],&weight[i_pos]+input_size,&data[0]);
     }
-    void calculate_dwdb(std::vector<float>& in_dE_da,
+    void calculate_dwdb(const float* in_dE_da,
                         const float* prev_out,
                         std::vector<float>& dweight,
                         std::vector<float>& dbias) override
     {
-        image::add(dbias,in_dE_da);
+        image::add(&dbias[0],&dbias[0]+output_size,in_dE_da);
         for(int i = 0,i_pos = 0; i < output_size; i++,i_pos += input_size)
             if(in_dE_da[i] != float(0))
                 image::vec::axpy(&dweight[i_pos],&dweight[i_pos]+input_size,in_dE_da[i],prev_out);
     }
 
-    void back_propagation(std::vector<float>& in_dE_da,
+    void back_propagation(float* in_dE_da,// output_size
+                          float* out_dE_da,// input_size
                           const float*) override
     {
-        std::vector<float> dE_da(input_size);
-        image::mat::left_vector_product(&weight[0],&in_dE_da[0],&dE_da[0],image::dyndim(in_dE_da.size(),dE_da.size()));
-        dE_da.swap(in_dE_da);
+        image::mat::left_vector_product(&weight[0],in_dE_da,out_dE_da,image::dyndim(output_size,input_size));
     }
 };
 
@@ -238,7 +238,7 @@ public:
             out[i] = sum + bias[o2b[i]];
         }
     }
-    void calculate_dwdb(std::vector<float>& in_dE_da,
+    void calculate_dwdb(const float* in_dE_da,
                         const float* prev_out,
                         std::vector<float>& dweight,
                         std::vector<float>& dbias) override
@@ -262,21 +262,19 @@ public:
             dbias[i] += sum;
         }
     }
-    void back_propagation(std::vector<float>& in_dE_da,
+    void back_propagation(float* in_dE_da,// output_size
+                          float* out_dE_da,// input_size
                           const float*) override
     {
-        std::vector<float> dE_da(input_size);
         for(int i = 0; i != input_size; i++)
         {
             const std::vector<int>& i2w_1i = i2w_1[i];
             const std::vector<int>& i2w_2i = i2w_2[i];
-
             float sum(0);
             for(int j = 0;j < i2w_1i.size();++j)
                 sum += weight[i2w_1i[j]] * in_dE_da[i2w_2i[j]];
-            dE_da[i] = sum;
+            out_dE_da[i] = sum;
         }
-        dE_da.swap(in_dE_da);
     }
 
 };
@@ -356,12 +354,13 @@ public:
             out[i] = max_value;
         }
     }
-    void back_propagation(std::vector<float>& in_dE_da,
+    void back_propagation(float* in_dE_da,// output_size
+                          float* out_dE_da,// input_size
                           const float* prev_out) override
     {
         std::vector<int> max_idx(out_dim.size());
 
-        for(int i = 0; i < basic_layer::output_size; i++)
+        for(int i = 0; i < output_size; i++)
         {
             float max_value = std::numeric_limits<float>::lowest();
             for(auto j : o2i[i])
@@ -373,13 +372,11 @@ public:
                 }
             }
         }
-        std::vector<float> dE_da(input_size);
         for(int i = 0; i < input_size; i++)
         {
             int outi = i2o[i];
-            dE_da[i] = (max_idx[outi] == i) ? in_dE_da[outi] : float(0);
+            out_dE_da[i] = (max_idx[outi] == i) ? in_dE_da[outi] : float(0);
         }
-        dE_da.swap(in_dE_da);
     }
 private:
     void init_connection(int pool_size)
@@ -489,7 +486,7 @@ public:
                 }
         }
     }
-    void calculate_dwdb(std::vector<float>& in_dE_da,
+    void calculate_dwdb(const float* in_dE_da,
                         const float* prev_out,
                         std::vector<float>& dweight,
                         std::vector<float>& dbias) override
@@ -522,19 +519,18 @@ public:
             }
         }
     }
-    void back_propagation(std::vector<float>& in_dE_da,
+    void back_propagation(float* in_dE_da,// output_size
+                          float* out_dE_da,// input_size
                           const float*) override
     {
-
-        std::vector<float> dE_da(input_size);
         // propagate delta to previous layer
         for(int outc = 0, outc_pos = 0,w_index = 0; outc < out_dim.depth(); ++outc, outc_pos += out_dim.plane_size())
         {
             for(int inc = 0, inc_pos = 0; inc < in_dim.depth(); ++inc, inc_pos += in_dim.plane_size(),w_index += weight_dim.plane_size())
             if(connection.is_connected(outc, inc))
             {
-                const float *pdelta_src = &in_dE_da[outc_pos];
-                float *pdelta_dst = &dE_da[inc_pos];
+                const float *pdelta_src = in_dE_da + outc_pos;
+                float *pdelta_dst = out_dE_da + inc_pos;
                 for(int y = 0, y_pos = 0, index = 0; y < out_dim.height(); y++, y_pos += in_dim.width())
                     for(int x = 0; x < out_dim.width(); x++, ++index)
                     {
@@ -547,7 +543,6 @@ public:
 
             }
         }
-        dE_da.swap(in_dE_da);
     }
 
 };
@@ -574,8 +569,9 @@ public:
         basic_layer::init(dim,dim,0,0);
     }
 
-    void back_propagation(std::vector<float>& in_dE_da,
-                          const std::vector<float>& prev_out) override
+    void back_propagation(float* in_dE_da,// output_size
+                          float* out_dE_da,// input_size
+                          const float*) override
     {
         if(drop.empty())
         {
@@ -585,8 +581,7 @@ public:
             return;
         }
         for(int i = 0; i < drop.size(); i++)
-            if(drop[i])
-                in_dE_da[i] = 0;
+            out_dE_da[i] = drop[i] ? 0: in_dE_da[i];
     }
     void forward_propagation(const float* data,float* out) override
     {
@@ -619,18 +614,17 @@ public:
         if(sum != 0)
             image::divide_constant(out,out+output_size,sum);
     }
-    void back_propagation(std::vector<float>& in_dE_da,
+    void back_propagation(float* in_dE_da,// output_size
+                          float* out_dE_da,// input_size
                           const float* prev_out) override
     {
-        std::vector<float> dE_da(in_dE_da.size());
-        for(int i = 0;i < in_dE_da.size();++i)
+        for(int i = 0;i < output_size;++i)
         {
             float sum = float(0);
-            for(int j = 0;j < in_dE_da.size();++j)
+            for(int j = 0;j < output_size;++j)
                 sum += (i == j) ?  in_dE_da[j]*(float(1)-prev_out[i]) : -in_dE_da[j]*prev_out[i];
-            dE_da[i] = sum;
+            out_dE_da[i] = sum;
         }
-        dE_da.swap(in_dE_da);
     }
 };
 
@@ -809,32 +803,19 @@ public:
         return true;
     }
 
-    void predict(std::vector<float>& in)
+
+
+
+    void forward_propagation(const float* input,float* out_ptr)
     {
-        std::vector<float> out;
-        for(auto layer : layers)
+        for(int k = 0;k < layers.size();++k)
         {
-            out.resize(layer->output_size);
-            layer->forward_propagation(&in[0],&out[0]);
-            layer->forward_af(&out[0]);
-            in.swap(out);
+            float* next_ptr = out_ptr + layers[k]->input_size;
+            layers[k]->forward_propagation(k == 0 ? input : out_ptr,next_ptr);
+            layers[k]->forward_af(next_ptr);
+            out_ptr = next_ptr;
         }
     }
-    int predict_label(const std::vector<float>& in)
-    {
-        std::vector<float> result(in);
-        predict(result);
-        return std::max_element(result.begin(),result.end())-result.begin();
-    }
-
-    template<class input_type>
-    int predict_label(const input_type& in)
-    {
-        std::vector<float> result(in.begin(),in.end());
-        predict(result);
-        return std::max_element(result.begin(),result.end())-result.begin();
-    }
-
 
     template <typename data_type,typename label_type,typename iter_type>
     void train(const data_type& data,
@@ -846,19 +827,19 @@ public:
             for(auto layer : layers)
                 layer->reset();
         }
-        int label_size = *std::max_element(label_.begin(),label_.end())+1;
+        const unsigned int output_size = layers.back()->output_size;
         std::vector<std::vector<float> > label(label_.size());
         for(int i = 0;i < label_.size();++i)
         {
-            label[i].resize(label_size);
-            for(int j = 0;j < label_size;++j)
+            label[i].resize(output_size);
+            for(int j = 0;j < output_size;++j)
                 label[i][j] = (j == label_[i]) ? target_value_max():target_value_min();
         }
 
         int thread_count = std::thread::hardware_concurrency();
         std::vector<std::vector<std::vector<float> > > dweight(thread_count),dbias(thread_count);
-        std::vector<std::vector<float> > in_out(thread_count);
-        std::vector<float*> in_out_ptr(thread_count);
+        std::vector<std::vector<float> > in_out(thread_count),back_df(thread_count);
+        std::vector<float*> in_out_ptr(thread_count),back_df_ptr(thread_count);
 
         for(int i = 0;i < thread_count;++i)
         {
@@ -870,8 +851,12 @@ public:
                 dbias[i][j].resize(layers[j]->bias.size());
             }
             in_out[i].resize(data_size);
+            back_df[i].resize(data_size);
             in_out_ptr[i] = &in_out[i][0];
+            back_df_ptr[i] = &back_df[i][0];
         }
+
+
         int batch_size = 20;
         for(int iter = 0; iter < iteration_count; iter++ && !termminated,learning_rate *= 0.85,iter_fun())
         {
@@ -880,28 +865,28 @@ public:
                 int size = std::min<int>(batch_size,data.size()-i);
                 par_for2(size, [&](int m, int thread_id)
                 {
+                    int data_index = i+m;
                     if(termminated)
                         return;
-                    float* out_ptr = in_out_ptr[thread_id];
-                    std::copy(data[i+m].begin(),data[i+m].end(),out_ptr);
-                    for(int k = 0;k < layers.size();++k)
-                    {
-                        float* next_ptr = out_ptr + layers[k]->input_size;
-                        layers[k]->forward_propagation(out_ptr,next_ptr);
-                        layers[k]->forward_af(next_ptr);
-                        out_ptr = next_ptr;
-                    }
-                    out_ptr = in_out_ptr[thread_id] + data_size - layers.back()->output_size;
-                    std::vector<float> output(out_ptr,out_ptr + layers.back()->output_size);
-                    image::minus(output,label[i + m]);// diff of mse
+                    forward_propagation(&data[data_index][0],in_out_ptr[thread_id]);
+
+                    const float* out_ptr2 = in_out_ptr[thread_id] + data_size - output_size;
+                    float* df_ptr = back_df_ptr[thread_id] + data_size - output_size;
+
+                    image::copy_ptr(out_ptr2,df_ptr,output_size);
+                    image::minus(df_ptr,df_ptr+output_size,&label[data_index][0]);// diff of mse
+
+
                     for(int k = layers.size()-1;k >= 0;--k)
                     {
-                        layers[k]->back_af(output,out_ptr);
-                        float* next_ptr = out_ptr - layers[k]->input_size;
+                        layers[k]->back_af(df_ptr,out_ptr2);
+                        const float* next_out_ptr = (k == 0 ? &data[data_index][0] : out_ptr2 - layers[k]->input_size);
+                        float* next_df_ptr = df_ptr - layers[k]->input_size;
                         if(!layers[k]->weight.empty())
-                            layers[k]->calculate_dwdb(output,next_ptr,dweight[thread_id][k],dbias[thread_id][k]);
-                        layers[k]->back_propagation(output,next_ptr);
-                        out_ptr = next_ptr;
+                            layers[k]->calculate_dwdb(df_ptr,next_out_ptr,dweight[thread_id][k],dbias[thread_id][k]);
+                        layers[k]->back_propagation(df_ptr,next_df_ptr,next_out_ptr);
+                        out_ptr2 = next_out_ptr;
+                        df_ptr = next_df_ptr;
                     }
 
                 },thread_count);
@@ -940,6 +925,29 @@ public:
 
             }
         }
+    }
+
+    void predict(std::vector<float>& in)
+    {
+        std::vector<float> out(data_size);
+        forward_propagation(&in[0],&out[0]);
+        in.resize(layers.back()->output_size);
+        std::copy(out.end()-in.size(),out.end(),in.begin());
+    }
+
+    int predict_label(const std::vector<float>& in)
+    {
+        std::vector<float> result(in);
+        predict(result);
+        return std::max_element(result.begin(),result.end())-result.begin();
+    }
+
+    template<class input_type>
+    int predict_label(const input_type& in)
+    {
+        std::vector<float> result(in.begin(),in.end());
+        predict(result);
+        return std::max_element(result.begin(),result.end())-result.begin();
     }
 
     void test(const std::vector<std::vector<float>>& data,
