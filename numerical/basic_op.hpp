@@ -688,7 +688,7 @@ void project(const image::basic_image<PixelType1,2>& src,OutImageType& result,un
     {
         result.clear();
         result.resize(src.width());
-        for(pixel_index<2> index; index.is_valid(src.geometry()); index.next(src.geometry()))
+        for(pixel_index<2> index(src.geometry());index < src.size();++index)
             result[index.x()] += src[index.index()];
     }
 }
