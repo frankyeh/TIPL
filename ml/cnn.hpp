@@ -790,12 +790,14 @@ public:
             if(!layer->weight.empty())
             {
                 std::getline(in,line);
-                std::vector<float> w((std::istream_iterator<float>(std::istringstream(line))),(std::istream_iterator<float>()));
+                std::istringstream in1(line);
+                std::vector<float> w((std::istream_iterator<float>(in1)),(std::istream_iterator<float>()));
                 if(w.size() != layer->weight.size())
                     return false;
                 layer->weight.swap(w);
                 std::getline(in,line);
-                std::vector<float> b((std::istream_iterator<float>(std::istringstream(line))),(std::istream_iterator<float>()));
+                std::istringstream in2(line);
+                std::vector<float> b((std::istream_iterator<float>(in2)),(std::istream_iterator<float>()));
                 if(b.size() != layer->bias.size())
                     return false;
                 layer->bias.swap(b);
