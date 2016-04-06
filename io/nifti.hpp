@@ -655,7 +655,7 @@ public:
                     *ptr = (short)image::rgb_color(buf[index],buf[index+1],buf[index+2]);
                 break;
             case 256: // DT_INT8
-                image::copy_ptr((const char*)&*buf.begin(),ptr,pixel_count);
+                image::copy_ptr((const char*)buf_ptr,ptr,pixel_count);
                 break;
             case 512: // DT_UINT16
                 image::copy_ptr((const uint16_t*)buf_ptr,ptr,pixel_count);
