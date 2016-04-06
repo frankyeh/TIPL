@@ -44,7 +44,7 @@ void fast_lddmm(const basic_image<pixel_type,dimension>& I0,
     float last_total_e = std::numeric_limits<float>::max();
     float total_e = std::numeric_limits<float>::max();
 
-    for (image::pixel_index<dimension> index; index.valid(geo); index.next(geo))
+    for (image::pixel_index<dimension> index(geo); index < geo.size(); ++index)
     {
         s0[index.index()] = index;
         s1[index.index()] = index;
@@ -61,7 +61,7 @@ void fast_lddmm(const basic_image<pixel_type,dimension>& I0,
         if(update_K)
         {
             vector<dimension,float> bandwidth = K.geometry();
-            for(pixel_index<dimension> index; index.valid(K.geometry()); index.next(K.geometry()))
+            for(pixel_index<dimension> index(K.geometry());index < K.size();++index)
             {
                 float Ak = 0;
                 for(unsigned int dim = 0; dim < dimension; ++dim)
@@ -105,7 +105,7 @@ void fast_lddmm(const basic_image<pixel_type,dimension>& I0,
             dt *= 0.5;
             for(unsigned int d =0; d < dimension; ++d)
                 alpha *= 0.5;
-            for (image::pixel_index<dimension> index; index.valid(geo); index.next(geo))
+            for (image::pixel_index<dimension> index(geo); index < geo.size(); ++index)
             {
                 if(last_total_e > total_e)
                 {
@@ -125,10 +125,10 @@ void fast_lddmm(const basic_image<pixel_type,dimension>& I0,
         /* Calculate for j = 0 to j = N ? 1 the mapping using Eq. (18).
         */
         if(swi)
-            for (image::pixel_index<dimension> index; index.valid(geo); index.next(geo))
+            for (image::pixel_index<dimension> index(geo); index < geo.size(); ++index)
                 image::estimate(s0,vtor_type(index)-v[index.index()],s0_next[index.index()]);
         else
-            for (image::pixel_index<dimension> index; index.valid(geo); index.next(geo))
+            for (image::pixel_index<dimension> index(geo); index < geo.size(); ++index)
                 image::estimate(s1,vtor_type(index)+v2[index.index()],s1_next[index.index()]);
 
         s0 = s0_next;
@@ -204,7 +204,7 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
         s1[j].resize(geo);
         v[j].resize(geo);
         alpha_dis[j].resize(geo);
-        for (image::pixel_index<dimension> index; index.valid(geo); index.next(geo))
+        for (image::pixel_index<dimension> index(geo); index < geo.size(); ++index)
         {
             s0[j][index.index()] = index;
             s1[j][index.index()] = index;
@@ -224,7 +224,7 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
     //float gamma = 1.0;
     {
         vector<dimension,float> bandwidth = K.geometry();
-        for(pixel_index<dimension> index; index.valid(K.geometry()); index.next(K.geometry()))
+        for(pixel_index<dimension> index(K.geometry());index < K.size();++index)
         {
             float Ak = 0;
             for(unsigned int dim = 0; dim < dimension; ++dim)
@@ -244,7 +244,7 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
         if(k %10 == 9)// reparameterize
         {
             std::vector<float> v_length(T);
-            for (image::pixel_index<dimension> index; index.valid(geo); index.next(geo))
+            for (image::pixel_index<dimension> index(geo); index < geo.size(); ++index)
             {
                 for(unsigned int j =0; j < T; ++j)
                     v_length[j] = v[j][index.index()].length();
@@ -306,7 +306,7 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
         {
             basic_image<vtor_type,dimension>& vj = v[j];
             basic_image<vtor_type,dimension>& alpha_j = alpha_dis[j];
-            for (image::pixel_index<dimension> index; index.valid(geo); index.next(geo))
+            for (image::pixel_index<dimension> index(geo); index < geo.size(); ++index)
             {
                 for(unsigned char i = 0;i < 5;++i)
                     image::estimate(vj,vtor_type(index)-alpha_j[index.index()]/2,
@@ -319,7 +319,7 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
         {
             basic_image<vtor_type,dimension>& alpha_j = alpha_dis[j];
             // £pj(y) = £pj+1(y + α).
-            for (image::pixel_index<dimension> index; index.valid(geo); index.next(geo))
+            for (image::pixel_index<dimension> index(geo); index < geo.size(); ++index)
                 image::estimate(s1[j+1],vtor_type(index)+alpha_j[index.index()],s1[j][index.index()]);
         }
 
@@ -328,7 +328,7 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
         {
             basic_image<vtor_type,dimension>& alpha_j = alpha_dis[j];
             // £pj(y) = £pj-1(y - α).
-            for (image::pixel_index<dimension> index; index.valid(geo); index.next(geo))
+            for (image::pixel_index<dimension> index(geo); index < geo.size(); ++index)
                 image::estimate(s0[j-1],vtor_type(index)-alpha_j[index.index()],s0[j][index.index()]);
         }
         // Calculate for j = 0 to j = N ? 1 the image J0j= I0 ? £pk+1 j,0

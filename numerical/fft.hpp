@@ -1,7 +1,6 @@
 #ifndef FFT_HPP_INCLUDED
 #define FFT_HPP_INCLUDED
 #include "image/utility/basic_image.hpp"
-#include "image/utility/pixel_index.hpp"
 #include "image/utility/geometry.hpp"
 #include <cmath>
 #include <vector>

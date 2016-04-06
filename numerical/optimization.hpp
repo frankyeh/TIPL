@@ -22,7 +22,7 @@ void plot_fun_2d(
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
     I.resize(image::geometry<2>(sample_frequency,sample_frequency));
-    for(image::pixel_index<2> index;index.is_valid(I.geometry());index.next(I.geometry()))
+    for(image::pixel_index<2> index(I.geometry());index < I.size();++index)
     {
         std::vector<param_type> x(x_beg,x_end);
         x[dim1] = (x_upper[dim1]-x_lower[dim1])*index[0]/(float)sample_frequency+x_lower[dim1];
