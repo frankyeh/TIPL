@@ -110,7 +110,7 @@ public:
 template<typename image_type>
 void gaussian(image_type& src)
 {
-    gaussian_filter_imp<image_type::value_type,image_type::dimension>()(src);
+    gaussian_filter_imp<typename image_type::value_type,image_type::dimension>()(src);
 }
 
 
