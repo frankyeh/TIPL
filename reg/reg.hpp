@@ -38,8 +38,8 @@ public:
     const image::transformation_matrix<value_type>& get_iT(void) const{return iT;}
     const image::affine_transform<value_type> get_arg(void) const{return arg;}
     image::affine_transform<value_type>& get_arg(void){return arg;}
-    template<typename value_type>
-    void set_arg(const value_type& rhs){arg = rhs;update_affine();}
+    template<typename rhs_type>
+    void set_arg(const rhs_type& rhs){arg = rhs;update_affine();}
 public:
     template<typename image_type,typename vector_type,typename terminate_type>
     void run_reg(const image_type& from,
