@@ -60,7 +60,7 @@ private:
         }
     }
 public:
-    template<typename char_type>
+    template<class char_type>
     bool load_from_file(const char_type* file_name)
 
     {
@@ -147,7 +147,7 @@ public:
     std::vector<float> slopes;
 
 
-    template<typename char_type>
+    template<class char_type>
     bool load_from_file(const char_type* file_name)
     {
         if(!check_name(file_name))
@@ -244,7 +244,7 @@ public:
 
     }
 
-    template<typename pixel_size_type>
+    template<class pixel_size_type>
     void get_voxel_size(pixel_size_type pixel_size_from) const
     {
         if(dim[2] >= 1)
@@ -253,14 +253,14 @@ public:
             std::copy(resolution,resolution+2,pixel_size_from);
     }
 
-    template<typename image_type>
+    template<class image_type>
     void save_to_image(image_type& out) const
     {
         out.resize(geometry<image_type::dimension>(dim));
         std::copy(data.begin(),data.begin()+out.size(),out.begin());
     }
 
-    template<typename image_type>
+    template<class image_type>
     const bruker_2dseq& operator>>(image_type& source) const
     {
         save_to_image(source);

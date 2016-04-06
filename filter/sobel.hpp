@@ -10,21 +10,21 @@ namespace filter
 {
 
 
-template<typename value_type>
+template<class value_type>
 value_type sobel_filter_abs(value_type value)
 {
 	return value >= 0 ? value : -value;
 }
 
-template<typename value_type,size_t dimension>
+template<class value_type,size_t dimension>
 class sobel_filter_imp;
 
-template<typename value_type>
+template<class value_type>
 class sobel_filter_imp<value_type,2>
 {
     typedef typename pixel_manip<value_type>::type manip_type;
 public:
-    template<typename image_type>
+    template<class image_type>
     void operator()(image_type& src)
     {
         std::vector<manip_type> gx(src.size());
@@ -52,12 +52,12 @@ public:
 };
 
 
-template<typename value_type>
+template<class value_type>
 class sobel_filter_imp<value_type,3>
 {
     typedef typename pixel_manip<value_type>::type manip_type;
 public:
-    template<typename image_type>
+    template<class image_type>
     void operator()(image_type& src)
     {
         int w = src.width();
@@ -108,7 +108,7 @@ public:
     }
 };
 
-template<typename image_type>
+template<class image_type>
 void sobel(image_type& src)
 {
     sobel_filter_imp<typename image_type::value_type,image_type::dimension>()(src);

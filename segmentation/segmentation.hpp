@@ -11,7 +11,7 @@
 
 namespace image{
     namespace segmentation{
-        template<typename ImageType1,typename ImageType2,typename LabelType>
+        template<class ImageType1,class ImageType2,class LabelType>
         void resample(const ImageType1& data,const LabelType& label,ImageType2& out)
         {
             out.resize(data.geometry());

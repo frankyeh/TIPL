@@ -22,7 +22,7 @@ namespace image
 namespace reg
 {
 
-    template<typename I_type>
+    template<class I_type>
     image::vector<3,double> center_of_mass(const I_type& Im)
     {
         image::basic_image<unsigned char,I_type::dimension> mask;
@@ -56,7 +56,7 @@ namespace reg
     struct square_error
     {
         typedef double value_type;
-        template<typename ImageType,typename TransformType>
+        template<class ImageType,class TransformType>
         double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
         {
             const unsigned int dim = ImageType::dimension;
@@ -80,7 +80,7 @@ namespace reg
     struct negative_product
     {
         typedef double value_type;
-        template<typename ImageType,typename TransformType>
+        template<class ImageType,class TransformType>
         double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
         {
             const unsigned int dim = ImageType::dimension;
@@ -102,7 +102,7 @@ namespace reg
     struct correlation
     {
         typedef double value_type;
-        template<typename ImageType,typename TransformType>
+        template<class ImageType,class TransformType>
         double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
         {
             const unsigned int dim = ImageType::dimension;
@@ -114,7 +114,7 @@ namespace reg
         }
     };
 
-    template<typename image_type,typename transform_type>
+    template<class image_type,class transform_type>
     struct mt_correlation
     {
         typedef double value_type;
@@ -204,7 +204,7 @@ namespace reg
     public:
         mutual_information(unsigned int band_width_ = 6):band_width(band_width_),his_bandwidth(1 << band_width_) {}
     public:
-        template<typename ImageType,typename TransformType>
+        template<class ImageType,class TransformType>
         double operator()(const ImageType& from_,const ImageType& to_,const TransformType& transform)
         {
             const unsigned int dimension = ImageType::dimension;
@@ -260,7 +260,7 @@ namespace reg
         }
     };
 
-    template<typename image_type,
+    template<class image_type,
              typename vs_type,
              typename param_type,
              typename transform_type,
@@ -311,7 +311,7 @@ namespace reg
 enum reg_type {none = 0,translocation = 1,rotation = 2,rigid_body = 3,scaling = 4,rigid_scaling = 7,tilt = 8,affine = 15};
 
 
-template<typename image_type1,typename image_type2,typename transform_type>
+template<class image_type1,class image_type2,class transform_type>
 void get_bound(const image_type1& from,const image_type2& to,
                const transform_type& trans,
                transform_type& upper_trans,
@@ -359,7 +359,7 @@ void get_bound(const image_type1& from,const image_type2& to,
     }
 }
 
-template<typename image_type,typename vs_type,typename transform_type,typename CostFunctionType,typename teminated_class>
+template<class image_type,class vs_type,class transform_type,class CostFunctionType,class teminated_class>
 float linear(const image_type& from,const vs_type& from_vs,
              const image_type& to  ,const vs_type& to_vs,
                     transform_type& arg_min,

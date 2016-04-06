@@ -7,14 +7,14 @@
 namespace image
 {
 
-template<typename iterator_type1,typename iterator_type2,typename int_type>
+template<class iterator_type1,class iterator_type2,class int_type>
 inline void copy_ptr(iterator_type1 iter1,iterator_type2 iter2,int_type size)
 {
     for(iterator_type1 end = iter1+size; iter1 != end; ++iter1,++iter2)
-        *iter2 = std::iterator_traits<iterator_type2>::value_type(*iter1);
+        *iter2 = typename std::iterator_traits<iterator_type2>::value_type(*iter1);
 }
 
-template<typename iterator_type1,typename iterator_type2,typename fun_type>
+template<class iterator_type1,class iterator_type2,class fun_type>
 inline void for_each(iterator_type1 iter1,iterator_type1 end,iterator_type2 iter2,fun_type fun)
 {
     for(; iter1 != end; ++iter1,++iter2)
@@ -24,7 +24,7 @@ inline void for_each(iterator_type1 iter1,iterator_type1 end,iterator_type2 iter
 example image::binary(classification,label,std::bind2nd (std::not_equal_to<unsigned char>(), background_index));
 */
 
-template<typename ImageType,typename LabelImageType,typename fun_type>
+template<class ImageType,class LabelImageType,class fun_type>
 inline void binary(const ImageType& image,LabelImageType& out,fun_type fun)
 {
     out.resize(image.geometry());
@@ -38,7 +38,7 @@ inline void binary(const ImageType& image,LabelImageType& out,fun_type fun)
             *out_iter = 0;
 }
 
-template<typename ImageType,typename fun_type>
+template<class ImageType,class fun_type>
 inline void binary(ImageType& image,fun_type fun)
 {
     typename ImageType::iterator iter = image.begin();
@@ -51,7 +51,7 @@ inline void binary(ImageType& image,fun_type fun)
 }
 
 //---------------------------------------------------------------------------
-template<typename ImageType,typename LabelImageType>
+template<class ImageType,class LabelImageType>
 void threshold(const ImageType& image,LabelImageType& out,typename ImageType::value_type threshold_value,typename LabelImageType::value_type foreground = 255,typename LabelImageType::value_type background = 0)
 {
     out.resize(image.geometry());
@@ -66,7 +66,7 @@ void threshold(const ImageType& image,LabelImageType& out,typename ImageType::va
 }
 
 //--------------------------------------------------------------------------
-template<typename PixelType,typename DimensionType,typename storage_type>
+template<class PixelType,class DimensionType,class storage_type>
 void crop(const basic_image<PixelType,2,storage_type>& from_image,
           basic_image<PixelType,2,storage_type>& to_image,
           const DimensionType& from,
@@ -86,7 +86,7 @@ void crop(const basic_image<PixelType,2,storage_type>& from_image,
 
 }
 //--------------------------------------------------------------------------
-template<typename PixelType,typename DimensionType,typename storage_type>
+template<class PixelType,class DimensionType,class storage_type>
 void crop(const basic_image<PixelType,3,storage_type>& from_image,
           basic_image<PixelType,3,storage_type>& to_image,
           const DimensionType& from,
@@ -106,7 +106,7 @@ void crop(const basic_image<PixelType,3,storage_type>& from_image,
                 to_image[to_index] = from_image[from_index];
 }
 //---------------------------------------------------------------------------
-template<typename ImageType,typename DimensionType>
+template<class ImageType,class DimensionType>
 void crop(ImageType& in_image,
           const DimensionType& from,
           const DimensionType& to)
@@ -116,7 +116,7 @@ void crop(ImageType& in_image,
     in_image.swap(out_image);
 }
 //--------------------------------------------------------------------------
-template<typename image_type,typename PosType,typename pixel_type>
+template<class image_type,class PosType,class pixel_type>
 void fill_rect(image_type& I,PosType from,PosType to,pixel_type value)
 {
     int line_pos = from[0] + from[1]*I.width();
@@ -129,8 +129,8 @@ void fill_rect(image_type& I,PosType from,PosType to,pixel_type value)
 }
 
 //--------------------------------------------------------------------------
-template<typename pixel_type1,typename storage_type1,
-         typename pixel_type2,typename storage_type2,typename PosType>
+template<class pixel_type1,class storage_type1,
+         typename pixel_type2,class storage_type2,class PosType>
 void draw(const basic_image<pixel_type1,2,storage_type1>& from_image,
           basic_image<pixel_type2,2,storage_type2>& to_image,
           PosType pos)
@@ -168,8 +168,8 @@ void draw(const basic_image<pixel_type1,2,storage_type1>& from_image,
 
 }
 //--------------------------------------------------------------------------
-template<typename pixel_type1,typename storage_type1,
-         typename pixel_type2,typename storage_type2,typename PosType>
+template<class pixel_type1,class storage_type1,
+         typename pixel_type2,class storage_type2,class PosType>
 void draw(const basic_image<pixel_type1,3,storage_type1>& from_image,
           basic_image<pixel_type2,3,storage_type2>& to_image,
           PosType pos)
@@ -221,7 +221,7 @@ void draw(const basic_image<pixel_type1,3,storage_type1>& from_image,
     }
 }
 //---------------------------------------------------------------------------
-template<typename PixelType,typename PosType>
+template<class PixelType,class PosType>
 void move(basic_image<PixelType,2>& src,PosType pos)
 {
     basic_image<PixelType,2> dest(geometry<2>(src.width() + std::abs(pos[0]),src.height() + std::abs(pos[1])));
@@ -229,7 +229,7 @@ void move(basic_image<PixelType,2>& src,PosType pos)
     dest.swap(src);
 }
 //---------------------------------------------------------------------------
-template<typename PixelType,typename PosType>
+template<class PixelType,class PosType>
 void move(basic_image<PixelType,3>& src,PosType pos)
 {
     basic_image<PixelType,3> dest(
@@ -240,7 +240,7 @@ void move(basic_image<PixelType,3>& src,PosType pos)
     dest.swap(src);
 }
 //---------------------------------------------------------------------------
-template<typename ImageType,typename DimensionType>
+template<class ImageType,class DimensionType>
 void bounding_box(const ImageType& I,
           DimensionType& range_min,
           DimensionType& range_max,
@@ -270,8 +270,8 @@ void bounding_box(const ImageType& I,
 
 }
 
-template<typename ImageType>
-void trim(ImageType& image,typename ImageType::value_type background = 0)
+template<class ImageType>
+void trim(ImageType& image,class ImageType::value_type background = 0)
 {
     image::geometry<ImageType::dimension> range_min,range_max;
     bounding_box(image,range_min,range_max,background);
@@ -285,7 +285,7 @@ void trim(ImageType& image,typename ImageType::value_type background = 0)
     flip ={ 1,0,0} mean the first dimension need to be flipped
 */
 //---------------------------------------------------------------------------
-template<typename iterator_type,typename dim_order_type,typename flip_type>
+template<class iterator_type,class dim_order_type,class flip_type>
 void get_orientation(int dim,iterator_type rotation_matrix,dim_order_type dim_order,flip_type flipped)
 {
     iterator_type vec = rotation_matrix;
@@ -302,7 +302,7 @@ void get_orientation(int dim,iterator_type rotation_matrix,dim_order_type dim_or
     }
 }
 //---------------------------------------------------------------------------
-template<typename iterator_type,typename dim_order_type,typename flip_type>
+template<class iterator_type,class dim_order_type,class flip_type>
 void get_inverse_orientation(int dim,iterator_type rotation_matrix,dim_order_type dim_order,flip_type flipped)
 {
     iterator_type vec = rotation_matrix;
@@ -319,7 +319,7 @@ void get_inverse_orientation(int dim,iterator_type rotation_matrix,dim_order_typ
     }
 }
 //---------------------------------------------------------------------------
-template<typename image_type1,typename image_type2>
+template<class image_type1,class image_type2>
 void reorder(const image_type1& volume,image_type2& volume_out,int origin[],int shift[],int index_dim)
 {
     unsigned int index = 0;
@@ -364,7 +364,7 @@ void reorder(const image_type1& volume,image_type2& volume_out,int origin[],int 
     }
 }
 //---------------------------------------------------------------------------
-template<typename geo_type,typename dim_order_type,typename flip_type,typename origin_type,typename shift_type>
+template<class geo_type,class dim_order_type,class flip_type,class origin_type,class shift_type>
 bool reorder_shift_index(const geo_type& geo,
                          dim_order_type dim_order,
                          flip_type flip,
@@ -410,7 +410,7 @@ bool reorder_shift_index(const geo_type& geo,
    output (-z,y,x) <- input(x,y,z);
 */
 
-template<typename image_type1,typename image_type2,typename dim_order_type,typename flip_type>
+template<class image_type1,class image_type2,class dim_order_type,class flip_type>
 void reorder(const image_type1& volume,image_type2& volume_out,dim_order_type dim_order,flip_type flip)
 {
     image::geometry<image_type1::dimension> new_geo;
@@ -425,16 +425,16 @@ void reorder(const image_type1& volume,image_type2& volume_out,dim_order_type di
     reorder(volume,volume_out,origin,shift,image_type1::dimension);
 }
 //---------------------------------------------------------------------------
-template<typename image_type,typename dim_order_type,typename flip_type>
+template<class image_type,class dim_order_type,class flip_type>
 void reorder(image_type& volume,dim_order_type dim_order,flip_type flip)
 {
-    image::basic_image<typename image_type::value_type,image_type::dimension> volume_out;
+    image::basic_image<class image_type::value_type,image_type::dimension> volume_out;
     reorder(volume,volume_out,dim_order,flip);
     std::copy(volume_out.begin(),volume_out.end(),volume.begin());
 }
 
 //---------------------------------------------------------------------------
-template<typename iterator_type>
+template<class iterator_type>
 void flip_block(iterator_type beg,iterator_type end,unsigned int block_size)
 {
     while (beg < end)
@@ -451,7 +451,7 @@ void flip_block(iterator_type beg,iterator_type end,unsigned int block_size)
     }
 }
 //---------------------------------------------------------------------------
-template<typename iterator_type>
+template<class iterator_type>
 void flip_block_line(iterator_type beg,iterator_type end,unsigned int block_size,unsigned int line_length)
 {
     if(line_length == 1)
@@ -472,31 +472,31 @@ void flip_block_line(iterator_type beg,iterator_type end,unsigned int block_size
         }
 }
 //---------------------------------------------------------------------------
-template<typename ImageType>
+template<class ImageType>
 void flip_x(ImageType& image)
 {
     flip_block(image.begin(),image.end(),image.width());
 }
 //---------------------------------------------------------------------------
-template<typename ImageType>
+template<class ImageType>
 void flip_y(ImageType& image)
 {
     flip_block_line(image.begin(),image.end(),image.height() * image.width(),image.width());
 }
 //---------------------------------------------------------------------------
-template<typename ImageType>
+template<class ImageType>
 void flip_z(ImageType& image)
 {
     flip_block_line(image.begin(),image.end(),image.geometry().plane_size() * image.depth(),image.geometry().plane_size());
 }
 //---------------------------------------------------------------------------
-template<typename ImageType>
+template<class ImageType>
 void flip_xy(ImageType& I)
 {
     flip_block(I.begin(),I.end(),I.height() * I.width());
 }
 
-template<typename ImageType>
+template<class ImageType>
 void swap_xy(ImageType& I)
 {
     typedef typename ImageType::value_type value_type;
@@ -513,7 +513,7 @@ void swap_xy(ImageType& I)
     std::copy(new_volume.begin(),new_volume.end(),I.begin());
 }
 //---------------------------------------------------------------------------
-template<typename ImageType>
+template<class ImageType>
 void swap_xz(ImageType& I)
 {
     typedef typename ImageType::value_type value_type;
@@ -532,7 +532,7 @@ void swap_xz(ImageType& I)
     std::copy(new_volume.begin(),new_volume.end(),I.begin());
 }
 //---------------------------------------------------------------------------
-template<typename ImageType>
+template<class ImageType>
 void swap_yz(ImageType& I)
 {
     typedef typename ImageType::value_type value_type;
@@ -551,7 +551,7 @@ void swap_yz(ImageType& I)
     std::copy(new_volume.begin(),new_volume.end(),I.begin());
 }
 //---------------------------------------------------------------------------
-template<typename ImageType>
+template<class ImageType>
 void flip(ImageType& image,unsigned char dim)
 {
     switch(dim)
@@ -577,8 +577,8 @@ void flip(ImageType& image,unsigned char dim)
     }
 }
 //---------------------------------------------------------------------------
-template<typename ImageType>
-void negate(ImageType& image,typename ImageType::value_type maximum)
+template<class ImageType>
+void negate(ImageType& image,class ImageType::value_type maximum)
 {
     typename ImageType::iterator iter = image.begin();
     typename ImageType::iterator end = image.end();
@@ -586,13 +586,13 @@ void negate(ImageType& image,typename ImageType::value_type maximum)
         *iter = maximum - *iter;
 }
 //---------------------------------------------------------------------------
-template<typename ImageType>
+template<class ImageType>
 void negate(ImageType& image)
 {
     negate(image,*std::max_element(image.begin(),image.end()));
 }
 
-template<typename ImageType1,typename ImageType2,typename PixelType2>
+template<class ImageType1,class ImageType2,class PixelType2>
 void paint(const ImageType1& image1,ImageType2& image2,PixelType2 paint_value)
 {
     typename ImageType1::const_iterator iter1 = image1.begin();
@@ -604,7 +604,7 @@ void paint(const ImageType1& image1,ImageType2& image2,PixelType2 paint_value)
 }
 
 /*
-template<typename PixelType1,typename PixelType2,typename LocationType>
+template<class PixelType1,class PixelType2,class LocationType>
 void draw(const image::basic_image<PixelType1,2>& src,
           image::basic_image<PixelType2,2>& des,LocationType place)
 {
@@ -636,7 +636,7 @@ void draw(const image::basic_image<PixelType1,2>& src,
 }
 */
 
-template<typename PixelType1,typename PixelType2,typename LocationType,typename DetermineType>
+template<class PixelType1,class PixelType2,class LocationType,class DetermineType>
 void draw_if(const image::basic_image<PixelType1,2>& src,
              image::basic_image<PixelType2,2>& des,LocationType place,DetermineType pred_background)
 {
@@ -675,7 +675,7 @@ void draw_if(const image::basic_image<PixelType1,2>& src,
     }
 }
 
-template<typename PixelType1,typename OutImageType>
+template<class PixelType1,class OutImageType>
 void project(const image::basic_image<PixelType1,2>& src,OutImageType& result,unsigned int dim)
 {
     if(dim == 0) // project x
@@ -693,7 +693,7 @@ void project(const image::basic_image<PixelType1,2>& src,OutImageType& result,un
     }
 }
 
-template<typename ImageType>
+template<class ImageType>
 float variance(const ImageType& I)
 {
     float sum = 0;
@@ -711,7 +711,7 @@ float variance(const ImageType& I)
     return sum_square-sum*sum;
 }
 
-template<typename ImageType>
+template<class ImageType>
 void histogram(const ImageType& src,std::vector<unsigned int>& hist,
                typename ImageType::value_type min_value,
                typename ImageType::value_type max_value,unsigned int resolution_count = 256)
@@ -740,7 +740,7 @@ void histogram(const ImageType& src,std::vector<unsigned int>& hist,
         ++hist[index];
     }
 }
-template<typename image_type1,typename image_type2>
+template<class image_type1,class image_type2>
 void hist_norm(const image_type1& I1,image_type2& I2,unsigned int bin_count)
 {
     typename image_type1::value_type min_v = *std::min_element(I1.begin(),I1.end());
@@ -771,13 +771,13 @@ void hist_norm(const image_type1& I1,image_type2& I2,unsigned int bin_count)
         }
     }
 }
-template<typename image_type>
+template<class image_type>
 void hist_norm(image_type& I1,unsigned int bin_count)
 {
     hist_norm(I1,I1,bin_count);
 }
 
-template<typename type>
+template<class type>
 void change_endian(type& value)
 {
     type data = value;
@@ -819,8 +819,8 @@ inline void change_endian(float& data)
     change_endian(*(int*)&data);
 }
 
-template<typename datatype,typename size_type>
-void change_endian(datatype* data,size_type count)
+template<class datatype,class size_type>
+inline void change_endian(datatype* data,size_type count)
 {
     for (unsigned int index = 0; index < count; ++index)
         change_endian(data[index]);

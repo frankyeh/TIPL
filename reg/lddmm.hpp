@@ -18,7 +18,7 @@ namespace reg
 {
 
 //------------------------------------------------------------------------------------
-template<typename pixel_type,typename vtor_type,unsigned int dimension>
+template<class pixel_type,class vtor_type,unsigned int dimension>
 void fast_lddmm(const basic_image<pixel_type,dimension>& I0,
                 const basic_image<pixel_type,dimension>& I1,
                 basic_image<pixel_type,dimension>& J0, // the deformed I0 images at different time frame
@@ -172,7 +172,7 @@ International Journal of Computer Vision,
 Volume 61, Issue 2; February 2005.
 
 */
-template<typename pixel_type,typename vtor_type,unsigned int dimension>
+template<class pixel_type,class vtor_type,unsigned int dimension>
 void lddmm(const basic_image<pixel_type,dimension>& I0,
            const basic_image<pixel_type,dimension>& I1,
            std::vector<basic_image<pixel_type,dimension> >& J0, // the deformed I0 images at different time frame
@@ -351,7 +351,7 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
 }
 
 
-template<typename pixel_type,typename vtor_type,unsigned int dimension>
+template<class pixel_type,class vtor_type,unsigned int dimension>
 void lddmm(const basic_image<pixel_type,dimension>& I0,
            const basic_image<pixel_type,dimension>& I1,
            basic_image<vtor_type,dimension>& mapping,

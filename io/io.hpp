@@ -79,20 +79,20 @@ public:
     const dicom* get_dicom(unsigned int index) const{return index < dicom_reader.size() ? dicom_reader[index]:0;}
     const nifti* get_nifti(unsigned int index) const{return index < nifti_reader.size() ? nifti_reader[index]:0;}
 
-    template<typename voxel_size_type>
+    template<class voxel_size_type>
     void get_voxel_size(voxel_size_type voxel_size) const
     {
         std::copy(spatial_resolution,spatial_resolution+3,voxel_size);
     }
 
-    template<typename vector_type>
+    template<class vector_type>
     void get_image_row_orientation(vector_type image_row_orientation) const
     {
         std::copy(orientation_matrix,orientation_matrix+9,image_row_orientation);
     }
 
 
-    template<typename file_name_type>
+    template<class file_name_type>
     bool load_from_file(const file_name_type& file_name)
     {
         std::auto_ptr<dicom> dicom_header(new dicom);
@@ -122,7 +122,7 @@ public:
         }
         return false;
     }
-    template<typename string_list_type>
+    template<class string_list_type>
     bool load_from_files(const string_list_type& files,unsigned int count)
     {
         if(count == 1)
@@ -170,7 +170,7 @@ public:
     unsigned int width(void) const{return dicom_reader.empty() ? (nifti_reader.empty() ? 0 : nifti_reader.front()->width()):dicom_reader.front()->width();}
     unsigned int height(void) const{return dicom_reader.empty() ? (nifti_reader.empty() ? 0 : nifti_reader.front()->height()):dicom_reader.front()->height();}
     unsigned int depth(void) const{return dicom_reader.size()+nifti_reader.size();}
-    template<typename image_type>
+    template<class image_type>
     void save_to_image(image_type& source) const
     {
         typedef typename image_type::value_type value_type;
@@ -207,7 +207,7 @@ public:
         }
     }
 
-    template<typename image_type>
+    template<class image_type>
     const volume& operator>>(image_type& source) const
     {
         save_to_image(source);

@@ -8,7 +8,7 @@ namespace image {
 
 namespace reg {
 
-template<typename ImageType,typename value_type>
+template<class ImageType,class value_type>
 value_type resample_d(const ImageType& vol,value_type& gradx,value_type& grady,value_type& gradz,value_type x,value_type y,value_type z)
 {
     const value_type TINY = 5e-2;
@@ -90,7 +90,7 @@ value_type resample_d(const ImageType& vol,value_type& gradx,value_type& grady,v
 }
 
 
-template<typename value_type,int dim = 3>
+template<class value_type,int dim = 3>
 class bfnorm_mapping {
 public:
     image::geometry<dim> VGgeo;
@@ -126,12 +126,12 @@ public:
         T[3*k_base.size()] = 1;
     }
 
-    template<typename rhs_type>
+    template<class rhs_type>
     void operator()(const image::pixel_index<3>& from,rhs_type& to) const
     {
         return (*this)(image::vector<3,int>(from[0],from[1],from[2]),to);
     }
-    template<typename rhs_type>
+    template<class rhs_type>
     void operator()(const image::vector<3,int>& from,rhs_type& to) const
     {
         to = from;
@@ -174,14 +174,14 @@ public:
     }
 };
 
-template<typename value_type>
+template<class value_type>
 void fill_values(std::vector<value_type>& values,value_type step)
 {
     value_type value = 0;
     for(unsigned int index = 0; index < values.size(); ++index,value += step)
         values[index] = value;
 }
-template<typename parameter_type>
+template<class parameter_type>
 void bfnorm_mrqcof_zero_half(std::vector<parameter_type>& alpha,int m1)
 {
     for (int x1=0; x1<m1; x1++)
@@ -192,7 +192,7 @@ void bfnorm_mrqcof_zero_half(std::vector<parameter_type>& alpha,int m1)
 }
 
 
-template<typename image_type,typename value_type>
+template<class image_type,class value_type>
 class bfnorm_slice_data{
     const image_type& VG;
     const image_type& VF;
@@ -320,7 +320,7 @@ public:// calculation results to accumulate
         ss_deriv_[2] += ss_deriv[2];
     }
 public:
-    template<typename terminated_type>
+    template<class terminated_type>
     void run(std::vector<value_type>& alpha,std::vector<value_type>& beta,const terminated_type& terminated)
     {
         ss = 0.0;
@@ -604,7 +604,7 @@ public:
     }
 };
 
-template<typename image_type,typename value_type>
+template<class image_type,class value_type>
 class bfnorm_mrqcof {
 private:
     const image_type& VG;
@@ -702,7 +702,7 @@ public:
         std::fill(beta.begin(),beta.end(),0.0);
     }
 
-    template<typename terminated_type>
+    template<class terminated_type>
     void run(unsigned int thread_id,const terminated_type& terminateded)
     {
         data[thread_id]->run(alpha,beta,terminateded);
@@ -846,7 +846,7 @@ public:
     }
 };
 
-template<typename ImageType,typename value_type,typename terminator_type>
+template<class ImageType,class value_type,class terminator_type>
 void bfnorm(bfnorm_mapping<value_type>& mapping,
             const ImageType& VG,
             const ImageType& VFF,unsigned int thread_count,terminator_type& terminated,int& iteration)
@@ -880,7 +880,7 @@ void bfnorm(bfnorm_mapping<value_type>& mapping,
 
 
 
-template<typename value_type,typename from_type,typename matrix_type>
+template<class value_type,class from_type,class matrix_type>
 void bfnorm_get_jacobian(const bfnorm_mapping<value_type>& mapping,const from_type& from,matrix_type Jbet)
 {
     int nx = mapping.k_base[0];

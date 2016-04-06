@@ -9,18 +9,18 @@ namespace image
 namespace filter
 {
 
-template<typename value_type,size_t dimension>
+template<class value_type,size_t dimension>
 class gradient_magnitude_filter_imp;
 
-template<typename value_type>
+template<class value_type>
 class gradient_magnitude_filter_imp<value_type,1>
 {
     typedef typename pixel_manip<value_type>::type manip_type;
 public:
-    template<typename image_type>
+    template<class image_type>
     void operator()(image_type& src)
     {
-        typedef image::basic_image<typename image_type::value_type,image_type::dimension> image_buf_type;
+        typedef image::basic_image<class image_type::value_type,image_type::dimension> image_buf_type;
         image_buf_type gx;
         gradient_2x(src,gx);
         absolute_value(gx.begin(),gx.end());
@@ -28,12 +28,12 @@ public:
     }
 };
 
-template<typename value_type>
+template<class value_type>
 class gradient_magnitude_filter_imp<value_type,2>
 {
     typedef typename pixel_manip<value_type>::type manip_type;
 public:
-    template<typename image_type>
+    template<class image_type>
     void operator()(image_type& src)
     {
         typedef image::basic_image<typename image_type::value_type,image_type::dimension> image_buf_type;
@@ -53,12 +53,12 @@ public:
 };
 
 
-template<typename value_type>
+template<class value_type>
 class gradient_magnitude_filter_imp<value_type,3>
 {
     typedef typename pixel_manip<value_type>::type manip_type;
 public:
-    template<typename image_type>
+    template<class image_type>
     void operator()(image_type& src)
     {
         typedef image::basic_image<typename image_type::value_type,image_type::dimension> image_buf_type;
@@ -81,7 +81,7 @@ public:
     }
 };
 
-template<typename image_type>
+template<class image_type>
 void gradient_magnitude(image_type& src)
 {
     gradient_magnitude_filter_imp<typename image_type::value_type,image_type::dimension>()(src);

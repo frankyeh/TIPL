@@ -2,7 +2,7 @@
 #define MULTI_THREAD_HPP
 #include <future>
 namespace image{
-template <typename T, typename Func>
+template <class T,class Func>
 void par_for(T size, Func f, int thread_count = std::thread::hardware_concurrency())
 {
     std::vector<std::future<void> > futures;
@@ -20,7 +20,7 @@ void par_for(T size, Func f, int thread_count = std::thread::hardware_concurrenc
         future.wait();
 }
 
-template <typename T, typename Func>
+template <class T,class Func>
 void par_for2(T size, Func f, int thread_count = std::thread::hardware_concurrency())
 {
     std::vector<std::future<void> > futures;

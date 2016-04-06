@@ -17,7 +17,7 @@ namespace segmentation
 {
 
 
-template<typename ImageType,typename LabelImageType>
+template<class ImageType,class LabelImageType>
 void watershed(const ImageType& input_image,LabelImageType& label)
 {
     label.clear();
@@ -101,7 +101,7 @@ void watershed(const ImageType& input_image,LabelImageType& label)
 }
 
 
-template<typename ImageType,typename LabelImageType>
+template<class ImageType,class LabelImageType>
 void watershed2(const ImageType& input_image,LabelImageType& label,unsigned int size_threshold,double detail_level = 1.0)
 {
     typedef image::pixel_index<ImageType::dimension> pixel_type;

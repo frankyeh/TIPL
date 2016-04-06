@@ -220,7 +220,7 @@ public:
         return (lt0 == 'F' && lt1 == 'D');
     }
 
-    template<typename value_type>
+    template<class value_type>
     void get_value(value_type& value) const
     {
         if(data.empty())
@@ -278,7 +278,7 @@ public:
         }
     }
 
-    template<typename stream_type>
+    template<class stream_type>
     void operator>> (stream_type& out) const
     {
         if (data.empty())
@@ -444,7 +444,7 @@ private:
         for (unsigned int index = 0;index < rhs.csa_data.size();index++)
             csa_data.push_back(new dicom_csa_data(*rhs.csa_data[index]));
     }
-    template<typename iterator_type>
+    template<class iterator_type>
     void handle_mosaic(iterator_type image_buffer) const
     {
         typedef typename std::iterator_traits<iterator_type>::value_type pixel_type;
@@ -505,7 +505,7 @@ public:
     {
         return load_from_file(file_name.c_str());
     }
-    template<typename char_type>
+    template<class char_type>
     bool load_from_file(const char_type* file_name)
     {
         ge_map.clear();
@@ -611,7 +611,7 @@ public:
         return true;
     }
 
-    template<typename value_type>
+    template<class value_type>
     bool get_value(unsigned short group,unsigned short element,value_type& value) const
     {
         std::map<unsigned int,unsigned int>::const_iterator iter =
@@ -639,7 +639,7 @@ public:
         get_value(group,element,value);
         return value;
     }
-    template<typename voxel_size_type>
+    template<class voxel_size_type>
     void get_voxel_size(voxel_size_type voxel_size) const
     {
         std::string slice_dis;
@@ -664,7 +664,7 @@ public:
     The first vector is a unit vector along the x-axis, and the second is
     along the y-axis.
     */
-    template<typename vector_type>
+    template<class vector_type>
     void get_image_row_orientation(vector_type image_row_orientation) const
     {
         //float image_row_orientation[3];
@@ -678,7 +678,7 @@ public:
         >> image_row_orientation[1]
         >> image_row_orientation[2];
     }
-    template<typename vector_type>
+    template<class vector_type>
     void get_image_col_orientation(vector_type image_col_orientation) const
     {
         //float image_col_orientation[3];
@@ -695,7 +695,7 @@ public:
         >> image_col_orientation[2];
     }
 
-    template<typename vector_type>
+    template<class vector_type>
     void get_image_orientation(vector_type orientation_matrix) const
     {
         get_image_row_orientation(orientation_matrix);
@@ -859,7 +859,7 @@ public:
     }
 
 
-    template<typename pointer_type>
+    template<class pointer_type>
     void save_to_buffer(pointer_type ptr,unsigned int pixel_count) const
     {
         typedef typename std::iterator_traits<pointer_type>::value_type value_type;
@@ -887,7 +887,7 @@ public:
         }
     }
 
-    template<typename image_type>
+    template<class image_type>
     void save_to_image(image_type& out) const
     {
         if(!input_io.get() || !(*input_io))
@@ -911,13 +911,13 @@ public:
         }
     }
 
-    template<typename image_type>
+    template<class image_type>
     const dicom& operator>>(image_type& source) const
     {
         save_to_image(source);
         return *this;
     }
-    template<typename image_type>
+    template<class image_type>
     dicom& operator<<(const image_type& source)
     {
         load_from_image(source);

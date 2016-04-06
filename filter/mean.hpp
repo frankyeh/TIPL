@@ -10,15 +10,15 @@ namespace filter
 {
 
 
-template<typename value_type,size_t dimension>
+template<class value_type,size_t dimension>
 class mean_filter_imp;
 
-template<typename value_type>
+template<class value_type>
 struct mean_filter_imp<value_type,1>
 {
     typedef typename pixel_manip<value_type>::type manip_type;
 public:
-    template<typename image_type>
+    template<class image_type>
     void operator()(image_type& src)
     {
         std::vector<manip_type> dest(src.begin(),src.end());
@@ -29,12 +29,12 @@ public:
     }
 };
 
-template<typename value_type>
+template<class value_type>
 class mean_filter_imp<value_type,2>
 {
     typedef typename pixel_manip<value_type>::type manip_type;
 public:
-    template<typename image_type>
+    template<class image_type>
     void operator()(image_type& src)
     {
         std::vector<manip_type> dest(src.begin(),src.end());
@@ -53,12 +53,12 @@ public:
 };
 
 
-template<typename value_type>
+template<class value_type>
 class mean_filter_imp<value_type,3>
 {
     typedef typename pixel_manip<value_type>::type manip_type;
 public:
-    template<typename image_type>
+    template<class image_type>
     void operator()(image_type& src)
     {
         std::vector<manip_type> dest(src.begin(),src.end());
@@ -100,7 +100,7 @@ public:
     }
 };
 
-template<typename image_type>
+template<class image_type>
 void mean(image_type& src)
 {
     mean_filter_imp<typename image_type::value_type,image_type::dimension>()(src);

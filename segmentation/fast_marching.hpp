@@ -12,7 +12,7 @@ namespace imp
 {
 
 // The subrutine for fast marching
-template<typename pass_time_type>
+template<class pass_time_type>
 float fast_marching_estimateT(const pass_time_type& T,float g,const geometry<2>& geo,const pixel_index<2>& index)
 {
     float Tx,Ty;
@@ -39,7 +39,7 @@ float fast_marching_estimateT(const pass_time_type& T,float g,const geometry<2>&
 }
 
 // The subrutine for fast marching
-template<typename pass_time_type>
+template<class pass_time_type>
 float fast_marching_estimateT(const pass_time_type& T,float g,const geometry<3>& geo,const pixel_index<3>& index)
 {
     float Tx,Ty,Tz;
@@ -82,7 +82,7 @@ float fast_marching_estimateT(const pass_time_type& T,float g,const geometry<3>&
     return (Tsum + b2_4ac)/3.0;
 }
 
-template<typename narrow_band_point>
+template<class narrow_band_point>
 struct fast_marching_T_comp: public std::binary_function<narrow_band_point*, narrow_band_point*, bool>
 {
     bool operator()(const narrow_band_point* p1,const narrow_band_point* p2) const
@@ -98,7 +98,7 @@ struct fast_marching_T_comp: public std::binary_function<narrow_band_point*, nar
    Referece: J.A. Sethian, "A fast marching level set method for monotonically advancing fronts", PNAS, 93, pp.1591-1595, 1996.
 */
 
-template<typename ImageType,typename TimeType,typename IndexType>
+template<class ImageType,class TimeType,class IndexType>
 void fast_marching(const ImageType& gradient_image,TimeType& pass_time,IndexType seed)
 {
     typedef std::pair<float,pixel_index<ImageType::dimension> > narrow_band_point;

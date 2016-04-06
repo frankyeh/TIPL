@@ -8,7 +8,7 @@ namespace image
 {
 //---------------------------------------------------------------------------
 
-template<typename storage_type,typename iterator_type>
+template<class storage_type,class iterator_type>
 class const_reference_iterator
 {
 private:
@@ -50,10 +50,10 @@ public:
 };
 
 
-template<typename value_type>
+template<class value_type>
 struct weighting_sum
 {
-    template<typename data_iterator_type,typename weighting_iterator,typename output_type>
+    template<class data_iterator_type,class weighting_iterator,class output_type>
     void operator()(data_iterator_type from,data_iterator_type to,weighting_iterator w,output_type& result_)
     {
         float result = ((float)(*from))*(*w);
@@ -66,7 +66,7 @@ struct weighting_sum
 template<>
 struct weighting_sum<rgb_color>
 {
-    template<typename data_iterator_type,typename weighting_iterator,typename output_type>
+    template<class data_iterator_type,class weighting_iterator,class output_type>
     void operator()(data_iterator_type from,data_iterator_type to,weighting_iterator w,output_type& result_)
     {
         float sum_r = 0.0;
@@ -87,7 +87,7 @@ struct weighting_sum<rgb_color>
 
 struct linear_weighting
 {
-    template<typename value_type>
+    template<class value_type>
     void operator()(value_type&) {}
 };
 
@@ -95,7 +95,7 @@ struct gaussian_radial_basis_weighting
 {
     double sd;
 	gaussian_radial_basis_weighting(void):sd(1.0){}
-    template<typename value_type>
+    template<class value_type>
     void operator()(value_type& value)
     {
         value_type dx = (1.0-value)/sd;
@@ -105,10 +105,10 @@ struct gaussian_radial_basis_weighting
     }
 };
 
-template<typename weighting_function,unsigned int dimension>
+template<class weighting_function,unsigned int dimension>
 struct interpolation{};
 
-template<typename weighting_function>
+template<class weighting_function>
 struct interpolation<weighting_function,2>
 {
     static const unsigned int ref_count = 4;
@@ -116,7 +116,7 @@ struct interpolation<weighting_function,2>
     int dindex[ref_count];
 	weighting_function weighting;
 
-    template<typename VTorType>
+    template<class VTorType>
     bool get_location(const geometry<2>& geo,const VTorType& location)
     {
         float p[2],n[2];
@@ -153,7 +153,7 @@ struct interpolation<weighting_function,2>
     }
 
     //---------------------------------------------------------------------------
-    template<typename ImageType,typename VTorType,typename PixelType>
+    template<class ImageType,class VTorType,class PixelType>
     bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel)
     {
         if (get_location(source.geometry(),location))
@@ -166,7 +166,7 @@ struct interpolation<weighting_function,2>
     }
 
     //---------------------------------------------------------------------------
-    template<typename ImageType,typename PixelType>
+    template<class ImageType,class PixelType>
     void estimate(const ImageType& source,PixelType& pixel)
     {
         weighting_sum<PixelType>()(const_reference_iterator<ImageType,int*>(source,dindex),
@@ -174,7 +174,7 @@ struct interpolation<weighting_function,2>
     }
 };
 
-template<typename weighting_function>
+template<class weighting_function>
 struct interpolation<weighting_function,3>
 {
     static const unsigned int ref_count = 8;
@@ -182,7 +182,7 @@ struct interpolation<weighting_function,3>
     int dindex[ref_count];
 	weighting_function weighting;
 
-    template<typename VTorType>
+    template<class VTorType>
     bool get_location(const geometry<3>& geo,const VTorType& location)
     {
         float p[3],n[3];
@@ -243,7 +243,7 @@ struct interpolation<weighting_function,3>
     }
 
     //---------------------------------------------------------------------------
-    template<typename ImageType,typename VTorType,typename PixelType>
+    template<class ImageType,class VTorType,class PixelType>
     bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel)
     {
         if (get_location(source.geometry(),location))
@@ -256,7 +256,7 @@ struct interpolation<weighting_function,3>
     }
 
     //---------------------------------------------------------------------------
-    template<typename ImageType,typename PixelType>
+    template<class ImageType,class PixelType>
     void estimate(const ImageType& source,PixelType& pixel)
     {
         weighting_sum<PixelType>()(const_reference_iterator<ImageType,int*>(source,dindex),
@@ -279,7 +279,7 @@ struct interpolation<weighting_function,3>
  */
 
 // this scaled by 0.5
-template<typename iterator_type>
+template<class iterator_type>
 inline float cubic_imp(iterator_type p, float x,float x2,float x3)
 {
     typedef typename std::iterator_traits<iterator_type>::value_type value_type;
@@ -295,7 +295,7 @@ inline float cubic_imp(iterator_type p, float x,float x2,float x3)
 }
 
 // this scaled by 0.25
-template<typename iterator_type>
+template<class iterator_type>
 inline float cubic_imp(iterator_type p, float x, float x2,float x3,
                                            float y, float y2,float y3)
 {
@@ -308,7 +308,7 @@ inline float cubic_imp(iterator_type p, float x, float x2,float x3,
 }
 
 // this scaled by 0.125
-template<typename iterator_type>
+template<class iterator_type>
 inline float cubic_imp(iterator_type p,float x, float x2,float x3,
                                              float y, float y2,float y3,
                                              float z, float z2,float z3)
@@ -322,7 +322,7 @@ inline float cubic_imp(iterator_type p,float x, float x2,float x3,
 }
 
 
-template<typename v>
+template<class v>
 struct calculation_type{typedef v value_type;};
 
 template<>
@@ -348,7 +348,7 @@ struct cubic_interpolation<2>{
     float dx,dx2,dx3,dy,dy2,dy3;
     int dindex[16];
 
-    template<typename VTorType>
+    template<class VTorType>
     bool get_location(const geometry<2>& geo,const VTorType& location)
     {
         float x = location[0];
@@ -384,7 +384,7 @@ struct cubic_interpolation<2>{
         return true;
     }
 
-    template<typename ImageType,typename VTorType,typename PixelType>
+    template<class ImageType,class VTorType,class PixelType>
     bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel)
     {
         if (get_location(source.geometry(),location))
@@ -394,10 +394,10 @@ struct cubic_interpolation<2>{
         }
         return false;
     }
-    template<typename ImageType,typename PixelType>
+    template<class ImageType,class PixelType>
     void estimate(const ImageType& source,PixelType& pixel)
     {
-        typename calculation_type<typename ImageType::value_type>::value_type p[16];
+        typename calculation_type<class ImageType::value_type>::value_type p[16];
         for(unsigned int index = 0;index < 16;++index)
             p[index] = source[dindex[index]];
         pixel = std::max(0.0,cubic_imp(p,dx,dx2,dx3,dy,dy2,dy3)*0.25);
@@ -411,7 +411,7 @@ struct cubic_interpolation<3>{
     float dx,dx2,dx3,dy,dy2,dy3,dz,dz2,dz3;
     int dindex[64];
 
-    template<typename VTorType>
+    template<class VTorType>
     bool get_location(const geometry<3>& geo,const VTorType& location)
     {
         float x = location[0];
@@ -460,7 +460,7 @@ struct cubic_interpolation<3>{
         return true;
     }
 
-    template<typename ImageType,typename VTorType,typename PixelType>
+    template<class ImageType,class VTorType,class PixelType>
     bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel)
     {
         if (get_location(source.geometry(),location))
@@ -470,7 +470,7 @@ struct cubic_interpolation<3>{
         }
         return false;
     }
-    template<typename ImageType,typename PixelType>
+    template<class ImageType,class PixelType>
     void estimate(const ImageType& source,PixelType& pixel)
     {
         typename calculation_type<typename ImageType::value_type>::value_type p[64];
@@ -483,7 +483,7 @@ struct cubic_interpolation<3>{
 enum interpolation_type {linear, cubic};
 
 
-template<typename ImageType,typename VTorType,typename PixelType>
+template<class ImageType,class VTorType,class PixelType>
 bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel,interpolation_type type = linear)
 {
     if(type == linear)
@@ -493,7 +493,7 @@ bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel,
     return false;
 }
 
-template<typename ImageType,typename VTorType>
+template<class ImageType,class VTorType>
 typename ImageType::value_type estimate(const ImageType& source,const VTorType& location,interpolation_type type = linear)
 {
     typename ImageType::value_type result(0);

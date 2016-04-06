@@ -17,7 +17,7 @@ namespace image
 namespace morphology
 {
 
-template<typename ImageType>
+template<class ImageType>
 void erosion(ImageType& image,const std::vector<int>& index_shift)
 {
     std::vector<typename ImageType::value_type> act(image.size());
@@ -49,21 +49,21 @@ void erosion(ImageType& image,const std::vector<int>& index_shift)
             image[index] = 0;
 }
 
-template<typename ImageType>
+template<class ImageType>
 void erosion(ImageType& image)
 {
     neighbor_index_shift_narrow<ImageType::dimension> neighborhood(image.geometry());
     erosion(image,neighborhood.index_shift);
 }
 
-template<typename ImageType>
+template<class ImageType>
 void erosion2(ImageType& image,int radius)
 {
     neighbor_index_shift<ImageType::dimension> neighborhood(image.geometry(),radius);
     erosion(image,neighborhood.index_shift);
 }
 
-template<typename ImageType>
+template<class ImageType>
 void dilation(ImageType& image,const std::vector<int>& index_shift)
 {
     std::vector<typename ImageType::value_type> act(image.size());
@@ -92,14 +92,14 @@ void dilation(ImageType& image,const std::vector<int>& index_shift)
         image[index] |= act[index];
 }
 
-template<typename ImageType>
+template<class ImageType>
 void dilation(ImageType& image)
 {
     neighbor_index_shift_narrow<ImageType::dimension> neighborhood(image.geometry());
     dilation(image,neighborhood.index_shift);
 }
 
-template<typename ImageType>
+template<class ImageType>
 void dilation2(ImageType& image,int radius)
 {
     neighbor_index_shift<ImageType::dimension> neighborhood(image.geometry(),radius);
@@ -107,14 +107,14 @@ void dilation2(ImageType& image,int radius)
 }
 
 /*
-template<typename ImageType>
+template<class ImageType>
 void opening(ImageType& image)
 {
     erosion(image);
     dilation(image);
 }
 
-template<typename ImageType>
+template<class ImageType>
 void closing(ImageType& image)
 {
     dilation(image);
@@ -122,7 +122,7 @@ void closing(ImageType& image)
 }
 */
 
-template<typename ImageType,typename LabelType>
+template<class ImageType,class LabelType>
 void edge(const ImageType& image,LabelType& act)
 {
     act.resize(image.geometry());
@@ -153,7 +153,7 @@ void edge(const ImageType& image,LabelType& act)
     }
 }
 
-template<typename ImageType>
+template<class ImageType>
 void edge(ImageType& image)
 {
 	ImageType out;
@@ -161,7 +161,7 @@ void edge(ImageType& image)
 	image = out;
 }
 
-template<typename ImageType,typename LabelType>
+template<class ImageType,class LabelType>
 void inner_edge(const ImageType& image,LabelType& act)
 {
     act.resize(image.geometry());
@@ -192,7 +192,7 @@ void inner_edge(const ImageType& image,LabelType& act)
     }
 }
 
-template<typename ImageType>
+template<class ImageType>
 void inner_edge(ImageType& image)
 {
         ImageType out;
@@ -200,7 +200,7 @@ void inner_edge(ImageType& image)
         image = out;
 }
 
-template<typename ImageType>
+template<class ImageType>
 bool is_edge(ImageType& image,image::pixel_index<2> index)
 {
     typename ImageType::value_type center = image[index.index()];
@@ -232,7 +232,7 @@ bool is_edge(ImageType& image,image::pixel_index<2> index)
     return false;
 }
 
-template<typename ImageType>
+template<class ImageType>
 bool is_edge(ImageType& image,image::pixel_index<3> index)
 {
     typename ImageType::value_type center = image[index.index()];
@@ -314,7 +314,7 @@ bool is_edge(ImageType& image,image::pixel_index<3> index)
     return false;
 }
 
-template<typename ImageType>
+template<class ImageType>
 unsigned char get_neighbor_count(ImageType& image,std::vector<unsigned char>& act)
 {
     act.resize(image.size());
@@ -344,7 +344,7 @@ unsigned char get_neighbor_count(ImageType& image,std::vector<unsigned char>& ac
     return neighborhood.index_shift.size();
 }
 
-template<typename ImageType>
+template<class ImageType>
 void closing(ImageType& I,int threshold_shift = 0)
 {
     std::vector<unsigned char> act;
@@ -360,7 +360,7 @@ void closing(ImageType& I,int threshold_shift = 0)
     }
 }
 
-template<typename ImageType>
+template<class ImageType>
 void opening(ImageType& I,int threshold_shift = 0)
 {
     std::vector<unsigned char> act;
@@ -376,14 +376,14 @@ void opening(ImageType& I,int threshold_shift = 0)
     }
 }
 
-template<typename ImageType>
+template<class ImageType>
 void negate(ImageType& I)
 {
     for (unsigned int index = 0;index < I.size();++index)
         I[index] = I[index] ? 0:1;
 }
 
-template<typename ImageType>
+template<class ImageType>
 void smoothing(ImageType& I)
 {
     std::vector<unsigned char> act;
@@ -404,7 +404,7 @@ void smoothing(ImageType& I)
     }
 }
 
-template<typename ImageType>
+template<class ImageType>
 void recursive_smoothing(ImageType& I,unsigned int max_iteration = 100)
 {
     for(unsigned int iter = 0;iter < max_iteration;++iter)
@@ -443,7 +443,7 @@ void recursive_smoothing(ImageType& I,unsigned int max_iteration = 100)
 //
 */
 //-------------------------------------------------------------------------------
-template<typename ImageType,typename IndexType,typename GrowFunc>
+template<class ImageType,class IndexType,class GrowFunc>
 void region_growing(const ImageType& image,const IndexType& seed_point,
                     std::vector<IndexType>& grown_region,GrowFunc grow)
 {
@@ -471,7 +471,7 @@ void region_growing(const ImageType& image,const IndexType& seed_point,
     seeds.swap(grown_region);
 }
 
-template<typename ImageType>
+template<class ImageType>
 void convex_xy(ImageType& I)
 {
     image::geometry<ImageType::dimension> range_min,range_max;
@@ -528,8 +528,8 @@ void convex_xy(ImageType& I)
 /*
  convex in x direction
 */
-template<typename ImageType>
-void convex_x(ImageType& image,typename ImageType::value_type assign_value = 1)
+template<class ImageType>
+void convex_x(ImageType& image,class ImageType::value_type assign_value = 1)
 {
     typename ImageType::iterator iter = image.begin();
     typename ImageType::iterator end = iter+image.size();
@@ -551,7 +551,7 @@ void convex_x(ImageType& image,typename ImageType::value_type assign_value = 1)
     }
 }
 
-template<typename ImageType>
+template<class ImageType>
 void convex_y(ImageType& image)
 {
     unsigned int plane_size = image.plane_size();
@@ -590,7 +590,7 @@ shift = image.width() : grow in y dimension
 shift = image.width()*image.height() : grow in z dimension
 */
 
-template<typename ImageType,typename LabelImageType>
+template<class ImageType,class LabelImageType>
 void connected_component_labeling_pass(const ImageType& image,
                                        LabelImageType& labels,
                                        std::vector<std::vector<unsigned int> >& regions,
@@ -660,7 +660,7 @@ void connected_component_labeling_pass(const ImageType& image,
     }
 }
 
-template<typename PixelType,typename StorageType,typename LabelImageType>
+template<class PixelType,class StorageType,class LabelImageType>
 void connected_component_labeling(const basic_image<PixelType,1,StorageType>& image,
                                   LabelImageType& labels,
                                   std::vector<std::vector<unsigned int> >& regions)
@@ -668,7 +668,7 @@ void connected_component_labeling(const basic_image<PixelType,1,StorageType>& im
     connected_component_labeling_pass(image,labels,regions,1);
 }
 
-template<typename PixelType,typename StorageType,typename LabelImageType>
+template<class PixelType,class StorageType,class LabelImageType>
 void connected_component_labeling(const basic_image<PixelType,2,StorageType>& image,
                                   LabelImageType& labels,
                                   std::vector<std::vector<unsigned int> >& regions)
@@ -678,7 +678,7 @@ void connected_component_labeling(const basic_image<PixelType,2,StorageType>& im
 }
 
 
-template<typename PixelType,typename StorageType,typename LabelImageType>
+template<class PixelType,class StorageType,class LabelImageType>
 void connected_component_labeling(const basic_image<PixelType,3,StorageType>& image,
                                   LabelImageType& labels,
                                   std::vector<std::vector<unsigned int> >& regions)
@@ -688,7 +688,7 @@ void connected_component_labeling(const basic_image<PixelType,3,StorageType>& im
     connected_component_labeling_pass(image,labels,regions,image.geometry().plane_size());
 }
 
-template<typename ImageType>
+template<class ImageType>
 void defragment(ImageType& image)
 {
     image::basic_image<unsigned int,ImageType::dimension> labels(image.geometry());
@@ -713,7 +713,7 @@ void defragment(ImageType& image)
             image[index] = 0;
 }
 
-template<typename ImageType>
+template<class ImageType>
 void defragment(ImageType& image,float fragment_percentage)
 {
     image::basic_image<unsigned int,ImageType::dimension> labels(image.geometry());
@@ -732,7 +732,7 @@ void defragment(ImageType& image,float fragment_percentage)
             image[index] = 0;
 }
 
-template<typename ImageType,typename PixelIndexType,typename ValueType>
+template<class ImageType,class PixelIndexType,class ValueType>
 void fill(ImageType& image,PixelIndexType seed_point,ValueType new_value)
 {
     std::deque<PixelIndexType> seeds;

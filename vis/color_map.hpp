@@ -129,7 +129,7 @@ public:
     }
 };
 
-template<typename value_type>
+template<class value_type>
 struct value_to_color{
 private:
     value_type min_value,max_value,r;
@@ -168,7 +168,7 @@ public:
             ivalue = 255;
         return map[ivalue];
     }
-    template<typename value_image_type,typename color_image_type>
+    template<class value_image_type,class color_image_type>
     void convert(const value_image_type& I1,color_image_type& I2) const
     {
         I2.resize(I1.geometry());

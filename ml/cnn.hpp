@@ -32,7 +32,7 @@ namespace ml
 const float bias_cap = 10.0f;
 enum activation_type { tanh, sigmoid, relu, identity};
 
-template<typename value_type>
+template<class value_type>
 inline float tanh_f(value_type v)
 {
     if(v < -bias_cap)
@@ -42,14 +42,14 @@ inline float tanh_f(value_type v)
     const float ep = std::expf(v + v);
     return (ep - float(1)) / (ep + float(1));
 }
-template<typename value_type>
+template<class value_type>
 inline float tanh_df(value_type y)
 {
     return float(1) - y * y;
 }
 
 
-template<typename value_type>
+template<class value_type>
 inline float sigmoid_f(value_type v)
 {
     if(v < -bias_cap)
@@ -58,18 +58,18 @@ inline float sigmoid_f(value_type v)
         return 1.0f;
     return float(1) / (float(1) + std::expf(-v));
 }
-template<typename value_type>
+template<class value_type>
 inline float sigmoid_df(value_type y)
 {
     return y * (float(1) - y);
 }
 
-template<typename value_type>
+template<class value_type>
 inline float relu_f(value_type v)
 {
     return std::max<value_type>(0, v);
 }
-template<typename value_type>
+template<class value_type>
 inline float relu_df(value_type y)
 {
     return y > value_type(0) ? value_type(1) : value_type(0);
@@ -205,7 +205,7 @@ public:
         weight_base = std::sqrt(6.0 / (float)(max_size(o2w_1) + max_size(i2w_1)));
     }
 
-    template <typename Container>
+    template <class Container>
     static int max_size(const Container& c)
     {
         typedef typename Container::value_type value_t;
@@ -819,7 +819,7 @@ public:
         }
     }
 
-    template <typename data_type,typename label_type,typename iter_type>
+    template <class data_type,class label_type,class iter_type>
     void train(const data_type& data,
                const label_type& label_,int iteration_count,bool &termminated,
                iter_type iter_fun = [&]{},float learning_rate = 0.0001,bool reset_weights = true)

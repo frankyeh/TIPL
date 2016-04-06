@@ -4,28 +4,28 @@
 namespace image
 {
 
-template<typename vtor_type,unsigned int dimension>
+template<class vtor_type,unsigned int dimension>
 void make_identity(basic_image<vtor_type,dimension>& s)
 {
     for (image::pixel_index<dimension> index(s.geometry()); index < s.size();++index)
         s[index.index()] = index;
 }
 //---------------------------------------------------------------------------
-template<typename vtor_type,unsigned int dimension>
+template<class vtor_type,unsigned int dimension>
 void displacement_to_mapping(basic_image<vtor_type,dimension>& s)
 {
     for (image::pixel_index<dimension> index(s.geometry()); index < s.size();++index)
         s[index.index()] += index;
 }
 //---------------------------------------------------------------------------
-template<typename vtor_type,unsigned int dimension>
+template<class vtor_type,unsigned int dimension>
 void mapping_to_displacement(basic_image<vtor_type,dimension>& s)
 {
     for (image::pixel_index<dimension> index(s.geometry()); index < s.size();++index)
         s[index.index()] -= index;
 }
 //---------------------------------------------------------------------------
-template<typename ImageType,typename ComposeImageType,typename OutImageType>
+template<class ImageType,class ComposeImageType,class OutImageType>
 void compose_mapping(const ImageType& src,const ComposeImageType& compose,OutImageType& dest)
 {
     dest.clear();
@@ -37,7 +37,7 @@ void compose_mapping(const ImageType& src,const ComposeImageType& compose,OutIma
         image::estimate(src,*iter,*out);
 }
 //---------------------------------------------------------------------------
-template<typename ImageType,typename ComposeImageType,typename OutImageType>
+template<class ImageType,class ComposeImageType,class OutImageType>
 void compose_displacement(const ImageType& src,const ComposeImageType& displace,OutImageType& dest)
 {
     image::geometry<ImageType::dimension> geo(src.geometry());
@@ -51,7 +51,7 @@ void compose_displacement(const ImageType& src,const ComposeImageType& displace,
     }
 }
 //---------------------------------------------------------------------------
-template<typename ComposeImageType>
+template<class ComposeImageType>
 void invert_displacement(const ComposeImageType& v0,ComposeImageType& v1)
 {
     ComposeImageType vv;
@@ -66,7 +66,7 @@ void invert_displacement(const ComposeImageType& v0,ComposeImageType& v1)
     }
 }
 //---------------------------------------------------------------------------
-template<typename ComposeImageType>
+template<class ComposeImageType>
 void invert_displacement(ComposeImageType& v)
 {
     ComposeImageType v0;
@@ -75,7 +75,7 @@ void invert_displacement(ComposeImageType& v)
 }
 
 //---------------------------------------------------------------------------
-template<typename ComposeImageType>
+template<class ComposeImageType>
 void invert_mapping(const ComposeImageType& s0,ComposeImageType& s1)
 {
     ComposeImageType v0(s0);
@@ -84,7 +84,7 @@ void invert_mapping(const ComposeImageType& s0,ComposeImageType& s1)
     displacement_to_mapping(s1);
 }
 //---------------------------------------------------------------------------
-template<typename ComposeImageType>
+template<class ComposeImageType>
 void accumulate_displacement(const ComposeImageType& vin,
                              const ComposeImageType& vv,
                              ComposeImageType& vout)
@@ -93,7 +93,7 @@ void accumulate_displacement(const ComposeImageType& vin,
     vout += vv;
 }
 //---------------------------------------------------------------------------
-template<typename ComposeImageType>
+template<class ComposeImageType>
 void accumulate_displacement(ComposeImageType& v0,const ComposeImageType& vv)
 {
     ComposeImageType nv;
@@ -104,7 +104,7 @@ void accumulate_displacement(ComposeImageType& v0,const ComposeImageType& vv)
 //---------------------------------------------------------------------------
 // v = vx compose vy
 // use vy(x) = v(x)-vx(x+vy(x))
-template<typename ComposeImageType>
+template<class ComposeImageType>
 void decompose_displacement(const ComposeImageType& v,const ComposeImageType& vx,
                             ComposeImageType& vy)
 {
@@ -120,7 +120,7 @@ void decompose_displacement(const ComposeImageType& v,const ComposeImageType& vx
     }
 }
 //---------------------------------------------------------------------------
-template<typename VectorType,typename DetType>
+template<class VectorType,class DetType>
 void jacobian_determinant(const basic_image<VectorType,3>& src,DetType& dest)
 {
     typedef typename DetType::value_type value_type;
@@ -155,7 +155,7 @@ void jacobian_determinant(const basic_image<VectorType,3>& src,DetType& dest)
                                        (v1_0[2] - v1_1[2])*(d2_0*d3_1-d2_1*d3_0));
     }
 }
-template<typename VectorType>
+template<class VectorType>
 double jacobian_determinant_dis_at(const basic_image<VectorType,3>& src,const image::pixel_index<3>& index)
 {
     unsigned int w = src.width();
@@ -181,7 +181,7 @@ double jacobian_determinant_dis_at(const basic_image<VectorType,3>& src,const im
                                    (v1_0[2] - v1_1[2])*(d2_0*d3_1-d2_1*d3_0));
 }
 
-template<typename VectorType,typename DetType>
+template<class VectorType,class DetType>
 void jacobian_determinant_dis(const basic_image<VectorType,3>& src,DetType& dest)
 {
     typedef typename DetType::value_type value_type;
@@ -201,7 +201,7 @@ void jacobian_determinant_dis(const basic_image<VectorType,3>& src,DetType& dest
 }
 //---------------------------------------------------------------------------
 /*
-template<typename ImageType,typename DetType>
+template<class ImageType,class DetType>
 void jacobian_determine(const std::vector<ImageType>& src,DetType& dest)
 {
     typedef typename DetType::value_type value_type;
@@ -242,7 +242,7 @@ void jacobian_determine(const std::vector<ImageType>& src,DetType& dest)
 }
 */
 //---------------------------------------------------------------------------
-template<typename VectorType,typename PixelType>
+template<class VectorType,class PixelType>
 void jacobian_determinant(const basic_image<VectorType,2>& src,basic_image<PixelType,2>& dest)
 {
     geometry<2> geo(src.geometry());
@@ -263,7 +263,7 @@ void jacobian_determinant(const basic_image<VectorType,2>& src,basic_image<Pixel
     }
 }
 
-template<typename VectorType>
+template<class VectorType>
 double jacobian_determinant_dis_at(const basic_image<VectorType,2>& src,const image::pixel_index<2>& index)
 {
     unsigned int w = src.width();
@@ -274,7 +274,7 @@ double jacobian_determinant_dis_at(const basic_image<VectorType,2>& src,const im
     return std::fabs((v1_0[0] - v1_1[0]+1.0)*(v2_0[1] - v2_1[1]+1.0)-(v1_0[1] - v1_1[1])*(v2_0[0] - v2_1[0]));
 }
 
-template<typename VectorType,typename PixelType>
+template<class VectorType,class PixelType>
 void jacobian_determinant_dis(const basic_image<VectorType,2>& src,basic_image<PixelType,2>& dest)
 {
     geometry<2> geo(src.geometry());

@@ -31,7 +31,7 @@ public:
     {
         *this = rhs;
     }
-    template<typename pointer_type>
+    template<class pointer_type>
     explicit geometry(const pointer_type* rhs)
     {
         *this = rhs;
@@ -43,7 +43,7 @@ public:
         std::copy(rhs.dim,rhs.dim+Dim,dim);
         return *this;
     }
-    template<typename pointer_type>
+    template<class pointer_type>
     const geometry<Dim>& operator=(const pointer_type* rhs)
     {
         std::copy(rhs,rhs+Dim,dim);
@@ -96,7 +96,7 @@ public:
         return dim[index];
     }
 public:
-    template<typename T>
+    template<class T>
     bool is_valid(const T& pos) const
     {
         for (int index = 0;index < Dim;++index)
@@ -104,7 +104,7 @@ public:
                 return false;
         return true;
     }
-    template<typename T>
+    template<class T>
     bool is_edge(const T& pos) const
     {
         for (int index = 0;index < Dim;++index)
@@ -164,7 +164,7 @@ public:
     {
         *this = rhs;
     }
-    template<typename pointer_type>
+    template<class pointer_type>
     explicit geometry(const pointer_type* rhs)
     {
         *this = rhs;
@@ -174,7 +174,7 @@ public:
         w = rhs.w;
         return *this;
     }
-    template<typename pointer_type>
+    template<class pointer_type>
     const geometry<1>& operator=(const pointer_type* rhs)
     {
         w = rhs[0];
@@ -224,22 +224,22 @@ public:
         return dim[index];
     }
 public:
-    template<typename T>
+    template<class T>
     bool is_valid(T x) const
     {
         return x >= 0 && x < dim[0];
     }
-    template<typename T>
+    template<class T>
     bool is_edge(T x) const
     {
         return x == 0 || x+1 == dim[0];
     }
-    template<typename T>
+    template<class T>
     bool is_valid(T& pos) const
     {
         return pos[0] >= 0 && pos[0]+1 <= dim[0];
     }
-    template<typename T>
+    template<class T>
     bool is_edge(T& pos) const
     {
         return pos[0] == 0 || pos[0]+1 == dim[0];
@@ -286,7 +286,7 @@ public:
     {
         *this = rhs;
     }
-    template<typename pointer_type>
+    template<class pointer_type>
     explicit geometry(const pointer_type* rhs)
     {
         *this = rhs;
@@ -297,7 +297,7 @@ public:
         h = rhs.h;
         return *this;
     }
-    template<typename pointer_type>
+    template<class pointer_type>
     const geometry<2>& operator=(const pointer_type* rhs)
     {
         w = rhs[0];
@@ -345,22 +345,22 @@ public:
     }
 
 public:
-    template<typename T>
+    template<class T>
     bool is_valid(T x,T y) const
     {
         return x >= 0 && y >= 0 && x < dim[0] && y < dim[1];
     }
-    template<typename T>
+    template<class T>
     bool is_edge(T x,T y) const
     {
         return x == 0 || y == 0 || x+1 == dim[0] || y+1 == dim[1];
     }
-    template<typename T>
+    template<class T>
     bool is_valid(const T& pos) const
     {
         return pos[0] >= 0 && pos[1] >= 0 && pos[0]+1 <= dim[0] && pos[1]+1 <= dim[1];
     }
-    template<typename T>
+    template<class T>
     bool is_edge(const T& pos) const
     {
         return pos[0] == 0 || pos[1] == 0 || pos[0]+1 == dim[0] || pos[1]+1 == dim[1];
@@ -418,7 +418,7 @@ public:
     {
         *this = rhs;
     }
-    template<typename pointer_type>
+    template<class pointer_type>
     explicit geometry(const pointer_type* rhs)
     {
         *this = rhs;
@@ -432,7 +432,7 @@ public:
         size_ = rhs.size_;
         return *this;
     }
-    template<typename pointer_type>
+    template<class pointer_type>
     const geometry<3>& operator=(const pointer_type* rhs)
     {
         w = rhs[0];
@@ -490,23 +490,23 @@ public:
     }
 
 public:
-    template<typename T>
+    template<class T>
     bool is_valid(T x,T y,T z) const
     {
         return x >= 0 && y >= 0 && z >= 0 && x < w && y < h && z < d;
     }
-    template<typename T>
+    template<class T>
     bool is_valid(const T& pos) const
     {
         return pos[0] >= 0 && pos[1] >= 0 && pos[2] >= 0 &&
                pos[0] <= dim[0]-1 && pos[1] <= dim[1]-1 && pos[2] <= dim[2]-1;
     }
-    template<typename T>
+    template<class T>
     bool is_edge(T x,T y,T z) const
     {
         return x == 0 || y == 0 || z == 0 || x+1 == dim[0] || y+1 == dim[1] || z+1 == dim[2];
     }
-    template<typename T>
+    template<class T>
     bool is_edge(const T& pos) const
     {
         return pos[0] == 0 || pos[1] == 0 || pos[2] == 0 ||

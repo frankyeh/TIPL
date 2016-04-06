@@ -117,7 +117,7 @@ struct dsr
 
 
 
-template<typename fun_type>
+template<class fun_type>
 struct nifti_type_info;
 
 template<>
@@ -276,7 +276,7 @@ struct nifti_1_header
 /*
 
 */
-template<typename input_interface = std_istream,typename output_interface = std_ostream>
+template<class input_interface = std_istream,class output_interface = std_ostream>
 class nifti_base
 {
 
@@ -388,7 +388,7 @@ public:
     {
         return load_from_file(file_name.c_str());
     }
-    template<typename char_type>
+    template<class char_type>
     bool load_from_file(const char_type* pfile_name)
     {
         input_stream.reset(new input_interface);
@@ -462,7 +462,7 @@ public:
         return nif_header.dim[index];
     }
 
-    template<typename geometry_type>
+    template<class geometry_type>
     void set_dim(const geometry_type& geo)
     {
         std::fill(nif_header.dim,nif_header.dim+8,1);
@@ -470,7 +470,7 @@ public:
         nif_header.dim[0] = std::find(nif_header.dim+1,nif_header.dim+8,1)-(nif_header.dim+1);
     }
 
-    template<typename pixel_size_type>
+    template<class pixel_size_type>
     void set_voxel_size(pixel_size_type pixel_size_from)
     {
         float pixdim[8];
@@ -487,7 +487,7 @@ public:
         }
     }
 
-    template<typename float_type>
+    template<class float_type>
     void set_image_transformation(float_type R)
     {
         nif_header.sform_code = 1.0;
@@ -497,13 +497,13 @@ public:
         std::copy(R+8,R+12,nif_header.srow_z);
     }
 
-    template<typename pixel_size_type>
+    template<class pixel_size_type>
     void get_voxel_size(pixel_size_type pixel_size_from) const
     {
         std::copy(nif_header.pixdim+1,nif_header.pixdim+1+nif_header.dim[0],pixel_size_from);
     }
 
-    template<typename float_type>
+    template<class float_type>
     void get_image_orientation(float_type R)
     {
         handle_qform();
@@ -511,7 +511,7 @@ public:
         std::copy(nif_header.srow_y,nif_header.srow_y+3,R+3);
         std::copy(nif_header.srow_z,nif_header.srow_z+3,R+6);
     }
-    template<typename float_type>
+    template<class float_type>
     void get_image_transformation(float_type R)
     {
         handle_qform();
@@ -563,7 +563,7 @@ public:
         std::copy(nif_header.dim+1,nif_header.dim+1+dimension,geo.begin());
     }
 
-    template<typename image_type>
+    template<class image_type>
     void load_from_image(const image_type& source)
     {
         nif_header.datatype = nifti_type_info<typename image_type::value_type>::data_type;
@@ -574,7 +574,7 @@ public:
         is_nii = true;
     }
 
-    template<typename char_type>
+    template<class char_type>
     bool save_to_file(const char_type* pfile_name)
     {
         if(!write_buf)
@@ -597,7 +597,7 @@ public:
         write_buf = 0;
         return out;
     }
-    template<typename pointer_type>
+    template<class pointer_type>
     bool save_to_buffer(pointer_type ptr,unsigned int pixel_count) const
     {
         const int byte_per_pixel = header.dime.bitpix/8;
@@ -681,7 +681,7 @@ public:
         return true;
     }
 
-    template<typename image_type>
+    template<class image_type>
     bool save_to_image(image_type& out) const
     {
         if(!has_data())
@@ -689,13 +689,13 @@ public:
         out.resize(image::geometry<image_type::dimension>(nif_header.dim+1));
         return save_to_buffer(out.begin(),out.size());
     }
-    template<typename image_type>
+    template<class image_type>
     const nifti_base& operator>>(image_type& source) const
     {
         save_to_image(source);
         return *this;
     }
-    template<typename image_type>
+    template<class image_type>
     nifti_base& operator<<(const image_type& source)
     {
         load_from_image(source);
@@ -742,7 +742,7 @@ public:
     }
 
     //from RAS to LPS
-    template<typename image_type>
+    template<class image_type>
     bool toLPS(image_type& out,bool change_header = true)
     {
         if(!save_to_image(out))

@@ -8,7 +8,7 @@ namespace reg{
 
 enum reg_cost_type{corr,mutual_info};
 
-template<typename value_type>
+template<class value_type>
 struct normalization{
     image::geometry<3> from_geo,to_geo;
     image::vector<3> from_vs,to_vs;
@@ -38,10 +38,10 @@ public:
     const image::transformation_matrix<value_type>& get_iT(void) const{return iT;}
     const image::affine_transform<value_type> get_arg(void) const{return arg;}
     image::affine_transform<value_type>& get_arg(void){return arg;}
-    template<typename rhs_type>
+    template<class rhs_type>
     void set_arg(const rhs_type& rhs){arg = rhs;update_affine();}
 public:
-    template<typename image_type,typename vector_type,typename terminate_type>
+    template<class image_type,class vector_type,class terminate_type>
     void run_reg(const image_type& from,
                  const vector_type& from_vs_,
                  const image_type& to,
@@ -89,7 +89,7 @@ public:
     }
 
     int get_prog(void)const{return prog+2;}
-    template<typename vtype,typename vtype2>
+    template<class vtype,class vtype2>
     void operator()(const vtype& index,vtype2& out)
     {
         if(!has_T)
@@ -104,7 +104,7 @@ public:
         else
             out = pos;
     }
-    template<typename vtype>
+    template<class vtype>
     void operator()(vtype& pos)
     {
         vtype out(pos);

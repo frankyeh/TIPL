@@ -6,7 +6,7 @@ namespace image{
 namespace ml{
 
 
-template<typename attribute_type,typename classifications_iterator_type>
+template<class attribute_type,class classifications_iterator_type>
 void k_means_clustering(const normalized_attributes<attribute_type>& attributes,
                         classifications_iterator_type classification,size_t k)
 {
@@ -68,7 +68,7 @@ void k_means_clustering(const normalized_attributes<attribute_type>& attributes,
 }
 
 
-template<typename attribute_type,typename classification_type>
+template<class attribute_type,class classification_type>
 class k_means
 {
 protected:
@@ -78,7 +78,7 @@ public:
 public:
     k_means(size_t k_):k(k_) {}
 
-    template<typename attributes_iterator_type,typename classifications_iterator_type>
+    template<class attributes_iterator_type,class classifications_iterator_type>
     void operator()(attributes_iterator_type attributes_from,
                     attributes_iterator_type attributes_to,
                     size_t attribute_dimension,
@@ -88,7 +88,7 @@ public:
         k_means_clustering(attributes,classifications_from,k);
     }
 
-    template<typename attributes_iterator_type,typename classifications_iterator_type>
+    template<class attributes_iterator_type,class classifications_iterator_type>
     void operator()(attributes_iterator_type attributes_from,
                     attributes_iterator_type attributes_to,
                     classifications_iterator_type classifications_from)

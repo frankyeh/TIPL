@@ -9,7 +9,7 @@
 namespace image
 {
 
-template<typename IntegerType>
+template<class IntegerType>
 class PixelAdapter
 {
 private:
@@ -55,7 +55,7 @@ public:
     }
 };
 //---------------------------------------------------------------------------
-template<typename PixelType>
+template<class PixelType>
 void thumb(const basic_image<PixelType,2>& from,basic_image<PixelType,2>& to)
 {
     std::vector<PixelAdapter<PixelType> > to_buffer(to.width());
@@ -173,14 +173,14 @@ void thumb(const basic_image<PixelType,2>& from,basic_image<PixelType,2>& to)
 
 }
 //---------------------------------------------------------------------------
-template<typename PixelType,typename ImageType2D>
+template<class PixelType,class ImageType2D>
 void reslicing(const basic_image<PixelType,2>& slice,ImageType2D& image,
                unsigned int dim,unsigned int slice_index)
 {
     image = slice;
 }
 
-template<typename ImageType3D,typename ImageType2D>
+template<class ImageType3D,class ImageType2D>
 void reslicing(const ImageType3D& slice,ImageType2D& image,
                unsigned int dim,unsigned int slice_index)
 {
@@ -222,7 +222,7 @@ void reslicing(const ImageType3D& slice,ImageType2D& image,
 
 }
 
-template<typename IteratorType,typename OutputIterator>
+template<class IteratorType,class OutputIterator>
 OutputIterator upsampling_x(IteratorType from,IteratorType to,OutputIterator out,int width)
 {
     IteratorType line_iter = to;
@@ -253,7 +253,7 @@ OutputIterator upsampling_x(IteratorType from,IteratorType to,OutputIterator out
 
 
 
-template<typename IteratorType,typename OutputIterator>
+template<class IteratorType,class OutputIterator>
 OutputIterator upsampling_y(IteratorType from,IteratorType to,OutputIterator out,int width,int height)
 {
     int plane_size = width*height;
@@ -298,14 +298,14 @@ OutputIterator upsampling_y(IteratorType from,IteratorType to,OutputIterator out
     return result;
 }
 
-template<typename IteratorType,typename OutputIterator>
+template<class IteratorType,class OutputIterator>
 IteratorType upsampling_z(IteratorType from,IteratorType to,OutputIterator out,int width,int height,int depth)
 {
     return upsampling_y(from,to,out,width*height,depth);
 }
 
 
-template<typename ImageType1,typename ImageType2>
+template<class ImageType1,class ImageType2>
 void upsampling(const ImageType1& in,ImageType2& out)
 {
     geometry<ImageType1::dimension> geo(in.geometry());
@@ -325,13 +325,13 @@ void upsampling(const ImageType1& in,ImageType2& out)
 
 }
 
-template<typename ImageType>
+template<class ImageType>
 void upsampling(ImageType& in)
 {
     upsampling(in,in);
 }
 
-template<typename value_type>
+template<class value_type>
 struct downsampling_facade{
     value_type operator()(value_type v1,value_type v2)
     {
@@ -388,7 +388,7 @@ struct downsampling_facade<unsigned char>{
 
 
 
-template<typename IteratorType,typename OutputIterator>
+template<class IteratorType,class OutputIterator>
 OutputIterator downsampling_x(IteratorType from,IteratorType to,OutputIterator out,int width)
 {
     typedef typename std::iterator_traits<IteratorType>::value_type value_type;
@@ -403,7 +403,7 @@ OutputIterator downsampling_x(IteratorType from,IteratorType to,OutputIterator o
     return out;
 }
 
-template<typename IteratorType,typename OutputIterator>
+template<class IteratorType,class OutputIterator>
 OutputIterator downsampling_y(IteratorType from,IteratorType to,OutputIterator out,int width,int height)
 {
     typedef typename std::iterator_traits<IteratorType>::value_type value_type;
@@ -423,13 +423,13 @@ OutputIterator downsampling_y(IteratorType from,IteratorType to,OutputIterator o
     }
     return out;
 }
-template<typename IteratorType,typename OutputIterator>
+template<class IteratorType,class OutputIterator>
 IteratorType downsampling_z(IteratorType from,IteratorType to,OutputIterator out,int width,int height,int depth)
 {
     return downsampling_y(from,to,out,width*height,depth);
 }
 
-template<typename ImageType1,typename ImageType2>
+template<class ImageType1,class ImageType2>
 void downsampling(const ImageType1& in,ImageType2& out)
 {
     out.resize(in.geometry());
@@ -447,14 +447,14 @@ void downsampling(const ImageType1& in,ImageType2& out)
 }
 
 
-template<typename ImageType>
+template<class ImageType>
 void downsampling(ImageType& in)
 {
     downsampling(in,in);
 }
 
 
-template<typename PixelType>
+template<class PixelType>
 void shrink(const image::basic_image<PixelType,3>& image,
             image::basic_image<PixelType,3>& buffer,
             unsigned int scale)
@@ -503,7 +503,7 @@ void shrink(const image::basic_image<PixelType,3>& image,
         buffer[index] /= scale;
 }
 
-template<typename PixelType>
+template<class PixelType>
 void fast_resample(const image::basic_image<PixelType,3>& source_image,
                    image::basic_image<PixelType,3>& des_image)
 {
@@ -541,7 +541,7 @@ void fast_resample(const image::basic_image<PixelType,3>& source_image,
     }
 }
 
-template<typename PixelType>
+template<class PixelType>
 void scale(const image::basic_image<PixelType,3>& source_image,
               image::basic_image<PixelType,3>& des_image)
 {
@@ -573,7 +573,7 @@ void scale(const image::basic_image<PixelType,3>& source_image,
     }
 }
 
-template<typename PixelType>
+template<class PixelType>
 void scale(const image::basic_image<PixelType,2>& source_image,
               image::basic_image<PixelType,2>& des_image)
 {
@@ -597,7 +597,7 @@ void scale(const image::basic_image<PixelType,2>& source_image,
     }
 }
 
-template<typename PixelType>
+template<class PixelType>
 void scale_nearest(const image::basic_image<PixelType,2>& source_image,
               image::basic_image<PixelType,2>& des_image)
 {
@@ -624,7 +624,7 @@ void scale_nearest(const image::basic_image<PixelType,2>& source_image,
     }
 }
 
-template<typename PixelType,typename CoordinateType,typename ScaleVecType>
+template<class PixelType,class CoordinateType,class ScaleVecType>
 void resample(const image::basic_image<PixelType,3>& source_image,
               image::basic_image<PixelType,3>& des_image,
               const CoordinateType& from_position,
@@ -649,7 +649,7 @@ void resample(const image::basic_image<PixelType,3>& source_image,
     }
 }
 
-template<typename ImageType1,typename ImageType2,typename transform_type>
+template<class ImageType1,class ImageType2,class transform_type>
 void resample(const ImageType1& from,ImageType2& to,const transform_type& transform,interpolation_type type)
 {
     image::geometry<ImageType1::dimension> geo(to.geometry());
@@ -661,10 +661,10 @@ void resample(const ImageType1& from,ImageType2& to,const transform_type& transf
     }
 }
 
-template<typename ImageType,typename transform_type>
+template<class ImageType,class transform_type>
 void resample(ImageType& from,const transform_type& transform,interpolation_type type)
 {
-    image::basic_image<typename ImageType::value_type,ImageType::dimension> I(from.geometry());
+    image::basic_image<class ImageType::value_type,ImageType::dimension> I(from.geometry());
     for (image::pixel_index<ImageType::dimension> index(from.geometry());index < from.size();++index)
     {
         image::vector<ImageType::dimension,double> pos;
@@ -674,14 +674,14 @@ void resample(ImageType& from,const transform_type& transform,interpolation_type
 }
 
 
-template<typename ImageType1,typename ImageType2,typename value_type>
+template<class ImageType1,class ImageType2,class value_type>
 void resample(const ImageType1& from,ImageType2& to,const std::vector<value_type>& trans,interpolation_type type)
 {
     image::transformation_matrix<float> transform;
     transform.load_from_transform(trans.begin());
     resample(from,to,transform,type);
 }
-template<typename ImageType1,typename ImageType2,int r,int c,typename value_type>
+template<class ImageType1,class ImageType2,int r,int c,class value_type>
 void resample(const ImageType1& from,ImageType2& to,const image::matrix<r,c,value_type>& trans,interpolation_type type)
 {
     image::transformation_matrix<float> transform;
@@ -689,14 +689,14 @@ void resample(const ImageType1& from,ImageType2& to,const image::matrix<r,c,valu
     resample(from,to,transform,type);
 }
 
-template<typename ImageType,typename value_type>
+template<class ImageType,class value_type>
 void resample(ImageType& from,const std::vector<value_type>& trans,interpolation_type type)
 {
     image::transformation_matrix<float> transform;
     transform.load_from_transform(trans.begin());
     resample(from,transform,type);
 }
-template<typename ImageType,int r,int c,typename value_type>
+template<class ImageType,int r,int c,class value_type>
 void resample(ImageType& from,const image::matrix<r,c,value_type>& trans,interpolation_type type)
 {
     image::transformation_matrix<float> transform;

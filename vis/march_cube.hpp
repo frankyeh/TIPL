@@ -325,7 +325,7 @@ const int triTable[256][16] =
 }
 
 
-template<typename VectorType>
+template<class VectorType>
 struct CompareVector
 {
     bool operator()(const VectorType& v1,const VectorType v2) const
@@ -338,7 +338,7 @@ struct CompareVector
     }
 };
 
-template<typename VectorType>
+template<class VectorType>
 class march_cube
 {
 
@@ -433,7 +433,7 @@ public:
             normal_list(rhs.normal_list)
     {
     }
-    template<typename ImageType>
+    template<class ImageType>
     march_cube(const ImageType& source_image,typename ImageType::value_type isolevel)
     {
         w = source_image.geometry()[0];
@@ -471,7 +471,7 @@ public:
         get_normal();
     }
 
-    template<typename ImageType>
+    template<class ImageType>
     void addCube(const ImageType& source_image,const pixel_index<3>& point,double isolevel)
     {
         pixel_index<3> iter0(point);

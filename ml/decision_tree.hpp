@@ -7,12 +7,12 @@ namespace image{
 
 namespace ml{
 
-template<typename attribute_type,typename classification_type>
+template<class attribute_type,class classification_type>
 class decision_tree
 {
 
 private:
-    template<typename attributes_iterator_type>
+    template<class attributes_iterator_type>
     std::pair<attribute_type,attribute_type> get_value_range(attributes_iterator_type attributes_from,
             attributes_iterator_type attributes_to,size_t attribute_index)
     {
@@ -28,7 +28,7 @@ private:
         }
         return std::make_pair(max_value,min_value);
     }
-    template<typename attributes_iterator_type,typename classifications_iterator_type>
+    template<class attributes_iterator_type,class classifications_iterator_type>
     double information_gain(attributes_iterator_type attributes_from,
                             attributes_iterator_type attributes_to,
                             classifications_iterator_type classifications_from)
@@ -85,7 +85,7 @@ public:
     decision_tree(size_t minimum_sample_,double termination_ratio_):
             minimum_sample(minimum_sample_),termination_ratio(termination_ratio_),is_end_node(false) {}
 
-    template<typename attributes_iterator_type,typename classifications_iterator_type>
+    template<class attributes_iterator_type,class classifications_iterator_type>
     void learn(attributes_iterator_type attributes_from,
                attributes_iterator_type attributes_to,
                size_t attribute_dimension,
@@ -165,7 +165,7 @@ public:
         }
     }
 
-    template<typename sample_iterator_type>
+    template<class sample_iterator_type>
     classification_type predict(sample_iterator_type predict_attributes) const
     {
         if (is_end_node)

@@ -11,7 +11,7 @@ namespace ml{
 
 struct weight_function_inverse_distance
 {
-    template<typename classification_type>
+    template<class classification_type>
     double operator()(const std::map<double,size_t>& neighbor_list,const std::vector<classification_type>& classification) const
     {
         double predict = 0.0;
@@ -34,7 +34,7 @@ struct weight_function_inverse_distance
 template<size_t width>
 struct weight_function_gaussian
 {
-    template<typename classification_type>
+    template<class classification_type>
     double operator()(const std::map<double,size_t>& neighbor_list,const std::vector<classification_type>& classification) const
     {
         double predict = 0.0;
@@ -54,7 +54,7 @@ struct weight_function_gaussian
 
 struct weight_function_average
 {
-    template<typename classification_type>
+    template<class classification_type>
     double operator()(const std::map<double,size_t>& neighbor_list,const std::vector<classification_type>& classification) const
     {
         double predict = 0.0;
@@ -67,7 +67,7 @@ struct weight_function_average
     }
 };
 
-template<typename attribute_type,typename classification_type,typename weight_function_type>
+template<class attribute_type,class classification_type,class weight_function_type>
 class nearest_neighbor
 {
 protected:
@@ -80,7 +80,7 @@ protected:
 public:
     nearest_neighbor(size_t neighbor_count_ = 3):neighbor_count(neighbor_count_) {}
 
-    template<typename attributes_iterator_type>
+    template<class attributes_iterator_type>
     void unlearn(attributes_iterator_type attributes_from)
     {
         std::vector<attribute_type> unlearn_attributes(attributes_from,attributes_from+attribute_dimension);
@@ -107,7 +107,7 @@ public:
         }
     }
 
-    template<typename attributes_iterator_type,typename classifications_type>
+    template<class attributes_iterator_type,class classifications_type>
     void learn(attributes_iterator_type attributes_from,
                classifications_type classification_)
     {
@@ -116,7 +116,7 @@ public:
         ++sample_size;
     }
 
-    template<typename attributes_iterator_type,typename classifications_iterator_type>
+    template<class attributes_iterator_type,class classifications_iterator_type>
     void learn(attributes_iterator_type attributes_from,
                attributes_iterator_type attributes_to,
                size_t attribute_dimension_,
@@ -130,7 +130,7 @@ public:
         classification.swap(new_class);
     }
 
-    template<typename sample_iterator_type>
+    template<class sample_iterator_type>
     double regression(sample_iterator_type predict_attributes_) const
     {
         std::vector<attribute_type> predict_attributes(predict_attributes_,predict_attributes_+attribute_dimension);
@@ -166,7 +166,7 @@ public:
 
         return weighted(neighbor_list,classification);
     }
-    template<typename sample_iterator_type>
+    template<class sample_iterator_type>
     classification_type predict(sample_iterator_type predict_attributes_) const
     {
         return std::floor(regression(predict_attributes_)+0.5);
@@ -175,7 +175,7 @@ public:
 };
 
 
-template<typename attribute_type,typename classification_type,typename weight_function_type>
+template<class attribute_type,class classification_type,class weight_function_type>
 class parzen_estimator : public nearest_neighbor<attribute_type,classification_type,weight_function_type>
 {
     typedef nearest_neighbor<attribute_type,classification_type,weight_function_type> parent_type;
@@ -184,7 +184,7 @@ private:
     size_t classification_dimension;
 public:
     parzen_estimator(double window_size_ = 3):window_size(window_size_) {}
-    template<typename attributes_iterator_type,typename classifications_iterator_type>
+    template<class attributes_iterator_type,class classifications_iterator_type>
     void learn(attributes_iterator_type attributes_from,
                attributes_iterator_type attributes_to,
                size_t attribute_dimension_,
@@ -195,13 +195,13 @@ public:
         learn(attributes_from,attributes_to,attribute_dimension_,classifications_from);
     }
 
-    template<typename sample_iterator_type>
+    template<class sample_iterator_type>
     classification_type predict(sample_iterator_type predict_attributes_) const
     {
         return regression(predict_attributes_) >= 0.5 ? 1:0;
     }
 
-    template<typename sample_iterator_type>
+    template<class sample_iterator_type>
     double regression(sample_iterator_type predict_attributes_) const
     {
         typename std::vector<attribute_type> predict_attributes(predict_attributes_,predict_attributes_+parent_type::attribute_dimension);

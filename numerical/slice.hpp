@@ -5,7 +5,7 @@
 namespace image
 {
 
-template<typename value_type1,typename value_type2>
+template<class value_type1,class value_type2>
 void space2slice(unsigned char dim_index,
         value_type1 px,value_type1 py,value_type1 pz,
         value_type2& x,value_type2& y,value_type2& slice_index)
@@ -22,7 +22,7 @@ void space2slice(unsigned char dim_index,
 }
 
 
-template<typename value_type1,typename slice_type,typename value_type2>
+template<class value_type1,class slice_type,class value_type2>
 void slice2space(unsigned char dim_index,
         value_type1 x,value_type1 y,slice_type slice_index,
         value_type2& px,value_type2& py,value_type2& pz)
@@ -38,7 +38,7 @@ void slice2space(unsigned char dim_index,
     }
 }
 
-template<typename RangeType1,typename RangeType2,typename ResultType>
+template<class RangeType1,class RangeType2,class ResultType>
 void get_slice_positions(unsigned char dim,double pos,
                          const RangeType1& range_min,
                          const RangeType2& range_max,
@@ -69,7 +69,7 @@ void get_slice_positions(unsigned char dim,double pos,
 
 
 
-template<typename GeoType,typename ResultType>
+template<class GeoType,class ResultType>
 void get_slice_positions(unsigned char dim,double pos,const GeoType& geo,ResultType& points)
 {
     double x_min,x_max,y_min,y_max;

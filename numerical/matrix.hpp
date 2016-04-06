@@ -58,7 +58,7 @@ struct dim
 };
 
 
-template<typename value_type>
+template<class value_type>
 struct one{
     value_type operator[](unsigned int)const{return value_type(1);}
     value_type operator*(void) const{return value_type(1);}
@@ -66,7 +66,7 @@ struct one{
     value_type operator*(void){return value_type(1);}
 };
 
-template<typename value_type>
+template<class value_type>
 struct zero{
     value_type operator[](unsigned int)const{return value_type(0);}
     value_type operator*(void) const{return value_type(0);}
@@ -100,7 +100,7 @@ namespace vec
 {
 
 
-template<typename lhs_type,typename rhs_type>
+template<class lhs_type,class rhs_type>
 typename std::iterator_traits<lhs_type>::value_type
 dot(lhs_type v1,lhs_type v1_end,rhs_type v2)
 {
@@ -121,7 +121,7 @@ dot(lhs_type v1,lhs_type v1_end,rhs_type v2)
 /*
 perform x <- -x
 */
-template<typename lhs_type>
+template<class lhs_type>
 void negate(lhs_type x_begin,lhs_type x_end)
 {
     for (;x_begin != x_end;++x_begin)
@@ -131,7 +131,7 @@ void negate(lhs_type x_begin,lhs_type x_end)
 /*
 perform x <- ax
 */
-template<typename lhs_type,typename scalar_type>
+template<class lhs_type,class scalar_type>
 void scale(lhs_type x_begin,lhs_type x_end,scalar_type a)
 {
     for (;x_begin != x_end;++x_begin)
@@ -141,7 +141,7 @@ void scale(lhs_type x_begin,lhs_type x_end,scalar_type a)
 /*
 perform y <- ax
 */
-template<typename lhs_type,typename rhs_type,typename scalar_type>
+template<class lhs_type,class rhs_type,class scalar_type>
 void scale(lhs_type x_begin,lhs_type x_end,rhs_type y,scalar_type a)
 {
     if (x_begin != x_end)
@@ -158,7 +158,7 @@ void scale(lhs_type x_begin,lhs_type x_end,rhs_type y,scalar_type a)
 /*
 calculate norm1
 */
-template<typename lhs_type>
+template<class lhs_type>
 typename std::iterator_traits<lhs_type>::value_type
 norm1(lhs_type x_begin,lhs_type x_end)
 {
@@ -175,7 +175,7 @@ norm1(lhs_type x_begin,lhs_type x_end)
 /*
 calculate norm2
 */
-template<typename lhs_type>
+template<class lhs_type>
 typename std::iterator_traits<lhs_type>::value_type
 norm2(lhs_type x_begin,lhs_type x_end)
 {
@@ -206,7 +206,7 @@ norm2(lhs_type x_begin,lhs_type x_end)
 /*
 swap vector x, y
 */
-template<typename lhs_type,typename rhs_type>
+template<class lhs_type,class rhs_type>
 void swap(lhs_type x_begin,lhs_type x_end,rhs_type y)
 {
     if (x_begin != x_end)
@@ -223,7 +223,7 @@ void swap(lhs_type x_begin,lhs_type x_end,rhs_type y)
 /*
 perform y <- y+x
 */
-template<typename lhs_type,typename rhs_type>
+template<class lhs_type,class rhs_type>
 void add(lhs_type y_begin,lhs_type y_end,rhs_type x)
 {
     if (y_begin != y_end)
@@ -239,7 +239,7 @@ void add(lhs_type y_begin,lhs_type y_end,rhs_type x)
 /*
 perform y <- y-x
 */
-template<typename lhs_type,typename rhs_type>
+template<class lhs_type,class rhs_type>
 void minus(lhs_type y_begin,lhs_type y_end,rhs_type x)
 {
     if (y_begin != y_end)
@@ -257,7 +257,7 @@ void minus(lhs_type y_begin,lhs_type y_end,rhs_type x)
 /*
 perform y <- ax+y
 */
-template<typename lhs_type,typename rhs_type,typename scalar_type>
+template<class lhs_type,class rhs_type,class scalar_type>
 void axpy(lhs_type y_begin,lhs_type y_end,scalar_type a,rhs_type x)
 {
     if (y_begin != y_end)
@@ -275,7 +275,7 @@ void axpy(lhs_type y_begin,lhs_type y_end,scalar_type a,rhs_type x)
 /*
 perform x <- ay+x
 */
-template<typename lhs_type,typename rhs_type,typename scalar_type>
+template<class lhs_type,class rhs_type,class scalar_type>
 void aypx(lhs_type y_begin,lhs_type y_end,scalar_type a,rhs_type x)
 {
     if (y_begin != y_end)
@@ -295,7 +295,7 @@ void aypx(lhs_type y_begin,lhs_type y_end,scalar_type a,rhs_type x)
 perform x <- c*x+s*y
 perform y <- c*y-s*x
 */
-template<typename lhs_type,typename rhs_type,typename scalar_type>
+template<class lhs_type,class rhs_type,class scalar_type>
 void rot(lhs_type x_begin,lhs_type x_end,rhs_type y,scalar_type c,scalar_type s)
 {
     typename std::iterator_traits<lhs_type>::value_type x_temp;
@@ -320,7 +320,7 @@ void rot(lhs_type x_begin,lhs_type x_end,rhs_type y,scalar_type c,scalar_type s)
 perform A=x*y'
 */
 
-template<typename left_input_iterator,
+template<class left_input_iterator,
 typename right_input_iterator,
 typename output_iterator>
 void gen(left_input_iterator x,left_input_iterator x_end,right_input_iterator y,output_iterator out)
@@ -342,7 +342,7 @@ void gen(left_input_iterator x,left_input_iterator x_end,right_input_iterator y,
 perform A=x*y'
 */
 
-template<typename left_input_iterator,
+template<class left_input_iterator,
 typename right_input_iterator,
 typename output_iterator>
 void gen(left_input_iterator x,left_input_iterator x_end,right_input_iterator y,right_input_iterator y_end,output_iterator out)
@@ -371,7 +371,7 @@ namespace mat
 perform y = Ax
 */
 
-template<typename left_input_iterator,
+template<class left_input_iterator,
 typename right_input_iterator,
 typename output_iterator,
 typename left_dim_type>
@@ -398,7 +398,7 @@ void vector_product(left_input_iterator A,right_input_iterator x,output_iterator
 perform y = xA
 */
 
-template<typename left_input_iterator,
+template<class left_input_iterator,
 typename right_input_iterator,
 typename output_iterator,
 typename left_dim_type>
@@ -423,7 +423,7 @@ OUTPUT: random access iterator or bidirectional iterator
 */
 
 
-template<typename left_input_iterator,
+template<class left_input_iterator,
 typename right_input_iterator,
 typename output_iterator,
 typename left_dim_type,
@@ -467,7 +467,7 @@ INPUT: must be random access iterator
 OUTPUT: random access iterator or bidirectional iterator
 
 */
-template<typename left_input_iterator,
+template<class left_input_iterator,
 typename right_input_iterator,
 typename output_iterator,
 typename left_dim_type,
@@ -496,7 +496,7 @@ INPUT: must be random access iterator
 OUTPUT: must be random access iterator
 */
 
-template<typename input_iterator,
+template<class input_iterator,
 typename output_iterator,
 typename dim_type>
 void square(input_iterator lhs,output_iterator out,const dim_type& dim)
@@ -555,7 +555,7 @@ double sym[]={12, 8, 3, 1,
 is_symmetric(sym,dim<4,4>());
 \endcode
 */
-template<typename input_iterator,typename dim_type>
+template<class input_iterator,class dim_type>
 bool is_symmetric(input_iterator iter,const dim_type& dim)
 {
     input_iterator col_wise = iter + 1;
@@ -592,7 +592,7 @@ double sym[]={12, 8, 3, 1,
 transpose(sym,dim<4,4>());
 \endcode
 */
-template<typename input_iterator,unsigned int matrix_dim>
+template<class input_iterator,unsigned int matrix_dim>
 void transpose(input_iterator A,dim<matrix_dim,matrix_dim>)
 {
     if (matrix_dim > 1)
@@ -620,7 +620,7 @@ void transpose(input_iterator A,dim<matrix_dim,matrix_dim>)
 
 
 
-template<typename input_iterator,typename output_iterator,typename dim_type>
+template<class input_iterator,class output_iterator,class dim_type>
 void transpose(input_iterator in,output_iterator out,const dim_type& dim)
 {
     unsigned int col = 0;
@@ -640,7 +640,7 @@ void transpose(input_iterator in,output_iterator out,const dim_type& dim)
     }
 }
 
-template<typename io_iterator,typename dim_type>
+template<class io_iterator,class dim_type>
 void transpose(io_iterator io,const dim_type& dim)
 {
     typedef typename std::iterator_traits<io_iterator>::value_type value_type;
@@ -648,7 +648,7 @@ void transpose(io_iterator io,const dim_type& dim)
     transpose(temp.begin(),io,dim);
 }
 
-template<typename input_iterator,typename dim_type>
+template<class input_iterator,class dim_type>
 typename std::iterator_traits<input_iterator>::value_type
 trace(input_iterator A,const dim_type& dim)
 {
@@ -661,7 +661,7 @@ trace(input_iterator A,const dim_type& dim)
 }
 
 
-template<typename input_iterator,typename value_type>
+template<class input_iterator,class value_type>
 void col_rotate_dyn(input_iterator col1,input_iterator col2,
                            value_type c,value_type s,unsigned int row_count,unsigned int col_count)
 {
@@ -682,7 +682,7 @@ void col_rotate_dyn(input_iterator col1,input_iterator col2,
 
 
 
-template <typename iterator_type,typename dim_type>
+template <class iterator_type,class dim_type>
 void identity(iterator_type I,const dim_type& dim)
 {
     unsigned int size = dim.size();
@@ -705,7 +705,7 @@ void identity(iterator_type I,const dim_type& dim)
     math::lu_decomposition(A,pivot,math::dim<3,3>());
 
 */
-template<typename io_iterator,typename pivot_iterator,typename dim_type>
+template<class io_iterator,class pivot_iterator,class dim_type>
 bool lu_decomposition(io_iterator A,pivot_iterator pivot,const dim_type& dim)
 {
     typedef typename std::iterator_traits<io_iterator>::value_type value_type;
@@ -754,7 +754,7 @@ bool lu_decomposition(io_iterator A,pivot_iterator pivot,const dim_type& dim)
 }
 
 
-template<typename input_iterator,typename dim_type>
+template<class input_iterator,class dim_type>
 typename std::iterator_traits<input_iterator>::value_type
 lu_determinant(input_iterator A,const dim_type& dim)
 {
@@ -767,7 +767,7 @@ lu_determinant(input_iterator A,const dim_type& dim)
 }
 
 
-template<typename io_iterator,typename pivot_iterator,typename dim_type>
+template<class io_iterator,class pivot_iterator,class dim_type>
 bool ll_decomposition(io_iterator A,pivot_iterator p,const dim_type& dim)
 {
     typedef typename std::iterator_traits<io_iterator>::value_type value_type;
@@ -794,8 +794,8 @@ bool ll_decomposition(io_iterator A,pivot_iterator p,const dim_type& dim)
     return true;
 }
 
-template<typename io_iterator,typename pivot_iterator,typename input_iterator2,
-         typename output_iterator,typename dim_type>
+template<class io_iterator,class pivot_iterator,class input_iterator2,
+         typename output_iterator,class dim_type>
 void ll_solve(io_iterator A,pivot_iterator p,input_iterator2 b,output_iterator x,const dim_type& dim)
 {
     typedef typename std::iterator_traits<io_iterator>::value_type value_type;
@@ -824,7 +824,7 @@ void ll_solve(io_iterator A,pivot_iterator p,input_iterator2 b,output_iterator x
 
 
 
-template<typename io_iterator,typename output_iterator1,typename output_iterator2,typename dim_type>
+template<class io_iterator,class output_iterator1,class output_iterator2,class dim_type>
 bool qr_decomposition(io_iterator A,output_iterator1 c,output_iterator2 d,const dim_type& dim)
 {
     typedef typename std::iterator_traits<io_iterator>::value_type value_type;
@@ -877,7 +877,7 @@ bool qr_decomposition(io_iterator A,output_iterator1 c,output_iterator2 d,const 
     return !singular;
 }
 
-template<typename io_iterator,typename output_iterator1,typename output_iterator2,typename dim_type>
+template<class io_iterator,class output_iterator1,class output_iterator2,class dim_type>
 bool lq_decomposition(io_iterator A,output_iterator1 c,output_iterator2 d,const dim_type& dim)
 {
     typedef typename std::iterator_traits<io_iterator>::value_type value_type;
@@ -930,7 +930,7 @@ bool lq_decomposition(io_iterator A,output_iterator1 c,output_iterator2 d,const 
     return !singular;
 }
 
-template<typename io_iterator1,typename io_iterator2,typename output_iterator,typename dim_type>
+template<class io_iterator1,class io_iterator2,class output_iterator,class dim_type>
 void lq_get_l(io_iterator1 A,io_iterator2 d,output_iterator L,const dim_type& dim)
 {
     unsigned int m = dim.row_count();
@@ -949,7 +949,7 @@ void lq_get_l(io_iterator1 A,io_iterator2 d,output_iterator L,const dim_type& di
 /*
     May modify matrix A and b to enlarge the diagnoal elements
  */
-template<typename io_iterator,typename input_iterator2,typename dim_type>
+template<class io_iterator,class input_iterator2,class dim_type>
 bool jacobi_regularize(io_iterator A,input_iterator2 piv,const dim_type& dim)
 {
     typedef typename std::iterator_traits<io_iterator>::value_type value_type;
@@ -975,8 +975,8 @@ bool jacobi_regularize(io_iterator A,input_iterator2 piv,const dim_type& dim)
 }
 
 
-template<typename io_iterator,typename pivot_iterator,typename input_iterator2,
-         typename output_iterator,typename dim_type>
+template<class io_iterator,class pivot_iterator,class input_iterator2,
+         typename output_iterator,class dim_type>
 bool jacobi_solve(io_iterator A,pivot_iterator p,input_iterator2 b,output_iterator x,const dim_type& dim)
 {
     typedef typename std::iterator_traits<output_iterator>::value_type value_type;
@@ -998,7 +998,7 @@ bool jacobi_solve(io_iterator A,pivot_iterator p,input_iterator2 b,output_iterat
     return true;
 }
 
-template<typename io_iterator,typename input_iterator2,typename output_iterator,typename dim_type>
+template<class io_iterator,class input_iterator2,class output_iterator,class dim_type>
 bool jacobi_solve(io_iterator A,input_iterator2 b,output_iterator x,const dim_type& dim)
 {
     typedef typename std::iterator_traits<output_iterator>::value_type value_type;
@@ -1021,7 +1021,7 @@ bool jacobi_solve(io_iterator A,input_iterator2 b,output_iterator x,const dim_ty
     return true;
 }
 
-template<typename input_iterator>
+template<class input_iterator>
 typename std::iterator_traits<input_iterator>::value_type
 determinant(input_iterator iter,dim<4,4>)
 {
@@ -1069,7 +1069,7 @@ double sym[]={12, 8, 3,
 std::cout << la::determinant(sym,la::dim<3,3>());
 \endcode
 */
-template<typename input_iterator>
+template<class input_iterator>
 typename std::iterator_traits<input_iterator>::value_type
 determinant(input_iterator iter,dim<3,3>)
 {
@@ -1078,7 +1078,7 @@ determinant(input_iterator iter,dim<3,3>)
            (*(iter+2))*((*(iter+3))*(*(iter+7))-(*(iter+4))*(*(iter+6)));
 }
 
-template<typename input_iterator>
+template<class input_iterator>
 typename std::iterator_traits<input_iterator>::value_type
 determinant(input_iterator iter,dim<2,2>)
 {
@@ -1088,7 +1088,7 @@ determinant(input_iterator iter,dim<2,2>)
     solve Ax=b
 
 */
-template<typename input_iterator1,typename input_iterator2,typename piv_iterator,typename output_iterator,typename dim_type>
+template<class input_iterator1,class input_iterator2,class piv_iterator,class output_iterator,class dim_type>
 bool lu_solve(input_iterator1 A,piv_iterator piv,input_iterator2 b,output_iterator x,const dim_type& dim)
 {
     typedef typename std::iterator_traits<input_iterator1>::value_type value_type;
@@ -1127,7 +1127,7 @@ bool lu_solve(input_iterator1 A,piv_iterator piv,input_iterator2 b,output_iterat
     solve AX=B
 
 */
-template<typename input_iterator1,typename input_iterator2,typename piv_iterator,typename output_iterator,typename dim_type>
+template<class input_iterator1,class input_iterator2,class piv_iterator,class output_iterator,class dim_type>
 bool lu_solve(input_iterator1 A,piv_iterator piv,input_iterator2 B,output_iterator X,const dim_type& dim,const dim_type& Bdim)
 {
     typedef typename std::iterator_traits<input_iterator1>::value_type value_type;
@@ -1147,7 +1147,7 @@ bool lu_solve(input_iterator1 A,piv_iterator piv,input_iterator2 B,output_iterat
     return result;
 }
 
-template<typename input_iterator>
+template<class input_iterator>
 bool inverse(input_iterator iter,dim<1,1>)
 {
     typedef typename std::iterator_traits<input_iterator>::value_type value_type;
@@ -1165,7 +1165,7 @@ double sym[]={12, 8,
 inverse(sym,dim<2,2>());
 \endcode
 */
-template<typename input_iterator>
+template<class input_iterator>
 bool inverse(input_iterator iter,dim<2,2>)
 {
     typedef typename std::iterator_traits<input_iterator>::value_type value_type;
@@ -1180,7 +1180,7 @@ bool inverse(input_iterator iter,dim<2,2>)
     return true;
 }
 
-template<typename input_iterator>
+template<class input_iterator>
 bool inverse(input_iterator iter,dim<3,3>)
 {
     typedef typename std::iterator_traits<input_iterator>::value_type value_type;
@@ -1209,7 +1209,7 @@ bool inverse(input_iterator iter,dim<3,3>)
     return true;
 }
 
-template<typename input_iterator,typename dim_type>
+template<class input_iterator,class dim_type>
 bool inverse(input_iterator A_,dim_type dim)
 {
 	typedef typename std::iterator_traits<input_iterator>::value_type value_type;
@@ -1275,7 +1275,7 @@ bool inverse(input_iterator A_,dim_type dim)
     return result;
 }
 
-template<typename input_iterator,typename output_iterator,typename dim_type>
+template<class input_iterator,class output_iterator,class dim_type>
 bool inverse(input_iterator A_,output_iterator A,dim_type dim)
 {
     std::copy(A_,A_+dim.size(),A);
@@ -1292,7 +1292,7 @@ bool inverse(input_iterator A_,output_iterator A,dim_type dim)
                  0, 0, 0,   0,  3};
     image::matrix::inverse_upper(A,image::dyndim(5,5));
  */
-template<typename input_iterator,typename dim_type>
+template<class input_iterator,class dim_type>
 bool inverse_upper(input_iterator U,dim_type dim)
 {
     typedef typename std::iterator_traits<input_iterator>::value_type value_type;
@@ -1335,7 +1335,7 @@ bool inverse_upper(input_iterator U,dim_type dim)
                  4, -10, 11, -30,22};
     image::matrix::inverse_lower(A,image::dyndim(5,5));
  */
-template<typename input_iterator,typename dim_type>
+template<class input_iterator,class dim_type>
 bool inverse_lower(input_iterator U,dim_type dim)
 {
     typedef typename std::iterator_traits<input_iterator>::value_type value_type;
@@ -1390,7 +1390,7 @@ bool inverse_lower(input_iterator U,dim_type dim)
 		right side columns were changed due to P'
 	*/
 /*
-template<typename input_iterator,typename dim_type>
+template<class input_iterator,class dim_type>
 typename std::iterator_traits<input_iterator>::value_type
 household_col_reduction(input_iterator row,unsigned int row_index,unsigned int col_index,const dim_type& dim)
 {
@@ -1425,7 +1425,7 @@ for (unsigned int i = col_index + 1; i < dim.col_count();++i)
 return x_norm;
 }*/
 
-template <typename input_iterator,typename output_iterator>
+template <class input_iterator,class output_iterator>
 void eigen_decomposition_sym(input_iterator A,
                                     output_iterator V,
                                     output_iterator d,dim<2,2>)
@@ -1460,7 +1460,7 @@ void eigen_decomposition_sym(input_iterator A,
 }
 
 
-template<typename input_iterator,typename dim_type>
+template<class input_iterator,class dim_type>
 void col_swap(input_iterator i1,input_iterator i2,const dim_type& dim)
 {
     unsigned int col_count = dim.col_count();
@@ -1470,7 +1470,7 @@ void col_swap(input_iterator i1,input_iterator i2,const dim_type& dim)
     std::swap(*i1,*i2);
 }
 
-template <typename input_iterator,typename output_iterator,typename dym_type>
+template <class input_iterator,class output_iterator,class dym_type>
 void eigenvalue(input_iterator A,output_iterator d,const dym_type& dimension)
 {
     typedef typename std::iterator_traits<input_iterator>::value_type value_type;
@@ -1640,7 +1640,7 @@ void eigenvalue(input_iterator A,output_iterator d,const dym_type& dimension)
 
 
     }
-    std::sort(d,d+dim,std::greater<typename std::iterator_traits<output_iterator>::value_type>());
+    std::sort(d,d+dim,std::greater<class std::iterator_traits<output_iterator>::value_type>());
 }
 
 /**
@@ -1648,7 +1648,7 @@ A must be a symmetric matrix
 Output V:eigenvectors, *stored in colomn major
 Output d:eigenvalues
 */
-template <typename input_iterator,typename output_iterator1,typename output_iterator2,typename dym_type>
+template <class input_iterator,class output_iterator1,class output_iterator2,class dym_type>
 void eigen_decomposition_sym(input_iterator A,
                                     output_iterator1 V,
                                     output_iterator2 d,const dym_type& dimension)
@@ -1919,7 +1919,7 @@ Output:
 	s: n singular values
 */
 
-template <typename input_iterator,typename output_iterator1,typename output_iterator2,typename dym_type>
+template <class input_iterator,class output_iterator1,class output_iterator2,class dym_type>
 void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimension)
 {
     using namespace std;
@@ -2309,7 +2309,7 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
     }
 }
 
-template <typename input_iterator,typename output_iterator2,typename dym_type>
+template <class input_iterator,class output_iterator2,class dym_type>
 void svd(input_iterator A,output_iterator2 s,dym_type dimension)
 {
     typedef typename std::iterator_traits<input_iterator>::value_type value_type;
@@ -2562,7 +2562,7 @@ void svd(input_iterator A,output_iterator2 s,dym_type dimension)
     std::sort(s,s+nu,std::greater<value_type>());
 }
 
-template<typename input_iterator1,typename input_iterator2,typename output_iterator,typename dim_type>
+template<class input_iterator1,class input_iterator2,class output_iterator,class dim_type>
 void pseudo_inverse_solve(input_iterator1 At,input_iterator2 y,output_iterator x,dim_type dim)
 {
     typedef typename std::iterator_traits<output_iterator>::value_type value_type;
@@ -2577,7 +2577,7 @@ void pseudo_inverse_solve(input_iterator1 At,input_iterator2 y,output_iterator x
 }
 
 
-template<typename input_iterator,typename output_iterator,typename dim_type>
+template<class input_iterator,class output_iterator,class dim_type>
 void pseudo_inverse(input_iterator A_,output_iterator A,dim_type dim)
 {
     typedef typename std::iterator_traits<output_iterator>::value_type value_type;
@@ -2620,7 +2620,7 @@ void pseudo_inverse(input_iterator A_,output_iterator A,dim_type dim)
 
 
 
-template<typename iterator_type>
+template<class iterator_type>
 struct inverse_delegate{
     iterator_type iter;
     inverse_delegate(iterator_type iter_):iter(iter_){;}
@@ -2631,19 +2631,19 @@ struct inverse_delegate{
     }
 };
 
-template<typename right_type>
+template<class right_type>
 inverse_delegate<typename right_type::const_iterator> inverse(const right_type& rhs)
 {
     return inverse_delegate<typename right_type::const_iterator>(rhs.begin());
 }
-template<typename right_type>
+template<class right_type>
 inverse_delegate<const right_type*> inverse(const right_type* rhs)
 {
     return inverse_delegate<const right_type*>(rhs);
 }
 
 
-template<int c,typename left_iterator_type,typename right_iterator_type>
+template<int c,class left_iterator_type,class right_iterator_type>
 struct product_delegate{
     left_iterator_type lhs;
     right_iterator_type rhs;
@@ -2657,7 +2657,7 @@ struct product_delegate{
 };
 
 
-template<int row_count,int col_count,typename value_type>
+template<int row_count,int col_count,class value_type>
 struct matrix{
     static const unsigned int mat_size = row_count*col_count;
     value_type value[mat_size];
@@ -2668,14 +2668,14 @@ struct matrix{
 public:
     matrix(void){}
     matrix(const matrix& rhs){std::copy(rhs.begin(),rhs.end(),value);}
-    template<typename iterator_type>
+    template<class iterator_type>
     matrix(iterator_type iter){std::copy(iter,iter+mat_size,value);}
-    template<int c,typename lhs_type,typename rhs_type>
+    template<int c,class lhs_type,class rhs_type>
     matrix(const product_delegate<c,lhs_type,rhs_type>& prod)
     {
         image::mat::product(prod.lhs,prod.rhs,value,dim<row_count,c>(),dim<c,col_count>());
     }
-    template<typename rhs_type>
+    template<class rhs_type>
     matrix(const inverse_delegate<rhs_type>& inv)
     {
         image::mat::inverse(inv.iter,value,dim_type());
@@ -2693,19 +2693,19 @@ public:
         std::copy(rhs.begin(),rhs.end(),value);
         return *this;
     }
-    template<typename rhs_type>
+    template<class rhs_type>
     const matrix& operator=(const rhs_type& rhs)
     {
         std::copy(rhs.begin(),rhs.end(),value);
         return *this;
     }
-    template<typename rhs_type>
+    template<class rhs_type>
     const matrix& operator=(const rhs_type* rhs)
     {
         std::copy(rhs,rhs+row_count*col_count,value);
         return *this;
     }
-    template<typename rhs_type>
+    template<class rhs_type>
     const matrix& operator*=(const rhs_type& rhs)
     {
         value_type old_value[mat_size];
@@ -2714,23 +2714,23 @@ public:
         return *this;
     }
 
-    template<typename rhs_type>
+    template<class rhs_type>
     product_delegate<col_count,const_iterator,typename rhs_type::const_iterator> operator*(const rhs_type& rhs)
     {
         return product_delegate<col_count,const_iterator,typename rhs_type::const_iterator>(value,rhs.begin());
     }
-    template<typename pointer_type>
+    template<class pointer_type>
     product_delegate<col_count,const_iterator,const pointer_type*> operator*(const pointer_type* rhs)
     {
         return product_delegate<col_count,const_iterator,const pointer_type*>(value,rhs);
     }
-    template<int c,typename lhs_type,typename rhs_type>
+    template<int c,class lhs_type,class rhs_type>
     const matrix& operator=(const product_delegate<c,lhs_type,rhs_type>& prod)
     {
         image::mat::product(prod.lhs,prod.rhs,value,dim<row_count,c>(),dim<c,col_count>());
         return *this;
     }
-    template<typename rhs_type>
+    template<class rhs_type>
     const matrix& operator=(const inverse_delegate<rhs_type>& inv)
     {
         image::mat::inverse(inv.iter,value,dim_type());
@@ -2755,7 +2755,7 @@ public:
 };
 
 
-template<int row_count,int col_count,typename iterator_type>
+template<int row_count,int col_count,class iterator_type>
 struct matrix_buf{
     static const unsigned int mat_size = row_count*col_count;
     typedef iterator_type iterator;
@@ -2783,36 +2783,36 @@ public:
         return *this;
     }
 
-    template<typename rhs_type>
+    template<class rhs_type>
     const matrix_buf& operator=(const rhs_type& rhs)
     {
         std::copy(rhs.begin(),rhs.end(),iter);
         return *this;
     }
-    template<typename rhs_type>
+    template<class rhs_type>
     const matrix_buf& operator=(const rhs_type* rhs)
     {
         std::copy(rhs,rhs+row_count*col_count,iter);
         return *this;
     }
 
-    template<typename rhs_type>
+    template<class rhs_type>
     product_delegate<col_count,const_iterator,typename rhs_type::const_iterator> operator*(const rhs_type& rhs)
     {
         return product_delegate<col_count,const_iterator,typename rhs_type::const_iterator>(iter,rhs.begin());
     }
-    template<typename pointer_type>
+    template<class pointer_type>
     product_delegate<col_count,const_iterator,const pointer_type*> operator*(const pointer_type* rhs)
     {
         return product_delegate<col_count,const_iterator,const pointer_type*>(iter,rhs);
     }
-    template<int c,typename lhs_type,typename rhs_type>
+    template<int c,class lhs_type,class rhs_type>
     const matrix_buf& operator=(const product_delegate<c,lhs_type,rhs_type>& prod)
     {
         image::mat::product(prod.lhs,prod.rhs,iter,dim<row_count,c>(),dim<c,col_count>());
         return *this;
     }
-    template<typename rhs_type>
+    template<class rhs_type>
     const matrix_buf& operator=(const inverse_delegate<rhs_type>& inv)
     {
         image::mat::inverse(inv.iter,iter,rhs_type::dim_type());
@@ -2832,7 +2832,7 @@ public:
     }
 };
 
-template<int row_count,int col_count,typename iterator_type>
+template<int row_count,int col_count,class iterator_type>
 matrix_buf<row_count,col_count,iterator_type> make_matrix(iterator_type iterator,dim<row_count,col_count>)
 {
     return matrix_buf<row_count,col_count,iterator_type>(iterator);

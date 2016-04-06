@@ -8,7 +8,7 @@
 
 namespace image
 {
-template<typename image_type>
+template<class image_type>
 void fft_shift_x(image_type& I)
 {
     int half_w = I.width() >> 1;
@@ -28,7 +28,7 @@ void fft_shift_x(image_type& I)
     }
 }
 
-template<typename image_type>
+template<class image_type>
 void fft_shift_y(image_type& I)
 {
     int w = I.width();
@@ -51,7 +51,7 @@ void fft_shift_y(image_type& I)
     }
 }
 
-template<typename image_type>
+template<class image_type>
 void fft_shift_z(image_type& I)
 {
     int wh = I.plane_size();
@@ -71,14 +71,14 @@ void fft_shift_z(image_type& I)
     }
 }
 
-template<typename value_type>
+template<class value_type>
 void fft_shift(basic_image<value_type,2>& I)
 {
     fft_shift_x(I);
     fft_shift_y(I);
 }
 
-template<typename value_type>
+template<class value_type>
 void fft_shift(basic_image<value_type,3>& I)
 {
     fft_shift_x(I);
@@ -86,7 +86,7 @@ void fft_shift(basic_image<value_type,3>& I)
     fft_shift_z(I);
 }
 
-template<typename value_type>
+template<class value_type>
 value_type fft_round_up_size(value_type num_)
 {
     unsigned int num = num_;
@@ -100,7 +100,7 @@ value_type fft_round_up_size(value_type num_)
     }
     return need_padding ? 1 << result : num_;
 }
-template<typename geo_type>
+template<class geo_type>
 geo_type fft_round_up_geometry(const geo_type& geo)
 {
     geo_type geo2;
@@ -108,7 +108,7 @@ geo_type fft_round_up_geometry(const geo_type& geo)
         geo2[dim] = fft_round_up_size(geo[dim]);
     return geo2;
 }
-template<typename image_type,typename pos_type>
+template<class image_type,class pos_type>
 void fft_round_up(image_type& I,pos_type& from,pos_type& to)
 {
     image_type newI(fft_round_up_geometry(I.geometry()));
@@ -120,13 +120,13 @@ void fft_round_up(image_type& I,pos_type& from,pos_type& to)
     image::draw(I,newI,from);
     I.swap(newI);
 }
-template<typename image_type,typename pos_type>
+template<class image_type,class pos_type>
 void fft_round_down(image_type& I,const pos_type& from,const pos_type& to)
 {
     image::crop(I,from,to);
 }
 
-template<unsigned int dimension,typename float_type = float>
+template<unsigned int dimension,class float_type = float>
 class fftn
 {
 protected:
@@ -135,7 +135,7 @@ protected:
     std::vector<std::vector<float_type> > wr,wi;
     std::vector<std::vector<float_type> > iwr,iwi;
 protected:
-    template<typename ImageType>
+    template<class ImageType>
     void fft(ImageType& real,ImageType& img,bool invert) const
     {
         unsigned int nprev = 1;
@@ -240,7 +240,7 @@ public:
             }
         }
     }
-    template<typename ImageType>
+    template<class ImageType>
     void apply(ImageType& real,ImageType& img) const
     {
         if(real.size() != geo.size())
@@ -249,14 +249,14 @@ public:
         img.resize(geo);
         fft(real,img,false);
     }
-    template<typename ImageType>
+    template<class ImageType>
     void apply_inverse(ImageType& real,ImageType& img) const
     {
         if(real.size() != geo.size() || img.size() != geo.size())
             throw std::runtime_error("Inconsistent image size");
         fft(real,img,true);
     }
-    template<typename ImageType,typename KernelType>
+    template<class ImageType,class KernelType>
     void convolve(ImageType& real,const KernelType& k)
     {
         ImageType img(geo);
@@ -282,7 +282,7 @@ public:
 
 */
 
-template<typename value_type,typename float_type>
+template<class value_type,class float_type>
 void realfftn_rotate_real_pair(value_type& real_from,value_type& real_to,
                  value_type& img_from,value_type& img_to,
                  float_type wr,float_type wi,float_type c2)
@@ -308,7 +308,7 @@ void realfftn_rotate_real_pair(value_type& real_from,value_type& real_to,
     img_to    += wrri;
 }
 
-template<typename ImageType>
+template<class ImageType>
 void realfftn_rotate_real(ImageType& real,ImageType& img,geometry<2>& geo,
                  bool invert_fft)
 {
@@ -337,7 +337,7 @@ void realfftn_rotate_real(ImageType& real,ImageType& img,geometry<2>& geo,
     }
 }
 
-template<typename ImageType>
+template<class ImageType>
 void realfftn_rotate_real(ImageType& real,ImageType& img,geometry<3>& geo,
                  bool invert_fft)
 {
@@ -370,7 +370,7 @@ void realfftn_rotate_real(ImageType& real,ImageType& img,geometry<3>& geo,
     }
 }
 
-template<unsigned int dimension,typename float_type = float>
+template<unsigned int dimension,class float_type = float>
 class realfftn : public fftn<dimension,float_type> {
 
 public:
@@ -387,7 +387,7 @@ public:
     {
         ++ext_geo[dimension-1];
     }
-    template<typename ImageType>
+    template<class ImageType>
     void apply(ImageType& real,ImageType& img)
     {
         if(real.geometry() != image_geo)
@@ -416,7 +416,7 @@ public:
         std::copy(img.begin(),img.begin()+size,img.end()-size);
         realfftn_rotate_real(real,img,fftn<dimension,float_type>::geo,false);
     }
-    template<typename ImageType>
+    template<class ImageType>
     void apply_inverse(ImageType& real,ImageType& img)
     {
         image::geometry<dimension> geo(fftn<dimension,float_type>::geo);
@@ -440,7 +440,7 @@ public:
 
         real.swap(new_real);
     }
-    template<typename ImageType,typename KernelType>
+    template<class ImageType,class KernelType>
     void convolve(ImageType& real,const KernelType& k)
     {
         ImageType img;

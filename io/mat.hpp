@@ -36,7 +36,7 @@ namespace image
 namespace io
 {
 
-template<typename fun_type>
+template<class fun_type>
 struct mat_type_info;
 
 template<>
@@ -119,7 +119,7 @@ public:
         copy(rhs);
         return *this;
     }
-    template<typename Type>
+    template<class Type>
     void assign(const Type* data_ptr_,unsigned int rows_,unsigned int cols_)
     {
         data_ptr = (void*)data_ptr_;
@@ -127,7 +127,7 @@ public:
         cols = cols_;
         type = mat_type_info<Type>::type;
     }
-    template<typename Type>
+    template<class Type>
     void assign(const char* name_,const Type* data_ptr_,unsigned int rows_,unsigned int cols_)
     {
         name = name_;
@@ -140,7 +140,7 @@ public:
         data_ptr = &*data_buf.begin();
     }
 
-    template<typename OutType>
+    template<class OutType>
     void copy_data(OutType out)
     {
         switch (type)
@@ -212,7 +212,7 @@ public:
     {
         return name;
     }
-    template<typename stream_type>
+    template<class stream_type>
     bool read(stream_type& in)
     {
         unsigned int imagf = 0;
@@ -247,7 +247,7 @@ public:
         in.read((char*)data_ptr,get_total_size(type));
         return true;
     }
-    template<typename stream_type>
+    template<class stream_type>
     bool write(stream_type& out) const
     {
         unsigned int imagf = 0;
@@ -291,7 +291,7 @@ public:
     }
 };
 
-template<typename input_interface = std_istream>
+template<class input_interface = std_istream>
 class mat_read_base
 {
 private:
@@ -336,17 +336,17 @@ public:
             return 0;
         return read_as_type(iter->second,rows,cols,type);
     }
-    template<typename out_type>
+    template<class out_type>
     const out_type*& read(int index,unsigned int& rows,unsigned int& cols,const out_type*& out) const
     {
         return out = (const out_type*)read_as_type(index,rows,cols,mat_type_info<out_type>::type);
     }
-    template<typename out_type>
+    template<class out_type>
     const out_type*& read(const char* name,unsigned int& rows,unsigned int& cols,const out_type*& out) const
     {
         return out = (const out_type*)read_as_type(name,rows,cols,mat_type_info<out_type>::type);
     }
-	template<typename data_type>
+	template<class data_type>
     void read_as_image(int index,image::basic_image<data_type,2>& image_buf) const
 	{
 		if (index >= dataset.size())
@@ -355,7 +355,7 @@ public:
         dataset[index]->copy_data(image_buf.begin());
 	}
 
-	template<typename data_type>
+	template<class data_type>
     void read_as_image(const char* name,image::basic_image<data_type,2>& image_buf) const
     {
 		std::map<std::string,int>::const_iterator iter = name_table.find(name);
@@ -375,7 +375,7 @@ public:
             delete dataset[index];
         dataset.clear();
     }
-    template<typename char_type>
+    template<class char_type>
     bool load_from_file(const char_type* file_name,unsigned int max_count,std::string stop_name)
     {
         input_interface in;
@@ -395,7 +395,7 @@ public:
             name_table[dataset[index]->get_name()] = index;
         return true;
     }
-    template<typename char_type>
+    template<class char_type>
     bool load_from_file(const char_type* file_name)
     {
         input_interface in;
@@ -413,7 +413,7 @@ public:
             name_table[dataset[index]->get_name()] = index;
         return true;
     }
-    template<typename Type>
+    template<class Type>
     void add(const char* name_,const Type* data_ptr,unsigned int rows,unsigned int cols)
     {
         std::auto_ptr<mat_matrix> matrix(new mat_matrix);
@@ -422,7 +422,7 @@ public:
         name_table[name_] = dataset.size()-1;
     }
 
-    template<typename image_type>
+    template<class image_type>
     void save_to_image(image_type& image_data) const
     {
         unsigned int r,c;
@@ -437,7 +437,7 @@ public:
             return;
         std::copy(buf,buf+image_data.size(),image_data.begin());
     }
-    template<typename voxel_size_type>
+    template<class voxel_size_type>
     void get_voxel_size(voxel_size_type voxel_size) const
     {
         unsigned int r,c,r2,c2;
@@ -464,7 +464,7 @@ public:
     mat_matrix& operator[](unsigned int index){return *dataset[index];}
     const mat_matrix& operator[](unsigned int index) const {return *dataset[index];}
 
-    template<typename image_type>
+    template<class image_type>
     const mat_read_base& operator>>(image_type& source) const
     {
         save_to_image(source);
@@ -474,7 +474,7 @@ public:
 
 
 
-template<typename output_interface = std_ostream>
+template<class output_interface = std_ostream>
 class mat_write_base
 {
     output_interface out;
@@ -484,7 +484,7 @@ public:
         out.open(file_name);
     }
 public:
-    template<typename Type>
+    template<class Type>
     bool write(const char* name_,const Type* data_ptr,unsigned int rows,unsigned int cols)
     {
         unsigned int imagf = 0;
@@ -507,14 +507,14 @@ public:
 
 public:
 
-    template<typename image_type>
+    template<class image_type>
     void load_from_image(const image_type& image_data)
     {
         write("dimension",&*image_data.geometry().begin(),1,image_type::dimension);
         write("image",&*image_data.begin(),1,image_data.size());
     }
 
-    template<typename image_type>
+    template<class image_type>
     mat_write_base& operator<<(image_type& source)
     {
         load_from_image(source);

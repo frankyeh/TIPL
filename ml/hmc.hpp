@@ -7,7 +7,7 @@ namespace ml{
 
 
 
-template<typename attribute_type,typename classification_type>
+template<class attribute_type,class classification_type>
 class hidden_markov_chain
 {
 private:
@@ -20,14 +20,14 @@ private:
     std::vector<std::vector<double> > online_observed_le,online_a;
     std::vector<classification_type> online_classification;
 public:
-    template<typename hidden_iterator_type>
+    template<class hidden_iterator_type>
     void learn_prior(hidden_iterator_type hidden_from,
                      hidden_iterator_type hidden_to)
     {
         hidden_value_space = *std::max_element(hidden_from,hidden_to) + 1;
         prior.estimate(hidden_from,hidden_to,hidden_value_space);
     }
-    template<typename hidden_iterator_type>
+    template<class hidden_iterator_type>
     void learn_transition(hidden_iterator_type hidden_from,
                           hidden_iterator_type hidden_to,
                           hidden_iterator_type hidden_parent_from)
@@ -35,7 +35,7 @@ public:
         transition.estimate(hidden_from,hidden_to,hidden_parent_from,hidden_value_space);
     }
 
-    template<typename observed_iterator_type,typename hidden_iterator_type>
+    template<class observed_iterator_type,class hidden_iterator_type>
     void learn_state(observed_iterator_type observed_from,
                      observed_iterator_type observed_to,
                      size_t observation_dimension,
@@ -44,7 +44,7 @@ public:
         state.estimate(observed_from,observed_to,observation_dimension,hidden_from,hidden_value_space);
     }
 
-    template<typename observed_iterator_type,typename hidden_iterator_type>
+    template<class observed_iterator_type,class hidden_iterator_type>
     void predict(observed_iterator_type observed_from,
                  observed_iterator_type observed_to,
                  hidden_iterator_type hidden_from)  const
@@ -93,7 +93,7 @@ public:
         }
     }
 public:
-    template<typename observed_iterator_type>
+    template<class observed_iterator_type>
     void online_add_observation(observed_iterator_type observed_from,bool first_observation,size_t lag)
     {
         if (first_observation)

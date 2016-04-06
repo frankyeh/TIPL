@@ -15,7 +15,7 @@ namespace image
 namespace reg
 {
 
-template<typename pixel_type,size_t dimension>
+template<class pixel_type,size_t dimension>
 void dmdm_average_img(const std::vector<basic_image<pixel_type,dimension> >& Ji, image::basic_image<pixel_type,dimension>& J0)
 {
     J0 = Ji[0];
@@ -24,7 +24,7 @@ void dmdm_average_img(const std::vector<basic_image<pixel_type,dimension> >& Ji,
     image::divide_constant(J0.begin(),J0.end(),(float)Ji.size());
 }
 
-template<typename pixel_type,size_t dimension>
+template<class pixel_type,size_t dimension>
 double dmdm_img_dif(const basic_image<pixel_type,dimension>& I0,
                     const basic_image<pixel_type,dimension>& I1)
 {
@@ -37,7 +37,7 @@ double dmdm_img_dif(const basic_image<pixel_type,dimension>& I0,
     return value;
 }
 
-template<typename pixel_type,size_t dimension>
+template<class pixel_type,size_t dimension>
 double dmdm_img_dif(const std::vector<basic_image<pixel_type,dimension> >& Ji,const image::basic_image<pixel_type,dimension>& J0)
 {
     double next_dif = 0;
@@ -47,7 +47,7 @@ double dmdm_img_dif(const std::vector<basic_image<pixel_type,dimension> >& Ji,co
 }
 
 
-template<typename pixel_type,size_t dimension>
+template<class pixel_type,size_t dimension>
 double dmdm_contrast(const basic_image<pixel_type,dimension>& J0,
                      const basic_image<pixel_type,dimension>& Ji)
 {
@@ -63,7 +63,7 @@ double dmdm_contrast(const basic_image<pixel_type,dimension>& J0,
     return value1/value2;
 }
 
-template<typename pixel_type,size_t dimension>
+template<class pixel_type,size_t dimension>
 void dmdm_update_contrast(const std::vector<basic_image<pixel_type,dimension> >& Ji,
                           std::vector<double>& contrast)
 {
@@ -79,7 +79,7 @@ void dmdm_update_contrast(const std::vector<basic_image<pixel_type,dimension> >&
 
 
 // trim the image size to uniform
-template<typename pixel_type,unsigned int dimension,typename crop_type>
+template<class pixel_type,unsigned int dimension,class crop_type>
 void dmdm_trim_images(std::vector<image::basic_image<pixel_type,dimension> >& I,
                       crop_type& crop_from,crop_type& crop_to)
 {
@@ -121,36 +121,36 @@ void dmdm_trim_images(std::vector<image::basic_image<pixel_type,dimension> >& I,
 
 }
 
-template<typename image_type>
+template<class image_type>
 void dmdm_downsample(const image_type& I,image_type& rI)
 {
     geometry<image_type::dimension> pad_geo(I.geometry());
     for(unsigned int dim = 0;dim < image_type::dimension;++dim)
         ++pad_geo[dim];
-    basic_image<typename image_type::value_type,image_type::dimension> pad_I(pad_geo);
+    basic_image<class image_type::value_type,image_type::dimension> pad_I(pad_geo);
     image::draw(I,pad_I,pixel_index<image_type::dimension>());
     downsampling(pad_I,rI);
 }
 
-template<typename image_type,typename geo_type>
+template<class image_type,class geo_type>
 void dmdm_upsample(const image_type& I,image_type& uI,const geo_type& geo)
 {
-    basic_image<typename image_type::value_type,image_type::dimension> new_I;
+    basic_image<class image_type::value_type,image_type::dimension> new_I;
     upsampling(I,new_I);
     new_I *= 2.0;
     uI.resize(geo);
     image::draw(new_I,uI,pixel_index<image_type::dimension>());
 }
 
-template<typename value_type,size_t dimension>
+template<class value_type,size_t dimension>
 class poisson_equation_solver;
 
-template<typename value_type>
+template<class value_type>
 class poisson_equation_solver<value_type,2>
 {
     typedef typename image::filter::pixel_manip<value_type>::type manip_type;
 public:
-    template<typename image_type>
+    template<class image_type>
     void operator()(image_type& src)
     {
         std::vector<manip_type> dest(src.size());
@@ -162,12 +162,12 @@ public:
         std::copy(dest.begin(),dest.end(),src.begin());
     }
 };
-template<typename value_type>
+template<class value_type>
 class poisson_equation_solver<value_type,3>
 {
     typedef typename image::filter::pixel_manip<value_type>::type manip_type;
 public:
-    template<typename image_type>
+    template<class image_type>
     void operator()(image_type& src)
     {
         std::vector<manip_type> dest(src.size());
@@ -183,7 +183,7 @@ public:
     }
 };
 
-template<typename pixel_type,typename vtor_type,unsigned int dimension,typename terminate_type>
+template<class pixel_type,class vtor_type,unsigned int dimension,class terminate_type>
 void dmdm(const std::vector<basic_image<pixel_type,dimension> >& I,// original images
           std::vector<basic_image<vtor_type,dimension> >& d,// displacement field
           float theta,float reg,terminate_type& terminated)
@@ -300,7 +300,7 @@ void dmdm(const std::vector<basic_image<pixel_type,dimension> >& I,// original i
 }
 
 
-template<typename pixel_type,typename vtor_type,unsigned int dimension,typename terminate_type>
+template<class pixel_type,class vtor_type,unsigned int dimension,class terminate_type>
 void dmdm_pair(const basic_image<pixel_type,dimension>& It,
             const basic_image<pixel_type,dimension>& Is,
             basic_image<vtor_type,dimension>& d,// displacement field

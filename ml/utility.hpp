@@ -11,10 +11,10 @@ namespace image
 namespace ml
 {
 
-template<typename classification_type>
+template<class classification_type>
 struct evaluate_error_imp
 {
-    template<typename training_model, typename attirubte_iterator_type, typename classification_input_type>
+    template<class training_model,class attirubte_iterator_type,class classification_input_type>
     double operator()(const training_model& model,
                       attirubte_iterator_type data_from,
                       attirubte_iterator_type data_to,
@@ -33,7 +33,7 @@ struct evaluate_error_imp
 template<>
 struct evaluate_error_imp<float>
 {
-    template<typename training_model, typename attirubte_iterator_type, typename classification_type>
+    template<class training_model,class attirubte_iterator_type,class classification_type>
     double operator()(const training_model& model,
                       attirubte_iterator_type data_from,
                       attirubte_iterator_type data_to,
@@ -57,7 +57,7 @@ struct evaluate_error_imp<float>
 template<>
 struct evaluate_error_imp<double>
 {
-    template<typename training_model, typename attirubte_iterator_type, typename classification_type>
+    template<class training_model,class attirubte_iterator_type,class classification_type>
     double operator()(const training_model& model,
                       attirubte_iterator_type data_from,
                       attirubte_iterator_type data_to,
@@ -68,16 +68,16 @@ struct evaluate_error_imp<double>
 };
 
 
-template<typename training_model, typename attirubte_iterator_type, typename classification_type>
+template<class training_model,class attirubte_iterator_type,class classification_type>
 double evaluate_error(const training_model& model,
                       attirubte_iterator_type data_from,
                       attirubte_iterator_type data_to,
                       classification_type classification)
 {
-    return evaluate_error_imp<typename std::iterator_traits<classification_type>::value_type>()(model, data_from, data_to, classification);
+    return evaluate_error_imp<class std::iterator_traits<classification_type>::value_type>()(model, data_from, data_to, classification);
 }
 
-template<typename feature_type_, typename class_type_>
+template<class feature_type_,class class_type_>
 class training_data
 {
 public:
@@ -86,22 +86,22 @@ public:
     std::vector<std::vector<feature_type> > features;
     std::vector<class_type> classification;
 public:
-	template<typename training_model>
+	template<class training_model>
 	void train(training_model& model) const
 	{
         model.learn(features.begin(), features.end(), features.front().size(), classification.begin());
 	}
-	template<typename training_model>
+	template<class training_model>
     void train(training_model& model, size_t from, size_t to) const
 	{
         model.learn(features.begin() + from, features.begin() + to, features.front().size(), classification.begin() + from);
 	}
-	template<typename model_type>
+	template<class model_type>
 	double evaluate_error(const model_type& model) const
 	{
         return image::ml::evaluate_error(model, features.begin(), features.end(), classification.begin());
 	}
-	template<typename model_type>
+	template<class model_type>
     double evaluate_error(const model_type& model, size_t from, size_t to) const
 	{
         return image::ml::evaluate_error(model, features.begin() + from, features.begin() + to, classification.begin() + from);
@@ -109,22 +109,22 @@ public:
 
 };
 
-template<typename feature_type_, typename class_type_>
+template<class feature_type_,class class_type_>
 class subsampled_data
 {
 public:
     typedef feature_type_ feature_type;
     typedef class_type_ class_type;
-	std::vector<typename std::vector<feature_type>::const_iterator> features;
+	std::vector<class std::vector<feature_type>::const_iterator> features;
     std::vector<class_type> classification;
 	size_t feature_count;
 public:
-	template<typename training_model>
+	template<class training_model>
 	void train(training_model& model) const
 	{
         model.learn(features.begin(), features.end(), feature_count, classification.begin());
 	}
-	template<typename training_model>
+	template<class training_model>
     void train(training_model& model, size_t from, size_t to) const
 	{
         model.learn(features.begin() + from, features.begin() + to, feature_count, classification.begin() + from);
@@ -165,12 +165,12 @@ public:
         }
 	}
 
-	template<typename model_type>
+	template<class model_type>
 	double evaluate_error(const model_type& model) const
 	{
         return image::ml::evaluate_error(model, features.begin(), features.end(), classification.begin());
 	}
-	template<typename model_type>
+	template<class model_type>
     double evaluate_error(const model_type& model, size_t from, size_t to) const
 	{
         return image::ml::evaluate_error(model, features.begin() + from, features.begin() + to, classification.begin() + from);
@@ -182,12 +182,12 @@ public:
     return training and test error
 */
 
-template<typename training_data_type, typename training_model>
+template<class training_data_type,class training_model>
 double cross_validation(const training_data_type& data, training_model& model, int fold = 3, int run = 5)
 {
     size_t sample_size = data.features.size();
     size_t training_size = sample_size - data.features.size() / fold;
-    subsampled_data<typename training_data_type::feature_type, typename training_data_type::class_type> sub_data;
+    subsampled_data<class training_data_type::feature_type,class training_data_type::class_type> sub_data;
     double sum_test_error = 0.0;
     for(size_t iteration = 0; iteration < run; ++iteration)
     {
@@ -198,11 +198,11 @@ double cross_validation(const training_data_type& data, training_model& model, i
     return 1.0 - sum_test_error / ((double)run);
 }
 
-template<typename training_data_type, typename training_model>
+template<class training_data_type,class training_model>
 double leave_n_out_cross_validation(const training_data_type& data, training_model& model, size_t n)
 {
     size_t sample_size = data.features.size();
-    subsampled_data<typename training_data_type::feature_type, typename training_data_type::class_type> sub_data;
+    subsampled_data<class training_data_type::feature_type,class training_data_type::class_type> sub_data;
     sub_data.subsample(data, sample_size);
     sub_data.train(model);
     double sum_error = 0.0;
@@ -235,7 +235,7 @@ struct classifier_parameters
 };
 
 
-template<typename classifier_type, typename attribute_type, typename classification_type>
+template<class classifier_type,class attribute_type,class classification_type>
 class multiple_class_classifier
 {
 private:
@@ -250,7 +250,7 @@ private:
 public:
     multiple_class_classifier(const classifier_parameters& param_): params(param_) {}
     multiple_class_classifier(void) {}
-    template<typename attributes_iterator_type, typename classifications_iterator_type>
+    template<class attributes_iterator_type,class classifications_iterator_type>
     void learn(attributes_iterator_type attributes_from,
                attributes_iterator_type attributes_to,
                size_t attribute_dimension_,
@@ -273,7 +273,7 @@ public:
             classifiers[index]->learn(attributes_from, attributes_to, attribute_dimension_, new_classifications.begin());
         }
     }
-    template<typename sample_iterator_type>
+    template<class sample_iterator_type>
     classification_type predict(sample_iterator_type attributes) const
     {
         classification_type best_label = 0;
@@ -289,7 +289,7 @@ public:
         }
         return best_label;
     }
-    template<typename sample_iterator_type>
+    template<class sample_iterator_type>
     classification_type regression(sample_iterator_type attributes) const
     {
         double sum = 0.0;
@@ -303,7 +303,7 @@ public:
     }
 };
 
-template<typename attribute_type>
+template<class attribute_type>
 class normalized_attributes
 {
 private:
@@ -311,7 +311,7 @@ private:
     std::vector<double> X_std;
 public:
     normalized_attributes(void) {}
-    template<typename attribute_input_iterator>
+    template<class attribute_input_iterator>
     normalized_attributes(attribute_input_iterator attributes_from,
                           attribute_input_iterator attributes_to,
                           size_t attribute_dimension):
@@ -347,7 +347,7 @@ public:
         }
     }
 
-    template<typename attribute_input_iterator>
+    template<class attribute_input_iterator>
     normalized_attributes(attribute_input_iterator attributes_from,
                           attribute_input_iterator attributes_to):
         attributes(attributes_to - attributes_from),
@@ -386,7 +386,7 @@ public:
         attributes.swap(rhs.attributes);
         X_std.swap(rhs.X_std);
     }
-    template<typename attribute_input_iterator>
+    template<class attribute_input_iterator>
     void normalize(attribute_input_iterator att)  const
     {
         for(size_t index = 0; index < X_std.size(); ++index)
@@ -410,7 +410,7 @@ public:
         return attributes.back();
     }
 
-    template<typename attribute_input_iterator>
+    template<class attribute_input_iterator>
     void push_back(attribute_input_iterator att)
     {
         attributes.push_back(std::vector<attribute_type>());

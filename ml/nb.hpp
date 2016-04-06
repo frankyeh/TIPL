@@ -8,7 +8,7 @@ namespace image{
 
 namespace ml{
 
-template<typename classification_type>
+template<class classification_type>
 class prior_estimator;
 
 template<>
@@ -17,14 +17,14 @@ class prior_estimator<unsigned char>
 private:
     std::vector<double> p_table;
 public:
-    template<typename classifications_iterator_type>
+    template<class classifications_iterator_type>
     void estimate(classifications_iterator_type classifications_from,
                   classifications_iterator_type classifications_to)
     {
         estimate(classifications_from,classifications_to,
                  *std::max_element(classifications_from,classifications_to)+1);
     }
-    template<typename classifications_iterator_type>
+    template<class classifications_iterator_type>
     void estimate(classifications_iterator_type classifications_from,
                   classifications_iterator_type classifications_to,
                   unsigned char value_space)
@@ -38,7 +38,7 @@ public:
         for (size_t index = 0;index < value_space;++index)
             p_table[index] = ((double)y_count[index])/((double)sample_size);
     }
-    template<typename classifications_iterator_type,typename weighting_iterator_type>
+    template<class classifications_iterator_type,class weighting_iterator_type>
     void estimate(classifications_iterator_type classifications_from,
                   classifications_iterator_type classifications_to,
                   const weighting_iterator_type weighting_from)
@@ -46,13 +46,13 @@ public:
         estimate(classifications_from,classifications_to,weighting_from,
                  *std::max_element(classifications_from,classifications_to)+1);
     }
-    template<typename classifications_iterator_type,typename weighting_iterator_type>
+    template<class classifications_iterator_type,class weighting_iterator_type>
     void estimate(classifications_iterator_type classifications_from,
                   classifications_iterator_type classifications_to,
                   const weighting_iterator_type weighting_from,
                   unsigned char value_space)
     {
-        typename std::vector<typename std::iterator_traits<weighting_iterator_type>::value_type> y_count(value_space);
+        typename std::vector<class std::iterator_traits<weighting_iterator_type>::value_type> y_count(value_space);
         size_t sample_size = classifications_to-classifications_from;
         for (size_t index = 0;index < sample_size;++index)
             y_count[(unsigned char)classifications_from[index]] += weighting_from[index];
@@ -69,7 +69,7 @@ public:
 };
 
 // Modelizing Pr(Attribute|Classification)
-template<typename attribute_type,typename classification_type>
+template<class attribute_type,class classification_type>
 class likelihood_estimator;
 
 
@@ -80,7 +80,7 @@ class likelihood_estimator<unsigned char,unsigned char>
 private:
     std::vector<double> cp_table; // stores P(L= l|X = x), X is the features, L is the labeling
 public:
-    template<typename attributes_iterator_type,typename classifications_iterator_type>
+    template<class attributes_iterator_type,class classifications_iterator_type>
     void estimate(attributes_iterator_type attributes_from,
                   attributes_iterator_type attributes_to,
                   classifications_iterator_type classifications_from)
@@ -88,7 +88,7 @@ public:
         estimate(attributes_from,attributes_to,classifications_from,
                  *std::max_element(classifications_from,classifications_from+(attributes_to-attributes_from))+1);
     }
-    template<typename attributes_iterator_type,typename classifications_iterator_type>
+    template<class attributes_iterator_type,class classifications_iterator_type>
     void estimate(attributes_iterator_type attributes_from,
                   attributes_iterator_type attributes_to,
                   classifications_iterator_type classifications_from,
@@ -142,7 +142,7 @@ private:
     std::vector<double> mean,variance;
     std::vector<double> constant;
 public:
-    template<typename attributes_iterator_type,typename classifications_iterator_type>
+    template<class attributes_iterator_type,class classifications_iterator_type>
     void estimate(attributes_iterator_type attributes_from,
                   attributes_iterator_type attributes_to,
                   classifications_iterator_type classifications_from)
@@ -150,7 +150,7 @@ public:
         estimate(attributes_from,attributes_to,classifications_from,
                  *std::max_element(classifications_from,classifications_from+(attributes_to-attributes_from))+1);
     }
-    template<typename attributes_iterator_type,typename classifications_iterator_type>
+    template<class attributes_iterator_type,class classifications_iterator_type>
     void estimate(attributes_iterator_type attributes_from,
                   attributes_iterator_type attributes_to,
                   classifications_iterator_type classifications_from,
@@ -199,11 +199,11 @@ public:
 
 
 // Pr(X1,X2,X3,...,Xn|Y)=Pr(X1|Y)Pr(X2|Y)...Pr(Xn|Y)
-template<typename attribute_type>
+template<class attribute_type>
 class likelihood_estimator<std::vector<attribute_type>,unsigned char>
 {
 private:
-    template<typename iterator_type,typename attribute_type_>
+    template<class iterator_type,class attribute_type_>
     struct attribute_selector
     {
         typedef typename std::iterator_traits<iterator_type>::value_type attribut_iterator_type;
@@ -225,7 +225,7 @@ private:
 
     std::vector<likelihood_estimator<attribute_type,unsigned char> > le_list;
 public:
-    template<typename attributes_iterator_type,typename classifications_iterator_type>
+    template<class attributes_iterator_type,class classifications_iterator_type>
     void estimate(attributes_iterator_type attributes_from,
                   attributes_iterator_type attributes_to,
                   size_t attribute_dimension,
@@ -234,7 +234,7 @@ public:
         estimate(attributes_from,attributes_to,attribute_dimension,classifications_from,
                  *std::max_element(classifications_from,classifications_from)+1);
     }
-    template<typename attributes_iterator_type,typename classifications_iterator_type>
+    template<class attributes_iterator_type,class classifications_iterator_type>
     void estimate(attributes_iterator_type attributes_from,
                   attributes_iterator_type attributes_to,
                   size_t attribute_dimension,
@@ -250,7 +250,7 @@ public:
                 classifications_from,value_space);
     }
     //return Pr(att|classification)
-    template<typename attribute_iterator_type>
+    template<class attribute_iterator_type>
     double operator()(attribute_iterator_type att,unsigned char classification) const
     {
         double product = 1.0;
@@ -263,16 +263,16 @@ public:
 
 
 // Modelizing Pr(Classification|Attribute)
-template<typename attribute_type,typename classification_type>
+template<class attribute_type,class classification_type>
 class posterior_estimator;
 
-template<typename attribute_type>
+template<class attribute_type>
 class posterior_estimator<std::vector<attribute_type>,unsigned char>
 {
     likelihood_estimator<std::vector<attribute_type>,unsigned char> likelihoods;
     prior_estimator<unsigned char> prior;
 public:
-    template<typename attributes_iterator_type,typename classifications_iterator_type>
+    template<class attributes_iterator_type,class classifications_iterator_type>
     void estimate(attributes_iterator_type attributes_from,
                   attributes_iterator_type attributes_to,
                   size_t attribute_dimension,
@@ -281,7 +281,7 @@ public:
         estimate(attributes_from,attributes_to,attribute_dimension,classifications_from,
                  *std::max_element(classifications_from,classifications_from)+1);
     }
-    template<typename attributes_iterator_type,typename classifications_iterator_type>
+    template<class attributes_iterator_type,class classifications_iterator_type>
     void estimate(attributes_iterator_type attributes_from,
                   attributes_iterator_type attributes_to,
                   size_t attribute_dimension,
@@ -292,7 +292,7 @@ public:
         prior.estimate(classifications_from,classifications_from+(attributes_to-attributes_from),value_space);
     }
     //return Pr(att|classification)
-    template<typename attribute_iterator_type>
+    template<class attribute_iterator_type>
     double operator()(attribute_iterator_type attributes,unsigned char classification) const
     {
         return likelihoods(attributes,classification)*prior(classification);
@@ -301,7 +301,7 @@ public:
 
 
 
-template<typename attribute_type,typename classification_type>
+template<class attribute_type,class classification_type>
 class naive_bayes
 {
 private:
@@ -311,7 +311,7 @@ private:
 private:
 
 public:
-    template<typename attributes_iterator_type,typename classifications_iterator_type>
+    template<class attributes_iterator_type,class classifications_iterator_type>
     void learn(attributes_iterator_type attributes_from,
                attributes_iterator_type attributes_to,
                size_t attribute_dimension,
@@ -321,13 +321,13 @@ public:
         posterior.estimate(attributes_from,attributes_to,attribute_dimension,classifications_from,classification_dimension);
     }
 
-    template<typename sample_iterator_type>
+    template<class sample_iterator_type>
     double estimate_posterior(sample_iterator_type attributes,classification_type classification) const
     {
         return posterior(attributes,classification);
     }
 
-    template<typename sample_iterator_type>
+    template<class sample_iterator_type>
     classification_type predict(sample_iterator_type attributes) const
     {
         std::vector<double> posterior(classification_dimension);
