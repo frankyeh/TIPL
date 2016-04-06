@@ -82,7 +82,7 @@ public:
             prog = 16;
             return;
         }
-        image::basic_image<image_type::value_type,image_type::dimension> new_from(to.geometry());
+        image::basic_image<typename image_type::value_type,image_type::dimension> new_from(to.geometry());
         image::resample(from,new_from,iT,image::linear);
         image::reg::bfnorm(*bnorm_data.get(),new_from,to,thread_count,terminated,prog);
         prog = 16;
