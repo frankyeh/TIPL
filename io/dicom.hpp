@@ -830,21 +830,24 @@ public:
         // could be mosaic
         if (is_mosaic)
         {
-            // the acq matrix may be at [0][1] or [2][3]
-            if (acq_matrix[0])
-                geo[1] = acq_matrix[3];
-            else
-                geo[1] = acq_matrix[1];
-            if (acq_matrix[3])
-                geo[0] = acq_matrix[0];
-            else
-                geo[0] = acq_matrix[2];
-            // get the number of slices
             geo[2] = get_int(0x0019,0x100A);
-            if(width()%geo[0]) // in some case, the matrix size is not equal to the inset size
+            if(geo[2])
+            {
                 geo[0] = width()/std::ceil(std::sqrt(geo[2]));
-            if(height()%geo[1])
                 geo[1] = height()/std::ceil(std::sqrt(geo[2]));
+            }
+            if(width()%geo[0] ||  height()%geo[1])
+            {
+                // the acq matrix may be at [0][1] or [2][3]
+                if (acq_matrix[0])
+                    geo[1] = acq_matrix[3];
+                else
+                    geo[1] = acq_matrix[1];
+                if (acq_matrix[3])
+                    geo[0] = acq_matrix[0];
+                else
+                    geo[0] = acq_matrix[2];
+            }
         }
         if (!geo[0] || !geo[1])
         {
