@@ -39,7 +39,7 @@ inline float tanh_f(value_type v)
         return -1.0;
     if(v > bias_cap)
         return 1.0f;
-    const float ep = std::expf(v + v);
+    const float ep = expf(v + v);
     return (ep - float(1)) / (ep + float(1));
 }
 template<class value_type>
@@ -56,7 +56,7 @@ inline float sigmoid_f(value_type v)
         return 0.0f;
     if(v > bias_cap)
         return 1.0f;
-    return float(1) / (float(1) + std::expf(-v));
+    return float(1) / (float(1) + expf(-v));
 }
 template<class value_type>
 inline float sigmoid_df(value_type y)
@@ -609,7 +609,7 @@ public:
     void forward_propagation(const float* data,float* out) override
     {
         for(int i = 0;i < input_size;++i)
-            out[i] = std::expf(data[i]);
+            out[i] = expf(data[i]);
         float sum = std::accumulate(out,out+output_size,float(0));
         if(sum != 0)
             image::divide_constant(out,out+output_size,sum);
