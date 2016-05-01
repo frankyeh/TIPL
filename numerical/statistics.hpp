@@ -198,7 +198,7 @@ double variance(input_iterator from,input_iterator to,double mean)
 template<class input_iterator>
 double standard_deviation(input_iterator from,input_iterator to,double mean)
 {
-    return std::sqrt(variance(from,to,mean));
+    return std::sqrt(std::max<double>(0,variance(from,to,mean)));
 }
 template<class input_iterator>
 double standard_deviation(input_iterator from,input_iterator to)
