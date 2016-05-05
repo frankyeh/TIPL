@@ -829,12 +829,11 @@ public:
             for(auto layer : layers)
                 layer->reset();
         }
-        const unsigned int output_size = layers.back()->output_size;
         std::vector<std::vector<float> > label(label_.size());
         for(int i = 0;i < label_.size();++i)
         {
-            label[i].resize(output_size);
-            for(int j = 0;j < output_size;++j)
+            label[i].resize(output_size());
+            for(int j = 0;j < output_size();++j)
                 label[i][j] = (j == label_[i]) ? target_value_max():target_value_min();
         }
 
@@ -872,11 +871,11 @@ public:
                         return;
                     forward_propagation(&data[data_index][0],in_out_ptr[thread_id]);
 
-                    const float* out_ptr2 = in_out_ptr[thread_id] + data_size - output_size;
-                    float* df_ptr = back_df_ptr[thread_id] + data_size - output_size;
+                    const float* out_ptr2 = in_out_ptr[thread_id] + data_size - output_size();
+                    float* df_ptr = back_df_ptr[thread_id] + data_size - output_size();
 
-                    image::copy_ptr(out_ptr2,df_ptr,output_size);
-                    image::minus(df_ptr,df_ptr+output_size,&label[data_index][0]);// diff of mse
+                    image::copy_ptr(out_ptr2,df_ptr,output_size());
+                    image::minus(df_ptr,df_ptr+output_size(),&label[data_index][0]);// diff of mse
 
 
                     for(int k = layers.size()-1;k >= 0;--k)
@@ -929,11 +928,15 @@ public:
         }
     }
 
+    unsigned int output_size(void) const
+    {
+        return layers.empty() ? 0 : layers.back()->output_size;
+    }
     void predict(std::vector<float>& in)
     {
         std::vector<float> out(data_size);
         forward_propagation(&in[0],&out[0]);
-        in.resize(layers.back()->output_size);
+        in.resize(output_size());
         std::copy(out.end()-in.size(),out.end(),in.begin());
     }
 
