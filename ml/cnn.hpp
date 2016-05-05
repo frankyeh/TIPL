@@ -739,7 +739,7 @@ public:
     }
     void save_to_file(const char* file_name)
     {
-        std::ofstream out(file_name);
+        std::ostringstream out;
         for(int i = 0;i < geo.size();++i)
         {
             if(i)
@@ -770,39 +770,39 @@ public:
                     out << "soft_max";
             }
         }
-        out << std::endl;
+        std::string nn_text = out.str();
+        std::ofstream file(file_name,std::ios::binary);
+        unsigned int nn_text_length = nn_text.length();
+        file.write((const char*)&nn_text_length,sizeof(nn_text_length));
+        file.write((const char*)&*nn_text.begin(),nn_text_length);
         for(auto& layer : layers)
             if(!layer->weight.empty())
             {
-                std::copy(layer->weight.begin(),layer->weight.end(),std::ostream_iterator<float>(out," "));
-                out << std::endl;
-                std::copy(layer->bias.begin(),layer->bias.end(),std::ostream_iterator<float>(out," "));
-                out << std::endl;
+                file.write((const char*)&*layer->weight.begin(),layer->weight.size()*4);
+                file.write((const char*)&*layer->bias.begin(),layer->bias.size()*4);
             }
     }
     bool load_from_file(const char* file_name)
     {
-        std::ifstream in(file_name);
-        std::string line;
-        std::getline(in,line);
-        add(line);
+        std::ifstream in(file_name,std::ios::binary);
+        if(!in)
+            return false;
+        unsigned int nn_text_length = 0;
+        in.read((char*)&nn_text_length,4);
+        std::string nn_text;
+        nn_text.resize(nn_text_length);
+        in.read((char*)&*nn_text.begin(),nn_text_length);
+        if(!in)
+            return false;
+        layers.clear();
+        add(nn_text);
         for(auto& layer : layers)
             if(!layer->weight.empty())
             {
-                std::getline(in,line);
-                std::istringstream in1(line);
-                std::vector<float> w((std::istream_iterator<float>(in1)),(std::istream_iterator<float>()));
-                if(w.size() != layer->weight.size())
-                    return false;
-                layer->weight.swap(w);
-                std::getline(in,line);
-                std::istringstream in2(line);
-                std::vector<float> b((std::istream_iterator<float>(in2)),(std::istream_iterator<float>()));
-                if(b.size() != layer->bias.size())
-                    return false;
-                layer->bias.swap(b);
+                in.read((char*)&*layer->weight.begin(),layer->weight.size()*4);
+                in.read((char*)&*layer->bias.begin(),layer->bias.size()*4);
             }
-        return true;
+        return !!in;
     }
 
 
