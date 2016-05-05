@@ -405,6 +405,26 @@ void smoothing(ImageType& I)
 }
 
 template<class ImageType>
+bool smoothing_fill(ImageType& I)
+{
+    bool filled = false;
+    std::vector<unsigned char> act;
+    unsigned int threshold = get_neighbor_count(I,act) >> 1;
+    for (unsigned int index = 0;index < I.size();++index)
+    {
+        if (act[index] > threshold)
+        {
+            if (!I[index])
+            {
+                I[index] = 1;
+                filled = true;
+            }
+        }
+    }
+    return filled;
+}
+
+template<class ImageType>
 void recursive_smoothing(ImageType& I,unsigned int max_iteration = 100)
 {
     for(unsigned int iter = 0;iter < max_iteration;++iter)
