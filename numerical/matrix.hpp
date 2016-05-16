@@ -2740,7 +2740,7 @@ public:
     {
         return image::mat::inverse(value,dim_type());
     }
-    value_type det(void)
+    value_type det(void) const
     {
         return image::mat::determinant(value,dim_type());
     }
