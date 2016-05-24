@@ -207,7 +207,7 @@ public:
     {
         return dim+1;
     }
-    int operator[](int index) const
+    const int& operator[](int index) const
     {
         return dim[index];
     }
@@ -327,7 +327,7 @@ public:
     {
         return dim+2;
     }
-    int operator[](int index) const
+    const int& operator[](int index) const
     {
         return dim[index];
     }
@@ -469,7 +469,7 @@ public:
     {
         return dim+3;
     }
-    int operator[](int index) const
+    const int& operator[](int index) const
     {
         return dim[index];
     }
