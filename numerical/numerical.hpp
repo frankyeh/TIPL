@@ -738,6 +738,14 @@ void normalize(ImageType& image,float upper_limit = 255)
 {
     multiply_constant(image.begin(),image.end(),upper_limit/(*std::max_element(image.begin(),image.end())));
 }
+template<class ImageType>
+void normalize_abs(ImageType& image,float upper_limit = 1.0f)
+{
+    auto minmax = std::minmax_element(image.begin(),image.end());
+    auto scale = std::max(-*minmax.first,*minmax.second);
+    if(scale != 0)
+    multiply_constant(image.begin(),image.end(),upper_limit/scale);
+}
 
 template<class ImageType1,class ImageType2>
 void normalize(const ImageType1& image1,ImageType2& image2,float upper_limit = 255.0)
