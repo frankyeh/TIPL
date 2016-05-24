@@ -160,6 +160,57 @@ struct rgb_color
         g = (g_ >= 255.0) ? 255 : (unsigned char)g_;
         b = (b_ >= 255.0) ? 255 : (unsigned char)b_;
 	}
+    void from_hsl(double h, double s, double l)
+    {
+        h /= 3.14159265358979323846/3.0;
+        double c = (1.0-std::abs(l+l-1.0))*s;
+        double x = c*(1.0-std::abs(h-std::floor(h/2)*2-1.0));
+        double r_ = 0,g_ = 0,b_ = 0;
+        if(h < 1)
+        {
+            r_ = c;
+            g_ = x;
+        }
+        else
+            if(h < 2)
+            {
+                r_ = x;
+                g_ = c;
+            }
+            else
+                if(h < 3)
+                {
+                    g_ = c;
+                    b_ = x;
+                }
+                else
+                    if(h < 4)
+                    {
+                        g_ = x;
+                        b_ = c;
+                    }
+                    else
+                        if(h < 5)
+                        {
+                            r_ = x;
+                            b_ = c;
+                        }
+                        else
+                            {
+                                r_ = c;
+                                b_ = x;
+                            }
+        double m = l-c*0.5;
+        r_ += m;
+        g_ += m;
+        b_ += m;
+        r_ *= 256.0;
+        g_ *= 256.0;
+        b_ *= 256.0;
+        r = (r_ >= 255.0) ? 255 : (unsigned char)r_;
+        g = (g_ >= 255.0) ? 255 : (unsigned char)g_;
+        b = (b_ >= 255.0) ? 255 : (unsigned char)b_;
+    }
 
     bool operator==(const rgb_color& rhs) const
     {
