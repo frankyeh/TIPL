@@ -870,7 +870,7 @@ public:
                 for(int y = 0,j = 0;y < row;++y)
                     for(int x = 0;j < geo[i][2] && x < col;++x,++j)
                     {
-                        auto& v = image::make_image((i == 0 ? in_buf : out_buf)+geo[i].plane_size()*j,image::geometry<2>(geo[i][0],geo[i][1]));
+                        auto v = image::make_image((i == 0 ? in_buf : out_buf)+geo[i].plane_size()*j,image::geometry<2>(geo[i][0],geo[i][1]));
                         image::normalize_abs(v);
                         image::color_image Iv(v.geometry());
                         for(int j = 0;j < Iv.size();++j)
