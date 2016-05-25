@@ -259,6 +259,9 @@ public:
 
         return true;
     }
+    const image::basic_image<float,3>& get_image(void) const{return data;}
+    image::basic_image<float,3>& get_image(void){return data;}
+
     bool is_2d(void) const
     {
         return slice_2d;
