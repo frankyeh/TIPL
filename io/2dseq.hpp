@@ -5,6 +5,7 @@
 #include <sstream>
 #include <iterator>
 #include <memory>
+#include "image/numerical/basic_op.hpp"
 
 namespace image
 {
@@ -70,6 +71,10 @@ public:
         load_info(info);
         return true;
     }
+    bool has_field(const std::string& tag) const
+    {
+        return info.find(tag) != info.end();
+    }
     const std::string& operator[](const std::string& tag) const
     {
         info_type::const_iterator iter = info.find(tag);
@@ -83,13 +88,13 @@ public:
 class bruker_2dseq
 {
     // the 2dseq data
-    std::vector<float> data;
+    image::basic_image<float,3> data;
 
-    // image dimension
-    unsigned int dim[4];
 
     // spatial resolution
     float resolution[3];
+    float orientation[9];
+    bool slice_2d = true;
 private:
     std::string tmp;
     std::wstring wtmp;
@@ -146,7 +151,6 @@ private:
 public:
     std::vector<float> slopes;
 
-
     template<class char_type>
     bool load_from_file(const char_type* file_name)
     {
@@ -159,10 +163,14 @@ public:
            !info.load_from_file(load_reco(file_name)) )
             return false;
 
+        image::geometry<3> dim;
         // get image dimension
-        std::fill(dim,dim+4,1);
         std::istringstream(visu["VisuCoreSize"]) >> dim[0] >> dim[1] >> dim[2];
-
+        std::istringstream(visu["VisuCoreOrientation"])
+                >> orientation[0] >> orientation[1] >> orientation[2]
+                >> orientation[3] >> orientation[4] >> orientation[5]
+                >> orientation[6] >> orientation[7] >> orientation[8];
+        slice_2d = (dim[2] == 0);
         std::vector<char> buffer;
         std::ifstream in(file_name,std::ios::binary);
         in.seekg(0, std::ifstream::end);
@@ -183,7 +191,8 @@ public:
                 change_endian((int*)&buffer[0],buffer.size()/word_size);
         }
         // read 2dseq and convert to float
-        data.resize(buffer.size()/word_size);
+        dim[2] = buffer.size()/word_size/dim[0]/dim[1];
+        data.resize(dim);
         if (info["RECO_wordtype"] == std::string("_8BIT_SGN_INT"))
             std::copy((char*)&buffer[0],(char*)&buffer[0]+data.size(),data.begin());
         if (info["RECO_wordtype"] == std::string("_8BIT_USGN_INT"))
@@ -198,10 +207,7 @@ public:
             std::copy((int32_t*)&buffer[0],(int32_t*)&buffer[0]+data.size(),data.begin());
         if (info["RECO_wordtype"] == std::string("_32BIT_FLOAT"))
             std::copy((float*)&buffer[0],(float*)&buffer[0]+data.size(),data.begin());
-        if(dim[2] == 1)
-            dim[2] = data.size()/dim[0]/dim[1];
-        if(dim[3] == 1)
-            dim[3] = data.size()/dim[0]/dim[1]/dim[2];
+
 
         // get resolution
         {
@@ -216,6 +222,15 @@ public:
             std::fill(resolution,resolution+3,0.0);
             for(unsigned int index = 0;index < 3 && index < fov_data.size() && index < size.size();++index)
                 resolution[index] = fov_data[index]*10.0/size[index]; // in mm
+
+            if(resolution[2] == 0)
+            {
+                image::vector<3> v1,v2;
+                std::istringstream(visu["VisuCorePosition"])
+                    >> v1[0] >> v1[1] >> v1[2]
+                    >> v2[0] >> v2[1] >> v2[2];
+                resolution[2] = (v1-v2).length();
+            }
         }
         {
             std::istringstream slope_text_parser(info["RECO_map_slope"]);
@@ -240,14 +255,18 @@ public:
                     *iter /= s;
             }
         }
+
+
         return true;
-
     }
-
+    bool is_2d(void) const
+    {
+        return slice_2d;
+    }
     template<class pixel_size_type>
     void get_voxel_size(pixel_size_type pixel_size_from) const
     {
-        if(dim[2] >= 1)
+        if(data.depth() >= 1)
             std::copy(resolution,resolution+3,pixel_size_from);
         else
             std::copy(resolution,resolution+2,pixel_size_from);
@@ -256,8 +275,8 @@ public:
     template<class image_type>
     void save_to_image(image_type& out) const
     {
-        out.resize(geometry<image_type::dimension>(dim));
-        std::copy(data.begin(),data.begin()+out.size(),out.begin());
+        out.resize(data.geometry());
+        std::copy(data.begin(),data.end(),out.begin());
     }
 
     template<class image_type>
