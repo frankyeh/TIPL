@@ -46,33 +46,7 @@ private:
                 flip[index] = !flip[index];
     }
 
-    void reorientation(void)
-    {
-        // now reordering the spatial information
-        {
-            float sr[3];
-            std::copy(spatial_resolution,spatial_resolution+3,sr);
-            for(unsigned int index = 0;index < 3;++index)
-                spatial_resolution[dim_order[index]] = sr[index];
-        }
 
-                // now reordering the orientation information
-        {
-            float orientation_matrix_[9];
-            std::copy(orientation_matrix,orientation_matrix+9,orientation_matrix_);
-            for(unsigned int index = 0,ptr = 0;index < 3;++index,ptr += 3)
-                if(flip[index])
-                {
-                    orientation_matrix_[ptr] = -orientation_matrix_[ptr];
-                    orientation_matrix_[ptr+1] = -orientation_matrix_[ptr+1];
-                    orientation_matrix_[ptr+2] = -orientation_matrix_[ptr+2];
-                }
-            for(unsigned int index = 0;index < 3;++index)
-            std::copy(orientation_matrix_+index*3,
-                      orientation_matrix_+index*3+3,
-                      orientation_matrix+dim_order[index]*3);
-        }
-    }
 
 public:
     ~volume(void){free_all();}
@@ -103,7 +77,7 @@ public:
             free_all();
             dicom_reader.push_back(dicom_header.release());
             image::get_orientation(3,orientation_matrix,dim_order,flip);
-            reorientation();
+            image::reorientation(spatial_resolution,orientation_matrix,dim_order,flip);
             return true;
         }
         std::auto_ptr<nifti> nifti_header(new nifti);
@@ -117,7 +91,7 @@ public:
             change_orientation(true,true,false);
             // from +x = Right  +y = Anterior +z = Superior
             // to +x = Left  +y = Posterior +z = Superior
-            reorientation();
+            image::reorientation(spatial_resolution,orientation_matrix,dim_order,flip);
             return true;
         }
         return false;
@@ -164,7 +138,7 @@ public:
             }
             else
                 return false;
-        reorientation();
+        image::reorientation(spatial_resolution,orientation_matrix,dim_order,flip);
         return true;
     }
     unsigned int width(void) const{return dicom_reader.empty() ? (nifti_reader.empty() ? 0 : nifti_reader.front()->width()):dicom_reader.front()->width();}
