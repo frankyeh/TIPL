@@ -824,40 +824,29 @@ public:
 
     void get_image_dimension(image::geometry<3>& geo) const
     {
-        unsigned int length = 0;
-        const short* acq_matrix = (const short*)get_data(0x0018,0x1310,length);
-        geo[2] = 0;
+        geo[0] = width();
+        geo[1] = height();
+        geo[2] = 1;
+
         // could be mosaic
         if (is_mosaic)
         {
-            geo[2] = get_int(0x0019,0x100A);
+            const char* mosaic = get_csa_data("NumberOfImagesInMosaic",0);
+            if(mosaic)
+                geo[2] = std::stoi(mosaic);
+            else
+                geo[2] = get_int(0x0019,0x100A);
             if(geo[2])
             {
                 geo[0] = width()/std::ceil(std::sqrt(geo[2]));
                 geo[1] = height()/std::ceil(std::sqrt(geo[2]));
             }
-            if(width()%geo[0] ||  height()%geo[1])
+            else
             {
-                // the acq matrix may be at [0][1] or [2][3]
-                if (acq_matrix[0])
-                    geo[1] = acq_matrix[3];
-                else
-                    geo[1] = acq_matrix[1];
-                if (acq_matrix[3])
-                    geo[0] = acq_matrix[0];
-                else
-                    geo[0] = acq_matrix[2];
+                geo[2] = image_size/geo[0]/geo[1]/(get_bit_count()/8);
+                if(!geo[2])
+                    geo[2] = 1;
             }
-        }
-        if (!geo[0] || !geo[1])
-        {
-            geo[0] = width();
-            geo[1] = height();
-        }
-
-        if (geo[2] <= 1 && geo[0] && geo[1])
-        {
-            geo[2] = image_size/geo[0]/geo[1]/(get_bit_count()/8);
         }
     }
 
