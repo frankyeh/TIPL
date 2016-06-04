@@ -846,7 +846,7 @@ public:
                         Is[i][j] = b;
                         continue;
                     }
-                    unsigned char s(std::min<int>(255,300.0*std::fabsf(I2[j])));
+                    unsigned char s(std::min<int>(255,300.0*std::fabs(I2[j])));
                     if(I2[j] < 0) // red
                         Is[i][j] = image::rgb_color(s,0,0);
                     if(I2[j] > 0) // blue
@@ -875,7 +875,7 @@ public:
                         image::color_image Iv(v.geometry());
                         for(int j = 0;j < Iv.size();++j)
                         {
-                            unsigned char s(std::min<int>(255,300.0*std::fabsf(v[j])));
+                            unsigned char s(std::min<int>(255,300.0*std::fabs(v[j])));
                             if(v[j] < 0) // red
                                 Iv[j] = image::rgb_color(s,0,0);
                             if(v[j] >= 0) // blue
