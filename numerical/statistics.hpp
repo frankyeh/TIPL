@@ -247,6 +247,35 @@ double correlation(input_iterator1 x_from,input_iterator1 x_to,
     return correlation(x_from,x_to,y_from,mean(x_from,x_to),mean(y_from,y_from+(x_to-x_from)));
 }
 
+template<class input_iterator1,class input_iterator2>
+double t_statistics(input_iterator1 x_from,input_iterator1 x_to,input_iterator2 y_from,input_iterator2 y_to)
+{
+    double n1 = x_to-x_from;
+    double n2 = y_to-x_from;
+    double mean0 = image::mean(x_from,x_to);
+    double mean1 = image::mean(y_from,y_to);
+    double v = n1 + n2 - 2;
+    double va1 = image::variance(x_from,x_to,mean0);
+    double va2 = image::variance(y_from,y_to,mean1);
+    // pooled variance:
+    double sp = std::sqrt(((n1-1.0) * va1 + (n2-1.0) * va2) / v);
+    // t-statistic:
+    if(sp == 0.0)
+        return 0;
+    return (mean0-mean1) / (sp * std::sqrt(1.0 / n1 + 1.0 / n2));
+}
+
+template<class input_iterator>
+double t_statistics(input_iterator x_from,input_iterator x_to)
+{
+    double n = x_to-x_from;
+    double mean = image::mean(x_from,x_to);
+    double var = image::variance(x_from,x_to,mean);
+    if(var == 0.0)
+        return 0.0;
+    return mean* std::sqrt(double(n-1.0)/var);
+}
+
 template<class input_iterator>
 double least_square_fitting_slop(input_iterator x_from,input_iterator x_to,
                                  input_iterator y_from,input_iterator y_to)
