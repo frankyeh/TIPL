@@ -1209,7 +1209,7 @@ public:
     template <class data_type,class label_type,class iter_type>
     void train(const data_type& data,
                const label_type& label_id,int iteration_count,bool &terminated,
-               iter_type iter_fun = [&]{},float learning_rate = 0.0001)
+               iter_type iter_fun = []{},float learning_rate = 0.0001)
     {
         for(int iter = 0; iter < iteration_count && !terminated;iter++ ,learning_rate *= 0.85,iter_fun())
             train_batch(data,label_id,data.size()*2/output_size+1,terminated,learning_rate);
