@@ -130,6 +130,14 @@ double mean(input_iterator from,input_iterator to)
 {
     return from == to ? 0.0 : std::accumulate(from,to,0.0)/((double)(to-from));
 }
+template <typename input_iterator>
+typename std::iterator_traits<input_iterator>::value_type median(input_iterator begin, input_iterator end)
+{
+    auto size = std::distance(begin, end);
+    size /= 2;
+    std::nth_element(begin, begin + size, end);
+    return *std::next(begin, size);
+}
 template<class input_iterator>
 std::pair<double,double> mean_variance(input_iterator from,input_iterator to)
 {

@@ -180,7 +180,7 @@ struct interpolation<weighting_function,3>
     static const unsigned int ref_count = 8;
     float ratio[ref_count];
     int dindex[ref_count];
-	weighting_function weighting;
+        weighting_function weighting;
 
     template<class VTorType>
     bool get_location(const geometry<3>& geo,const VTorType& location)
