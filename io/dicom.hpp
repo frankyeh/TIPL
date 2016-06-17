@@ -430,19 +430,19 @@ private:
     transfer_syntax_type transfer_syntax;
 private:
     std::map<unsigned int,unsigned int> ge_map;
-    std::vector<dicom_group_element*> data;
+    std::vector<dicom_group_element> data;
 private:
     std::map<std::string,unsigned int> csa_map;
-    std::vector<dicom_csa_data*> csa_data;
+    std::vector<dicom_csa_data> csa_data;
 private:
     void assign(const dicom& rhs)
     {
         ge_map = rhs.ge_map;
         csa_map = rhs.csa_map;
         for (unsigned int index = 0;index < rhs.data.size();index++)
-            data.push_back(new dicom_group_element(*rhs.data[index]));
+            data.push_back(rhs.data[index]);
         for (unsigned int index = 0;index < rhs.csa_data.size();index++)
-            csa_data.push_back(new dicom_csa_data(*rhs.csa_data[index]));
+            csa_data.push_back(rhs.csa_data[index]);
     }
     template<class iterator_type>
     void handle_mosaic(iterator_type image_buffer) const
@@ -493,13 +493,6 @@ public:
         assign(rhs);
         return *this;
     }
-    ~dicom(void)
-    {
-        for (unsigned int index = 0; index < data.size(); ++index)
-            delete data[index];
-        for (unsigned int index = 0; index < csa_data.size(); ++index)
-            delete csa_data[index];
-    }
 public:
     bool load_from_file(const std::string& file_name)
     {
@@ -528,52 +521,54 @@ public:
         }
         while (*input_io)
         {
-            std::auto_ptr<dicom_group_element> ge(new dicom_group_element);
-            if (!ge->read(*input_io,transfer_syntax))
+            dicom_group_element ge;
+            if (!ge.read(*input_io,transfer_syntax))
             {
                 if (!(*input_io))
                     return false;
-                image_size = ge->length;
+                image_size = ge.length;
                 std::string image_type;
                 is_mosaic = get_int(0x0019,0x100A) > 1 ||   // multiple frame (new version)
                             (get_text(0x0008,0x0008,image_type) && image_type.find("MOSAIC") != std::string::npos);
                 return true;
             }
+
             // detect transfer syntax at 0x0002,0x0010
-            if (ge->group == 0x0002 && ge->element == 0x0010)
+            if (ge.group == 0x0002 && ge.element == 0x0010)
             {
-                if(std::string((char*)&*ge->data.begin()) == std::string("1.2.840.10008.1.2"))
+                if(std::string((char*)&*ge.data.begin()) == std::string("1.2.840.10008.1.2"))
                     transfer_syntax = lei;//Little Endian Implicit
-                if(std::string((char*)&*ge->data.begin()) == std::string("1.2.840.10008.1.2.1"))
+                if(std::string((char*)&*ge.data.begin()) == std::string("1.2.840.10008.1.2.1"))
                     transfer_syntax = lee;//Little Endian Explicit
-                if(std::string((char*)&*ge->data.begin()) == std::string("1.2.840.10008.1.2.2"))
+                if(std::string((char*)&*ge.data.begin()) == std::string("1.2.840.10008.1.2.2"))
                     transfer_syntax = bee;//Big Endian Explicit
             }
             // Deal with CSA
-            if (ge->group == 0x0029 && (ge->element == 0x1010 || ge->element == 0x1020))
+            if (ge.group == 0x0029 && (ge.element == 0x1010 || ge.element == 0x1020))
             {
-                std::string SV10(ge->get().begin(),ge->get().begin()+4);
+                std::string SV10(ge.get().begin(),ge.get().begin()+4);
                 if (SV10 == "SV10")
                 {
-                    int count = *(int*)&ge->get()[8];
+                    int count = *(int*)&ge.get()[8];
                     if (count <= 128 && count >= 0)
                     {
                         unsigned int pos = 16;
-                        for (unsigned int index = 0; index < (unsigned int)count && pos < ge->get().size(); ++index)
+                        for (unsigned int index = 0; index < (unsigned int)count && pos < ge.get().size(); ++index)
                         {
-                            std::auto_ptr<dicom_csa_data> csa(new dicom_csa_data);
-                            if (!csa->read(ge->get(),pos))
+                            dicom_csa_data csa;
+                            if (!csa.read(ge.get(),pos))
                                 break;
-                            csa_data.push_back(csa.release());
-                            csa_map[csa_data.back()->get_name()] = csa_data.size()-1;
+                            csa_data.push_back(csa);
+                            csa_map[csa_data.back().get_name()] = csa_data.size()-1;
                         }
                     }
                 }
 
             }
-
-            ge_map[ge->get_order()] = data.size();
-            data.push_back(ge.release());
+            auto& item = ge_map[ge.get_order()];
+            if(item == 0) // if there is no duplicate group element
+                item = data.size();
+            data.push_back(ge);
         }
         return false;
     }
@@ -583,7 +578,7 @@ public:
         std::map<std::string,unsigned int>::const_iterator iter = csa_map.find(name);
         if (iter == csa_map.end())
             return 0;
-        return csa_data[iter->second]->get_value(index);
+        return csa_data[iter->second].get_value(index);
     }
 
     const unsigned char* get_data(unsigned short group,unsigned short element,unsigned int& length) const
@@ -595,10 +590,10 @@ public:
             length = 0;
             return 0;
         }
-        length = (unsigned int)data[iter->second]->get().size();
+        length = (unsigned int)data[iter->second].get().size();
         if (!length)
             return 0;
-        return (const unsigned char*)&*data[iter->second]->get().begin();
+        return (const unsigned char*)&*data[iter->second].get().begin();
     }
 
     bool get_text(unsigned short group,unsigned short element,std::string& result) const
@@ -618,7 +613,7 @@ public:
                 ge_map.find(((unsigned int)group << 16) | (unsigned int)element);
         if (iter == ge_map.end())
             return false;
-        data[iter->second]->get_value(value);
+        data[iter->second].get_value(value);
         return true;
     }
     unsigned int get_int(unsigned short group,unsigned short element) const
@@ -926,26 +921,26 @@ public:
             out << std::setw( 8 ) << std::setfill( '0' ) << std::hex << std::uppercase <<
             iter->first << "=";
             out << std::dec;
-            if(data[iter->second]->data.empty())
+            if(data[iter->second].data.empty())
             {
                 out << std::setw( 8 ) << std::setfill( '0' ) << std::hex << std::uppercase <<
-                data[iter->second]->length << " ";
+                data[iter->second].length << " ";
                 out << std::dec;
             }
             else
             {
-                unsigned short vr = data[iter->second]->vr;
+                unsigned short vr = data[iter->second].vr;
                 if((vr & 0xFF) && (vr >> 8))
                     out << (char)(vr & 0xFF) << (char)(vr >> 8) << " ";
                 else
                     out << "   ";
-                *(data[iter->second]) >> out;
+                data[iter->second] >> out;
             }
             out << std::endl;
         }
         report = out.str();
         for(unsigned int index = 0;index < csa_data.size();++index)
-            csa_data[index]->write_report(report);
+            csa_data[index].write_report(report);
         return *this;
     }
 };
