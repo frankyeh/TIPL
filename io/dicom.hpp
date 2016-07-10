@@ -566,7 +566,7 @@ public:
 
             }
             auto& item = ge_map[ge.get_order()];
-            if(item == 0) // if there is no duplicate group element
+            if(item == 0) // check if there is duplicate group element
                 item = data.size();
             data.push_back(ge);
         }

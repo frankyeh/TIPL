@@ -164,8 +164,8 @@ public:
         int ivalue = std::floor(value);
         if(ivalue < 0)
             ivalue = 0;
-        if(ivalue > 255)
-            ivalue = 255;
+        if(ivalue >= map.size())
+            ivalue = map.size()-1;
         return map[ivalue];
     }
     template<class value_image_type,class color_image_type>
