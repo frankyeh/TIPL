@@ -321,23 +321,6 @@ inline float cubic_imp(iterator_type p,float x, float x2,float x3,
     return cubic_imp(arr, x, x2, x3);
 }
 
-
-template<class v>
-struct calculation_type{typedef v value_type;};
-
-template<>
-struct calculation_type<char>{typedef short value_type;};
-
-template<>
-struct calculation_type<unsigned char>{typedef short value_type;};
-
-template<>
-struct calculation_type<short>{typedef int value_type;};
-
-template<>
-struct calculation_type<unsigned short>{typedef int value_type;};
-
-
 template<unsigned int dimension>
 struct cubic_interpolation{};
 
@@ -397,7 +380,7 @@ struct cubic_interpolation<2>{
     template<class ImageType,class PixelType>
     void estimate(const ImageType& source,PixelType& pixel)
     {
-        typename calculation_type<class ImageType::value_type>::value_type p[16];
+        float p[16];
         for(unsigned int index = 0;index < 16;++index)
             p[index] = source[dindex[index]];
         pixel = std::max(0.0,cubic_imp(p,dx,dx2,dx3,dy,dy2,dy3)*0.25);
@@ -473,7 +456,7 @@ struct cubic_interpolation<3>{
     template<class ImageType,class PixelType>
     void estimate(const ImageType& source,PixelType& pixel)
     {
-        typename calculation_type<typename ImageType::value_type>::value_type p[64];
+        float p[64];
         for(unsigned int index = 0;index < 64;++index)
             p[index] = source[dindex[index]];
         pixel = std::max(0.0,cubic_imp(p,dx,dx2,dx3,dy,dy2,dy3,dz,dz2,dz3)*0.125);

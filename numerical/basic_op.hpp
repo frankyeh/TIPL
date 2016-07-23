@@ -605,8 +605,8 @@ void flip(ImageType& image,unsigned char dim)
     }
 }
 //---------------------------------------------------------------------------
-template<class ImageType>
-void negate(ImageType& image,class ImageType::value_type maximum)
+template<class ImageType,class value_type>
+void negate(ImageType& image,value_type maximum)
 {
     typename ImageType::iterator iter = image.begin();
     typename ImageType::iterator end = image.end();
