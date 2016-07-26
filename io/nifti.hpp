@@ -687,7 +687,14 @@ public:
         if(!has_data())
             return false;
         out.resize(image::geometry<image_type::dimension>(nif_header.dim+1));
-        return save_to_buffer(out.begin(),out.size());
+        if(!save_to_buffer(out.begin(),out.size()))
+            return false;
+        if(nif_header.scl_slope != 0)
+        {
+            image::multiply_constant(out,nif_header.scl_slope);
+            image::add_constant(out,nif_header.scl_inter);
+        }
+        return true;
     }
     template<class image_type>
     const nifti_base& operator>>(image_type& source) const
