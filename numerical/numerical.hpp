@@ -754,6 +754,24 @@ void normalize(const ImageType1& image1,ImageType2& image2,float upper_limit = 2
     normalize(image1.begin(),image1.end(),image2.begin(),upper_limit);
 }
 
+template<class container_type,class index_type>
+void get_sort_index(const container_type& c,std::vector<index_type>& idx)
+{
+    idx.resize(c.size());
+    std::iota(idx.begin(), idx.end(), 0);
+    std::sort(idx.begin(), idx.end(),[&c](size_t i, size_t j){return c[i] < c[j];});
+}
+
+template<class container_type,class index_type>
+void apply_sort_index(container_type& c,const std::vector<index_type>& idx)
+{
+    container_type new_c(c.size());
+    for(size_t i = 0;i < idx.size();++i)
+        new_c[i] = c[idx[i]];
+    c.swap(new_c);
+}
+
+
 
 }
 #endif
