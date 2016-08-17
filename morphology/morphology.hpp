@@ -708,6 +708,72 @@ void connected_component_labeling(const basic_image<PixelType,3,StorageType>& im
     connected_component_labeling_pass(image,labels,regions,image.geometry().plane_size());
 }
 
+template<class LabelImageType>
+void get_region_bounding_box(const LabelImageType& labels,
+                             const std::vector<std::vector<unsigned int> >& regions,
+                             std::vector<image::vector<2,int> >& min_pos,
+                             std::vector<image::vector<2,int> >& max_pos)
+{
+    min_pos.clear();
+    min_pos.resize(regions.size());
+    max_pos.clear();
+    max_pos.resize(regions.size());
+    std::fill(min_pos.begin(),min_pos.end(),image::vector<2,float>(labels.geometry()[0],labels.geometry()[1]));
+    for(image::pixel_index<2> index(labels.geometry());index < labels.size();++index)
+    if (labels[index.index()])
+    {
+        size_t region_id = labels[index.index()]-1;
+        if (regions[region_id].empty())
+            continue;
+        max_pos[region_id][0] = std::max<int>(index[0],max_pos[region_id][0]);
+        max_pos[region_id][1] = std::max<int>(index[1],max_pos[region_id][1]);
+        min_pos[region_id][0] = std::min<int>(index[0],min_pos[region_id][0]);
+        min_pos[region_id][1] = std::min<int>(index[1],min_pos[region_id][1]);
+    }
+}
+
+template<class LabelImageType>
+void get_region_bounding_size(const LabelImageType& labels,
+                              const std::vector<std::vector<unsigned int> >& regions,
+                              std::vector<int>& size_x,
+                              std::vector<int>& size_y)
+{
+    std::vector<image::vector<2,int> > max_pos,min_pos;
+    image::morphology::get_region_bounding_box(labels,regions,min_pos,max_pos);
+    size_x.clear();
+    size_x.resize(regions.size());
+    size_y.clear();
+    size_y.resize(regions.size());
+
+    for(size_t index = 0;index < regions.size();++index)
+        if(!regions[index].empty())
+        {
+            size_x[index] = max_pos[index][0]-min_pos[index][0];
+            size_y[index] = max_pos[index][1]-min_pos[index][1];
+        }
+}
+
+template<class LabelImageType>
+void get_region_center(const LabelImageType& labels,
+                       const std::vector<std::vector<unsigned int> >& regions,
+                       std::vector<image::vector<2,float> >& center_of_mass)
+{
+    center_of_mass.clear();
+    center_of_mass.resize(regions.size());
+    for(image::pixel_index<2> index(labels.geometry());index < labels.size();++index)
+        if (labels[index.index()])
+        {
+            size_t region_id = labels[index.index()]-1;
+            if (regions[region_id].empty())
+                continue;
+            center_of_mass[region_id] += image::vector<2,float>(index);
+        }
+
+    for(size_t index = 0;index < regions.size();++index)
+        if(!regions[index].empty())
+            center_of_mass[index] /= regions[index].size();
+}
+
 template<class ImageType>
 void defragment(ImageType& image)
 {
