@@ -478,6 +478,12 @@ public:
         x_ = std::floor(x_);
         y_ = std::floor(y_);
     }
+    void round(void)
+    {
+        x_ = std::round(x_);
+        y_ = std::round(y_);
+    }
+
     void abs(void)
     {
         x_ = std::abs(x_);
@@ -801,6 +807,12 @@ public:
         x_ = std::floor(x_);
         y_ = std::floor(y_);
         z_ = std::floor(z_);
+    }
+    void round(void)
+    {
+        x_ = std::round(x_);
+        y_ = std::round(y_);
+        z_ = std::round(z_);
     }
     void abs(void)
     {
