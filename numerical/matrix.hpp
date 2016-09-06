@@ -2752,6 +2752,11 @@ public:
     {
         image::mat::identity(value,dim_type());
     }
+    void swap(matrix& rhs)
+    {
+        for(int i = 0;i < mat_size;++i)
+            std::swap(value[i],rhs.value[i]);
+    }
 };
 
 
