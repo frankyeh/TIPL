@@ -778,7 +778,7 @@ public:
         ss /= (std::min(samp[0]/(fwhm2*1.0645),1.0) *
                std::min(samp[1]/(fwhm2*1.0645),1.0) *
                std::min(samp[2]/(fwhm2*1.0645),1.0)) * (nsamp - (nxyz3 + 4));
-        std::cout << "FWHM = " << fw << " Var = " << ss <<std::endl;
+        // std::cout << "FWHM = " << fw << " Var = " << ss <<std::endl;
         fwhm2 = std::min(fw,fwhm2);
 
         image::divide_constant(alpha.begin(),alpha.end(), ss);
