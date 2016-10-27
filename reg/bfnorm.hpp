@@ -4,6 +4,7 @@
 #include <cmath>
 #include <vector>
 #include "image/numerical/matrix.hpp"
+#include "image/numerical/numerical.hpp"
 namespace image {
 
 namespace reg {
@@ -216,6 +217,8 @@ public:
     std::vector<std::vector<std::vector<value_type> > > Jz,Jy;
     int s0[3];
 public:
+    std::vector<value_type> dif_alpha,dif_beta;
+public:
     unsigned int thread_id,thread_count;
 public:
     bfnorm_slice_data(const image_type& VG_,
@@ -307,7 +310,8 @@ public:
                 Jy[i1][i2].resize(nx);
             }
         }
-
+        dif_alpha.resize((nxyz3+4)*(nxyz3+4));
+        dif_beta.resize(nxyz3+4);
     }
 public:// calculation results to accumulate
     value_type ss,nsamp,ss_deriv[3];
@@ -321,7 +325,7 @@ public:// calculation results to accumulate
     }
 public:
     template<class terminated_type>
-    void run(std::vector<value_type>& alpha,std::vector<value_type>& beta,const terminated_type& terminated)
+    void run(const terminated_type& terminated)
     {
         ss = 0.0;
         nsamp = 0.0;
@@ -564,7 +568,7 @@ public:
                             /* Kronecker tensor products with B2'*B2 */
                             value_type wt2 = wt1 * B2[dim1_2_values[z2]+s0[2]];
 
-                            value_type* ptr1 = &alpha[nxy*(m1*(nz_values[i1] + z1) + nz_values[i2] + z2)];
+                            value_type* ptr1 = &dif_alpha[nxy*(m1*(nz_values[i1] + z1) + nz_values[i2] + z2)];
                             value_type* ptr2 = &alphaxy[nxy*(m2*i1 + i2)];
                             for(int y1=0; y1<nxy; y1++)
                             {
@@ -575,7 +579,7 @@ public:
                         }
                     }
                     /* spatial-intensity covariances */
-                    value_type* ptr1 = &alpha[nxy*(m1*nz_values[3] + nz_values[i1] + z1)];
+                    value_type* ptr1 = &dif_alpha[nxy*(m1*nz_values[3] + nz_values[i1] + z1)];
                     value_type* ptr2 = &alphaxy[nxy*(m2*3 + i1)];
                     for(int y1=0; y1<4; y1++)
                     {
@@ -585,11 +589,11 @@ public:
                     }
                     /* spatial component of beta */
                     for(int y1=0; y1<nxy; y1++)
-                        beta[y1 + nxy*(nz_values[i1] + z1)] += wt1 * betaxy[y1 + nxy_values[i1]];
+                        dif_beta[y1 + nxy*(nz_values[i1] + z1)] += wt1 * betaxy[y1 + nxy_values[i1]];
                 }
             }
 
-            value_type* ptr1 = &alpha[nxy*(m1+1)*nz_values[3]];
+            value_type* ptr1 = &dif_alpha[nxy*(m1+1)*nz_values[3]];
             value_type* ptr2 = &alphaxy[nxy*(m2*3 + 3)];
             for(int y1=0; y1<4; y1++)
             {
@@ -597,7 +601,7 @@ public:
                 ptr1 += m1;
                 ptr2 += m2;
                 /* intensity component of beta */
-                beta[nxyz3 + y1] += betaxy[nxy3 + y1];
+                dif_beta[nxyz3 + y1] += betaxy[nxy3 + y1];
             }
 
         }
@@ -693,23 +697,34 @@ public:
             delete data[index];
     }
 
-    void start(void)
+    template<class terminated_type>
+    void optimize(const terminated_type& terminated)
     {
+        // zero alpha and beta
         for(unsigned int index = 0;index < data.size();++index)
             data[index]->init();
-        //bfnorm_mrqcof_zero_half(alpha,nxyz3+4);
         std::fill(alpha.begin(),alpha.end(),0.0);
         std::fill(beta.begin(),beta.end(),0.0);
-    }
 
-    template<class terminated_type>
-    void run(unsigned int thread_id,const terminated_type& terminateded)
-    {
-        data[thread_id]->run(alpha,beta,terminateded);
-    }
+        // calculate difference in alpha and beta
+        {
+            std::vector<std::shared_ptr<std::future<void> > > threads;
+            for (unsigned int index = 0;index < data.size();++index)
+                threads.push_back(std::make_shared<std::future<void> >(std::async(std::launch::async,
+                    [this,index,&terminated](){data[index]->run(terminated);})));
+            for(int i = 0;i < data.size();++i)
+                threads[i]->wait();
+        }
 
-    void end(void)
-    {
+        if(!!terminated)
+            return;
+        // accumulate alpha beta
+        for(unsigned int index = 0;index < data.size();++index)
+        {
+            image::add(alpha,data[index]->dif_alpha);
+            image::add(beta,data[index]->dif_beta);
+        }
+
         value_type ss = 0.0,nsamp = 0.0,ss_deriv[3];
         std::fill(ss_deriv,ss_deriv+3,0.0);
         for(unsigned int index = 0;index < data.size();++index)
@@ -763,7 +778,7 @@ public:
         ss /= (std::min(samp[0]/(fwhm2*1.0645),1.0) *
                std::min(samp[1]/(fwhm2*1.0645),1.0) *
                std::min(samp[2]/(fwhm2*1.0645),1.0)) * (nsamp - (nxyz3 + 4));
-        //std::cout << "FWHM = " << fw << " Var = " << ss <<std::endl;
+        std::cout << "FWHM = " << fw << " Var = " << ss <<std::endl;
         fwhm2 = std::min(fw,fwhm2);
 
         image::divide_constant(alpha.begin(),alpha.end(), ss);
@@ -803,44 +818,31 @@ public:
                 break;
             }
         }*/
-    }
-    void run2(unsigned int thread_id,unsigned int iteration)
-    {
+
+        const unsigned int iteration = 40;
+
         // solve T = (Alpha + IC0*scal)\(Alpha*T + Beta);
         // alpha is a diagonal dominant matrix, which can use Jacobi method to solve
         //image::mat::jacobi_solve(&*alpha.begin(),&*beta.begin(),&*T.begin(),image::dyndim(T.size(),T.size()));
+        unsigned int size = T.size();
         for(unsigned int iter = 0;iter < iteration;++iter)
         {
-            /*
-            if(thread_id == 0)
-            {
-                for(unsigned int i = 0;i < 5;++i)
-                    std::cout << T[i] << " ";
-                std::cout << std::endl;
-            }
-            */
-            unsigned int dimension = T.size();
-            unsigned int thread_count = data.size();
-            unsigned int step = thread_count * dimension;
-            const value_type* A_row = &*(alpha.end() - dimension - thread_id*dimension);
+            const value_type* A_row = &*(alpha.end() - size);
             // going bacward because because alpha values is incremental
-            for(int i = dimension-1-thread_id;i >= 0;i -= thread_count,A_row -= step)
+            for(int i = size-1;i >= 0;--i,A_row -= size)
             {
                 value_type new_T_value = beta[i];
                 value_type scale = 0.0;
-                for(unsigned int j = 0;j < dimension;++j)
+                for(unsigned int j = 0;j < size;++j)
                     if(j != i)
                         new_T_value -= A_row[j]*T[j];
                     else
                         scale = A_row[j];
                 if(scale == 0.0)
                     return;
-                new_T_value /= scale;
+                scale *= 1.5;
                 // stablize using weighted jacobi method
-                new_T_value /= 3;
-                new_T_value *= 2;
-                new_T_value += T[i] /3;
-                T[i] = new_T_value;
+                T[i] = new_T_value/scale + T[i]/3;
             }
         }
     }
@@ -854,28 +856,7 @@ void bfnorm(bfnorm_mapping<value_type>& mapping,
     bfnorm_mrqcof<ImageType,value_type> bf_optimize(VG,VFF,mapping,thread_count);
     // image::reg::bfnorm(VG,VFF,*mni.get(),terminated);
     for(iteration = 0; iteration < 16 && !terminated; ++iteration)
-    {
-        bf_optimize.start();
-
-        std::vector<std::shared_ptr<std::future<void> > > threads;
-        bool terminated_buf = false;
-        for (unsigned int index = 1;index < thread_count;++index)
-            threads.push_back(std::make_shared<std::future<void> >(std::async(std::launch::async,
-                    [&bf_optimize,index,&terminated_buf](){bf_optimize.run(index,terminated_buf);})));
-
-        bf_optimize.run(0,terminated_buf);
-        for(int i = 0;i < threads.size();++i)
-            threads[i]->wait();
-
-        bf_optimize.end();
-        std::vector<std::shared_ptr<std::future<void> > > threads2;
-        for (unsigned int index = 1;index < thread_count;++index)
-                threads2.push_back(std::make_shared<std::future<void> >(std::async(std::launch::async,
-                                   [&bf_optimize,index](){bf_optimize.run2(index,40);})));
-        bf_optimize.run2(0,40);
-        for(int i = 0;i < threads2.size();++i)
-            threads2[i]->wait();
-    }
+        bf_optimize.optimize(terminated);
 }
 
 

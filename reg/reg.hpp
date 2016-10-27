@@ -77,6 +77,11 @@ public:
         update_affine();
         if(terminated)
             return;
+
+        //std::cout << T.data[0] << " " << T.data[1] << " " << T.data[2] << " " << T.data[9] << std::endl;
+        //std::cout << T.data[3] << " " << T.data[4] << " " << T.data[5] << " " << T.data[10] << std::endl;
+        //std::cout << T.data[6] << " " << T.data[7] << " " << T.data[8] << " " << T.data[11] << std::endl;
+
         if(!factor || reg_type == image::reg::rigid_body)
         {
             prog = 16;
