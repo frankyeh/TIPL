@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <vector>
+#include <future>
 #include "image/numerical/matrix.hpp"
 #include "image/numerical/numerical.hpp"
 namespace image {
@@ -310,7 +311,9 @@ public:
                 Jy[i1][i2].resize(nx);
             }
         }
+        dif_alpha.clear();
         dif_alpha.resize((nxyz3+4)*(nxyz3+4));
+        dif_beta.clear();
         dif_beta.resize(nxyz3+4);
     }
 public:// calculation results to accumulate
@@ -324,14 +327,13 @@ public:// calculation results to accumulate
         ss_deriv_[2] += ss_deriv[2];
     }
 public:
-    template<class terminated_type>
-    void run(const terminated_type& terminated)
+    void run(void)
     {
         ss = 0.0;
         nsamp = 0.0;
         std::fill(ss_deriv,ss_deriv+3,0.0);
         //started from slice 1
-        for(s0[2]=thread_id+1; s0[2]<dim1[2] && !terminated; s0[2]+=samp[2]*thread_count) /* For each plane of the template images */
+        for(s0[2]=thread_id+1; s0[2]<dim1[2]; s0[2]+=samp[2]*thread_count) /* For each plane of the template images */
         {
             bfnorm_mrqcof_zero_half(alphaxy,nxy3 + 4);
             std::fill(betaxy.begin(),betaxy.end(),0.0);
@@ -623,7 +625,7 @@ private:
     int samp[3];
     value_type fwhm,fwhm2;
 private: // slice temporary data
-    std::vector<bfnorm_slice_data<image_type,value_type>*> data;
+    std::vector<std::shared_ptr<bfnorm_slice_data<image_type,value_type> > > data;
 public:
     std::vector<value_type> IC0;
     std::vector<value_type> alpha,beta;
@@ -686,163 +688,181 @@ public:
                 IC0[index+ICO_+ICO_] = IC0[index];
             }
         }
+        try{
+            for(unsigned int index = 0;index < thread_count;++index)
+            {
+                auto ptr = std::make_shared<bfnorm_slice_data<image_type,value_type> >
+                                        (VG,VF,T,base,dbase,nx,ny,nz,fwhm,index,thread_count);
+                ptr->init();
+                data.push_back(ptr);
+            }
 
-        data.resize(thread_count);
-        for(unsigned int index = 0;index < data.size();++index)
-            data[index] = new bfnorm_slice_data<image_type,value_type>(VG,VF,T,base,dbase,nx,ny,nz,fwhm,index,data.size());
-    }
-    ~bfnorm_mrqcof(void)
-    {
-        for(unsigned int index = 0;index < data.size();++index)
-            delete data[index];
+        }
+        catch(...)
+        {
+            thread_count = data.size();
+            for(unsigned int index = 0;index < thread_count;++index)
+                data[index]->thread_count = thread_count;
+            if(thread_count == 0)
+                throw std::bad_alloc();
+        }
+
     }
 
     template<class terminated_type>
     void optimize(const terminated_type& terminated)
     {
-        // zero alpha and beta
-        for(unsigned int index = 0;index < data.size();++index)
-            data[index]->init();
-        std::fill(alpha.begin(),alpha.end(),0.0);
-        std::fill(beta.begin(),beta.end(),0.0);
-
-        // calculate difference in alpha and beta
+        float prev_ss = std::numeric_limits<float>::max();
+        for(int iteration = 0; iteration < 64 && !terminated; ++iteration)
         {
-            std::vector<std::shared_ptr<std::future<void> > > threads;
-            for (unsigned int index = 0;index < data.size();++index)
-                threads.push_back(std::make_shared<std::future<void> >(std::async(std::launch::async,
-                    [this,index,&terminated](){data[index]->run(terminated);})));
-            for(int i = 0;i < data.size();++i)
-                threads[i]->wait();
-        }
+            // zero alpha and beta
+            for(unsigned int index = 0;index < data.size();++index)
+                data[index]->init();
+            std::fill(alpha.begin(),alpha.end(),0.0);
+            std::fill(beta.begin(),beta.end(),0.0);
 
-        if(!!terminated)
-            return;
-        // accumulate alpha beta
-        for(unsigned int index = 0;index < data.size();++index)
-        {
-            image::add(alpha,data[index]->dif_alpha);
-            image::add(beta,data[index]->dif_beta);
-        }
-
-        value_type ss = 0.0,nsamp = 0.0,ss_deriv[3];
-        std::fill(ss_deriv,ss_deriv+3,0.0);
-        for(unsigned int index = 0;index < data.size();++index)
-            data[index]->accumulate(ss,nsamp,ss_deriv);
-
-        // update alpha
-        int m1 = nxyz3+4;
-        for(int i1=0; i1<3; i1++)
-        {
-            value_type *ptrz, *ptry, *ptrx;
-            for(int i2=0; i2<=i1; i2++)
+            // calculate difference in alpha and beta
             {
-                ptrz = &alpha[nxyz*(m1*i1 + i2)];
-                for(int z1=0; z1<nz; z1++)
-                    for(int z2=0; z2<=z1; z2++)
-                    {
-                        ptry = ptrz + nxy*(m1*z1 + z2);
-                        for(int y1=0; y1<ny; y1++)
-                            for (int y2=0; y2<=y1; y2++)
-                            {
-                                ptrx = ptry + nx*(m1*y1 + y2);
-                                for(int x1=0; x1<nx; x1++)
-                                    for(int x2=0; x2<x1; x2++)
-                                        ptrx[m1*x2+x1] = ptrx[m1*x1+x2];
-                            }
-                        for(int x1=0; x1<nxy; x1++)
-                            for (int x2=0; x2<x1; x2++)
-                                ptry[m1*x2+x1] = ptry[m1*x1+x2];
-                    }
-                for(int x1=0; x1<nxyz; x1++)
-                    for (int x2=0; x2<x1; x2++)
-                        ptrz[m1*x2+x1] = ptrz[m1*x1+x2];
+                std::vector<std::shared_ptr<std::future<void> > > threads;
+                for (unsigned int index = 1;index < data.size();++index)
+                    threads.push_back(std::make_shared<std::future<void> >(std::async(std::launch::async,
+                        [this,index](){data[index]->run();})));
+                data[0]->run();
+                for(int i = 0;i < threads.size();++i)
+                    threads[i]->wait();
             }
-        }
-        for(int x1=0; x1<nxyz3+4; x1++)
-            for (int x2=0; x2<x1; x2++)
-                alpha[m1*x2+x1] = alpha[m1*x1+x2];
 
-        //
-
-        value_type fw = ((1.0/std::sqrt(2.0*ss_deriv[0]/ss))*sqrt(8.0*std::log(2.0)) +
-                         (1.0/std::sqrt(2.0*ss_deriv[1]/ss))*sqrt(8.0*std::log(2.0)) +
-                         (1.0/std::sqrt(2.0*ss_deriv[2]/ss))*sqrt(8.0*std::log(2.0)))/3.0;
-
-
-        if (fw<fwhm2)
-            fwhm2 = fw;
-        if (fwhm2<fwhm)
-            fwhm2 = fwhm;
-
-        ss /= (std::min(samp[0]/(fwhm2*1.0645),1.0) *
-               std::min(samp[1]/(fwhm2*1.0645),1.0) *
-               std::min(samp[2]/(fwhm2*1.0645),1.0)) * (nsamp - (nxyz3 + 4));
-        // std::cout << "FWHM = " << fw << " Var = " << ss <<std::endl;
-        fwhm2 = std::min(fw,fwhm2);
-
-        image::divide_constant(alpha.begin(),alpha.end(), ss);
-        image::divide_constant(beta.begin(),beta.end(), ss);
-        {
-            // beta = beta + alpha*T;
-            std::vector<value_type> alphaT(T.size());
-            image::mat::vector_product(alpha.begin(),T.begin(),alphaT.begin(),image::dyndim(T.size(),T.size()));
-            image::add(beta.begin(),beta.end(),alphaT.begin());
-        }
-
-
-        //Alpha + IC0*scal
-        value_type pvar = std::numeric_limits<value_type>::max();
-        if(ss > pvar)
-        {
-            value_type scal = pvar/ss;
-            for(int i = 0,j = 0; i < alpha.size(); i+=T.size()+1,++j)
-                alpha[i] += IC0[j]*scal;
-        }
-        else
-            for(int i = 0,j = 0; i < alpha.size(); i+=T.size()+1,++j)
-                alpha[i] += IC0[j];
-
-        // solve T = (Alpha + IC0*scal)\(Alpha*T + Beta);
-
-        /*
-        for(unsigned int i = 0;i < 20;++i)
-        {
-
-            if(!image::mat::jacobi_solve(&*alpha.begin(),&*beta.begin(),&*T.begin(),image::dyndim(T.size(),T.size())))
+            // accumulate alpha beta
+            for(unsigned int index = 0;index < data.size();++index)
             {
-                // use LL decomposition instead
-                std::vector<value_type> piv(T.size());
-                image::mat::ll_decomposition(&*alpha.begin(),&*piv.begin(),image::dyndim(T.size(),T.size()));
-                image::mat::ll_solve(&*alpha.begin(),&*piv.begin(),&*beta.begin(),&*T.begin(),image::dyndim(T.size(),T.size()));
-                break;
+                image::add(alpha,data[index]->dif_alpha);
+                image::add(beta,data[index]->dif_beta);
             }
-        }*/
 
-        const unsigned int iteration = 40;
 
-        // solve T = (Alpha + IC0*scal)\(Alpha*T + Beta);
-        // alpha is a diagonal dominant matrix, which can use Jacobi method to solve
-        //image::mat::jacobi_solve(&*alpha.begin(),&*beta.begin(),&*T.begin(),image::dyndim(T.size(),T.size()));
-        unsigned int size = T.size();
-        for(unsigned int iter = 0;iter < iteration;++iter)
-        {
-            const value_type* A_row = &*(alpha.end() - size);
-            // going bacward because because alpha values is incremental
-            for(int i = size-1;i >= 0;--i,A_row -= size)
+            value_type ss = 0.0,nsamp = 0.0,ss_deriv[3];
+            std::fill(ss_deriv,ss_deriv+3,0.0);
+            for(unsigned int index = 0;index < data.size();++index)
+                data[index]->accumulate(ss,nsamp,ss_deriv);
+
+            // update alpha
+            int m1 = nxyz3+4;
+            for(int i1=0; i1<3; i1++)
             {
-                value_type new_T_value = beta[i];
-                value_type scale = 0.0;
-                for(unsigned int j = 0;j < size;++j)
-                    if(j != i)
-                        new_T_value -= A_row[j]*T[j];
-                    else
-                        scale = A_row[j];
-                if(scale == 0.0)
-                    return;
-                scale *= 1.5;
-                // stablize using weighted jacobi method
-                T[i] = new_T_value/scale + T[i]/3;
+                value_type *ptrz, *ptry, *ptrx;
+                for(int i2=0; i2<=i1; i2++)
+                {
+                    ptrz = &alpha[nxyz*(m1*i1 + i2)];
+                    for(int z1=0; z1<nz; z1++)
+                        for(int z2=0; z2<=z1; z2++)
+                        {
+                            ptry = ptrz + nxy*(m1*z1 + z2);
+                            for(int y1=0; y1<ny; y1++)
+                                for (int y2=0; y2<=y1; y2++)
+                                {
+                                    ptrx = ptry + nx*(m1*y1 + y2);
+                                    for(int x1=0; x1<nx; x1++)
+                                        for(int x2=0; x2<x1; x2++)
+                                            ptrx[m1*x2+x1] = ptrx[m1*x1+x2];
+                                }
+                            for(int x1=0; x1<nxy; x1++)
+                                for (int x2=0; x2<x1; x2++)
+                                    ptry[m1*x2+x1] = ptry[m1*x1+x2];
+                        }
+                    for(int x1=0; x1<nxyz; x1++)
+                        for (int x2=0; x2<x1; x2++)
+                            ptrz[m1*x2+x1] = ptrz[m1*x1+x2];
+                }
+            }
+            for(int x1=0; x1<nxyz3+4; x1++)
+                for (int x2=0; x2<x1; x2++)
+                    alpha[m1*x2+x1] = alpha[m1*x1+x2];
+
+            //
+
+            value_type fw = ((1.0/std::sqrt(2.0*ss_deriv[0]/ss))*sqrt(8.0*std::log(2.0)) +
+                             (1.0/std::sqrt(2.0*ss_deriv[1]/ss))*sqrt(8.0*std::log(2.0)) +
+                             (1.0/std::sqrt(2.0*ss_deriv[2]/ss))*sqrt(8.0*std::log(2.0)))/3.0;
+
+
+            if (fw<fwhm2)
+                fwhm2 = fw;
+            if (fwhm2<fwhm)
+                fwhm2 = fwhm;
+
+            ss /= (std::min(samp[0]/(fwhm2*1.0645),1.0) *
+                   std::min(samp[1]/(fwhm2*1.0645),1.0) *
+                   std::min(samp[2]/(fwhm2*1.0645),1.0)) * (nsamp - (nxyz3 + 4));
+
+            //std::cout << "FWHM = " << fw << " Var = " << ss << std::endl;
+            if(ss > prev_ss)
+                return;
+
+            prev_ss = ss;
+            fwhm2 = std::min(fw,fwhm2);
+
+            image::divide_constant(alpha.begin(),alpha.end(), ss);
+            image::divide_constant(beta.begin(),beta.end(), ss);
+            {
+                // beta = beta + alpha*T;
+                std::vector<value_type> alphaT(T.size());
+                image::mat::vector_product(alpha.begin(),T.begin(),alphaT.begin(),image::dyndim(T.size(),T.size()));
+                image::add(beta.begin(),beta.end(),alphaT.begin());
+            }
+
+
+            //Alpha + IC0*scal
+            value_type pvar = std::numeric_limits<value_type>::max();
+            if(ss > pvar)
+            {
+                value_type scal = pvar/ss;
+                for(int i = 0,j = 0; i < alpha.size(); i+=T.size()+1,++j)
+                    alpha[i] += IC0[j]*scal;
+            }
+            else
+                for(int i = 0,j = 0; i < alpha.size(); i+=T.size()+1,++j)
+                    alpha[i] += IC0[j];
+
+            // solve T = (Alpha + IC0*scal)\(Alpha*T + Beta);
+
+            /*
+            for(unsigned int i = 0;i < 20;++i)
+            {
+
+                if(!image::mat::jacobi_solve(&*alpha.begin(),&*beta.begin(),&*T.begin(),image::dyndim(T.size(),T.size())))
+                {
+                    // use LL decomposition instead
+                    std::vector<value_type> piv(T.size());
+                    image::mat::ll_decomposition(&*alpha.begin(),&*piv.begin(),image::dyndim(T.size(),T.size()));
+                    image::mat::ll_solve(&*alpha.begin(),&*piv.begin(),&*beta.begin(),&*T.begin(),image::dyndim(T.size(),T.size()));
+                    break;
+                }
+            }*/
+
+            const unsigned int iteration = 40;
+
+            // solve T = (Alpha + IC0*scal)\(Alpha*T + Beta);
+            // alpha is a diagonal dominant matrix, which can use Jacobi method to solve
+            //image::mat::jacobi_solve(&*alpha.begin(),&*beta.begin(),&*T.begin(),image::dyndim(T.size(),T.size()));
+            unsigned int size = T.size();
+            for(unsigned int iter = 0;iter < iteration;++iter)
+            {
+                const value_type* A_row = &*(alpha.end() - size);
+                // going bacward because because alpha values is incremental
+                for(int i = size-1;i >= 0;--i,A_row -= size)
+                {
+                    value_type new_T_value = beta[i];
+                    value_type scale = 0.0;
+                    for(unsigned int j = 0;j < size;++j)
+                        if(j != i)
+                            new_T_value -= A_row[j]*T[j];
+                        else
+                            scale = A_row[j];
+                    if(scale == 0.0)
+                        return;
+                    // stablize using weighted jacobi method
+                    T[i] = new_T_value/scale/1.5 + T[i]/3;
+                }
             }
         }
     }
@@ -851,12 +871,11 @@ public:
 template<class ImageType,class value_type,class terminator_type>
 void bfnorm(bfnorm_mapping<value_type>& mapping,
             const ImageType& VG,
-            const ImageType& VFF,unsigned int thread_count,terminator_type& terminated,int& iteration)
+            const ImageType& VFF,unsigned int thread_count,terminator_type& terminated)
 {
     bfnorm_mrqcof<ImageType,value_type> bf_optimize(VG,VFF,mapping,thread_count);
     // image::reg::bfnorm(VG,VFF,*mni.get(),terminated);
-    for(iteration = 0; iteration < 16 && !terminated; ++iteration)
-        bf_optimize.optimize(terminated);
+    bf_optimize.optimize(terminated);
 }
 
 

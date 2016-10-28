@@ -59,7 +59,7 @@ public:
         to_vs = to_vs_;
         bnorm_data.reset(new image::reg::bfnorm_mapping<value_type,3>(to.geometry(),
                                                                   image::geometry<3>(7*factor,9*factor,7*factor)));
-        prog = -2;
+        prog = 0;
         if(cost_function == mutual_info)
         {
             image::reg::linear(from,from_vs,to,to_vs,arg,reg_type,image::reg::mutual_information(),terminated);
@@ -69,11 +69,11 @@ public:
         {
             image::reg::linear(from,from_vs,to,to_vs,arg,reg_type,image::reg::mt_correlation<image::basic_image<float,3>,
                            image::transformation_matrix<double> >(0),terminated);
-            prog = -1;
+            prog = 1;
             image::reg::linear(from,from_vs,to,to_vs,arg,reg_type,image::reg::mt_correlation<image::basic_image<float,3>,
                            image::transformation_matrix<double> >(0),terminated);
         }
-        prog = 0;
+        prog = 2;
         update_affine();
         if(terminated)
             return;
@@ -84,16 +84,16 @@ public:
 
         if(!factor || reg_type == image::reg::rigid_body)
         {
-            prog = 16;
+            prog = 3;
             return;
         }
         image::basic_image<typename image_type::value_type,image_type::dimension> new_from(to.geometry());
         image::resample(from,new_from,iT,image::linear);
-        image::reg::bfnorm(*bnorm_data.get(),new_from,to,thread_count,terminated,prog);
-        prog = 16;
+        image::reg::bfnorm(*bnorm_data.get(),new_from,to,thread_count,terminated);
+        prog = 3;
     }
 
-    int get_prog(void)const{return prog+2;}
+    int get_prog(void)const{return prog;}
     template<class vtype,class vtype2>
     void operator()(const vtype& index,vtype2& out)
     {
