@@ -795,7 +795,7 @@ public:
                    std::min(samp[2]/(fwhm2*1.0645),1.0)) * (nsamp - (nxyz3 + 4));
 
             //std::cout << "FWHM = " << fw << " Var = " << ss << std::endl;
-            if(ss > prev_ss)
+            if(iteration > 10 && ss > prev_ss)
                 return;
 
             prev_ss = ss;
