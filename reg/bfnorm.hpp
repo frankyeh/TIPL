@@ -839,13 +839,11 @@ public:
                 }
             }*/
 
-            const unsigned int iteration = 40;
-
             // solve T = (Alpha + IC0*scal)\(Alpha*T + Beta);
             // alpha is a diagonal dominant matrix, which can use Jacobi method to solve
             //image::mat::jacobi_solve(&*alpha.begin(),&*beta.begin(),&*T.begin(),image::dyndim(T.size(),T.size()));
             unsigned int size = T.size();
-            for(unsigned int iter = 0;iter < iteration;++iter)
+            for(unsigned int iter = 0;iter < 40;++iter)
             {
                 const value_type* A_row = &*(alpha.end() - size);
                 // going bacward because because alpha values is incremental
