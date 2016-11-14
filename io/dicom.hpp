@@ -616,6 +616,19 @@ public:
         data[iter->second].get_value(value);
         return true;
     }
+    template<class value_type>
+    void get_values(unsigned short group,unsigned short element,std::vector<value_type>& values) const
+    {
+        values.clear();
+        unsigned int ge = ((unsigned int)group << 16) | (unsigned int)element;
+        for(int i = 0;i < data.size();++i)
+            if(data[i].get_order() == ge)
+            {
+                value_type t;
+                data[i].get_value(t);
+                values.push_back(t);
+            }
+    }
     unsigned int get_int(unsigned short group,unsigned short element) const
     {
         unsigned int value = 0;
@@ -823,25 +836,21 @@ public:
         geo[1] = height();
         geo[2] = 1;
 
-        // could be mosaic
-        if (is_mosaic)
+        const char* mosaic = get_csa_data("NumberOfImagesInMosaic",0);
+        if(mosaic)
+            geo[2] = std::stoi(mosaic);
+        else
+            geo[2] = get_int(0x0019,0x100A);
+        if(geo[2])
         {
-            const char* mosaic = get_csa_data("NumberOfImagesInMosaic",0);
-            if(mosaic)
-                geo[2] = std::stoi(mosaic);
-            else
-                geo[2] = get_int(0x0019,0x100A);
-            if(geo[2])
-            {
-                geo[0] = width()/std::ceil(std::sqrt(geo[2]));
-                geo[1] = height()/std::ceil(std::sqrt(geo[2]));
-            }
-            else
-            {
-                geo[2] = image_size/geo[0]/geo[1]/(get_bit_count()/8);
-                if(!geo[2])
-                    geo[2] = 1;
-            }
+            geo[0] = width()/std::ceil(std::sqrt(geo[2]));
+            geo[1] = height()/std::ceil(std::sqrt(geo[2]));
+        }
+        else
+        {
+            geo[2] = image_size/geo[0]/geo[1]/(get_bit_count()/8);
+            if(!geo[2])
+                geo[2] = 1;
         }
     }
 
@@ -914,27 +923,26 @@ public:
     const dicom& operator>>(std::string& report) const
     {
         std::ostringstream out;
-        std::map<unsigned int,unsigned int>::const_iterator iter = ge_map.begin();
-        std::map<unsigned int,unsigned int>::const_iterator end = ge_map.end();
-        for (;iter != end;++iter)
+        for (int i = 0;i < data.size();++i)
         {
             out << std::setw( 8 ) << std::setfill( '0' ) << std::hex << std::uppercase <<
-            iter->first << "=";
+            data[i].get_order() << "=";
             out << std::dec;
-            if(data[iter->second].data.empty())
+            out << data[i].data.size() << " bytes ";
+            if(data[i].data.empty())
             {
                 out << std::setw( 8 ) << std::setfill( '0' ) << std::hex << std::uppercase <<
-                data[iter->second].length << " ";
+                data[i].length << " ";
                 out << std::dec;
             }
             else
             {
-                unsigned short vr = data[iter->second].vr;
+                unsigned short vr = data[i].vr;
                 if((vr & 0xFF) && (vr >> 8))
                     out << (char)(vr & 0xFF) << (char)(vr >> 8) << " ";
                 else
                     out << "   ";
-                data[iter->second] >> out;
+                data[i] >> out;
             }
             out << std::endl;
         }
