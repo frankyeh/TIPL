@@ -363,33 +363,30 @@ void reorder(const image_type1& volume,image_type2& volume_out,int origin[],int 
         }
     }
 }
-template<class iterator_type,class iterator_type2,class dim_order_type,class flip_type>
-void reorientation(iterator_type spatial_resolution,iterator_type2 orientation_matrix,dim_order_type dim_order,flip_type flip)
+template<class iterator_type,class dim_order_type>
+void reorientation(iterator_type spatial_resolution,dim_order_type dim_order)
 {
-    // now reordering the spatial information
-    {
-        float sr[3];
-        std::copy(spatial_resolution,spatial_resolution+3,sr);
-        for(unsigned int index = 0;index < 3;++index)
-            spatial_resolution[dim_order[index]] = sr[index];
-    }
-
-            // now reordering the orientation information
-    {
-        float orientation_matrix_[9];
-        std::copy(orientation_matrix,orientation_matrix+9,orientation_matrix_);
-        for(unsigned int index = 0,ptr = 0;index < 3;++index,ptr += 3)
-            if(flip[index])
-            {
-                orientation_matrix_[ptr] = -orientation_matrix_[ptr];
-                orientation_matrix_[ptr+1] = -orientation_matrix_[ptr+1];
-                orientation_matrix_[ptr+2] = -orientation_matrix_[ptr+2];
-            }
-        for(unsigned int index = 0;index < 3;++index)
-        std::copy(orientation_matrix_+index*3,
-                  orientation_matrix_+index*3+3,
-                  orientation_matrix+dim_order[index]*3);
-    }
+    float sr[3];
+    std::copy(spatial_resolution,spatial_resolution+3,sr);
+    for(unsigned int index = 0;index < 3;++index)
+        spatial_resolution[dim_order[index]] = sr[index];
+}
+template<class iterator_type2,class dim_order_type,class flip_type>
+void reorientation(iterator_type2 orientation_matrix,dim_order_type dim_order,flip_type flip)
+{
+    float orientation_matrix_[9];
+    std::copy(orientation_matrix,orientation_matrix+9,orientation_matrix_);
+    for(unsigned int index = 0,ptr = 0;index < 3;++index,ptr += 3)
+        if(flip[index])
+        {
+            orientation_matrix_[ptr] = -orientation_matrix_[ptr];
+            orientation_matrix_[ptr+1] = -orientation_matrix_[ptr+1];
+            orientation_matrix_[ptr+2] = -orientation_matrix_[ptr+2];
+        }
+    for(unsigned int index = 0;index < 3;++index)
+    std::copy(orientation_matrix_+index*3,
+              orientation_matrix_+index*3+3,
+              orientation_matrix+dim_order[index]*3);
 }
 //---------------------------------------------------------------------------
 template<class geo_type,class dim_order_type,class flip_type,class origin_type,class shift_type>
@@ -456,9 +453,9 @@ void reorder(const image_type1& volume,image_type2& volume_out,dim_order_type di
 template<class image_type,class dim_order_type,class flip_type>
 void reorder(image_type& volume,dim_order_type dim_order,flip_type flip)
 {
-    image::basic_image<class image_type::value_type,image_type::dimension> volume_out;
+    image_type volume_out;
     reorder(volume,volume_out,dim_order,flip);
-    std::copy(volume_out.begin(),volume_out.end(),volume.begin());
+    volume.swap(volume_out);
 }
 
 //---------------------------------------------------------------------------
