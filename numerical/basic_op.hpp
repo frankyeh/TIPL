@@ -364,7 +364,7 @@ void reorder(const image_type1& volume,image_type2& volume_out,int origin[],int 
     }
 }
 template<class iterator_type,class dim_order_type>
-void reorientation(iterator_type spatial_resolution,dim_order_type dim_order)
+void reorient_vector(iterator_type spatial_resolution,dim_order_type dim_order)
 {
     float sr[3];
     std::copy(spatial_resolution,spatial_resolution+3,sr);
@@ -372,7 +372,7 @@ void reorientation(iterator_type spatial_resolution,dim_order_type dim_order)
         spatial_resolution[dim_order[index]] = sr[index];
 }
 template<class iterator_type2,class dim_order_type,class flip_type>
-void reorientation(iterator_type2 orientation_matrix,dim_order_type dim_order,flip_type flip)
+void reorient_matrix(iterator_type2 orientation_matrix,dim_order_type dim_order,flip_type flip)
 {
     float orientation_matrix_[9];
     std::copy(orientation_matrix,orientation_matrix+9,orientation_matrix_);
