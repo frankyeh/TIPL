@@ -367,6 +367,8 @@ public:
     {
         feature_count = feature_count_;
         subject_count = subject_count_;
+        if(feature_count > subject_count)
+            return false;
         X.resize(feature_count*subject_count);
         std::copy(X_,X_+X.size(),X.begin());
         Xt.resize(X.size());
