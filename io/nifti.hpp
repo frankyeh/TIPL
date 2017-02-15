@@ -764,6 +764,8 @@ public:
                 std::swap(nif_header.srow_x[0],nif_header.srow_x[1]);
                 std::swap(nif_header.srow_y[0],nif_header.srow_y[1]);
                 std::swap(nif_header.srow_z[0],nif_header.srow_z[1]);
+                std::swap(nif_header.pixdim[1],nif_header.pixdim[2]);
+                std::swap(nif_header.dim[1],nif_header.dim[2]);
             }
             image::swap_xy(out);
         }
@@ -774,6 +776,8 @@ public:
                 std::swap(nif_header.srow_x[0],nif_header.srow_x[2]);
                 std::swap(nif_header.srow_y[0],nif_header.srow_y[2]);
                 std::swap(nif_header.srow_z[0],nif_header.srow_z[2]);
+                std::swap(nif_header.pixdim[1],nif_header.pixdim[3]);
+                std::swap(nif_header.dim[1],nif_header.dim[3]);
             }
             image::swap_xz(out);
         }
@@ -784,6 +788,8 @@ public:
                 std::swap(nif_header.srow_x[1],nif_header.srow_x[2]);
                 std::swap(nif_header.srow_y[1],nif_header.srow_y[2]);
                 std::swap(nif_header.srow_z[1],nif_header.srow_z[2]);
+                std::swap(nif_header.pixdim[2],nif_header.pixdim[3]);
+                std::swap(nif_header.dim[2],nif_header.dim[3]);
             }
             image::swap_yz(out);
         }
