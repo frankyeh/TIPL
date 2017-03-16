@@ -193,17 +193,18 @@ void bfnorm_mrqcof_zero_half(std::vector<parameter_type>& alpha,int m1)
     }
 }
 
-
 template<class image_type,class value_type>
-class bfnorm_slice_data{
+class bfnorm_mrqcof {
+private:
     const image_type& VG;
     const image_type& VF;
-    const std::vector<value_type>& T;
+    const std::vector<std::vector<value_type> >& base;
+    const std::vector<std::vector<value_type> >& dbase;
 private:
     int nx,ny,nz;
     int nxy,nxyz,nx3,nxy3,nxyz3;
     std::vector<int> nxy_values,dim1_2_values,nx_values,ny_values,nz_values,dim1_1_values,dim1_0_values;
-    int edgeskip[3],samp[3];
+    int edgeskip[3];
     image::geometry<3> dim1;
 private:
     const std::vector<value_type>& B0;
@@ -216,416 +217,10 @@ private:
 public:
     std::vector<value_type> alphaxy,alphax,betaxy,betax,Tz,Ty;
     std::vector<std::vector<std::vector<value_type> > > Jz,Jy;
-    int s0[3];
+    int s0[3],samp[3];
+    value_type ss = 0.0,nsamp = 0.0,ss_deriv[3];
 public:
-    std::vector<value_type> dif_alpha,dif_beta;
-public:
-    unsigned int thread_id,thread_count;
-public:
-    bfnorm_slice_data(const image_type& VG_,
-                      const image_type& VF_,
-                      const std::vector<value_type>& T_,
-                      const std::vector<std::vector<value_type> >& base,
-                      const std::vector<std::vector<value_type> >& dbase,
-                      int nx_,int ny_,int nz_,value_type fwhm,
-                      unsigned int thread_id_,unsigned int thread_count_):
-        VG(VG_),VF(VF_),T(T_),dim1(VG_.geometry()),
-                B0(base[0]),B1(base[1]),B2(base[2]),
-                dB0(dbase[0]),dB1(dbase[1]),dB2(dbase[2]),
-                nx(nx_),ny(ny_),nz(nz_),
-                thread_id(thread_id_),thread_count(thread_count_)
-    {
-        nx3 = nx*3;
-        nxy3 = nx*ny*3;
-        nxy = nx*ny;
-        nxyz = nxy*nz;
-        nxyz3 = nxyz*3;
-        bx3[0] = &dB0[0];
-        bx3[1] =  &B0[0];
-        bx3[2] =  &B0[0];
-        by3[0] =  &B1[0];
-        by3[1] = &dB1[0];
-        by3[2] =  &B1[0];
-        bz3[0] =  &B2[0];
-        bz3[1] =  &B2[0];
-        bz3[2] = &dB2[0];
-
-        nxy_values.resize(nz);
-        dim1_2_values.resize(nz);
-        nx_values.resize(ny);
-        ny_values.resize(4);
-        nz_values.resize(4);
-        dim1_1_values.resize(ny);
-        dim1_0_values.resize(nx);
-        fill_values(nx_values,nx);
-        fill_values(ny_values,ny);
-        fill_values(nz_values,nz);
-        fill_values(nxy_values,nxy);
-        fill_values(dim1_2_values,dim1[2]);
-        fill_values(dim1_1_values,dim1[1]);
-        fill_values(dim1_0_values,dim1[0]);
-
-        /* Because of edge effects from the smoothing, ignore voxels that are too close */
-        edgeskip[0] = std::floor(fwhm);
-        edgeskip[0] = ((edgeskip[0]<1) ? 0 : edgeskip[0]);
-        edgeskip[1] = std::floor(fwhm);
-        edgeskip[1] = ((edgeskip[1]<1) ? 0 : edgeskip[1]);
-        edgeskip[2] = std::floor(fwhm);
-        edgeskip[2] = ((edgeskip[2]<1) ? 0 : edgeskip[2]);
-
-
-        /* sample about every fwhm/2 */
-        samp[0] = std::floor(fwhm/2.0);
-        samp[0] = ((samp[0]<1) ? 1 : samp[0]);
-        samp[1] = std::floor(fwhm/2.0);
-        samp[1] = ((samp[1]<1) ? 1 : samp[1]);
-        samp[2] = std::floor(fwhm/2.0);
-        samp[2] = ((samp[2]<1) ? 1 : samp[2]);
-    }
-
-    void init()
-    {
-        alphaxy.clear();
-        alphaxy.resize((nxy3 + 4)*(nxy3 + 4));
-        alphax.clear();
-        alphax.resize((nx3+ 4)*(nx3+ 4));
-        betaxy.clear();
-        betaxy.resize(nxy3 + 4);
-        betax.clear();
-        betax.resize(nx3+4);
-        Tz.clear();
-        Tz.resize( nxy3 );
-        Ty.clear();
-        Ty.resize( nx3 );
-        Jz.clear();
-        Jz.resize(3);
-        Jy.clear();
-        Jy.resize(3);
-        for (int i1=0; i1<3; i1++)
-        {
-            Jz[i1].resize(3);
-            Jy[i1].resize(3);
-            for(int i2=0; i2<3; i2++)
-            {
-                Jz[i1][i2].resize(nxy);
-                Jy[i1][i2].resize(nx);
-            }
-        }
-        dif_alpha.clear();
-        dif_alpha.resize((nxyz3+4)*(nxyz3+4));
-        dif_beta.clear();
-        dif_beta.resize(nxyz3+4);
-    }
-public:// calculation results to accumulate
-    value_type ss,nsamp,ss_deriv[3];
-    void accumulate(value_type& ss_,value_type& nsamp_,value_type* ss_deriv_)
-    {
-        ss_ += ss;
-        nsamp_ += nsamp;
-        ss_deriv_[0] += ss_deriv[0];
-        ss_deriv_[1] += ss_deriv[1];
-        ss_deriv_[2] += ss_deriv[2];
-    }
-public:
-    void run(void)
-    {
-        ss = 0.0;
-        nsamp = 0.0;
-        std::fill(ss_deriv,ss_deriv+3,0.0);
-        //started from slice 1
-        for(s0[2]=thread_id+1; s0[2]<dim1[2]; s0[2]+=samp[2]*thread_count) /* For each plane of the template images */
-        {
-            bfnorm_mrqcof_zero_half(alphaxy,nxy3 + 4);
-            std::fill(betaxy.begin(),betaxy.end(),0.0);
-            /* build up the deformation field (and derivatives) from it's seperable form */
-            {
-                const value_type* ptr = &T[0];
-                for(int i1=0; i1<3; i1++, ptr += nxyz)
-                    for(int x1=0; x1<nxy; x1++)
-                    {
-                        /* intermediate step in computing nonlinear deformation field */
-                        {
-                            value_type tmp = 0.0;
-                            for(int z1=0; z1<nz; z1++)
-                                tmp  += ptr[x1+nxy_values[z1]] * B2[dim1_2_values[z1]+s0[2]];
-                            Tz[nxy_values[i1] + x1] = tmp;
-                        }
-                        /* intermediate step in computing Jacobian of nonlinear deformation field */
-                        for(int i2=0; i2<3; i2++)
-                        {
-                            value_type tmp = 0.0;
-                            for(int z1=0; z1<nz; z1++)
-                                tmp += ptr[x1+nxy_values[z1]] * bz3[i2][dim1_2_values[z1]+s0[2]];
-                            Jz[i2][i1][x1] = tmp;
-                        }
-                    }
-            }
-
-
-            for(s0[1]=1; s0[1]<dim1[1]; s0[1]+=samp[1]) /* For each row of the template images plane */
-            {
-                /* build up the deformation field (and derivatives) from it's seperable form */
-                {
-                    const value_type* ptr=&Tz[0];
-                    for(int i1=0; i1<3; i1++, ptr+=nxy)
-                    {
-                        for(int x1=0; x1<nx; x1++)
-                        {
-                            /* intermediate step in computing nonlinear deformation field */
-                            {
-                                value_type tmp = 0.0;
-                                for(int y1=0; y1<ny; y1++)
-                                    tmp  += ptr[x1+nx_values[y1]] *  B1[dim1_1_values[y1]+s0[1]];
-                                Ty[nx_values[i1] + x1] = tmp;
-                            }
-
-                            /* intermediate step in computing Jacobian of nonlinear deformation field */
-                            for(int i2=0; i2<3; i2++)
-                            {
-                                value_type tmp = 0.0;
-                                for(int y1=0; y1<ny; y1++)
-                                    tmp += Jz[i2][i1][x1+nx_values[y1]] * by3[i2][dim1_1_values[y1]+s0[1]];
-                                Jy[i2][i1][x1] = tmp;
-                            }
-                        }
-                    }
-                }
-                bfnorm_mrqcof_zero_half(alphax,nx3+4);
-                std::fill(betax.begin(),betax.end(),0.0);
-
-                for(s0[0]=1; s0[0]<dim1[0]; s0[0]+=samp[0]) /* For each pixel in the row */
-                {
-                    /* nonlinear deformation of the template space, followed by the affine transform */
-                    const value_type* ptr = &Ty[0];
-                    value_type J[3][3];
-                    value_type trans[3];
-                    for(int i1=0; i1<3; i1++, ptr += nx)
-                    {
-                        /* compute nonlinear deformation field */
-                        {
-                            value_type tmp = 0.0;
-                            for(int x1=0; x1<nx; x1++)
-                                tmp  += ptr[x1] * B0[dim1_0_values[x1]+s0[0]];
-                            trans[i1] = tmp + s0[i1];
-                        }
-                        /* compute Jacobian of nonlinear deformation field */
-                        for(int i2=0; i2<3; i2++)
-                        {
-                            value_type tmp = (i1 == i2) ? 1.0:0.0;
-                            for(int x1=0; x1<nx; x1++)
-                                tmp += Jy[i2][i1][x1] * bx3[i2][dim1_0_values[x1]+s0[0]];
-                            J[i2][i1] = tmp;
-                        }
-                    }
-
-                    value_type s2[3];
-                    s2[0] = trans[0];
-                    s2[1] = trans[1];
-                    s2[2] = trans[2];
-
-                    /* is the transformed position in range? */
-                    if (	s2[0]>=1+edgeskip[0] && s2[0]< VF.width()-edgeskip[0] &&
-                            s2[1]>=1+edgeskip[1] && s2[1]< VF.height()-edgeskip[1] &&
-                            s2[2]>=1+edgeskip[2] && s2[2]< VF.depth()-edgeskip[2] )
-                    {
-                        std::vector<value_type> dvdt( nx3    + 4);
-                        value_type f, df[3], dv, dvds0[3];
-                        value_type wtf, wtg, wt;
-                        value_type s0d[3];
-                        s0d[0]=s0[0];
-                        s0d[1]=s0[1];
-                        s0d[2]=s0[2];
-                        /* rate of change of voxel with respect to change in parameters */
-                        f = resample_d(VF,df[0],df[1],df[2],s2[0],s2[1],s2[2]);
-
-                        wtg = 1.0;
-                        wtf = 1.0;
-
-                        if (wtf && wtg) wt = sqrt(1.0 /(1.0/wtf + 1.0/wtg));
-                        else wt = 0.0;
-
-                        /* nonlinear transform the gradients to the same space as the template */
-                        image::vector_rotation(df,dvds0,&(J[0][0]),image::vdim<3>());
-
-                        dv = f;
-                        {
-                            value_type g, dg[3], tmp;
-                            /* pointer to scales for each of the template images */
-                            const value_type* scal = &T[nxyz3];
-
-                            g = resample_d(VG,dg[0],dg[1],dg[2],s0d[0],s0d[1],s0d[2]);
-
-                            /* linear combination of image and image modulated by constant
-                               gradients in x, y and z */
-                            dvdt[nx3] = wt*g;
-                            dvdt[1+nx3] = dvdt[nx3]*s2[0];
-                            dvdt[2+nx3] = dvdt[nx3]*s2[1];
-                            dvdt[3+nx3] = dvdt[nx3]*s2[2];
-
-                            tmp = scal[0] + s2[0]*scal[1] + s2[1]*scal[2] + s2[2]*scal[3];
-
-                            dv       -= tmp*g;
-                            dvds0[0] -= tmp*dg[0];
-                            dvds0[1] -= tmp*dg[1];
-                            dvds0[2] -= tmp*dg[2];
-                        }
-
-                        for(int i1=0; i1<3; i1++)
-                        {
-                            value_type tmp = -wt*df[i1];
-                            for(int x1=0; x1<nx; x1++)
-                                dvdt[i1*nx+x1] = tmp * B0[dim1_0_values[x1]+s0[0]];
-                        }
-
-                        /* cf Numerical Recipies "mrqcof.c" routine */
-                        int m1 = nx3+4;
-                        for(int x1=0; x1<m1; x1++)
-                        {
-                            for (int x2=0; x2<=x1; x2++)
-                                alphax[m1*x1+x2] += dvdt[x1]*dvdt[x2];
-                            betax[x1] += dvdt[x1]*dv*wt;
-                        }
-
-                        /* sum of squares */
-                        wt          *= wt;
-                        nsamp       += wt;
-                        ss          += wt*dv*dv;
-                        ss_deriv[0] += wt*dvds0[0]*dvds0[0];
-                        ss_deriv[1] += wt*dvds0[1]*dvds0[1];
-                        ss_deriv[2] += wt*dvds0[2]*dvds0[2];
-                    }
-                }
-
-                int m1 = nxy3+4;
-                int m2 = nx3+4;
-
-                /* Kronecker tensor products */
-                for(int y1=0; y1<ny; y1++)
-                {
-                    value_type wt1 = B1[dim1_1_values[y1]+s0[1]];
-
-                    for(int i1=0; i1<3; i1++)	/* loop over deformations in x, y and z */
-                    {
-                        /* spatial-spatial covariances */
-                        for(int i2=0; i2<=i1; i2++)	/* symmetric matrixes - so only work on half */
-                        {
-                            for(int y2=0; y2<=y1; y2++)
-                            {
-                                /* Kronecker tensor products with B1'*B1 */
-                                value_type wt2 = wt1 * B1[dim1_1_values[y2]+s0[1]];
-
-                                value_type* ptr1 = &alphaxy[nx*(m1*(ny_values[i1] + y1) + ny_values[i2] + y2)];
-                                value_type* ptr2 = &alphax[nx*(m2*i1 + i2)];
-
-                                for(int x1=0; x1<nx; x1++)
-                                {
-                                    image::vec::axpy(ptr1,ptr1+x1+1,wt2,ptr2);
-                                    ptr1 += m1;
-                                    ptr2 += m2;
-                                }
-                            }
-                        }
-
-                        /* spatial-intensity covariances */
-                        value_type* ptr1 = &alphaxy[nx*(m1*ny_values[3] + ny_values[i1] + y1)];
-                        value_type* ptr2 = &alphax[nx*(m2*3 + i1)];
-                        for(int x1=0; x1<4; x1++)
-                        {
-                            image::vec::axpy(ptr1,ptr1+nx,wt1,ptr2);
-                            ptr1 += m1;
-                            ptr2 += m2;
-                        }
-
-                        /* spatial component of beta */
-                        for(int x1=0; x1<nx; x1++)
-                            betaxy[x1+nx*(ny_values[i1] + y1)] += wt1 * betax[x1 + nx_values[i1]];
-                    }
-                }
-                value_type* ptr1 = &alphaxy[nx*((m1+1)*ny_values[3])];
-                value_type* ptr2 = &alphax[nx*(m2*3 + 3)];
-                for(int x1=0; x1<4; x1++)
-                {
-                    image::vec::add(ptr1,ptr1+x1+1,ptr2);
-                    ptr1 += m1;
-                    ptr2 += m2;
-                    betaxy[nxy3 + x1] += betax[nx3 + x1];
-                }
-            }
-
-            int m1 = nxyz3+4;
-            int m2 = nxy3+4;
-
-            /* Kronecker tensor products */
-            for(int z1=0; z1<nz; z1++)
-            {
-                value_type wt1 = B2[dim1_2_values[z1]+s0[2]];
-
-                for(int i1=0; i1<3; i1++)	/* loop over deformations in x, y and z */
-                {
-                    /* spatial-spatial covariances */
-                    for(int i2=0; i2<=i1; i2++)	/* symmetric matrixes - so only work on half */
-                    {
-                        for(int z2=0; z2<=z1; z2++)
-                        {
-                            /* Kronecker tensor products with B2'*B2 */
-                            value_type wt2 = wt1 * B2[dim1_2_values[z2]+s0[2]];
-
-                            value_type* ptr1 = &dif_alpha[nxy*(m1*(nz_values[i1] + z1) + nz_values[i2] + z2)];
-                            value_type* ptr2 = &alphaxy[nxy*(m2*i1 + i2)];
-                            for(int y1=0; y1<nxy; y1++)
-                            {
-                                image::vec::axpy(ptr1,ptr1+y1+1,wt2,ptr2);
-                                ptr1 += m1;
-                                ptr2 += m2;
-                            }
-                        }
-                    }
-                    /* spatial-intensity covariances */
-                    value_type* ptr1 = &dif_alpha[nxy*(m1*nz_values[3] + nz_values[i1] + z1)];
-                    value_type* ptr2 = &alphaxy[nxy*(m2*3 + i1)];
-                    for(int y1=0; y1<4; y1++)
-                    {
-                        image::vec::axpy(ptr1,ptr1+nxy,wt1,ptr2);
-                        ptr1 += m1;
-                        ptr2 += m2;
-                    }
-                    /* spatial component of beta */
-                    for(int y1=0; y1<nxy; y1++)
-                        dif_beta[y1 + nxy*(nz_values[i1] + z1)] += wt1 * betaxy[y1 + nxy_values[i1]];
-                }
-            }
-
-            value_type* ptr1 = &dif_alpha[nxy*(m1+1)*nz_values[3]];
-            value_type* ptr2 = &alphaxy[nxy*(m2*3 + 3)];
-            for(int y1=0; y1<4; y1++)
-            {
-                image::vec::add(ptr1,ptr1+y1+1,ptr2);
-                ptr1 += m1;
-                ptr2 += m2;
-                /* intensity component of beta */
-                dif_beta[nxyz3 + y1] += betaxy[nxy3 + y1];
-            }
-
-        }
-    }
-};
-
-template<class image_type,class value_type>
-class bfnorm_mrqcof {
-private:
-    const image_type& VG;
-    const image_type& VF;
-    const std::vector<std::vector<value_type> >& base;
-    const std::vector<std::vector<value_type> >& dbase;
-
-private:
-    int nx,ny,nz,nxy,nxyz,nx3,nxy3,nxyz3;
-
-private:
-    int samp[3];
     value_type fwhm,fwhm2;
-private: // slice temporary data
-    std::vector<std::shared_ptr<bfnorm_slice_data<image_type,value_type> > > data;
 public:
     std::vector<value_type> IC0;
     std::vector<value_type> alpha,beta;
@@ -633,9 +228,14 @@ public:
     std::vector<value_type>& T;
 public:
 
-    bfnorm_mrqcof(const image_type& VG_,const image_type& VF_,bfnorm_mapping<value_type,3>& mapping,unsigned int thread_count):
+    bfnorm_mrqcof(const image_type& VG_,const image_type& VF_,
+                  bfnorm_mapping<value_type,3>& mapping):
         VG(VG_),VF(VF_),
-        base(mapping.bas),dbase(mapping.dbas),T(mapping.T)
+        base(mapping.bas),dbase(mapping.dbas),T(mapping.T),
+        dim1(VG_.geometry()),
+        B0(mapping.bas[0]),B1(mapping.bas[1]),B2(mapping.bas[2]),
+        dB0(mapping.dbas[0]),dB1(mapping.dbas[1]),dB2(mapping.dbas[2])
+
     {
         const value_type stabilise = 8,reg = 1.0;
         fwhm = 1.0;// sampling rate = every voxel
@@ -688,27 +288,59 @@ public:
                 IC0[index+ICO_+ICO_] = IC0[index];
             }
         }
-        try{
-            for(unsigned int index = 0;index < thread_count;++index)
-            {
-                auto ptr = std::make_shared<bfnorm_slice_data<image_type,value_type> >
-                                        (VG,VF,T,base,dbase,nx,ny,nz,fwhm,index,thread_count);
-                ptr->init();
-                data.push_back(ptr);
-            }
 
-        }
-        catch(...)
-        {
-            thread_count = data.size();
-            for(unsigned int index = 0;index < thread_count;++index)
-                data[index]->thread_count = thread_count;
-            if(thread_count == 0)
-                throw std::bad_alloc();
-        }
+        nx3 = nx*3;
+        nxy3 = nx*ny*3;
+        nxy = nx*ny;
+        nxyz = nxy*nz;
+        nxyz3 = nxyz*3;
+        bx3[0] = &dB0[0];
+        bx3[1] =  &B0[0];
+        bx3[2] =  &B0[0];
+        by3[0] =  &B1[0];
+        by3[1] = &dB1[0];
+        by3[2] =  &B1[0];
+        bz3[0] =  &B2[0];
+        bz3[1] =  &B2[0];
+        bz3[2] = &dB2[0];
+
+        nxy_values.resize(nz);
+        dim1_2_values.resize(nz);
+        nx_values.resize(ny);
+        ny_values.resize(4);
+        nz_values.resize(4);
+        dim1_1_values.resize(ny);
+        dim1_0_values.resize(nx);
+        fill_values(nx_values,nx);
+        fill_values(ny_values,ny);
+        fill_values(nz_values,nz);
+        fill_values(nxy_values,nxy);
+        fill_values(dim1_2_values,dim1[2]);
+        fill_values(dim1_1_values,dim1[1]);
+        fill_values(dim1_0_values,dim1[0]);
+
+        /* Because of edge effects from the smoothing, ignore voxels that are too close */
+        edgeskip[0] = std::floor(fwhm);
+        edgeskip[0] = ((edgeskip[0]<1) ? 0 : edgeskip[0]);
+        edgeskip[1] = std::floor(fwhm);
+        edgeskip[1] = ((edgeskip[1]<1) ? 0 : edgeskip[1]);
+        edgeskip[2] = std::floor(fwhm);
+        edgeskip[2] = ((edgeskip[2]<1) ? 0 : edgeskip[2]);
+
+
+        /* sample about every fwhm/2 */
+        samp[0] = std::floor(fwhm/2.0);
+        samp[0] = ((samp[0]<1) ? 1 : samp[0]);
+        samp[1] = std::floor(fwhm/2.0);
+        samp[1] = ((samp[1]<1) ? 1 : samp[1]);
+        samp[2] = std::floor(fwhm/2.0);
+        samp[2] = ((samp[2]<1) ? 1 : samp[2]);
+
+
 
     }
 
+public:
     template<class terminated_type>
     void optimize(const terminated_type& terminated)
     {
@@ -716,34 +348,318 @@ public:
         for(int iteration = 0; iteration < 64 && !terminated; ++iteration)
         {
             // zero alpha and beta
-            for(unsigned int index = 0;index < data.size();++index)
-                data[index]->init();
+            alphaxy.clear();
+            alphaxy.resize((nxy3 + 4)*(nxy3 + 4));
+            alphax.clear();
+            alphax.resize((nx3+ 4)*(nx3+ 4));
+            betaxy.clear();
+            betaxy.resize(nxy3 + 4);
+            betax.clear();
+            betax.resize(nx3+4);
+            Tz.clear();
+            Tz.resize( nxy3 );
+            Ty.clear();
+            Ty.resize( nx3 );
+            Jz.clear();
+            Jz.resize(3);
+            Jy.clear();
+            Jy.resize(3);
+            for (int i1=0; i1<3; i1++)
+            {
+                Jz[i1].resize(3);
+                Jy[i1].resize(3);
+                for(int i2=0; i2<3; i2++)
+                {
+                    Jz[i1][i2].resize(nxy);
+                    Jy[i1][i2].resize(nx);
+                }
+            }
+
             std::fill(alpha.begin(),alpha.end(),0.0);
             std::fill(beta.begin(),beta.end(),0.0);
 
-            // calculate difference in alpha and beta
-            {
-                std::vector<std::shared_ptr<std::future<void> > > threads;
-                for (unsigned int index = 1;index < data.size();++index)
-                    threads.push_back(std::make_shared<std::future<void> >(std::async(std::launch::async,
-                        [this,index](){data[index]->run();})));
-                data[0]->run();
-                for(int i = 0;i < threads.size();++i)
-                    threads[i]->wait();
-            }
-
-            // accumulate alpha beta
-            for(unsigned int index = 0;index < data.size();++index)
-            {
-                image::add(alpha,data[index]->dif_alpha);
-                image::add(beta,data[index]->dif_beta);
-            }
-
-
-            value_type ss = 0.0,nsamp = 0.0,ss_deriv[3];
+            ss = 0.0;
+            nsamp = 0.0;
             std::fill(ss_deriv,ss_deriv+3,0.0);
-            for(unsigned int index = 0;index < data.size();++index)
-                data[index]->accumulate(ss,nsamp,ss_deriv);
+            //started from slice 1
+            for(s0[2]=1; s0[2]<dim1[2]; s0[2]+=samp[2]) /* For each plane of the template images */
+            {
+                bfnorm_mrqcof_zero_half(alphaxy,nxy3 + 4);
+                std::fill(betaxy.begin(),betaxy.end(),0.0);
+                /* build up the deformation field (and derivatives) from it's seperable form */
+                {
+                    const value_type* ptr = &T[0];
+                    for(int i1=0; i1<3; i1++, ptr += nxyz)
+                        for(int x1=0; x1<nxy; x1++)
+                        {
+                            /* intermediate step in computing nonlinear deformation field */
+                            {
+                                value_type tmp = 0.0;
+                                for(int z1=0; z1<nz; z1++)
+                                    tmp  += ptr[x1+nxy_values[z1]] * B2[dim1_2_values[z1]+s0[2]];
+                                Tz[nxy_values[i1] + x1] = tmp;
+                            }
+                            /* intermediate step in computing Jacobian of nonlinear deformation field */
+                            for(int i2=0; i2<3; i2++)
+                            {
+                                value_type tmp = 0.0;
+                                for(int z1=0; z1<nz; z1++)
+                                    tmp += ptr[x1+nxy_values[z1]] * bz3[i2][dim1_2_values[z1]+s0[2]];
+                                Jz[i2][i1][x1] = tmp;
+                            }
+                        }
+                }
+
+
+                for(s0[1]=1; s0[1]<dim1[1]; s0[1]+=samp[1]) /* For each row of the template images plane */
+                {
+                    /* build up the deformation field (and derivatives) from it's seperable form */
+                    {
+                        const value_type* ptr=&Tz[0];
+                        for(int i1=0; i1<3; i1++, ptr+=nxy)
+                        {
+                            for(int x1=0; x1<nx; x1++)
+                            {
+                                /* intermediate step in computing nonlinear deformation field */
+                                {
+                                    value_type tmp = 0.0;
+                                    for(int y1=0; y1<ny; y1++)
+                                        tmp  += ptr[x1+nx_values[y1]] *  B1[dim1_1_values[y1]+s0[1]];
+                                    Ty[nx_values[i1] + x1] = tmp;
+                                }
+
+                                /* intermediate step in computing Jacobian of nonlinear deformation field */
+                                for(int i2=0; i2<3; i2++)
+                                {
+                                    value_type tmp = 0.0;
+                                    for(int y1=0; y1<ny; y1++)
+                                        tmp += Jz[i2][i1][x1+nx_values[y1]] * by3[i2][dim1_1_values[y1]+s0[1]];
+                                    Jy[i2][i1][x1] = tmp;
+                                }
+                            }
+                        }
+                    }
+                    bfnorm_mrqcof_zero_half(alphax,nx3+4);
+                    std::fill(betax.begin(),betax.end(),0.0);
+
+                    for(s0[0]=1; s0[0]<dim1[0]; s0[0]+=samp[0]) /* For each pixel in the row */
+                    {
+                        /* nonlinear deformation of the template space, followed by the affine transform */
+                        const value_type* ptr = &Ty[0];
+                        value_type J[3][3];
+                        value_type trans[3];
+                        for(int i1=0; i1<3; i1++, ptr += nx)
+                        {
+                            /* compute nonlinear deformation field */
+                            {
+                                value_type tmp = 0.0;
+                                for(int x1=0; x1<nx; x1++)
+                                    tmp  += ptr[x1] * B0[dim1_0_values[x1]+s0[0]];
+                                trans[i1] = tmp + s0[i1];
+                            }
+                            /* compute Jacobian of nonlinear deformation field */
+                            for(int i2=0; i2<3; i2++)
+                            {
+                                value_type tmp = (i1 == i2) ? 1.0:0.0;
+                                for(int x1=0; x1<nx; x1++)
+                                    tmp += Jy[i2][i1][x1] * bx3[i2][dim1_0_values[x1]+s0[0]];
+                                J[i2][i1] = tmp;
+                            }
+                        }
+
+                        value_type s2[3];
+                        s2[0] = trans[0];
+                        s2[1] = trans[1];
+                        s2[2] = trans[2];
+
+                        /* is the transformed position in range? */
+                        if (	s2[0]>=1+edgeskip[0] && s2[0]< VF.width()-edgeskip[0] &&
+                                s2[1]>=1+edgeskip[1] && s2[1]< VF.height()-edgeskip[1] &&
+                                s2[2]>=1+edgeskip[2] && s2[2]< VF.depth()-edgeskip[2] )
+                        {
+                            std::vector<value_type> dvdt( nx3    + 4);
+                            value_type f, df[3], dv, dvds0[3];
+                            value_type wtf, wtg, wt;
+                            value_type s0d[3];
+                            s0d[0]=s0[0];
+                            s0d[1]=s0[1];
+                            s0d[2]=s0[2];
+                            /* rate of change of voxel with respect to change in parameters */
+                            f = resample_d(VF,df[0],df[1],df[2],s2[0],s2[1],s2[2]);
+
+                            wtg = 1.0;
+                            wtf = 1.0;
+
+                            if (wtf && wtg) wt = sqrt(1.0 /(1.0/wtf + 1.0/wtg));
+                            else wt = 0.0;
+
+                            /* nonlinear transform the gradients to the same space as the template */
+                            image::vector_rotation(df,dvds0,&(J[0][0]),image::vdim<3>());
+
+                            dv = f;
+                            {
+                                value_type g, dg[3], tmp;
+                                /* pointer to scales for each of the template images */
+                                const value_type* scal = &T[nxyz3];
+
+                                g = resample_d(VG,dg[0],dg[1],dg[2],s0d[0],s0d[1],s0d[2]);
+
+                                /* linear combination of image and image modulated by constant
+                                   gradients in x, y and z */
+                                dvdt[nx3] = wt*g;
+                                dvdt[1+nx3] = dvdt[nx3]*s2[0];
+                                dvdt[2+nx3] = dvdt[nx3]*s2[1];
+                                dvdt[3+nx3] = dvdt[nx3]*s2[2];
+
+                                tmp = scal[0] + s2[0]*scal[1] + s2[1]*scal[2] + s2[2]*scal[3];
+
+                                dv       -= tmp*g;
+                                dvds0[0] -= tmp*dg[0];
+                                dvds0[1] -= tmp*dg[1];
+                                dvds0[2] -= tmp*dg[2];
+                            }
+
+                            for(int i1=0,i1_nx=0; i1<3; i1++,i1_nx+=nx)
+                            {
+                                value_type tmp = -wt*df[i1];
+                                for(int x1=0; x1<nx; x1++)
+                                    dvdt[i1_nx+x1] = tmp * B0[dim1_0_values[x1]+s0[0]];
+                            }
+
+                            /* cf Numerical Recipies "mrqcof.c" routine */
+                            int m1 = nx3+4;
+                            value_type dv_wt = dv*wt;
+                            for(int x1=0,m1_x1 = 0; x1<m1; x1++,m1_x1 += m1)
+                            {
+                                for (int x2=0; x2<=x1; x2++)
+                                    alphax[m1_x1+x2] += dvdt[x1]*dvdt[x2];
+                                betax[x1] += dvdt[x1]*dv_wt;
+                            }
+
+                            /* sum of squares */
+                            wt          *= wt;
+                            nsamp       += wt;
+                            ss          += wt*dv*dv;
+                            ss_deriv[0] += wt*dvds0[0]*dvds0[0];
+                            ss_deriv[1] += wt*dvds0[1]*dvds0[1];
+                            ss_deriv[2] += wt*dvds0[2]*dvds0[2];
+                        }
+                    }
+
+                    int m1 = nxy3+4;
+                    int m2 = nx3+4;
+
+                    /* Kronecker tensor products */
+                    for(int y1=0; y1<ny; y1++)
+                    {
+                        value_type wt1 = B1[dim1_1_values[y1]+s0[1]];
+
+                        for(int i1=0; i1<3; i1++)	/* loop over deformations in x, y and z */
+                        {
+                            /* spatial-spatial covariances */
+                            for(int i2=0; i2<=i1; i2++)	/* symmetric matrixes - so only work on half */
+                            {
+                                for(int y2=0; y2<=y1; y2++)
+                                {
+                                    /* Kronecker tensor products with B1'*B1 */
+                                    value_type wt2 = wt1 * B1[dim1_1_values[y2]+s0[1]];
+
+                                    value_type* ptr1 = &alphaxy[nx*(m1*(ny_values[i1] + y1) + ny_values[i2] + y2)];
+                                    value_type* ptr2 = &alphax[nx*(m2*i1 + i2)];
+
+                                    for(int x1=0; x1<nx; x1++)
+                                    {
+                                        image::vec::axpy(ptr1,ptr1+x1+1,wt2,ptr2);
+                                        ptr1 += m1;
+                                        ptr2 += m2;
+                                    }
+                                }
+                            }
+
+                            /* spatial-intensity covariances */
+                            value_type* ptr1 = &alphaxy[nx*(m1*ny_values[3] + ny_values[i1] + y1)];
+                            value_type* ptr2 = &alphax[nx*(m2*3 + i1)];
+                            for(int x1=0; x1<4; x1++)
+                            {
+                                image::vec::axpy(ptr1,ptr1+nx,wt1,ptr2);
+                                ptr1 += m1;
+                                ptr2 += m2;
+                            }
+
+                            /* spatial component of beta */
+                            for(int x1=0; x1<nx; x1++)
+                                betaxy[x1+nx*(ny_values[i1] + y1)] += wt1 * betax[x1 + nx_values[i1]];
+                        }
+                    }
+                    value_type* ptr1 = &alphaxy[nx*((m1+1)*ny_values[3])];
+                    value_type* ptr2 = &alphax[nx*(m2*3 + 3)];
+                    for(int x1=0; x1<4; x1++)
+                    {
+                        image::vec::add(ptr1,ptr1+x1+1,ptr2);
+                        ptr1 += m1;
+                        ptr2 += m2;
+                        betaxy[nxy3 + x1] += betax[nx3 + x1];
+                    }
+                }
+
+                int m1 = nxyz3+4;
+                int m2 = nxy3+4;
+
+                /* Kronecker tensor products */
+                for(int z1=0; z1<nz; z1++)
+                {
+                    value_type wt1 = B2[dim1_2_values[z1]+s0[2]];
+
+                    for(int i1=0; i1<3; i1++)	/* loop over deformations in x, y and z */
+                    {
+                        /* spatial-spatial covariances */
+                        for(int i2=0; i2<=i1; i2++)	/* symmetric matrixes - so only work on half */
+                        {
+                            for(int z2=0; z2<=z1; z2++)
+                            {
+                                /* Kronecker tensor products with B2'*B2 */
+                                value_type wt2 = wt1 * B2[dim1_2_values[z2]+s0[2]];
+
+                                value_type* ptr1 = &alpha[nxy*(m1*(nz_values[i1] + z1) + nz_values[i2] + z2)];
+                                value_type* ptr2 = &alphaxy[nxy*(m2*i1 + i2)];
+                                for(int y1=0; y1<nxy; y1++)
+                                {
+                                    image::vec::axpy(ptr1,ptr1+y1+1,wt2,ptr2);
+                                    ptr1 += m1;
+                                    ptr2 += m2;
+                                }
+                            }
+                        }
+                        /* spatial-intensity covariances */
+                        value_type* ptr1 = &alpha[nxy*(m1*nz_values[3] + nz_values[i1] + z1)];
+                        value_type* ptr2 = &alphaxy[nxy*(m2*3 + i1)];
+                        for(int y1=0; y1<4; y1++)
+                        {
+                            image::vec::axpy(ptr1,ptr1+nxy,wt1,ptr2);
+                            ptr1 += m1;
+                            ptr2 += m2;
+                        }
+                        /* spatial component of beta */
+                        for(int y1=0; y1<nxy; y1++)
+                            beta[y1 + nxy*(nz_values[i1] + z1)] += wt1 * betaxy[y1 + nxy_values[i1]];
+                    }
+                }
+
+                value_type* ptr1 = &alpha[nxy*(m1+1)*nz_values[3]];
+                value_type* ptr2 = &alphaxy[nxy*(m2*3 + 3)];
+
+
+                for(int y1=0; y1<4; y1++)
+                {
+                    image::vec::add(ptr1,ptr1+y1+1,ptr2);
+                    ptr1 += m1;
+                    ptr2 += m2;
+                    /* intensity component of beta */
+                    beta[nxyz3 + y1] += betaxy[nxy3 + y1];
+                }
+
+            }
+
 
             // update alpha
             int m1 = nxyz3+4;
@@ -825,24 +741,8 @@ public:
 
             // solve T = (Alpha + IC0*scal)\(Alpha*T + Beta);
 
-            /*
-            for(unsigned int i = 0;i < 20;++i)
-            {
-
-                if(!image::mat::jacobi_solve(&*alpha.begin(),&*beta.begin(),&*T.begin(),image::dyndim(T.size(),T.size())))
-                {
-                    // use LL decomposition instead
-                    std::vector<value_type> piv(T.size());
-                    image::mat::ll_decomposition(&*alpha.begin(),&*piv.begin(),image::dyndim(T.size(),T.size()));
-                    image::mat::ll_solve(&*alpha.begin(),&*piv.begin(),&*beta.begin(),&*T.begin(),image::dyndim(T.size(),T.size()));
-                    break;
-                }
-            }*/
-
-            // solve T = (Alpha + IC0*scal)\(Alpha*T + Beta);
-            // alpha is a diagonal dominant matrix, which can use Jacobi method to solve
-            //image::mat::jacobi_solve(&*alpha.begin(),&*beta.begin(),&*T.begin(),image::dyndim(T.size(),T.size()));
             unsigned int size = T.size();
+
             for(unsigned int iter = 0;iter < 40;++iter)
             {
                 const value_type* A_row = &*(alpha.end() - size);
@@ -869,9 +769,9 @@ public:
 template<class ImageType,class value_type,class terminator_type>
 void bfnorm(bfnorm_mapping<value_type>& mapping,
             const ImageType& VG,
-            const ImageType& VFF,unsigned int thread_count,terminator_type& terminated)
+            const ImageType& VFF,terminator_type& terminated)
 {
-    bfnorm_mrqcof<ImageType,value_type> bf_optimize(VG,VFF,mapping,thread_count);
+    bfnorm_mrqcof<ImageType,value_type> bf_optimize(VG,VFF,mapping);
     // image::reg::bfnorm(VG,VFF,*mni.get(),terminated);
     bf_optimize.optimize(terminated);
 }

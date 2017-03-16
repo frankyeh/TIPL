@@ -49,8 +49,7 @@ public:
                  int factor,
                  reg_cost_type cost_function,
                  image::reg::reg_type reg_type,
-                 terminate_type& terminated,
-                 int thread_count = std::thread::hardware_concurrency())
+                 terminate_type& terminated)
     {
         has_T = false;
         from_geo = from.geometry();
@@ -89,7 +88,7 @@ public:
         }
         image::basic_image<typename image_type::value_type,image_type::dimension> new_from(to.geometry());
         image::resample(from,new_from,iT,image::linear);
-        image::reg::bfnorm(*bnorm_data.get(),new_from,to,thread_count,terminated);
+        image::reg::bfnorm(*bnorm_data.get(),new_from,to,terminated);
         prog = 3;
     }
 
