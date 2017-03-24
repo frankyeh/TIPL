@@ -6,7 +6,7 @@ namespace image{
 
 namespace reg{
 
-enum reg_cost_type{corr,mutual_info};
+enum cost_type{corr,mutual_info};
 
 template<class value_type>
 struct normalization{
@@ -47,7 +47,7 @@ public:
                  const image_type& to,
                  const vector_type& to_vs_,
                  int factor,
-                 reg_cost_type cost_function,
+                 image::reg::cost_type cost_function,
                  image::reg::reg_type reg_type,
                  terminate_type& terminated)
     {
