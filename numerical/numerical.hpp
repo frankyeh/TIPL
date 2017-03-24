@@ -3,7 +3,9 @@
 #define NUMERICAL_HPP
 #include <random>
 #include "image/utility/basic_image.hpp"
+#include "image/utility/multi_thread.hpp"
 #include "image/numerical/interpolation.hpp"
+
 
 namespace image
 {
@@ -350,6 +352,14 @@ void add(image_type1& I,const image_type2& I2)
     add(I.begin(),I.end(),I2.begin());
 }
 //---------------------------------------------------------------------------
+template<class image_type1,class image_type2>
+void add_mt(image_type1& I,const image_type2& I2)
+{
+    image::par_for(I.size(),[&I,&I2](int index){
+       I[index] += I2[index];
+    });
+}
+//---------------------------------------------------------------------------
 template<class iterator1,class iterator2>
 void minus(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
@@ -363,6 +373,14 @@ void minus(image_type1& I,const image_type2& I2)
     minus(I.begin(),I.end(),I2.begin());
 }
 //---------------------------------------------------------------------------
+template<class image_type1,class image_type2>
+void minus_mt(image_type1& I,const image_type2& I2)
+{
+    image::par_for(I.size(),[&I,&I2](int index){
+       I[index] -= I2[index];
+    });
+}
+//---------------------------------------------------------------------------
 template<class iterator1,class iterator2>
 void multiply(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
@@ -374,6 +392,13 @@ template<class image_type1,class image_type2>
 void multiply(image_type1& I,const image_type2& I2)
 {
     multiply(I.begin(),I.end(),I2.begin());
+}
+template<class image_type1,class image_type2>
+void multiply_mt(image_type1& I,const image_type2& I2)
+{
+    image::par_for(I.size(),[&I,&I2](int index){
+       I[index] *= I2[index];
+    });
 }
 //---------------------------------------------------------------------------
 template<class iterator1,class iterator2>
@@ -428,6 +453,15 @@ void minus_constant(image_type& I,value_type value)
     minus_constant(I.begin(),I.end(),value);
 }
 //---------------------------------------------------------------------------
+template<class image_type,class value_type>
+void minus_constant_mt(image_type& I,value_type value)
+{
+    image::par_for(I.size(),[&I,value](int index)
+    {
+       I[index] -= value;
+    });
+}
+//---------------------------------------------------------------------------
 template<class iterator1,class value_type>
 void multiply_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
@@ -439,6 +473,13 @@ template<class image_type,class value_type>
 void multiply_constant(image_type& I,value_type value)
 {
     multiply_constant(I.begin(),I.end(),value);
+}
+template<class image_type,class value_type>
+void multiply_constant_mt(image_type& I,value_type value)
+{
+    image::par_for(I.size(),[&I,value](int index){
+       I[index] *= value;
+    });
 }
 //---------------------------------------------------------------------------
 template<class iterator1,class value_type>
@@ -452,6 +493,14 @@ template<class image_type,class value_type>
 void divide_constant(image_type& I,value_type value)
 {
     divide_constant(I.begin(),I.end(),value);
+}
+//---------------------------------------------------------------------------
+template<class image_type,class value_type>
+void divide_constant_mt(image_type& I,value_type value)
+{
+    image::par_for(I.size(),[&I,value](int index){
+       I[index] /= value;
+    });
 }
 //---------------------------------------------------------------------------
 // perform x <- x*pow(2,y)
