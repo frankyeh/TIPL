@@ -1,5 +1,5 @@
-#ifndef DMDM_HPP
-#define DMDM_HPP
+#ifndef CDM_HPP
+#define CDM_HPP
 #include "image/numerical/basic_op.hpp"
 #include "image/numerical/dif.hpp"
 #include "image/filter/gaussian.hpp"
@@ -10,8 +10,6 @@
 #include <iostream>
 #include <limits>
 #include <vector>
-//#include "image/io/nifti.hpp"
-
 
 namespace image
 {
@@ -19,7 +17,7 @@ namespace reg
 {
 
 template<class pixel_type,size_t dimension>
-void dmdm_average_img(const std::vector<basic_image<pixel_type,dimension> >& Ji, image::basic_image<pixel_type,dimension>& J0)
+void cdm_average_img(const std::vector<basic_image<pixel_type,dimension> >& Ji, image::basic_image<pixel_type,dimension>& J0)
 {
     J0 = Ji[0];
     for(unsigned int index = 1;index < Ji.size();++index)
@@ -28,7 +26,7 @@ void dmdm_average_img(const std::vector<basic_image<pixel_type,dimension> >& Ji,
 }
 
 template<class pixel_type,size_t dimension>
-double dmdm_img_dif(const basic_image<pixel_type,dimension>& I0,
+double cdm_img_dif(const basic_image<pixel_type,dimension>& I0,
                     const basic_image<pixel_type,dimension>& I1)
 {
     double value = 0;
@@ -41,17 +39,17 @@ double dmdm_img_dif(const basic_image<pixel_type,dimension>& I0,
 }
 
 template<class pixel_type,size_t dimension>
-double dmdm_img_dif(const std::vector<basic_image<pixel_type,dimension> >& Ji,const image::basic_image<pixel_type,dimension>& J0)
+double cdm_img_dif(const std::vector<basic_image<pixel_type,dimension> >& Ji,const image::basic_image<pixel_type,dimension>& J0)
 {
     double next_dif = 0;
     for(unsigned int index = 0;index < Ji.size();++index)
-        next_dif += dmdm_img_dif(J0,Ji[index]);
+        next_dif += cdm_img_dif(J0,Ji[index]);
     return next_dif;
 }
 
 
 template<class pixel_type,size_t dimension>
-double dmdm_contrast(const basic_image<pixel_type,dimension>& J0,
+double cdm_contrast(const basic_image<pixel_type,dimension>& J0,
                      const basic_image<pixel_type,dimension>& Ji)
 {
     double value1 = 0,value2 = 0;
@@ -67,14 +65,14 @@ double dmdm_contrast(const basic_image<pixel_type,dimension>& J0,
 }
 
 template<class pixel_type,size_t dimension>
-void dmdm_update_contrast(const std::vector<basic_image<pixel_type,dimension> >& Ji,
+void cdm_update_contrast(const std::vector<basic_image<pixel_type,dimension> >& Ji,
                           std::vector<double>& contrast)
 {
     image::basic_image<pixel_type,dimension> J0;
-    dmdm_average_img(Ji,J0);
+    cdm_average_img(Ji,J0);
     contrast.resize(Ji.size());
     for (unsigned int index = 0; index < Ji.size(); ++index)
-        contrast[index] = dmdm_contrast(J0,Ji[index]);
+        contrast[index] = cdm_contrast(J0,Ji[index]);
     double sum_contrast = std::accumulate(contrast.begin(),contrast.end(),0.0);
     sum_contrast /= Ji.size();
     image::divide_constant(contrast.begin(),contrast.end(),sum_contrast);
@@ -83,7 +81,7 @@ void dmdm_update_contrast(const std::vector<basic_image<pixel_type,dimension> >&
 
 // trim the image size to uniform
 template<class pixel_type,unsigned int dimension,class crop_type>
-void dmdm_trim_images(std::vector<image::basic_image<pixel_type,dimension> >& I,
+void cdm_trim_images(std::vector<image::basic_image<pixel_type,dimension> >& I,
                       crop_type& crop_from,crop_type& crop_to)
 {
     crop_from.resize(I.size());
@@ -125,7 +123,7 @@ void dmdm_trim_images(std::vector<image::basic_image<pixel_type,dimension> >& I,
 }
 
 template<class image_type>
-void dmdm_downsample(const image_type& I,image_type& rI)
+void cdm_downsample(const image_type& I,image_type& rI)
 {
     geometry<image_type::dimension> pad_geo(I.geometry());
     for(unsigned int dim = 0;dim < image_type::dimension;++dim)
@@ -136,7 +134,7 @@ void dmdm_downsample(const image_type& I,image_type& rI)
 }
 
 template<class image_type,class geo_type>
-void dmdm_upsample(const image_type& I,image_type& uI,const geo_type& geo)
+void cdm_upsample(const image_type& I,image_type& uI,const geo_type& geo)
 {
     basic_image<typename image_type::value_type,image_type::dimension> new_I;
     upsampling(I,new_I);
@@ -223,7 +221,7 @@ public:
 };
 
 template<class pixel_type,class vtor_type,unsigned int dimension,class terminate_type>
-void dmdm_group(const std::vector<basic_image<pixel_type,dimension> >& I,// original images
+void cdm_group(const std::vector<basic_image<pixel_type,dimension> >& I,// original images
           std::vector<basic_image<vtor_type,dimension> >& d,// displacement field
           float theta,float reg,terminate_type& terminated)
 {
@@ -243,11 +241,11 @@ void dmdm_group(const std::vector<basic_image<pixel_type,dimension> >& I,// orig
         //downsampling
         std::vector<basic_image<pixel_type,dimension> > rI(n);
         for (int index = 0;index < n;++index)
-            dmdm_downsample(I[index],rI[index]);
-        dmdm_group(rI,d,theta/2,reg,terminated);
+            cdm_downsample(I[index],rI[index]);
+        cdm_group(rI,d,theta/2,reg,terminated);
         // upsampling deformation
         for (int index = 0;index < n;++index)
-            dmdm_upsample(d[index],d[index],geo);
+            cdm_upsample(d[index],d[index],geo);
     }
     std::cout << "dimension:" << geo[0] << "x" << geo[1] << "x" << geo[2] << std::endl;
     basic_image<pixel_type,dimension> J0(geo);// the potential template
@@ -263,14 +261,14 @@ void dmdm_group(const std::vector<basic_image<pixel_type,dimension> >& I,// orig
 
 
         // calculate contrast
-        dmdm_update_contrast(Ji,contrast);
+        cdm_update_contrast(Ji,contrast);
 
         // apply contrast
         image::multiply(Ji.begin(),Ji.end(),contrast.begin());
 
-        dmdm_average_img(Ji,J0);
+        cdm_average_img(Ji,J0);
 
-        double next_dif = dmdm_img_dif(Ji,J0);
+        double next_dif = cdm_img_dif(Ji,J0);
         if(next_dif >= current_dif)
         {
             dis *= 0.5;
@@ -340,7 +338,7 @@ void dmdm_group(const std::vector<basic_image<pixel_type,dimension> >& I,// orig
 
 
 template<class pixel_type,class vtor_type,unsigned int dimension,class terminate_type>
-void dmdm(const basic_image<pixel_type,dimension>& It,
+void cdm(const basic_image<pixel_type,dimension>& It,
             const basic_image<pixel_type,dimension>& Is,
             basic_image<vtor_type,dimension>& d,// displacement field
             double theta,terminate_type& terminated,float resolution = 2.0,unsigned int steps = 40)
@@ -352,10 +350,10 @@ void dmdm(const basic_image<pixel_type,dimension>& It,
     {
         //downsampling
         basic_image<pixel_type,dimension> rIs,rIt;
-        dmdm_downsample(It,rIt);
-        dmdm_downsample(Is,rIs);
-        dmdm(rIt,rIs,d,theta,terminated,resolution/2.0,steps*8);
-        dmdm_upsample(d,d,geo);
+        cdm_downsample(It,rIt);
+        cdm_downsample(Is,rIs);
+        cdm(rIt,rIs,d,theta,terminated,resolution/2.0,steps*8);
+        cdm_upsample(d,d,geo);
     }
     if(resolution > 1.0)
         return;
