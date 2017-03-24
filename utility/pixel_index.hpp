@@ -149,6 +149,10 @@ public:
         in >> rhs.x_ >> rhs.y_;
         return in;
     }
+    bool is_valid(const geometry<2>& geo) const
+    {
+        return offset_[1] < geo[1];
+    }
 };
 
 
