@@ -138,6 +138,7 @@ typename std::iterator_traits<input_iterator>::value_type median(input_iterator 
     std::nth_element(begin, begin + size, end);
     return *std::next(begin, size);
 }
+
 template<class input_iterator>
 std::pair<double,double> mean_variance(input_iterator from,input_iterator to)
 {
@@ -328,7 +329,7 @@ std::pair<double,double> linear_regression(input_iterator1 x_from,input_iterator
     double mean_y = mean(y_from,y_from+(x_to-x_from));
     double x_var = variance(x_from,x_to,mean_x);
     if(x_var == 0.0)
-        return std::pair<double,double>(0,0);
+        return std::pair<double,double>(0,mean_y);
     double a = covariance(x_from,x_to,y_from,mean_x,mean_y)/x_var;
     double b = mean_y-a*mean_x;
     return std::pair<double,double>(a,b);
@@ -444,6 +445,7 @@ public:
     }
 
 };
+
 
 
 }
