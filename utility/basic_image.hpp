@@ -2,6 +2,7 @@
 #ifndef basic_imageH
 #define basic_imageH
 #include <vector>
+#include <thread>
 #include "geometry.hpp"
 #include "pixel_value.hpp"
 
@@ -419,6 +420,35 @@ public:
             return false;
         out.save_to_image(*this);
         return true;
+    }
+    template<typename Func>
+    void for_each(Func f)
+    {
+        for(pixel_index<dim> index(geometry());index.index() < data.size();++index)
+            f(data[index.index],index);
+    }
+    template<typename Func>
+    void for_each_mt(Func f, int thread_count = std::thread::hardware_concurrency())
+    {
+        if(thread_count < 1)
+            thread_count = 1;
+        size_t block_size = data.size()/thread_count;
+
+        std::vector<std::future<void> > futures;
+        size_t pos = block_size;
+        for(int id = 1; id < thread_count; id++,pos += block_size)
+        {
+            size_t end = (id == thread_count -1 ? data.size():pos + block_size);
+            futures.push_back(std::move(std::async(std::launch::async, [this,f,pos,end]
+            {
+                for(pixel_index<dim> index(pos,geometry());index.index() < end;++index)
+                    f(data[index.index()],index);
+            })));
+        }
+        for(pixel_index<dim> index(geometry());index.index() < block_size;++index)
+            f(data[index.index()],index);
+        for(auto &future : futures)
+            future.wait();
     }
 };
 
