@@ -244,7 +244,7 @@ void dmdm_group(const std::vector<basic_image<pixel_type,dimension> >& I,// orig
         std::vector<basic_image<pixel_type,dimension> > rI(n);
         for (int index = 0;index < n;++index)
             dmdm_downsample(I[index],rI[index]);
-        dmdm(rI,d,theta/2,reg,terminated);
+        dmdm_group(rI,d,theta/2,reg,terminated);
         // upsampling deformation
         for (int index = 0;index < n;++index)
             dmdm_upsample(d[index],d[index],geo);
@@ -354,7 +354,7 @@ void dmdm(const basic_image<pixel_type,dimension>& It,
         basic_image<pixel_type,dimension> rIs,rIt;
         dmdm_downsample(It,rIt);
         dmdm_downsample(Is,rIs);
-        dmdm_pair(rIt,rIs,d,theta,terminated,resolution/2.0,steps*8);
+        dmdm(rIt,rIs,d,theta,terminated,resolution/2.0,steps*8);
         dmdm_upsample(d,d,geo);
     }
     if(resolution > 1.0)
