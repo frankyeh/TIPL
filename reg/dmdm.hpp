@@ -4,6 +4,9 @@
 #include "image/numerical/dif.hpp"
 #include "image/filter/gaussian.hpp"
 #include "image/filter/filter_model.hpp"
+#include "image/utility/multi_thread.hpp"
+#include "image/numerical/statistics.hpp"
+#include "image/numerical/window.hpp"
 #include <iostream>
 #include <limits>
 #include <vector>
@@ -88,7 +91,7 @@ void dmdm_trim_images(std::vector<image::basic_image<pixel_type,dimension> >& I,
     image::vector<dimension,int> min_from,max_to;
     for(int index = 0;index < I.size();++index)
     {
-        image::trim(I[index],crop_from[index],crop_to[index]);
+        image::crop(I[index],crop_from[index],crop_to[index]);
         if(index == 0)
         {
             min_from = crop_from[0];
@@ -127,19 +130,19 @@ void dmdm_downsample(const image_type& I,image_type& rI)
     geometry<image_type::dimension> pad_geo(I.geometry());
     for(unsigned int dim = 0;dim < image_type::dimension;++dim)
         ++pad_geo[dim];
-    basic_image<class image_type::value_type,image_type::dimension> pad_I(pad_geo);
-    image::draw(I,pad_I,pixel_index<image_type::dimension>());
+    basic_image<typename image_type::value_type,image_type::dimension> pad_I(pad_geo);
+    image::draw(I,pad_I,pixel_index<image_type::dimension>(I.geometry()));
     downsampling(pad_I,rI);
 }
 
 template<class image_type,class geo_type>
 void dmdm_upsample(const image_type& I,image_type& uI,const geo_type& geo)
 {
-    basic_image<class image_type::value_type,image_type::dimension> new_I;
+    basic_image<typename image_type::value_type,image_type::dimension> new_I;
     upsampling(I,new_I);
     new_I *= 2.0;
     uI.resize(geo);
-    image::draw(new_I,uI,pixel_index<image_type::dimension>());
+    image::draw(new_I,uI,pixel_index<image_type::dimension>(I.geometry()));
 }
 
 template<class value_type,size_t dimension>
@@ -153,13 +156,31 @@ public:
     template<class image_type>
     void operator()(image_type& src)
     {
-        std::vector<manip_type> dest(src.size());
+        image_type dest(src.geometry());
         int w = src.width();
-        image::filter::add_weight<1>(dest,src,-1);
-        image::filter::add_weight<1>(dest,src,1);
-        image::filter::add_weight<1>(dest,src,-w);
-        image::filter::add_weight<1>(dest,src,w);
-        std::copy(dest.begin(),dest.end(),src.begin());
+        int shift[4];
+        shift[0] = 1;
+        shift[1] = -1;
+        shift[2] = w;
+        shift[3] = -w;
+        for(int i = 0;i < 4;++i)
+        if (shift[i] >= 0)
+        {
+            auto iter1 = dest.begin() + shift[i];
+            auto iter2 = src.begin();
+            auto end = dest.end();
+            for (;iter1 < end;++iter1,++iter2)
+                *iter1 += *iter2;
+        }
+        else
+        {
+            auto iter1 = dest.begin();
+            auto iter2 = src.begin() + (-shift[i]);
+            auto end = src.end();
+            for (;iter2 < end;++iter1,++iter2)
+                *iter1 += *iter2;
+        }
+        dest.swap(src);
     }
 };
 template<class value_type>
@@ -170,21 +191,39 @@ public:
     template<class image_type>
     void operator()(image_type& src)
     {
-        std::vector<manip_type> dest(src.size());
+        image_type dest(src.geometry());
         int w = src.width();
         int wh = src.width()*src.height();
-        image::filter::add_weight<1>(dest,src,1);
-        image::filter::add_weight<1>(dest,src,-1);
-        image::filter::add_weight<1>(dest,src,w);
-        image::filter::add_weight<1>(dest,src,-w);
-        image::filter::add_weight<1>(dest,src,wh);
-        image::filter::add_weight<1>(dest,src,-wh);
-        std::copy(dest.begin(),dest.end(),src.begin());
+        int shift[6];
+        shift[0] = 1;
+        shift[1] = -1;
+        shift[2] = w;
+        shift[3] = -w;
+        shift[4] = wh;
+        shift[5] = -wh;
+        for(int i = 0;i < 6;++i)
+        {
+            if (shift[i] >= 0)
+            {
+                int s = shift[i];
+                image::par_for(dest.size()-s,[&dest,&src,s](int index){
+                    dest[index+s] += src[index];
+                });
+            }
+            else
+            {
+                int s = -shift[i];
+                image::par_for(dest.size()-s,[&dest,&src,s](int index){
+                    dest[index] += src[index+s];
+                });
+            }
+        }
+        dest.swap(src);
     }
 };
 
 template<class pixel_type,class vtor_type,unsigned int dimension,class terminate_type>
-void dmdm(const std::vector<basic_image<pixel_type,dimension> >& I,// original images
+void dmdm_group(const std::vector<basic_image<pixel_type,dimension> >& I,// original images
           std::vector<basic_image<vtor_type,dimension> >& d,// displacement field
           float theta,float reg,terminate_type& terminated)
 {
@@ -276,10 +315,10 @@ void dmdm(const std::vector<basic_image<pixel_type,dimension> >& I,// original i
                 for(int iter = 0;iter < 20;++iter)
                 {
                     poisson_equation_solver<vtor_type,dimension>()(solve_d);
-                    image::add(solve_d.begin(),solve_d.end(),new_d[index].begin());
-                    image::divide_constant(solve_d.begin(),solve_d.end(),dimension*2);
+                    image::add_mt(solve_d,new_d[index]);
+                    image::divide_constant_mt(solve_d,dimension*2);
                 }
-                new_d[index] = solve_d;
+                new_d[index].swap(solve_d);
                 image::minus_constant(new_d[index].begin(),new_d[index].end(),new_d[index][0]);
             }
 
@@ -301,63 +340,88 @@ void dmdm(const std::vector<basic_image<pixel_type,dimension> >& I,// original i
 
 
 template<class pixel_type,class vtor_type,unsigned int dimension,class terminate_type>
-void dmdm_pair(const basic_image<pixel_type,dimension>& It,
+void dmdm(const basic_image<pixel_type,dimension>& It,
             const basic_image<pixel_type,dimension>& Is,
             basic_image<vtor_type,dimension>& d,// displacement field
-            float theta,terminate_type& terminated,unsigned int steps = 20)
+            double theta,terminate_type& terminated,float resolution = 2.0,unsigned int steps = 40)
 {
     geometry<dimension> geo = It.geometry();
     d.resize(geo);
     // multi resolution
-    if (*std::min_element(geo.begin(),geo.end()) > 16)
+    if (*std::min_element(geo.begin(),geo.end()) > 32)
     {
         //downsampling
         basic_image<pixel_type,dimension> rIs,rIt;
         dmdm_downsample(It,rIt);
         dmdm_downsample(Is,rIs);
-        dmdm_pair(rIt,rIs,d,theta/2,terminated,steps*2);
+        dmdm_pair(rIt,rIs,d,theta,terminated,resolution/2.0,steps*8);
         dmdm_upsample(d,d,geo);
     }
-    basic_image<pixel_type,dimension> Js,jdet;// transformed I
-    basic_image<vtor_type,dimension> new_d(geo),gIt;// new displacements
-    double dis = theta;
+    if(resolution > 1.0)
+        return;
+    basic_image<pixel_type,dimension> Js;// transformed I
+    basic_image<vtor_type,dimension> new_d(d),gIt;// new displacements
+    double max_t = (double)(*std::max_element(It.begin(),It.end()));
+    if(max_t == 0.0)
+        return;
+    theta /= max_t*max_t;
     image::gradient_sobel(It,gIt);
-    for (unsigned int index = 0;index < steps;++index)
+    double prev_r = 0.0, r = 0.0;
+    for (unsigned int index = 0;index < steps && !terminated;++index)
     {
         // calculate Ji
-        image::jacobian_determinant_dis(d,jdet);
-        image::compose_displacement(Is,d,Js);
+        image::compose_displacement(Is,new_d,Js);
+        r = image::correlation(Js.begin(),Js.end(),It.begin());
+        if(r < prev_r)
+            break;
+        new_d.swap(d);
+        prev_r = r;
 
-        // calculate contrast, apply contrast
-        Js *= dmdm_contrast(It,Js);
+        // dJ(cJ-I)
 
-        // dJi*sign(Ji-J0)
-        for(unsigned int i = 0;i < new_d.size();++i)
-            new_d[i] = (Js[i] < It[i]) ? -gIt[i]:gIt[i];
-
-        image::compose_displacement(jdet,d,Js);
-        image::multiply(new_d.begin(),new_d.end(),Js.begin());
+        image::gradient_sobel(Js,new_d);
+        Js.for_each_mt([&](pixel_type&,image::pixel_index<dimension>& index){
+            std::vector<pixel_type> Itv,Jv;
+            image::get_window(index,It,3,Itv);
+            image::get_window(index,Js,3,Jv);
+            std::pair<double,double> lr = image::linear_regression(Jv.begin(),Jv.end(),Itv.begin());
+            new_d[index.index()] *= theta*(Js[index.index()]*lr.first+lr.second-It[index.index()]);
+        });
 
         // solving the poisson equation using Jacobi method
         {
             basic_image<vtor_type,dimension> solve_d(new_d.geometry());
-            for(int iter = 0;iter < 20;++iter)
+            for(int iter = 0;iter < 50 & !terminated;++iter)
             {
-                poisson_equation_solver<vtor_type,dimension>()(solve_d);
-                image::add(solve_d.begin(),solve_d.end(),new_d.begin());
-                image::divide_constant(solve_d.begin(),solve_d.end(),dimension*2);
+                if(iter)
+                    image::reg::poisson_equation_solver<vtor_type,dimension>()(solve_d);
+                image::minus_mt(solve_d,new_d);
+                image::divide_constant_mt(solve_d,dimension*2);
             }
-            new_d = solve_d;
-            image::minus_constant(new_d.begin(),new_d.end(),new_d[0]);
+            new_d.swap(solve_d);
         }
+        image::filter::gaussian2(new_d);
+        image::minus_constant_mt(new_d,new_d[0]);
 
-        double max_d = 0;
-        for (unsigned int i = 0; i < geo.size(); ++i)
-            if (new_d[i]*new_d[i] > max_d)
-                max_d = std::sqrt(new_d[i]*new_d[i]);
-        new_d *= -dis/max_d;
-        image::add(d.begin(),d.end(),new_d.begin());
+        new_d.for_each_mt([&](vtor_type& value,image::pixel_index<dimension>& index){
+
+            value += d[index.index()];
+            if(It[index.index()] == 0.0)
+                return;
+            std::vector<vtor_type> values;
+            image::get_window(index,d,values);
+            for(int i = 0;i < values.size();++i)
+            {
+                values[i] -= value;
+                if(values[i].length() > 1)
+                {
+                    value = d[index.index()];
+                    break;
+                }
+            }
+        });
     }
+    //std::cout << "r:" << prev_r << std::endl;
 }
 
 
