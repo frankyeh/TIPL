@@ -59,6 +59,7 @@ public:
         terminated = false;
         started = false;
     }
+
     template<class lambda_type>
     void run(lambda_type&& fun)
     {

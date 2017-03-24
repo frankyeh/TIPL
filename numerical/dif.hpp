@@ -180,7 +180,31 @@ double jacobian_determinant_dis_at(const basic_image<VectorType,3>& src,const im
                                    (v1_0[1] - v1_1[1])*(d2_2*d3_0-d2_0*d3_2)+
                                    (v1_0[2] - v1_1[2])*(d2_0*d3_1-d2_1*d3_0);
 }
+template<class VectorType,class out_type>
+void jacobian_dis_at(const basic_image<VectorType,3>& src,const image::pixel_index<3>& index,out_type* J)
+{
+    unsigned int w = src.width();
+    unsigned int wh = src.plane_size();
 
+    VectorType vx = src[index.index()+1];
+    vx -= src[index.index()-1];
+    VectorType vy = src[index.index()+w];
+    vy -= src[index.index()-w];
+    VectorType vz = src[index.index()+wh];
+    vz -= src[index.index()-wh];
+
+    J[0] = vx[0]*0.5+1.0;
+    J[1] = vx[1]*0.5;
+    J[2] = vx[2]*0.5;
+
+    J[3] = vy[0]*0.5;
+    J[4] = vy[1]*0.5+1.0;
+    J[5] = vy[2]*0.5;
+
+    J[6] = vz[0]*0.5;
+    J[7] = vz[1]*0.5;
+    J[8] = vz[2]*0.5+1.0;
+}
 template<class VectorType,class DetType>
 void jacobian_determinant_dis(const basic_image<VectorType,3>& src,DetType& dest)
 {
