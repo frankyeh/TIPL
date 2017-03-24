@@ -604,6 +604,14 @@ public:
         std::copy(rhs.data,rhs.data+total_size,data);
         return *this;
     }
+    void operator+=(const transformation_matrix& rhs)
+    {
+        image::matrix<3,3,value_type> sr_tmp(sr);
+        image::mat::product(rhs.sr,sr_tmp.begin(),sr,image::dim<3,3>(),image::dim<3,3>());
+        image::vector<3> shift_t(shift);
+        vector_transformation(shift_t.begin(),shift,rhs.sr,rhs.shift,vdim<3>());
+    }
+
     value_type* get(void){return data;}
     const value_type* get(void) const{return data;}
     value_type operator[](unsigned int i) const{return data[i];}
