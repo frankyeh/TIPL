@@ -484,8 +484,7 @@ private:
 public:
     affine_transform(void)
     {
-        std::fill(data,data+total_size,0);
-        std::fill(scaling,scaling+dimension,1);
+        clear();
     }
     affine_transform(const value_type* data_)
     {
@@ -494,6 +493,11 @@ public:
     affine_transform(const affine_transform& rhs)
     {
         assign(rhs);
+    }
+    void clear(void)
+    {
+        std::fill(data,data+total_size,0);
+        std::fill(scaling,scaling+dimension,1);
     }
 
     const affine_transform& operator=(const affine_transform& rhs)
