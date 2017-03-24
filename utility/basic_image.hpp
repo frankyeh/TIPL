@@ -406,11 +406,11 @@ public:
     }
 public:
     template<class format_type>
-    void save_to_file(const char* file_name) const
+    bool save_to_file(const char* file_name) const
     {
         format_type out;
         out.load_from_image(*this);
-        out.save_to_file(file_name);
+        return out.save_to_file(file_name);
     }
     template<class format_type>
     bool load_from_file(const char* file_name)
