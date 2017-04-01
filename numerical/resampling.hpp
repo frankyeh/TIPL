@@ -652,7 +652,7 @@ void resample(const image::basic_image<PixelType,3>& source_image,
 template<class ImageType1,class ImageType2,class transform_type>
 void resample_mt(const ImageType1& from,ImageType2& to,const transform_type& transform,interpolation_type type)
 {
-    to.for_each_mt([&transform,&from,type](ImageType2::value_type& value,
+    to.for_each_mt([&transform,&from,type](typename ImageType2::value_type& value,
                                         image::pixel_index<ImageType1::dimension> index)
     {
         image::vector<ImageType1::dimension,double> pos;
