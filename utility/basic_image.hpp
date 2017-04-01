@@ -5,6 +5,7 @@
 #include <thread>
 #include "geometry.hpp"
 #include "pixel_value.hpp"
+#include "pixel_index.hpp"
 
 //---------------------------------------------------------------------------
 namespace image
@@ -425,7 +426,7 @@ public:
     void for_each(Func f)
     {
         for(pixel_index<dim> index(geometry());index.index() < data.size();++index)
-            f(data[index.index],index);
+            f(data[index.index()],index);
     }
     template<typename Func>
     void for_each_mt(Func f, int thread_count = std::thread::hardware_concurrency())
