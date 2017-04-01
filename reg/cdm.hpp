@@ -336,12 +336,20 @@ void cdm_group(const std::vector<basic_image<pixel_type,dimension> >& I,// origi
     std::cout << std::endl;
 }
 
-
+/*
+ *  The intensity between It and Is has to be matched
+ *  std::pair<double,double> r = image::linear_regression(Is.begin(),Is.end(),It.begin());
+        for(unsigned int index = 0;index < Is.size();++index)
+            Is[index] = std::max<float>(0,Is[index]*r.first+r.second);
+ */
 template<class pixel_type,class vtor_type,unsigned int dimension,class terminate_type>
-void cdm(const basic_image<pixel_type,dimension>& It,
+double cdm(const basic_image<pixel_type,dimension>& It,
             const basic_image<pixel_type,dimension>& Is,
             basic_image<vtor_type,dimension>& d,// displacement field
-            double theta,terminate_type& terminated,float resolution = 2.0,unsigned int steps = 40)
+            terminate_type& terminated,
+            float resolution = 2.0,
+            unsigned int steps = 40,
+            float cdm_constraint = 0.75)
 {
     geometry<dimension> geo = It.geometry();
     d.resize(geo);
@@ -352,58 +360,68 @@ void cdm(const basic_image<pixel_type,dimension>& It,
         basic_image<pixel_type,dimension> rIs,rIt;
         cdm_downsample(It,rIt);
         cdm_downsample(Is,rIs);
-        cdm(rIt,rIs,d,theta,terminated,resolution/2.0,steps*8);
+        float r = cdm(rIt,rIs,d,terminated,resolution/2.0,steps*8,cdm_constraint);
         cdm_upsample(d,d,geo);
+        if(resolution > 1.0)
+            return r;
     }
-    if(resolution > 1.0)
-        return;
     basic_image<pixel_type,dimension> Js;// transformed I
-    basic_image<vtor_type,dimension> new_d(d),gIt;// new displacements
-    double max_t = (double)(*std::max_element(It.begin(),It.end()));
-    if(max_t == 0.0)
-        return;
-    theta /= max_t*max_t;
-    image::gradient_sobel(It,gIt);
+    basic_image<vtor_type,dimension> new_d(d.geometry());// new displacements
+
     double prev_r = 0.0, r = 0.0;
     for (unsigned int index = 0;index < steps && !terminated;++index)
     {
-        // calculate Ji
-        image::compose_displacement(Is,new_d,Js);
+        image::compose_displacement(Is,d,Js);
         r = image::correlation(Js.begin(),Js.end(),It.begin());
         if(r < prev_r)
+        {
+            new_d.swap(d);
+            //std::cout << index << std::endl;
             break;
-        new_d.swap(d);
+        }
         prev_r = r;
-
+        //std::cout << "r:" << prev_r << std::endl;
         // dJ(cJ-I)
-
         image::gradient_sobel(Js,new_d);
+        //image::add(new_d,gIt);
         Js.for_each_mt([&](pixel_type&,image::pixel_index<dimension>& index){
             std::vector<pixel_type> Itv,Jv;
-            image::get_window(index,It,3,Itv);
-            image::get_window(index,Js,3,Jv);
-            std::pair<double,double> lr = image::linear_regression(Jv.begin(),Jv.end(),Itv.begin());
-            new_d[index.index()] *= theta*(Js[index.index()]*lr.first+lr.second-It[index.index()]);
+            image::get_window(index,It,5,Itv);
+            image::get_window(index,Js,5,Jv);
+            double a,b,r2;
+            image::linear_regression(Jv.begin(),Jv.end(),Itv.begin(),a,b,r2);
+            if(a < 0.0f)
+                new_d[index.index()] = vtor_type();
+            else
+                new_d[index.index()] *= r2*(Js[index.index()]*a+b-It[index.index()]);
         });
 
         // solving the poisson equation using Jacobi method
+        basic_image<vtor_type,dimension> solve_d(new_d.geometry());
+        for(int iter = 0;iter < 50 & !terminated;++iter)
         {
-            basic_image<vtor_type,dimension> solve_d(new_d.geometry());
-            for(int iter = 0;iter < 50 & !terminated;++iter)
-            {
-                if(iter)
-                    image::reg::poisson_equation_solver<vtor_type,dimension>()(solve_d);
-                image::minus_mt(solve_d,new_d);
-                image::divide_constant_mt(solve_d,dimension*2);
-            }
-            new_d.swap(solve_d);
+            if(iter)
+                image::reg::poisson_equation_solver<vtor_type,dimension>()(solve_d);
+            image::minus_mt(solve_d,new_d);
+            image::divide_constant_mt(solve_d,dimension*2);
         }
-        image::filter::gaussian2(new_d);
-        image::minus_constant_mt(new_d,new_d[0]);
+        image::filter::gaussian2(solve_d);
+        image::minus_constant_mt(solve_d,solve_d[0]);
 
+        double max_dis = 0.0;
+        solve_d.for_each_mt([&](vtor_type& v,pixel_index<dimension>)
+        {
+            max_dis = std::max<float>(max_dis,v.length());
+        });
+        if(max_dis == 0.0)
+            break;
+
+        // maximum moving step = resolution
+        solve_d *= 0.5/max_dis;
+
+        new_d = solve_d;
+        image::add(new_d,d);
         new_d.for_each_mt([&](vtor_type& value,image::pixel_index<dimension>& index){
-
-            value += d[index.index()];
             if(It[index.index()] == 0.0)
                 return;
             std::vector<vtor_type> values;
@@ -411,15 +429,17 @@ void cdm(const basic_image<pixel_type,dimension>& It,
             for(int i = 0;i < values.size();++i)
             {
                 values[i] -= value;
-                if(values[i].length() > 1)
+                if(values[i].length() > cdm_constraint)
                 {
                     value = d[index.index()];
                     break;
                 }
             }
         });
+        new_d.swap(d);
     }
-    //std::cout << "r:" << prev_r << std::endl;
+    return prev_r;
+
 }
 
 
