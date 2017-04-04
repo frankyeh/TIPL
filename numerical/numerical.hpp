@@ -785,11 +785,15 @@ void upper_lower_threshold(ImageType& data,value_type lower,value_type upper)
 template<class ImageType>
 void normalize(ImageType& image,float upper_limit = 255)
 {
+    if(image.empty())
+        return;
     multiply_constant(image.begin(),image.end(),upper_limit/(*std::max_element(image.begin(),image.end())));
 }
 template<class ImageType>
 void normalize_abs(ImageType& image,float upper_limit = 1.0f)
 {
+    if(image.empty())
+        return;
     auto minmax = std::minmax_element(image.begin(),image.end());
     auto scale = std::max(-*minmax.first,*minmax.second);
     if(scale != 0)
@@ -806,6 +810,14 @@ void normalize(const ImageType1& image1,ImageType2& image2,float upper_limit = 2
 template<typename pixel_type>
 void homogenize(image::basic_image<pixel_type,3>& I,image::basic_image<pixel_type,3>& J,int block_size = 20)
 {
+    if(I.geometry() != J.geometry())
+        return;
+    double r = image::correlation(I.begin(),I.end(),J.begin());
+    if(r < 0.80)
+    {
+        image::normalize(I,*std::max_element(J.begin(),J.end()));
+        return;
+    }
     float distance_scale = 1.0/(float)block_size/(float)block_size;
     image::basic_image<float,3> v_map(I.geometry()),w_map(I.geometry());
     for(int z = block_size;z < J.depth()-block_size;z += block_size)

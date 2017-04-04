@@ -455,6 +455,38 @@ float linear(const image_type& from,const vs_type& from_vs,
 }
 
 
+template<class image_type,class vs_type,class transform_type,class CostFunctionType,class teminated_class>
+float linear_mr(const image_type& from,const vs_type& from_vs,
+             const image_type& to  ,const vs_type& to_vs,
+                    transform_type& arg_min,
+                    reg_type base_type,
+                    CostFunctionType cost_type,
+                    teminated_class& terminated,double precision = 0.005)
+{
+    geometry<image_type::dimension> geo = from.geometry();
+    // multi resolution
+    if (*std::min_element(from.geometry().begin(),from.geometry().end()) > 32 &&
+        *std::min_element(to.geometry().begin(),to.geometry().end()) > 32)
+    {
+        //downsampling
+        basic_image<typename image_type::value_type,image_type::dimension> from_r,to_r;
+        image::vector<image_type::dimension> from_vs_r(from_vs),to_vs_r(to_vs);
+        downsample_with_padding(from,from_r);
+        downsample_with_padding(to,to_r);
+        from_vs_r *= 2.0;
+        to_vs_r *= 2.0;
+        transform_type arg_min_r(arg_min);
+        downsampling(arg_min_r);
+        linear_mr(from_r,from_vs_r,to_r,to_vs_r,arg_min_r,base_type,cost_type,terminated,precision);
+        upsampling(arg_min_r);
+        arg_min = arg_min_r;
+        if(terminated)
+            return 0.0;
+    }
+    return linear(from,from_vs,to,to_vs,arg_min,base_type,cost_type,terminated,precision);
+}
+
+
 }
 }
 

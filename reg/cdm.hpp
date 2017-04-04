@@ -5,6 +5,7 @@
 #include "image/filter/gaussian.hpp"
 #include "image/filter/filter_model.hpp"
 #include "image/utility/multi_thread.hpp"
+#include "image/numerical/resampling.hpp"
 #include "image/numerical/statistics.hpp"
 #include "image/numerical/window.hpp"
 #include <iostream>
@@ -122,27 +123,6 @@ void cdm_trim_images(std::vector<image::basic_image<pixel_type,dimension> >& I,
 
 }
 
-template<class image_type>
-void cdm_downsample(const image_type& I,image_type& rI)
-{
-    geometry<image_type::dimension> pad_geo(I.geometry());
-    for(unsigned int dim = 0;dim < image_type::dimension;++dim)
-        ++pad_geo[dim];
-    basic_image<typename image_type::value_type,image_type::dimension> pad_I(pad_geo);
-    image::draw(I,pad_I,pixel_index<image_type::dimension>(I.geometry()));
-    downsampling(pad_I,rI);
-}
-
-template<class image_type,class geo_type>
-void cdm_upsample(const image_type& I,image_type& uI,const geo_type& geo)
-{
-    basic_image<typename image_type::value_type,image_type::dimension> new_I;
-    upsampling(I,new_I);
-    new_I *= 2.0;
-    uI.resize(geo);
-    image::draw(new_I,uI,pixel_index<image_type::dimension>(I.geometry()));
-}
-
 template<class value_type,size_t dimension>
 class poisson_equation_solver;
 
@@ -241,11 +221,11 @@ void cdm_group(const std::vector<basic_image<pixel_type,dimension> >& I,// origi
         //downsampling
         std::vector<basic_image<pixel_type,dimension> > rI(n);
         for (int index = 0;index < n;++index)
-            cdm_downsample(I[index],rI[index]);
+            downsample_with_padding(I[index],rI[index]);
         cdm_group(rI,d,theta/2,reg,terminated);
         // upsampling deformation
         for (int index = 0;index < n;++index)
-            cdm_upsample(d[index],d[index],geo);
+            upsample_with_padding(d[index],d[index],geo);
     }
     std::cout << "dimension:" << geo[0] << "x" << geo[1] << "x" << geo[2] << std::endl;
     basic_image<pixel_type,dimension> J0(geo);// the potential template
@@ -349,7 +329,7 @@ double cdm(const basic_image<pixel_type,dimension>& It,
             terminate_type& terminated,
             float resolution = 2.0,
             unsigned int steps = 40,
-            float cdm_constraint = 0.75)
+            float cdm_constraint = 1.0)
 {
     geometry<dimension> geo = It.geometry();
     d.resize(geo);
@@ -358,22 +338,25 @@ double cdm(const basic_image<pixel_type,dimension>& It,
     {
         //downsampling
         basic_image<pixel_type,dimension> rIs,rIt;
-        cdm_downsample(It,rIt);
-        cdm_downsample(Is,rIs);
-        float r = cdm(rIt,rIs,d,terminated,resolution/2.0,steps*8,cdm_constraint);
-        cdm_upsample(d,d,geo);
+        downsample_with_padding(It,rIt);
+        downsample_with_padding(Is,rIs);
+        float r = cdm(rIt,rIs,d,terminated,resolution/2.0,steps*2,cdm_constraint);
+        upsample_with_padding(d,d,geo);
         if(resolution > 1.0)
             return r;
     }
     basic_image<pixel_type,dimension> Js;// transformed I
     basic_image<vtor_type,dimension> new_d(d.geometry());// new displacements
-
+    double max_t = (double)(*std::max_element(It.begin(),It.end()));
+    if(max_t == 0.0)
+        return 0.0;
+    double theta = 0.5/max_t/max_t;
     double prev_r = 0.0, r = 0.0;
     for (unsigned int index = 0;index < steps && !terminated;++index)
     {
         image::compose_displacement(Is,d,Js);
         r = image::correlation(Js.begin(),Js.end(),It.begin());
-        if(r < prev_r)
+        if(r <= prev_r)
         {
             new_d.swap(d);
             //std::cout << index << std::endl;
@@ -383,17 +366,18 @@ double cdm(const basic_image<pixel_type,dimension>& It,
         //std::cout << "r:" << prev_r << std::endl;
         // dJ(cJ-I)
         image::gradient_sobel(Js,new_d);
-        //image::add(new_d,gIt);
         Js.for_each_mt([&](pixel_type&,image::pixel_index<dimension>& index){
+            if(It[index.index()] == 0.0)
+                return;
             std::vector<pixel_type> Itv,Jv;
-            image::get_window(index,It,5,Itv);
-            image::get_window(index,Js,5,Jv);
+            image::get_window(index,It,3,Itv);
+            image::get_window(index,Js,3,Jv);
             double a,b,r2;
             image::linear_regression(Jv.begin(),Jv.end(),Itv.begin(),a,b,r2);
             if(a < 0.0f)
                 new_d[index.index()] = vtor_type();
             else
-                new_d[index.index()] *= r2*(Js[index.index()]*a+b-It[index.index()]);
+                new_d[index.index()] *= theta*(Js[index.index()]*a+b-It[index.index()]);
         });
 
         // solving the poisson equation using Jacobi method
@@ -415,10 +399,6 @@ double cdm(const basic_image<pixel_type,dimension>& It,
         });
         if(max_dis == 0.0)
             break;
-
-        // maximum moving step = resolution
-        solve_d *= 0.5/max_dis;
-
         new_d = solve_d;
         image::add(new_d,d);
         new_d.for_each_mt([&](vtor_type& value,image::pixel_index<dimension>& index){

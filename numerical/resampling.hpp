@@ -4,6 +4,7 @@
 #include "image/utility/basic_image.hpp"
 #include "image/numerical/transformation.hpp"
 #include "image/numerical/numerical.hpp"
+#include "image/numerical/basic_op.hpp"
 #include "interpolation.hpp"
 
 namespace image
@@ -447,10 +448,32 @@ void downsampling(const ImageType1& in,ImageType2& out)
 }
 
 
-template<class ImageType>
-void downsampling(ImageType& in)
+template<typename value_type,int dimension>
+void downsampling(image::basic_image<value_type,dimension>& in)
 {
     downsampling(in,in);
+}
+
+
+template<typename image_type1,typename image_type2>
+void downsample_with_padding(const image_type1& I,image_type2& rI)
+{
+    geometry<image_type1::dimension> pad_geo(I.geometry());
+    for(unsigned int dim = 0;dim < image_type1::dimension;++dim)
+        ++pad_geo[dim];
+    basic_image<typename image_type1::value_type,image_type1::dimension> pad_I(pad_geo);
+    image::draw(I,pad_I,pixel_index<image_type1::dimension>(I.geometry()));
+    image::downsampling(pad_I,rI);
+}
+
+template<typename image_type1,typename image_type2,class geo_type>
+void upsample_with_padding(const image_type1& I,image_type2& uI,const geo_type& geo)
+{
+    basic_image<typename image_type1::value_type,image_type1::dimension> new_I;
+    image::upsampling(I,new_I);
+    new_I *= 2.0;
+    uI.resize(geo);
+    image::draw(new_I,uI,pixel_index<image_type1::dimension>(I.geometry()));
 }
 
 
