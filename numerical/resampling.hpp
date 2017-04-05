@@ -449,8 +449,9 @@ void downsampling(const ImageType1& in,ImageType2& out)
 }
 
 
-template<typename value_type,int dimension>
-void downsampling(image::basic_image<value_type,dimension>& in)
+
+template<class ImageType>
+void downsampling(ImageType& in)
 {
     downsampling(in,in);
 }
