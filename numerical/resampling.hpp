@@ -5,6 +5,7 @@
 #include "image/numerical/transformation.hpp"
 #include "image/numerical/numerical.hpp"
 #include "image/numerical/basic_op.hpp"
+#include "image/numerical/statistics.hpp"
 #include "interpolation.hpp"
 
 namespace image
@@ -646,6 +647,54 @@ void scale_nearest(const image::basic_image<PixelType,2>& source_image,
         }
     }
 }
+
+
+template<typename pixel_type>
+void homogenize(image::basic_image<pixel_type,3>& I,image::basic_image<pixel_type,3>& J,int block_size = 20)
+{
+    if(I.geometry() != J.geometry())
+        return;
+    double r = image::correlation(I.begin(),I.end(),J.begin());
+    if(r < 0.80)
+    {
+        image::normalize(I,*std::max_element(J.begin(),J.end()));
+        return;
+    }
+    float distance_scale = 1.0/(float)block_size/(float)block_size;
+    image::basic_image<float,3> v_map(I.geometry()),w_map(I.geometry());
+    for(int z = block_size;z < J.depth()-block_size;z += block_size)
+        for(int y = block_size;y < J.height()-block_size;y += block_size)
+            for(int x = block_size;x < J.width()-block_size;x += block_size)
+            {
+                std::vector<image::pixel_index<3> > neighbors;
+                image::get_neighbors(image::pixel_index<3>(x,y,z,I.geometry()),I.geometry(),block_size,neighbors);
+                std::vector<float> Iv(neighbors.size()),Jv(neighbors.size()),dis2(neighbors.size());
+                for(int i = 0; i < neighbors.size();++i)
+                {
+                    int dx = neighbors[i][0]-x;
+                    int dy = neighbors[i][1]-y;
+                    int dz = neighbors[i][2]-z;
+                    dis2[i] = (dx*dx+dy*dy+dz*dz)*distance_scale;
+                    Iv[i] = I[neighbors[i].index()];
+                    Jv[i] = J[neighbors[i].index()];
+                }
+                double a,b,r2;
+                image::linear_regression(Iv.begin(),Iv.end(),Jv.begin(),a,b,r2);
+                for(int i = 0; i < neighbors.size();++i)
+                {
+                    float v = Iv[i]*a+b;
+                    float w = std::exp(-dis2[i]*0.5)*r2;
+                    if(w == 0.0)
+                        continue;
+                    int index = neighbors[i].index();
+                    v_map[index] = (v_map[index]*w_map[index] + v*w)/(w_map[index]+w);
+                    w_map[index] += w;
+                }
+            }
+    image::upper_lower_threshold(v_map,0.0f,*std::max_element(J.begin(),J.end()));
+    I = v_map;
+}
+
 
 template<class PixelType,class CoordinateType,class ScaleVecType>
 void resample(const image::basic_image<PixelType,3>& source_image,

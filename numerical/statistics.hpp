@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <numeric>
 #include <utility>
+#include "image/numerical/numerical.hpp"
 
 namespace image
 {
