@@ -476,9 +476,9 @@ float linear_mr(const image_type& from,const vs_type& from_vs,
         from_vs_r *= 2.0;
         to_vs_r *= 2.0;
         transform_type arg_min_r(arg_min);
-        downsampling(arg_min_r);
+        arg_min_r.downsampling();
         linear_mr(from_r,from_vs_r,to_r,to_vs_r,arg_min_r,base_type,cost_type,terminated,precision);
-        upsampling(arg_min_r);
+        arg_min_r.upsampling();
         arg_min = arg_min_r;
         if(terminated)
             return 0.0;

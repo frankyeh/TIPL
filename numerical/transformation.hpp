@@ -512,23 +512,21 @@ public:
     value_type* begin(void) {return data;}
     value_type* end(void) {return data+total_size;}
     unsigned int size(void) const{return total_size;}
+    void downsampling(void)
+    {
+        translocation[0] *= 0.5;
+        translocation[1] *= 0.5;
+        translocation[2] *= 0.5;
+    }
+    void upsampling(void)
+    {
+        translocation[0] *= 2;
+        translocation[1] *= 2;
+        translocation[2] *= 2;
+    }
+
 
 };
-
-template<typename value_type>
-void downsampling(affine_transform<value_type>& affine)
-{
-    affine.translocation[0] *= 0.5;
-    affine.translocation[1] *= 0.5;
-    affine.translocation[2] *= 0.5;
-}
-template<typename value_type>
-void upsampling(affine_transform<value_type>& affine)
-{
-    affine.translocation[0] *= 2;
-    affine.translocation[1] *= 2;
-    affine.translocation[2] *= 2;
-}
 
 
 template<class value_type_ = float>
