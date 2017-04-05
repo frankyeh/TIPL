@@ -3,6 +3,7 @@
 #define basic_imageH
 #include <vector>
 #include <thread>
+#include <future>
 #include "geometry.hpp"
 #include "pixel_value.hpp"
 #include "pixel_index.hpp"

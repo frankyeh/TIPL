@@ -5,6 +5,7 @@
 #include "image/utility/basic_image.hpp"
 #include "image/utility/multi_thread.hpp"
 #include "image/numerical/interpolation.hpp"
+#include "image/numerical/statistics.hpp"
 
 
 namespace image
