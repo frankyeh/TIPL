@@ -88,7 +88,7 @@ public:
         }
         image::basic_image<typename image_type::value_type,image_type::dimension> new_from(to.geometry());
         image::resample(from,new_from,iT,image::linear);
-        image::reg::bfnorm(*bnorm_data.get(),new_from,to,terminated);
+        image::reg::bfnorm(*bnorm_data.get(),new_from,to,terminated,std::thread::hardware_concurrency());
         prog = 3;
     }
 

@@ -112,7 +112,7 @@ public:
             bas[d].resize(VGgeo[d]*k_base[d]);
             dbas[d].resize(VGgeo[d]*k_base[d]);
             // C(:,1)=ones(size(n,1),1)/sqrt(N);
-            std::fill(bas[d].begin(),bas[d].begin()+VGgeo[d],stabilise/std::sqrt((float)VGgeo[d]));
+            std::fill(bas[d].begin(),bas[d].begin()+VGgeo[d],stabilise/std::sqrt((value_type)VGgeo[d]));
             std::fill(dbas[d].begin(),dbas[d].begin()+VGgeo[d],0.0);
             for(int i = 1,index = VGgeo[d]; i < k_base[d]; ++i)
                 for(int n = 0; n < VGgeo[d]; ++n,++index)
@@ -215,10 +215,8 @@ private:
     const std::vector<value_type>& dB2;
     const value_type *bz3[3], *by3[3], *bx3[3];
 public:
-    std::vector<value_type> alphaxy,alphax,betaxy,betax,Tz,Ty;
-    std::vector<std::vector<std::vector<value_type> > > Jz,Jy;
-    int s0[3],samp[3];
-    value_type ss = 0.0,nsamp = 0.0,ss_deriv[3];
+    int samp[3];
+
 public:
     value_type fwhm,fwhm2;
 public:
@@ -342,50 +340,45 @@ public:
 
 public:
     template<class terminated_type>
-    void optimize(const terminated_type& terminated)
+    void optimize(const terminated_type& terminated,unsigned int thread_count)
     {
-        float prev_ss = std::numeric_limits<float>::max();
+        value_type prev_ss = std::numeric_limits<value_type>::max();
         for(int iteration = 0; iteration < 64 && !terminated; ++iteration)
         {
             // zero alpha and beta
-            alphaxy.clear();
-            alphaxy.resize((nxy3 + 4)*(nxy3 + 4));
-            alphax.clear();
-            alphax.resize((nx3+ 4)*(nx3+ 4));
-            betaxy.clear();
-            betaxy.resize(nxy3 + 4);
-            betax.clear();
-            betax.resize(nx3+4);
-            Tz.clear();
-            Tz.resize( nxy3 );
-            Ty.clear();
-            Ty.resize( nx3 );
-            Jz.clear();
-            Jz.resize(3);
-            Jy.clear();
-            Jy.resize(3);
-            for (int i1=0; i1<3; i1++)
-            {
-                Jz[i1].resize(3);
-                Jy[i1].resize(3);
-                for(int i2=0; i2<3; i2++)
-                {
-                    Jz[i1][i2].resize(nxy);
-                    Jy[i1][i2].resize(nx);
-                }
-            }
+
 
             std::fill(alpha.begin(),alpha.end(),0.0);
             std::fill(beta.begin(),beta.end(),0.0);
 
-            ss = 0.0;
-            nsamp = 0.0;
-            std::fill(ss_deriv,ss_deriv+3,0.0);
             //started from slice 1
-            for(s0[2]=1; s0[2]<dim1[2]; s0[2]+=samp[2]) /* For each plane of the template images */
+            // /* For each plane of the template images */
+            std::vector<int> s0_list;
+            for(int i=1; i<dim1[2]; i+=samp[2])
+                s0_list.push_back(i);
+
+            std::mutex alpha_beta_lock,ss_lock;
+            value_type ss_ = 0.0,nsamp_ = 0.0,ss_deriv_[3] = {0.0,0.0,0.0};
+
+            image::par_for(s0_list.size(),[&](int i)
             {
-                bfnorm_mrqcof_zero_half(alphaxy,nxy3 + 4);
-                std::fill(betaxy.begin(),betaxy.end(),0.0);
+                value_type ss = 0.0,nsamp = 0.0,ss_deriv[3] = {0.0,0.0,0.0};
+                int s0[3] = {0,0,0};
+                s0[2] = s0_list[i];
+
+                std::vector<value_type> Tz( nxy3 ),Ty( nx3 );
+                std::vector<std::vector<std::vector<value_type> > > Jz(3),Jy(3);
+                for (int i1=0; i1<3; i1++)
+                {
+                    Jz[i1].resize(3);
+                    Jy[i1].resize(3);
+                    for(int i2=0; i2<3; i2++)
+                    {
+                        Jz[i1][i2].resize(nxy);
+                        Jy[i1][i2].resize(nx);
+                    }
+                }
+                std::vector<value_type> betaxy(nxy3 + 4),alphaxy((nxy3 + 4)*(nxy3 + 4));
                 /* build up the deformation field (and derivatives) from it's seperable form */
                 {
                     const value_type* ptr = &T[0];
@@ -439,9 +432,7 @@ public:
                             }
                         }
                     }
-                    bfnorm_mrqcof_zero_half(alphax,nx3+4);
-                    std::fill(betax.begin(),betax.end(),0.0);
-
+                    std::vector<value_type> betax(nx3+4),alphax((nx3+ 4)*(nx3+ 4));
                     for(s0[0]=1; s0[0]<dim1[0]; s0[0]+=samp[0]) /* For each pixel in the row */
                     {
                         /* nonlinear deformation of the template space, followed by the affine transform */
@@ -606,7 +597,9 @@ public:
                 int m2 = nxy3+4;
 
                 /* Kronecker tensor products */
-                for(int z1=0; z1<nz; z1++)
+                std::lock_guard<std::mutex> lock(alpha_beta_lock);
+
+                image::par_for(nz,[&](int z1)
                 {
                     value_type wt1 = B2[dim1_2_values[z1]+s0[2]];
 
@@ -621,7 +614,7 @@ public:
                                 value_type wt2 = wt1 * B2[dim1_2_values[z2]+s0[2]];
 
                                 value_type* ptr1 = &alpha[nxy*(m1*(nz_values[i1] + z1) + nz_values[i2] + z2)];
-                                value_type* ptr2 = &alphaxy[nxy*(m2*i1 + i2)];
+                                const value_type* ptr2 = &alphaxy[nxy*(m2*i1 + i2)];
                                 for(int y1=0; y1<nxy; y1++)
                                 {
                                     image::vec::axpy(ptr1,ptr1+y1+1,wt2,ptr2);
@@ -632,7 +625,7 @@ public:
                         }
                         /* spatial-intensity covariances */
                         value_type* ptr1 = &alpha[nxy*(m1*nz_values[3] + nz_values[i1] + z1)];
-                        value_type* ptr2 = &alphaxy[nxy*(m2*3 + i1)];
+                        const value_type* ptr2 = &alphaxy[nxy*(m2*3 + i1)];
                         for(int y1=0; y1<4; y1++)
                         {
                             image::vec::axpy(ptr1,ptr1+nxy,wt1,ptr2);
@@ -640,15 +633,13 @@ public:
                             ptr2 += m2;
                         }
                         /* spatial component of beta */
-                        for(int y1=0; y1<nxy; y1++)
-                            beta[y1 + nxy*(nz_values[i1] + z1)] += wt1 * betaxy[y1 + nxy_values[i1]];
+                        value_type* ptr3 = &beta[nxy*(nz_values[i1] + z1)];
+                        image::vec::axpy(ptr3,ptr3+nxy,wt1,&betaxy[nxy_values[i1]]);
                     }
-                }
+                },thread_count);
 
                 value_type* ptr1 = &alpha[nxy*(m1+1)*nz_values[3]];
-                value_type* ptr2 = &alphaxy[nxy*(m2*3 + 3)];
-
-
+                const value_type* ptr2 = &alphaxy[nxy*(m2*3 + 3)];
                 for(int y1=0; y1<4; y1++)
                 {
                     image::vec::add(ptr1,ptr1+y1+1,ptr2);
@@ -658,16 +649,22 @@ public:
                     beta[nxyz3 + y1] += betaxy[nxy3 + y1];
                 }
 
-            }
+                std::lock_guard<std::mutex> lock2(ss_lock);
+                nsamp_       += nsamp;
+                ss_          += ss;
+                ss_deriv_[0] += ss_deriv[0];
+                ss_deriv_[1] += ss_deriv[1];
+                ss_deriv_[2] += ss_deriv[2];
+            },thread_count);
 
 
             // update alpha
             int m1 = nxyz3+4;
             for(int i1=0; i1<3; i1++)
             {
-                value_type *ptrz, *ptry, *ptrx;
-                for(int i2=0; i2<=i1; i2++)
+                image::par_for(i1+1,[&](int i2)
                 {
+                    value_type *ptrz, *ptry, *ptrx;
                     ptrz = &alpha[nxyz*(m1*i1 + i2)];
                     for(int z1=0; z1<nz; z1++)
                         for(int z2=0; z2<=z1; z2++)
@@ -688,17 +685,19 @@ public:
                     for(int x1=0; x1<nxyz; x1++)
                         for (int x2=0; x2<x1; x2++)
                             ptrz[m1*x2+x1] = ptrz[m1*x1+x2];
-                }
+                },thread_count);
             }
-            for(int x1=0; x1<nxyz3+4; x1++)
+
+            image::par_for(nxyz3+4,[&](int x1)
+            {
                 for (int x2=0; x2<x1; x2++)
                     alpha[m1*x2+x1] = alpha[m1*x1+x2];
-
+            },thread_count);
             //
 
-            value_type fw = ((1.0/std::sqrt(2.0*ss_deriv[0]/ss))*sqrt(8.0*std::log(2.0)) +
-                             (1.0/std::sqrt(2.0*ss_deriv[1]/ss))*sqrt(8.0*std::log(2.0)) +
-                             (1.0/std::sqrt(2.0*ss_deriv[2]/ss))*sqrt(8.0*std::log(2.0)))/3.0;
+            value_type fw = ((1.0/std::sqrt(2.0*ss_deriv_[0]/ss_))*sqrt(8.0*std::log(2.0)) +
+                             (1.0/std::sqrt(2.0*ss_deriv_[1]/ss_))*sqrt(8.0*std::log(2.0)) +
+                             (1.0/std::sqrt(2.0*ss_deriv_[2]/ss_))*sqrt(8.0*std::log(2.0)))/3.0;
 
 
             if (fw<fwhm2)
@@ -706,32 +705,33 @@ public:
             if (fwhm2<fwhm)
                 fwhm2 = fwhm;
 
-            ss /= (std::min(samp[0]/(fwhm2*1.0645),1.0) *
+            ss_ /= (std::min(samp[0]/(fwhm2*1.0645),1.0) *
                    std::min(samp[1]/(fwhm2*1.0645),1.0) *
-                   std::min(samp[2]/(fwhm2*1.0645),1.0)) * (nsamp - (nxyz3 + 4));
+                   std::min(samp[2]/(fwhm2*1.0645),1.0)) * (nsamp_ - (nxyz3 + 4));
 
-            //std::cout << "FWHM = " << fw << " Var = " << ss << std::endl;
-            if(iteration > 10 && ss > prev_ss)
+            std::cout << "FWHM = " << fw << " Var = " << ss_ << std::endl;
+            if(iteration > 10 && ss_ > prev_ss)
                 return;
 
-            prev_ss = ss;
+            prev_ss = ss_;
             fwhm2 = std::min(fw,fwhm2);
 
-            image::divide_constant(alpha.begin(),alpha.end(), ss);
-            image::divide_constant(beta.begin(),beta.end(), ss);
+
+            image::divide_constant_mt(alpha, ss_);
+            image::divide_constant_mt(beta, ss_);
+
+            image::par_for(beta.size(),[&](int i)
             {
-                // beta = beta + alpha*T;
-                std::vector<value_type> alphaT(T.size());
-                image::mat::vector_product(alpha.begin(),T.begin(),alphaT.begin(),image::dyndim(T.size(),T.size()));
-                image::add(beta.begin(),beta.end(),alphaT.begin());
-            }
+                unsigned int pos = i*T.size();
+                beta[i] += image::vec::dot(alpha.begin()+pos,alpha.begin()+pos+T.size(),T.begin());
+            },thread_count);
 
 
             //Alpha + IC0*scal
             value_type pvar = std::numeric_limits<value_type>::max();
-            if(ss > pvar)
+            if(ss_ > pvar)
             {
-                value_type scal = pvar/ss;
+                value_type scal = pvar/ss_;
                 for(int i = 0,j = 0; i < alpha.size(); i+=T.size()+1,++j)
                     alpha[i] += IC0[j]*scal;
             }
@@ -742,24 +742,46 @@ public:
             // solve T = (Alpha + IC0*scal)\(Alpha*T + Beta);
 
             unsigned int size = T.size();
-
             for(unsigned int iter = 0;iter < 40;++iter)
             {
-                const value_type* A_row = &*(alpha.end() - size);
-                // going bacward because because alpha values is incremental
-                for(int i = size-1;i >= 0;--i,A_row -= size)
+                if(iteration == 0)
                 {
-                    value_type new_T_value = beta[i];
-                    value_type scale = 0.0;
-                    for(unsigned int j = 0;j < size;++j)
-                        if(j != i)
-                            new_T_value -= A_row[j]*T[j];
-                        else
-                            scale = A_row[j];
-                    if(scale == 0.0)
-                        return;
-                    // stablize using weighted jacobi method
-                    T[i] = new_T_value/scale/1.5 + T[i]/3;
+                    const value_type* A_row = &*(alpha.end() - size);
+                    // going bacward because because alpha values is incremental
+                    for(int i = size-1;i >= 0;--i,A_row -= size)
+                    {
+                        value_type new_T_value = beta[i];
+                        value_type scale = 0.0;
+                        for(unsigned int j = 0;j < size;++j)
+                            if(j != i)
+                                new_T_value -= A_row[j]*T[j];
+                            else
+                                scale = A_row[j];
+                        if(scale == 0.0)
+                            return;
+                        // stablize using weighted jacobi method
+                        T[i] = new_T_value/scale/1.5 + T[i]/3;
+                    }
+                }
+                else
+                {
+                    std::vector<value_type> newT(T.size());
+                    image::par_for(size,[&](int i)
+                    {
+                        const value_type* A_row = &*(alpha.begin() + i*size);
+                        value_type new_T_value = beta[i];
+                        value_type scale = 0.0;
+                        for(unsigned int j = 0;j < size;++j)
+                            if(j != i)
+                                new_T_value -= A_row[j]*T[j];
+                            else
+                                scale = A_row[j];
+                        if(scale == 0.0)
+                            return;
+                        // stablize using weighted jacobi method
+                        newT[i] = new_T_value/scale/1.5 + T[i]/3;
+                    },thread_count);
+                    newT.swap(T);
                 }
             }
         }
@@ -769,11 +791,11 @@ public:
 template<class ImageType,class value_type,class terminator_type>
 void bfnorm(bfnorm_mapping<value_type>& mapping,
             const ImageType& VG,
-            const ImageType& VFF,terminator_type& terminated)
+            const ImageType& VFF,terminator_type& terminated,unsigned int thread_count)
 {
     bfnorm_mrqcof<ImageType,value_type> bf_optimize(VG,VFF,mapping);
     // image::reg::bfnorm(VG,VFF,*mni.get(),terminated);
-    bf_optimize.optimize(terminated);
+    bf_optimize.optimize(terminated,thread_count);
 }
 
 
