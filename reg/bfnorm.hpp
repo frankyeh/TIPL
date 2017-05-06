@@ -709,7 +709,7 @@ public:
                    std::min(samp[1]/(fwhm2*1.0645),1.0) *
                    std::min(samp[2]/(fwhm2*1.0645),1.0)) * (nsamp_ - (nxyz3 + 4));
 
-            std::cout << "FWHM = " << fw << " Var = " << ss_ << std::endl;
+            //std::cout << "FWHM = " << fw << " Var = " << ss_ << std::endl;
             if(iteration > 10 && ss_ > prev_ss)
                 return;
 
@@ -744,44 +744,21 @@ public:
             unsigned int size = T.size();
             for(unsigned int iter = 0;iter < 40;++iter)
             {
-                if(iteration == 0)
+                const value_type* A_row = &*(alpha.end() - size);
+                // going bacward because because alpha values is incremental
+                for(int i = size-1;i >= 0;--i,A_row -= size)
                 {
-                    const value_type* A_row = &*(alpha.end() - size);
-                    // going bacward because because alpha values is incremental
-                    for(int i = size-1;i >= 0;--i,A_row -= size)
-                    {
-                        value_type new_T_value = beta[i];
-                        value_type scale = 0.0;
-                        for(unsigned int j = 0;j < size;++j)
-                            if(j != i)
-                                new_T_value -= A_row[j]*T[j];
-                            else
-                                scale = A_row[j];
-                        if(scale == 0.0)
-                            return;
-                        // stablize using weighted jacobi method
-                        T[i] = new_T_value/scale/1.5 + T[i]/3;
-                    }
-                }
-                else
-                {
-                    std::vector<value_type> newT(T.size());
-                    image::par_for(size,[&](int i)
-                    {
-                        const value_type* A_row = &*(alpha.begin() + i*size);
-                        value_type new_T_value = beta[i];
-                        value_type scale = 0.0;
-                        for(unsigned int j = 0;j < size;++j)
-                            if(j != i)
-                                new_T_value -= A_row[j]*T[j];
-                            else
-                                scale = A_row[j];
-                        if(scale == 0.0)
-                            return;
-                        // stablize using weighted jacobi method
-                        newT[i] = new_T_value/scale/1.5 + T[i]/3;
-                    },thread_count);
-                    newT.swap(T);
+                    value_type new_T_value = beta[i];
+                    value_type scale = 0.0;
+                    for(unsigned int j = 0;j < size;++j)
+                        if(j != i)
+                            new_T_value -= A_row[j]*T[j];
+                        else
+                            scale = A_row[j];
+                    if(scale == 0.0)
+                        return;
+                    // stablize using weighted jacobi method
+                    T[i] = new_T_value/scale/1.5 + T[i]/3;
                 }
             }
         }
