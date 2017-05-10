@@ -11,6 +11,7 @@ namespace io
 struct bitmap_file_header
 {
     unsigned int bfSize;
+    unsigned int bfOffBits;
     bool read(std::istream& in)
     {
         unsigned short bfType;
@@ -20,8 +21,8 @@ struct bitmap_file_header
         in.read((char*)&bfSize,4);
         unsigned int dummy;
         in.read((char*)&dummy,4);
-        in.read((char*)&dummy,4);
-        return in && dummy== 54;//bfOffBits
+        in.read((char*)&bfOffBits,4);
+        return !(!in);
     }
     bool write(std::ostream& out) const
     {
@@ -96,6 +97,7 @@ public:
         {
             return false;
         }
+        in.seekg(bmfh.bfOffBits,std::ios::beg);
         in.read((char*)&*data.begin(),data.size());
         if (!in)
             return false;
@@ -132,6 +134,9 @@ public:
         image.resize(geo);
         switch (bmih.biBitCount)
         {
+        case 8:
+            std::copy((unsigned char*)&*data.begin(),(unsigned char*)&*data.begin()+image.size(),image.begin());
+            break;
         case 32:
             std::copy((rgb_color*)&*data.begin(),(rgb_color*)&*data.begin()+image.size(),image.begin());
             break;
