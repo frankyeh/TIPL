@@ -291,8 +291,8 @@ private:
     std::auto_ptr<input_interface> input_stream;
     bool big_endian;
 private:
-    const void* write_buf;
-    size_t write_size;
+    const void* write_buf = 0;
+    size_t write_size = 0;
 private:
     bool compatible(long type1,long type2) const
     {
@@ -752,8 +752,11 @@ public:
     template<class image_type>
     bool toLPS(image_type& out,bool change_header = true)
     {
-        if(!save_to_image(out))
-            return false;
+        if(!write_buf)
+        {
+            if(!save_to_image(out))
+                return false;
+        }
         handle_qform();
 
 
