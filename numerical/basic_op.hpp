@@ -3,6 +3,7 @@
 #define BASIC_OP_HPP
 #include "image/utility/pixel_index.hpp"
 #include "image/utility/basic_image.hpp"
+#include "image/utility/multi_thread.hpp"
 
 namespace image
 {
@@ -268,6 +269,41 @@ void bounding_box(const ImageType& I,
     for (unsigned int di = 0; di < ImageType::dimension; ++di)
         range_max[di] = range_max[di] + 1;
 
+}
+
+// ---------------------------------------------------------------------------
+template<typename point_type>
+void bounding_box_mt(const std::vector<point_type>& points,point_type& max_value,point_type& min_value)
+{
+    if(points.empty())
+        return;
+    std::vector<point_type> max_values(std::thread::hardware_concurrency()),
+                            min_values(std::thread::hardware_concurrency());
+    for(int i = 0;i < max_values.size();++i)
+    {
+        max_values[i] = points[0];
+        min_values[i] = points[0];
+    }
+    unsigned char dim = points[0].size();
+    image::par_for2(points.size(),[&](unsigned int index,unsigned int id)
+    {
+        for (unsigned char d = 0; d < dim; ++d)
+            if (points[index][d] > max_values[id][d])
+                max_values[id][d] = points[index][d];
+            else if (points[index][d] < min_values[id][d])
+                min_values[id][d] = points[index][d];
+    });
+    max_value = max_values[0];
+    min_value = min_values[0];
+
+    for(int i = 0;i < max_value.size();++i)
+    {
+        for (unsigned char d = 0; d < dim; ++d)
+            if (max_values[i][d] > max_value[d])
+                max_value[d] = max_values[i][d];
+            else if (max_values[i][d] < min_value[d])
+                min_value[d] = max_values[i][d];
+    }
 }
 
 template<class ImageType>
