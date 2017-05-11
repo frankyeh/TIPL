@@ -389,6 +389,7 @@ public:
     {
         return data_+2;
     }
+    size_t size(void) const{return 2;}
 public:
     template<class func>
     void for_each(func)
@@ -435,13 +436,15 @@ public:
         y_ -= r;
         return *this;
     }
-    vector<2,data_type>& operator*=(data_type r)
+    template<typename rhs_type>
+    vector<2,data_type>& operator*=(rhs_type r)
     {
         x_ *= r;
         y_ *= r;
         return *this;
     }
-    vector<2,data_type>& operator/=(data_type r)
+    template<typename rhs_type>
+    vector<2,data_type>& operator/=(rhs_type r)
     {
         x_ /= r;
         y_ /= r;
@@ -465,11 +468,13 @@ public:
     {
         return vector<2,data_type>(*this)-=rhs;
     }
-    vector<2,data_type> operator*(data_type rhs) const
+    template<typename rhs_type>
+    vector<2,data_type> operator*(rhs_type rhs) const
     {
         return vector<2,data_type>(*this)*=rhs;
     }
-    vector<2,data_type> operator/(data_type rhs) const
+    template<typename rhs_type>
+    vector<2,data_type> operator/(rhs_type rhs) const
     {
         return vector<2,data_type>(*this)/=rhs;
     }
@@ -672,6 +677,7 @@ public:
     {
         return data_+3;
     }
+    size_t size(void) const{return 3;}
 public:
     template<class func>
     void for_each(func)
@@ -724,14 +730,16 @@ public:
         z_ -= r;
         return *this;
     }
-    vector<3,data_type>& operator*=(data_type r)
+    template<typename rhs_type>
+    vector<3,data_type>& operator*=(rhs_type r)
     {
         x_ *= r;
         y_ *= r;
         z_ *= r;
         return *this;
     }
-    vector<3,data_type>& operator/=(data_type r)
+    template<typename rhs_type>
+    vector<3,data_type>& operator/=(rhs_type r)
     {
         x_ /= r;
         y_ /= r;
@@ -761,13 +769,14 @@ public:
         vector<3,data_type> result(*this);result -= rhs;
         return result;
     }
-
-    vector<3,data_type> operator*(data_type rhs) const
+    template<typename rhs_type>
+    vector<3,data_type> operator*(rhs_type rhs) const
     {
         vector<3,data_type> result(*this);result *= rhs;
         return result;
     }
-    vector<3,data_type> operator/(data_type rhs) const
+    template<typename rhs_type>
+    vector<3,data_type> operator/(rhs_type rhs) const
     {
         vector<3,data_type> result(*this);result /= rhs;
         return result;
