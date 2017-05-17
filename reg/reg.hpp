@@ -61,15 +61,19 @@ public:
         prog = 0;
         if(cost_function == mutual_info)
         {
-            image::reg::linear(from,from_vs,to,to_vs,arg,reg_type,image::reg::mutual_information(),terminated);
-            image::reg::linear(from,from_vs,to,to_vs,arg,reg_type,image::reg::mutual_information(),terminated);
+            image::reg::linear_mr(from,from_vs,to,to_vs,arg,reg_type,image::reg::mutual_information(),terminated);
+            if(terminated)
+                return;
+            image::reg::linear_mr(from,from_vs,to,to_vs,arg,reg_type,image::reg::mutual_information(),terminated);
         }
         else
         {
-            image::reg::linear(from,from_vs,to,to_vs,arg,reg_type,image::reg::mt_correlation<image::basic_image<float,3>,
+            image::reg::linear_mr(from,from_vs,to,to_vs,arg,reg_type,image::reg::mt_correlation<image::basic_image<float,3>,
                            image::transformation_matrix<double> >(0),terminated);
+            if(terminated)
+                return;
             prog = 1;
-            image::reg::linear(from,from_vs,to,to_vs,arg,reg_type,image::reg::mt_correlation<image::basic_image<float,3>,
+            image::reg::linear_mr(from,from_vs,to,to_vs,arg,reg_type,image::reg::mt_correlation<image::basic_image<float,3>,
                            image::transformation_matrix<double> >(0),terminated);
         }
         prog = 2;
