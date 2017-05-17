@@ -424,7 +424,7 @@ float linear(const image_type& from,const vs_type& from_vs,
     transform_type upper,lower;
     image::reg::fun_adoptor<image_type,vs_type,transform_type,transform_type,CostFunctionType> fun(from,from_vs,to,to_vs,arg_min);
     std::vector<unsigned char> search_count(arg_min.size());
-    unsigned int random_search_count = std::sqrt(1/precision);
+    unsigned int random_search_count = std::sqrt(1.0/precision);
     for(unsigned char type = 0;type < 4 && reg_list[type] <= base_type && !terminated;++type)
     {
         image::reg::get_bound(from,to,arg_min,upper,lower,reg_list[type]);
