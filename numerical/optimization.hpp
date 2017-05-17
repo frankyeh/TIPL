@@ -175,7 +175,7 @@ bool armijo_line_search(iter_type1 x_beg,iter_type1 x_end,
 }
 
 template<class tol_type,class iter_type>
-double calculate_resolution(tol_type& tols,iter_type x_upper,iter_type x_lower,double precision = 0.001)
+double calculate_resolution(tol_type& tols,iter_type x_upper,iter_type x_lower,double precision = 0.005)
 {
     for(unsigned int i = 0;i < tols.size();++i)
         tols[i] = (x_upper[i]-x_lower[i])*precision;
@@ -188,7 +188,7 @@ void quasi_newtons_minimize(
                 iter_type1 x_upper,iter_type1 x_lower,
                 function_type& fun,
                 typename function_type::value_type& fun_x,
-                terminated_class& terminated,double precision = 0.001)
+                terminated_class& terminated,double precision = 0.005)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
     typedef typename function_type::value_type value_type;
@@ -222,7 +222,7 @@ void quasi_newtons_minimize(
 
 template<class param_type,class function_type,class value_type,class terminated_class>
 void graient_descent_1d(param_type& x,param_type upper,param_type lower,
-                     function_type& fun,value_type& fun_x,terminated_class& terminated,double precision = 0.001)
+                     function_type& fun,value_type& fun_x,terminated_class& terminated,double precision = 0.005)
 {
     param_type tol = (upper-lower)*precision;
     if(tol == 0)
@@ -244,7 +244,7 @@ void graient_descent(
                 iter_type2 x_upper,iter_type2 x_lower,
                 function_type& fun,
                 typename function_type::value_type& fun_x,
-                terminated_class& terminated,double precision = 0.001)
+                terminated_class& terminated,double precision = 0.005)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
     typedef typename function_type::value_type value_type;
@@ -275,7 +275,7 @@ void conjugate_descent(
                 iter_type2 x_upper,iter_type2 x_lower,
                 function_type& fun,
                 typename function_type::value_type& fun_x,
-                terminated_class& terminated,double precision = 0.001)
+                terminated_class& terminated,double precision = 0.005)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
     typedef typename function_type::value_type value_type;
