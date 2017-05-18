@@ -269,10 +269,7 @@ public:
     template<class pixel_size_type>
     void get_voxel_size(pixel_size_type pixel_size_from) const
     {
-        if(data.depth() >= 1)
-            std::copy(resolution,resolution+3,pixel_size_from);
-        else
-            std::copy(resolution,resolution+2,pixel_size_from);
+        std::copy(resolution,resolution+3,pixel_size_from);
     }
 
     template<class image_type>
