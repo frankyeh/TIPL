@@ -301,6 +301,19 @@ void square_root(image_type& I)
 }
 //---------------------------------------------------------------------------
 template<class iterator>
+void zeros(iterator lhs_from,iterator lhs_to)
+{
+    for (; lhs_from != lhs_to; ++lhs_from)
+        *lhs_from = std::iterator_traits<iterator>::value_type(0);
+}
+//---------------------------------------------------------------------------
+template<class image_type>
+void zeros(image_type& I)
+{
+    zeros(I.begin(),I.end());
+}
+//---------------------------------------------------------------------------
+template<class iterator>
 void log(iterator lhs_from,iterator lhs_to)
 {
     for (; lhs_from != lhs_to; ++lhs_from)

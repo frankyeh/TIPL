@@ -224,6 +224,53 @@ void reslicing(const ImageType3D& slice,ImageType2D& image,
 
 }
 
+template<typename value_type>
+struct pixel_average{
+    value_type operator()(value_type l,value_type r) const
+    {
+        return (l+r)/2;
+    }
+};
+
+template<>
+struct pixel_average<short>{
+    short operator()(short l,short r) const
+    {
+        int avg = l;
+        avg += r;
+        return avg >> 1;
+    }
+};
+
+template<>
+struct pixel_average<int>{
+    int operator()(int l,int r) const
+    {
+        return (l+r) >> 1;
+    }
+};
+
+template<>
+struct pixel_average<float>{
+    float operator()(float l,float r) const
+    {
+        return (l+r)*0.5f;
+    }
+};
+template<>
+struct pixel_average<image::rgb_color>{
+    image::rgb_color operator()(image::rgb_color c1,image::rgb_color c2) const
+    {
+        short r = c1.r;
+        short g = c1.g;
+        short b = c1.b;
+        r += c2.r;
+        g += c2.g;
+        b += c2.b;
+        return image::rgb_color(r >> 1,g >> 1,b >> 1);
+    }
+};
+
 template<class IteratorType,class OutputIterator>
 OutputIterator upsampling_x(IteratorType from,IteratorType to,OutputIterator out,int width)
 {
@@ -234,13 +281,13 @@ OutputIterator upsampling_x(IteratorType from,IteratorType to,OutputIterator out
     {
         to -= width;
         --line_iter;
-	*(--out) = *line_iter;
+        *(--out) = *line_iter;
         *(--out) = *line_iter;
         if(line_iter != to)
         do{
             --line_iter;
-            *(--out) = *line_iter + *(line_iter+1);
-            *out /= 2;
+            --out;
+            *out = pixel_average<typename IteratorType::value_type>()(*line_iter,*(line_iter+1));
             *(--out) = *line_iter;
         }
         while(line_iter != to);
@@ -253,6 +300,33 @@ OutputIterator upsampling_x(IteratorType from,IteratorType to,OutputIterator out
     return result;
 }
 
+template<class IteratorType,class OutputIterator>
+OutputIterator upsampling_x_nearest(IteratorType from,IteratorType to,OutputIterator out,int width)
+{
+    IteratorType line_iter = to;
+    out += (to-from) << 1;
+    OutputIterator result = out;
+    do
+    {
+        to -= width;
+        --line_iter;
+        *(--out) = *line_iter;
+        *(--out) = *line_iter;
+        if(line_iter != to)
+        do{
+            --line_iter;
+            *(--out) = *line_iter;
+            *(--out) = *line_iter;
+        }
+        while(line_iter != to);
+
+        if(to == from)
+            break;
+        line_iter = to;
+    }
+    while(1);
+    return result;
+}
 
 
 template<class IteratorType,class OutputIterator>
@@ -283,9 +357,50 @@ OutputIterator upsampling_y(IteratorType from,IteratorType to,OutputIterator out
             plane_end = plane_iter;
             plane_iter -= width;
 
-            image::add(out,out+width,plane_iter);
-            image::multiply_constant(out,out+width,0.5);
+            for(int i = 0; i < width;++i)
+                out[i] = pixel_average<typename IteratorType::value_type>()(out[i],plane_iter[i]);
 
+            out -= width;
+            std::copy(plane_iter,plane_end,out);
+
+        }
+        while(plane_iter != to);
+
+        if(to == from)
+            break;
+        plane_iter = to;
+    }
+    while(1);
+    return result;
+}
+
+template<class IteratorType,class OutputIterator>
+OutputIterator upsampling_y_nearest(IteratorType from,IteratorType to,OutputIterator out,int width,int height)
+{
+    int plane_size = width*height;
+    IteratorType plane_iter = to;
+    IteratorType plane_end;
+    out += (to-from) << 1;
+    OutputIterator result = out;
+    do
+    {
+        to -= plane_size;
+
+        plane_end = plane_iter;
+        plane_iter -= width;
+
+        out -= width;
+        std::copy(plane_iter,plane_end,out);
+        out -= width;
+        std::copy(plane_iter,plane_end,out);
+
+        if(plane_iter != to)
+        do{
+            out -= width;
+            std::copy(plane_iter,plane_end,out);
+            plane_end = plane_iter;
+            plane_iter -= width;
+            std::copy(plane_iter,plane_end,out);
             out -= width;
             std::copy(plane_iter,plane_end,out);
 
@@ -306,6 +421,11 @@ IteratorType upsampling_z(IteratorType from,IteratorType to,OutputIterator out,i
     return upsampling_y(from,to,out,width*height,depth);
 }
 
+template<class IteratorType,class OutputIterator>
+IteratorType upsampling_z_nearest(IteratorType from,IteratorType to,OutputIterator out,int width,int height,int depth)
+{
+    return upsampling_y_nearest(from,to,out,width*height,depth);
+}
 
 template<class ImageType1,class ImageType2>
 void upsampling(const ImageType1& in,ImageType2& out)
@@ -327,10 +447,37 @@ void upsampling(const ImageType1& in,ImageType2& out)
 
 }
 
+template<class ImageType1,class ImageType2>
+void upsampling_nearest(const ImageType1& in,ImageType2& out)
+{
+    geometry<ImageType1::dimension> geo(in.geometry());
+    geometry<ImageType1::dimension> new_geo(in.geometry());
+    for(int dim = 0;dim < ImageType1::dimension;++dim)
+        new_geo[dim] <<= 1;
+    out.resize(new_geo);
+    typename ImageType2::iterator end_iter =
+            upsampling_x_nearest(in.begin(),in.begin()+geo.size(),out.begin(),geo.width());
+
+    unsigned int plane_size = new_geo[0];
+    for(int dim = 1;dim < ImageType1::dimension;++dim)
+    {
+        end_iter = upsampling_y_nearest(out.begin(),end_iter,out.begin(),plane_size,geo[dim]);
+        plane_size *= new_geo[dim];
+    }
+
+}
+
 template<class ImageType>
 void upsampling(ImageType& in)
 {
     upsampling(in,in);
+}
+
+
+template<class ImageType>
+void upsampling_nearest(ImageType& in)
+{
+    upsampling_nearest(in,in);
 }
 
 template<class value_type>

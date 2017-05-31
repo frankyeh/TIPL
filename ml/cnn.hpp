@@ -21,9 +21,11 @@
 #include "image/numerical/matrix.hpp"
 #include "image/numerical/numerical.hpp"
 #include "image/numerical/basic_op.hpp"
+#include "image/numerical/resampling.hpp"
 #include "image/utility/geometry.hpp"
 #include "image/utility/basic_image.hpp"
 #include "image/utility/multi_thread.hpp"
+
 
 namespace image
 {
@@ -32,7 +34,6 @@ namespace ml
 
 const float bias_cap = 10.0f;
 const float weight_cap = 100.0f;
-enum activation_type { tanh, sigmoid, relu, identity};
 
 template<class value_type>
 inline float tanh_f(value_type v)
@@ -79,12 +80,15 @@ inline float relu_df(value_type y)
     return y > value_type(0) ? float(1) : float(0);
 }
 
+enum activation_type { tanh, sigmoid, relu, identity};
+enum status_type { training,testing};
 
 class basic_layer
 {
 
 public:
     activation_type af;
+    status_type status;
     int input_size;
     int output_size;
     float weight_base;
@@ -92,7 +96,7 @@ public:
 public:
 
     virtual ~basic_layer() {}
-    basic_layer(activation_type af_ = activation_type::tanh):af(af_),weight_base(1){}
+    basic_layer(activation_type af_ = activation_type::tanh):af(af_),status(testing),weight_base(1){}
     void init( int input_size_, int output_size_, int weight_dim, int bias_dim)
     {
         input_size = input_size_;
@@ -106,16 +110,8 @@ public:
             weight[i] = gen()*weight_base;
         std::fill(bias.begin(), bias.end(), 0);
     }
-    virtual void update(const std::vector<float>& dweight,
-                        const std::vector<float>& dbias,float learning_rate)
-    {
-        if(weight.empty())
-            return;
-        image::vec::axpy(&weight[0],&weight[0] + weight.size(),-learning_rate,&dweight[0]);
-        image::vec::axpy(&bias[0],&bias[0] + bias.size(),-learning_rate,&dbias[0]);
-        image::multiply_constant(&bias[0],&bias[0] + bias.size(),0.95);
-    }
-    virtual void init(const image::geometry<3>& in_dim,const image::geometry<3>& out_dim) = 0;
+
+    virtual bool init(const image::geometry<3>& in_dim,const image::geometry<3>& out_dim) = 0;
     virtual void forward_propagation(const float* data,float* out) = 0;
     void forward_af(float* data)
     {
@@ -166,11 +162,12 @@ class fully_connected_layer : public basic_layer
     image::geometry<3> in_dim;
 public:
     fully_connected_layer(activation_type af_):basic_layer(af_){}
-    void init(const image::geometry<3>& in_dim_,const image::geometry<3>& out_dim) override
+    bool init(const image::geometry<3>& in_dim_,const image::geometry<3>& out_dim) override
     {
         in_dim = in_dim_;
         basic_layer::init(in_dim.size(), out_dim.size(),in_dim.size() * out_dim.size(), out_dim.size());
         weight_base = std::sqrt(6.0 / (float)(input_size+output_size));
+        return true;
     }
     void forward_propagation(const float* data,float* out) override
     {
@@ -192,12 +189,9 @@ public:
         std::vector<float> w(weight),b(bias);
         image::normalize_abs(w);
         image::normalize_abs(b);
-
         if(in_dim[0] == 1)
         {
             I.resize(geometry<2>(bias.size(),weight.size()/bias.size()+3));
-            while(I.height() > I.width())
-                I.resize(geometry<2>(I.width()*2,I.height()/2+1));
             std::copy(w.begin(),w.end(),I.begin()+I.width());
             std::copy(b.begin(),b.end(),I.end()-I.width()*2);
         }
@@ -326,12 +320,12 @@ public:
     int pool_size;
     average_pooling_layer(activation_type af_,int pool_size_)
         : partial_connected_layer(af_),pool_size(pool_size_){}
-    void init(const image::geometry<3>& in_dim,const image::geometry<3>& out_dim) override
+    bool init(const image::geometry<3>& in_dim,const image::geometry<3>& out_dim) override
     {
         partial_connected_layer::init(in_dim.size(),in_dim.size()/pool_size/pool_size,in_dim.depth(), in_dim.depth());
         if(out_dim != image::geometry<3>(in_dim.width()/ pool_size, in_dim.height() / pool_size, in_dim.depth()) ||
                 in_dim.depth() != out_dim.depth())
-            throw std::runtime_error("invalid size in the average pooling layer");
+            return false;
         for(int c = 0; c < in_dim.depth(); ++c)
             for(int y = 0; y < in_dim.height(); y += pool_size)
                 for(int x = 0; x < in_dim.width(); x += pool_size)
@@ -355,6 +349,7 @@ public:
                     b2o[c].push_back(index);
                 }
         weight_base = std::sqrt(6.0 / (float)(max_size(o2w_1) + max_size(i2w_1)));
+        return true;
     }
     void to_image(basic_image<float,2>& I)
     {
@@ -383,15 +378,16 @@ public:
 public:
     max_pooling_layer(activation_type af_,int pool_size_)
         : basic_layer(af_),pool_size(pool_size_){}
-    void init(const image::geometry<3>& in_dim_,const image::geometry<3>& out_dim_) override
+    bool init(const image::geometry<3>& in_dim_,const image::geometry<3>& out_dim_) override
     {
         in_dim = in_dim_;
         out_dim = out_dim_;
         basic_layer::init(in_dim.size(),out_dim.size(),0,0);
         if(out_dim != image::geometry<3>(in_dim.width()/ pool_size, in_dim.height() / pool_size, in_dim.depth()))
-            throw std::runtime_error("invalid size in the max pooling layer");
+            return false;
         init_connection();
         weight_base = std::sqrt(6.0 / (float)(o2i[0].size()+1));
+        return true;
     }
     void forward_propagation(const float* data,float* out) override
     {
@@ -460,59 +456,30 @@ private:
 };
 
 
-
-struct connection_table
-{
-    basic_image<unsigned char,2> c;
-    connection_table(){}
-    connection_table(const unsigned char *ar, int rows, int cols) : c(ar,geometry<2>(cols,rows))
-    {
-    }
-    connection_table(int rows, int cols):c(geometry<2>(cols,rows))
-    {
-        std::vector<unsigned char> p(c.width());
-        std::fill(p.begin(),p.begin()+p.size()/2,1);
-        for(int y = 0;y < c.height();++y)
-        {
-            std::random_shuffle(p.begin(),p.end());
-            std::copy(p.begin(),p.end(),c.begin()+y*c.width());
-        }
-    }
-    bool is_connected(int x, int y) const
-    {
-        return is_empty() ? true : c[y * c.width() + x];
-    }
-
-    bool is_empty() const
-    {
-        return c.size() == 0;
-    }
-
-};
-
 class convolutional_layer : public basic_layer
 {
-    connection_table connection;
-    geometry<3> in_dim,out_dim,weight_dim;
+    geometry<3> in_dim,out_dim;
 public:
-    int kernel_size;
+    int kernel_size,kernel_size2;
+    // check if any kernel is zero and re-initialize it
+
 public:
-    convolutional_layer(activation_type af_,int kernel_size_,const connection_table& connection_ = connection_table())
+    convolutional_layer(activation_type af_,int kernel_size_)
         : basic_layer(af_),
-          kernel_size(kernel_size_),
-          connection(connection_)
+          kernel_size(kernel_size_),kernel_size2(kernel_size_*kernel_size_)
     {
     }
-    void init(const image::geometry<3>& in_dim_,const image::geometry<3>& out_dim_) override
+    bool init(const image::geometry<3>& in_dim_,const image::geometry<3>& out_dim_) override
     {
         in_dim = in_dim_;
         out_dim = out_dim_;
         if(in_dim.width()-out_dim.width()+1 != kernel_size ||
            in_dim.height()-out_dim.height()+1 != kernel_size)
-            throw std::runtime_error("invalid layer dimension at the convolutional layer");
-        weight_dim = image::geometry<3>(kernel_size,kernel_size,in_dim.depth() * out_dim.depth()),
-        basic_layer::init(in_dim_.size(), out_dim_.size(),weight_dim.size(), out_dim.depth());
-        weight_base = std::sqrt(6.0 / (float)(weight_dim.plane_size() * in_dim.depth() + weight_dim.plane_size() * out_dim.depth()));
+            return false;
+        //weight_dim = image::geometry<3>(kernel_size,kernel_size,in_dim.depth() * out_dim.depth()),
+        basic_layer::init(in_dim_.size(), out_dim_.size(),kernel_size2* in_dim.depth() * out_dim.depth(), out_dim.depth());
+        weight_base = std::sqrt(6.0 / (float)(kernel_size2 * in_dim.depth() + kernel_size2 * out_dim.depth()));
+        return true;
     }
     void to_image(basic_image<float,2>& I)
     {
@@ -523,7 +490,7 @@ public:
         for(int x = 0,index = 0;x < out_dim.depth();++x)
             for(int y = 0;y < in_dim.depth();++y,++index)
             {
-                image::draw(image::make_image(&w[0] + index*kernel_size*kernel_size,image::geometry<2>(kernel_size,kernel_size)),
+                image::draw(image::make_image(&w[0] + index*kernel_size2,image::geometry<2>(kernel_size,kernel_size)),
                             I,image::geometry<2>(x*(kernel_size+1),y*(kernel_size+1)+1));
             }
 
@@ -534,8 +501,7 @@ public:
         for(int o = 0, o_index = 0,o_index2 = 0; o < out_dim.depth(); ++o, o_index += out_dim.plane_size())
         {
             std::fill(out+o_index,out+o_index+out_dim.plane_size(),bias[o]);
-            for(int inc = 0, inc_index = 0; inc < in_dim.depth(); inc++, inc_index += in_dim.plane_size(),o_index2 += weight_dim.plane_size())
-                if(connection.is_connected(o, inc))
+            for(int inc = 0, inc_index = 0; inc < in_dim.depth(); inc++, inc_index += in_dim.plane_size(),o_index2 += kernel_size2)
                 {
                     for(int y = 0, y_index = 0, index = 0; y < out_dim.height(); y++, y_index += in_dim.width())
                     {
@@ -544,10 +510,10 @@ public:
                             const float * w = &weight[o_index2];
                             const float * p = &data[inc_index] + y_index + x;
                             float sum(0);
-                            for(int wy = 0; wy < weight_dim.height(); wy++)
+                            for(int wy = 0; wy < kernel_size; wy++)
                             {
-                                sum += image::vec::dot(w,w+weight_dim.width(),p);
-                                w += weight_dim.width();
+                                sum += image::vec::dot(w,w+kernel_size,p);
+                                w += kernel_size;
                                 p += in_dim.width();
                             }
                             out[o_index+index] += sum;
@@ -564,12 +530,11 @@ public:
         // accumulate dw
         for(int outc = 0, outc_pos = 0, w_index = 0; outc < out_dim.depth(); outc++, outc_pos += out_dim.plane_size())
         {
-            for(int inc = 0;inc < in_dim.depth();++inc,w_index += weight_dim.plane_size())
+            for(int inc = 0;inc < in_dim.depth();++inc,w_index += kernel_size2)
             {
-                if(connection.is_connected(outc, inc))
-                for(int wy = 0, index = w_index; wy < weight_dim.height(); wy++)
+                for(int wy = 0, index = w_index; wy < kernel_size; wy++)
                 {
-                    for(int wx = 0; wx < weight_dim.width(); wx++, ++index)
+                    for(int wx = 0; wx < kernel_size; wx++, ++index)
                     {
                         const float * prevo = prev_out + (in_dim.height() * inc + wy) * in_dim.width() + wx;
                         const float * delta = &in_dE_da[outc_pos];
@@ -596,8 +561,7 @@ public:
         // propagate delta to previous layer
         for(int outc = 0, outc_pos = 0,w_index = 0; outc < out_dim.depth(); ++outc, outc_pos += out_dim.plane_size())
         {
-            for(int inc = 0, inc_pos = 0; inc < in_dim.depth(); ++inc, inc_pos += in_dim.plane_size(),w_index += weight_dim.plane_size())
-            if(connection.is_connected(outc, inc))
+            for(int inc = 0, inc_pos = 0; inc < in_dim.depth(); ++inc, inc_pos += in_dim.plane_size(),w_index += kernel_size2)
             {
                 const float *pdelta_src = in_dE_da + outc_pos;
                 float *pdelta_dst = out_dE_da + inc_pos;
@@ -607,8 +571,8 @@ public:
                         const float * ppw = &weight[w_index];
                         const float ppdelta_src = pdelta_src[index];
                         float *p = pdelta_dst + y_pos + x;
-                        for(int wy = 0; wy < weight_dim.height(); wy++,ppw += weight_dim.width(),p += in_dim.width())
-                            image::vec::axpy(p,p+weight_dim.width(),ppdelta_src,ppw);
+                        for(int wy = 0; wy < kernel_size; wy++,ppw += kernel_size,p += in_dim.width())
+                            image::vec::axpy(p,p+kernel_size,ppdelta_src,ppw);
                     }
 
             }
@@ -620,52 +584,45 @@ public:
     }
 };
 
-/*
+
 class dropout_layer : public basic_layer
 {
 private:
     unsigned int dim;
-    std::vector<bool> drop;
     image::bernoulli bgen;
 public:
     dropout_layer(float dropout_rate)
         : basic_layer(activation_type::identity),
-          bgen(dropout_rate),
-          drop(0)
+          bgen(dropout_rate)
     {
     }
-    void init(const image::geometry<3>& in_dim_,const image::geometry<3>& out_dim_) override
+    bool init(const image::geometry<3>& in_dim_,const image::geometry<3>& out_dim_) override
     {
         if(in_dim_.size() != out_dim_.size())
-            throw std::runtime_error("invalid layer dimension in the dropout layer");
+            return false;
         dim =in_dim_.size();
         basic_layer::init(dim,dim,0,0);
+        return true;
     }
 
     void back_propagation(float* in_dE_da,// output_size
                           float* out_dE_da,// input_size
-                          const float*) override
+                          const float* pre_out) override
     {
-        if(drop.empty())
-        {
-            drop.resize(dim);
-            for(int i = 0;i < dim;++i)
-                drop[i] = bgen();
-            return;
-        }
-        for(int i = 0; i < drop.size(); i++)
-            out_dE_da[i] = drop[i] ? 0: in_dE_da[i];
+        for(int i = 0; i < dim; i++)
+            out_dE_da[i] = (pre_out[i] == 0.0f) ? 0: in_dE_da[i];
     }
     void forward_propagation(const float* data,float* out) override
     {
-        if(drop.empty())
+        if(status == testing)
+        {
+            std::copy(data,data+dim,out);
             return;
-        for(int i = 0; i < drop.size(); i++)
-            if(drop[i])
-                data[i] = 0;
+        }
+        for(int i = 0; i < dim; i++)
+            out[i] = bgen() ? 0.0f: data[i];
     }
 };
-*/
 
 class soft_max_layer : public basic_layer{
 public:
@@ -673,16 +630,18 @@ public:
         : basic_layer(activation_type::identity)
     {
     }
-    void init(const image::geometry<3>& in_dim,const image::geometry<3>& out_dim) override
+    bool init(const image::geometry<3>& in_dim,const image::geometry<3>& out_dim) override
     {
         if(in_dim.size() != out_dim.size())
-            throw std::runtime_error("invalid layer dimension at soft_max_layer");
+            return false;
         basic_layer::init(in_dim.size(),in_dim.size(),0,0);
+        return true;
     }
     void forward_propagation(const float* data,float* out) override
     {
+        float m = *std::max_element(data,data+input_size);
         for(int i = 0;i < input_size;++i)
-            out[i] = expf(data[i]);
+            out[i] = expf(data[i]-m);
         float sum = std::accumulate(out,out+output_size,float(0));
         if(sum != 0)
             image::divide_constant(out,out+output_size,sum);
@@ -691,22 +650,21 @@ public:
                           float* out_dE_da,// input_size
                           const float* prev_out) override
     {
-        for(int i = 0;i < output_size;++i)
-        {
-            float sum = float(0);
-            for(int j = 0;j < output_size;++j)
-                sum += (i == j) ?  in_dE_da[j]*(float(1)-prev_out[i]) : -in_dE_da[j]*prev_out[i];
-            out_dE_da[i] = sum;
-        }
+        std::copy(in_dE_da,in_dE_da+input_size,out_dE_da);
+        image::minus_constant(out_dE_da,out_dE_da+output_size,image::vec::dot(in_dE_da,in_dE_da+input_size,prev_out));
+        image::multiply(out_dE_da,out_dE_da+output_size,prev_out);
     }
 };
 
 template<typename value_type,typename label_type>
-struct network_data
+class network_data
 {
+public:
     image::geometry<3> input,output;
     std::vector<std::vector<value_type> > data;
     std::vector<label_type> data_label;
+
+
     void clear(void)
     {
         data.clear();
@@ -753,6 +711,48 @@ struct network_data
             out.write((const char*)&data[i][0],data[i].size()*sizeof(float));
         return true;
     }
+    void get_label_pile(std::vector<std::vector<unsigned int> >& label_pile) const
+    {
+        label_pile.clear();
+        label_pile.resize(output.size());
+        for(unsigned int i = 0;i < data_label.size();++i)
+            if(data_label[i] < label_pile.size())
+                label_pile[data_label[i]].push_back(i);
+    }
+
+    void sample_test_from(network_data& rhs,float sample_ratio = 0.01)
+    {
+        input = rhs.input;
+        output = rhs.output;
+
+        std::vector<std::vector<unsigned int> > label_pile;
+        get_label_pile(label_pile);
+        std::vector<int> list_to_remove(rhs.data.size());
+        for(int i = 0;i < output.size();++i)
+        {
+            if(label_pile[i].empty())
+                continue;
+            std::random_shuffle(label_pile[i].begin(),label_pile[i].end());
+            int sample_count = std::max<int>(1,label_pile[i].size()*sample_ratio);
+            for(int j = 0;j < sample_count;++j)
+            {
+                int index = label_pile[i][j];
+                while(list_to_remove[index])
+                    index = label_pile[i][j];
+                data.push_back(rhs.data[index]);
+                data_label.push_back(rhs.data_label[index]);
+                list_to_remove[index] = 1;
+            }
+        }
+        for(int i = rhs.data.size()-1;i >= 0;--i)
+        if(list_to_remove[i])
+        {
+            rhs.data[i] = rhs.data.back();
+            rhs.data_label[i] = rhs.data_label.back();
+            rhs.data.pop_back();
+            rhs.data_label.pop_back();
+        }
+    }
 };
 
 class network
@@ -769,26 +769,40 @@ private:// for training
     unsigned int training_error_count = 0;
     unsigned int output_size = 0;
 public:
+    float learning_rate = 0.01f;
+    float w_decay_rate = 0.0001f;
+    float b_decay_rate = 0.05f;
+    float momentum = 0.9f;
+    int batch_size = 64;
+    int epoch= 20;
+    std::string error_msg;
+private:
+    float rate_decay = 1.0f;
+public:
     network():data_size(0){}
     void reset(void)
     {
         layers.clear();
         geo.clear();
+        dweight.clear();
+        dbias.clear();
+        training_count = 0;
+        training_error_count = 0;
         data_size = 0;
     }
 
     unsigned int get_output_size(void) const{return output_size;}
-    void add(basic_layer* new_layer)
-    {
-        layers.push_back(std::shared_ptr<basic_layer>(new_layer));
-    }
-    void add(const image::geometry<3>& dim)
+    bool add(const image::geometry<3>& dim)
     {
         if(!layers.empty())
-            layers.back()->init(geo.back(),dim);
+        {
+            if(!layers.back()->init(geo.back(),dim))
+                return false;
+        }
         geo.push_back(dim);
         data_size += dim.size();
         output_size = dim.size();
+        return true;
     }
     unsigned int computation_cost(void) const
     {
@@ -819,37 +833,49 @@ public:
         }
     }
 
-    void to_image(color_image& I,std::vector<float> in,int layer_height = 20,int max_width = 0)
+    void to_image(color_image& I,std::vector<float> in,int label,int layer_height = 20,int max_width = 0)
     {
         std::vector<image::color_image> Is(layers.size());
         Is.resize(layers.size());
 
         int total_height = 0;
         image::uniform_dist<float> gen(0,3.14159265358979323846*2);
+        std::vector<image::basic_image<float,2> > layer_images(layers.size());
+        image::par_for(layers.size(),[&](int i)
+        {
+            layers[i]->to_image(layer_images[i]);
+        });
+
+        for(int i = 0;i < layers.size();++i)
+            max_width = std::max<int>(max_width,layer_images[i].width());
+
         for(int i = 0;i < layers.size();++i)
         {
             image::rgb_color b;
             b.from_hsl(gen(),0.5,0.85);
-            image::basic_image<float,2> I2;
-            layers[i]->to_image(I2);
-            if(I2.width() > max_width)
-                max_width = I2.width();
-            total_height += std::max<int>(I2.height(),layer_height);
-            if(!I2.empty())
+            if(layer_images[i].empty())
             {
-                Is[i].resize(I2.geometry());
+                total_height += layer_height;
+                continue;
+            }
+            for(int j = 0;j < 2 && layer_images[i].width() < max_width*0.5f;++j)
+                image::upsampling_nearest(layer_images[i]);
+
+            total_height += std::max<int>(layer_images[i].height(),layer_height);
+            {
+                Is[i].resize(layer_images[i].geometry());
                 std::fill(Is[i].begin(),Is[i].end(),b);
-                for(int j = 0;j < I2.size();++j)
+                for(int j = 0;j < layer_images[i].size();++j)
                 {
-                    if(I2[j] == 0)
+                    if(layer_images[i][j] == 0)
                     {
                         Is[i][j] = b;
                         continue;
                     }
-                    unsigned char s(std::min<int>(255,300.0*std::fabs(I2[j])));
-                    if(I2[j] < 0) // red
+                    unsigned char s(std::min<int>(255,512.0*std::fabs(layer_images[i][j])));
+                    if(layer_images[i][j] < 0) // red
                         Is[i][j] = image::rgb_color(s,0,0);
-                    if(I2[j] > 0) // blue
+                    if(layer_images[i][j] > 0) // blue
                         Is[i][j] = image::rgb_color(0,0,s);
                 }
             }
@@ -857,33 +883,55 @@ public:
 
         std::vector<image::color_image> values(geo.size());
         {
-            std::vector<float> out(data_size);
+            std::vector<float> out(data_size),back(data_size);
             float* out_buf = &out[0];
+            float* back_buf = &back[0];
             float* in_buf = &in[0];
             forward_propagation(in_buf,out_buf);
+            back_propagation(in_buf,label,out_buf,back_buf);
             for(int i = 0;i < geo.size();++i)
             {
                 int col = std::max<int>(1,(max_width-1)/(geo[i].width()+1));
                 int row = std::max<int>(1,geo[i][2]/col+1);
-                values[i].resize(image::geometry<2>(col*(geo[i].width()+1)+1,row*(geo[i].height()+1)+1));
+                if(i == 0)
+                    values[i].resize(image::geometry<2>(col*(geo[i].width()+1)+1,row*(geo[i].height()+1)+1));
+                else
+                    values[i].resize(image::geometry<2>(col*(geo[i].width()+1)+1,2.0*row*(geo[i].height()+1)+2));
                 std::fill(values[i].begin(),values[i].end(),image::rgb_color(255,255,255));
+                int draw_width = 0;
                 for(int y = 0,j = 0;y < row;++y)
                     for(int x = 0;j < geo[i][2] && x < col;++x,++j)
                     {
-                        auto v = image::make_image((i == 0 ? in_buf : out_buf)+geo[i].plane_size()*j,image::geometry<2>(geo[i][0],geo[i][1]));
-                        image::normalize_abs(v);
-                        image::color_image Iv(v.geometry());
-                        for(int j = 0;j < Iv.size();++j)
+                        auto v1 = image::make_image((i == 0 ? in_buf : out_buf)+geo[i].plane_size()*j,image::geometry<2>(geo[i][0],geo[i][1]));
+                        auto v2 = image::make_image((i == 0 ? in_buf : back_buf)+geo[i].plane_size()*j,image::geometry<2>(geo[i][0],geo[i][1]));
+                        image::normalize_abs(v1);
+                        image::normalize_abs(v2);
+                        image::color_image Iv1(v1.geometry()),Iv2(v2.geometry());
+                        for(int j = 0;j < Iv1.size();++j)
                         {
-                            unsigned char s(std::min<int>(255,300.0*std::fabs(v[j])));
-                            if(v[j] < 0) // red
-                                Iv[j] = image::rgb_color(s,0,0);
-                            if(v[j] >= 0) // blue
-                                Iv[j] = image::rgb_color(0,0,s);
+                            unsigned char s1(std::min<int>(255,255.0*std::fabs(v1[j])));
+                            if(v1[j] < 0) // red
+                                Iv1[j] = image::rgb_color(s1,0,0);
+                            if(v1[j] >= 0) // blue
+                                Iv1[j] = image::rgb_color(0,0,s1);
+                            unsigned char s2(std::min<int>(255,255.0*std::fabs(v2[j])));
+                            if(v2[j] < 0) // red
+                                Iv2[j] = image::rgb_color(s2,0,0);
+                            if(v2[j] >= 0) // blue
+                                Iv2[j] = image::rgb_color(0,0,s2);
                         }
-                        image::draw(Iv,values[i],image::geometry<2>(x*(geo[i].width()+1)+1,y*(geo[i].height()+1)+1));
+                        image::draw(Iv1,values[i],image::geometry<2>(x*(geo[i].width()+1)+1,y*(geo[i].height()+1)+1));
+                        if(i)
+                            image::draw(Iv2,values[i],image::geometry<2>(x*(geo[i].width()+1)+1,row*(geo[i].height()+1)+1+y*(geo[i].height()+1)+1));
+                        draw_width = std::max<int>(draw_width,Iv1.width() + x*(geo[i].width()+1)+1);
                     }
+                while((draw_width << 1) < max_width && values[i].height() < 50)
+                {
+                    image::upsampling_nearest(values[i]);
+                    draw_width <<= 1;
+                }
                 total_height += values[i].height();
+                back_buf += geo[i].size();
                 out_buf += geo[i].size();
             }
         }
@@ -912,12 +960,17 @@ public:
             }
         }
     }
-    void add(const std::vector<std::string>& list)
+    bool add(const std::vector<std::string>& list)
     {
         for(auto& str: list)
-            add(str);
+            if(!add(str))
+            {
+                error_msg = str;
+                return false;
+            }
+        return true;
     }
-    void add(const std::string& text)
+    bool add(const std::string& text)
     {
         // parse by |
         {
@@ -925,10 +978,7 @@ public:
             std::sregex_token_iterator first{text.begin(), text.end(),reg, -1},last;
             std::vector<std::string> list = {first, last};
             if(list.size() > 1)
-            {
-                add(list);
-                return;
-            }
+                return add(list);
         }
         // parse by ","
         std::regex reg(",");
@@ -946,20 +996,26 @@ public:
                 std::istringstream(list[0]) >> x;
                 std::istringstream(list[1]) >> y;
                 std::istringstream(list[2]) >> z;
-                add(image::geometry<3>(x,y,z));
-                return;
+                return add(image::geometry<3>(x,y,z));
             }
         }
 
         if(list.empty())
-            throw std::runtime_error(std::string("Invalid network construction text:") + text);
+            return false;
         if(list[0] == "soft_max")
         {
-            add(new soft_max_layer());
-            return;
+            layers.push_back(std::make_shared<soft_max_layer>());
+            return true;
+        }
+        if(list[0] == "dropout")
+        {
+            float param = 0.9;
+            std::istringstream(list[1]) >> param;
+            layers.push_back(std::make_shared<dropout_layer>(param));
+            return true;
         }
         if(list.size() < 2)
-            throw std::runtime_error(std::string("Invalid network construction text:") + text);
+            return false;
         activation_type af;
         if(list[1] == "tanh")
             af = activation_type::tanh;
@@ -973,34 +1029,34 @@ public:
                     if(list[1] == "identity")
                         af = activation_type::identity;
                     else
-                        throw std::runtime_error(std::string("Invalid activation function type:") + text);
+                        return false;
 
         if(list[0] == "full")
         {
-            add(new fully_connected_layer(af));
-            return;
+            layers.push_back(std::make_shared<fully_connected_layer>(af));
+            return true;
         }
 
         if(list.size() < 3)
-            throw std::runtime_error(std::string("Invalid network construction text:") + text);
+            return false;
         int param;
         std::istringstream(list[2]) >> param;
         if(list[0] == "avg_pooling")
         {
-            add(new average_pooling_layer(af,param));
-            return;
+            layers.push_back(std::make_shared<average_pooling_layer>(af,param));
+            return true;
         }
         if(list[0] == "max_pooling")
         {
-            add(new max_pooling_layer(af,param));
-            return;
+            layers.push_back(std::make_shared<max_pooling_layer>(af,param));
+            return true;
         }
         if(list[0] == "conv")
         {
-            add(new convolutional_layer(af,param));
-            return;
+            layers.push_back(std::make_shared<convolutional_layer>(af,param));
+            return true;
         }
-        throw std::runtime_error(std::string("Invalid network layer text:") + text);
+        return false;
     }
     void save_to_file(const char* file_name)
     {
@@ -1083,7 +1139,37 @@ public:
             out_ptr = next_ptr;
         }
     }
-
+    void back_propagation(const float* data_entry,unsigned int label,const float* input,float* out_ptr)
+    {
+        const float* out_ptr2 = input + data_size - output_size;
+        float* df_ptr = out_ptr + data_size - output_size;
+        // calculate difference
+        image::copy_ptr(out_ptr2,df_ptr,output_size);
+        for(int i = 0;i < output_size;++i)
+            df_ptr[i] -= ((label == i) ? target_value_max : target_value_min);
+        for(int k = layers.size()-1;k >= 0;--k)
+        {
+            layers[k]->back_af(df_ptr,out_ptr2);
+            const float* next_out_ptr = (k == 0 ? data_entry : out_ptr2 - layers[k]->input_size);
+            float* next_df_ptr = df_ptr - layers[k]->input_size;
+            layers[k]->back_propagation(df_ptr,next_df_ptr,next_out_ptr);
+            out_ptr2 = next_out_ptr;
+            df_ptr = next_df_ptr;
+        }
+    }
+    void calculate_dwdb(const float* data_entry,const float* out_ptr,float* df_ptr,
+                                                std::vector<std::vector<float> >& dweight,
+                                                std::vector<std::vector<float> >& dbias)
+    {
+        for(int k = 0;k < layers.size();++k)
+        {
+            df_ptr += layers[k]->input_size;
+            if(!layers[k]->weight.empty())
+                layers[k]->calculate_dwdb(df_ptr,k == 0 ? data_entry : out_ptr,
+                                          dweight[k],dbias[k]);
+            out_ptr += layers[k]->input_size;
+        }
+    }
 
     void initialize_training(void)
     {
@@ -1122,97 +1208,114 @@ public:
             target_value_min = 0.1;
             target_value_max = 0.9;
         }
-
-        training_count = 0;
-        training_error_count = 0;
+        rate_decay = 1.0;
     }
     double get_training_error(void) const
     {
         return 100.0*training_error_count/training_count;
     }
 
-    void update_weights(float learning_rate)
+    template <class network_data_type,class train_seq_type>
+    void train_batch(const network_data_type& network_data,const train_seq_type& train_seq,
+                     bool &terminated)
     {
-        par_for(layers.size(),[this,learning_rate](int j)
+        for(auto layer : layers)
+            layer->status = training;
+        if(dweight.empty())
+            initialize_training();
+        const auto& data = network_data.data;
+        const auto& label_id = network_data.data_label;
+        int size = batch_size;
+        training_count = 0;
+        training_error_count = 0;
+        for(int i = 0;i < train_seq.size();i += size)
         {
-            if(layers[j]->weight.empty())
-                return;
-            std::vector<float> dw(layers[j]->weight.size());
-            std::vector<float> db(layers[j]->bias.size());
-            for(int k = 0;k < dweight.size();++k)
+            int size = std::min<int>(batch_size,train_seq.size()-i);
+            // train a batch
+            par_for2(size, [&](int m, int thread_id)
             {
-                image::add(dw,dweight[k][j]);
-                image::add(db,dbias[k][j]);
-                std::fill(dweight[k][j].begin(),dweight[k][j].end(),float(0));
-                std::fill(dweight[k][j].begin(),dweight[k][j].end(),float(0));
-            }
-            layers[j]->update(dw,db,learning_rate);
-            image::upper_lower_threshold(layers[j]->bias,-bias_cap,bias_cap);
-            image::upper_lower_threshold(layers[j]->weight,-weight_cap,weight_cap);
+                ++training_count;
+                int data_index = train_seq[i+m];
+                if(terminated)
+                    return;
+                forward_propagation(&data[data_index][0],in_out_ptr[thread_id]);
+
+                auto ptr = in_out_ptr[thread_id] + data_size - output_size;
+                if(label_id[data_index] != std::max_element(ptr,ptr+output_size)-ptr)
+                    ++training_error_count;
+
+                back_propagation(&data[data_index][0],label_id[data_index],
+                                    in_out_ptr[thread_id],back_df_ptr[thread_id]);
+                calculate_dwdb(&data[data_index][0],in_out_ptr[thread_id],back_df_ptr[thread_id],
+                                    dweight[thread_id],dbias[thread_id]);
+            });
+
+            // update_weights
+            par_for(layers.size(),[this,size](int j)
+            {
+                if(layers[j]->weight.empty())
+                    return;
+                std::vector<float> dw(layers[j]->weight.size());
+                std::vector<float> db(layers[j]->bias.size());
+                for(int k = 0;k < dweight.size();++k)
+                {
+                    image::add_mt(dw,dweight[k][j]);
+                    image::add_mt(db,dbias[k][j]);
+                    image::multiply_constant_mt(dweight[k][j],momentum);
+                    image::multiply_constant_mt(dweight[k][j],momentum);
+                }
+
+                {
+                    image::multiply_constant_mt(layers[j]->weight,1.0f-w_decay_rate*rate_decay);
+                    image::multiply_constant_mt(layers[j]->bias,1.0f-b_decay_rate*rate_decay);
+                }
+                {
+                    image::vec::axpy(&layers[j]->weight[0],&layers[j]->weight[0] + layers[j]->weight.size(),-learning_rate*rate_decay/float(size),&dw[0]);
+                    image::vec::axpy(&layers[j]->bias[0],&layers[j]->bias[0] + layers[j]->bias.size(),-learning_rate*rate_decay/float(size),&db[0]);
+                }
+
+                image::upper_lower_threshold(layers[j]->bias,-bias_cap,bias_cap);
+                image::upper_lower_threshold(layers[j]->weight,-weight_cap,weight_cap);
+            });
+        }
+    }
+    template <class data_type>
+    void normalize_data(data_type& data)
+    {
+        image::par_for(data.size(),[&](unsigned int i){
+           image::normalize_abs(data[i]);
         });
     }
 
-    template <class data_type,class label_id_type>
-    void train_a_batch(const data_type& data,const label_id_type& label_id,int i,int size,bool &terminated)
+    template <class network_data_type,class iter_type>
+    void train(const network_data_type& data,bool &terminated,iter_type iter_fun)
     {
-        par_for2(size, [this,&label_id,&data,i,&terminated](int m, int thread_id)
-        {
-            ++training_count;
-            int data_index = i+m;
-            if(terminated)
+        std::vector<std::vector<unsigned int> > label_pile;
+        unsigned int sample_count = 0;
+        data.get_label_pile(label_pile);
+        for(int i = 0;i < output_size;++i)
+            if(label_pile.empty())
                 return;
-            forward_propagation(&data[data_index][0],in_out_ptr[thread_id]);
-
-            const float* out_ptr2 = in_out_ptr[thread_id] + data_size - output_size;
-            if(label_id[data_index] != std::max_element(out_ptr2,out_ptr2+output_size)-out_ptr2)
-                ++training_error_count;
-            float* df_ptr = back_df_ptr[thread_id] + data_size - output_size;
-
-            image::copy_ptr(out_ptr2,df_ptr,output_size);
+            else
+                sample_count = std::max<unsigned int>(sample_count,label_pile[i].size());
+        // rearrange training data
+        for(int iter = 0; iter < epoch && !terminated;iter++ ,iter_fun())
+        {
+            rate_decay = std::pow(0.8,iter);
             for(int i = 0;i < output_size;++i)
-                df_ptr[i] -= ((label_id[data_index] == i) ? target_value_max : target_value_min);
-            for(int k = layers.size()-1;k >= 0;--k)
-            {
-                layers[k]->back_af(df_ptr,out_ptr2);
-                const float* next_out_ptr = (k == 0 ? &data[data_index][0] : out_ptr2 - layers[k]->input_size);
-                float* next_df_ptr = df_ptr - layers[k]->input_size;
-                if(!layers[k]->weight.empty())
-                    layers[k]->calculate_dwdb(df_ptr,next_out_ptr,dweight[thread_id][k],dbias[thread_id][k]);
-                layers[k]->back_propagation(df_ptr,next_df_ptr,next_out_ptr);
-                out_ptr2 = next_out_ptr;
-                df_ptr = next_df_ptr;
-            }
+                std::random_shuffle(label_pile[i].begin(),label_pile[i].end());
 
-        },std::thread::hardware_concurrency());
-        if(training_count > 1000)
-        {
-            training_count *= 0.9;
-            training_error_count *= 0.9;
+            std::vector<unsigned int> training_sequence;
+            std::vector<unsigned int> label_pile_index(output_size);
+            for(unsigned int j = 0;j < sample_count;++j)
+                for(int i = 0;i < output_size;++i)
+                {
+                    training_sequence.push_back(label_pile[i][label_pile_index[i]++]);
+                    if(label_pile_index[i] >= label_pile[i].size())
+                        label_pile_index[i] = 0;
+                }
+            train_batch(data,training_sequence,terminated);
         }
-    }
-
-    template <class data_type,class label_type>
-    void train_batch(const data_type& data,const label_type& label_id,
-                       unsigned int batch_count,bool &terminated,float learning_rate = 0.0001)
-    {
-        if(dweight.empty())
-            initialize_training();
-        int batch_size = output_size*2;
-        for(int i = 0,j = 0;i < data.size() && j < batch_count;i += batch_size,++j)
-        {
-            int size = std::min<int>(batch_size,data.size()-i);
-            train_a_batch(data,label_id,i,size,terminated);
-            update_weights(learning_rate/batch_size);
-        }
-    }
-
-    template <class data_type,class label_type,class iter_type>
-    void train(const data_type& data,
-               const label_type& label_id,int iteration_count,bool &terminated,
-               iter_type iter_fun = []{},float learning_rate = 0.0001)
-    {
-        for(int iter = 0; iter < iteration_count && !terminated;iter++ ,learning_rate *= 0.85,iter_fun())
-            train_batch(data,label_id,data.size()*2/output_size+1,terminated,learning_rate);
     }
 
     void predict(std::vector<float>& in)
@@ -1241,6 +1344,8 @@ public:
     void test(const std::vector<std::vector<float>>& data,
               std::vector<std::vector<float> >& test_result)
     {
+        for(auto layer : layers)
+            layer->status = testing;
         test_result.resize(data.size());
         par_for((int)data.size(), [&](int i)
         {
@@ -1248,59 +1353,82 @@ public:
             predict(test_result[i]);
         });
     }
-    void test(const std::vector<std::vector<float>>& data,
+    void test(const std::vector<std::vector<float> >& data,
               std::vector<int>& test_result)
     {
+        for(auto layer : layers)
+            layer->status = testing;
         test_result.resize(data.size());
         par_for((int)data.size(), [&](int i)
         {
             test_result[i] = predict_label(data[i]);
         });
     }
-
-
-
+    template<typename data_type,typename label_type>
+    float test_error(const data_type& data,
+                     const label_type& test_result)
+    {
+        std::vector<int> result;
+        test(data,result);
+        int num_error = 0,num_total = 0;
+        for (size_t i = 0; i < result.size(); i++)
+        {
+            if (result[i] != test_result[i])
+                num_error++;
+            num_total++;
+        }
+        return (float)num_error * 100.0f / (float)num_total;
+    }
 };
 
-inline network& operator << (network& n, basic_layer* layer)
+inline bool operator << (network& n, const image::geometry<3>& dim)
 {
-    n.add(layer);
-    return n;
+    return n.add(dim);
 }
-inline network& operator << (network& n, const image::geometry<3>& dim)
+inline bool operator << (network& n, const std::string& text)
 {
-    n.add(dim);
-    return n;
-}
-inline network& operator << (network& n, const std::string& text)
-{
-    n.add(text);
-    return n;
+    return n.add(text);
 }
 
 
 template<class geo_type>
-void iterate_cnn(const geo_type& in_dim,
+void iterate_cnn(geo_type in_dim,
              const geo_type& out_dim,
              std::vector<std::string>& list,
-             int max_size = 10000)
+             int reduce_size = 2,
+             int max_cost = 10000)
 {
-    const int base_cost = 2000;
-    const int max_kernel = 7;
-    int max_cost = std::numeric_limits<int>::max();
+    const int max_kernel = 5;
+    unsigned int layer_cost = 0;
     std::multimap<int, std::tuple<image::geometry<3>,std::string,char> > candidates;
-    candidates.insert(std::make_pair(0,std::make_tuple(in_dim,std::string(),char(1))));
-    while(list.size() < max_size && !candidates.empty())
+    std::multimap<int, std::string> sorted_list;
+
+
+    if(reduce_size)
+    {
+        std::string in_str;
+        {
+            std::ostringstream sout;
+            sout << in_dim[0] << "," << in_dim[1] << "," << in_dim[2];
+            in_str = sout.str();
+            in_str += "|";
+        }
+        in_dim[0] /= reduce_size;
+        in_dim[1] /= reduce_size;
+        int pool_size = reduce_size;
+        candidates.insert(std::make_pair(0,std::make_tuple(in_dim,in_str + "max_pooling,identity,"+std::to_string(pool_size)+"|",char(1))));
+    }
+    else
+    {
+        candidates.insert(std::make_pair(0,std::make_tuple(in_dim,std::string(),char(1))));
+    }
+
+    while(!candidates.empty())
     {
         int cur_cost = candidates.begin()->first;
         geo_type cur_dim = std::get<0>(candidates.begin()->second);
         std::string cur_string = std::get<1>(candidates.begin()->second);
         char tag = std::get<2>(candidates.begin()->second);
-        while(candidates.size() > max_size)
-        {
-            max_cost = std::min<int>(max_cost,(--candidates.end())->first);
-            candidates.erase(--candidates.end());
-        }
         candidates.erase(candidates.begin());
         {
             std::ostringstream sout;
@@ -1308,7 +1436,20 @@ void iterate_cnn(const geo_type& in_dim,
             cur_string += sout.str();
             cur_string += "|";
         }
-
+        // add max pooling
+        if(!tag && cur_dim.width() > out_dim.width())
+        {
+            int pool_size = 2;
+            if(pool_size < cur_dim.width()/2 && pool_size < cur_dim.height()/2)
+            {
+                geo_type in_dim2(cur_dim[0]/pool_size,cur_dim[1]/pool_size,cur_dim[2]);
+                int cost = in_dim2.size()*pool_size*pool_size+in_dim2.size()+layer_cost;
+                if(cur_cost+cost > max_cost || in_dim2.size() < out_dim.size())
+                    ;
+                else
+                    candidates.insert(std::make_pair(cur_cost+cost,std::make_tuple(in_dim2,cur_string+"max_pooling,identity,"+std::to_string(pool_size)+"|",char(1))));
+            }
+        }
         // add convolutional layer
         for(int kernel = 3;kernel < cur_dim.width() && kernel < cur_dim.height() && kernel <= max_kernel;++kernel)
         {
@@ -1316,23 +1457,12 @@ void iterate_cnn(const geo_type& in_dim,
             for(int feature = 4;feature <= 64;feature *= 2)
             {
                 geo_type in_dim2(cur_dim[0]-kernel+1,cur_dim[1]-kernel+1,feature);
-                int cost = in_dim2.size()*cur_dim.depth()*kernel*kernel+base_cost;
-                if(cur_cost+cost > max_cost || in_dim2.size() < out_dim.size())
+                if(in_dim2.size() < out_dim.size())
+                    continue;
+                int cost = in_dim2.size()*cur_dim.depth()*kernel*kernel+cur_dim.size()+layer_cost;
+                if(cur_cost+cost > max_cost)
                     break;
                 candidates.insert(std::make_pair(cur_cost+cost,std::make_tuple(in_dim2,cur_string+"conv,relu,"+std::to_string(kernel)+"|",char(0))));
-                candidates.insert(std::make_pair(cur_cost+cost,std::make_tuple(in_dim2,cur_string+"conv,tanh,"+std::to_string(kernel)+"|",char(0))));
-            }
-        }
-        // add max pooling
-        if(!tag && cur_dim.width() > out_dim.width())
-        {
-            for(int pool_size = 2;pool_size < 4 && pool_size < cur_dim.width()/2 && pool_size < cur_dim.height()/2;++pool_size)
-            {
-                geo_type in_dim2(cur_dim[0]/pool_size,cur_dim[1]/pool_size,cur_dim[2]);
-                int cost = in_dim2.size()*pool_size*pool_size+base_cost;
-                if(cur_cost+cost > max_cost || in_dim2.size() < out_dim.size())
-                    break;
-                candidates.insert(std::make_pair(cur_cost+cost,std::make_tuple(in_dim2,cur_string+"max_pooling,identity,"+std::to_string(pool_size)+"|",char(1))));
             }
         }
         // add fully connected
@@ -1340,13 +1470,12 @@ void iterate_cnn(const geo_type& in_dim,
         {
             for(int i = 2;i <= 256;i *= 2)
             {
-                if(i < out_dim.size())
+                if(i <= out_dim.size() || i >= cur_dim.size())
                     continue;
                 geo_type in_dim2(1,1,i);
-                int cost = cur_dim.size()*in_dim2.size()+base_cost;
-                if(in_dim2.size() > cur_dim.size() || cur_cost+cost > max_cost)
+                int cost = cur_dim.size()*in_dim2.size()+i+layer_cost;
+                if(cur_cost+cost > max_cost)
                     break;
-                candidates.insert(std::make_pair(cur_cost+cost,std::make_tuple(in_dim2,cur_string+"full,tanh|",char(1))));
                 candidates.insert(std::make_pair(cur_cost+cost,std::make_tuple(in_dim2,cur_string+"full,relu|",char(1))));
             }
         }
@@ -1355,13 +1484,14 @@ void iterate_cnn(const geo_type& in_dim,
         {
             std::ostringstream sout;
             sout << out_dim[0] << "," << out_dim[1] << "," << out_dim[2];
-            std::string str = sout.str();
-            std::string str1 = std::string("full,tanh|")+str;
-            std::string str2 = std::string("full,relu|")+str;
-            list.push_back(cur_string + str1);
-            list.push_back(cur_string + str2);
+            std::string s = cur_string + std::string("full,relu|")+sout.str();
+            int cost = cur_dim.size()*out_dim.size()+out_dim.size();
+            if(cost+cur_cost < max_cost)
+                sorted_list.insert(std::make_pair(cost+cur_cost,s));
         }
     }
+    for(auto& p:sorted_list)
+        list.push_back(p.second);
 }
 
 
