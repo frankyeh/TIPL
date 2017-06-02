@@ -6,6 +6,8 @@ template <class T,class Func>
 void par_for(T size, Func f, int thread_count = std::thread::hardware_concurrency())
 {
     std::vector<std::future<void> > futures;
+    if(thread_count > size)
+        thread_count = size;
     for(int id = 1; id < thread_count; id++)
     {
         futures.push_back(std::move(std::async(std::launch::async, [id,size,thread_count,&f]
@@ -24,6 +26,8 @@ template <class T,class Func>
 void par_for2(T size, Func f, int thread_count = std::thread::hardware_concurrency())
 {
     std::vector<std::future<void> > futures;
+    if(thread_count > size)
+        thread_count = size;
     for(int id = 1; id < thread_count; id++)
     {
         futures.push_back(std::move(std::async(std::launch::async, [id,size,thread_count,&f]
