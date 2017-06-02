@@ -216,100 +216,63 @@ namespace reg
                 image::histogram(from,from_hist,0,his_bandwidth-1,his_bandwidth);
             }
 
-            image::basic_image<double,2> mutual_hist((image::geometry<2>(his_bandwidth,his_bandwidth)));
-            std::vector<double> to_hist(his_bandwidth);
 
             // obtain the histogram
             image::geometry<ImageType::dimension> geo(from_.geometry());
-            image::interpolation<image::linear_weighting,ImageType::dimension> interp;
-            image::vector<ImageType::dimension,double> pos;
+            unsigned int thread_count = std::thread::hardware_concurrency();
 
-            image::make_image(&from[0],geo).for_each([&](unsigned char value,pixel_index<ImageType::dimension> index)
+
+            std::vector<image::basic_image<double,2> > mutual_hist(thread_count);
+            std::vector<std::vector<double> > to_hist(thread_count);
+            for(int i = 0;i < thread_count;++i)
             {
+                mutual_hist[i].resize(image::geometry<2>(his_bandwidth,his_bandwidth));
+                to_hist[i].resize(his_bandwidth);
+            }
+
+            image::make_image(&from[0],geo).for_each_mt2([&](unsigned char value,pixel_index<ImageType::dimension> index,int id)
+            {
+                image::interpolation<image::linear_weighting,ImageType::dimension> interp;
                 unsigned int from_index = ((unsigned int)value) << band_width;
+                image::vector<ImageType::dimension,float> pos;
                 transform(index,pos);
                 if (!interp.get_location(to_.geometry(),pos))
                 {
-                    to_hist[0] += 1.0;
-                    mutual_hist[from_index ] += 1.0;
+                    to_hist[id][0] += 1.0;
+                    mutual_hist[id][from_index ] += 1.0;
                 }
                 else
                     for (unsigned int i = 0; i < image::interpolation<image::linear_weighting,ImageType::dimension>::ref_count; ++i)
                     {
                         float weighting = interp.ratio[i];
                         unsigned int to_index = to[interp.dindex[i]];
-                        to_hist[to_index] += weighting;
-                        mutual_hist[from_index+ to_index] += weighting;
+                        to_hist[id][to_index] += weighting;
+                        mutual_hist[id][from_index+ to_index] += weighting;
                     }
             });
 
+            for(int i = 1;i < thread_count;++i)
+            {
+                image::add(mutual_hist[0],mutual_hist[i]);
+                image::add(to_hist[0],to_hist[i]);
+            }
+
             // calculate the cost
             {
                 float sum = 0.0;
-                image::geometry<2> geo(mutual_hist.geometry());
+                image::geometry<2> geo(mutual_hist[0].geometry());
                 for (image::pixel_index<2> index(geo);index < geo.size();++index)
                 {
-                    float mu = mutual_hist[index.index()];
+                    float mu = mutual_hist[0][index.index()];
                     if (mu == 0.0)
                         continue;
-                    sum += mu*std::log(mu/((float)from_hist[index.y()])/to_hist[index.x()]);
+                    sum += mu*std::log(mu/((float)from_hist[index.y()])/to_hist[0][index.x()]);
                 }
                 return -sum;
             }
         }
     };
 
-    struct mutual_information_mt
-    {
-        typedef double value_type;
-        unsigned int band_width;
-        unsigned int his_bandwidth;
-        std::vector<unsigned int> from_hist;
-        std::vector<unsigned char> from;
-    public:
-        mutual_information_mt(unsigned int band_width_ = 6):band_width(band_width_),his_bandwidth(1 << band_width_) {}
-    public:
-        template<class ImageType,class TransformType>
-        double operator()(const ImageType& from_,const ImageType& to__,const TransformType& transform)
-        {
-            image::geometry<ImageType::dimension> geo(from_.geometry());
-            basic_image<typename ImageType::value_type,ImageType::dimension> to_(geo);
-            image::resample_mt(to__,to_,transform,image::linear);
-            std::vector<unsigned char> to(to_.size());
-            image::normalize(to_.begin(),to_.end(),to.begin(),his_bandwidth-1);
-
-            if(from.size() != from_.size())
-            {
-                from.resize(from_.size());
-                image::normalize(from_.begin(),from_.end(),from.begin(),his_bandwidth-1);
-                image::histogram(from,from_hist,0,his_bandwidth-1,his_bandwidth);
-            }
-
-            image::basic_image<unsigned int,2> mutual_hist((image::geometry<2>(his_bandwidth,his_bandwidth)));
-            std::vector<unsigned int> to_hist(his_bandwidth);
-            image::make_image(&from[0],geo).for_each([&](unsigned char value,pixel_index<ImageType::dimension> index)
-            {
-                unsigned int from_index = ((unsigned int)value) << band_width;
-                unsigned int to_index = to[index.index()];
-                to_hist[to_index] += 1;
-                mutual_hist[from_index+ to_index] += 1;
-            });
-
-            // calculate the cost
-            {
-                float sum = 0.0;
-                image::geometry<2> geo(mutual_hist.geometry());
-                for (image::pixel_index<2> index(geo);index < geo.size();++index)
-                {
-                    float mu = mutual_hist[index.index()];
-                    if (mu == 0.0)
-                        continue;
-                    sum += mu*std::log(mu/((float)from_hist[index.y()])/(float)to_hist[index.x()]);
-                }
-                return -sum;
-            }
-        }
-    };
 
     template<class image_type,
              typename vs_type,
