@@ -131,6 +131,13 @@ double mean(input_iterator from,input_iterator to)
 {
     return from == to ? 0.0 : std::accumulate(from,to,0.0)/((double)(to-from));
 }
+
+template<class image_type>
+double mean(const image_type& I)
+{
+    return mean(I.begin(),I.end());
+}
+
 template <typename input_iterator>
 typename std::iterator_traits<input_iterator>::value_type median(input_iterator begin, input_iterator end)
 {
