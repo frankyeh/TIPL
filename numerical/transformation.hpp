@@ -477,7 +477,8 @@ public:
         value_type data[12];
     };
 private:
-    void assign(const affine_transform& rhs)
+    template<typename other_vluae_type>
+    void assign(const affine_transform<other_vluae_type>& rhs)
     {
         std::copy(rhs.data,rhs.data+total_size,data);
     }
@@ -499,8 +500,8 @@ public:
         std::fill(data,data+total_size,0);
         std::fill(scaling,scaling+dimension,1);
     }
-
-    const affine_transform& operator=(const affine_transform& rhs)
+    template<typename other_vluae_type>
+    const affine_transform<value_type>& operator=(const affine_transform<other_vluae_type>& rhs)
     {
         assign(rhs);
         return *this;
@@ -610,7 +611,8 @@ public:
         shift[2] += to[2]*0.5;
     }
 
-    const transformation_matrix& operator=(const transformation_matrix& rhs)
+    template<typename other_value_type>
+    const transformation_matrix<value_type>& operator=(const transformation_matrix<other_value_type>& rhs)
     {
         std::copy(rhs.data,rhs.data+total_size,data);
         return *this;
