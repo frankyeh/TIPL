@@ -8,6 +8,81 @@ namespace image
 {
 //---------------------------------------------------------------------------
 
+template<typename value_type>
+struct interpolator{
+    typedef value_type type;
+    static value_type assign(value_type v)
+    {
+        return v;
+    }
+};
+
+template<>
+struct interpolator<char>{
+    typedef float type;
+    static char assign(float v)
+    {
+        return v;
+    }
+};
+
+template<>
+struct interpolator<unsigned char>{
+    typedef float type;
+    static unsigned char assign(float v)
+    {
+        return std::max<float>(0.0f,v);
+    }
+};
+
+template<>
+struct interpolator<short>{
+    typedef float type;
+    static short assign(float v)
+    {
+        return v;
+    }
+};
+
+template<>
+struct interpolator<unsigned short>{
+    typedef float type;
+    static unsigned short assign(float v)
+    {
+        return std::max<float>(0.0f,v);
+    }
+};
+
+template<>
+struct interpolator<int>{
+    typedef float type;
+    static int assign(float v)
+    {
+        return v;
+    }
+};
+
+
+template<>
+struct interpolator<unsigned int>{
+    typedef float type;
+    static unsigned int assign(float v)
+    {
+        return std::max<float>(0.0f,v);
+    }
+};
+
+
+template<int dim,typename vtype>
+struct interpolator<image::vector<dim,vtype> >{
+    typedef image::vector<dim,typename interpolator<vtype>::type> type;
+    static image::vector<dim,vtype> assign(image::vector<dim,vtype> v)
+    {
+        return v;
+    }
+};
+
+
 template<class storage_type,class iterator_type>
 class const_reference_iterator
 {
@@ -56,9 +131,10 @@ struct weighting_sum
     template<class data_iterator_type,class weighting_iterator,class output_type>
     void operator()(data_iterator_type from,data_iterator_type to,weighting_iterator w,output_type& result_)
     {
-        float result = ((float)(*from))*(*w);
+
+        interpolator<value_type>::type result = (*from)*(*w);
         for (++from,++w;from != to;++from,++w)
-            result += ((float)(*from))*(*w);
+            result += (*from)*(*w);
         result_ = result;
     }
 };
@@ -158,7 +234,7 @@ struct interpolation<weighting_function,2>
     {
         if (get_location(source.geometry(),location))
         {
-			weighting_sum<PixelType>()(const_reference_iterator<ImageType,int*>(source,dindex),
+            weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int*>(source,dindex),
                 const_reference_iterator<ImageType,int*>(source,dindex+ref_count),ratio,pixel);
             return true;
         }
@@ -169,7 +245,7 @@ struct interpolation<weighting_function,2>
     template<class ImageType,class PixelType>
     void estimate(const ImageType& source,PixelType& pixel)
     {
-        weighting_sum<PixelType>()(const_reference_iterator<ImageType,int*>(source,dindex),
+        weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int*>(source,dindex),
                 const_reference_iterator<ImageType,int*>(source,dindex+ref_count),ratio,pixel);
     }
 };
@@ -248,7 +324,7 @@ struct interpolation<weighting_function,3>
     {
         if (get_location(source.geometry(),location))
         {
-			weighting_sum<PixelType>()(const_reference_iterator<ImageType,int*>(source,dindex),
+            weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int*>(source,dindex),
                 const_reference_iterator<ImageType,int*>(source,dindex+ref_count),ratio,pixel);
             return true;
         }
@@ -259,7 +335,7 @@ struct interpolation<weighting_function,3>
     template<class ImageType,class PixelType>
     void estimate(const ImageType& source,PixelType& pixel)
     {
-        weighting_sum<PixelType>()(const_reference_iterator<ImageType,int*>(source,dindex),
+        weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int*>(source,dindex),
                 const_reference_iterator<ImageType,int*>(source,dindex+ref_count),ratio,pixel);
     }
 };
@@ -280,7 +356,8 @@ struct interpolation<weighting_function,3>
 
 // this scaled by 0.5
 template<class iterator_type>
-inline float cubic_imp(iterator_type p, float x,float x2,float x3)
+inline typename std::iterator_traits<iterator_type>::value_type
+    cubic_imp(iterator_type p, float x,float x2,float x3)
 {
     typedef typename std::iterator_traits<iterator_type>::value_type value_type;
     value_type p1_p2 = (p[1] - p[2]);
@@ -288,18 +365,16 @@ inline float cubic_imp(iterator_type p, float x,float x2,float x3)
     value_type p1_p2_3 = p1_p2_2 + p1_p2;
     value_type p1_p2_4 = p1_p2_2 + p1_p2_2;
     value_type _p0_p3 = p[3] - p[0];
-    x3 *= (_p0_p3  + p1_p2_3);
-    x2 *= (p[0] - p[1]- p1_p2_4 - _p0_p3);
-    x  *= (-p[0]           + p[2]          );
-    return (p[1] + p[1]) + (x3+x2+x);
+    return (p[1]+p[1]) +((_p0_p3  + p1_p2_3)*x3+(p[0] - p[1]- p1_p2_4 - _p0_p3)*x2+(-p[0]+p[2])*x);
 }
 
 // this scaled by 0.25
 template<class iterator_type>
-inline float cubic_imp(iterator_type p, float x, float x2,float x3,
-                                           float y, float y2,float y3)
+inline typename std::iterator_traits<iterator_type>::value_type
+    cubic_imp(iterator_type p, float x, float x2,float x3,float y, float y2,float y3)
 {
-    float arr[4];
+    typedef typename std::iterator_traits<iterator_type>::value_type value_type;
+    value_type arr[4];
     arr[0] = cubic_imp(p, y, y2, y3);
     arr[1] = cubic_imp(p+4, y, y2, y3);
     arr[2] = cubic_imp(p+8, y, y2, y3);
@@ -309,11 +384,13 @@ inline float cubic_imp(iterator_type p, float x, float x2,float x3,
 
 // this scaled by 0.125
 template<class iterator_type>
-inline float cubic_imp(iterator_type p,float x, float x2,float x3,
+inline typename std::iterator_traits<iterator_type>::value_type
+    cubic_imp(iterator_type p,float x, float x2,float x3,
                                              float y, float y2,float y3,
                                              float z, float z2,float z3)
 {
-    float arr[4];
+    typedef typename std::iterator_traits<iterator_type>::value_type value_type;
+    value_type arr[4];
     arr[0] = cubic_imp(p, y, y2, y3, z, z2, z3);
     arr[1] = cubic_imp(p+16, y, y2, y3, z, z2, z3);
     arr[2] = cubic_imp(p+32, y, y2, y3, z, z2, z3);
@@ -380,10 +457,10 @@ struct cubic_interpolation<2>{
     template<class ImageType,class PixelType>
     void estimate(const ImageType& source,PixelType& pixel)
     {
-        float p[16];
+        interpolator<PixelType>::type p[16];
         for(unsigned int index = 0;index < 16;++index)
             p[index] = source[dindex[index]];
-        pixel = std::max(0.0,cubic_imp(p,dx,dx2,dx3,dy,dy2,dy3)*0.25);
+        pixel = interpolator<PixelType>::assign(cubic_imp(p,dx,dx2,dx3,dy,dy2,dy3)*0.25);
     }
 };
 
@@ -456,10 +533,10 @@ struct cubic_interpolation<3>{
     template<class ImageType,class PixelType>
     void estimate(const ImageType& source,PixelType& pixel)
     {
-        float p[64];
+        interpolator<PixelType>::type p[64];
         for(unsigned int index = 0;index < 64;++index)
             p[index] = source[dindex[index]];
-        pixel = std::max(0.0,cubic_imp(p,dx,dx2,dx3,dy,dy2,dy3,dz,dz2,dz3)*0.125);
+        pixel = interpolator<PixelType>::assign(cubic_imp(p,dx,dx2,dx3,dy,dy2,dy3,dz,dz2,dz3)*0.125);
     }
 };
 
