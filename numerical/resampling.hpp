@@ -620,7 +620,6 @@ void upsample_with_padding(const image_type1& I,image_type2& uI,const geo_type& 
 {
     basic_image<typename image_type1::value_type,image_type1::dimension> new_I;
     image::upsampling(I,new_I);
-    new_I *= 2.0;
     uI.resize(geo);
     image::draw(new_I,uI,pixel_index<image_type1::dimension>(I.geometry()));
 }
