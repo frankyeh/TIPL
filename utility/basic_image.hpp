@@ -437,17 +437,18 @@ public:
         size_t block_size = data.size()/thread_count;
 
         std::vector<std::future<void> > futures;
-        size_t pos = block_size;
-        for(int id = 1; id < thread_count; id++,pos += block_size)
+        size_t pos = 0;
+        for(int id = 1; id < thread_count; id++)
         {
-            size_t end = (id == thread_count -1 ? data.size():pos + block_size);
+            size_t end = pos + block_size;
             futures.push_back(std::move(std::async(std::launch::async, [this,f,pos,end]
             {
                 for(pixel_index<dim> index(pos,geometry());index.index() < end;++index)
                     f(data[index.index()],index);
             })));
+            pos = end;
         }
-        for(pixel_index<dim> index(geometry());index.index() < block_size;++index)
+        for(pixel_index<dim> index(pos,geometry());index.index() < data.size();++index)
             f(data[index.index()],index);
         for(auto &future : futures)
             future.wait();
@@ -460,17 +461,18 @@ public:
         size_t block_size = data.size()/thread_count;
 
         std::vector<std::future<void> > futures;
-        size_t pos = block_size;
-        for(int id = 1; id < thread_count; id++,pos += block_size)
+        size_t pos = 0;
+        for(int id = 1; id < thread_count; id++)
         {
-            size_t end = (id == thread_count -1 ? data.size():pos + block_size);
-            futures.push_back(std::move(std::async(std::launch::async, [this,f,pos,id,end]
+            size_t end = pos + block_size;
+            futures.push_back(std::move(std::async(std::launch::async, [this,id,f,pos,end]
             {
                 for(pixel_index<dim> index(pos,geometry());index.index() < end;++index)
                     f(data[index.index()],index,id);
             })));
+            pos = end;
         }
-        for(pixel_index<dim> index(geometry());index.index() < block_size;++index)
+        for(pixel_index<dim> index(pos,geometry());index.index() < data.size();++index)
             f(data[index.index()],index,0);
         for(auto &future : futures)
             future.wait();
