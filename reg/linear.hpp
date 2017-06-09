@@ -239,7 +239,7 @@ namespace reg
                 if (!interp.get_location(to_.geometry(),pos))
                 {
                     to_hist[id][0] += 1.0;
-                    mutual_hist[id][from_index ] += 1.0;
+                    mutual_hist[id][from_index] += 1.0;
                 }
                 else
                     for (unsigned int i = 0; i < image::interpolation<image::linear_weighting,ImageType::dimension>::ref_count; ++i)
@@ -323,7 +323,7 @@ namespace reg
     };
 
 enum reg_type {none = 0,translocation = 1,rotation = 2,rigid_body = 3,scaling = 4,rigid_scaling = 7,tilt = 8,affine = 15};
-
+enum cost_type{corr,mutual_info};
 
 template<class image_type1,class image_type2,class transform_type>
 void get_bound(const image_type1& from,const image_type2& to,
@@ -358,8 +358,8 @@ void get_bound(const image_type1& from,const image_type2& to,
     {
         for (unsigned int index = dimension + dimension; index < dimension+dimension+dimension; ++index)
         {
-            upper_trans[index] = 1.5;
-            lower_trans[index] = 1.0/1.5;
+            upper_trans[index] = 1.2;
+            lower_trans[index] = 0.9;
         }
     }
 

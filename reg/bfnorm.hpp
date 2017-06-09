@@ -129,16 +129,24 @@ public:
     }
 
     template<class rhs_type>
+    void get_displacement(const image::pixel_index<3>& from,rhs_type& to) const
+    {
+        return get_displacement(image::vector<3,int>(from[0],from[1],from[2]),to);
+    }
+    template<class rhs_type>
     void operator()(const image::pixel_index<3>& from,rhs_type& to) const
     {
         return (*this)(image::vector<3,int>(from[0],from[1],from[2]),to);
     }
+
     template<class rhs_type>
-    void operator()(const image::vector<3,int>& from,rhs_type& to) const
+    void get_displacement(const image::vector<3,int>& from,rhs_type& to) const
     {
-        to = from;
         if(!VGgeo.is_valid(from))
+        {
+            to = rhs_type();
             return;
+        }
         int nx = k_base[0];
         int ny = k_base[1];
         int nz = k_base[2];
@@ -164,15 +172,21 @@ public:
 
         image::mat::product(T.begin(),bx,temp,dyz_x,dx_1);
         image::mat::product(temp,by,temp2,dz_y,dy_1);
-        to[0] += image::vec::dot(bz,bz+nz,temp2);
+        to[0] = image::vec::dot(bz,bz+nz,temp2);
 
         image::mat::product(T.begin()+nxyz,bx,temp,dyz_x,dx_1);
         image::mat::product(temp,by,temp2,dz_y,dy_1);
-        to[1] += image::vec::dot(bz,bz+nz,temp2);
+        to[1] = image::vec::dot(bz,bz+nz,temp2);
 
         image::mat::product(T.begin()+(nxyz << 1),bx,temp,dyz_x,dx_1);
         image::mat::product(temp,by,temp2,dz_y,dy_1);
-        to[2] += image::vec::dot(bz,bz+nz,temp2);
+        to[2] = image::vec::dot(bz,bz+nz,temp2);
+    }
+    template<class rhs_type>
+    void operator()(const image::vector<3,int>& from,rhs_type& to) const
+    {
+        get_displacement(from,to);
+        to += from;
     }
 };
 

@@ -225,7 +225,10 @@ void cdm_group(const std::vector<basic_image<pixel_type,dimension> >& I,// origi
         cdm_group(rI,d,theta/2,reg,terminated);
         // upsampling deformation
         for (int index = 0;index < n;++index)
+        {
             upsample_with_padding(d[index],d[index],geo);
+            d[index] * 2.0f;
+        }
     }
     std::cout << "dimension:" << geo[0] << "x" << geo[1] << "x" << geo[2] << std::endl;
     basic_image<pixel_type,dimension> J0(geo);// the potential template
@@ -328,8 +331,8 @@ double cdm(const basic_image<pixel_type,dimension>& It,
             basic_image<vtor_type,dimension>& d,// displacement field
             terminate_type& terminated,
             float resolution = 2.0,
-            unsigned int steps = 40,
-            float cdm_constraint = 1.0)
+            float cdm_smoothness = 0.3f,
+            unsigned int steps = 20)
 {
     geometry<dimension> geo = It.geometry();
     d.resize(geo);
@@ -340,86 +343,94 @@ double cdm(const basic_image<pixel_type,dimension>& It,
         basic_image<pixel_type,dimension> rIs,rIt;
         downsample_with_padding(It,rIt);
         downsample_with_padding(Is,rIs);
-        float r = cdm(rIt,rIs,d,terminated,resolution/2.0,steps*2,cdm_constraint);
+        float r = cdm(rIt,rIs,d,terminated,resolution/2.0,cdm_smoothness,steps);
         upsample_with_padding(d,d,geo);
+        d *= 2.0f;
         if(resolution > 1.0)
-            return r;
+            return 0.0f;
     }
     basic_image<pixel_type,dimension> Js;// transformed I
     basic_image<vtor_type,dimension> new_d(d.geometry());// new displacements
     double max_t = (double)(*std::max_element(It.begin(),It.end()));
-    if(max_t == 0.0)
+    double max_s = (double)(*std::max_element(Is.begin(),Is.end()));
+    if(max_t == 0.0 || max_s == 0.0)
         return 0.0;
-    double theta = 0.5/max_t/max_t;
-    double prev_r = 0.0, r = 0.0;
+    double theta = 0.0;
+    unsigned int window_size = 3;
+    float inv_d2 = 0.5f/dimension;
+    float cdm_smoothness2 = 1.0f-cdm_smoothness;
+    int shift[dimension]={0};
+    shift[0] = 1;
+    for(int i = 1;i < dimension;++i)
+        shift[i] = shift[i-1]*geo[i-1];
     for (unsigned int index = 0;index < steps && !terminated;++index)
     {
         image::compose_displacement(Is,d,Js);
-        r = image::correlation(Js.begin(),Js.end(),It.begin());
-        if(r <= prev_r)
-        {
-            new_d.swap(d);
-            //std::cout << index << std::endl;
-            break;
-        }
-        prev_r = r;
-        //std::cout << "r:" << prev_r << std::endl;
         // dJ(cJ-I)
         image::gradient_sobel(Js,new_d);
         Js.for_each_mt([&](pixel_type&,image::pixel_index<dimension>& index){
-            if(It[index.index()] == 0.0)
+            if(It[index.index()] == 0.0 || It.geometry().is_edge(index))
+            {
+                new_d[index.index()] = vtor_type();
                 return;
+            }
             std::vector<pixel_type> Itv,Jv;
-            image::get_window(index,It,3,Itv);
-            image::get_window(index,Js,3,Jv);
+            image::get_window(index,It,window_size,Itv);
+            image::get_window(index,Js,window_size,Jv);
             double a,b,r2;
             image::linear_regression(Jv.begin(),Jv.end(),Itv.begin(),a,b,r2);
-            if(a < 0.0f)
+            if(a <= 0.0f)
                 new_d[index.index()] = vtor_type();
             else
-                new_d[index.index()] *= theta*(Js[index.index()]*a+b-It[index.index()]);
+                new_d[index.index()] *= r2*(Js[index.index()]*a+b-It[index.index()]);
         });
-
         // solving the poisson equation using Jacobi method
-        basic_image<vtor_type,dimension> solve_d(new_d.geometry());
-        for(int iter = 0;iter < 50 & !terminated;++iter)
+        basic_image<vtor_type,dimension> solve_d(new_d);
+        image::multiply_constant_mt(solve_d,-inv_d2);
+        for(int iter = 0;iter < window_size*2 & !terminated;++iter)
         {
-            if(iter)
-                image::reg::poisson_equation_solver<vtor_type,dimension>()(solve_d);
-            image::minus_mt(solve_d,new_d);
-            image::divide_constant_mt(solve_d,dimension*2);
+            basic_image<vtor_type,dimension> new_solve_d(new_d.geometry());
+            image::par_for(solve_d.size(),[&](int pos)
+            {
+                for(int d = 0;d < dimension;++d)
+                {
+                    int p1 = pos-shift[d];
+                    int p2 = pos+shift[d];
+                    if(p1 >= 0)
+                       new_solve_d[pos] += solve_d[p1];
+                    if(p2 < solve_d.size())
+                       new_solve_d[pos] += solve_d[p2];
+                }
+                new_solve_d[pos] -= new_d[pos];
+                new_solve_d[pos] *= inv_d2;
+            });
+            solve_d.swap(new_solve_d);
         }
-        image::filter::gaussian2(solve_d);
         image::minus_constant_mt(solve_d,solve_d[0]);
 
-        double max_dis = 0.0;
-        solve_d.for_each_mt([&](vtor_type& v,pixel_index<dimension>)
-        {
-            max_dis = std::max<float>(max_dis,v.length());
-        });
-        if(max_dis == 0.0)
-            break;
         new_d = solve_d;
-        image::add(new_d,d);
-        new_d.for_each_mt([&](vtor_type& value,image::pixel_index<dimension>& index){
-            if(It[index.index()] == 0.0)
-                return;
-            std::vector<vtor_type> values;
-            image::get_window(index,d,values);
-            for(int i = 0;i < values.size();++i)
+        if(theta == 0.0f)
+        {
+            image::par_for(new_d.size(),[&](int i)
             {
-                values[i] -= value;
-                if(values[i].length() > cdm_constraint)
-                {
-                    value = d[index.index()];
-                    break;
-                }
-            }
+               float l = new_d[i].length();
+               if(l > theta)
+                   theta = l;
+            });
+        }
+        image::multiply_constant_mt(new_d,0.5f/theta);
+        image::add(new_d,d);
+
+        basic_image<vtor_type,dimension> new_ds(new_d);
+        image::filter::gaussian2(new_ds);
+        image::par_for(new_d.size(),[&](int i){
+           new_ds[i] *= cdm_smoothness;
+           new_d[i] *= cdm_smoothness2;
+           new_d[i] += new_ds[i];
         });
         new_d.swap(d);
     }
-    return prev_r;
-
+    return 0.0f;
 }
 
 
