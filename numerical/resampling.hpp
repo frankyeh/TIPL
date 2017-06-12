@@ -855,7 +855,6 @@ void match_signal(const T& VG,T& VFF)
             y.push_back(VG[index]);
         }
     std::pair<double,double> r = image::linear_regression(x.begin(),x.end(),y.begin());
-    std::cout << r.first << " " << r.second << std::endl;
     for(unsigned int index = 0;index < VG.size();++index)
         if(VG[index] > 0 && VFF[index] > 0)
             VFF[index] = std::max<float>(0,VFF[index]*r.first+r.second);
