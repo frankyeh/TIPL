@@ -131,8 +131,7 @@ struct weighting_sum
     template<class data_iterator_type,class weighting_iterator,class output_type>
     void operator()(data_iterator_type from,data_iterator_type to,weighting_iterator w,output_type& result_)
     {
-
-        interpolator<value_type>::type result = (*from)*(*w);
+        typename interpolator<value_type>::type result = (*from)*(*w);
         for (++from,++w;from != to;++from,++w)
             result += (*from)*(*w);
         result_ = result;
