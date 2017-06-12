@@ -332,7 +332,7 @@ double cdm(const basic_image<pixel_type,dimension>& It,
             terminate_type& terminated,
             float resolution = 2.0,
             float cdm_smoothness = 0.3f,
-            unsigned int steps = 20)
+            unsigned int steps = 30)
 {
     geometry<dimension> geo = It.geometry();
     d.resize(geo);
@@ -347,7 +347,7 @@ double cdm(const basic_image<pixel_type,dimension>& It,
         upsample_with_padding(d,d,geo);
         d *= 2.0f;
         if(resolution > 1.0)
-            return 0.0f;
+            return r;
     }
     basic_image<pixel_type,dimension> Js;// transformed I
     basic_image<vtor_type,dimension> new_d(d.geometry());// new displacements
@@ -363,9 +363,16 @@ double cdm(const basic_image<pixel_type,dimension>& It,
     shift[0] = 1;
     for(int i = 1;i < dimension;++i)
         shift[i] = shift[i-1]*geo[i-1];
+    float r,prev_r = 0.0;
     for (unsigned int index = 0;index < steps && !terminated;++index)
     {
         image::compose_displacement(Is,d,Js);
+        r = image::correlation(Js.begin(),Js.end(),It.begin());
+        if(r <= prev_r)
+        {
+            new_d.swap(d);
+            break;
+        }
         // dJ(cJ-I)
         image::gradient_sobel(Js,new_d);
         Js.for_each_mt([&](pixel_type&,image::pixel_index<dimension>& index){
@@ -382,7 +389,7 @@ double cdm(const basic_image<pixel_type,dimension>& It,
             if(a <= 0.0f)
                 new_d[index.index()] = vtor_type();
             else
-                new_d[index.index()] *= r2*(Js[index.index()]*a+b-It[index.index()]);
+                new_d[index.index()] *= (Js[index.index()]*a+b-It[index.index()]);
         });
         // solving the poisson equation using Jacobi method
         basic_image<vtor_type,dimension> solve_d(new_d);
@@ -430,7 +437,7 @@ double cdm(const basic_image<pixel_type,dimension>& It,
         });
         new_d.swap(d);
     }
-    return 0.0f;
+    return r;
 }
 
 
