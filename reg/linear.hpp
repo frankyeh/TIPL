@@ -450,6 +450,38 @@ float linear_mr(const image_type& from,const vs_type& from_vs,
 }
 
 
+template<class image_type,class vs_type,class value_type,class CostFunctionType,class teminated_class>
+void two_way_linear_mr(const image_type& from,const vs_type& from_vs,
+                            const image_type& to,const vs_type& to_vs,
+                            image::transformation_matrix<value_type>& T,
+                            reg_type base_type,
+                            CostFunctionType cost_type,
+                            teminated_class& terminated)
+{
+    image::affine_transform<double> arg1,arg2;
+    image::par_for(2,[&](int i){
+        if(i)
+        {
+            image::reg::linear_mr(from,from_vs,to,to_vs,arg1,base_type,cost_type,terminated);
+            image::reg::linear_mr(from,from_vs,to,to_vs,arg1,base_type,cost_type,terminated);
+        }
+        else
+        {
+            image::reg::linear_mr(to,to_vs,from,from_vs,arg2,base_type,cost_type,terminated);
+            image::reg::linear_mr(to,to_vs,from,from_vs,arg2,base_type,cost_type,terminated);
+        }
+    });
+
+    image::transformation_matrix<double> T1(arg1,from.geometry(),from_vs,to.geometry(),to_vs);
+    image::transformation_matrix<double> T2(arg2,to.geometry(),to_vs,from.geometry(),from_vs);
+    T2.inverse();
+    if(CostFunctionType()(from,to,T2) < CostFunctionType()(from,to,T1))
+        T = T2;
+    else
+        T = T1;
+}
+
+
 }
 }
 
