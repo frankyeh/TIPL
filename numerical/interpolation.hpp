@@ -457,7 +457,7 @@ struct cubic_interpolation<2>{
     template<class ImageType,class PixelType>
     void estimate(const ImageType& source,PixelType& pixel)
     {
-        interpolator<PixelType>::type p[16];
+        typename interpolator<PixelType>::type p[16];
         for(unsigned int index = 0;index < 16;++index)
             p[index] = source[dindex[index]];
         pixel = interpolator<PixelType>::assign(cubic_imp(p,dx,dx2,dx3,dy,dy2,dy3)*0.25);
@@ -533,10 +533,10 @@ struct cubic_interpolation<3>{
     template<class ImageType,class PixelType>
     void estimate(const ImageType& source,PixelType& pixel)
     {
-        interpolator<PixelType>::type p[64];
+        typename interpolator<PixelType>::type pos[64];
         for(unsigned int index = 0;index < 64;++index)
-            p[index] = source[dindex[index]];
-        pixel = interpolator<PixelType>::assign(cubic_imp(p,dx,dx2,dx3,dy,dy2,dy3,dz,dz2,dz3)*0.125);
+            pos[index] = source[dindex[index]];
+        pixel = interpolator<PixelType>::assign(cubic_imp(pos,dx,dx2,dx3,dy,dy2,dy3,dz,dz2,dz3)*0.125);
     }
 };
 
