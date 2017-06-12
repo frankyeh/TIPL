@@ -842,6 +842,78 @@ void homogenize(image::basic_image<pixel_type,3>& I,image::basic_image<pixel_typ
     I = v_map;
 }
 
+template<class T>
+void match_signal(const T& VG,T& VFF)
+{
+    std::vector<float> x,y;
+    x.reserve(VG.size());
+    y.reserve(VG.size());
+    for(unsigned int index = 0;index < VG.size();++index)
+        if(VG[index] > 0 && VFF[index] > 0)
+        {
+            x.push_back(VFF[index]);
+            y.push_back(VG[index]);
+        }
+    std::pair<double,double> r = image::linear_regression(x.begin(),x.end(),y.begin());
+    std::cout << r.first << " " << r.second << std::endl;
+    for(unsigned int index = 0;index < VG.size();++index)
+        if(VG[index] > 0 && VFF[index] > 0)
+            VFF[index] = std::max<float>(0,VFF[index]*r.first+r.second);
+        else
+            VFF[index] = 0;
+}
+
+template<class T>
+void match_signal_kernel(const T& VG,T& VFF)
+{
+    typedef typename T::value_type value_type;
+    value_type max_value = *std::max_element(VFF.begin(),VFF.end());
+
+    std::vector<unsigned int> count(256);
+    std::vector<float> sum(256);
+
+    for(unsigned int index = 0;index < VG.size();++index)
+        if(VG[index] > 0 && VFF[index] > 0)
+        {
+            int v = std::min<int>(255,std::round((float)VFF[index]/(float)max_value*255.499f));
+            sum[v] += VG[index];
+            ++count[v];
+        }
+
+    for(unsigned int index = 0;index < sum.size();++index)
+    {
+        if(count[index] != 0)
+        {
+            sum[index] /= count[index];
+            continue;
+        }
+        if(index != 0)
+            sum[index] = sum[index-1];
+    }
+    // smoothing
+    image::basic_image<float,1> value(image::geometry<1>(256));
+    value[0] = sum[0];
+    value[255] = sum[255];
+    for(unsigned int index = 1;index+1 < sum.size();++index)
+        value[index] = (sum[index]+sum[index]+sum[index-1]+sum[index+1])*0.25;
+
+
+    image::par_for(VG.size(),[&](int index)
+    {
+        if(VG[index] > 0 && VFF[index] > 0)
+        {
+            float v = (float)VFF[index]/(float)max_value*255.499f;
+            float fv = std::floor(v);
+            int floor_index = std::max<int>(0,fv);
+            int ceil_index = std::min<int>(255,floor_index+1);
+            float ceil_w = v-fv;
+            float floor_w = 1.0f-ceil_w;
+            VFF[index] = value[floor_index]*floor_w+value[ceil_index]*ceil_w;
+        }
+    else
+        VFF[index] = 0;
+    });
+}
 
 template<class PixelType,class CoordinateType,class ScaleVecType>
 void resample(const image::basic_image<PixelType,3>& source_image,
