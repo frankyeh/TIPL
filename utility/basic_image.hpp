@@ -258,8 +258,10 @@ public:
     template <class rhs_pixel_type,class rhs_storage_type>
     basic_image(const basic_image<rhs_pixel_type,dim,rhs_storage_type>& rhs){operator=(rhs);}
     basic_image(const geometry_type& geo_):data(geo_.size()),geo(geo_) {}
-    basic_image(pixel_type* pointer,const geometry_type& geo_):data(pointer,pointer+geo_.size()),geo(geo_) {}
-    basic_image(const pixel_type* pointer,const geometry_type& geo_):data(pointer,pointer+geo_.size()),geo(geo_) {}
+    template <typename any_pixel_type>
+    basic_image(any_pixel_type* pointer,const geometry_type& geo_):data(pointer,pointer+geo_.size()),geo(geo_) {}
+    template <typename any_pixel_type>
+    basic_image(const any_pixel_type* pointer,const geometry_type& geo_):data(pointer,pointer+geo_.size()),geo(geo_) {}
 public:
     template <class rhs_pixel_type,class rhs_storage_type>
     const basic_image& operator=(const basic_image<rhs_pixel_type,dim,rhs_storage_type>& rhs)
