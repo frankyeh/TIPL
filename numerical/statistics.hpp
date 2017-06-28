@@ -172,7 +172,7 @@ template<class input_iterator>
 double mean_square(input_iterator from,input_iterator to)
 {
     double ms = 0.0;
-    unsigned int size = to-from;
+    size_t size = to-from;
     while (from != to)
     {
         double t = *from;
@@ -228,7 +228,7 @@ double covariance(input_iterator1 x_from,input_iterator1 x_to,
                   input_iterator2 y_from,double mean_x,double mean_y)
 {
     double co = 0.0;
-    unsigned int size = x_to-x_from;
+    size_t size = x_to-x_from;
     while (x_from != x_to)
     {
         co += *x_from*(*y_from);

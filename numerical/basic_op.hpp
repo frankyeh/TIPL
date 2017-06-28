@@ -365,28 +365,28 @@ void reorder(const image_type1& volume,image_type2& volume_out,int origin[],int 
         if(index_dim == 2)
         {
             int y_index = base_index + origin[1];
-            for (unsigned int y = 0; y < volume.height(); ++y)
+            for (int y = 0; y < volume.height(); ++y)
             {
                 int x_index = y_index + origin[0];
-                for (unsigned int x = 0; x < volume.width(); ++x,++index)
+                for (int x = 0; x < volume.width(); ++x,++index)
                 {
                     volume_out[x_index] = volume[index];
                     x_index += shift[0];
                 }
                 y_index += shift[1];
             }
-            base_index += volume_out.plane_size();
+            base_index += unsigned int(volume_out.plane_size());
         }
         if(index_dim == 3)
         {
             int z_index = base_index + origin[2];
-            for (unsigned int z = 0; z < volume.geometry()[2]; ++z)
+            for (int z = 0; z < volume.geometry()[2]; ++z)
             {
                 int y_index = z_index + origin[1];
-                for (unsigned int y = 0; y < volume.height(); ++y)
+                for (int y = 0; y < volume.height(); ++y)
                 {
                     int x_index = y_index + origin[0];
-                    for (unsigned int x = 0; x < volume.width(); ++x,++index)
+                    for (int x = 0; x < volume.width(); ++x,++index)
                     {
                         volume_out[x_index] = volume[index];
                         x_index += shift[0];
@@ -395,7 +395,7 @@ void reorder(const image_type1& volume,image_type2& volume_out,int origin[],int 
                 }
                 z_index += shift[2];
             }
-            base_index += volume_out.plane_size()*volume.depth();
+            base_index += unsigned int(volume_out.plane_size()*volume.depth());
         }
     }
 }
@@ -879,10 +879,10 @@ inline void change_endian(float& data)
     change_endian(*(int*)&data);
 }
 
-template<class datatype,class size_type>
-inline void change_endian(datatype* data,size_type count)
+template<class datatype>
+inline void change_endian(datatype* data,int count)
 {
-    for (unsigned int index = 0; index < count; ++index)
+    for (int index = 0; index < count; ++index)
         change_endian(data[index]);
 }
 

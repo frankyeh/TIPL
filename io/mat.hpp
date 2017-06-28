@@ -490,7 +490,7 @@ public:
         unsigned int imagf = 0;
         unsigned int type = mat_type_info<Type>::type;
         std::string name(name_);
-        unsigned int namelen = name.length()+1;
+        unsigned int namelen = unsigned int(name.length()+1);
         out.write((const char*)&type,4);
         out.write((const char*)&rows,4);
         out.write((const char*)&cols,4);

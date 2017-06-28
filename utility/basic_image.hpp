@@ -219,19 +219,19 @@ public:
     {
         return geo;
     }
-    unsigned int width(void) const
+    int width(void) const
     {
         return geo.width();
     }
-    unsigned int height(void) const
+    int height(void) const
     {
         return geo.height();
     }
-    unsigned int depth(void) const
+    int depth(void) const
     {
         return geo.depth();
     }
-    unsigned int plane_size(void) const
+    size_t plane_size(void) const
     {
         return geo.plane_size();
     }

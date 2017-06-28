@@ -108,7 +108,7 @@ public:
     {
         for(int i = 0; i < weight.size(); ++i)
             weight[i] = gen()*weight_base;
-        std::fill(bias.begin(), bias.end(), 0);
+        std::fill(bias.begin(), bias.end(), 0.0f);
     }
 
     virtual bool init(const image::geometry<3>& in_dim,const image::geometry<3>& out_dim) = 0;
@@ -129,10 +129,10 @@ public:
     {
         I.clear();
     }
-    virtual void calculate_dwdb(const float* dE_da,
-                                  const float* prev_out,
-                                  std::vector<float>& dweight,
-                                  std::vector<float>& dbias){}
+    virtual void calculate_dwdb(const float*,
+                                  const float*,
+                                  std::vector<float>&,
+                                  std::vector<float>&){}
     virtual void back_propagation(float* in_dE_da,
                                   float* out_dE_da,
                                   const float*) = 0;
@@ -151,7 +151,7 @@ public:
     }
     virtual unsigned int computation_cost(void) const
     {
-        return weight.size();
+        return unsigned int(weight.size());
     }
 };
 
@@ -166,7 +166,7 @@ public:
     {
         in_dim = in_dim_;
         basic_layer::init(in_dim.size(), out_dim.size(),in_dim.size() * out_dim.size(), out_dim.size());
-        weight_base = std::sqrt(6.0 / (float)(input_size+output_size));
+        weight_base = std::sqrtf(6.0f / (float)(input_size+output_size));
         return true;
     }
     void forward_propagation(const float* data,float* out) override
@@ -191,13 +191,13 @@ public:
         image::normalize_abs(b);
         if(in_dim[0] == 1)
         {
-            I.resize(geometry<2>(bias.size(),weight.size()/bias.size()+3));
+            I.resize(geometry<2>(int(bias.size()),int(weight.size()/bias.size()+3)));
             std::copy(w.begin(),w.end(),I.begin()+I.width());
             std::copy(b.begin(),b.end(),I.end()-I.width()*2);
         }
         else
         {
-            int n = weight.size()/in_dim.plane_size();
+            int n = int(weight.size()/in_dim.plane_size());
             int col = in_dim[2];
             int row = n/col;
             I.resize(geometry<2>(col* (in_dim.width()+1)+1,row * (in_dim.height() +1) + 3));
@@ -237,11 +237,11 @@ public:
         i2w_2.resize(in_dim);
         b2o.resize(bias_dim);
         o2b.resize(out_dim);
-        weight_base = std::sqrt(6.0 / (float)(max_size(o2w_1) + max_size(i2w_1)));
+        weight_base = std::sqrtf(6.0f / (float)(max_size(o2w_1) + max_size(i2w_1)));
     }
 
     template <class Container>
-    static int max_size(const Container& c)
+    static size_t max_size(const Container& c)
     {
         typedef typename Container::value_type value_t;
         return std::max_element(c.begin(), c.end(), [](const value_t& left, const value_t& right)
@@ -348,12 +348,12 @@ public:
                     o2b[index] = c;
                     b2o[c].push_back(index);
                 }
-        weight_base = std::sqrt(6.0 / (float)(max_size(o2w_1) + max_size(i2w_1)));
+        weight_base = std::sqrtf(6.0f / (float)(max_size(o2w_1) + max_size(i2w_1)));
         return true;
     }
     void to_image(basic_image<float,2>& I)
     {
-        I.resize(geometry<2>(weight.size(),5));
+        I.resize(geometry<2>(int(weight.size()),5));
         std::vector<float> w(weight),b(bias);
         image::normalize_abs(w);
         image::normalize_abs(b);
@@ -386,7 +386,7 @@ public:
         if(out_dim != image::geometry<3>(in_dim.width()/ pool_size, in_dim.height() / pool_size, in_dim.depth()))
             return false;
         init_connection();
-        weight_base = std::sqrt(6.0 / (float)(o2i[0].size()+1));
+        weight_base = std::sqrtf(6.0f / (float)(o2i[0].size()+1));
         return true;
     }
     void forward_propagation(const float* data,float* out) override
@@ -428,7 +428,7 @@ public:
     }
     virtual unsigned int computation_cost(void) const
     {
-        return out_dim.size()*pool_size*pool_size/10.0;
+        return unsigned int(out_dim.size()*pool_size*pool_size/10.0f);
     }
 private:
     void init_connection(void)
@@ -478,7 +478,7 @@ public:
             return false;
         //weight_dim = image::geometry<3>(kernel_size,kernel_size,in_dim.depth() * out_dim.depth()),
         basic_layer::init(in_dim_.size(), out_dim_.size(),kernel_size2* in_dim.depth() * out_dim.depth(), out_dim.depth());
-        weight_base = std::sqrt(6.0 / (float)(kernel_size2 * in_dim.depth() + kernel_size2 * out_dim.depth()));
+        weight_base = std::sqrtf(6.0f / (float)(kernel_size2 * in_dim.depth() + kernel_size2 * out_dim.depth()));
         return true;
     }
     void to_image(basic_image<float,2>& I)
@@ -609,7 +609,7 @@ public:
                           float* out_dE_da,// input_size
                           const float* pre_out) override
     {
-        for(int i = 0; i < dim; i++)
+        for(unsigned int i = 0; i < dim; i++)
             out_dE_da[i] = (pre_out[i] == 0.0f) ? 0: in_dE_da[i];
     }
     void forward_propagation(const float* data,float* out) override
@@ -619,7 +619,7 @@ public:
             std::copy(data,data+dim,out);
             return;
         }
-        for(int i = 0; i < dim; i++)
+        for(unsigned int i = 0; i < dim; i++)
             out[i] = bgen() ? 0.0f: data[i];
     }
 };
@@ -839,7 +839,7 @@ public:
         Is.resize(layers.size());
 
         int total_height = 0;
-        image::uniform_dist<float> gen(0,3.14159265358979323846*2);
+        image::uniform_dist<float> gen(0.0f,3.14159265358979323846f*2.0f);
         std::vector<image::basic_image<float,2> > layer_images(layers.size());
         image::par_for(layers.size(),[&](int i)
         {
@@ -896,7 +896,7 @@ public:
                 if(i == 0)
                     values[i].resize(image::geometry<2>(col*(geo[i].width()+1)+1,row*(geo[i].height()+1)+1));
                 else
-                    values[i].resize(image::geometry<2>(col*(geo[i].width()+1)+1,2.0*row*(geo[i].height()+1)+2));
+                    values[i].resize(image::geometry<2>(col*(geo[i].width()+1)+1,int(2.0f*row*(geo[i].height()+1)+2)));
                 std::fill(values[i].begin(),values[i].end(),image::rgb_color(255,255,255));
                 int draw_width = 0;
                 for(int y = 0,j = 0;y < row;++y)
@@ -909,12 +909,12 @@ public:
                         image::color_image Iv1(v1.geometry()),Iv2(v2.geometry());
                         for(int j = 0;j < Iv1.size();++j)
                         {
-                            unsigned char s1(std::min<int>(255,255.0*std::fabs(v1[j])));
+                            unsigned char s1(std::min<int>(255,int(255.0f*std::fabs(v1[j]))));
                             if(v1[j] < 0) // red
                                 Iv1[j] = image::rgb_color(s1,0,0);
                             if(v1[j] >= 0) // blue
                                 Iv1[j] = image::rgb_color(0,0,s1);
-                            unsigned char s2(std::min<int>(255,255.0*std::fabs(v2[j])));
+                            unsigned char s2(std::min<int>(255,int(255.0f*std::fabs(v2[j]))));
                             if(v2[j] < 0) // red
                                 Iv2[j] = image::rgb_color(s2,0,0);
                             if(v2[j] >= 0) // blue
@@ -955,7 +955,8 @@ public:
                     b = Is[i][0];
                 image::fill_rect(I,image::geometry<2>(0,cur_height),
                                    image::geometry<2>(max_width,cur_height+std::max<int>(Is[i].height(),layer_height)),b);
-                image::draw(Is[i],I,image::geometry<2>(1,cur_height + (Is[i].height() < layer_height ? (layer_height- Is[i].height())/2: 0)));
+                image::draw(Is[i],I,image::geometry<2>(1,cur_height +
+                                                       (Is[i].height() < layer_height ? (layer_height- Is[i].height())/2: 0)));
                 cur_height += std::max<int>(Is[i].height(),layer_height);
             }
         }
@@ -1009,7 +1010,7 @@ public:
         }
         if(list[0] == "dropout")
         {
-            float param = 0.9;
+            float param = 0.9f;
             std::istringstream(list[1]) >> param;
             layers.push_back(std::make_shared<dropout_layer>(param));
             return true;
@@ -1093,7 +1094,7 @@ public:
         }
         std::string nn_text = out.str();
         std::ofstream file(file_name,std::ios::binary);
-        unsigned int nn_text_length = nn_text.length();
+        size_t nn_text_length = nn_text.length();
         file.write((const char*)&nn_text_length,sizeof(nn_text_length));
         file.write((const char*)&*nn_text.begin(),nn_text_length);
         for(auto& layer : layers)
@@ -1145,9 +1146,9 @@ public:
         float* df_ptr = out_ptr + data_size - output_size;
         // calculate difference
         image::copy_ptr(out_ptr2,df_ptr,output_size);
-        for(int i = 0;i < output_size;++i)
+        for(unsigned int i = 0;i < output_size;++i)
             df_ptr[i] -= ((label == i) ? target_value_max : target_value_min);
-        for(int k = layers.size()-1;k >= 0;--k)
+        for(int k = (int)layers.size()-1;k >= 0;--k)
         {
             layers[k]->back_af(df_ptr,out_ptr2);
             const float* next_out_ptr = (k == 0 ? data_entry : out_ptr2 - layers[k]->input_size);
@@ -1200,19 +1201,19 @@ public:
 
         if(layers.back()->af == activation_type::tanh)
         {
-            target_value_min = -0.8;
-            target_value_max = 0.8;
+            target_value_min = -0.8f;
+            target_value_max = 0.8f;
         }
         else
         {
-            target_value_min = 0.1;
-            target_value_max = 0.9;
+            target_value_min = 0.1f;
+            target_value_max = 0.9f;
         }
-        rate_decay = 1.0;
+        rate_decay = 1.0f;
     }
-    double get_training_error(void) const
+    float get_training_error(void) const
     {
-        return 100.0*training_error_count/training_count;
+        return 100.0f*training_error_count/training_count;
     }
 
     template <class network_data_type,class train_seq_type>
@@ -1326,7 +1327,7 @@ public:
         std::copy(out.end()-in.size(),out.end(),in.begin());
     }
 
-    int predict_label(const std::vector<float>& in)
+    size_t predict_label(const std::vector<float>& in)
     {
         std::vector<float> result(in);
         predict(result);
@@ -1334,7 +1335,7 @@ public:
     }
 
     template<class input_type>
-    int predict_label(const input_type& in)
+    size_t predict_label(const input_type& in)
     {
         std::vector<float> result(in.begin(),in.end());
         predict(result);
@@ -1361,7 +1362,7 @@ public:
         test_result.resize(data.size());
         par_for((int)data.size(), [&](int i)
         {
-            test_result[i] = predict_label(data[i]);
+            test_result[i] = int(predict_label(data[i]));
         });
     }
     template<typename data_type,typename label_type>

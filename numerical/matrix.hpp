@@ -404,7 +404,7 @@ typename output_iterator,
 typename left_dim_type>
 void left_vector_product(left_input_iterator A,right_input_iterator x,output_iterator y,const left_dim_type& ldim)
 {
-    std::fill(y,y+ldim.col_count(),0);
+    std::fill(y,y+ldim.col_count(),std::iterator_traits<output_iterator>::value_type(0));
     for(left_input_iterator A_end = A + ldim.size();A != A_end;A+=ldim.col_count(),++x)
     {
         typename std::iterator_traits<left_input_iterator>::value_type x_row = *x;
@@ -1695,8 +1695,8 @@ void eigen_decomposition_sym(input_iterator A,
         }
         return;
     }
-    const unsigned int size = dimension.size();
-    const unsigned int dim = dimension.col_count();
+    const int size = dimension.size();
+    const int dim = dimension.col_count();
     std::vector<value_type> e_(dim+1);
     value_type* e = &*e_.begin();
 
@@ -1783,7 +1783,7 @@ void eigen_decomposition_sym(input_iterator A,
         // Elements in V(j>=i,k>=i) is column major,
         {
             output_iterator1 Vrowi = V;// from the second row
-            for (unsigned int i = 1; i < dim; ++i)
+            for (int i = 1; i < dim; ++i)
             {
                 Vrowi += dim;
                 if (d[i] != value_type(0))
@@ -1826,7 +1826,7 @@ void eigen_decomposition_sym(input_iterator A,
         value_type p,r,b,f(0);
         for (int l = 0,iter = 0;l < dim && iter < 30;++iter)
         {
-            unsigned int m = l;
+            int m = l;
             // Find small subdiagonal element
             for (;m < dim-1;++m)
             {
@@ -1895,9 +1895,9 @@ void eigen_decomposition_sym(input_iterator A,
 
         // Sort eigenvalues and corresponding vectors.
         output_iterator1 Vrowi = V;
-        for (unsigned int i = 0; i < dim-1; ++i,Vrowi += dim)
+        for (int i = 0; i < dim-1; ++i,Vrowi += dim)
         {
-            unsigned int k = std::max_element(d+i,d+dim)-d;
+            size_t k = std::max_element(d+i,d+dim)-d;
             if (k != i)
             {
                 std::swap(d[k],d[i]);

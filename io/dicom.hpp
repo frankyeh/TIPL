@@ -157,13 +157,13 @@ public:
             if(transfer_syntax == bee)
             {
                 if (is_float()) // float
-                    change_endian((float*)&*data.begin(),data.size()/sizeof(float));
+                    change_endian((float*)&*data.begin(),int(data.size()/sizeof(float)));
                 if (is_double()) // double
-                    change_endian((double*)&*data.begin(),data.size()/sizeof(double));
+                    change_endian((double*)&*data.begin(),int(data.size()/sizeof(double)));
                 if (is_int16()) // uint16type
-                    change_endian((short*)&*data.begin(),data.size()/sizeof(short));
+                    change_endian((short*)&*data.begin(),int(data.size()/sizeof(short)));
                 if (is_int32() && data.size() >= 4)
-                    change_endian((int*)&*data.begin(),data.size()/sizeof(int));
+                    change_endian((int*)&*data.begin(),int(data.size()/sizeof(int)));
             }
         }
         return !(!in);
@@ -559,7 +559,7 @@ public:
                             if (!csa.read(ge.get(),pos))
                                 break;
                             csa_data.push_back(csa);
-                            csa_map[csa_data.back().get_name()] = csa_data.size()-1;
+                            csa_map[csa_data.back().get_name()] = unsigned int(csa_data.size()-1);
                         }
                     }
                 }
@@ -567,7 +567,7 @@ public:
             }
             auto& item = ge_map[ge.get_order()];
             if(item == 0) // check if there is duplicate group element
-                item = data.size();
+                item = unsigned int(data.size());
             data.push_back(ge);
         }
         return false;
@@ -843,8 +843,8 @@ public:
             geo[2] = get_int(0x0019,0x100A);
         if(geo[2])
         {
-            geo[0] = width()/std::ceil(std::sqrt(geo[2]));
-            geo[1] = height()/std::ceil(std::sqrt(geo[2]));
+            geo[0] = int(width()/std::ceil(std::sqrt(geo[2])));
+            geo[1] = int(height()/std::ceil(std::sqrt(geo[2])));
         }
         else
         {
@@ -895,7 +895,7 @@ public:
             unsigned short slice_num = geo[2];
             geo[2] = width()*height()/geo[0]/geo[1];
             out.resize(geo);
-            save_to_buffer(out.begin(),out.size());
+            save_to_buffer(out.begin(),unsigned int(out.size()));
             handle_mosaic(out.begin());
             geo[2] = slice_num;
             out.resize(geo);
@@ -903,7 +903,7 @@ public:
         else
         {
             out.resize(geo);
-            save_to_buffer(out.begin(),out.size());
+            save_to_buffer(out.begin(),unsigned int(out.size()));
         }
     }
 

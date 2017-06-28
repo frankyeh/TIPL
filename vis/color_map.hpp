@@ -27,20 +27,20 @@ public:
     void two_color(image::rgb_color from_color,image::rgb_color to_color)
     {
         resize(image::geometry<2>(20,256));
-        for(unsigned int index = 1;index < height();++index)
+        for(int index = 1;index < height();++index)
         {
             float findex = (float)index/(float)height();
             image::rgb_color color;
             for(unsigned char rgb_index = 0;rgb_index < 3;++rgb_index)
-                color[rgb_index] = (float)from_color[rgb_index]*findex+(float)to_color[rgb_index]*(1.0-findex);
+                color[rgb_index] = unsigned char((float)from_color[rgb_index]*findex+(float)to_color[rgb_index]*(1.0-findex));
             std::fill(begin()+index*width()+1,begin()+(index+1)*width()-1,color);
         }
     }
     void spectrum(void)
     {
-        for(unsigned int index = 1;index < height();++index)
+        for(int index = 1;index < height();++index)
         {
-            float findex = (float)index*(float)255.0/height();
+            unsigned char findex = unsigned char((float)index*255.0f/height());
             image::rgb_color color;
             color.r = image::color_spectrum_value(64,findex);
             color.g = image::color_spectrum_value(128,findex);
@@ -63,9 +63,9 @@ public:
         color.resize(256);
         for(unsigned int index = 0;index < 256;++index)
         {
-            float findex = (float)index/255.0;
+            float findex = (float)index/255.0f;
             for(unsigned char rgb_index = 0;rgb_index < 3;++rgb_index)
-                color[index][rgb_index] = ((float)to_color[rgb_index]*findex+(float)from_color[rgb_index]*(1.0-findex))/255.0;
+                color[index][rgb_index] = unsigned char(((float)to_color[rgb_index]*findex+(float)from_color[rgb_index]*(1.0-findex))/255.0f);
         }
     }
     void spectrum(void)
@@ -73,9 +73,9 @@ public:
         color.resize(256);
         for(unsigned int index = 0;index < 256;++index)
         {
-            color[index][0] = (float)image::color_spectrum_value(128+64,index)/255.0;
-            color[index][1] = (float)image::color_spectrum_value(128,index)/255.0;
-            color[index][2] = (float)image::color_spectrum_value(64,index)/255.0;
+            color[index][0] = unsigned char((float)image::color_spectrum_value(128+64,index)/255.0f);
+            color[index][1] = unsigned char((float)image::color_spectrum_value(128,index)/255.0f);
+            color[index][2] = unsigned char((float)image::color_spectrum_value(64,index)/255.0f);
         }
     }
 };
@@ -85,7 +85,7 @@ struct color_map_rgb{
     std::vector<image::rgb_color> color;
 public:
     color_map_rgb(void):color(256){}
-    unsigned int size(void)const{return color.size();}
+    size_t size(void)const{return color.size();}
     const image::rgb_color& operator[](unsigned int index) const{return color[index];}
     image::rgb_color min_color(void)const{return color.front();}
     image::rgb_color max_color(void)const{return color.back();}
@@ -94,7 +94,8 @@ public:
         for(unsigned int index = 0;index < 256;++index)
         {
             for(unsigned char rgb_index = 0;rgb_index < 3;++rgb_index)
-                color[index][rgb_index] = std::min<short>(255,((float)to_color[rgb_index]*index+(float)from_color[rgb_index]*(255-index))/255.0);
+                color[index][rgb_index] =
+                        unsigned char(std::min<short>(255,((float)to_color[rgb_index]*index+(float)from_color[rgb_index]*(255-index))/255.0f));
         }
     }
     void spectrum(void)
@@ -118,13 +119,15 @@ public:
         if(max_value < 2.0 && max_value != 0.0)
         {
             for(unsigned int i = 0;i < values.size();++i)
-                values[i] = std::max<int>(0,std::min<int>(255,std::floor(values[i]*256.0/max_value)));
+                values[i] = float(std::max<int>(0,std::min<int>(255,int(std::floor(values[i]*256.0f/max_value)))));
         }
         if(values.size() < 3)
             return false;
         color.clear();
         for(unsigned int i = 2;i < values.size();i += 3)
-            color.push_back(image::rgb_color(values[i-2],values[i-1],values[i]));
+            color.push_back(image::rgb_color(unsigned char(values[i-2]),
+                                             unsigned char(values[i-1]),
+                                             unsigned char(values[i])));
         return true;
     }
 };

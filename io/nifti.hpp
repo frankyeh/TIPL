@@ -420,7 +420,7 @@ public:
         {
             //int padding = 0;
             //input_stream->read((char*)&padding,4);
-            input_stream->seek(nif_header.vox_offset);
+            input_stream->seek(size_t(nif_header.vox_offset));
         }
         else
         {
@@ -623,13 +623,13 @@ public:
                 switch (byte_per_pixel)
                 {
                     case 2:
-                        change_endian((int16_t*)buf_ptr,buf.size()/2);
+                        change_endian((int16_t*)buf_ptr,int(buf.size()/2));
                         break;
                     case 4:
-                        change_endian((int32_t*)buf_ptr,buf.size()/4);
+                        change_endian((int32_t*)buf_ptr,int(buf.size()/4));
                         break;
                     case 8:
-                        change_endian((double*)buf_ptr,buf.size()/8);
+                        change_endian((double*)buf_ptr,int(buf.size()/8));
                         break;
                 }
             }
@@ -687,7 +687,7 @@ public:
         if(!has_data())
             return false;
         out.resize(image::geometry<image_type::dimension>(nif_header.dim+1));
-        if(!save_to_buffer(out.begin(),out.size()))
+        if(!save_to_buffer(out.begin(),unsigned int(out.size())))
             return false;
         if(nif_header.scl_slope != 0)
         {
