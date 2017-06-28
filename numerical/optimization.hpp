@@ -149,7 +149,7 @@ bool armijo_line_search(iter_type1 x_beg,iter_type1 x_end,
                         iter_type2 x_upper,iter_type2 x_lower,
                         g_type g_beg,
                         value_type& fun_x,
-                        function_type& fun,double precision)
+                        function_type& fun,double)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
     unsigned int size = x_end-x_beg;

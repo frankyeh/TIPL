@@ -394,7 +394,7 @@ double cdm(const basic_image<pixel_type,dimension>& It,
         // solving the poisson equation using Jacobi method
         basic_image<vtor_type,dimension> solve_d(new_d);
         image::multiply_constant_mt(solve_d,-inv_d2);
-        for(int iter = 0;iter < window_size*2 & !terminated;++iter)
+        for(int iter = 0;iter < window_size*2 && !terminated;++iter)
         {
             basic_image<vtor_type,dimension> new_solve_d(new_d.geometry());
             image::par_for(solve_d.size(),[&](int pos)

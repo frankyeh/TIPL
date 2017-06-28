@@ -127,7 +127,7 @@ namespace reg
         double mean_from;
         double sd_from;
         bool end;
-        mt_correlation(int dummy){}
+        mt_correlation(int){}
         mt_correlation(void):end(false),status(std::thread::hardware_concurrency()),I1(0)
         {
             for(unsigned int index = 1;index < status.size();++index)
@@ -325,8 +325,8 @@ namespace reg
 enum reg_type {none = 0,translocation = 1,rotation = 2,rigid_body = 3,scaling = 4,rigid_scaling = 7,tilt = 8,affine = 15};
 enum cost_type{corr,mutual_info};
 
-template<class image_type1,class image_type2,class transform_type>
-void get_bound(const image_type1& from,const image_type2& to,
+template<class image_type1,class transform_type>
+void get_bound(const image_type1& from,
                const transform_type& trans,
                transform_type& upper_trans,
                transform_type& lower_trans,
@@ -340,7 +340,7 @@ void get_bound(const image_type1& from,const image_type2& to,
     {
         for (unsigned int index = 0; index < dimension; ++index)
         {
-            upper_trans[index] = from.geometry()[index]*0.5;
+            upper_trans[index] = from.geometry()[index]*0.5f;
             lower_trans[index] = -upper_trans[index];
         }
     }
@@ -349,8 +349,8 @@ void get_bound(const image_type1& from,const image_type2& to,
     {
         for (unsigned int index = dimension; index < dimension + dimension; ++index)
         {
-            upper_trans[index] = 3.14159265358979323846*0.25;
-            lower_trans[index] = -3.14159265358979323846*0.25;
+            upper_trans[index] = 3.14159265358979323846f*0.25f;
+            lower_trans[index] = -3.14159265358979323846f*0.25f;
         }
     }
 
@@ -358,8 +358,8 @@ void get_bound(const image_type1& from,const image_type2& to,
     {
         for (unsigned int index = dimension + dimension; index < dimension+dimension+dimension; ++index)
         {
-            upper_trans[index] = 1.2;
-            lower_trans[index] = 0.9;
+            upper_trans[index] = 1.2f;
+            lower_trans[index] = 0.9f;
         }
     }
 
@@ -367,8 +367,8 @@ void get_bound(const image_type1& from,const image_type2& to,
     {
         for (unsigned int index = dimension + dimension + dimension; index < transform_type::total_size; ++index)
         {
-            upper_trans[index] = 0.2;
-            lower_trans[index] = -0.2;
+            upper_trans[index] = 0.2f;
+            lower_trans[index] = -0.2f;
         }
     }
 }
@@ -390,7 +390,7 @@ float linear(const image_type& from,const vs_type& from_vs,
     unsigned int random_search_count = std::sqrt(1.0/precision);
     for(unsigned char type = 0;type < 4 && reg_list[type] <= base_type && !terminated;++type)
     {
-        image::reg::get_bound(from,to,arg_min,upper,lower,reg_list[type]);
+        image::reg::get_bound(from,arg_min,upper,lower,reg_list[type]);
         if(type == 0)
             optimal_value = fun(arg_min[0]);
         while(!terminated)

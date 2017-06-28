@@ -13,7 +13,7 @@ namespace reg {
 template<class ImageType,class value_type>
 value_type resample_d(const ImageType& vol,value_type& gradx,value_type& grady,value_type& gradz,value_type x,value_type y,value_type z)
 {
-    const value_type TINY = 5e-2;
+    const value_type TINY = 5e-2f;
     int xdim = vol.width();
     int ydim = vol.height();
     int zdim = vol.depth();

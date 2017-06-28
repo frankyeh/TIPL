@@ -2567,7 +2567,6 @@ void pseudo_inverse_solve(input_iterator1 At,input_iterator2 y,output_iterator x
 {
     typedef typename std::iterator_traits<output_iterator>::value_type value_type;
     unsigned int n = dim.row_count();
-    unsigned int m = dim.col_count();
     std::vector<value_type> tmp(n),AtA(n*n);
     std::vector<int> pv(n);
     vector_product(At,y,&*tmp.begin(),dim);

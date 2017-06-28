@@ -585,7 +585,10 @@ public:
             nif_header.sizeof_hdr = 348;
             nif_header.vox_offset = 352;
             nif_header.qform_code = 1;
-            strcpy(nif_header.magic,"n+1");
+            nif_header.magic[0] = 'n';
+            nif_header.magic[1] = '+';
+            nif_header.magic[2] = '1';
+            nif_header.magic[3] = 0;
         }
         output_interface out;
         if(!out.open(pfile_name))
