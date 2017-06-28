@@ -398,7 +398,7 @@ template<class iterator1,class iterator2>
 void multiply(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
     for (; lhs_from != lhs_to; ++lhs_from,++rhs_from)
-        *lhs_from = std::iterator_traits<iterator1>::value_type((*lhs_from)*(*rhs_from));
+        *lhs_from = typename std::iterator_traits<iterator1>::value_type((*lhs_from)*(*rhs_from));
 }
 //---------------------------------------------------------------------------
 template<class image_type1,class image_type2>
@@ -431,7 +431,7 @@ template<class iterator1,class value_type>
 void add_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
-        *lhs_from = std::iterator_traits<iterator1>::value_type(*lhs_from+value);
+        *lhs_from = typename std::iterator_traits<iterator1>::value_type(*lhs_from+value);
 }
 //---------------------------------------------------------------------------
 template<class image_type,class value_type>

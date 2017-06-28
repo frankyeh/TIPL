@@ -559,7 +559,7 @@ public:
                             if (!csa.read(ge.get(),pos))
                                 break;
                             csa_data.push_back(csa);
-                            csa_map[csa_data.back().get_name()] = unsigned int(csa_data.size()-1);
+                            csa_map[csa_data.back().get_name()] = (unsigned int)(csa_data.size()-1);
                         }
                     }
                 }
@@ -567,7 +567,7 @@ public:
             }
             auto& item = ge_map[ge.get_order()];
             if(item == 0) // check if there is duplicate group element
-                item = unsigned int(data.size());
+                item = (unsigned int)(data.size());
             data.push_back(ge);
         }
         return false;
