@@ -32,7 +32,7 @@ public:
             float findex = (float)index/(float)height();
             image::rgb_color color;
             for(unsigned char rgb_index = 0;rgb_index < 3;++rgb_index)
-                color[rgb_index] = unsigned char((float)from_color[rgb_index]*findex+(float)to_color[rgb_index]*(1.0-findex));
+                color[rgb_index] = (unsigned char)((float)from_color[rgb_index]*findex+(float)to_color[rgb_index]*(1.0-findex));
             std::fill(begin()+index*width()+1,begin()+(index+1)*width()-1,color);
         }
     }
@@ -40,7 +40,7 @@ public:
     {
         for(int index = 1;index < height();++index)
         {
-            unsigned char findex = unsigned char((float)index*255.0f/height());
+            unsigned char findex = (unsigned char)((float)index*255.0f/height());
             image::rgb_color color;
             color.r = image::color_spectrum_value(64,findex);
             color.g = image::color_spectrum_value(128,findex);
@@ -65,7 +65,7 @@ public:
         {
             float findex = (float)index/255.0f;
             for(unsigned char rgb_index = 0;rgb_index < 3;++rgb_index)
-                color[index][rgb_index] = unsigned char(((float)to_color[rgb_index]*findex+(float)from_color[rgb_index]*(1.0-findex))/255.0f);
+                color[index][rgb_index] = (unsigned char)(((float)to_color[rgb_index]*findex+(float)from_color[rgb_index]*(1.0-findex))/255.0f);
         }
     }
     void spectrum(void)
@@ -73,9 +73,9 @@ public:
         color.resize(256);
         for(unsigned int index = 0;index < 256;++index)
         {
-            color[index][0] = unsigned char((float)image::color_spectrum_value(128+64,index)/255.0f);
-            color[index][1] = unsigned char((float)image::color_spectrum_value(128,index)/255.0f);
-            color[index][2] = unsigned char((float)image::color_spectrum_value(64,index)/255.0f);
+            color[index][0] = (unsigned char)((float)image::color_spectrum_value(128+64,index)/255.0f);
+            color[index][1] = (unsigned char)((float)image::color_spectrum_value(128,index)/255.0f);
+            color[index][2] = (unsigned char)((float)image::color_spectrum_value(64,index)/255.0f);
         }
     }
 };
@@ -95,7 +95,7 @@ public:
         {
             for(unsigned char rgb_index = 0;rgb_index < 3;++rgb_index)
                 color[index][rgb_index] =
-                        unsigned char(std::min<short>(255,((float)to_color[rgb_index]*index+(float)from_color[rgb_index]*(255-index))/255.0f));
+                        (unsigned char)(std::min<short>(255,((float)to_color[rgb_index]*index+(float)from_color[rgb_index]*(255-index))/255.0f));
         }
     }
     void spectrum(void)
@@ -125,9 +125,9 @@ public:
             return false;
         color.clear();
         for(unsigned int i = 2;i < values.size();i += 3)
-            color.push_back(image::rgb_color(unsigned char(values[i-2]),
-                                             unsigned char(values[i-1]),
-                                             unsigned char(values[i])));
+            color.push_back(image::rgb_color((unsigned char)values[i-2],
+                                             (unsigned char)values[i-1],
+                                             (unsigned char)values[i]));
         return true;
     }
 };

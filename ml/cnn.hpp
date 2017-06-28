@@ -151,7 +151,7 @@ public:
     }
     virtual unsigned int computation_cost(void) const
     {
-        return unsigned int(weight.size());
+        return (unsigned int)(weight.size());
     }
 };
 
@@ -428,7 +428,7 @@ public:
     }
     virtual unsigned int computation_cost(void) const
     {
-        return unsigned int(out_dim.size()*pool_size*pool_size/10.0f);
+        return (unsigned int)(out_dim.size()*pool_size*pool_size/10.0f);
     }
 private:
     void init_connection(void)
