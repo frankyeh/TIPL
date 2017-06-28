@@ -988,7 +988,7 @@ bool jacobi_solve(io_iterator A,pivot_iterator p,input_iterator2 b,output_iterat
         value_type scale = 0.0;
         for(unsigned int j = 0;j < dimension;++j,++Arow_j)
             if(j != p[i])
-                x[i] -= (*Arow_j)*bb[j];
+                x[i] -= (*Arow_j)*b[j];
             else
                 scale = (*Arow_j);
         if(scale == 0.0)
