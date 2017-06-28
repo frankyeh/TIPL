@@ -404,7 +404,7 @@ typename output_iterator,
 typename left_dim_type>
 void left_vector_product(left_input_iterator A,right_input_iterator x,output_iterator y,const left_dim_type& ldim)
 {
-    std::fill(y,y+ldim.col_count(),std::iterator_traits<output_iterator>::value_type(0));
+    std::fill(y,y+ldim.col_count(),typename std::iterator_traits<output_iterator>::value_type(0));
     for(left_input_iterator A_end = A + ldim.size();A != A_end;A+=ldim.col_count(),++x)
     {
         typename std::iterator_traits<left_input_iterator>::value_type x_row = *x;

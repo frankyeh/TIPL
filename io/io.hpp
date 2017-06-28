@@ -146,7 +146,7 @@ public:
     }
     unsigned int width(void) const{return dicom_reader.empty() ? (nifti_reader.empty() ? 0 : nifti_reader.front()->width()):dicom_reader.front()->width();}
     unsigned int height(void) const{return dicom_reader.empty() ? (nifti_reader.empty() ? 0 : nifti_reader.front()->height()):dicom_reader.front()->height();}
-    unsigned int depth(void) const{return unsigned int(dicom_reader.size()+nifti_reader.size());}
+    unsigned int depth(void) const{return (unsigned int)(dicom_reader.size()+nifti_reader.size());}
     template<class image_type>
     void save_to_image(image_type& source) const
     {
