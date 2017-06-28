@@ -687,7 +687,7 @@ public:
         if(!has_data())
             return false;
         out.resize(image::geometry<image_type::dimension>(nif_header.dim+1));
-        if(!save_to_buffer(out.begin(),unsigned int(out.size())))
+        if(!save_to_buffer(out.begin(),(unsigned int)out.size()))
             return false;
         if(nif_header.scl_slope != 0)
         {
