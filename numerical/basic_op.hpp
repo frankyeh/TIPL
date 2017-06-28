@@ -375,7 +375,7 @@ void reorder(const image_type1& volume,image_type2& volume_out,int origin[],int 
                 }
                 y_index += shift[1];
             }
-            base_index += unsigned int(volume_out.plane_size());
+            base_index += (unsigned int)(volume_out.plane_size());
         }
         if(index_dim == 3)
         {
@@ -395,7 +395,7 @@ void reorder(const image_type1& volume,image_type2& volume_out,int origin[],int 
                 }
                 z_index += shift[2];
             }
-            base_index += unsigned int(volume_out.plane_size()*volume.depth());
+            base_index += (unsigned int)(volume_out.plane_size()*volume.depth());
         }
     }
 }
