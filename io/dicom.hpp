@@ -895,7 +895,7 @@ public:
             unsigned short slice_num = geo[2];
             geo[2] = width()*height()/geo[0]/geo[1];
             out.resize(geo);
-            save_to_buffer(out.begin(),unsigned int(out.size()));
+            save_to_buffer(out.begin(),(unsigned int)out.size());
             handle_mosaic(out.begin());
             geo[2] = slice_num;
             out.resize(geo);
@@ -903,7 +903,7 @@ public:
         else
         {
             out.resize(geo);
-            save_to_buffer(out.begin(),unsigned int(out.size()));
+            save_to_buffer(out.begin(),(unsigned int)out.size());
         }
     }
 
