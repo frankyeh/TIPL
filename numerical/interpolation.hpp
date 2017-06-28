@@ -31,7 +31,7 @@ struct interpolator<unsigned char>{
     typedef float type;
     static unsigned char assign(float v)
     {
-        return unsigned char(std::max<float>(0.0f,v));
+        return (unsigned char)std::max<float>(0.0f,v);
     }
 };
 
@@ -49,7 +49,7 @@ struct interpolator<unsigned short>{
     typedef float type;
     static unsigned short assign(float v)
     {
-        return unsigned short(std::max<float>(0.0f,v));
+        return (unsigned short)std::max<float>(0.0f,v);
     }
 };
 
@@ -68,7 +68,7 @@ struct interpolator<unsigned int>{
     typedef float type;
     static unsigned int assign(float v)
     {
-        return unsigned int(std::max<float>(0.0f,v));
+        return (unsigned int)std::max<float>(0.0f,v);
     }
 };
 
