@@ -166,6 +166,7 @@ public:
     {
         in_dim = in_dim_;
         basic_layer::init(in_dim.size(), out_dim.size(),in_dim.size() * out_dim.size(), out_dim.size());
+        weight_base = (float)std::sqrt(6.0f / (float)(input_size+output_size));
         return true;
     }
     void forward_propagation(const float* data,float* out) override
@@ -236,6 +237,7 @@ public:
         i2w_2.resize(in_dim);
         b2o.resize(bias_dim);
         o2b.resize(out_dim);
+        weight_base = (float)std::sqrt(6.0f / (float)(max_size(o2w_1) + max_size(i2w_1)));
     }
 
     template <class Container>
@@ -346,6 +348,7 @@ public:
                     o2b[index] = c;
                     b2o[c].push_back(index);
                 }
+        weight_base = (float)std::sqrt(6.0f / (float)(max_size(o2w_1) + max_size(i2w_1)));
         return true;
     }
     void to_image(basic_image<float,2>& I)
@@ -383,6 +386,7 @@ public:
         if(out_dim != image::geometry<3>(in_dim.width()/ pool_size, in_dim.height() / pool_size, in_dim.depth()))
             return false;
         init_connection();
+        weight_base = (float)std::sqrt(6.0f / (float)(o2i[0].size()+1));
         return true;
     }
     void forward_propagation(const float* data,float* out) override
@@ -474,6 +478,7 @@ public:
             return false;
         //weight_dim = image::geometry<3>(kernel_size,kernel_size,in_dim.depth() * out_dim.depth()),
         basic_layer::init(in_dim_.size(), out_dim_.size(),kernel_size2* in_dim.depth() * out_dim.depth(), out_dim.depth());
+        weight_base = (float)std::sqrt(6.0f / (float)(kernel_size2 * in_dim.depth() + kernel_size2 * out_dim.depth()));
         return true;
     }
     void to_image(basic_image<float,2>& I)
