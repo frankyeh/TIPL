@@ -792,6 +792,7 @@ public:
     }
 
     unsigned int get_output_size(void) const{return output_size;}
+    unsigned int get_input_size(void) const{return geo.empty() ? 0: geo[0].size();}
     bool add(const image::geometry<3>& dim)
     {
         if(!layers.empty())
@@ -937,7 +938,7 @@ public:
         }
 
         I.resize(image::geometry<2>(max_width,total_height));
-        std::fill(I.begin(),I.end(),image::rgb_color(255,255,255));        
+        std::fill(I.begin(),I.end(),image::rgb_color(255,255,255));
         int cur_height = 0;
         for(int i = 0;i < geo.size();++i)
         {
