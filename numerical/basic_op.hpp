@@ -222,6 +222,24 @@ void draw(const basic_image<pixel_type1,3,storage_type1>& from_image,
     }
 }
 //---------------------------------------------------------------------------
+template<typename image_type1,typename image_type2>
+void mosaic(const image_type1& source,
+            image_type2& out,
+            unsigned int mosaic_size,
+            unsigned int skip = 1)
+{
+    unsigned slice_num = source.depth() / skip;
+    out.clear();
+    out.resize(image::geometry<2>(source.width()*mosaic_size,
+                                  source.height()*(std::ceil((float)slice_num/(float)mosaic_size))));
+    for(unsigned int z = 0;z < slice_num;++z)
+    {
+        image::vector<2,int> pos(source.width()*(z%mosaic_size),
+                                 source.height()*(z/mosaic_size));
+        image::draw(source.slice_at(z*skip),out,pos);
+    }
+}
+//---------------------------------------------------------------------------
 template<class PixelType,class PosType>
 void move(basic_image<PixelType,2>& src,PosType pos)
 {
