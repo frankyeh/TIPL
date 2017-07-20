@@ -43,8 +43,7 @@ namespace io
 {
 enum transfer_syntax_type {lee,bee,lei};
 //---------------------------------------------------------------------------
-const char dicom_long_flag[] = "OBUNOWSQ";
-const char dicom_short_flag[] = "AEASATCSDADSDTFLFDISLOLTPNSHSLSSSTTMUIULUS";
+const char dicom_long_flag[] = "OBOFUNOWSQUT";
 //---------------------------------------------------------------------------
 class dicom_group_element
 {
@@ -129,20 +128,26 @@ public:
             }
         }
         unsigned int read_length = length;
-        if (flag_contains(dicom_long_flag,4))
+        bool is_explicit_vr = (transfer_syntax == bee || transfer_syntax == lee);
+
+        // SQ related Data Elements treated as implicit VR
+        // http://dicom.nema.org/dicom/2013/output/chtml/part05/sect_7.5.html
+        if(group == 0xFFFE && (element == 0xE000 || element == 0xE00D || element == 0xE0DD))
+            is_explicit_vr = false;
+
+        if(is_explicit_vr)
         {
-            if (!in.read((char*)&read_length,4))
-                return false;
+            // http://dicom.nema.org/dicom/2013/output/chtml/part05/chapter_7.html#sect_7.1.2
+            if (flag_contains(dicom_long_flag,6)) // Data Element with Explicit VR of OB, OW, OF, SQ, UT or UN
+            {
+                if (!in.read((char*)&read_length,4))
+                    return false;
+            }
+            else
+                read_length = new_length;
             if(transfer_syntax == bee)
                 change_endian(read_length);
         }
-        else
-            if (flag_contains(dicom_short_flag,21))
-            {
-                if(transfer_syntax == bee)
-                    change_endian(new_length);
-                read_length = new_length;
-            }
         if (read_length == 0xFFFFFFFF)
             read_length = 0;
         if (read_length)
