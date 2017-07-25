@@ -417,6 +417,76 @@ float linear(const image_type& from,const vs_type& from_vs,
     return optimal_value;
 }
 
+template<class image_type,class vs_type,class transform_type,class CostFunctionType,class teminated_class>
+float linear_refine(const image_type& from,const vs_type& from_vs,
+              const image_type& to,const vs_type& to_vs,
+                    transform_type& arg_min,
+                    reg_type base_type,
+                    CostFunctionType,
+                    teminated_class& terminated,bool search)
+{
+    transform_type upper,lower;
+    image::reg::fun_adoptor<image_type,vs_type,transform_type,transform_type,CostFunctionType> fun(from,from_vs,to,to_vs,arg_min);
+    image::reg::get_bound(from,arg_min,upper,lower,base_type);
+    // linear search
+    double optimal_value = fun(arg_min[0]);
+    if(search)
+    {
+        for(fun.cur_dim = 0;fun.cur_dim < arg_min.size() && !terminated;++fun.cur_dim)
+        if(upper[fun.cur_dim] != lower[fun.cur_dim])
+            image::optimization::linear_search2(
+                        arg_min[fun.cur_dim],upper[fun.cur_dim],lower[fun.cur_dim],optimal_value,fun,10);
+    }
+    else
+    {
+        for(fun.cur_dim = 0;fun.cur_dim < arg_min.size() && !terminated;++fun.cur_dim)
+        if(upper[fun.cur_dim] != lower[fun.cur_dim])
+        {
+           double dis = upper[fun.cur_dim]-lower[fun.cur_dim];
+           dis*=0.45;
+           upper[fun.cur_dim] -= dis;
+           lower[fun.cur_dim] += dis;
+        }
+    }
+    for(int iter = 0;iter < 5;++iter)
+    {
+        double cur_optimal_value = optimal_value;
+        for(fun.cur_dim = 0;fun.cur_dim < arg_min.size() && !terminated;++fun.cur_dim)
+        if(upper[fun.cur_dim] != lower[fun.cur_dim])
+        {
+            double l = fun(lower[fun.cur_dim]);
+            double h = fun(upper[fun.cur_dim]);
+            while(l < optimal_value || h < optimal_value)
+            {
+                if(l < optimal_value)
+                {
+                    double d = arg_min[fun.cur_dim]-lower[fun.cur_dim];
+                    optimal_value = l;
+                    upper[fun.cur_dim] = arg_min[fun.cur_dim];
+                    arg_min[fun.cur_dim] = lower[fun.cur_dim];
+                    lower[fun.cur_dim] -= 0.5f*d;
+                    l = fun(lower[fun.cur_dim]);
+                }
+                else
+                {
+                    double d = upper[fun.cur_dim]-arg_min[fun.cur_dim];
+                    optimal_value = h;
+                    lower[fun.cur_dim] = arg_min[fun.cur_dim];
+                    arg_min[fun.cur_dim] = upper[fun.cur_dim];
+                    upper[fun.cur_dim] += 0.5f*d;
+                    h = fun(upper[fun.cur_dim]);
+                }
+            }
+            image::optimization::brent_method(fun,upper[fun.cur_dim],lower[fun.cur_dim],arg_min[fun.cur_dim],terminated,0.01);
+            lower[fun.cur_dim] += 0.5f*(arg_min[fun.cur_dim]-lower[fun.cur_dim]);
+            upper[fun.cur_dim] -= 0.5f*(upper[fun.cur_dim]-arg_min[fun.cur_dim]);
+        }
+        if(cur_optimal_value == optimal_value)
+            break;
+    }
+    return optimal_value;
+}
+
 
 template<class image_type,class vs_type,class transform_type,class CostFunctionType,class teminated_class>
 float linear_mr(const image_type& from,const vs_type& from_vs,
@@ -448,7 +518,6 @@ float linear_mr(const image_type& from,const vs_type& from_vs,
     }
     return linear(from,from_vs,to,to_vs,arg_min,base_type,cost_type,terminated,precision);
 }
-
 
 template<class image_type,class vs_type,class value_type,class CostFunctionType,class teminated_class>
 void two_way_linear_mr(const image_type& from,const vs_type& from_vs,

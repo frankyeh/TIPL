@@ -354,6 +354,38 @@ bool rand_search2(value_type& x,value_type2 x_upper,value_type2 x_lower,
     return false;
 }
 
+template<class value_type,class value_type2,class value_type3,class function_type>
+void linear_search2(value_type& x,value_type2& x_upper,value_type2& x_lower,
+                         value_type3& fun_x,function_type& fun,int count)
+{
+    value_type2 dis = (x_upper-x_lower)/count;
+    std::deque<typename value_type3> x_list;
+    std::deque<typename value_type3> value_list;
+    x_list.push_back(x);
+    value_list.push_back(fun_x);
+
+    value_type2 d = dis;
+    for(value_type new_x = x-dis;new_x > x_lower;new_x -= d,d *= 2.0)
+    {
+        x_list.push_front(new_x);
+        value_list.push_front(fun(new_x));
+    }
+    d = dis;
+    for(value_type new_x = x+dis;new_x < x_upper;new_x += d,d *= 2.0)
+    {
+        x_list.push_back(new_x);
+        value_list.push_back(fun(new_x));
+    }
+    unsigned int min_index = std::min_element(value_list.begin(),value_list.end())-value_list.begin();
+    x = x_list[min_index];
+    fun_x = value_list[min_index];
+    if(min_index+1 < x_list.size())
+        x_upper = x_list[min_index+1];
+    if(min_index > 0)
+        x_lower = x_list[min_index-1];
+}
+
+
 
 template<class value_type,class value_type2,class value_type3,class function_type>
 bool simulated_annealing(value_type& x,value_type2 x_upper,value_type2 x_lower,
