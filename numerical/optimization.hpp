@@ -359,8 +359,8 @@ void linear_search2(value_type& x,value_type2& x_upper,value_type2& x_lower,
                          value_type3& fun_x,function_type& fun,int count)
 {
     value_type2 dis = (x_upper-x_lower)/count;
-    std::deque<typename value_type3> x_list;
-    std::deque<typename value_type3> value_list;
+    std::deque<value_type3> x_list;
+    std::deque<value_type3> value_list;
     x_list.push_back(x);
     value_list.push_back(fun_x);
 
