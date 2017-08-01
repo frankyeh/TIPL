@@ -688,12 +688,12 @@ void divide_pow_constant(image_type& I,value_type value)
     divide_pow_constant(I.begin(),I.end(),value);
 }
 //---------------------------------------------------------------------------
-template<class ValueType,int dimension>
-ValueType max_abs_value(const basic_image<ValueType,dimension>& image)
+template<class container_type>
+typename container_type::value_type max_abs_value(const container_type& image)
 {
-    ValueType max_value = 0;
-    typename basic_image<float,dimension>::const_iterator from = image.begin();
-    typename basic_image<float,dimension>::const_iterator to = image.end();
+    typename container_type::value_type max_value = 0;
+    auto from = image.begin();
+    auto to = image.end();
     for (; from != to; ++from)
     {
         float value = *from;
@@ -835,6 +835,23 @@ void apply_sort_index(container_type& c,const std::vector<index_type>& idx)
     for(size_t i = 0;i < idx.size();++i)
         new_c[i] = c[idx[i]];
     c.swap(new_c);
+}
+
+template<class I_type>
+image::vector<I_type::dimension,float> center_of_mass(const I_type& Im)
+{
+    image::vector<I_type::dimension,float> sum_mass;
+    double total_w = 0.0;
+    Im.for_each([&](typename I_type::value_type v,
+                    image::pixel_index<I_type::dimension> index)
+    {
+        total_w += v;
+        image::vector<I_type::dimension,float> pos(index);
+        pos *= v;
+        sum_mass += pos;
+    });
+    sum_mass /= total_w;
+    return sum_mass;
 }
 
 
