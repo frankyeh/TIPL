@@ -158,19 +158,71 @@ public:
             return false;
 
         // read image dimension
+        bool no_visu = false;
         bruker_info visu,info;
-        if(!visu.load_from_file(load_visu(file_name)) ||
-           !info.load_from_file(load_reco(file_name)) )
+        if(!info.load_from_file(load_reco(file_name)))
             return false;
+        if(!visu.load_from_file(load_visu(file_name)))
+            no_visu = true;
 
         image::geometry<3> dim;
         // get image dimension
-        std::istringstream(visu["VisuCoreSize"]) >> dim[0] >> dim[1] >> dim[2];
-        std::istringstream(visu["VisuCoreOrientation"])
+        if(!no_visu)
+        {
+            std::istringstream(visu["VisuCoreSize"]) >> dim[0] >> dim[1] >> dim[2];
+            std::istringstream(visu["VisuCoreOrientation"])
                 >> orientation[0] >> orientation[1] >> orientation[2]
                 >> orientation[3] >> orientation[4] >> orientation[5]
                 >> orientation[6] >> orientation[7] >> orientation[8];
-        slice_2d = (dim[2] == 0);
+        }
+        // get image slope
+        {
+            std::istringstream slope_text_parser(info["RECO_map_slope"]);
+            std::copy(std::istream_iterator<double>(slope_text_parser),
+                      std::istream_iterator<double>(),
+                      std::back_inserter(slopes));
+            float max_slope = *std::max_element(slopes.begin(),slopes.end());
+            for(unsigned int i = 0;i < slopes.size();++i)
+                slopes[i] /= max_slope;
+        }
+        // get resolution
+        {
+            std::vector<float> fov_data,size; // in cm
+            std::istringstream in1(info["RECO_fov"]),in2(info["RECO_size"]);
+            std::copy(std::istream_iterator<float>(in1),
+                      std::istream_iterator<float>(),
+                      std::back_inserter(fov_data));
+            std::copy(std::istream_iterator<float>(in2),
+                      std::istream_iterator<float>(),
+                      std::back_inserter(size));
+            std::fill(resolution,resolution+3,0.0);
+            for(unsigned int index = 0;index < 3 && index < fov_data.size() && index < size.size();++index)
+                resolution[index] = fov_data[index]*10.0/size[index]; // in mm
+
+            if(no_visu)
+            {
+                dim[0] = size[0];
+                dim[1] = size[1];
+                dim[2] = slopes.size();
+            }
+
+            if(resolution[2] == 0)
+            {
+                if(!no_visu)
+                {
+                    image::vector<3> v1,v2;
+                    std::istringstream(visu["VisuCorePosition"])
+                        >> v1[0] >> v1[1] >> v1[2]
+                        >> v2[0] >> v2[1] >> v2[2];
+                    resolution[2] = (v1-v2).length();
+                }
+                else
+                    resolution[2] = resolution[0];
+            }
+        }
+
+
+        // read image data
         std::vector<char> buffer;
         std::ifstream in(file_name,std::ios::binary);
         in.seekg(0, std::ifstream::end);
@@ -209,38 +261,7 @@ public:
             std::copy((float*)&buffer[0],(float*)&buffer[0]+data.size(),data.begin());
 
 
-        // get resolution
-        {
-            std::vector<float> fov_data,size; // in cm
-            std::istringstream in1(info["RECO_fov"]),in2(info["RECO_size"]);
-            std::copy(std::istream_iterator<float>(in1),
-                      std::istream_iterator<float>(),
-                      std::back_inserter(fov_data));
-            std::copy(std::istream_iterator<float>(in2),
-                      std::istream_iterator<float>(),
-                      std::back_inserter(size));
-            std::fill(resolution,resolution+3,0.0);
-            for(unsigned int index = 0;index < 3 && index < fov_data.size() && index < size.size();++index)
-                resolution[index] = fov_data[index]*10.0/size[index]; // in mm
 
-            if(resolution[2] == 0)
-            {
-                image::vector<3> v1,v2;
-                std::istringstream(visu["VisuCorePosition"])
-                    >> v1[0] >> v1[1] >> v1[2]
-                    >> v2[0] >> v2[1] >> v2[2];
-                resolution[2] = (v1-v2).length();
-            }
-        }
-        {
-            std::istringstream slope_text_parser(info["RECO_map_slope"]);
-            std::copy(std::istream_iterator<double>(slope_text_parser),
-                      std::istream_iterator<double>(),
-                      std::back_inserter(slopes));
-            float max_slope = *std::max_element(slopes.begin(),slopes.end());
-            for(unsigned int i = 0;i < slopes.size();++i)
-                slopes[i] /= max_slope;
-        }
         if(!slopes.empty())
         {
             unsigned int plane_size = dim[0]*dim[1];
@@ -256,7 +277,7 @@ public:
             }
         }
 
-
+        slice_2d = (dim[2] == 0);
         return true;
     }
     const image::basic_image<float,3>& get_image(void) const{return data;}
