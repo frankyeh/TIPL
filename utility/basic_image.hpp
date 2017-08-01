@@ -432,6 +432,12 @@ public:
             f(data[index.index()],index);
     }
     template<typename Func>
+    void for_each(Func f) const
+    {
+        for(pixel_index<dim> index(geometry());index.index() < data.size();++index)
+            f(data[index.index()],index);
+    }
+    template<typename Func>
     void for_each_mt(Func f, int thread_count = std::thread::hardware_concurrency())
     {
         if(thread_count < 1)
