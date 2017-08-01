@@ -51,6 +51,20 @@ void compose_displacement(const ImageType& src,const ComposeImageType& displace,
     }
 }
 //---------------------------------------------------------------------------
+template<class ImageType,class ComposeImageType,class OutImageType>
+void compose_displacement_with_jacobian(const ImageType& src,const ComposeImageType& displace,OutImageType& dest)
+{
+    image::geometry<ImageType::dimension> geo(src.geometry());
+    dest.clear();
+    dest.resize(geo);
+    for(image::pixel_index<ImageType::dimension> index(geo);index.is_valid(geo);++index)
+    {
+        typename ComposeImageType::value_type vtor(index);
+        vtor += displace[index.index()];
+        image::estimate(src,vtor,dest[index.index()]);
+    }
+}
+//---------------------------------------------------------------------------
 template<class ComposeImageType>
 void invert_displacement(const ComposeImageType& v0,ComposeImageType& v1)
 {
