@@ -21,38 +21,6 @@ namespace image
 
 namespace reg
 {
-
-    template<class I_type>
-    image::vector<3,double> center_of_mass(const I_type& Im)
-    {
-        image::basic_image<unsigned char,I_type::dimension> mask;
-        image::segmentation::otsu(Im,mask);
-        image::morphology::smoothing(mask);
-        image::morphology::smoothing(mask);
-        image::morphology::defragment(mask);
-        image::vector<I_type::dimension,double> sum_mass;
-        double total_w = 0.0;
-        for(image::pixel_index<I_type::dimension> index;
-            index.is_valid(mask.geometry());
-            index.next(mask.geometry()))
-            if(mask[index.index()])
-            {
-                total_w += 1.0;
-                image::vector<3,double> pos(index);
-                sum_mass += pos;
-            }
-        if(total_w == 0)
-        {
-            for(unsigned char dim = 0;dim < I_type::dimension;++dim)
-                sum_mass[dim] = (double)Im.geometry()[dim]/2.0;
-            return sum_mass;
-        }
-        sum_mass /= total_w;
-        for(unsigned char dim = 0;dim < I_type::dimension;++dim)
-            sum_mass[dim] -= (double)Im.geometry()[dim]/2.0;
-        return sum_mass;
-    }
-
     struct square_error
     {
         typedef double value_type;
