@@ -488,7 +488,9 @@ private:
 
     }
 public:
-    dicom(void):transfer_syntax(lee) {}
+    dicom(void):transfer_syntax(lei) {}
+    // DICOM defines a default Transfer Syntax, the DICOM Implicit VR Little Endian Transfer Syntax (UID = "1.2.840.10008.1.2 "), which shall be supported by every conformant DICOM Implementation.
+    // http://dicom.nema.org/dicom/2013/output/chtml/part05/chapter_10.html
     dicom(const dicom& rhs)
     {
         assign(rhs);
