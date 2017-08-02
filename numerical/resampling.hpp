@@ -951,6 +951,21 @@ void resample_mt(const ImageType1& from,ImageType2& to,const transform_type& tra
     });
 }
 
+template<class ImageType1,class ImageType2>
+void resample(const ImageType1& from,ImageType2& to,interpolation_type type = interpolation_type::linear)
+{
+    image::vector<ImageType1::dimension> r;
+    for(int i =0;i < ImageType1::dimension;++i)
+        r[i] = ((float)from.geometry()[i]-1.0f)/((float)to.geometry()[i]-1.0f);
+    for (image::pixel_index<ImageType1::dimension> index(to.geometry());index < to.size();++index)
+    {
+        image::vector<ImageType1::dimension> pos(index);
+        image::multiply(pos,r);
+        estimate(from,pos,to[index.index()],type);
+    }
+}
+
+
 template<class ImageType1,class ImageType2,class transform_type>
 void resample(const ImageType1& from,ImageType2& to,const transform_type& transform,interpolation_type type)
 {
