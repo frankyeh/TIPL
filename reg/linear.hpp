@@ -344,127 +344,57 @@ void get_bound(const image_type1& from,
 template<class image_type,class vs_type,class transform_type,class CostFunctionType,class teminated_class>
 float linear(const image_type& from,const vs_type& from_vs,
              const image_type& to  ,const vs_type& to_vs,
-                    transform_type& arg_min,
-                    reg_type base_type,
-                    CostFunctionType,
-                    teminated_class& terminated,double precision = 0.005)
+                transform_type& arg_min,
+             reg_type base_type,
+             CostFunctionType,
+             bool random_search,
+             teminated_class& terminated,
+             double precision)
 {
     std::srand(0);
     reg_type reg_list[4] = {translocation,rigid_body,rigid_scaling,affine};
-    double optimal_value = 0.0;
     transform_type upper,lower;
     image::reg::fun_adoptor<image_type,vs_type,transform_type,transform_type,CostFunctionType> fun(from,from_vs,to,to_vs,arg_min);
-    std::vector<unsigned char> search_count(arg_min.size());
-    unsigned int random_search_count = std::sqrt(1.0/precision);
+    double optimal_value = fun(arg_min[0]);
+    image::reg::get_bound(from,arg_min,upper,lower,base_type);
+    while(random_search && !terminated)
+    {
+        bool improved = false;
+        for(fun.cur_dim = 0;fun.cur_dim < arg_min.size() && !terminated;++fun.cur_dim)
+            if(upper[fun.cur_dim] != lower[fun.cur_dim])
+            {
+                double v = optimal_value;
+                image::optimization::linear_search2(
+                            arg_min[fun.cur_dim],upper[fun.cur_dim],lower[fun.cur_dim],optimal_value,fun,10);
+                if(v != optimal_value)
+                    improved = true;
+            }
+        if(!improved)
+            break;
+    }
+
     for(unsigned char type = 0;type < 4 && reg_list[type] <= base_type && !terminated;++type)
     {
         image::reg::get_bound(from,arg_min,upper,lower,reg_list[type]);
-        if(type == 0)
-            optimal_value = fun(arg_min[0]);
-        while(!terminated)
-        {
-            bool running = false;
-            for(fun.cur_dim = 0;fun.cur_dim < arg_min.size() && !terminated;++fun.cur_dim)
-                if(upper[fun.cur_dim] != lower[fun.cur_dim] && search_count[fun.cur_dim] < random_search_count)
-                {
-                    image::optimization::rand_search2(arg_min[fun.cur_dim],
-                                                            upper[fun.cur_dim],lower[fun.cur_dim],
-                                                            optimal_value,fun);
-                    ++search_count[fun.cur_dim];
-                    running = true;
-                }
-            if(!running)
-                break;
-        }
-        if(!terminated)
-            image::optimization::graient_descent(arg_min.begin(),arg_min.end(),upper.begin(),lower.begin(),fun,optimal_value,terminated,precision);
-        //std::cout << "type=" << reg_list[type] <<" count=" << fun.count << " cost=" << optimal_value << std::endl;
+        image::optimization::gradient_descent(arg_min.begin(),arg_min.end(),
+                                             upper.begin(),lower.begin(),fun,optimal_value,terminated,precision);
     }
-    image::optimization::graient_descent(arg_min.begin(),arg_min.end(),upper.begin(),lower.begin(),fun,optimal_value,terminated,precision/10);
-    //std::cout << "count=" << fun.count << " cost=" << optimal_value << std::endl;
-    return optimal_value;
-}
-
-template<class image_type,class vs_type,class transform_type,class CostFunctionType,class teminated_class>
-float linear_refine(const image_type& from,const vs_type& from_vs,
-              const image_type& to,const vs_type& to_vs,
-                    transform_type& arg_min,
-                    reg_type base_type,
-                    CostFunctionType,
-                    teminated_class& terminated,bool search)
-{
-    transform_type upper,lower;
-    image::reg::fun_adoptor<image_type,vs_type,transform_type,transform_type,CostFunctionType> fun(from,from_vs,to,to_vs,arg_min);
-    image::reg::get_bound(from,arg_min,upper,lower,base_type);
-    // linear search
-    double optimal_value = fun(arg_min[0]);
-    if(search)
-    {
-        for(fun.cur_dim = 0;fun.cur_dim < arg_min.size() && !terminated;++fun.cur_dim)
-        if(upper[fun.cur_dim] != lower[fun.cur_dim])
-            image::optimization::linear_search2(
-                        arg_min[fun.cur_dim],upper[fun.cur_dim],lower[fun.cur_dim],optimal_value,fun,10);
-    }
-    else
-    {
-        for(fun.cur_dim = 0;fun.cur_dim < arg_min.size() && !terminated;++fun.cur_dim)
-        if(upper[fun.cur_dim] != lower[fun.cur_dim])
-        {
-           double dis = upper[fun.cur_dim]-lower[fun.cur_dim];
-           dis*=0.45;
-           upper[fun.cur_dim] -= dis;
-           lower[fun.cur_dim] += dis;
-        }
-    }
-    for(int iter = 0;iter < 5;++iter)
-    {
-        double cur_optimal_value = optimal_value;
-        for(fun.cur_dim = 0;fun.cur_dim < arg_min.size() && !terminated;++fun.cur_dim)
-        if(upper[fun.cur_dim] != lower[fun.cur_dim])
-        {
-            double l = fun(lower[fun.cur_dim]);
-            double h = fun(upper[fun.cur_dim]);
-            while(l < optimal_value || h < optimal_value)
-            {
-                if(l < optimal_value)
-                {
-                    double d = arg_min[fun.cur_dim]-lower[fun.cur_dim];
-                    optimal_value = l;
-                    upper[fun.cur_dim] = arg_min[fun.cur_dim];
-                    arg_min[fun.cur_dim] = lower[fun.cur_dim];
-                    lower[fun.cur_dim] -= 0.5f*d;
-                    l = fun(lower[fun.cur_dim]);
-                }
-                else
-                {
-                    double d = upper[fun.cur_dim]-arg_min[fun.cur_dim];
-                    optimal_value = h;
-                    lower[fun.cur_dim] = arg_min[fun.cur_dim];
-                    arg_min[fun.cur_dim] = upper[fun.cur_dim];
-                    upper[fun.cur_dim] += 0.5f*d;
-                    h = fun(upper[fun.cur_dim]);
-                }
-            }
-            image::optimization::brent_method(fun,upper[fun.cur_dim],lower[fun.cur_dim],arg_min[fun.cur_dim],terminated,0.01);
-            lower[fun.cur_dim] += 0.5f*(arg_min[fun.cur_dim]-lower[fun.cur_dim]);
-            upper[fun.cur_dim] -= 0.5f*(upper[fun.cur_dim]-arg_min[fun.cur_dim]);
-        }
-        if(cur_optimal_value == optimal_value)
-            break;
-    }
+    image::optimization::gradient_descent(arg_min.begin(),arg_min.end(),
+                                         upper.begin(),lower.begin(),fun,optimal_value,terminated,precision*0.1f);
     return optimal_value;
 }
 
 
 template<class image_type,class vs_type,class transform_type,class CostFunctionType,class teminated_class>
 float linear_mr(const image_type& from,const vs_type& from_vs,
-             const image_type& to  ,const vs_type& to_vs,
-                    transform_type& arg_min,
-                    reg_type base_type,
-                    CostFunctionType cost_type,
-                    teminated_class& terminated,double precision = 0.005)
+                const image_type& to  ,const vs_type& to_vs,
+                transform_type& arg_min,
+                reg_type base_type,
+                CostFunctionType cost_type,
+                teminated_class& terminated,
+                double precision = 0.01)
 {
-    geometry<image_type::dimension> geo = from.geometry();
+    bool random_search = false;
     // multi resolution
     if (*std::min_element(from.geometry().begin(),from.geometry().end()) > 32 &&
         *std::min_element(to.geometry().begin(),to.geometry().end()) > 32)
@@ -484,7 +414,9 @@ float linear_mr(const image_type& from,const vs_type& from_vs,
         if(terminated)
             return 0.0;
     }
-    return linear(from,from_vs,to,to_vs,arg_min,base_type,cost_type,terminated,precision);
+    else
+        random_search = true;
+    return linear(from,from_vs,to,to_vs,arg_min,base_type,cost_type,random_search,terminated,precision);
 }
 
 template<class image_type,class vs_type,class value_type,class CostFunctionType,class teminated_class>
@@ -499,16 +431,15 @@ void two_way_linear_mr(const image_type& from,const vs_type& from_vs,
     image::par_for(2,[&](int i){
         if(i)
         {
-            image::reg::linear_mr(from,from_vs,to,to_vs,arg1,base_type,cost_type,terminated);
-            image::reg::linear_mr(from,from_vs,to,to_vs,arg1,base_type,cost_type,terminated);
+            image::reg::linear_mr(from,from_vs,to,to_vs,arg1,base_type,cost_type,terminated,0.1);
+            image::reg::linear_mr(from,from_vs,to,to_vs,arg1,base_type,cost_type,terminated,0.01);
         }
         else
         {
-            image::reg::linear_mr(to,to_vs,from,from_vs,arg2,base_type,cost_type,terminated);
-            image::reg::linear_mr(to,to_vs,from,from_vs,arg2,base_type,cost_type,terminated);
+            image::reg::linear_mr(to,to_vs,from,from_vs,arg2,base_type,cost_type,terminated,0.1);
+            image::reg::linear_mr(to,to_vs,from,from_vs,arg2,base_type,cost_type,terminated,0.01);
         }
     });
-
     image::transformation_matrix<double> T1(arg1,from.geometry(),from_vs,to.geometry(),to_vs);
     image::transformation_matrix<double> T2(arg2,to.geometry(),to_vs,from.geometry(),from_vs);
     T2.inverse();

@@ -149,7 +149,7 @@ bool armijo_line_search(iter_type1 x_beg,iter_type1 x_end,
                         iter_type2 x_upper,iter_type2 x_lower,
                         g_type g_beg,
                         value_type& fun_x,
-                        function_type& fun,double)
+                        function_type& fun)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
     unsigned int size = x_end-x_beg;
@@ -239,7 +239,7 @@ void graient_descent_1d(param_type& x,param_type upper,param_type lower,
 }
 
 template<class iter_type1,class iter_type2,class function_type,class terminated_class>
-void graient_descent(
+void gradient_descent(
                 iter_type1 x_beg,iter_type1 x_end,
                 iter_type2 x_upper,iter_type2 x_lower,
                 function_type& fun,
@@ -263,7 +263,7 @@ void graient_descent(
         if(length == 0.0)
             return;
         image::multiply_constant(g,tol_length/length);
-        if(!armijo_line_search(x_beg,x_end,x_upper,x_lower,g.begin(),fun_x,fun,precision))
+        if(!armijo_line_search(x_beg,x_end,x_upper,x_lower,g.begin(),fun_x,fun))
             return;
     }
 }
