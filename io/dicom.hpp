@@ -128,7 +128,9 @@ public:
             }
         }
         unsigned int read_length = length;
-        bool is_explicit_vr = (transfer_syntax == bee || transfer_syntax == lee);
+        bool is_explicit_vr = (transfer_syntax == bee || transfer_syntax == lee ||
+                               (lt0 >= 'A' && lt0 <= 'Z' &&
+                                lt1 >= 'A' && lt1 <= 'Z' && lt2 > 0));
 
         // SQ related Data Elements treated as implicit VR
         // http://dicom.nema.org/dicom/2013/output/chtml/part05/sect_7.5.html
