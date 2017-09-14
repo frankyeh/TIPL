@@ -935,21 +935,28 @@ public:
             out << std::setw( 8 ) << std::setfill( '0' ) << std::hex << std::uppercase <<
             data[i].get_order() << "=";
             out << std::dec;
-            out << data[i].data.size() << " bytes ";
             if(data[i].data.empty())
             {
-                out << std::setw( 8 ) << std::setfill( '0' ) << std::hex << std::uppercase <<
-                data[i].length << " ";
-                out << std::dec;
+                out << "empty";
             }
             else
             {
-                unsigned short vr = data[i].vr;
-                if((vr & 0xFF) && (vr >> 8))
-                    out << (char)(vr & 0xFF) << (char)(vr >> 8) << " ";
+                out << data[i].data.size() << " bytes ";
+                if(data[i].data.empty())
+                {
+                    out << std::setw( 8 ) << std::setfill( '0' ) << std::hex << std::uppercase <<
+                    data[i].length << " ";
+                    out << std::dec;
+                }
                 else
-                    out << "   ";
-                data[i] >> out;
+                {
+                    unsigned short vr = data[i].vr;
+                    if((vr & 0xFF) && (vr >> 8))
+                        out << (char)(vr & 0xFF) << (char)(vr >> 8) << " ";
+                    else
+                        out << "   ";
+                    data[i] >> out;
+                }
             }
             out << std::endl;
         }
