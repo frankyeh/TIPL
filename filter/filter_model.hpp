@@ -17,11 +17,33 @@ struct rgb_manip
     rgb_manip(image::rgb_color color):r(color.r),g(color.g),b(color.b) {}
     rgb_manip(void):r(0),g(0),b(0) {}
 public:
+    rgb_manip operator+(const rgb_manip& rhs)
+    {
+        rgb_manip result(*this);
+        result.r += rhs.r;
+        result.g += rhs.g;
+        result.b += rhs.b;
+        return result;
+    }
+    rgb_manip operator-(const rgb_manip& rhs)
+    {
+        rgb_manip result(*this);
+        result.r -= rhs.r;
+        result.g -= rhs.g;
+        result.b -= rhs.b;
+        return result;
+    }
     void operator+=(const rgb_manip& rhs)
     {
         r += rhs.r;
         g += rhs.g;
         b += rhs.b;
+    }
+    void operator-=(const rgb_manip& rhs)
+    {
+        r -= rhs.r;
+        g -= rhs.g;
+        b -= rhs.b;
     }
     void operator+=(int value)
     {
@@ -77,9 +99,9 @@ public:
         if (g < 0) g = -g;
         if (b < 0) b = -b;
     }
-    image::rgb_color operator()(void) const
+    image::rgb_color to_rgb(void) const
     {
-        return image::rgb_color(r,g,b);
+        return image::rgb_color(std::min(255,r),std::min(255,g),std::min(255,b));
     }
 };
 

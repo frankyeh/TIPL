@@ -9,20 +9,72 @@ namespace image
 namespace filter
 {
 
+template<class value_type>
+struct sobel_filter_abs_sum;
 
 template<class value_type>
-value_type sobel_filter_abs(value_type value)
-{
-	return value >= 0 ? value : -value;
-}
+struct sobel_filter_abs_sum{
+
+    typedef typename pixel_manip<typename value_type>::type manip_type;
+    value_type operator()(const manip_type& a,const manip_type& b)
+    {
+        manip_type d(0);
+        d = a > 0 ? a:-a;
+        d += b > 0 ? b: -b;
+        return d;
+    }
+    value_type operator()(const manip_type& a,const manip_type& b,const manip_type& c)
+    {
+        manip_type d(0);
+        d = a > 0 ? a:-a;
+        d += b > 0 ? b: -b;
+        d += c > 0 ? c: -c;
+        return d;
+    }
+};
+
+template<>
+struct sobel_filter_abs_sum<image::rgb_color>{
+
+    typedef pixel_manip<image::rgb_color>::type manip_type;
+    image::rgb_color operator()(const manip_type& a,const manip_type& b)
+    {
+        manip_type d;
+        d.r = a.r > 0 ? a.r:-a.r;
+        d.g = a.g > 0 ? a.g:-a.g;
+        d.b = a.b > 0 ? a.b:-a.b;
+
+        d.r += b.r > 0 ? b.r: -b.r;
+        d.g += b.g > 0 ? b.g: -b.g;
+        d.b += b.b > 0 ? b.b: -b.b;
+        return d.to_rgb();
+    }
+    image::rgb_color operator()(const manip_type& a,const manip_type& b,const manip_type& c)
+    {
+        manip_type d;
+        d.r = a.r > 0 ? a.r:-a.r;
+        d.g = a.g > 0 ? a.g:-a.g;
+        d.b = a.b > 0 ? a.b:-a.b;
+
+        d.r += b.r > 0 ? b.r: -b.r;
+        d.g += b.g > 0 ? b.g: -b.g;
+        d.b += b.b > 0 ? b.b: -b.b;
+
+        d.r += c.r > 0 ? c.r: -c.r;
+        d.g += c.g > 0 ? c.g: -c.g;
+        d.b += c.b > 0 ? c.b: -c.b;
+        return d.to_rgb();
+    }
+};
+
 
 template<class value_type,size_t dimension>
-class sobel_filter_imp;
+struct sobel_filter_imp;
 
 template<class value_type>
-class sobel_filter_imp<value_type,2>
+struct sobel_filter_imp<value_type,2>
 {
-    typedef typename pixel_manip<value_type>::type manip_type;
+    typedef typename pixel_manip<typename value_type>::type manip_type;
 public:
     template<class image_type>
     void operator()(image_type& src)
@@ -45,17 +97,17 @@ public:
         minus_weight<2>(gy,src,-w);
         minus_weight<1>(gy,src,-w-1);
         minus_weight<1>(gy,src,-w+1);
-
-		for(size_t index = 0;index < src.size();++index)
-			src[index] = sobel_filter_abs(gx[index]) + sobel_filter_abs(gy[index]);
+        sobel_filter_abs_sum<value_type> sum;
+        for(size_t index = 0;index < src.size();++index)
+            src[index] = sum(gx[index],gy[index]);
     }
 };
 
 
 template<class value_type>
-class sobel_filter_imp<value_type,3>
+struct sobel_filter_imp<value_type,3>
 {
-    typedef typename pixel_manip<value_type>::type manip_type;
+    typedef typename pixel_manip<typename value_type>::type manip_type;
 public:
     template<class image_type>
     void operator()(image_type& src)
@@ -101,10 +153,9 @@ public:
         minus_weight<1>(gy,src,-wh+1);
 		minus_weight<1>(gy,src,-wh-w);
         minus_weight<1>(gy,src,-wh+w);
-
-		for(size_t index = 0;index < src.size();++index)
-			src[index] = sobel_filter_abs(gx[index]) + sobel_filter_abs(gy[index]) + sobel_filter_abs(gz[index]);
-
+        sobel_filter_abs_sum<value_type> sum;
+        for(size_t index = 0;index < src.size();++index)
+            src[index] = sum(gx[index],gy[index],gz[index]);
     }
 };
 
