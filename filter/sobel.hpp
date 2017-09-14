@@ -15,7 +15,7 @@ struct sobel_filter_abs_sum;
 template<class value_type>
 struct sobel_filter_abs_sum{
 
-    typedef typename pixel_manip<typename value_type>::type manip_type;
+    typedef typename pixel_manip<value_type>::type manip_type;
     value_type operator()(const manip_type& a,const manip_type& b)
     {
         manip_type d(0);
@@ -74,7 +74,7 @@ struct sobel_filter_imp;
 template<class value_type>
 struct sobel_filter_imp<value_type,2>
 {
-    typedef typename pixel_manip<typename value_type>::type manip_type;
+    typedef typename pixel_manip<value_type>::type manip_type;
 public:
     template<class image_type>
     void operator()(image_type& src)
@@ -107,7 +107,7 @@ public:
 template<class value_type>
 struct sobel_filter_imp<value_type,3>
 {
-    typedef typename pixel_manip<typename value_type>::type manip_type;
+    typedef typename pixel_manip<value_type>::type manip_type;
 public:
     template<class image_type>
     void operator()(image_type& src)
