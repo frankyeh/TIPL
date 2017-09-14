@@ -461,6 +461,17 @@ struct cubic_interpolation<2>{
             p[index] = source[dindex[index]];
         pixel = interpolator<PixelType>::assign(cubic_imp(p,dx,dx2,dx3,dy,dy2,dy3)*0.25);
     }
+    template<class ImageType>
+    void estimate(const ImageType& source,image::rgb_color& pixel)
+    {
+        for(char i = 0;i < 3;++i)
+        {
+            float p[16];
+            for(unsigned int index = 0;index < 16;++index)
+                p[index] = source[dindex[index]][i];
+            pixel[i] = cubic_imp(p,dx,dx2,dx3,dy,dy2,dy3)*0.25;
+        }
+    }
 };
 
 
