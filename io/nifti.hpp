@@ -877,10 +877,11 @@ public:
         out.resize(image::geometry<image_type::dimension>(nif_header2.dim+1));
         if(!save_to_buffer(out.begin(),(unsigned int)out.size()))
             return false;
-        if(nif_header2.scl_slope != 1.0 || nif_header2.scl_slope != 0.0)
+        if(nif_header2.scl_slope != 0)
+        {
             image::multiply_constant(out,nif_header2.scl_slope);
-        if(nif_header2.scl_inter != 0.0)
             image::add_constant(out,nif_header2.scl_inter);
+        }
         return true;
     }
     template<class image_type>
