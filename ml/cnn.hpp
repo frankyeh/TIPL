@@ -664,13 +664,13 @@ public:
     std::vector<std::vector<value_type> > data;
     std::vector<label_type> data_label;
 
-
+    size_t size(void) const{return data_label.size();}
     void clear(void)
     {
         data.clear();
         data_label.clear();
     }
-    bool is_empty(void) const
+    bool empty(void) const
     {
         return data.empty();
     }
@@ -776,6 +776,7 @@ public:
     int batch_size = 64;
     int epoch= 20;
     std::string error_msg;
+    std::string nn_text;
 private:
     float rate_decay = 1.0f;
 public:
@@ -790,9 +791,17 @@ public:
         training_error_count = 0;
         data_size = 0;
     }
+    void init_weights(void)
+    {
+        image::uniform_dist<float> gen(-1.0,1.0);
+        for(auto layer : layers)
+            layer->initialize_weight(gen);
+    }
 
+    bool empty(void) const{return layers.empty();}
     unsigned int get_output_size(void) const{return output_size;}
     unsigned int get_input_size(void) const{return geo.empty() ? 0: geo[0].size();}
+    image::geometry<3> get_input_dim(void) const{return geo[0];}
     bool add(const image::geometry<3>& dim)
     {
         if(!layers.empty())
@@ -1093,9 +1102,9 @@ public:
                     out << "soft_max";
             }
         }
-        std::string nn_text = out.str();
+        nn_text = out.str();
         std::ofstream file(file_name,std::ios::binary);
-        size_t nn_text_length = nn_text.length();
+        unsigned int nn_text_length = nn_text.length();
         file.write((const char*)&nn_text_length,sizeof(nn_text_length));
         file.write((const char*)&*nn_text.begin(),nn_text_length);
         for(auto& layer : layers)
@@ -1110,9 +1119,9 @@ public:
         std::ifstream in(file_name,std::ios::binary);
         if(!in)
             return false;
-        unsigned int nn_text_length = 0;
+        size_t nn_text_length = 0;
         in.read((char*)&nn_text_length,4);
-        std::string nn_text;
+        nn_text.clear();
         nn_text.resize(nn_text_length);
         in.read((char*)&*nn_text.begin(),nn_text_length);
         if(!in)
@@ -1175,9 +1184,6 @@ public:
 
     void initialize_training(void)
     {
-        image::uniform_dist<float> gen(-1.0,1.0);
-        for(auto layer : layers)
-            layer->initialize_weight(gen);
         int thread_count = std::thread::hardware_concurrency();
         dweight.resize(thread_count);
         dbias.resize(thread_count);
