@@ -535,7 +535,22 @@ struct downsampling_facade<unsigned char>{
     }
 };
 
-
+template<>
+struct downsampling_facade<image::rgb_color>{
+    image::rgb_color operator()(image::rgb_color v1,image::rgb_color v2)
+    {
+        unsigned short b = v1[0];
+        b += v2[0];
+        unsigned short g = v1[1];
+        g += v2[1];
+        unsigned short r = v1[2];
+        r += v2[2];
+        b >>= 1;
+        g >>= 1;
+        r >>= 1;
+        return image::rgb_color(r,g,b);
+    }
+};
 
 template<class IteratorType,class OutputIterator>
 OutputIterator downsampling_x(IteratorType from,IteratorType to,OutputIterator out,int width)
