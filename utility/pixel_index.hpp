@@ -872,15 +872,6 @@ public:
         return r;
     }
 public:
-    data_type project_length(const vector<3,data_type>& rhs)
-    {
-        return *this*rhs/length();
-    }
-    vector<3,data_type> project(const vector<3,data_type>& rhs)
-    {
-        vector<3,data_type> proj = *this;
-        return *this*(*this*rhs/length2());
-    }
         data_type distance2(const vector<3,data_type>& rhs)
 	{
 		data_type sum = 0;
