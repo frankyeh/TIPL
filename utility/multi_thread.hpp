@@ -2,6 +2,22 @@
 #define MULTI_THREAD_HPP
 #include <future>
 namespace image{
+
+class time
+{
+ public:
+    time():  t1(std::chrono::high_resolution_clock::now()){};
+    template<typename T> // T: std::chrono::milliseconds
+    double elapsed(){return std::chrono::duration_cast<T>(std::chrono::high_resolution_clock::now() - t1).count();}
+    void restart(){t1 = std::chrono::high_resolution_clock::now();}
+    void start(){t1 = std::chrono::high_resolution_clock::now();}
+    void stop(){t2 = std::chrono::high_resolution_clock::now();}
+    double total(){stop();return std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();}
+    ~time(){}
+ private:
+    std::chrono::high_resolution_clock::time_point t1, t2;
+};
+
 template <class T,class Func>
 void par_for(T size, Func f, int thread_count = std::thread::hardware_concurrency())
 {
