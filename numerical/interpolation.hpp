@@ -131,10 +131,27 @@ struct weighting_sum
     template<class data_iterator_type,class weighting_iterator,class output_type>
     void operator()(data_iterator_type from,data_iterator_type to,weighting_iterator w,output_type& result_)
     {
-        typename interpolator<value_type>::type result = (*from)*(*w);
+        float result = (float)(*from)*(*w);
         for (++from,++w;from != to;++from,++w)
-            result += (*from)*(*w);
+            result += (float)(*from)*(*w);
         result_ = result;
+    }
+};
+
+template<int dim,typename value_type>
+struct weighting_sum<image::vector<dim,value_type> >
+{
+    template<class data_iterator_type,class weighting_iterator,class output_type>
+    void operator()(data_iterator_type from,data_iterator_type to,weighting_iterator w,output_type& result_)
+    {
+        image::vector<dim,value_type> result(*from);
+        result *= (*w);
+        for (++from,++w;from != to;++from,++w)
+        {
+            image::vector<dim,value_type> v(*from);
+            v *= (*w);
+            result += v;
+        }result_ = result;
     }
 };
 
