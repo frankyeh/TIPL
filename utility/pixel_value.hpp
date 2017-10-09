@@ -48,6 +48,14 @@ struct rgb_color
     {
         return color;
     }
+    template<typename value_type>
+    const rgb_color& operator=(const value_type* v)
+    {
+        data[0] = std::max<short>(0,std::min<short>(255,v[0]));
+        data[1] = std::max<short>(0,std::min<short>(255,v[1]));
+        data[2] = std::max<short>(0,std::min<short>(255,v[2]));
+        return *this;
+    }
     const rgb_color& operator=(unsigned int color_)
     {
         color = color_;
