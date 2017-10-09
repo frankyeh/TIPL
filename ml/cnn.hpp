@@ -791,6 +791,19 @@ public:
         training_error_count = 0;
         data_size = 0;
     }
+    const network& operator=(const network& rhs)
+    {
+        reset();
+        add(rhs.nn_text);
+        for(int i = 0;i < rhs.layers.size();++i)
+            if(!layers[i]->weight.empty())
+            {
+                layers[i]->weight = rhs.layers[i]->weight;
+                layers[i]->bias = rhs.layers[i]->bias;
+            }
+        return *this;
+    }
+
     void init_weights(void)
     {
         image::uniform_dist<float> gen(-1.0,1.0);
