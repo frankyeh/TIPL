@@ -701,7 +701,6 @@ void fast_resample(const image::basic_image<PixelType,3>& source_image,
     double maxz = source_image.depth()-1;
     double coord[3];
     coord[2] = 0.5;
-    interpolation<linear_weighting,3> interpolation;
     unsigned int wh = source_image.width()*source_image.height();
     unsigned int w = source_image.width();
     for (unsigned int z = 0,index = 0;z < des_image.depth();++z,coord[2] += dz)
@@ -723,6 +722,33 @@ void fast_resample(const image::basic_image<PixelType,3>& source_image,
                 unsigned int index_x = index_y + ((int)coord[0]);
                 des_image[index] = source_image[index_x];
             }
+        }
+    }
+}
+
+template<class PixelType>
+void fast_resample(const image::basic_image<PixelType,2>& source_image,
+                   image::basic_image<PixelType,2>& des_image)
+{
+    double dx = (double)(source_image.width()-1)/(double)(des_image.width()-1);
+    double dy = (double)(source_image.height()-1)/(double)(des_image.height()-1);
+    double maxx = source_image.width()-1;
+    double maxy = source_image.height()-1;
+    double coord[2];
+    coord[1] = 0.5;
+    unsigned int w = source_image.width();
+    for (unsigned int y = 0,index = 0;y < des_image.height();++y,coord[1] += dy)
+    {
+        if (coord[1] > maxy)
+            coord[1] = maxy;
+        unsigned int index_y = ((int)coord[1])*w;
+        coord[0] = 0.5;
+        for (unsigned int x = 0;x < des_image.width();++x,++index,coord[0] += dx)
+        {
+            if (coord[0] > maxx)
+                coord[0] = maxx;
+            unsigned int index_x = index_y + ((int)coord[0]);
+            des_image[index] = source_image[index_x];
         }
     }
 }
