@@ -108,7 +108,8 @@ public:
     {
         for(int i = 0; i < weight.size(); ++i)
             weight[i] = gen()*weight_base;
-        std::fill(bias.begin(), bias.end(), 0.0f);
+        if(!bias.empty())
+            std::fill(bias.begin(), bias.end(), 0.0f);
     }
 
     virtual bool init(const image::geometry<3>& in_dim,const image::geometry<3>& out_dim) = 0;
@@ -591,9 +592,10 @@ private:
     unsigned int dim;
     image::bernoulli bgen;
 public:
-    dropout_layer(float dropout_rate)
-        : basic_layer(activation_type::identity),
-          bgen(dropout_rate)
+    float dropout_rate;
+    dropout_layer(float dropout_rate_)
+        : basic_layer(activation_type::identity),dropout_rate(dropout_rate_),
+          bgen(dropout_rate_)
     {
     }
     bool init(const image::geometry<3>& in_dim_,const image::geometry<3>& out_dim_) override
@@ -610,7 +612,7 @@ public:
                           const float* pre_out) override
     {
         for(unsigned int i = 0; i < dim; i++)
-            out_dE_da[i] = (pre_out[i] == 0.0f) ? 0: in_dE_da[i];
+            out_dE_da[i] = (pre_out[i+dim] == 0.0f) ? 0: in_dE_da[i];
     }
     void forward_propagation(const float* data,float* out) override
     {
@@ -776,7 +778,6 @@ public:
     int batch_size = 64;
     int epoch= 20;
     std::string error_msg;
-    std::string nn_text;
 private:
     float rate_decay = 1.0f;
 public:
@@ -794,7 +795,7 @@ public:
     const network& operator=(const network& rhs)
     {
         reset();
-        add(rhs.nn_text);
+        add(rhs.get_layer_text());
         for(int i = 0;i < rhs.layers.size();++i)
             if(!layers[i]->weight.empty())
             {
@@ -802,6 +803,17 @@ public:
                 layers[i]->bias = rhs.layers[i]->bias;
             }
         return *this;
+    }
+
+    void add_noise(void)
+    {
+        network nn2;
+        nn2.add(get_layer_text());
+        nn2.init_weights();
+        for(int i = 0;i < layers.size();++i)
+            if(!layers[i]->weight.empty() && !nn2.layers[i]->weight.empty())
+                image::vec::axpy(layers[i]->weight.begin(),
+                                 layers[i]->weight.end(),0.1,nn2.layers[i]->weight.begin());
     }
 
     void init_weights(void)
@@ -911,7 +923,7 @@ public:
             float* back_buf = &back[0];
             float* in_buf = &in[0];
             forward_propagation(in_buf,out_buf);
-            back_propagation(in_buf,label,out_buf,back_buf);
+            back_propagation(label,out_buf,back_buf);
             for(int i = 0;i < geo.size();++i)
             {
                 int col = std::max<int>(1,(max_width-1)/(geo[i].width()+1));
@@ -1082,7 +1094,7 @@ public:
         }
         return false;
     }
-    void save_to_file(const char* file_name)
+    std::string get_layer_text(void) const
     {
         std::ostringstream out;
         for(int i = 0;i < geo.size();++i)
@@ -1113,9 +1125,17 @@ public:
                     out << "full," << af_type;
                 if(dynamic_cast<soft_max_layer*>(layers[i].get()))
                     out << "soft_max";
+                if(dynamic_cast<dropout_layer*>(layers[i].get()))
+                    out << "dropout," << dynamic_cast<dropout_layer*>(layers[i].get())->dropout_rate;
             }
         }
-        nn_text = out.str();
+        return out.str();
+    }
+
+    void save_to_file(const char* file_name)
+    {
+
+        std::string nn_text = get_layer_text();
         std::ofstream file(file_name,std::ios::binary);
         unsigned int nn_text_length = nn_text.length();
         file.write((const char*)&nn_text_length,sizeof(nn_text_length));
@@ -1134,12 +1154,12 @@ public:
             return false;
         size_t nn_text_length = 0;
         in.read((char*)&nn_text_length,4);
-        nn_text.clear();
+        std::string nn_text;
         nn_text.resize(nn_text_length);
         in.read((char*)&*nn_text.begin(),nn_text_length);
         if(!in)
             return false;
-        layers.clear();
+        reset();
         add(nn_text);
         for(auto& layer : layers)
             if(!layer->weight.empty())
@@ -1157,13 +1177,15 @@ public:
     {
         for(int k = 0;k < layers.size();++k)
         {
+            if(k == 0)
+                std::copy(input,input+layers[0]->input_size,out_ptr);
             float* next_ptr = out_ptr + layers[k]->input_size;
-            layers[k]->forward_propagation(k == 0 ? input : out_ptr,next_ptr);
+            layers[k]->forward_propagation(out_ptr,next_ptr);
             layers[k]->forward_af(next_ptr);
             out_ptr = next_ptr;
         }
     }
-    void back_propagation(const float* data_entry,unsigned int label,const float* input,float* out_ptr)
+    void back_propagation(unsigned int label,const float* input,float* out_ptr)
     {
         const float* out_ptr2 = input + data_size - output_size;
         float* df_ptr = out_ptr + data_size - output_size;
@@ -1174,7 +1196,7 @@ public:
         for(int k = (int)layers.size()-1;k >= 0;--k)
         {
             layers[k]->back_af(df_ptr,out_ptr2);
-            const float* next_out_ptr = (k == 0 ? data_entry : out_ptr2 - layers[k]->input_size);
+            const float* next_out_ptr = out_ptr2 - layers[k]->input_size;
             float* next_df_ptr = df_ptr - layers[k]->input_size;
             layers[k]->back_propagation(df_ptr,next_df_ptr,next_out_ptr);
             out_ptr2 = next_out_ptr;
@@ -1265,7 +1287,7 @@ public:
                 if(label_id[data_index] != std::max_element(ptr,ptr+output_size)-ptr)
                     ++training_error_count;
 
-                back_propagation(&data[data_index][0],label_id[data_index],
+                back_propagation(label_id[data_index],
                                     in_out_ptr[thread_id],back_df_ptr[thread_id]);
                 calculate_dwdb(&data[data_index][0],in_out_ptr[thread_id],back_df_ptr[thread_id],
                                     dweight[thread_id],dbias[thread_id]);
