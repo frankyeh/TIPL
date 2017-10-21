@@ -70,7 +70,7 @@ public:
             return -100000000.0;
         if(changed)
             update_parameters();
-        double dist = value - mean;
+        double dist = (double)value - mean;
         return log_mode+(dist*dist)/var2;
     }
 };
@@ -192,7 +192,7 @@ void stochastic_competition_3region(LabelImageType& label,double inner_region_ra
     for(unsigned int index = 0; index < fdim.size(); ++index)
         fdim[index] = ((double)label.geometry()[index])/2.0;
     std::fill(label.begin(),label.end(),0);
-    for(index_type iter; iter.valid(label.geometry()); iter.next(label.geometry()))
+    for(index_type iter(label.geometry()); iter.is_valid(label.geometry()); ++iter)
     {
         double ratio = 0;
         for(unsigned int index = 0; index < fdim.size(); ++index)
@@ -461,7 +461,7 @@ void stochastic_competition(const ImageType& src,
             else
                 outter_contour[index] = 2;
     }
-    image::basic_image<class ImageType::value_type,ImageType::dimension> crop_image(src);
+    image::basic_image<typename ImageType::value_type,ImageType::dimension> crop_image(src);
 
     image::crop(outter_contour,range_min,range_max);
     image::crop(crop_image,range_min,range_max);
