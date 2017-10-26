@@ -408,7 +408,7 @@ public:
         };
     };
     mutable int wh;
-    mutable int size_;
+    mutable size_t size_;
 public:
     static const int dimension = 3;
 public:
@@ -442,10 +442,10 @@ public:
         return *this;
     }
 public:
-    int size(void) const
+    size_t size(void) const
     {
         if(w && !size_)
-            size_ = plane_size()*d;
+            size_ = (size_t)plane_size()*(size_t)d;
         return size_;
     }
     void clear(void)
