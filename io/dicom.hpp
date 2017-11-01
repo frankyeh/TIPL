@@ -144,6 +144,8 @@ public:
             {
                 if (!in.read((char*)&read_length,4))
                     return false;
+                if(transfer_syntax == bee)
+                    change_endian(read_length);
             }
             else
             {
