@@ -146,9 +146,11 @@ public:
                     return false;
             }
             else
+            {
+                if(transfer_syntax == bee)
+                    change_endian(new_length);
                 read_length = new_length;
-            if(transfer_syntax == bee)
-                change_endian(read_length);
+            }
         }
         if (read_length == 0xFFFFFFFF)
             read_length = 0;
