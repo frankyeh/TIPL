@@ -348,6 +348,33 @@ struct interpolation<weighting_function,3>
     }
 
     //---------------------------------------------------------------------------
+    template<class ImageType,class RefImageType,class VTorType,class PixelType>
+    bool estimate_with_ref(const ImageType& source,
+                           const RefImageType& ref_in_source,
+                           double ref_value,
+                           const VTorType& location,PixelType& pixel)
+    {
+        if (get_location(source.geometry(),location))
+        {
+            double sum_ratio = 0.0;
+            for(int i = 0;i < ref_count;++i)
+            {
+                double dif = ref_value-ref_in_source[dindex[i]];
+                ratio[i] *= 2.0*std::exp(-dif*dif*2.0f);
+                sum_ratio += ratio[i];
+            }
+            if(sum_ratio != 0.0)
+                sum_ratio = 1.0/sum_ratio;
+            for(int i = 0;i < ref_count;++i)
+                ratio[i] *= sum_ratio;
+            weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int*>(source,dindex),
+                const_reference_iterator<ImageType,int*>(source,dindex+ref_count),ratio,pixel);
+            return true;
+        }
+        return false;
+    }
+
+    //---------------------------------------------------------------------------
     template<class ImageType,class PixelType>
     void estimate(const ImageType& source,PixelType& pixel)
     {
@@ -578,6 +605,15 @@ bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel,
     if(type == cubic)
         return cubic_interpolation<ImageType::dimension>().estimate(source,location,pixel);
     return false;
+}
+
+template<class ImageType,class RefType,class VTorType,class PixelType>
+bool estimate_with_ref(const ImageType& source,
+                       const RefType& ref,
+                       double ref_value,
+                       const VTorType& location,PixelType& pixel)
+{
+    return interpolation<linear_weighting,ImageType::dimension>().estimate_with_ref(source,ref,ref_value,location,pixel);
 }
 
 template<class ImageType,class VTorType>

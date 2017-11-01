@@ -1018,6 +1018,27 @@ void resample(const ImageType1& from,ImageType2& to,const transform_type& transf
         estimate(from,pos,to[index.index()],type);
     }
 }
+/*
+ * ref image much be normalized to one
+ */
+template<class ImageType1,class RefType,class ImageType2,class transform_type>
+void resample_with_ref(const ImageType1& from,
+                       const RefType& ref, // has the geometry the same as to.geometry()
+                       ImageType2& to,const transform_type& transform)
+{
+    transform_type iT(transform);
+    iT.inverse();
+    RefType ref_in_from(from.geometry());
+    resample(ref,ref_in_from,iT,image::linear);
+    image::geometry<ImageType1::dimension> geo(to.geometry());
+    for (image::pixel_index<ImageType1::dimension> index(geo);index < geo.size();++index)
+    {
+        image::vector<ImageType1::dimension,double> pos;
+        transform(index,pos);
+        estimate_with_ref(from,ref_in_from,ref[index.index()],pos,to[index.index()]);
+    }
+}
+
 
 template<class ImageType,class transform_type>
 void resample(ImageType& from,const transform_type& transform,interpolation_type type)
