@@ -83,11 +83,14 @@ public:
         };
     };
     std::vector<unsigned char> data;
+    // for VR=SQ
+    std::vector<dicom_group_element> sq_data;
 private:
     void assign(const dicom_group_element& rhs)
     {
         std::copy(rhs.gel,rhs.gel+8,gel);
         data = rhs.data;
+        sq_data = rhs.sq_data;
     }
     bool flag_contains(const char* flag,unsigned int flag_size)
     {
@@ -113,7 +116,7 @@ public:
         return *this;
     }
 
-    bool read(std::ifstream& in,transfer_syntax_type transfer_syntax)
+    bool read(std::ifstream& in,transfer_syntax_type transfer_syntax,bool pause_at_image = true)
     {
         if (!in.read(gel,8))
             return false;
@@ -131,12 +134,14 @@ public:
         bool is_explicit_vr = (transfer_syntax == bee || transfer_syntax == lee ||
                                (lt0 >= 'A' && lt0 <= 'Z' &&
                                 lt1 >= 'A' && lt1 <= 'Z' && lt2 > 0));
-
+        bool is_sq = false;
         // SQ related Data Elements treated as implicit VR
         // http://dicom.nema.org/dicom/2013/output/chtml/part05/sect_7.5.html
         if(group == 0xFFFE && (element == 0xE000 || element == 0xE00D || element == 0xE0DD))
+        {
             is_explicit_vr = false;
-
+            is_sq = true;
+        }
         if(is_explicit_vr)
         {
             // http://dicom.nema.org/dicom/2013/output/chtml/part05/chapter_7.html#sect_7.1.2
@@ -154,6 +159,11 @@ public:
                 read_length = new_length;
             }
         }
+        else
+        {
+            if(transfer_syntax == bee)
+                change_endian(read_length);
+        }
         if (read_length == 0xFFFFFFFF)
             read_length = 0;
         if (read_length)
@@ -161,10 +171,28 @@ public:
             if(group == 0x7FE0 && element == 0x0010)
             {
                 length = read_length;
-                return false;
+                if(pause_at_image)
+                    return false;
             }
-            data.resize(read_length);
-            in.read((char*)&*(data.begin()),read_length);
+            // handle SQ here
+            // http://dicom.nema.org/dicom/2013/output/chtml/part05/sect_7.5.html
+            if(is_sq ||
+               (is_explicit_vr && lt0 == 'S' && lt1 == 'Q'))
+            {
+                size_t sq_end_pos = in.tellg();
+                sq_end_pos += read_length;
+                while(in && in.tellg() < sq_end_pos)
+                {
+                    dicom_group_element new_ge;
+                    new_ge.read(in,transfer_syntax,false);
+                    sq_data.push_back(new_ge);
+                }
+            }
+            else
+            {
+                data.resize(read_length);
+                in.read((char*)&*(data.begin()),read_length);
+            }
             if(transfer_syntax == bee)
             {
                 if (is_float()) // float
@@ -232,6 +260,40 @@ public:
     }
 
     template<class value_type>
+    void get_values(value_type& value) const
+    {
+        if(data.empty())
+            return;
+        if (is_float() && data.size() >= 4) // float
+        {
+            const float* iter = (const float*)&*data.begin();
+            for (unsigned int index = 3;index < data.size();index += 4,++iter)
+                value.push_back(*iter);
+            return;
+        }
+        if (is_double() && data.size() >= 8) // double
+        {
+            const double* iter = (const double*)&*data.begin();
+            for (unsigned int index = 7;index < data.size();index += 8,++iter)
+                value.push_back(*iter);
+            return;
+        }
+        if (is_int16() && data.size() >= 2)
+        {
+            for (unsigned int index = 1;index < data.size();index+=2)
+                value.push_back(*(const short*)&*(data.begin()+index-1));
+            return;
+        }
+        if (is_int32() && data.size() == 4)
+        {
+            for (unsigned int index = 3;index < data.size();index+=4)
+                value.push_back(*(const int*)&*(data.begin()+index-3));
+            return;
+        }
+        if(is_string())
+            std::copy(data.begin(),data.end(),std::back_inserter(value));
+    }
+    template<class value_type>
     void get_value(value_type& value) const
     {
         if(data.empty())
@@ -292,6 +354,11 @@ public:
     template<class stream_type>
     void operator>> (stream_type& out) const
     {
+        if(!sq_data.empty())
+        {
+            out << sq_data.size() << " SQ items";
+            return;
+        }
         if (data.empty())
         {
             out << "(null)";
@@ -437,12 +504,11 @@ class dicom
 private:
     std::auto_ptr<std::ifstream> input_io;
     unsigned int image_size;
-    bool is_mosaic;
+    bool is_mosaic,is_big_endian;
     transfer_syntax_type transfer_syntax;
-private:
-    std::map<unsigned int,unsigned int> ge_map;
+public:
     std::vector<dicom_group_element> data;
-private:
+    std::map<unsigned int,unsigned int> ge_map;
     std::map<std::string,unsigned int> csa_map;
     std::vector<dicom_csa_data> csa_data;
 private:
@@ -528,6 +594,13 @@ public:
             if(dicom_mark != 0x00050008 &&
                dicom_mark != 0x00000008)
                 return false;
+            // some DICOM start with lei as default
+            {
+                unsigned char VR[2];
+                input_io->read((char*)&VR,2);
+                if(VR[1] == 0)
+                    transfer_syntax = lei;
+            }
             input_io->seekg(0,std::ios::beg);
         }
         while (*input_io)
@@ -539,6 +612,7 @@ public:
                     return false;
                 image_size = ge.length;
                 std::string image_type;
+                is_big_endian = (transfer_syntax == bee);
                 is_mosaic = get_int(0x0019,0x100A) > 1 ||   // multiple frame (new version)
                             (get_text(0x0008,0x0008,image_type) && image_type.find("MOSAIC") != std::string::npos);
                 return true;
@@ -834,6 +908,10 @@ public:
     {
         return get_int(0x0028,0x0100);
     }
+    unsigned int is_signed(void) const
+    {
+        return get_int(0x0028,0x0103);
+    }
 
     void get_image_dimension(image::geometry<2>& geo) const
     {
@@ -882,12 +960,24 @@ public:
                 std::copy((const unsigned char*)&(data[0]),(const unsigned char*)&(data[0])+pixel_count,ptr);
                 return;
             case 16://DT_SIGNED_SHORT 4
-                std::copy((const short*)&(data[0]),(const short*)&(data[0])+pixel_count,ptr);
+                if(is_big_endian)
+                    change_endian((const unsigned short*)&(data[0]),pixel_count);
+                if(is_signed())
+                    std::copy((const short*)&(data[0]),(const short*)&(data[0])+pixel_count,ptr);
+                else
+                    std::copy((const unsigned short*)&(data[0]),(const unsigned short*)&(data[0])+pixel_count,ptr);
                 return;
             case 32://DT_SIGNED_INT 8
-                std::copy((const int*)&(data[0]),(const int*)&(data[0])+pixel_count,ptr);
+                if(is_big_endian)
+                    change_endian((const unsigned int*)&(data[0]),pixel_count);
+                if(is_signed())
+                    std::copy((const int*)&(data[0]),(const int*)&(data[0])+pixel_count,ptr);
+                else
+                    std::copy((const unsigned int*)&(data[0]),(const unsigned int*)&(data[0])+pixel_count,ptr);
                 return;
             case 64://DT_DOUBLE 64
+                if(is_big_endian)
+                    change_endian((const double*)&(data[0]),pixel_count);
                 std::copy((const double*)&(data[0]),(const double*)&(data[0])+pixel_count,ptr);
                 return;
             }
@@ -930,15 +1020,65 @@ public:
         load_from_image(source);
         return *this;
     }
+    template<typename value_type>
+    static bool get_value(const dicom_group_element& data,unsigned short group, unsigned short element,value_type& value)
+    {
+        if(data.group == group && data.element == element)
+        {
+            data.get_value(value);
+            return true;
+        }
+        for(int i = 0;i < data.sq_data.size();++i)
+            if(get_value(data.sq_data[i],group,element,value))
+                return true;
+        return false;
+    }
+    template<typename value_type>
+    static bool get_values(const dicom_group_element& data,unsigned short group, unsigned short element,
+                           value_type& value)
+    {
+        if(data.group == group && data.element == element)
+        {
+            data.get_values(value);
+            return true;
+        }
+        for(int i = 0;i < data.sq_data.size();++i)
+            if(get_values(data.sq_data[i],group,element,value))
+                return true;
+        return false;
+    }
 
-    const dicom& operator>>(std::string& report) const
+    static void get_report(const std::vector<dicom_group_element>& data,std::string& report,bool item_tag = false)
     {
         std::ostringstream out;
         for (int i = 0;i < data.size();++i)
         {
-            out << std::setw( 8 ) << std::setfill( '0' ) << std::hex << std::uppercase <<
-            data[i].get_order() << "=";
-            out << std::dec;
+            std::string group_element_str;
+            {
+                std::ostringstream ge_out;
+                if(item_tag)
+                    ge_out << "[" << i << "].";
+                if(data[i].group == 0xFFFE)
+                    ge_out << "item";
+                else
+                    ge_out << std::setw( 8 ) << std::setfill( '0' ) << std::hex << std::uppercase <<
+                    data[i].get_order();
+                group_element_str = ge_out.str();
+            }
+
+            if(!data[i].sq_data.empty())
+            {
+                std::string nest_report;
+                get_report(data[i].sq_data,nest_report,true);
+                std::istringstream nest_in(nest_report);
+                std::string line;
+                while(std::getline(nest_in,line))
+                    out << group_element_str << line << std::endl;
+                continue;
+            }
+
+            out << group_element_str << "=";
+
             if(data[i].data.empty())
             {
                 out << "empty";
@@ -964,7 +1104,12 @@ public:
             }
             out << std::endl;
         }
-        report = out.str();
+        report += out.str();
+    }
+
+    const dicom& operator>>(std::string& report) const
+    {
+        get_report(data,report);
         for(unsigned int index = 0;index < csa_data.size();++index)
             csa_data[index].write_report(report);
         return *this;
