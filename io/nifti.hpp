@@ -334,6 +334,7 @@ private:
     std::auto_ptr<input_interface> input_stream;
     bool big_endian;
 private:
+    std::vector<char> rgb_write_buf;
     const void* write_buf = 0;
     size_t write_size = 0;
 private:
@@ -666,6 +667,28 @@ public:
         std::copy(R+4,R+8,nif_header2.srow_y);
         std::copy(R+8,R+12,nif_header2.srow_z);
     }
+    template<typename float_type,typename geo_type>
+    void set_LPS_transformation(float_type R,const geo_type& out)
+    {
+        set_image_transformation(R);
+        nif_header2.srow_x[3] += nif_header2.srow_x[0]*(out.width()-1);
+        nif_header2.srow_x[0] = -nif_header2.srow_x[0];
+        nif_header2.srow_y[0] = -nif_header2.srow_y[0];
+        nif_header2.srow_z[0] = -nif_header2.srow_z[0];
+        nif_header2.srow_y[3] += nif_header2.srow_y[1]*(out.height()-1);
+        nif_header2.srow_x[1] = -nif_header2.srow_x[1];
+        nif_header2.srow_y[1] = -nif_header2.srow_y[1];
+        nif_header2.srow_z[1] = -nif_header2.srow_z[1];
+
+        nif_header.srow_x[3] += nif_header.srow_x[0]*(out.width()-1);
+        nif_header.srow_x[0] = -nif_header.srow_x[0];
+        nif_header.srow_y[0] = -nif_header.srow_y[0];
+        nif_header.srow_z[0] = -nif_header.srow_z[0];
+        nif_header.srow_y[3] += nif_header.srow_y[1]*(out.height()-1);
+        nif_header.srow_x[1] = -nif_header.srow_x[1];
+        nif_header.srow_y[1] = -nif_header.srow_y[1];
+        nif_header.srow_z[1] = -nif_header.srow_z[1];
+    }
 
     template<class pixel_size_type>
     void get_voxel_size(pixel_size_type pixel_size_from) const
@@ -755,7 +778,20 @@ public:
 
         set_dim(source.geometry());
         write_size = source.size()*(size_t)(nif_header2.bitpix/8);
-        write_buf = &*source.begin();
+        if(nif_header2.datatype == 128 && nif_header2.bitpix == 24)
+        {
+            rgb_write_buf.resize(source.size()*3);
+            for(size_t i = 0,j = 0; i < source.size();++i,j += 3)
+            {
+                image::rgb_color c = source[i];
+                rgb_write_buf[j] = c.r;
+                rgb_write_buf[j+1] = c.g;
+                rgb_write_buf[j+2] = c.b;
+            }
+            write_buf = &*rgb_write_buf.begin();
+        }
+        else
+            write_buf = &*source.begin();
         is_nii = true;
     }
 
