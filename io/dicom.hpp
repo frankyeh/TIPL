@@ -522,21 +522,13 @@ private:
             csa_data.push_back(rhs.csa_data[index]);
     }
     template<class iterator_type>
-    void handle_mosaic(iterator_type image_buffer) const
+    void handle_mosaic(iterator_type image_buffer,
+                       unsigned int mosaic_width,
+                       unsigned int mosaic_height,
+                       unsigned int w,unsigned int h) const
     {
         typedef typename std::iterator_traits<iterator_type>::value_type pixel_type;
         // number of image in mosaic
-        image::geometry<3> geo;
-        get_image_dimension(geo);
-        unsigned int mosaic_width = geo[0];
-        unsigned int mosaic_height = geo[1];
-        unsigned int w = width();
-        unsigned int h = height();
-        if (!mosaic_width || !mosaic_height ||
-                w%mosaic_width || h%mosaic_height ||
-                (mosaic_width == w && mosaic_height == h))
-            return; //not mosaic
-
         unsigned int mosaic_size = mosaic_width*mosaic_height;
         std::vector<pixel_type> data(w*h);
         std::copy(image_buffer,image_buffer+data.size(),data.begin());
@@ -557,7 +549,6 @@ private:
                     std::copy(slice_line,slice_line+mosaic_width,image_buffer);
             }
         }
-
     }
 public:
     dicom(void):transfer_syntax(lee) {}
@@ -997,7 +988,46 @@ public:
             geo[2] = width()*height()/geo[0]/geo[1];
             out.resize(geo);
             save_to_buffer(out.begin(),(unsigned int)out.size());
-            handle_mosaic(out.begin());
+
+            if(geo[2] == 1)// find mosaic pattern by numerical approach
+            {
+                unsigned int mosaic_factor = 0;
+
+                // approach 1: row sum = 0 is the separator
+                for(int y = 10,y_pos = 10*geo[0];y < geo[1];++y,y_pos += geo[0])
+                    if(std::accumulate(out.begin()+y_pos,out.begin()+y_pos+geo[0],(int)0) == 0)
+                    {
+                        mosaic_factor = geo[1]/y;
+                        break;
+                    }
+
+                // approach 2: column sum smoothed peaks.
+                if(!mosaic_factor)
+                {
+                    std::vector<float> profile_x(geo[0]),new_profile_x(geo[0]);
+                    for(int x = 0;x < profile_x.size();++x)
+                    {
+                        for(int y = 0,y_pos = 0;y < geo[1];++y,y_pos +=geo[0])
+                            profile_x[x] += out[x+y_pos];
+                    }
+                    for(int iter = 0;iter < 128;++iter)
+                    {
+                        new_profile_x[0] = profile_x[0];
+                        new_profile_x.back() = profile_x.back();
+                        for(int x = 1;x+1 < profile_x.size();++x)
+                            new_profile_x[x] = (profile_x[x-1] + profile_x[x] + profile_x[x+1])*0.333f;
+                        new_profile_x.swap(profile_x);
+                    }
+                    for(int x = 1;x+1 < profile_x.size();++x)
+                        if(profile_x[x-1] < profile_x[x] &&
+                           profile_x[x+1] < profile_x[x])
+                            ++mosaic_factor;
+                }
+                geo[0] /= mosaic_factor;
+                geo[1] /= mosaic_factor;
+                slice_num = mosaic_factor*mosaic_factor;
+            }
+            handle_mosaic(out.begin(),geo[0],geo[1],width(),height());
             geo[2] = slice_num;
             out.resize(geo);
         }
