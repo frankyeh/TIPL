@@ -995,12 +995,20 @@ public:
 
                 // approach 1: row sum = 0 is the separator
                 for(int y = 10,y_pos = 10*geo[0];y < geo[1];++y,y_pos += geo[0])
-                    if(std::accumulate(out.begin()+y_pos,out.begin()+y_pos+geo[0],(int)0) == 0)
+                {
+                    int m = std::round((float)geo[1]/(float)y);
+                    if(m > 20 || m < 4 || width() % m != 0)
+                        continue;
+                    int sum_x = std::accumulate(out.begin()+y_pos,out.begin()+y_pos+geo[0],(int)0);
+                    int sum_y = 0;
+                    for(int i = y;i < out.size();i += geo[0])
+                        sum_y += out[i];
+                    if(sum_x == 0 || sum_y == 0)
                     {
-                        mosaic_factor = geo[1]/y;
+                        mosaic_factor = m;
                         break;
                     }
-
+                }
                 // approach 2: column sum smoothed peaks.
                 if(!mosaic_factor)
                 {
@@ -1022,6 +1030,10 @@ public:
                         if(profile_x[x-1] < profile_x[x] &&
                            profile_x[x+1] < profile_x[x])
                             ++mosaic_factor;
+                    if(geo[0] % (mosaic_factor + 1) == 0)
+                        mosaic_factor = mosaic_factor + 1;
+                    if(geo[0] % (mosaic_factor - 1) == 0)
+                        mosaic_factor = mosaic_factor - 1;
                 }
                 geo[0] /= mosaic_factor;
                 geo[1] /= mosaic_factor;
