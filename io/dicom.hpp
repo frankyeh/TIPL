@@ -504,13 +504,13 @@ class dicom
 private:
     std::auto_ptr<std::ifstream> input_io;
     unsigned int image_size;
-    bool is_mosaic,is_big_endian;
     transfer_syntax_type transfer_syntax;
 public:
     std::vector<dicom_group_element> data;
     std::map<unsigned int,unsigned int> ge_map;
     std::map<std::string,unsigned int> csa_map;
     std::vector<dicom_csa_data> csa_data;
+    bool is_mosaic,is_big_endian;
 private:
     void assign(const dicom& rhs)
     {
@@ -571,6 +571,7 @@ public:
     {
         ge_map.clear();
         data.clear();
+        transfer_syntax = lee;
         input_io.reset(new std::ifstream(file_name,std::ios::binary));
         if (!(*input_io))
             return false;
@@ -749,41 +750,44 @@ public:
     along the y-axis.
     */
     template<class vector_type>
-    void get_image_row_orientation(vector_type image_row_orientation) const
+    bool get_image_row_orientation(vector_type image_row_orientation) const
     {
         //float image_row_orientation[3];
         std::string image_orientation;
         if (!get_text(0x0020,0x0037,image_orientation) &&
                 !get_text(0x0020,0x0035,image_orientation))
-            return;
+            return false;
         std::replace(image_orientation.begin(),image_orientation.end(),'\\',' ');
         std::istringstream(image_orientation)
         >> image_row_orientation[0]
         >> image_row_orientation[1]
         >> image_row_orientation[2];
+        return true;
     }
     template<class vector_type>
-    void get_image_col_orientation(vector_type image_col_orientation) const
+    bool get_image_col_orientation(vector_type image_col_orientation) const
     {
         //float image_col_orientation[3];
         float temp;
         std::string image_orientation;
         if (!get_text(0x0020,0x0037,image_orientation) &&
                 !get_text(0x0020,0x0035,image_orientation))
-            return;
+            return false;
         std::replace(image_orientation.begin(),image_orientation.end(),'\\',' ');
         std::istringstream(image_orientation)
         >> temp >> temp >> temp
         >> image_col_orientation[0]
         >> image_col_orientation[1]
         >> image_col_orientation[2];
+        return true;
     }
 
     template<class vector_type>
-    void get_image_orientation(vector_type orientation_matrix) const
+    bool get_image_orientation(vector_type orientation_matrix) const
     {
-        get_image_row_orientation(orientation_matrix);
-        get_image_col_orientation(orientation_matrix+3);
+        if(!get_image_row_orientation(orientation_matrix) ||
+           !get_image_col_orientation(orientation_matrix+3))
+            return false;
         // get the slice direction
         orientation_matrix[6] =
             (orientation_matrix[1] * orientation_matrix[5])-
@@ -802,6 +806,7 @@ public:
             orientation_matrix[7] = -orientation_matrix[7];
             orientation_matrix[8] = -orientation_matrix[8];
         }
+        return true;
     }
     float get_slice_location(void) const
     {
