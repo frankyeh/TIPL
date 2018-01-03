@@ -1043,8 +1043,8 @@ public:
                 geo[0] /= mosaic_factor;
                 geo[1] /= mosaic_factor;
                 slice_num = mosaic_factor*mosaic_factor;
+                handle_mosaic(out.begin(),geo[0],geo[1],width(),height());
             }
-            handle_mosaic(out.begin(),geo[0],geo[1],width(),height());
             geo[2] = slice_num;
             out.resize(geo);
         }
