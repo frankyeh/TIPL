@@ -585,6 +585,81 @@ public:
     }
 };
 
+class rotation_invariant_layer : public basic_layer
+{
+private:
+    image::geometry<3> geo;
+    const int rotator_size = 90;
+    image::uniform_dist<int> gen;
+    std::vector<int> shift_z;
+    image::basic_image<char,2> rotation_mask;
+    std::vector<std::vector<image::interpolation<image::linear_weighting,2> > > rotator;
+public:
+    rotation_invariant_layer(void) : basic_layer(activation_type::identity),gen(rotator_size),rotator(rotator_size) // 90 rotation combination
+    {
+
+    }
+    bool init(const image::geometry<3>& in_dim_,const image::geometry<3>& out_dim_) override
+    {
+        geo = in_dim_;
+        if(in_dim_.size() != out_dim_.size() || in_dim_[0] != in_dim_[1])
+            return false;
+        basic_layer::init(geo.size(),geo.size(),0,0);
+
+
+        shift_z.resize(geo.depth());
+        for(int z = 1;z < geo.depth();++z)
+            shift_z[z] = geo.plane_size()*z;
+        rotation_mask.resize(image::geometry<2>(geo[0],geo[1]));
+        std::fill(rotation_mask.begin(),rotation_mask.end(),1);
+        image::vector<2> center(0.5f*geo[0],0.5f*geo[1]);
+        for(int i = 0;i < rotator.size();++i)
+        {
+            rotator[i].resize(rotation_mask.size());
+            float angle = (float)i*6.28318530718f/(float)rotator.size();
+            float cos_angle = std::cos(angle);
+            float sin_angle = std::sin(angle);
+            for(int x = 0,index = 0;x < rotation_mask.width();++x)
+                for(int y = 0;y < rotation_mask.height();++y,++index)
+                {
+                    image::vector<2> v(x,y);
+                    v -= center;
+                    image::vector<2> vv(v[0]*cos_angle-v[1]*sin_angle,v[0]*sin_angle+v[1]*cos_angle);
+                    vv += center;
+                    if(!rotator[i][index].get_location(rotation_mask.geometry(),vv))
+                        rotation_mask[index] = 0;
+                }
+        }
+        return true;
+    }
+
+    void back_propagation(float* in_dE_da,// output_size
+                          float* out_dE_da,// input_size
+                          const float* pre_out) override
+    {
+        std::fill(out_dE_da,out_dE_da+geo.size(),0);
+    }
+    void forward_propagation(const float* data,float* out) override
+    {
+        if(status == testing)
+        {
+            std::copy(data,data+geo.size(),out);
+            return;
+        }
+        int rotator_index = gen();
+        for(int x = 0,index = 0;x < geo.width();++x)
+            for(int y = 0;y < geo.height();++y,++index)
+            {
+                for(int z = 0;z < geo.depth();++z)
+                    if(rotation_mask[index])
+                        rotator[rotator_index][index].estimate(
+                                    image::make_image(data+shift_z[z],rotation_mask.geometry()),out[index+shift_z[z]]);
+                    else
+                        out[index+shift_z[z]] = 0;
+            }
+    }
+};
+
 
 class dropout_layer : public basic_layer
 {
@@ -777,6 +852,7 @@ public:
     float momentum = 0.9f;
     int batch_size = 64;
     int epoch= 20;
+    int repeat = 0;
     std::string error_msg;
 private:
     float rate_decay = 1.0f;
@@ -1050,6 +1126,12 @@ public:
             layers.push_back(std::make_shared<dropout_layer>(param));
             return true;
         }
+        if(list[0] == "rotation_invariant")
+        {
+            layers.push_back(std::make_shared<rotation_invariant_layer>());
+            return true;
+        }
+
         if(list.size() < 2)
             return false;
         activation_type af;
@@ -1125,8 +1207,11 @@ public:
                     out << "full," << af_type;
                 if(dynamic_cast<soft_max_layer*>(layers[i].get()))
                     out << "soft_max";
+                if(dynamic_cast<rotation_invariant_layer*>(layers[i].get()))
+                    out << "rotation_invariant";
                 if(dynamic_cast<dropout_layer*>(layers[i].get()))
                     out << "dropout," << dynamic_cast<dropout_layer*>(layers[i].get())->dropout_rate;
+
             }
         }
         return out.str();
@@ -1342,6 +1427,7 @@ public:
             else
                 sample_count = std::max<unsigned int>(sample_count,label_pile[i].size());
         // rearrange training data
+        for(int r = 0;r < repeat;++r)
         for(int iter = 0; iter < epoch && !terminated;iter++ ,iter_fun())
         {
             rate_decay = std::pow(0.8,iter);
