@@ -330,6 +330,7 @@ public:
     struct nifti_2_header nif_header2;
     bool is_nii; // backward compatibility to ANALYE 7.5
     bool is_nii2;
+    std::string error;
 private:
     std::auto_ptr<input_interface> input_stream;
     bool big_endian;
@@ -480,6 +481,7 @@ public:
         if (!input_stream->open(pfile_name))
         {
             input_stream.reset(0);
+            error = "Cannot read the file. No reading privilege or the file does not exist.";
             return false;
         }
         int size_of_header = 0;
@@ -488,7 +490,10 @@ public:
         {
             change_endian(size_of_header);
             if(size_of_header != 540 && size_of_header != 348)
+            {
+                error = "Invalid NIFTI format. Size of header is not 540 or 348";
                 return false;
+            }
             big_endian = true;
         }
         else
@@ -505,7 +510,10 @@ public:
             if (nif_header2.magic[0] != 'n' ||
                 nif_header2.magic[1] != '+' ||
                     nif_header2.magic[2] != '2')
+            {
+                error = "Invalid NIFTI format. No NIFTI tag found.";
                 return false;
+            }
             input_stream->seek(size_t(nif_header2.vox_offset));
             return (*input_stream);
         }
@@ -537,7 +545,10 @@ public:
                 typedef std::basic_string<char_type, std::char_traits<char_type>,std::allocator<char_type> > string_type;
                 string_type file_name(pfile_name);
                 if (file_name.size() < 4)
+                {
+                    error = "Failed to find the img file.";
                     return false;
+                }
                 string_type file_name_no_ext(file_name.begin(),file_name.end()-4);
                 string_type data_file(file_name_no_ext);
                 data_file += get_image_name(char_type());
@@ -545,6 +556,7 @@ public:
                 if(!input_stream->open(data_file.c_str()))
                 {
                     input_stream.reset(0);
+                    error = "Failed to open the img file.";
                     return false;
                 }
             }
