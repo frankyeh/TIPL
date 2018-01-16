@@ -899,10 +899,27 @@ public:
             layer->initialize_weight(gen);
     }
 
+    void reinit_weights(void)
+    {
+        image::uniform_dist<float> gen(-1.0,1.0);
+        for(auto layer : layers)
+        if(!layer->weight.empty() && !layer->bias.empty())
+        {
+            auto w = layer->weight;
+            layer->initialize_weight(gen);
+            for(int i = 0;i < w.size();++i)
+                if(std::fabs(w[i]) > 0.01)
+                    layer->weight[i] = w[i];
+                else
+                    layer->weight[i] *= 0.5f;
+        }
+    }
+
     bool empty(void) const{return layers.empty();}
     unsigned int get_output_size(void) const{return output_size;}
     unsigned int get_input_size(void) const{return geo.empty() ? 0: geo[0].size();}
-    image::geometry<3> get_input_dim(void) const{return geo[0];}
+    image::geometry<3> get_input_dim(void) const{return geo.empty() ? image::geometry<3>(): geo.front();}
+    image::geometry<3> get_output_dim(void) const{return geo.empty() ? image::geometry<3>(): geo.back();}
     bool add(const image::geometry<3>& dim)
     {
         if(!layers.empty())
@@ -955,11 +972,12 @@ public:
         image::par_for(layers.size(),[&](int i)
         {
             layers[i]->to_image(layer_images[i]);
+            if(max_width && layer_images[i].width() > max_width)
+                image::downsampling(layer_images[i]);
         });
 
         for(int i = 0;i < layers.size();++i)
             max_width = std::max<int>(max_width,layer_images[i].width());
-
         for(int i = 0;i < layers.size();++i)
         {
             image::rgb_color b;
@@ -983,7 +1001,8 @@ public:
                         Is[i][j] = b;
                         continue;
                     }
-                    unsigned char s(std::min<int>(255,512.0*std::fabs(layer_images[i][j])));
+                    unsigned char s(std::min<int>(255,
+                        ((int)std::fabs(layer_images[i][j]*1024.0f))));
                     if(layer_images[i][j] < 0) // red
                         Is[i][j] = image::rgb_color(s,0,0);
                     if(layer_images[i][j] > 0) // blue
@@ -1040,6 +1059,11 @@ public:
                 {
                     image::upsampling_nearest(values[i]);
                     draw_width <<= 1;
+                }
+                while(draw_width > max_width)
+                {
+                    image::downsampling(values[i]);
+                    draw_width >>= 1;
                 }
                 total_height += values[i].height();
                 back_buf += geo[i].size();
