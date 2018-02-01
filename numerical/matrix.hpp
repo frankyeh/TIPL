@@ -2305,7 +2305,7 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
     }
     if (n != dimension.row_count())
     {
-        inplace_transpose(A,dimension);
+        transpose(A,dimension);
     }
 }
 
