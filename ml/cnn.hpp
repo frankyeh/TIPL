@@ -22,6 +22,7 @@
 #include "image/numerical/numerical.hpp"
 #include "image/numerical/basic_op.hpp"
 #include "image/numerical/resampling.hpp"
+#include "image/filter/gaussian.hpp"
 #include "image/utility/geometry.hpp"
 #include "image/utility/basic_image.hpp"
 #include "image/utility/multi_thread.hpp"
@@ -104,7 +105,7 @@ public:
         weight.resize(weight_dim);
         bias.resize(bias_dim);
     }
-    void initialize_weight(image::uniform_dist<float>& gen)
+    virtual void initialize_weight(image::uniform_dist<float>& gen)
     {
         for(int i = 0; i < weight.size(); ++i)
             weight[i] = gen()*weight_base;
@@ -170,6 +171,24 @@ public:
         weight_base = (float)std::sqrt(6.0f / (float)(input_size+output_size));
         return true;
     }
+    void initialize_weight(image::uniform_dist<float>& gen)
+    {
+        //basic_layer::initialize_weight(gen);
+        basic_layer::initialize_weight(gen);
+        if(in_dim.size() > bias.size())
+        {
+            std::vector<float> u(bias.size()*bias.size()),s(bias.size());
+            image::mat::svd(&weight[0],&u[0],&s[0],image::dyndim(bias.size(),in_dim.size()));
+            if(in_dim[0] != 1 && in_dim[1] != 1)
+            for(int i = 0,index = 0;i < in_dim.depth();++i)
+                for(int j = 0;j < bias.size();++j,++index)
+                {
+                    image::filter::gaussian(image::make_image(&weight[0]+index*in_dim[0]*in_dim[1],
+                                            image::geometry<2>(in_dim[0],in_dim[1])));
+                }
+        }
+    }
+
     void forward_propagation(const float* data,float* out) override
     {
         for(int i = 0,i_pos = 0;i < output_size;++i,i_pos += input_size)
@@ -482,6 +501,22 @@ public:
         weight_base = (float)std::sqrt(6.0f / (float)(kernel_size2 * in_dim.depth() + kernel_size2 * out_dim.depth()));
         return true;
     }
+    void initialize_weight(image::uniform_dist<float>& gen)
+    {
+        //basic_layer::initialize_weight(gen);
+        basic_layer::initialize_weight(gen);
+        if(kernel_size2* in_dim.depth() > out_dim.depth())
+        {
+            std::vector<float> u(out_dim.depth()*out_dim.depth()),s(out_dim.depth());
+            image::mat::svd(&weight[0],&u[0],&s[0],image::dyndim(out_dim.depth(),kernel_size2* in_dim.depth()));
+            for(int i = 0,index = 0;i < in_dim.depth();++i)
+                for(int j = 0;j < out_dim.depth();++j,++index)
+                {
+                    image::filter::gaussian(image::make_image(&weight[0]+index*kernel_size2,
+                                            image::geometry<2>(kernel_size,kernel_size)));
+                }
+        }
+    }
     void to_image(basic_image<float,2>& I)
     {
         std::vector<float> w(weight),b(bias);
@@ -633,9 +668,9 @@ public:
         return true;
     }
 
-    void back_propagation(float* in_dE_da,// output_size
+    void back_propagation(float*,// output_size
                           float* out_dE_da,// input_size
-                          const float* pre_out) override
+                          const float*) override
     {
         std::fill(out_dE_da,out_dE_da+geo.size(),0);
     }
