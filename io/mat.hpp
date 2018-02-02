@@ -411,7 +411,7 @@ public:
         }
         for (unsigned int index = 0; index < dataset.size(); ++index)
             name_table[dataset[index]->get_name()] = index;
-        return true;
+        return !dataset.empty();
     }
     template<class Type>
     void add(const char* name_,const Type* data_ptr,unsigned int rows,unsigned int cols)
