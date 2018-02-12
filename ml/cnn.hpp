@@ -22,7 +22,6 @@
 #include "image/numerical/numerical.hpp"
 #include "image/numerical/basic_op.hpp"
 #include "image/numerical/resampling.hpp"
-#include "image/filter/gaussian.hpp"
 #include "image/utility/geometry.hpp"
 #include "image/utility/basic_image.hpp"
 #include "image/utility/multi_thread.hpp"
@@ -179,13 +178,6 @@ public:
         {
             std::vector<float> u(bias.size()*bias.size()),s(bias.size());
             image::mat::svd(&weight[0],&u[0],&s[0],image::dyndim(bias.size(),in_dim.size()));
-            if(in_dim[0] != 1 && in_dim[1] != 1)
-            for(int i = 0,index = 0;i < in_dim.depth();++i)
-                for(int j = 0;j < bias.size();++j,++index)
-                {
-                    image::filter::gaussian(image::make_image(&weight[0]+index*in_dim[0]*in_dim[1],
-                                            image::geometry<2>(in_dim[0],in_dim[1])));
-                }
         }
     }
 
@@ -509,12 +501,6 @@ public:
         {
             std::vector<float> u(out_dim.depth()*out_dim.depth()),s(out_dim.depth());
             image::mat::svd(&weight[0],&u[0],&s[0],image::dyndim(out_dim.depth(),kernel_size2* in_dim.depth()));
-            for(int i = 0,index = 0;i < in_dim.depth();++i)
-                for(int j = 0;j < out_dim.depth();++j,++index)
-                {
-                    image::filter::gaussian(image::make_image(&weight[0]+index*kernel_size2,
-                                            image::geometry<2>(kernel_size,kernel_size)));
-                }
         }
     }
     void to_image(basic_image<float,2>& I)
