@@ -73,9 +73,8 @@ namespace reg
         template<class ImageType,class TransformType>
         double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
         {
-            const unsigned int dim = ImageType::dimension;
-            image::geometry<dim> geo(Ifrom.geometry());
-            ImageType y(geo);
+            image::geometry<ImageType::dimension> geo(Ifrom.geometry());
+            image::basic_image<typename ImageType::value_type,ImageType::dimension> y(geo);
             image::resample(Ito,y,transform,image::linear);
             float c = image::correlation(Ifrom.begin(),Ifrom.end(),y.begin());
             return -c*c;
@@ -419,15 +418,15 @@ float linear_mr(const image_type& from,const vs_type& from_vs,
     return linear(from,from_vs,to,to_vs,arg_min,base_type,cost_type,random_search,terminated,precision);
 }
 
-template<class image_type,class vs_type,class value_type,class CostFunctionType,class teminated_class>
+template<class image_type,class vs_type,class TransType,class CostFunctionType,class teminated_class>
 void two_way_linear_mr(const image_type& from,const vs_type& from_vs,
                             const image_type& to,const vs_type& to_vs,
-                            image::transformation_matrix<value_type>& T,
+                            TransType& T,
                             reg_type base_type,
                             CostFunctionType cost_type,
                             teminated_class& terminated)
 {
-    image::affine_transform<double> arg1,arg2;
+    image::affine_transform<typename TransType::value_type> arg1,arg2;
     image::par_for(2,[&](int i){
         if(i)
         {
@@ -440,8 +439,8 @@ void two_way_linear_mr(const image_type& from,const vs_type& from_vs,
             image::reg::linear_mr(to,to_vs,from,from_vs,arg2,base_type,cost_type,terminated,0.01);
         }
     });
-    image::transformation_matrix<double> T1(arg1,from.geometry(),from_vs,to.geometry(),to_vs);
-    image::transformation_matrix<double> T2(arg2,to.geometry(),to_vs,from.geometry(),from_vs);
+    TransType T1(arg1,from.geometry(),from_vs,to.geometry(),to_vs);
+    TransType T2(arg2,to.geometry(),to_vs,from.geometry(),from_vs);
     T2.inverse();
     if(CostFunctionType()(from,to,T2) < CostFunctionType()(from,to,T1))
         T = T2;

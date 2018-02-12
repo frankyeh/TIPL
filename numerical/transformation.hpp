@@ -678,7 +678,13 @@ public:
         pos = result;
     }
 
-
+    friend std::ostream & operator<<(std::ostream& out, const transformation_matrix<value_type> &T)
+    {
+        out << T[0] << " " << T[1] << " " << T[2] << " " << T[9] << std::endl;
+        out << T[3] << " " << T[4] << " " << T[5] << " " << T[10] << std::endl;
+        out << T[6] << " " << T[7] << " " << T[8] << " " << T[11] << std::endl;
+        return out;
+    }
 };
 
 
@@ -686,4 +692,6 @@ public:
 
 
 }
+
+
 #endif // TRANSFORMATION_HPP_INCLUDED
