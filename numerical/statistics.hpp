@@ -143,7 +143,7 @@ typename std::iterator_traits<input_iterator>::value_type median(input_iterator 
 {
     auto size = std::distance(begin, end);
     size /= 2;
-    std::nth_element(begin, begin + size, end);
+    std::nth_element(begin, begin + size,end);
     return *std::next(begin, size);
 }
 
@@ -222,6 +222,37 @@ double standard_deviation(input_iterator from,input_iterator to)
 {
     return standard_deviation(from,to,mean(from,to));
 }
+
+
+template<class input_iterator>
+double median_absolute_deviation(input_iterator from,input_iterator to)
+{
+    auto size = std::distance(from,to);
+    size /= 2;
+    auto m = median(from,to);
+    for(auto iter = from;iter != to;++iter)
+    {
+        auto v = *iter;
+        *iter = v > m ? v-m : m-v;
+    }
+    return median(from,to);
+}
+
+
+template<class input_iterator>
+double median_absolute_deviation(input_iterator from,input_iterator to,double median_value)
+{
+    auto size = std::distance(from,to);
+    size /= 2;
+    for(auto iter = from;iter != to;++iter)
+    {
+        auto v = *iter;
+        *iter = v > median_value ? v-median_value : median_value-v;
+    }
+    return median(from,to);
+}
+
+
 
 template<class input_iterator1,class input_iterator2>
 double covariance(input_iterator1 x_from,input_iterator1 x_to,
