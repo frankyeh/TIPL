@@ -183,8 +183,15 @@ public:
 
     void forward_propagation(const float* data,float* out) override
     {
-        for(int i = 0,i_pos = 0;i < output_size;++i,i_pos += input_size)
-            out[i] = bias[i] + image::vec::dot(&weight[i_pos],&weight[i_pos]+input_size,&data[0]);
+        std::copy(bias.begin(),bias.end(),out);
+        for(int i = 0;i < input_size;++i)
+            if(data[i] != 0.0f)
+            {
+                for(int j = 0,pos = i;j < output_size;++j,pos += input_size)
+                    out[j] += weight[pos]*data[i];
+            }
+        //for(int i = 0,i_pos = 0;i < output_size;++i,i_pos += input_size)
+        //    out[i] = bias[i] + image::vec::dot(&weight[i_pos],&weight[i_pos]+input_size,&data[0]);
     }
     void calculate_dwdb(const float* in_dE_da,
                         const float* prev_out,
@@ -211,6 +218,9 @@ public:
         {
             int n = int(weight.size()/in_dim.plane_size());
             int col = in_dim[2];
+            for(col = std::sqrt(n);col > 1;--col)
+                if(n % col == 0)
+                    break;
             int row = n/col;
             I.resize(geometry<2>(col* (in_dim.width()+1)+1,row * (in_dim.height() +1) + 3));
             for(int y = 0,index = 0;y < row;++y)
@@ -772,11 +782,11 @@ public:
     {
         return data.empty();
     }
-
+    template <typename io_type>
     bool load_from_file(const char* file_name)
     {
-        std::ifstream in(file_name,std::ios::binary);
-        if(!in)
+        io_type in;
+        if(!in.open(file_name))
             return false;
         unsigned int i,j;
         in.read((char*)&input[0],sizeof(input[0])*3);
@@ -793,10 +803,11 @@ public:
         }
         return !!in;
     }
+    template <typename io_type>
     bool save_to_file(const char* file_name) const
     {
-        std::ofstream out(file_name,std::ios::binary);
-        if(!out)
+        io_type out;
+        if(!out.open(file_name))
             return false;
         unsigned int data_size = data.size();
         unsigned int data_dim = data[0].size();
@@ -1261,12 +1272,13 @@ public:
         }
         return out.str();
     }
-
-    void save_to_file(const char* file_name)
+    template<typename io_type>
+    bool save_to_file(const char* file_name)
     {
-
+        io_type file;
+        if(!file.open(file_name))
+            return false;
         std::string nn_text = get_layer_text();
-        std::ofstream file(file_name,std::ios::binary);
         unsigned int nn_text_length = nn_text.length();
         file.write((const char*)&nn_text_length,sizeof(nn_text_length));
         file.write((const char*)&*nn_text.begin(),nn_text_length);
@@ -1276,11 +1288,13 @@ public:
                 file.write((const char*)&*layer->weight.begin(),layer->weight.size()*4);
                 file.write((const char*)&*layer->bias.begin(),layer->bias.size()*4);
             }
+        return true;
     }
+    template<typename io_type>
     bool load_from_file(const char* file_name)
     {
-        std::ifstream in(file_name,std::ios::binary);
-        if(!in)
+        io_type in;
+        if(!in.open(file_name))
             return false;
         size_t nn_text_length = 0;
         in.read((char*)&nn_text_length,4);
@@ -1401,7 +1415,7 @@ public:
         int size = batch_size;
         training_count = 0;
         training_error_count = 0;
-        for(int i = 0;i < train_seq.size();i += size)
+        for(int i = 0;i < train_seq.size() && !terminated;i += size)
         {
             int size = std::min<int>(batch_size,train_seq.size()-i);
             // train a batch
@@ -1416,13 +1430,11 @@ public:
                 auto ptr = in_out_ptr[thread_id] + data_size - output_size;
                 if(label_id[data_index] != std::max_element(ptr,ptr+output_size)-ptr)
                     ++training_error_count;
-
                 back_propagation(label_id[data_index],
                                     in_out_ptr[thread_id],back_df_ptr[thread_id]);
                 calculate_dwdb(&data[data_index][0],in_out_ptr[thread_id],back_df_ptr[thread_id],
                                     dweight[thread_id],dbias[thread_id]);
             });
-
             // update_weights
             par_for(layers.size(),[this,size](int j)
             {
@@ -1463,31 +1475,15 @@ public:
     template <class network_data_type,class iter_type>
     void train(const network_data_type& data,bool &terminated,iter_type iter_fun)
     {
-        std::vector<std::vector<unsigned int> > label_pile;
-        unsigned int sample_count = 0;
-        data.get_label_pile(label_pile);
-        for(int i = 0;i < output_size;++i)
-            if(label_pile.empty())
-                return;
-            else
-                sample_count = std::max<unsigned int>(sample_count,label_pile[i].size());
-        // rearrange training data
+        std::vector<unsigned int> training_sequence(data.data_label.size());
+        for(int i = 0;i < training_sequence.size();++i)
+            training_sequence[i] = i;
+
         for(int r = 0;r < repeat;++r)
         for(int iter = 0; iter < epoch && !terminated;iter++ ,iter_fun())
         {
-            rate_decay = std::pow(0.8,iter);
-            for(int i = 0;i < output_size;++i)
-                std::random_shuffle(label_pile[i].begin(),label_pile[i].end());
-
-            std::vector<unsigned int> training_sequence;
-            std::vector<unsigned int> label_pile_index(output_size);
-            for(unsigned int j = 0;j < sample_count;++j)
-                for(int i = 0;i < output_size;++i)
-                {
-                    training_sequence.push_back(label_pile[i][label_pile_index[i]++]);
-                    if(label_pile_index[i] >= label_pile[i].size())
-                        label_pile_index[i] = 0;
-                }
+            rate_decay = std::pow(0.8,iter);            
+            std::random_shuffle(training_sequence.begin(),training_sequence.end());
             train_batch(data,training_sequence,terminated);
         }
     }
