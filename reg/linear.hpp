@@ -424,7 +424,8 @@ void two_way_linear_mr(const image_type& from,const vs_type& from_vs,
                             TransType& T,
                             reg_type base_type,
                             CostFunctionType cost_type,
-                            teminated_class& terminated)
+                            teminated_class& terminated,
+                            unsigned int thread_count = std::thread::hardware_concurrency())
 {
     image::affine_transform<typename TransType::value_type> arg1,arg2;
     image::par_for(2,[&](int i){
@@ -438,7 +439,7 @@ void two_way_linear_mr(const image_type& from,const vs_type& from_vs,
             image::reg::linear_mr(to,to_vs,from,from_vs,arg2,base_type,cost_type,terminated,0.1);
             image::reg::linear_mr(to,to_vs,from,from_vs,arg2,base_type,cost_type,terminated,0.01);
         }
-    });
+    },thread_count);
     TransType T1(arg1,from.geometry(),from_vs,to.geometry(),to_vs);
     TransType T2(arg2,to.geometry(),to_vs,from.geometry(),from_vs);
     T2.inverse();
