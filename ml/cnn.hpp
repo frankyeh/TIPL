@@ -17,6 +17,7 @@
 #include <stdexcept>
 #include <thread>
 #include <vector>
+#include <random>
 
 #include "image/numerical/matrix.hpp"
 #include "image/numerical/numerical.hpp"
@@ -885,8 +886,10 @@ public:
     int batch_size = 64;
     int epoch= 20;
     int repeat = 0;
+    std::vector<unsigned int> error_table;
     std::string error_msg;
 private:
+    std::mt19937 rd_gen;
     float rate_decay = 1.0f;
 public:
     network():data_size(0){}
@@ -1415,6 +1418,8 @@ public:
         int size = batch_size;
         training_count = 0;
         training_error_count = 0;
+        if(!error_table.empty())
+            std::fill(error_table.begin(),error_table.end(),0);
         for(int i = 0;i < train_seq.size() && !terminated;i += size)
         {
             int size = std::min<int>(batch_size,train_seq.size()-i);
@@ -1428,8 +1433,15 @@ public:
                 forward_propagation(&data[data_index][0],in_out_ptr[thread_id]);
 
                 auto ptr = in_out_ptr[thread_id] + data_size - output_size;
-                if(label_id[data_index] != std::max_element(ptr,ptr+output_size)-ptr)
+                size_t predicted_label = std::max_element(ptr,ptr+output_size)-ptr;
+                if(label_id[data_index] != predicted_label)
                     ++training_error_count;
+                if(!error_table.empty())
+                {
+                    size_t pos = output_size*label_id[data_index] + predicted_label;
+                    if(pos < error_table.size())
+                        ++error_table[pos];
+                }
                 back_propagation(label_id[data_index],
                                     in_out_ptr[thread_id],back_df_ptr[thread_id]);
                 calculate_dwdb(&data[data_index][0],in_out_ptr[thread_id],back_df_ptr[thread_id],
@@ -1482,8 +1494,8 @@ public:
         for(int r = 0;r < repeat;++r)
         for(int iter = 0; iter < epoch && !terminated;iter++ ,iter_fun())
         {
-            rate_decay = std::pow(0.8,iter);            
-            std::random_shuffle(training_sequence.begin(),training_sequence.end());
+            rate_decay = std::pow(0.8,iter);
+            std::shuffle(training_sequence.begin(),training_sequence.end(), rd_gen);
             train_batch(data,training_sequence,terminated);
         }
     }
