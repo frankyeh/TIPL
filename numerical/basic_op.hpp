@@ -295,9 +295,10 @@ void bounding_box_mt(const std::vector<point_type>& points,point_type& max_value
 {
     if(points.empty())
         return;
-    std::vector<point_type> max_values(std::thread::hardware_concurrency()),
-                            min_values(std::thread::hardware_concurrency());
-    for(int i = 0;i < max_values.size();++i)
+    unsigned int thread_count = std::thread::hardware_concurrency();
+    std::vector<point_type> max_values(thread_count),
+                            min_values(thread_count);
+    for(int i = 0;i < thread_count;++i)
     {
         max_values[i] = points[0];
         min_values[i] = points[0];
@@ -314,7 +315,7 @@ void bounding_box_mt(const std::vector<point_type>& points,point_type& max_value
     max_value = max_values[0];
     min_value = min_values[0];
 
-    for(int i = 0;i < max_value.size();++i)
+    for(int i = 0;i < thread_count;++i)
     {
         for (unsigned char d = 0; d < dim; ++d)
             if (max_values[i][d] > max_value[d])
