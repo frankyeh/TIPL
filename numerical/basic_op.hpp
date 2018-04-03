@@ -319,8 +319,8 @@ void bounding_box_mt(const std::vector<point_type>& points,point_type& max_value
         for (unsigned char d = 0; d < dim; ++d)
             if (max_values[i][d] > max_value[d])
                 max_value[d] = max_values[i][d];
-            else if (max_values[i][d] < min_value[d])
-                min_value[d] = max_values[i][d];
+            else if (min_values[i][d] < min_value[d])
+                min_value[d] = min_values[i][d];
     }
 }
 
