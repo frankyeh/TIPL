@@ -93,6 +93,7 @@ public:
     int input_size;
     int output_size;
     float weight_base;
+    float learning_base_rate = 1.0f;
     std::vector<float> weight,bias;
 public:
 
@@ -504,16 +505,6 @@ public:
         weight_base = (float)std::sqrt(6.0f / (float)(kernel_size2 * in_dim.depth() + kernel_size2 * out_dim.depth()));
         return true;
     }
-    void initialize_weight(image::uniform_dist<float>& gen)
-    {
-        //basic_layer::initialize_weight(gen);
-        basic_layer::initialize_weight(gen);
-        if(kernel_size2* in_dim.depth() > out_dim.depth())
-        {
-            std::vector<float> u(out_dim.depth()*out_dim.depth()),s(out_dim.depth());
-            image::mat::svd(&weight[0],&u[0],&s[0],image::dyndim(out_dim.depth(),kernel_size2* in_dim.depth()));
-        }
-    }
     void to_image(basic_image<float,2>& I)
     {
         std::vector<float> w(weight),b(bias);
@@ -886,6 +877,7 @@ public:
     int batch_size = 64;
     int epoch= 20;
     int repeat = 0;
+    bool resample_label = false;
     std::vector<unsigned int> error_table;
     std::string error_msg;
 private:
@@ -1211,6 +1203,8 @@ public:
         if(list[0] == "full")
         {
             layers.push_back(std::make_shared<fully_connected_layer>(af));
+            if(list.size() >= 3)
+                std::istringstream(list[2]) >> layers.back()->learning_base_rate;
             return true;
         }
 
@@ -1231,6 +1225,8 @@ public:
         if(list[0] == "conv")
         {
             layers.push_back(std::make_shared<convolutional_layer>(af,param));
+            if(list.size() >= 4)
+                std::istringstream(list[3]) >> layers.back()->learning_base_rate;
             return true;
         }
         return false;
@@ -1459,7 +1455,6 @@ public:
                     image::add_mt(dw,dweight[k][j]);
                     image::add_mt(db,dbias[k][j]);
                     image::multiply_constant_mt(dweight[k][j],momentum);
-                    image::multiply_constant_mt(dweight[k][j],momentum);
                 }
 
                 {
@@ -1467,8 +1462,10 @@ public:
                     image::multiply_constant_mt(layers[j]->bias,1.0f-b_decay_rate*rate_decay);
                 }
                 {
-                    image::vec::axpy(&layers[j]->weight[0],&layers[j]->weight[0] + layers[j]->weight.size(),-learning_rate*rate_decay/float(size),&dw[0]);
-                    image::vec::axpy(&layers[j]->bias[0],&layers[j]->bias[0] + layers[j]->bias.size(),-learning_rate*rate_decay/float(size),&db[0]);
+                    image::vec::axpy(&layers[j]->weight[0],&layers[j]->weight[0] + layers[j]->weight.size(),
+                            -layers[j]->learning_base_rate*learning_rate*rate_decay/float(size),&dw[0]);
+                    image::vec::axpy(&layers[j]->bias[0],&layers[j]->bias[0] + layers[j]->bias.size(),
+                            -layers[j]->learning_base_rate*learning_rate*rate_decay/float(size),&db[0]);
                 }
 
                 image::upper_lower_threshold(layers[j]->bias,-bias_cap,bias_cap);
@@ -1487,10 +1484,31 @@ public:
     template <class network_data_type,class iter_type>
     void train(const network_data_type& data,bool &terminated,iter_type iter_fun)
     {
-        std::vector<unsigned int> training_sequence(data.data_label.size());
-        for(int i = 0;i < training_sequence.size();++i)
-            training_sequence[i] = i;
+        std::vector<unsigned int> training_sequence;
+        std::vector<std::vector<unsigned int> > label_pile;
+        if(resample_label)
+        {
+            unsigned int max_sample_count = 0;
+            data.get_label_pile(label_pile);
+            for(int i = 0;i < label_pile.size();++i)
+                max_sample_count = std::max<unsigned int>(max_sample_count,label_pile[i].size());
 
+            for(int i = 0;i < label_pile.size();++i)
+            {
+                for(int count = label_pile[i].size();
+                    label_pile[i].size() && count <= max_sample_count;count *= 2)
+                {
+                    for(int j = 0;j < label_pile[i].size();++j)
+                        training_sequence.push_back(label_pile[i][j]);
+                }
+            }
+        }
+        else
+        {
+            training_sequence.resize(data.data_label.size());
+            for(int i = 0;i < training_sequence.size();++i)
+                training_sequence[i] = i;
+        }
         for(int r = 0;r < repeat;++r)
         for(int iter = 0; iter < epoch && !terminated;iter++ ,iter_fun())
         {
