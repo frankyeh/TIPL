@@ -800,7 +800,7 @@ void defragment(ImageType& image)
 }
 
 template<class ImageType>
-void defragment(ImageType& image,float fragment_percentage)
+void defragment_by_size(ImageType& image,unsigned int area_threshold)
 {
     image::basic_image<unsigned int,ImageType::dimension> labels(image.geometry());
     std::vector<std::vector<unsigned int> > regions;
@@ -809,7 +809,6 @@ void defragment(ImageType& image,float fragment_percentage)
 
     std::vector<unsigned char> region_filter(regions.size()+1);
 
-    unsigned int area_threshold = image.size() * fragment_percentage;
     for (unsigned int index = 0;index < regions.size();++index)
         region_filter[index+1] = regions[index].size() > area_threshold;
 
