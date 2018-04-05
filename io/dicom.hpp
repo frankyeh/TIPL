@@ -737,7 +737,7 @@ public:
         if (get_text(0x0028,0x0030,pixel_spacing))
         {
             std::replace(pixel_spacing.begin(),pixel_spacing.end(),'\\',' ');
-            std::istringstream(pixel_spacing) >> voxel_size[0] >> voxel_size[1];
+            std::istringstream(pixel_spacing) >> voxel_size[1] >> voxel_size[0];
         }
         else
             voxel_size[0] = voxel_size[1] = voxel_size[2];
