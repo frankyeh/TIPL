@@ -553,7 +553,7 @@ struct cubic_interpolation<1>{
             float p[4];
             for(unsigned int index = 0;index < 4;++index)
                 p[index] = source[dindex[index]][i];
-            pixel[i] = cubic_imp(p,dx,dx2,dx3,dy,dy2,dy3)*0.5;
+            pixel[i] = cubic_imp(p,dx,dx2,dx3)*0.5;
         }
     }
 };
