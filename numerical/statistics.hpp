@@ -138,6 +138,38 @@ double mean(const image_type& I)
     return mean(I.begin(),I.end());
 }
 
+template<class input_iterator>
+typename std::iterator_traits<input_iterator>::value_type minimum(input_iterator from,input_iterator to)
+{
+    auto m = *from;
+    for(;from != to;++from)
+        if(*from < m)
+            m = *from;
+    return m;
+}
+
+template<class image_type>
+typename image_type::value_type minimum(const image_type& I)
+{
+    return minimum(I.begin(),I.end());
+}
+
+template<class input_iterator>
+typename std::iterator_traits<input_iterator>::value_type maximum(input_iterator from,input_iterator to)
+{
+    auto m = *from;
+    for(;from != to;++from)
+        if(*from > m)
+            m = *from;
+    return m;
+}
+
+template<class image_type>
+typename image_type::value_type maximum(const image_type& I)
+{
+    return maximum(I.begin(),I.end());
+}
+
 template <typename input_iterator>
 typename std::iterator_traits<input_iterator>::value_type median(input_iterator begin, input_iterator end)
 {
