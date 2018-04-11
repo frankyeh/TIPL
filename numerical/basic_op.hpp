@@ -772,6 +772,31 @@ void project(const image::basic_image<PixelType1,2>& src,OutImageType& result,un
             result[index.x()] += src[index.index()];
     }
 }
+template <typename image_type,typename output_type>
+void project_x(const image_type& I,output_type& P)
+{
+    typedef typename output_type::value_type value_type;
+    P.resize(image::geometry<2>(I.height(),I.depth()));// P = I(y,z)
+    P.for_each([&](value_type& value,image::pixel_index<2> index)
+    {
+        size_t pos = (index[0]+index[1]*I.height())*I.width();
+        value = std::accumulate(I.begin()+pos,I.begin()+pos+I.width(),value_type(0));
+    });
+}
+template <typename image_type,typename output_type>
+void project_y(const image_type& I,output_type& P)
+{
+    typedef typename output_type::value_type value_type;
+    P.resize(image::geometry<2>(I.width(),I.depth())); // P = I(x,z)
+    P.for_each([&](value_type& value,image::pixel_index<2> index)
+    {
+        size_t pos = index[0]+index[1]*I.plane_size();
+        value_type v(0);
+        for(int y = 0;y < I.height();++y,pos += I.width())
+            v += I[pos];
+        value = v;
+    });
+}
 
 template<class ImageType>
 float variance(const ImageType& I)
