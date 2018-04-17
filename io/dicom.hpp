@@ -683,6 +683,19 @@ public:
         return true;
     }
 
+    bool get_text_all(unsigned short group,unsigned short element,std::string& result) const
+    {
+        std::string re;
+        for(int i = 0;i < data.size();++i)
+            if(data[i].group == group && data[i].element == element)
+            {
+                auto& buf = data[i].get();
+                re += std::string(buf.begin(),buf.end());
+            }
+        result = re;
+        return !re.empty();
+    }
+
     template<class value_type>
     bool get_value(unsigned short group,unsigned short element,value_type& value) const
     {
@@ -867,7 +880,7 @@ public:
     std::string get_image_num(void)
     {
         std::string image_num;
-        get_text(0x0020,0x0013,image_num);
+        get_text_all(0x0020,0x0013,image_num);
         using namespace std;
         if(!image_num.empty())
             image_num.erase(remove(image_num.begin(),image_num.end(),' '),image_num.end());
