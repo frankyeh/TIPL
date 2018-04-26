@@ -19,16 +19,16 @@
 #include <vector>
 #include <random>
 
-#include "image/numerical/matrix.hpp"
-#include "image/numerical/numerical.hpp"
-#include "image/numerical/basic_op.hpp"
-#include "image/numerical/resampling.hpp"
-#include "image/utility/geometry.hpp"
-#include "image/utility/basic_image.hpp"
-#include "image/utility/multi_thread.hpp"
+#include "tipl/numerical/matrix.hpp"
+#include "tipl/numerical/numerical.hpp"
+#include "tipl/numerical/basic_op.hpp"
+#include "tipl/numerical/resampling.hpp"
+#include "tipl/utility/geometry.hpp"
+#include "tipl/utility/basic_image.hpp"
+#include "tipl/utility/multi_thread.hpp"
 
 
-namespace image
+namespace tipl
 {
 namespace ml
 {
@@ -106,7 +106,7 @@ public:
         weight.resize(weight_dim);
         bias.resize(bias_dim);
     }
-    virtual void initialize_weight(image::uniform_dist<float>& gen)
+    virtual void initialize_weight(tipl::uniform_dist<float>& gen)
     {
         for(int i = 0; i < weight.size(); ++i)
             weight[i] = gen()*weight_base;
@@ -114,7 +114,7 @@ public:
             std::fill(bias.begin(), bias.end(), 0.0f);
     }
 
-    virtual bool init(const image::geometry<3>& in_dim,const image::geometry<3>& out_dim) = 0;
+    virtual bool init(const tipl::geometry<3>& in_dim,const tipl::geometry<3>& out_dim) = 0;
     virtual void forward_propagation(const float* data,float* out) = 0;
     void forward_af(float* data)
     {
@@ -128,7 +128,7 @@ public:
             for(int i = 0; i < output_size; ++i)
                 data[i] = relu_f(data[i]);
     }
-    virtual void to_image(basic_image<float,2>& I)
+    virtual void to_image(image<float,2>& I)
     {
         I.clear();
     }
@@ -162,24 +162,24 @@ public:
 
 class fully_connected_layer : public basic_layer
 {
-    image::geometry<3> in_dim;
+    tipl::geometry<3> in_dim;
 public:
     fully_connected_layer(activation_type af_):basic_layer(af_){}
-    bool init(const image::geometry<3>& in_dim_,const image::geometry<3>& out_dim) override
+    bool init(const tipl::geometry<3>& in_dim_,const tipl::geometry<3>& out_dim) override
     {
         in_dim = in_dim_;
         basic_layer::init(in_dim.size(), out_dim.size(),in_dim.size() * out_dim.size(), out_dim.size());
         weight_base = (float)std::sqrt(6.0f / (float)(input_size+output_size));
         return true;
     }
-    void initialize_weight(image::uniform_dist<float>& gen)
+    void initialize_weight(tipl::uniform_dist<float>& gen)
     {
         //basic_layer::initialize_weight(gen);
         basic_layer::initialize_weight(gen);
         if(in_dim.size() > bias.size())
         {
             std::vector<float> u(bias.size()*bias.size()),s(bias.size());
-            image::mat::svd(&weight[0],&u[0],&s[0],image::dyndim(bias.size(),in_dim.size()));
+            tipl::mat::svd(&weight[0],&u[0],&s[0],tipl::dyndim(bias.size(),in_dim.size()));
         }
     }
 
@@ -193,23 +193,23 @@ public:
                     out[j] += weight[pos]*data[i];
             }
         //for(int i = 0,i_pos = 0;i < output_size;++i,i_pos += input_size)
-        //    out[i] = bias[i] + image::vec::dot(&weight[i_pos],&weight[i_pos]+input_size,&data[0]);
+        //    out[i] = bias[i] + tipl::vec::dot(&weight[i_pos],&weight[i_pos]+input_size,&data[0]);
     }
     void calculate_dwdb(const float* in_dE_da,
                         const float* prev_out,
                         std::vector<float>& dweight,
                         std::vector<float>& dbias) override
     {
-        image::add(&dbias[0],&dbias[0]+output_size,in_dE_da);
+        tipl::add(&dbias[0],&dbias[0]+output_size,in_dE_da);
         for(int i = 0,i_pos = 0; i < output_size; i++,i_pos += input_size)
             if(in_dE_da[i] != float(0))
-                image::vec::axpy(&dweight[i_pos],&dweight[i_pos]+input_size,in_dE_da[i],prev_out);
+                tipl::vec::axpy(&dweight[i_pos],&dweight[i_pos]+input_size,in_dE_da[i],prev_out);
     }
-    void to_image(basic_image<float,2>& I)
+    void to_image(image<float,2>& I)
     {
         std::vector<float> w(weight),b(bias);
-        image::normalize_abs(w);
-        image::normalize_abs(b);
+        tipl::normalize_abs(w);
+        tipl::normalize_abs(b);
         if(in_dim[0] == 1)
         {
             I.resize(geometry<2>(int(bias.size()),int(weight.size()/bias.size()+3)));
@@ -228,8 +228,8 @@ public:
             for(int y = 0,index = 0;y < row;++y)
                 for(int x = 0;x < col;++x,++index)
                 {
-                    image::draw(image::make_image(&w[0] + index*in_dim.plane_size(),image::geometry<2>(in_dim[0],in_dim[1])),
-                                I,image::geometry<2>(x*(in_dim.width()+1),y*(in_dim.height()+1)+1));
+                    tipl::draw(tipl::make_image(&w[0] + index*in_dim.plane_size(),tipl::geometry<2>(in_dim[0],in_dim[1])),
+                                I,tipl::geometry<2>(x*(in_dim.width()+1),y*(in_dim.height()+1)+1));
                 }
             std::copy(b.begin(),b.end(),I.end()-b.size());
         }
@@ -238,7 +238,7 @@ public:
                           float* out_dE_da,// input_size
                           const float*) override
     {
-        image::mat::left_vector_product(&weight[0],in_dE_da,out_dE_da,image::dyndim(output_size,input_size));
+        tipl::mat::left_vector_product(&weight[0],in_dE_da,out_dE_da,tipl::dyndim(output_size,input_size));
     }
 };
 
@@ -344,10 +344,10 @@ public:
     int pool_size;
     average_pooling_layer(activation_type af_,int pool_size_)
         : partial_connected_layer(af_),pool_size(pool_size_){}
-    bool init(const image::geometry<3>& in_dim,const image::geometry<3>& out_dim) override
+    bool init(const tipl::geometry<3>& in_dim,const tipl::geometry<3>& out_dim) override
     {
         partial_connected_layer::init(in_dim.size(),in_dim.size()/pool_size/pool_size,in_dim.depth(), in_dim.depth());
-        if(out_dim != image::geometry<3>(in_dim.width()/ pool_size, in_dim.height() / pool_size, in_dim.depth()) ||
+        if(out_dim != tipl::geometry<3>(in_dim.width()/ pool_size, in_dim.height() / pool_size, in_dim.depth()) ||
                 in_dim.depth() != out_dim.depth())
             return false;
         for(int c = 0; c < in_dim.depth(); ++c)
@@ -375,12 +375,12 @@ public:
         weight_base = (float)std::sqrt(6.0f / (float)(max_size(o2w_1) + max_size(i2w_1)));
         return true;
     }
-    void to_image(basic_image<float,2>& I)
+    void to_image(image<float,2>& I)
     {
         I.resize(geometry<2>(int(weight.size()),5));
         std::vector<float> w(weight),b(bias);
-        image::normalize_abs(w);
-        image::normalize_abs(b);
+        tipl::normalize_abs(w);
+        tipl::normalize_abs(b);
         std::copy(w.begin(),w.end(),I.begin()+I.width());
         std::copy(b.begin(),b.end(),I.end()-I.width()*2);
     }
@@ -402,12 +402,12 @@ public:
 public:
     max_pooling_layer(activation_type af_,int pool_size_)
         : basic_layer(af_),pool_size(pool_size_){}
-    bool init(const image::geometry<3>& in_dim_,const image::geometry<3>& out_dim_) override
+    bool init(const tipl::geometry<3>& in_dim_,const tipl::geometry<3>& out_dim_) override
     {
         in_dim = in_dim_;
         out_dim = out_dim_;
         basic_layer::init(in_dim.size(),out_dim.size(),0,0);
-        if(out_dim != image::geometry<3>(in_dim.width()/ pool_size, in_dim.height() / pool_size, in_dim.depth()))
+        if(out_dim != tipl::geometry<3>(in_dim.width()/ pool_size, in_dim.height() / pool_size, in_dim.depth()))
             return false;
         init_connection();
         weight_base = (float)std::sqrt(6.0f / (float)(o2i[0].size()+1));
@@ -493,29 +493,29 @@ public:
           kernel_size(kernel_size_),kernel_size2(kernel_size_*kernel_size_)
     {
     }
-    bool init(const image::geometry<3>& in_dim_,const image::geometry<3>& out_dim_) override
+    bool init(const tipl::geometry<3>& in_dim_,const tipl::geometry<3>& out_dim_) override
     {
         in_dim = in_dim_;
         out_dim = out_dim_;
         if(in_dim.width()-out_dim.width()+1 != kernel_size ||
            in_dim.height()-out_dim.height()+1 != kernel_size)
             return false;
-        //weight_dim = image::geometry<3>(kernel_size,kernel_size,in_dim.depth() * out_dim.depth()),
+        //weight_dim = tipl::geometry<3>(kernel_size,kernel_size,in_dim.depth() * out_dim.depth()),
         basic_layer::init(in_dim_.size(), out_dim_.size(),kernel_size2* in_dim.depth() * out_dim.depth(), out_dim.depth());
         weight_base = (float)std::sqrt(6.0f / (float)(kernel_size2 * in_dim.depth() + kernel_size2 * out_dim.depth()));
         return true;
     }
-    void to_image(basic_image<float,2>& I)
+    void to_image(image<float,2>& I)
     {
         std::vector<float> w(weight),b(bias);
-        image::normalize_abs(w);
-        image::normalize_abs(b);
+        tipl::normalize_abs(w);
+        tipl::normalize_abs(b);
         I.resize(geometry<2>(out_dim.depth()* (kernel_size+1)+1,in_dim.depth() * (kernel_size+1) + 3));
         for(int x = 0,index = 0;x < out_dim.depth();++x)
             for(int y = 0;y < in_dim.depth();++y,++index)
             {
-                image::draw(image::make_image(&w[0] + index*kernel_size2,image::geometry<2>(kernel_size,kernel_size)),
-                            I,image::geometry<2>(x*(kernel_size+1),y*(kernel_size+1)+1));
+                tipl::draw(tipl::make_image(&w[0] + index*kernel_size2,tipl::geometry<2>(kernel_size,kernel_size)),
+                            I,tipl::geometry<2>(x*(kernel_size+1),y*(kernel_size+1)+1));
             }
 
         std::copy(b.begin(),b.end(),I.end()-I.width()*2);
@@ -536,7 +536,7 @@ public:
                             float sum(0);
                             for(int wy = 0; wy < kernel_size; wy++)
                             {
-                                sum += image::vec::dot(w,w+kernel_size,p);
+                                sum += tipl::vec::dot(w,w+kernel_size,p);
                                 w += kernel_size;
                                 p += in_dim.width();
                             }
@@ -596,7 +596,7 @@ public:
                         const float ppdelta_src = pdelta_src[index];
                         float *p = pdelta_dst + y_pos + x;
                         for(int wy = 0; wy < kernel_size; wy++,ppw += kernel_size,p += in_dim.width())
-                            image::vec::axpy(p,p+kernel_size,ppdelta_src,ppw);
+                            tipl::vec::axpy(p,p+kernel_size,ppdelta_src,ppw);
                     }
 
             }
@@ -611,18 +611,18 @@ public:
 class rotation_invariant_layer : public basic_layer
 {
 private:
-    image::geometry<3> geo;
+    tipl::geometry<3> geo;
     const int rotator_size = 90;
-    image::uniform_dist<int> gen;
+    tipl::uniform_dist<int> gen;
     std::vector<int> shift_z;
-    image::basic_image<char,2> rotation_mask;
-    std::vector<std::vector<image::interpolation<image::linear_weighting,2> > > rotator;
+    tipl::image<char,2> rotation_mask;
+    std::vector<std::vector<tipl::interpolation<tipl::linear_weighting,2> > > rotator;
 public:
     rotation_invariant_layer(void) : basic_layer(activation_type::identity),gen(rotator_size),rotator(rotator_size) // 90 rotation combination
     {
 
     }
-    bool init(const image::geometry<3>& in_dim_,const image::geometry<3>& out_dim_) override
+    bool init(const tipl::geometry<3>& in_dim_,const tipl::geometry<3>& out_dim_) override
     {
         geo = in_dim_;
         if(in_dim_.size() != out_dim_.size() || in_dim_[0] != in_dim_[1])
@@ -633,9 +633,9 @@ public:
         shift_z.resize(geo.depth());
         for(int z = 1;z < geo.depth();++z)
             shift_z[z] = geo.plane_size()*z;
-        rotation_mask.resize(image::geometry<2>(geo[0],geo[1]));
+        rotation_mask.resize(tipl::geometry<2>(geo[0],geo[1]));
         std::fill(rotation_mask.begin(),rotation_mask.end(),1);
-        image::vector<2> center(0.5f*geo[0],0.5f*geo[1]);
+        tipl::vector<2> center(0.5f*geo[0],0.5f*geo[1]);
         for(int i = 0;i < rotator.size();++i)
         {
             rotator[i].resize(rotation_mask.size());
@@ -645,9 +645,9 @@ public:
             for(int x = 0,index = 0;x < rotation_mask.width();++x)
                 for(int y = 0;y < rotation_mask.height();++y,++index)
                 {
-                    image::vector<2> v(x,y);
+                    tipl::vector<2> v(x,y);
                     v -= center;
-                    image::vector<2> vv(v[0]*cos_angle-v[1]*sin_angle,v[0]*sin_angle+v[1]*cos_angle);
+                    tipl::vector<2> vv(v[0]*cos_angle-v[1]*sin_angle,v[0]*sin_angle+v[1]*cos_angle);
                     vv += center;
                     if(!rotator[i][index].get_location(rotation_mask.geometry(),vv))
                         rotation_mask[index] = 0;
@@ -676,7 +676,7 @@ public:
                 for(int z = 0;z < geo.depth();++z)
                     if(rotation_mask[index])
                         rotator[rotator_index][index].estimate(
-                                    image::make_image(data+shift_z[z],rotation_mask.geometry()),out[index+shift_z[z]]);
+                                    tipl::make_image(data+shift_z[z],rotation_mask.geometry()),out[index+shift_z[z]]);
                     else
                         out[index+shift_z[z]] = 0;
             }
@@ -688,7 +688,7 @@ class dropout_layer : public basic_layer
 {
 private:
     unsigned int dim;
-    image::bernoulli bgen;
+    tipl::bernoulli bgen;
 public:
     float dropout_rate;
     dropout_layer(float dropout_rate_)
@@ -696,7 +696,7 @@ public:
           bgen(dropout_rate_)
     {
     }
-    bool init(const image::geometry<3>& in_dim_,const image::geometry<3>& out_dim_) override
+    bool init(const tipl::geometry<3>& in_dim_,const tipl::geometry<3>& out_dim_) override
     {
         if(in_dim_.size() != out_dim_.size())
             return false;
@@ -730,7 +730,7 @@ public:
         : basic_layer(activation_type::identity)
     {
     }
-    bool init(const image::geometry<3>& in_dim,const image::geometry<3>& out_dim) override
+    bool init(const tipl::geometry<3>& in_dim,const tipl::geometry<3>& out_dim) override
     {
         if(in_dim.size() != out_dim.size())
             return false;
@@ -744,15 +744,15 @@ public:
             out[i] = expf(data[i]-m);
         float sum = std::accumulate(out,out+output_size,float(0));
         if(sum != 0)
-            image::divide_constant(out,out+output_size,sum);
+            tipl::divide_constant(out,out+output_size,sum);
     }
     void back_propagation(float* in_dE_da,// output_size
                           float* out_dE_da,// input_size
                           const float* prev_out) override
     {
         std::copy(in_dE_da,in_dE_da+input_size,out_dE_da);
-        image::minus_constant(out_dE_da,out_dE_da+output_size,image::vec::dot(in_dE_da,in_dE_da+input_size,prev_out));
-        image::multiply(out_dE_da,out_dE_da+output_size,prev_out);
+        tipl::minus_constant(out_dE_da,out_dE_da+output_size,tipl::vec::dot(in_dE_da,in_dE_da+input_size,prev_out));
+        tipl::multiply(out_dE_da,out_dE_da+output_size,prev_out);
     }
 };
 
@@ -760,7 +760,7 @@ template<typename value_type,typename label_type>
 class network_data
 {
 public:
-    image::geometry<3> input,output;
+    tipl::geometry<3> input,output;
     std::vector<std::vector<value_type> > data;
     std::vector<label_type> data_label;
 
@@ -859,7 +859,7 @@ public:
 class network
 {
     std::vector<std::shared_ptr<basic_layer> > layers;
-    std::vector<image::geometry<3> > geo;
+    std::vector<tipl::geometry<3> > geo;
     unsigned int data_size;
 private:// for training
     std::vector<std::vector<std::vector<float> > > dweight,dbias;
@@ -915,20 +915,20 @@ public:
         nn2.init_weights();
         for(int i = 0;i < layers.size();++i)
             if(!layers[i]->weight.empty() && !nn2.layers[i]->weight.empty())
-                image::vec::axpy(layers[i]->weight.begin(),
+                tipl::vec::axpy(layers[i]->weight.begin(),
                                  layers[i]->weight.end(),0.1,nn2.layers[i]->weight.begin());
     }
 
     void init_weights(void)
     {
-        image::uniform_dist<float> gen(-1.0,1.0);
+        tipl::uniform_dist<float> gen(-1.0,1.0);
         for(auto layer : layers)
             layer->initialize_weight(gen);
     }
 
     void reinit_weights(void)
     {
-        image::uniform_dist<float> gen(-1.0,1.0);
+        tipl::uniform_dist<float> gen(-1.0,1.0);
         for(auto layer : layers)
         if(!layer->weight.empty() && !layer->bias.empty())
         {
@@ -945,9 +945,9 @@ public:
     bool empty(void) const{return layers.empty();}
     unsigned int get_output_size(void) const{return output_size;}
     unsigned int get_input_size(void) const{return geo.empty() ? 0: geo[0].size();}
-    image::geometry<3> get_input_dim(void) const{return geo.empty() ? image::geometry<3>(): geo.front();}
-    image::geometry<3> get_output_dim(void) const{return geo.empty() ? image::geometry<3>(): geo.back();}
-    bool add(const image::geometry<3>& dim)
+    tipl::geometry<3> get_input_dim(void) const{return geo.empty() ? tipl::geometry<3>(): geo.front();}
+    tipl::geometry<3> get_output_dim(void) const{return geo.empty() ? tipl::geometry<3>(): geo.back();}
+    bool add(const tipl::geometry<3>& dim)
     {
         if(!layers.empty())
         {
@@ -990,24 +990,24 @@ public:
 
     void to_image(color_image& I,std::vector<float> in,int label,int layer_height = 20,int max_width = 0)
     {
-        std::vector<image::color_image> Is(layers.size());
+        std::vector<tipl::color_image> Is(layers.size());
         Is.resize(layers.size());
 
         int total_height = 0;
-        image::uniform_dist<float> gen(0.0f,3.14159265358979323846f*2.0f);
-        std::vector<image::basic_image<float,2> > layer_images(layers.size());
-        image::par_for(layers.size(),[&](int i)
+        tipl::uniform_dist<float> gen(0.0f,3.14159265358979323846f*2.0f);
+        std::vector<tipl::image<float,2> > layer_images(layers.size());
+        tipl::par_for(layers.size(),[&](int i)
         {
             layers[i]->to_image(layer_images[i]);
             if(max_width && layer_images[i].width() > max_width)
-                image::downsampling(layer_images[i]);
+                tipl::downsampling(layer_images[i]);
         });
 
         for(int i = 0;i < layers.size();++i)
             max_width = std::max<int>(max_width,layer_images[i].width());
         for(int i = 0;i < layers.size();++i)
         {
-            image::rgb_color b;
+            tipl::rgb b;
             b.from_hsl(gen(),0.5,0.85);
             if(layer_images[i].empty())
             {
@@ -1015,7 +1015,7 @@ public:
                 continue;
             }
             for(int j = 0;j < 2 && layer_images[i].width() < max_width*0.5f;++j)
-                image::upsampling_nearest(layer_images[i]);
+                tipl::upsampling_nearest(layer_images[i]);
 
             total_height += std::max<int>(layer_images[i].height(),layer_height);
             {
@@ -1031,14 +1031,14 @@ public:
                     unsigned char s(std::min<int>(255,
                         ((int)std::fabs(layer_images[i][j]*1024.0f))));
                     if(layer_images[i][j] < 0) // red
-                        Is[i][j] = image::rgb_color(s,0,0);
+                        Is[i][j] = tipl::rgb(s,0,0);
                     if(layer_images[i][j] > 0) // blue
-                        Is[i][j] = image::rgb_color(0,0,s);
+                        Is[i][j] = tipl::rgb(0,0,s);
                 }
             }
         }
 
-        std::vector<image::color_image> values(geo.size());
+        std::vector<tipl::color_image> values(geo.size());
         {
             std::vector<float> out(data_size),back(data_size);
             float* out_buf = &out[0];
@@ -1051,45 +1051,45 @@ public:
                 int col = std::max<int>(1,(max_width-1)/(geo[i].width()+1));
                 int row = std::max<int>(1,geo[i][2]/col+1);
                 if(i == 0)
-                    values[i].resize(image::geometry<2>(col*(geo[i].width()+1)+1,row*(geo[i].height()+1)+1));
+                    values[i].resize(tipl::geometry<2>(col*(geo[i].width()+1)+1,row*(geo[i].height()+1)+1));
                 else
-                    values[i].resize(image::geometry<2>(col*(geo[i].width()+1)+1,int(2.0f*row*(geo[i].height()+1)+2)));
-                std::fill(values[i].begin(),values[i].end(),image::rgb_color(255,255,255));
+                    values[i].resize(tipl::geometry<2>(col*(geo[i].width()+1)+1,int(2.0f*row*(geo[i].height()+1)+2)));
+                std::fill(values[i].begin(),values[i].end(),tipl::rgb(255,255,255));
                 int draw_width = 0;
                 for(int y = 0,j = 0;y < row;++y)
                     for(int x = 0;j < geo[i][2] && x < col;++x,++j)
                     {
-                        auto v1 = image::make_image((i == 0 ? in_buf : out_buf)+geo[i].plane_size()*j,image::geometry<2>(geo[i][0],geo[i][1]));
-                        auto v2 = image::make_image((i == 0 ? in_buf : back_buf)+geo[i].plane_size()*j,image::geometry<2>(geo[i][0],geo[i][1]));
-                        image::normalize_abs(v1);
-                        image::normalize_abs(v2);
-                        image::color_image Iv1(v1.geometry()),Iv2(v2.geometry());
+                        auto v1 = tipl::make_image((i == 0 ? in_buf : out_buf)+geo[i].plane_size()*j,tipl::geometry<2>(geo[i][0],geo[i][1]));
+                        auto v2 = tipl::make_image((i == 0 ? in_buf : back_buf)+geo[i].plane_size()*j,tipl::geometry<2>(geo[i][0],geo[i][1]));
+                        tipl::normalize_abs(v1);
+                        tipl::normalize_abs(v2);
+                        tipl::color_image Iv1(v1.geometry()),Iv2(v2.geometry());
                         for(int j = 0;j < Iv1.size();++j)
                         {
                             unsigned char s1(std::min<int>(255,int(255.0f*std::fabs(v1[j]))));
                             if(v1[j] < 0) // red
-                                Iv1[j] = image::rgb_color(s1,0,0);
+                                Iv1[j] = tipl::rgb(s1,0,0);
                             if(v1[j] >= 0) // blue
-                                Iv1[j] = image::rgb_color(0,0,s1);
+                                Iv1[j] = tipl::rgb(0,0,s1);
                             unsigned char s2(std::min<int>(255,int(255.0f*std::fabs(v2[j]))));
                             if(v2[j] < 0) // red
-                                Iv2[j] = image::rgb_color(s2,0,0);
+                                Iv2[j] = tipl::rgb(s2,0,0);
                             if(v2[j] >= 0) // blue
-                                Iv2[j] = image::rgb_color(0,0,s2);
+                                Iv2[j] = tipl::rgb(0,0,s2);
                         }
-                        image::draw(Iv1,values[i],image::geometry<2>(x*(geo[i].width()+1)+1,y*(geo[i].height()+1)+1));
+                        tipl::draw(Iv1,values[i],tipl::geometry<2>(x*(geo[i].width()+1)+1,y*(geo[i].height()+1)+1));
                         if(i)
-                            image::draw(Iv2,values[i],image::geometry<2>(x*(geo[i].width()+1)+1,row*(geo[i].height()+1)+1+y*(geo[i].height()+1)+1));
+                            tipl::draw(Iv2,values[i],tipl::geometry<2>(x*(geo[i].width()+1)+1,row*(geo[i].height()+1)+1+y*(geo[i].height()+1)+1));
                         draw_width = std::max<int>(draw_width,Iv1.width() + x*(geo[i].width()+1)+1);
                     }
                 while((draw_width << 1) < max_width && values[i].height() < 50)
                 {
-                    image::upsampling_nearest(values[i]);
+                    tipl::upsampling_nearest(values[i]);
                     draw_width <<= 1;
                 }
                 while(draw_width > max_width)
                 {
-                    image::downsampling(values[i]);
+                    tipl::downsampling(values[i]);
                     draw_width >>= 1;
                 }
                 total_height += values[i].height();
@@ -1098,26 +1098,26 @@ public:
             }
         }
 
-        I.resize(image::geometry<2>(max_width,total_height));
-        std::fill(I.begin(),I.end(),image::rgb_color(255,255,255));
+        I.resize(tipl::geometry<2>(max_width,total_height));
+        std::fill(I.begin(),I.end(),tipl::rgb(255,255,255));
         int cur_height = 0;
         for(int i = 0;i < geo.size();++i)
         {
             // input image
-            image::draw(values[i],I,image::geometry<2>(0,cur_height));
+            tipl::draw(values[i],I,tipl::geometry<2>(0,cur_height));
             cur_height += values[i].height();
 
             // network wieghts
             if(i < layers.size())
             {
-                image::rgb_color b;
+                tipl::rgb b;
                 if(Is[i].empty())
                     b.from_hsl(gen(),0.5,0.85);
                 else
                     b = Is[i][0];
-                image::fill_rect(I,image::geometry<2>(0,cur_height),
-                                   image::geometry<2>(max_width,cur_height+std::max<int>(Is[i].height(),layer_height)),b);
-                image::draw(Is[i],I,image::geometry<2>(1,cur_height +
+                tipl::fill_rect(I,tipl::geometry<2>(0,cur_height),
+                                   tipl::geometry<2>(max_width,cur_height+std::max<int>(Is[i].height(),layer_height)),b);
+                tipl::draw(Is[i],I,tipl::geometry<2>(1,cur_height +
                                                        (Is[i].height() < layer_height ? (layer_height- Is[i].height())/2: 0)));
                 cur_height += std::max<int>(Is[i].height(),layer_height);
             }
@@ -1159,7 +1159,7 @@ public:
                 std::istringstream(list[0]) >> x;
                 std::istringstream(list[1]) >> y;
                 std::istringstream(list[2]) >> z;
-                return add(image::geometry<3>(x,y,z));
+                return add(tipl::geometry<3>(x,y,z));
             }
         }
 
@@ -1333,7 +1333,7 @@ public:
         const float* out_ptr2 = input + data_size - output_size;
         float* df_ptr = out_ptr + data_size - output_size;
         // calculate difference
-        image::copy_ptr(out_ptr2,df_ptr,output_size);
+        tipl::copy_ptr(out_ptr2,df_ptr,output_size);
         for(unsigned int i = 0;i < output_size;++i)
             df_ptr[i] -= ((label == i) ? target_value_max : target_value_min);
         for(int k = (int)layers.size()-1;k >= 0;--k)
@@ -1452,32 +1452,32 @@ public:
                 std::vector<float> db(layers[j]->bias.size());
                 for(int k = 0;k < dweight.size();++k)
                 {
-                    image::add_mt(dw,dweight[k][j]);
-                    image::add_mt(db,dbias[k][j]);
-                    image::multiply_constant_mt(dweight[k][j],momentum);
+                    tipl::add_mt(dw,dweight[k][j]);
+                    tipl::add_mt(db,dbias[k][j]);
+                    tipl::multiply_constant_mt(dweight[k][j],momentum);
                 }
 
                 {
-                    image::multiply_constant_mt(layers[j]->weight,1.0f-w_decay_rate*rate_decay);
-                    image::multiply_constant_mt(layers[j]->bias,1.0f-b_decay_rate*rate_decay);
+                    tipl::multiply_constant_mt(layers[j]->weight,1.0f-w_decay_rate*rate_decay);
+                    tipl::multiply_constant_mt(layers[j]->bias,1.0f-b_decay_rate*rate_decay);
                 }
                 {
-                    image::vec::axpy(&layers[j]->weight[0],&layers[j]->weight[0] + layers[j]->weight.size(),
+                    tipl::vec::axpy(&layers[j]->weight[0],&layers[j]->weight[0] + layers[j]->weight.size(),
                             -layers[j]->learning_base_rate*learning_rate*rate_decay/float(size),&dw[0]);
-                    image::vec::axpy(&layers[j]->bias[0],&layers[j]->bias[0] + layers[j]->bias.size(),
+                    tipl::vec::axpy(&layers[j]->bias[0],&layers[j]->bias[0] + layers[j]->bias.size(),
                             -layers[j]->learning_base_rate*learning_rate*rate_decay/float(size),&db[0]);
                 }
 
-                image::upper_lower_threshold(layers[j]->bias,-bias_cap,bias_cap);
-                image::upper_lower_threshold(layers[j]->weight,-weight_cap,weight_cap);
+                tipl::upper_lower_threshold(layers[j]->bias,-bias_cap,bias_cap);
+                tipl::upper_lower_threshold(layers[j]->weight,-weight_cap,weight_cap);
             });
         }
     }
     template <class data_type>
     void normalize_data(data_type& data)
     {
-        image::par_for(data.size(),[&](unsigned int i){
-           image::normalize_abs(data[i]);
+        tipl::par_for(data.size(),[&](unsigned int i){
+           tipl::normalize_abs(data[i]);
         });
     }
 
@@ -1581,7 +1581,7 @@ public:
     }
 };
 
-inline bool operator << (network& n, const image::geometry<3>& dim)
+inline bool operator << (network& n, const tipl::geometry<3>& dim)
 {
     return n.add(dim);
 }
@@ -1600,7 +1600,7 @@ void iterate_cnn(geo_type in_dim,
 {
     const int max_kernel = 5;
     unsigned int layer_cost = 0;
-    std::multimap<int, std::tuple<image::geometry<3>,std::string,char> > candidates;
+    std::multimap<int, std::tuple<tipl::geometry<3>,std::string,char> > candidates;
     std::multimap<int, std::string> sorted_list;
 
 

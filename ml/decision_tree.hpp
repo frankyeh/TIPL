@@ -3,7 +3,7 @@
 #include <memory>
 
 
-namespace image{
+namespace tipl{
 
 namespace ml{
 

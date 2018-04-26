@@ -5,9 +5,9 @@
 #include <sstream>
 #include <iterator>
 #include <memory>
-#include "image/numerical/basic_op.hpp"
+#include "tipl/numerical/basic_op.hpp"
 
-namespace image
+namespace tipl
 {
 
 
@@ -88,7 +88,7 @@ public:
 class bruker_2dseq
 {
     // the 2dseq data
-    image::basic_image<float,3> data;
+    tipl::image<float,3> data;
 
 
     // spatial resolution
@@ -165,7 +165,7 @@ public:
         if(!visu.load_from_file(load_visu(file_name)))
             no_visu = true;
 
-        image::geometry<3> dim;
+        tipl::geometry<3> dim;
         // get image dimension
         if(!no_visu)
         {
@@ -210,7 +210,7 @@ public:
             {
                 if(!no_visu)
                 {
-                    image::vector<3> v1,v2;
+                    tipl::vector<3> v1,v2;
                     std::istringstream(visu["VisuCorePosition"])
                         >> v1[0] >> v1[1] >> v1[2]
                         >> v2[0] >> v2[1] >> v2[2];
@@ -280,8 +280,8 @@ public:
         slice_2d = (dim[2] == 0);
         return true;
     }
-    const image::basic_image<float,3>& get_image(void) const{return data;}
-    image::basic_image<float,3>& get_image(void){return data;}
+    const tipl::image<float,3>& get_image(void) const{return data;}
+    tipl::image<float,3>& get_image(void){return data;}
 
     bool is_2d(void) const
     {

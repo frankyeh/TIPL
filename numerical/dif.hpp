@@ -1,27 +1,27 @@
 #ifndef DIF_HPP
 #define DIF_HPP
 
-namespace image
+namespace tipl
 {
 
 template<class vtor_type,unsigned int dimension>
-void make_identity(basic_image<vtor_type,dimension>& s)
+void make_identity(image<vtor_type,dimension>& s)
 {
-    for (image::pixel_index<dimension> index(s.geometry()); index < s.size();++index)
+    for (tipl::pixel_index<dimension> index(s.geometry()); index < s.size();++index)
         s[index.index()] = index;
 }
 //---------------------------------------------------------------------------
 template<class vtor_type,unsigned int dimension>
-void displacement_to_mapping(basic_image<vtor_type,dimension>& s)
+void displacement_to_mapping(image<vtor_type,dimension>& s)
 {
-    for (image::pixel_index<dimension> index(s.geometry()); index < s.size();++index)
+    for (tipl::pixel_index<dimension> index(s.geometry()); index < s.size();++index)
         s[index.index()] += index;
 }
 //---------------------------------------------------------------------------
 template<class vtor_type,unsigned int dimension>
-void mapping_to_displacement(basic_image<vtor_type,dimension>& s)
+void mapping_to_displacement(image<vtor_type,dimension>& s)
 {
-    for (image::pixel_index<dimension> index(s.geometry()); index < s.size();++index)
+    for (tipl::pixel_index<dimension> index(s.geometry()); index < s.size();++index)
         s[index.index()] -= index;
 }
 //---------------------------------------------------------------------------
@@ -34,34 +34,34 @@ void compose_mapping(const ImageType& src,const ComposeImageType& compose,OutIma
     typename ComposeImageType::const_iterator end = compose.end();
     typename OutImageType::iterator out = dest.begin();
     for (; iter != end; ++iter,++out)
-        image::estimate(src,*iter,*out);
+        tipl::estimate(src,*iter,*out);
 }
 //---------------------------------------------------------------------------
 template<class ImageType,class ComposeImageType,class OutImageType>
 void compose_displacement(const ImageType& src,const ComposeImageType& displace,OutImageType& dest)
 {
-    image::geometry<ImageType::dimension> geo(src.geometry());
+    tipl::geometry<ImageType::dimension> geo(src.geometry());
     dest.clear();
     dest.resize(geo);
-    for(image::pixel_index<ImageType::dimension> index(geo);index.is_valid(geo);++index)
+    for(tipl::pixel_index<ImageType::dimension> index(geo);index.is_valid(geo);++index)
     {
         typename ComposeImageType::value_type vtor(index);
         vtor += displace[index.index()];
-        image::estimate(src,vtor,dest[index.index()]);
+        tipl::estimate(src,vtor,dest[index.index()]);
     }
 }
 //---------------------------------------------------------------------------
 template<class ImageType,class ComposeImageType,class OutImageType>
 void compose_displacement_with_jacobian(const ImageType& src,const ComposeImageType& displace,OutImageType& dest)
 {
-    image::geometry<ImageType::dimension> geo(src.geometry());
+    tipl::geometry<ImageType::dimension> geo(src.geometry());
     dest.clear();
     dest.resize(geo);
-    for(image::pixel_index<ImageType::dimension> index(geo);index.is_valid(geo);++index)
+    for(tipl::pixel_index<ImageType::dimension> index(geo);index.is_valid(geo);++index)
     {
         typename ComposeImageType::value_type vtor(index);
         vtor += displace[index.index()];
-        image::estimate(src,vtor,dest[index.index()]);
+        tipl::estimate(src,vtor,dest[index.index()]);
     }
 }
 //---------------------------------------------------------------------------
@@ -74,7 +74,7 @@ void invert_displacement(const ComposeImageType& v0,ComposeImageType& v1)
         v1[index] = -v0[index];
     for(int i = 0;i < 15;++i)
     {
-        image::compose_displacement(v0,v1,vv);
+        tipl::compose_displacement(v0,v1,vv);
         for (int index = 0;index < v1.size();++index)
             v1[index] = -vv[index];
     }
@@ -128,21 +128,21 @@ void decompose_displacement(const ComposeImageType& v,const ComposeImageType& vx
         vy[index] = v[index]-vtemp[index];
     for(int i = 0;i < 15;++i)
     {
-        image::compose_displacement(vx,vy,vtemp);
+        tipl::compose_displacement(vx,vy,vtemp);
         for (int index = 0;index < vy.size();++index)
             vy[index] = v[index]-vtemp[index];
     }
 }
 //---------------------------------------------------------------------------
 template<class VectorType,class DetType>
-void jacobian_determinant(const basic_image<VectorType,3>& src,DetType& dest)
+void jacobian_determinant(const image<VectorType,3>& src,DetType& dest)
 {
     typedef typename DetType::value_type value_type;
     geometry<3> geo(src.geometry());
     dest.resize(geo);
     int w = src.width();
     int wh = src.plane_size();
-    for (image::pixel_index<3> index(geo); index < geo.size();++index)
+    for (tipl::pixel_index<3> index(geo); index < geo.size();++index)
     {
         if (geo.is_edge(index))
         {
@@ -170,7 +170,7 @@ void jacobian_determinant(const basic_image<VectorType,3>& src,DetType& dest)
     }
 }
 template<class VectorType>
-double jacobian_determinant_dis_at(const basic_image<VectorType,3>& src,const image::pixel_index<3>& index)
+double jacobian_determinant_dis_at(const image<VectorType,3>& src,const tipl::pixel_index<3>& index)
 {
     unsigned int w = src.width();
     unsigned int wh = src.plane_size();
@@ -195,7 +195,7 @@ double jacobian_determinant_dis_at(const basic_image<VectorType,3>& src,const im
                                    (v1_0[2] - v1_1[2])*(d2_0*d3_1-d2_1*d3_0);
 }
 template<class VectorType,class out_type>
-void jacobian_dis_at(const basic_image<VectorType,3>& src,const image::pixel_index<3>& index,out_type* J)
+void jacobian_dis_at(const image<VectorType,3>& src,const tipl::pixel_index<3>& index,out_type* J)
 {
     unsigned int w = src.width();
     unsigned int wh = src.plane_size();
@@ -220,14 +220,14 @@ void jacobian_dis_at(const basic_image<VectorType,3>& src,const image::pixel_ind
     J[8] = vz[2]*0.5+1.0;
 }
 template<class VectorType,class DetType>
-void jacobian_determinant_dis(const basic_image<VectorType,3>& src,DetType& dest)
+void jacobian_determinant_dis(const image<VectorType,3>& src,DetType& dest)
 {
     typedef typename DetType::value_type value_type;
     geometry<3> geo(src.geometry());
     dest.resize(geo);
     int w = src.width();
     int wh = src.plane_size();
-    for (image::pixel_index<3> index(geo); index < geo.size();++index)
+    for (tipl::pixel_index<3> index(geo); index < geo.size();++index)
     {
         if (geo.is_edge(index))
         {
@@ -240,12 +240,12 @@ void jacobian_determinant_dis(const basic_image<VectorType,3>& src,DetType& dest
 
 //---------------------------------------------------------------------------
 template<class VectorType,class PixelType>
-void jacobian_determinant(const basic_image<VectorType,2>& src,basic_image<PixelType,2>& dest)
+void jacobian_determinant(const image<VectorType,2>& src,image<PixelType,2>& dest)
 {
     geometry<2> geo(src.geometry());
     dest.resize(geo);
     int w = src.width();
-    for (image::pixel_index<2> index(geo); index < geo.size();++index)
+    for (tipl::pixel_index<2> index(geo); index < geo.size();++index)
     {
         if (geo.is_edge(index))
         {
@@ -261,7 +261,7 @@ void jacobian_determinant(const basic_image<VectorType,2>& src,basic_image<Pixel
 }
 
 template<class VectorType>
-double jacobian_determinant_dis_at(const basic_image<VectorType,2>& src,const image::pixel_index<2>& index)
+double jacobian_determinant_dis_at(const image<VectorType,2>& src,const tipl::pixel_index<2>& index)
 {
     unsigned int w = src.width();
     const VectorType& v1_0 = src[index.index()+1];
@@ -272,12 +272,12 @@ double jacobian_determinant_dis_at(const basic_image<VectorType,2>& src,const im
 }
 
 template<class VectorType,class PixelType>
-void jacobian_determinant_dis(const basic_image<VectorType,2>& src,basic_image<PixelType,2>& dest)
+void jacobian_determinant_dis(const image<VectorType,2>& src,image<PixelType,2>& dest)
 {
     geometry<2> geo(src.geometry());
     dest.resize(geo);
     int w = src.width();
-    for (image::pixel_index<2> index(geo); index < geo.size();++index)
+    for (tipl::pixel_index<2> index(geo); index < geo.size();++index)
     {
         if (geo.is_edge(index))
         {

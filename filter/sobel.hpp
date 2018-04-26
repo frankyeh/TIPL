@@ -3,7 +3,7 @@
 #define SOBEL_FILTER_HPP
 #include "filter_model.hpp"
 //---------------------------------------------------------------------------
-namespace image
+namespace tipl
 {
 
 namespace filter
@@ -34,10 +34,10 @@ struct sobel_filter_abs_sum{
 };
 
 template<>
-struct sobel_filter_abs_sum<image::rgb_color>{
+struct sobel_filter_abs_sum<tipl::rgb>{
 
-    typedef pixel_manip<image::rgb_color>::type manip_type;
-    image::rgb_color operator()(const manip_type& a,const manip_type& b)
+    typedef pixel_manip<tipl::rgb>::type manip_type;
+    tipl::rgb operator()(const manip_type& a,const manip_type& b)
     {
         manip_type d;
         d.r = a.r > 0 ? a.r:-a.r;
@@ -49,7 +49,7 @@ struct sobel_filter_abs_sum<image::rgb_color>{
         d.b += b.b > 0 ? b.b: -b.b;
         return d.to_rgb();
     }
-    image::rgb_color operator()(const manip_type& a,const manip_type& b,const manip_type& c)
+    tipl::rgb operator()(const manip_type& a,const manip_type& b,const manip_type& c)
     {
         manip_type d;
         d.r = a.r > 0 ? a.r:-a.r;

@@ -4,14 +4,14 @@
 #include <map>
 #include <list>
 #include <set>
-#include "image/numerical/basic_op.hpp"
-#include "image/utility/basic_image.hpp"
-#include "image/utility/pixel_index.hpp"
-#include "image/numerical/index_algorithm.hpp"
-#include "image/numerical/window.hpp"
+#include "tipl/numerical/basic_op.hpp"
+#include "tipl/utility/basic_image.hpp"
+#include "tipl/utility/pixel_index.hpp"
+#include "tipl/numerical/index_algorithm.hpp"
+#include "tipl/numerical/window.hpp"
 
 
-namespace image
+namespace tipl
 {
 
 namespace morphology
@@ -201,7 +201,7 @@ void inner_edge(ImageType& image)
 }
 
 template<class ImageType>
-bool is_edge(ImageType& image,image::pixel_index<2> index)
+bool is_edge(ImageType& image,tipl::pixel_index<2> index)
 {
     typename ImageType::value_type center = image[index.index()];
     unsigned int width = image.width();
@@ -233,7 +233,7 @@ bool is_edge(ImageType& image,image::pixel_index<2> index)
 }
 
 template<class ImageType>
-bool is_edge(ImageType& image,image::pixel_index<3> index)
+bool is_edge(ImageType& image,tipl::pixel_index<3> index)
 {
     typename ImageType::value_type center = image[index.index()];
     unsigned int z_offset = image.geometry().plane_size();
@@ -494,7 +494,7 @@ void region_growing(const ImageType& image,const IndexType& seed_point,
 template<class ImageType>
 void convex_xy(ImageType& I)
 {
-    image::geometry<ImageType::dimension> range_min,range_max;
+    tipl::geometry<ImageType::dimension> range_min,range_max;
     bounding_box(I,range_min,range_max);
     // get the bounding box first
     int dirs[8][2] = {{1,0},{2,1},{1,1},{1,2},{0,1},{-1,2},{-1,1},{-2,1}};
@@ -681,7 +681,7 @@ void connected_component_labeling_pass(const ImageType& image,
 }
 
 template<class PixelType,class StorageType,class LabelImageType>
-void connected_component_labeling(const basic_image<PixelType,1,StorageType>& image,
+void connected_component_labeling(const image<PixelType,1,StorageType>& image,
                                   LabelImageType& labels,
                                   std::vector<std::vector<unsigned int> >& regions)
 {
@@ -689,7 +689,7 @@ void connected_component_labeling(const basic_image<PixelType,1,StorageType>& im
 }
 
 template<class PixelType,class StorageType,class LabelImageType>
-void connected_component_labeling(const basic_image<PixelType,2,StorageType>& image,
+void connected_component_labeling(const image<PixelType,2,StorageType>& image,
                                   LabelImageType& labels,
                                   std::vector<std::vector<unsigned int> >& regions)
 {
@@ -699,7 +699,7 @@ void connected_component_labeling(const basic_image<PixelType,2,StorageType>& im
 
 
 template<class PixelType,class StorageType,class LabelImageType>
-void connected_component_labeling(const basic_image<PixelType,3,StorageType>& image,
+void connected_component_labeling(const image<PixelType,3,StorageType>& image,
                                   LabelImageType& labels,
                                   std::vector<std::vector<unsigned int> >& regions)
 {
@@ -711,15 +711,15 @@ void connected_component_labeling(const basic_image<PixelType,3,StorageType>& im
 template<class LabelImageType>
 void get_region_bounding_box(const LabelImageType& labels,
                              const std::vector<std::vector<unsigned int> >& regions,
-                             std::vector<image::vector<2,int> >& min_pos,
-                             std::vector<image::vector<2,int> >& max_pos)
+                             std::vector<tipl::vector<2,int> >& min_pos,
+                             std::vector<tipl::vector<2,int> >& max_pos)
 {
     min_pos.clear();
     min_pos.resize(regions.size());
     max_pos.clear();
     max_pos.resize(regions.size());
-    std::fill(min_pos.begin(),min_pos.end(),image::vector<2,float>(labels.geometry()[0],labels.geometry()[1]));
-    for(image::pixel_index<2> index(labels.geometry());index < labels.size();++index)
+    std::fill(min_pos.begin(),min_pos.end(),tipl::vector<2,float>(labels.geometry()[0],labels.geometry()[1]));
+    for(tipl::pixel_index<2> index(labels.geometry());index < labels.size();++index)
     if (labels[index.index()])
     {
         size_t region_id = labels[index.index()]-1;
@@ -738,8 +738,8 @@ void get_region_bounding_size(const LabelImageType& labels,
                               std::vector<int>& size_x,
                               std::vector<int>& size_y)
 {
-    std::vector<image::vector<2,int> > max_pos,min_pos;
-    image::morphology::get_region_bounding_box(labels,regions,min_pos,max_pos);
+    std::vector<tipl::vector<2,int> > max_pos,min_pos;
+    tipl::morphology::get_region_bounding_box(labels,regions,min_pos,max_pos);
     size_x.clear();
     size_x.resize(regions.size());
     size_y.clear();
@@ -756,17 +756,17 @@ void get_region_bounding_size(const LabelImageType& labels,
 template<class LabelImageType>
 void get_region_center(const LabelImageType& labels,
                        const std::vector<std::vector<unsigned int> >& regions,
-                       std::vector<image::vector<2,float> >& center_of_mass)
+                       std::vector<tipl::vector<2,float> >& center_of_mass)
 {
     center_of_mass.clear();
     center_of_mass.resize(regions.size());
-    for(image::pixel_index<2> index(labels.geometry());index < labels.size();++index)
+    for(tipl::pixel_index<2> index(labels.geometry());index < labels.size();++index)
         if (labels[index.index()])
         {
             size_t region_id = labels[index.index()]-1;
             if (regions[region_id].empty())
                 continue;
-            center_of_mass[region_id] += image::vector<2,float>(index);
+            center_of_mass[region_id] += tipl::vector<2,float>(index);
         }
 
     for(size_t index = 0;index < regions.size();++index)
@@ -777,7 +777,7 @@ void get_region_center(const LabelImageType& labels,
 template<class ImageType>
 void defragment(ImageType& image)
 {
-    image::basic_image<unsigned int,ImageType::dimension> labels(image.geometry());
+    tipl::image<unsigned int,ImageType::dimension> labels(image.geometry());
     std::vector<std::vector<unsigned int> > regions;
 
     connected_component_labeling(image,labels,regions);
@@ -802,7 +802,7 @@ void defragment(ImageType& image)
 template<class ImageType>
 void defragment_by_size(ImageType& image,unsigned int area_threshold)
 {
-    image::basic_image<unsigned int,ImageType::dimension> labels(image.geometry());
+    tipl::image<unsigned int,ImageType::dimension> labels(image.geometry());
     std::vector<std::vector<unsigned int> > regions;
 
     connected_component_labeling(image,labels,regions);

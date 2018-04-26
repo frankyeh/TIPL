@@ -12,7 +12,7 @@
 typedef float Qfloat;
 typedef signed char schar;
 
-namespace image{
+namespace tipl{
 
 namespace ml{
 

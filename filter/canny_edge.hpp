@@ -4,7 +4,7 @@
 
 #include "filter_model.hpp"
 //---------------------------------------------------------------------------
-namespace image
+namespace tipl
 {
 
 namespace filter
@@ -195,7 +195,7 @@ public:
 };
 
 template<class pixel_type,size_t dimension>
-void canny_edge(basic_image<pixel_type,dimension>& src)
+void canny_edge(image<pixel_type,dimension>& src)
 {
     canny_edge_filter_imp<pixel_type,dimension>()(src);
 }

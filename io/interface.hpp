@@ -2,7 +2,7 @@
 #define IMAGE_IO_INTERFACE_HPP
 #include <fstream>
 
-namespace image
+namespace tipl
 {
 
 namespace io

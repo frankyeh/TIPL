@@ -5,7 +5,7 @@
 #include <set>
 
 
-namespace image
+namespace tipl
 {
 
 namespace ml
@@ -99,12 +99,12 @@ public:
 	template<class model_type>
 	double evaluate_error(const model_type& model) const
 	{
-        return image::ml::evaluate_error(model, features.begin(), features.end(), classification.begin());
+        return tipl::ml::evaluate_error(model, features.begin(), features.end(), classification.begin());
 	}
 	template<class model_type>
     double evaluate_error(const model_type& model, size_t from, size_t to) const
 	{
-        return image::ml::evaluate_error(model, features.begin() + from, features.begin() + to, classification.begin() + from);
+        return tipl::ml::evaluate_error(model, features.begin() + from, features.begin() + to, classification.begin() + from);
 	}
 
 };
@@ -168,12 +168,12 @@ public:
 	template<class model_type>
 	double evaluate_error(const model_type& model) const
 	{
-        return image::ml::evaluate_error(model, features.begin(), features.end(), classification.begin());
+        return tipl::ml::evaluate_error(model, features.begin(), features.end(), classification.begin());
 	}
 	template<class model_type>
     double evaluate_error(const model_type& model, size_t from, size_t to) const
 	{
-        return image::ml::evaluate_error(model, features.begin() + from, features.begin() + to, classification.begin() + from);
+        return tipl::ml::evaluate_error(model, features.begin() + from, features.begin() + to, classification.begin() + from);
 	}
 };
 

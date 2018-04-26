@@ -2,7 +2,7 @@
 #define BITMAP_IO_HPP
 #include <stdexcept>
 #include <fstream>
-namespace image
+namespace tipl
 {
 
 namespace io
@@ -118,7 +118,7 @@ public:
         typename image_type::const_iterator iter = image.begin();
         typename image_type::const_iterator end = image.end();
         int line_width = image.width();
-        image::rgb_color* out_line = (rgb_color*)&*data.begin() + image.size() - line_width;
+        tipl::rgb* out_line = (rgb*)&*data.begin() + image.size() - line_width;
         for (;iter != end;iter += line_width,out_line -= line_width)
             std::copy(iter,iter+line_width,out_line);
     }
@@ -127,7 +127,7 @@ public:
     void save_to_image(image_type& image) const
     {
         typedef typename image_type::value_type pixel_type;
-        image::geometry<image_type::dimension> geo;
+        tipl::geometry<image_type::dimension> geo;
         std::fill(geo.begin(),geo.end(),1);
         geo[0] = bmih.biWidth;
         geo[1] = bmih.biHeight;
@@ -138,7 +138,7 @@ public:
             std::copy((unsigned char*)&*data.begin(),(unsigned char*)&*data.begin()+image.size(),image.begin());
             break;
         case 32:
-            std::copy((rgb_color*)&*data.begin(),(rgb_color*)&*data.begin()+image.size(),image.begin());
+            std::copy((rgb*)&*data.begin(),(rgb*)&*data.begin()+image.size(),image.begin());
             break;
         case 24:
         {
@@ -167,7 +167,7 @@ public:
                     iter2 = line;
                     continue;
                 }
-                *iter2 = rgb_color(r,g,b);
+                *iter2 = rgb(r,g,b);
             }
         }
         break;

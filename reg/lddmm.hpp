@@ -1,17 +1,17 @@
 #ifndef LDDMM_HPP_INCLUDED
 #define LDDMM_HPP_INCLUDED
-#include "image/numerical/basic_op.hpp"
-#include "image/numerical/fft.hpp"
-#include "image/numerical/dif.hpp"
-#include "image/numerical/resampling.hpp"
+#include "tipl/numerical/basic_op.hpp"
+#include "tipl/numerical/fft.hpp"
+#include "tipl/numerical/dif.hpp"
+#include "tipl/numerical/resampling.hpp"
 
-#include "image/io/nifti.hpp"
-#include "image/filter/gaussian.hpp"
+#include "tipl/io/nifti.hpp"
+#include "tipl/filter/gaussian.hpp"
 
 #include <iostream>
 #include <limits>
 
-namespace image
+namespace tipl
 {
 
 namespace reg
@@ -19,32 +19,32 @@ namespace reg
 
 //------------------------------------------------------------------------------------
 template<class pixel_type,class vtor_type,unsigned int dimension>
-void fast_lddmm(const basic_image<pixel_type,dimension>& I0,
-                const basic_image<pixel_type,dimension>& I1,
-                basic_image<pixel_type,dimension>& J0, // the deformed I0 images at different time frame
-                basic_image<pixel_type,dimension>& J1, // the deformed I0 images at different time frame
-                basic_image<vtor_type,dimension>& fs0,
-                basic_image<vtor_type,dimension>& fs1,
+void fast_lddmm(const image<pixel_type,dimension>& I0,
+                const image<pixel_type,dimension>& I1,
+                image<pixel_type,dimension>& J0, // the deformed I0 images at different time frame
+                image<pixel_type,dimension>& J1, // the deformed I0 images at different time frame
+                image<vtor_type,dimension>& fs0,
+                image<vtor_type,dimension>& fs1,
                 float dt = 0.2,float alpha = 0.02)
 {
     geometry<dimension> geo = I0.geometry();
     if(I0.geometry() != I1.geometry())
         throw std::runtime_error("The image size of I0 and I1 is not consistent.");
-    if(image::fft_round_up_geometry(geo) != geo)
+    if(tipl::fft_round_up_geometry(geo) != geo)
         throw std::runtime_error("The geometry must be rounded up to 2 to the power of n");
     J0 = I0;
     J1 = I1;
     float sigma = *std::max_element(I0.begin(),I0.end())/10.0;
-    image::fftn<dimension> fft(geo);
-    basic_image<pixel_type,dimension> K(geo);
-    image::basic_image<float,dimension> jdet(geo),dJ(geo);
-    basic_image<vtor_type,dimension> v(geo),v2(geo),dv(geo),dv2(geo),dvimg(geo),s0(geo),s1(geo);
+    tipl::fftn<dimension> fft(geo);
+    image<pixel_type,dimension> K(geo);
+    tipl::image<float,dimension> jdet(geo),dJ(geo);
+    image<vtor_type,dimension> v(geo),v2(geo),dv(geo),dv2(geo),dvimg(geo),s0(geo),s1(geo);
     unsigned int res = 0;
     float total_I = std::accumulate(I0.begin(),I0.end(),0.0) + std::accumulate(I1.begin(),I1.end(),0.0);
     float last_total_e = std::numeric_limits<float>::max();
     float total_e = std::numeric_limits<float>::max();
 
-    for (image::pixel_index<dimension> index(geo); index < geo.size(); ++index)
+    for (tipl::pixel_index<dimension> index(geo); index < geo.size(); ++index)
     {
         s0[index.index()] = index;
         s1[index.index()] = index;
@@ -73,25 +73,25 @@ void fast_lddmm(const basic_image<pixel_type,dimension>& I0,
         }
 
         if(swi)
-            image::gradient(J0,dv);
+            tipl::gradient(J0,dv);
         else
-            image::gradient(J1,dv);
-        //image::jacobian_determine(s1,jdet);
-        image::minus(J0.begin(),J0.end(),J1.begin());
+            tipl::gradient(J1,dv);
+        //tipl::jacobian_determine(s1,jdet);
+        tipl::minus(J0.begin(),J0.end(),J1.begin());
 
-        image::multiply(dv.begin(),dv.end(),J0.begin());
+        tipl::multiply(dv.begin(),dv.end(),J0.begin());
 
 
         fft.apply(dv,dvimg);
-        image::multiply(dv.begin(),dv.end(),K.begin());
-        image::multiply(dvimg.begin(),dvimg.end(),K.begin());
+        tipl::multiply(dv.begin(),dv.end(),K.begin());
+        tipl::multiply(dvimg.begin(),dvimg.end(),K.begin());
         fft.apply_inverse(dv,dvimg);
-        image::multiply_constant(dv.begin(),dv.end(),0.7*dt/sigma/sigma/((float)(1 << dimension))/dv.size());
+        tipl::multiply_constant(dv.begin(),dv.end(),0.7*dt/sigma/sigma/((float)(1 << dimension))/dv.size());
 
         if(swi)
-            image::add(v.begin(),v.end(),dv.begin());
+            tipl::add(v.begin(),v.end(),dv.begin());
         else
-            image::add(v2.begin(),v2.end(),dv.begin());
+            tipl::add(v2.begin(),v2.end(),dv.begin());
 
         float next_sum_dif = 0.0;
         for(unsigned int index = 0; index < J0.size(); ++index)
@@ -105,7 +105,7 @@ void fast_lddmm(const basic_image<pixel_type,dimension>& I0,
             dt *= 0.5;
             for(unsigned int d =0; d < dimension; ++d)
                 alpha *= 0.5;
-            for (image::pixel_index<dimension> index(geo); index < geo.size(); ++index)
+            for (tipl::pixel_index<dimension> index(geo); index < geo.size(); ++index)
             {
                 if(last_total_e > total_e)
                 {
@@ -121,39 +121,39 @@ void fast_lddmm(const basic_image<pixel_type,dimension>& I0,
             update_K = true;
         }
 
-        basic_image<vtor_type,dimension> s0_next(s0),s1_next(s1);
+        image<vtor_type,dimension> s0_next(s0),s1_next(s1);
         /* Calculate for j = 0 to j = N ? 1 the mapping using Eq. (18).
         */
         if(swi)
-            for (image::pixel_index<dimension> index(geo); index < geo.size(); ++index)
-                image::estimate(s0,vtor_type(index)-v[index.index()],s0_next[index.index()]);
+            for (tipl::pixel_index<dimension> index(geo); index < geo.size(); ++index)
+                tipl::estimate(s0,vtor_type(index)-v[index.index()],s0_next[index.index()]);
         else
-            for (image::pixel_index<dimension> index(geo); index < geo.size(); ++index)
-                image::estimate(s1,vtor_type(index)+v2[index.index()],s1_next[index.index()]);
+            for (tipl::pixel_index<dimension> index(geo); index < geo.size(); ++index)
+                tipl::estimate(s1,vtor_type(index)+v2[index.index()],s1_next[index.index()]);
 
         s0 = s0_next;
         s1 = s1_next;
 
-        image::add(s0_next.begin(),s0_next.end(),fs0.begin());
-        image::add(s1_next.begin(),s1_next.end(),fs1.begin());
+        tipl::add(s0_next.begin(),s0_next.end(),fs0.begin());
+        tipl::add(s1_next.begin(),s1_next.end(),fs1.begin());
 
-        image::compose_mapping(I0,s0_next,J0);
-        image::compose_mapping(I1,s1_next,J1);
+        tipl::compose_mapping(I0,s0_next,J0);
+        tipl::compose_mapping(I1,s1_next,J1);
 
         total_e = next_sum_dif;
         swi = !swi;
 
         /*
-        image::geometry<dimension> geo_(geo);
+        tipl::geometry<dimension> geo_(geo);
         geo_[0] *= 2;
-        image::basic_image<pixel_type,dimension> JOut(geo_);
-        image::draw(J0,JOut,image::pixel_index<dimension>());
-        image::pixel_index<dimension> shift;
+        tipl::image<pixel_type,dimension> JOut(geo_);
+        tipl::draw(J0,JOut,tipl::pixel_index<dimension>());
+        tipl::pixel_index<dimension> shift;
         shift[0] = geo[0];
-        image::draw(J1,JOut,shift);
+        tipl::draw(J1,JOut,shift);
         */
 
-        //image::io::nifti nifti_file;
+        //tipl::io::nifti nifti_file;
         //nifti_file << JO;
         //nifti_file.save_to_file("result_lddmm_J0.nii");
         //nifti_file << J1;
@@ -173,27 +173,27 @@ Volume 61, Issue 2; February 2005.
 
 */
 template<class pixel_type,class vtor_type,unsigned int dimension>
-void lddmm(const basic_image<pixel_type,dimension>& I0,
-           const basic_image<pixel_type,dimension>& I1,
-           std::vector<basic_image<pixel_type,dimension> >& J0, // the deformed I0 images at different time frame
-           std::vector<basic_image<pixel_type,dimension> >& J1, // the deformed I1 images at different time frame
-           std::vector<basic_image<vtor_type,dimension> >& s0,// the deformation metric of I0 at different time frame
-           std::vector<basic_image<vtor_type,dimension> >& s1,// the deformation metric of I1 at different time frame
+void lddmm(const image<pixel_type,dimension>& I0,
+           const image<pixel_type,dimension>& I1,
+           std::vector<image<pixel_type,dimension> >& J0, // the deformed I0 images at different time frame
+           std::vector<image<pixel_type,dimension> >& J1, // the deformed I1 images at different time frame
+           std::vector<image<vtor_type,dimension> >& s0,// the deformation metric of I0 at different time frame
+           std::vector<image<vtor_type,dimension> >& s1,// the deformation metric of I1 at different time frame
            unsigned int T = 20,float dt = 0.2,float gamma = 1.0)
 {
 
     geometry<dimension> geo = I0.geometry();
     if(I0.geometry() != I1.geometry())
         throw std::runtime_error("The image size of I0 and I1 is not consistent.");
-    if(image::fft_round_up_geometry(geo) != geo)
+    if(tipl::fft_round_up_geometry(geo) != geo)
         throw std::runtime_error("The geometry must be rounded up to 2 to the power of n");
     J0.resize(T);
     J1.resize(T);
     s0.resize(T);
     s1.resize(T);
 
-    std::vector<basic_image<vtor_type,dimension> > v(T);   // the velocity function
-    std::vector<basic_image<vtor_type,dimension> > alpha_dis(T);   // the displacement
+    std::vector<image<vtor_type,dimension> > v(T);   // the velocity function
+    std::vector<image<vtor_type,dimension> > alpha_dis(T);   // the displacement
 
     // initialize mapping J0,J1, s0, s1
     for(unsigned int j = 0; j < T; ++j)
@@ -204,7 +204,7 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
         s1[j].resize(geo);
         v[j].resize(geo);
         alpha_dis[j].resize(geo);
-        for (image::pixel_index<dimension> index(geo); index < geo.size(); ++index)
+        for (tipl::pixel_index<dimension> index(geo); index < geo.size(); ++index)
         {
             s0[j][index.index()] = index;
             s1[j][index.index()] = index;
@@ -218,8 +218,8 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
 
 
     // calculate the invert(LL*) operator
-    image::fftn<dimension> fft(geo);
-    basic_image<pixel_type,dimension> K(geo);
+    tipl::fftn<dimension> fft(geo);
+    image<pixel_type,dimension> K(geo);
     float alpha = 0.02;
     //float gamma = 1.0;
     {
@@ -236,15 +236,15 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
 
 
     float total_e = std::numeric_limits<float>::max();
-    image::basic_image<float,dimension> jdet(geo),dJ(geo),dif(geo);
-    basic_image<vtor_type,dimension> dv(geo),dvimg(geo);
+    tipl::image<float,dimension> jdet(geo),dJ(geo),dif(geo);
+    image<vtor_type,dimension> dv(geo),dvimg(geo);
 
     for(unsigned int k = 0; k < 200; ++k)
     {
         if(k %10 == 9)// reparameterize
         {
             std::vector<float> v_length(T);
-            for (image::pixel_index<dimension> index(geo); index < geo.size(); ++index)
+            for (tipl::pixel_index<dimension> index(geo); index < geo.size(); ++index)
             {
                 for(unsigned int j =0; j < T; ++j)
                     v_length[j] = v[j][index.index()].length();
@@ -263,39 +263,39 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
         for(unsigned int j =0; j < T; ++j)
         {
             // calculate the gradient of J0
-            image::gradient(J0[j],dv);
+            tipl::gradient(J0[j],dv);
 
             // calculate |Ds1|
-            image::jacobian_determinant(s1[j],jdet);
+            tipl::jacobian_determinant(s1[j],jdet);
 
             // calculate J0-J1
             std::copy(J0[j].begin(),J0[j].end(),dJ.begin());
-            image::minus(dJ.begin(),dJ.end(),J1[j].begin());
+            tipl::minus(dJ.begin(),dJ.end(),J1[j].begin());
             if(j == T-1)
                 dif = dJ;
 
             // calculate |Ds1|(J0-J1)
-            image::multiply(jdet.begin(),jdet.end(),dJ.begin());
+            tipl::multiply(jdet.begin(),jdet.end(),dJ.begin());
 
             // calculate (2/sigma^2)*|Ds1|(J0-J1)
-            image::multiply_constant(jdet.begin(),jdet.end(),dt);
+            tipl::multiply_constant(jdet.begin(),jdet.end(),dt);
 
             // now dV = (2/sigma^2)|Ds|gJ0(J0-J1)
-            image::multiply(dv.begin(),dv.end(),jdet.begin());
+            tipl::multiply(dv.begin(),dv.end(),jdet.begin());
 
             // update v
-            image::multiply_constant(v[j].begin(),v[j].end(),e);
+            tipl::multiply_constant(v[j].begin(),v[j].end(),e);
 
             // apply K() operator
 
             fft.apply(dv,dvimg);
-            image::multiply(dv.begin(),dv.end(),K.begin());
-            image::multiply(dvimg.begin(),dvimg.end(),K.begin());
+            tipl::multiply(dv.begin(),dv.end(),K.begin());
+            tipl::multiply(dvimg.begin(),dvimg.end(),K.begin());
             fft.apply_inverse(dv,dvimg);
-            image::divide_constant(dv.begin(),dv.end(),dv.size());
+            tipl::divide_constant(dv.begin(),dv.end(),dv.size());
 
             // vk+1 = vk - eD(E)
-            image::add(v[j].begin(),v[j].end(),dv.begin());
+            tipl::add(v[j].begin(),v[j].end(),dv.begin());
 
         }
 
@@ -304,12 +304,12 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
         alpha_dis = v;
         for(unsigned int j = 0;j < alpha_dis.size();++j)
         {
-            basic_image<vtor_type,dimension>& vj = v[j];
-            basic_image<vtor_type,dimension>& alpha_j = alpha_dis[j];
-            for (image::pixel_index<dimension> index(geo); index < geo.size(); ++index)
+            image<vtor_type,dimension>& vj = v[j];
+            image<vtor_type,dimension>& alpha_j = alpha_dis[j];
+            for (tipl::pixel_index<dimension> index(geo); index < geo.size(); ++index)
             {
                 for(unsigned char i = 0;i < 5;++i)
-                    image::estimate(vj,vtor_type(index)-alpha_j[index.index()]/2,
+                    tipl::estimate(vj,vtor_type(index)-alpha_j[index.index()]/2,
                                            alpha_j[index.index()]);
             }
         }
@@ -317,26 +317,26 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
         //Calculate for j = N ? 1 to j = 0 the mapping £pk+1t j ,T (y) using Eq. (19).
         for(int j = T-2; j >= 0; --j)
         {
-            basic_image<vtor_type,dimension>& alpha_j = alpha_dis[j];
+            image<vtor_type,dimension>& alpha_j = alpha_dis[j];
             // £pj(y) = £pj+1(y + α).
-            for (image::pixel_index<dimension> index(geo); index < geo.size(); ++index)
-                image::estimate(s1[j+1],vtor_type(index)+alpha_j[index.index()],s1[j][index.index()]);
+            for (tipl::pixel_index<dimension> index(geo); index < geo.size(); ++index)
+                tipl::estimate(s1[j+1],vtor_type(index)+alpha_j[index.index()],s1[j][index.index()]);
         }
 
         // Calculate for j = 0 to j = N ? 1 the mapping £pk+1t j ,0 (y) using Eq. (18).
         for(int j = 1; j < T; ++j)
         {
-            basic_image<vtor_type,dimension>& alpha_j = alpha_dis[j];
+            image<vtor_type,dimension>& alpha_j = alpha_dis[j];
             // £pj(y) = £pj-1(y - α).
-            for (image::pixel_index<dimension> index(geo); index < geo.size(); ++index)
-                image::estimate(s0[j-1],vtor_type(index)-alpha_j[index.index()],s0[j][index.index()]);
+            for (tipl::pixel_index<dimension> index(geo); index < geo.size(); ++index)
+                tipl::estimate(s0[j-1],vtor_type(index)-alpha_j[index.index()],s0[j][index.index()]);
         }
         // Calculate for j = 0 to j = N ? 1 the image J0j= I0 ? £pk+1 j,0
         for(int j = 0; j < T; ++j)
-            image::compose_mapping(I0,s0[j],J0[j]);
+            tipl::compose_mapping(I0,s0[j],J0[j]);
         // Calculate for j = N - 1 to j = 0 the image J1j= I1 ? £pk+1 j,t
         for(int j = T - 1; j >= 0; --j)
-            image::compose_mapping(I1,s1[j],J1[j]);
+            tipl::compose_mapping(I1,s1[j],J1[j]);
 
         float next_sum_dif = 0.0;
         for(unsigned int index = 0; index < dif.size(); ++index)
@@ -352,15 +352,15 @@ void lddmm(const basic_image<pixel_type,dimension>& I0,
 
 
 template<class pixel_type,class vtor_type,unsigned int dimension>
-void lddmm(const basic_image<pixel_type,dimension>& I0,
-           const basic_image<pixel_type,dimension>& I1,
-           basic_image<vtor_type,dimension>& mapping,
+void lddmm(const image<pixel_type,dimension>& I0,
+           const image<pixel_type,dimension>& I1,
+           image<vtor_type,dimension>& mapping,
            unsigned int T = 20,float dt = 0.2,float gamma = 1.0)
 {
-    std::vector<basic_image<pixel_type,dimension> > J0;// the deformed I0 images at different time frame
-    std::vector<basic_image<pixel_type,dimension> > J1;// the deformed I1 images at different time frame
-    std::vector<basic_image<vtor_type,dimension> > s0;// the deformation metric of I0 at different time frame
-    std::vector<basic_image<vtor_type,dimension> > s1;// the deformation metric of I1 at different time frame
+    std::vector<image<pixel_type,dimension> > J0;// the deformed I0 images at different time frame
+    std::vector<image<pixel_type,dimension> > J1;// the deformed I1 images at different time frame
+    std::vector<image<vtor_type,dimension> > s0;// the deformation metric of I0 at different time frame
+    std::vector<image<vtor_type,dimension> > s1;// the deformation metric of I1 at different time frame
     lddmm(I0,I1,J0,J1,s0,s1,T,dt,gamma);
     mapping = s0.back();
 }

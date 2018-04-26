@@ -1,10 +1,10 @@
 //---------------------------------------------------------------------------
 #ifndef INTERPOLATION_HPP
 #define INTERPOLATION_HPP
-#include "image/utility/basic_image.hpp"
+#include "tipl/utility/basic_image.hpp"
 #include "index_algorithm.hpp"
 
-namespace image
+namespace tipl
 {
 //---------------------------------------------------------------------------
 
@@ -74,9 +74,9 @@ struct interpolator<unsigned int>{
 
 
 template<int dim,typename vtype>
-struct interpolator<image::vector<dim,vtype> >{
-    typedef image::vector<dim,typename interpolator<vtype>::type> type;
-    static image::vector<dim,vtype> assign(image::vector<dim,vtype> v)
+struct interpolator<tipl::vector<dim,vtype> >{
+    typedef tipl::vector<dim,typename interpolator<vtype>::type> type;
+    static tipl::vector<dim,vtype> assign(tipl::vector<dim,vtype> v)
     {
         return v;
     }
@@ -139,16 +139,16 @@ struct weighting_sum
 };
 
 template<int dim,typename value_type>
-struct weighting_sum<image::vector<dim,value_type> >
+struct weighting_sum<tipl::vector<dim,value_type> >
 {
     template<class data_iterator_type,class weighting_iterator,class output_type>
     void operator()(data_iterator_type from,data_iterator_type to,weighting_iterator w,output_type& result_)
     {
-        image::vector<dim,value_type> result(*from);
+        tipl::vector<dim,value_type> result(*from);
         result *= (*w);
         for (++from,++w;from != to;++from,++w)
         {
-            image::vector<dim,value_type> v(*from);
+            tipl::vector<dim,value_type> v(*from);
             v *= (*w);
             result += v;
         }result_ = result;
@@ -156,7 +156,7 @@ struct weighting_sum<image::vector<dim,value_type> >
 };
 
 template<>
-struct weighting_sum<rgb_color>
+struct weighting_sum<rgb>
 {
     template<class data_iterator_type,class weighting_iterator,class output_type>
     void operator()(data_iterator_type from,data_iterator_type to,weighting_iterator w,output_type& result_)
@@ -166,13 +166,13 @@ struct weighting_sum<rgb_color>
         float sum_b = 0.0;
         for (;from != to;++from,++w)
         {
-            rgb_color color = *from;
+            rgb color = *from;
             float weighting = *w;
             sum_r += ((float)color.r)*weighting;
             sum_g += ((float)color.g)*weighting;
             sum_b += ((float)color.b)*weighting;
         }
-        result_ = image::rgb_color((unsigned char)sum_r,(unsigned char)sum_g,(unsigned char)sum_b);
+        result_ = tipl::rgb((unsigned char)sum_r,(unsigned char)sum_g,(unsigned char)sum_b);
     }
 
 };
@@ -546,7 +546,7 @@ struct cubic_interpolation<1>{
         pixel = interpolator<PixelType>::assign(cubic_imp(p,dx,dx2,dx3)*0.5);
     }
     template<class ImageType>
-    void estimate(const ImageType& source,image::rgb_color& pixel)
+    void estimate(const ImageType& source,tipl::rgb& pixel)
     {
         for(char i = 0;i < 3;++i)
         {
@@ -620,7 +620,7 @@ struct cubic_interpolation<2>{
         pixel = interpolator<PixelType>::assign(cubic_imp(p,dx,dx2,dx3,dy,dy2,dy3)*0.25);
     }
     template<class ImageType>
-    void estimate(const ImageType& source,image::rgb_color& pixel)
+    void estimate(const ImageType& source,tipl::rgb& pixel)
     {
         for(char i = 0;i < 3;++i)
         {

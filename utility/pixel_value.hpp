@@ -1,11 +1,11 @@
 #ifndef PIXEL_VALUE_HPP
 #define PIXEL_VALUE_HPP
 #include <cmath>
-namespace image
+namespace tipl
 {
 
 
-struct rgb_color
+struct rgb
 {
     union
     {
@@ -19,17 +19,17 @@ struct rgb_color
 		};
         unsigned char data[4];
 	};
-    rgb_color(void): color(0) {}
-    rgb_color(unsigned int color_): color(color_) {}
-    rgb_color(int color_): color(color_) {}
-    rgb_color(const rgb_color& rhs): color(rhs.color) {}
-    rgb_color(unsigned char r_, unsigned char g_, unsigned char b_):
+    rgb(void): color(0) {}
+    rgb(unsigned int color_): color(color_) {}
+    rgb(int color_): color(color_) {}
+    rgb(const rgb& rhs): color(rhs.color) {}
+    rgb(unsigned char r_, unsigned char g_, unsigned char b_):
         b(b_), g(g_), r(r_), a(0) {}
-    rgb_color(unsigned char r_, unsigned char g_, unsigned char b_, unsigned char a_):
+    rgb(unsigned char r_, unsigned char g_, unsigned char b_, unsigned char a_):
         b(b_), g(g_), r(r_), a(a_) {}
-    rgb_color(unsigned char gray):
+    rgb(unsigned char gray):
         b(gray), g(gray), r(gray), a(0) {}
-    rgb_color(float gray):
+    rgb(float gray):
         b((unsigned char)gray), g((unsigned char)gray), r((unsigned char)gray), a(0) {}
 
     operator unsigned char() const
@@ -49,49 +49,49 @@ struct rgb_color
         return color;
     }
     template<typename value_type>
-    const rgb_color& operator=(const value_type* v)
+    const rgb& operator=(const value_type* v)
     {
         data[0] = std::max<short>(0,std::min<short>(255,v[0]));
         data[1] = std::max<short>(0,std::min<short>(255,v[1]));
         data[2] = std::max<short>(0,std::min<short>(255,v[2]));
         return *this;
     }
-    const rgb_color& operator=(unsigned int color_)
+    const rgb& operator=(unsigned int color_)
     {
         color = color_;
         return *this;
     }
-    const rgb_color& operator=(int color_)
+    const rgb& operator=(int color_)
     {
         color = color_;
         return *this;
     }
-    const rgb_color& operator=(const rgb_color& rhs)
+    const rgb& operator=(const rgb& rhs)
     {
         color = rhs.color;
         return *this;
     }
-    const rgb_color& operator=(unsigned char gray)
+    const rgb& operator=(unsigned char gray)
     {
         r = g = b = gray;
         return *this;
     }
-    const rgb_color& operator=(unsigned short gray)
+    const rgb& operator=(unsigned short gray)
     {
         r = g = b = (unsigned char)gray;
         return *this;
     }
-    const rgb_color& operator=(short gray)
+    const rgb& operator=(short gray)
     {
         r = g = b = (unsigned char)gray;
         return *this;
     }
-    const rgb_color& operator=(float gray)
+    const rgb& operator=(float gray)
     {
         r = g = b = (unsigned char)gray;
         return *this;
     }
-    const rgb_color& operator=(double gray)
+    const rgb& operator=(double gray)
     {
         r = g = b = (unsigned char)gray;
         return *this;
@@ -220,11 +220,11 @@ struct rgb_color
         b = (b_ >= 255.0) ? 255 : (unsigned char)b_;
     }
 
-    bool operator==(const rgb_color& rhs) const
+    bool operator==(const rgb& rhs) const
     {
         return color == rhs.color;
     }
-    bool operator!=(const rgb_color& rhs) const
+    bool operator!=(const rgb& rhs) const
     {
         return color != rhs.color;
     }

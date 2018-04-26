@@ -3,9 +3,9 @@
 #include <vector>
 #include <fstream>
 #include <iterator>
-#include "image/utility/basic_image.hpp"
-#include "image/numerical/basic_op.hpp"
-namespace image{
+#include "tipl/utility/basic_image.hpp"
+#include "tipl/numerical/basic_op.hpp"
+namespace tipl{
 
 inline unsigned char color_spectrum_value(unsigned char center, unsigned char value)
 {
@@ -18,19 +18,19 @@ inline unsigned char color_spectrum_value(unsigned char center, unsigned char va
     return 255-(dif << 2);
 }
 
-struct color_bar : public image::color_image{
+struct color_bar : public tipl::color_image{
 public:
     color_bar(unsigned int width,unsigned int height)
     {
-        resize(image::geometry<2>(width,height));
+        resize(tipl::geometry<2>(width,height));
     }
-    void two_color(image::rgb_color from_color,image::rgb_color to_color)
+    void two_color(tipl::rgb from_color,tipl::rgb to_color)
     {
-        resize(image::geometry<2>(20,256));
+        resize(tipl::geometry<2>(20,256));
         for(int index = 1;index < height();++index)
         {
             float findex = (float)index/(float)height();
-            image::rgb_color color;
+            tipl::rgb color;
             for(unsigned char rgb_index = 0;rgb_index < 3;++rgb_index)
                 color[rgb_index] = (unsigned char)((float)from_color[rgb_index]*findex+(float)to_color[rgb_index]*(1.0-findex));
             std::fill(begin()+index*width()+1,begin()+(index+1)*width()-1,color);
@@ -41,24 +41,24 @@ public:
         for(int index = 1;index < height();++index)
         {
             unsigned char findex = (unsigned char)((float)index*255.0f/height());
-            image::rgb_color color;
-            color.r = image::color_spectrum_value(64,findex);
-            color.g = image::color_spectrum_value(128,findex);
-            color.b = image::color_spectrum_value(128+64,findex);
+            tipl::rgb color;
+            color.r = tipl::color_spectrum_value(64,findex);
+            color.g = tipl::color_spectrum_value(128,findex);
+            color.b = tipl::color_spectrum_value(128+64,findex);
             std::fill(begin()+index*width()+1,begin()+(index+1)*width()-1,color);
         }
     }
 };
 
 struct color_map{
-    std::vector<image::vector<3,float> > color;
+    std::vector<tipl::vector<3,float> > color;
 public:
     color_map(void):color(256){}
     size_t size(void)const{return color.size();}
-    const image::vector<3,float>& operator[](unsigned int index) const{return color[255,index];}
-    image::vector<3,float> min_color(void)const{return color.front();}
-    image::vector<3,float> max_color(void)const{return color.back();}
-    void two_color(image::rgb_color from_color,image::rgb_color to_color)
+    const tipl::vector<3,float>& operator[](unsigned int index) const{return color[255,index];}
+    tipl::vector<3,float> min_color(void)const{return color.front();}
+    tipl::vector<3,float> max_color(void)const{return color.back();}
+    void two_color(tipl::rgb from_color,tipl::rgb to_color)
     {
         color.resize(256);
         for(unsigned int index = 0;index < 256;++index)
@@ -73,23 +73,23 @@ public:
         color.resize(256);
         for(unsigned int index = 0;index < 256;++index)
         {
-            color[index][0] = (unsigned char)((float)image::color_spectrum_value(128+64,index)/255.0f);
-            color[index][1] = (unsigned char)((float)image::color_spectrum_value(128,index)/255.0f);
-            color[index][2] = (unsigned char)((float)image::color_spectrum_value(64,index)/255.0f);
+            color[index][0] = (unsigned char)((float)tipl::color_spectrum_value(128+64,index)/255.0f);
+            color[index][1] = (unsigned char)((float)tipl::color_spectrum_value(128,index)/255.0f);
+            color[index][2] = (unsigned char)((float)tipl::color_spectrum_value(64,index)/255.0f);
         }
     }
 };
 
 
 struct color_map_rgb{
-    std::vector<image::rgb_color> color;
+    std::vector<tipl::rgb> color;
 public:
     color_map_rgb(void):color(256){}
     size_t size(void)const{return color.size();}
-    const image::rgb_color& operator[](unsigned int index) const{return color[index];}
-    image::rgb_color min_color(void)const{return color.front();}
-    image::rgb_color max_color(void)const{return color.back();}
-    void two_color(image::rgb_color from_color,image::rgb_color to_color)
+    const tipl::rgb& operator[](unsigned int index) const{return color[index];}
+    tipl::rgb min_color(void)const{return color.front();}
+    tipl::rgb max_color(void)const{return color.back();}
+    void two_color(tipl::rgb from_color,tipl::rgb to_color)
     {
         for(unsigned int index = 0;index < 256;++index)
         {
@@ -102,9 +102,9 @@ public:
     {
         for(unsigned int index = 0;index < 256;++index)
         {
-            color[index][2] = image::color_spectrum_value(128+64,index);
-            color[index][1] = image::color_spectrum_value(128,index);
-            color[index][0] = image::color_spectrum_value(64,index);
+            color[index][2] = tipl::color_spectrum_value(128+64,index);
+            color[index][1] = tipl::color_spectrum_value(128,index);
+            color[index][0] = tipl::color_spectrum_value(64,index);
         }
     }
     bool load_from_file(const char* file_name)
@@ -125,7 +125,7 @@ public:
             return false;
         color.clear();
         for(unsigned int i = 2;i < values.size();i += 3)
-            color.push_back(image::rgb_color((unsigned char)values[i-2],
+            color.push_back(tipl::rgb((unsigned char)values[i-2],
                                              (unsigned char)values[i-1],
                                              (unsigned char)values[i]));
         return true;
@@ -136,11 +136,11 @@ template<class value_type>
 struct value_to_color{
 private:
     value_type min_value,max_value,r;
-    image::color_map_rgb map;
+    tipl::color_map_rgb map;
 public:
     value_to_color(void):min_value(0),r(1){}
-    image::rgb_color min_color(void)const{return map.min_color();}
-    image::rgb_color max_color(void)const{return map.max_color();}
+    tipl::rgb min_color(void)const{return map.min_color();}
+    tipl::rgb max_color(void)const{return map.max_color();}
 
     void set_range(value_type min_value_,value_type max_value_)
     {
@@ -149,18 +149,18 @@ public:
         max_value_ -= min_value_;
         r = (max_value_ == 0.0) ? 1.0:(float)map.size()/max_value_;
     }
-    void set_color_map(const image::color_map_rgb& rhs)
+    void set_color_map(const tipl::color_map_rgb& rhs)
     {
         map = rhs;
         r = max_value-min_value;
         r = (r == 0.0) ? 1.0:(float)map.size()/r;
     }
-    void two_color(image::rgb_color from_color,image::rgb_color to_color)
+    void two_color(tipl::rgb from_color,tipl::rgb to_color)
     {
         map.two_color(from_color,to_color);
     }
 
-    const image::rgb_color& operator[](value_type value)const
+    const tipl::rgb& operator[](value_type value)const
     {
         value -= min_value;
         value *= r;

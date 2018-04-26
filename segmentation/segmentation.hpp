@@ -9,7 +9,7 @@
 #include "fast_marching.hpp"
 #include "stochastic_competition.hpp"
 
-namespace image{
+namespace tipl{
     namespace segmentation{
         template<class ImageType1,class ImageType2,class LabelType>
         void resample(const ImageType1& data,const LabelType& label,ImageType2& out)

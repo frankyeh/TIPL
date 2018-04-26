@@ -1,7 +1,7 @@
 #ifndef TRANSFORMATION_HPP_INCLUDED
 #define TRANSFORMATION_HPP_INCLUDED
-#include "image/numerical/matrix.hpp"
-namespace image{
+#include "tipl/numerical/matrix.hpp"
+namespace tipl{
 
 template<unsigned int dim>
 struct vdim {};
@@ -144,7 +144,7 @@ void rotation_matrix(angle_type theta,output_iter m,vdim<2>)
 
     float angle[3] = {1,2,3};// SPM use [1 -2 3]
     float result[9];
-    image::rotation_matrix(angle,result,image::vdim<3>());
+    tipl::rotation_matrix(angle,result,tipl::vdim<3>());
     std::copy(result,result+9,std::ostream_iterator<float>(std::cout," "));
     return 0;
 
@@ -556,15 +556,15 @@ public:
 
     // (Affine*Scaling*R1*R2*R3*vs*Translocation*shift_center)*from = (vs*shift_center)*to;
     transformation_matrix(const affine_transform<value_type>& rb,
-                          const image::geometry<3>& from,
-                          const image::vector<3>& from_vs,
-                          const image::geometry<3>& to,
-                          const image::vector<3>& to_vs)
+                          const tipl::geometry<3>& from,
+                          const tipl::vector<3>& from_vs,
+                          const tipl::geometry<3>& to,
+                          const tipl::vector<3>& to_vs)
     {
         //now sr = Affine*Scaling*R1*R2*R3
         rotation_scaling_affine_matrix(rb.rotation,rb.scaling,rb.affine,sr,vdim<dimension>());
         // calculate (vs*Translocation*shift_center)
-        image::vector<3> t(from[0],from[1],from[2]);
+        tipl::vector<3> t(from[0],from[1],from[2]);
         t *= -0.5;
         t += rb.translocation;
         t[0] *= from_vs[0];
@@ -619,9 +619,9 @@ public:
     }
     void operator+=(const transformation_matrix& rhs)
     {
-        image::matrix<3,3,value_type> sr_tmp(sr);
-        image::mat::product(rhs.sr,sr_tmp.begin(),sr,image::dim<3,3>(),image::dim<3,3>());
-        image::vector<3> shift_t(shift);
+        tipl::matrix<3,3,value_type> sr_tmp(sr);
+        tipl::mat::product(rhs.sr,sr_tmp.begin(),sr,tipl::dim<3,3>(),tipl::dim<3,3>());
+        tipl::vector<3> shift_t(shift);
         vector_transformation(shift_t.begin(),shift,rhs.sr,rhs.shift,vdim<3>());
     }
 
@@ -654,7 +654,7 @@ public:
 
     bool inverse(void)
     {
-        image::matrix<3,3,value_type> iT(sr);
+        tipl::matrix<3,3,value_type> iT(sr);
         if(!iT.inv())
             return false;
         value_type new_shift[3];

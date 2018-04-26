@@ -4,7 +4,7 @@
 #include <cmath>
 
 
-namespace image{
+namespace tipl{
 
 namespace ml{
 

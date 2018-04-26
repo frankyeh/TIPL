@@ -1,10 +1,10 @@
 #ifndef OTSU_HPP
 #define OTSU_HPP
 #include <vector>
-#include "image/numerical/numerical.hpp"
-#include "image/numerical/basic_op.hpp"
+#include "tipl/numerical/numerical.hpp"
+#include "tipl/numerical/basic_op.hpp"
 
-namespace image{
+namespace tipl{
 
 namespace segmentation{
 

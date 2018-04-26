@@ -2,7 +2,7 @@
 #define LAPLACIAN_FILTER_HPP
 #include <cmath>
 #include "filter_model.hpp"
-namespace image{
+namespace tipl{
 
 
 namespace filter{
@@ -92,7 +92,7 @@ public:
 };
 
 template<class pixel_type,size_t dimension>
-void laplacian(basic_image<pixel_type,dimension>& src)
+void laplacian(image<pixel_type,dimension>& src)
 {
     laplacian_filter_imp<pixel_type,dimension>()(src);
 }

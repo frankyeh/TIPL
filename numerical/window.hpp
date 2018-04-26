@@ -2,9 +2,9 @@
 #ifndef WINDOW_HPP
 #define WINDOW_HPP
 #include <vector>
-#include "image/utility/pixel_index.hpp"
+#include "tipl/utility/pixel_index.hpp"
 
-namespace image
+namespace tipl
 {
 //---------------------------------------------------------------------------
 template<class ImageType,class PixelType>

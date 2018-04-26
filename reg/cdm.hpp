@@ -1,34 +1,34 @@
 #ifndef CDM_HPP
 #define CDM_HPP
-#include "image/numerical/basic_op.hpp"
-#include "image/numerical/dif.hpp"
-#include "image/filter/gaussian.hpp"
-#include "image/filter/filter_model.hpp"
-#include "image/utility/multi_thread.hpp"
-#include "image/numerical/resampling.hpp"
-#include "image/numerical/statistics.hpp"
-#include "image/numerical/window.hpp"
+#include "tipl/numerical/basic_op.hpp"
+#include "tipl/numerical/dif.hpp"
+#include "tipl/filter/gaussian.hpp"
+#include "tipl/filter/filter_model.hpp"
+#include "tipl/utility/multi_thread.hpp"
+#include "tipl/numerical/resampling.hpp"
+#include "tipl/numerical/statistics.hpp"
+#include "tipl/numerical/window.hpp"
 #include <iostream>
 #include <limits>
 #include <vector>
 
-namespace image
+namespace tipl
 {
 namespace reg
 {
 
 template<class pixel_type,size_t dimension>
-void cdm_average_img(const std::vector<basic_image<pixel_type,dimension> >& Ji, image::basic_image<pixel_type,dimension>& J0)
+void cdm_average_img(const std::vector<image<pixel_type,dimension> >& Ji, image<pixel_type,dimension>& J0)
 {
     J0 = Ji[0];
     for(unsigned int index = 1;index < Ji.size();++index)
-        image::add(J0.begin(),J0.end(),Ji[index].begin());
-    image::divide_constant(J0.begin(),J0.end(),(float)Ji.size());
+        add(J0.begin(),J0.end(),Ji[index].begin());
+    divide_constant(J0.begin(),J0.end(),(float)Ji.size());
 }
 
 template<class pixel_type,size_t dimension>
-double cdm_img_dif(const basic_image<pixel_type,dimension>& I0,
-                    const basic_image<pixel_type,dimension>& I1)
+double cdm_img_dif(const image<pixel_type,dimension>& I0,
+                    const image<pixel_type,dimension>& I1)
 {
     double value = 0;
     for (int index = 0; index < I0.size(); ++index)
@@ -40,7 +40,7 @@ double cdm_img_dif(const basic_image<pixel_type,dimension>& I0,
 }
 
 template<class pixel_type,size_t dimension>
-double cdm_img_dif(const std::vector<basic_image<pixel_type,dimension> >& Ji,const image::basic_image<pixel_type,dimension>& J0)
+double cdm_img_dif(const std::vector<image<pixel_type,dimension> >& Ji,const image<pixel_type,dimension>& J0)
 {
     double next_dif = 0;
     for(unsigned int index = 0;index < Ji.size();++index)
@@ -50,8 +50,8 @@ double cdm_img_dif(const std::vector<basic_image<pixel_type,dimension> >& Ji,con
 
 
 template<class pixel_type,size_t dimension>
-double cdm_contrast(const basic_image<pixel_type,dimension>& J0,
-                     const basic_image<pixel_type,dimension>& Ji)
+double cdm_contrast(const image<pixel_type,dimension>& J0,
+                     const image<pixel_type,dimension>& Ji)
 {
     double value1 = 0,value2 = 0;
     for (int index = 0; index < J0.size(); ++index)
@@ -66,31 +66,31 @@ double cdm_contrast(const basic_image<pixel_type,dimension>& J0,
 }
 
 template<class pixel_type,size_t dimension>
-void cdm_update_contrast(const std::vector<basic_image<pixel_type,dimension> >& Ji,
+void cdm_update_contrast(const std::vector<image<pixel_type,dimension> >& Ji,
                           std::vector<double>& contrast)
 {
-    image::basic_image<pixel_type,dimension> J0;
+    image<pixel_type,dimension> J0;
     cdm_average_img(Ji,J0);
     contrast.resize(Ji.size());
     for (unsigned int index = 0; index < Ji.size(); ++index)
         contrast[index] = cdm_contrast(J0,Ji[index]);
     double sum_contrast = std::accumulate(contrast.begin(),contrast.end(),0.0);
     sum_contrast /= Ji.size();
-    image::divide_constant(contrast.begin(),contrast.end(),sum_contrast);
+    divide_constant(contrast.begin(),contrast.end(),sum_contrast);
 }
 
 
 // trim the image size to uniform
 template<class pixel_type,unsigned int dimension,class crop_type>
-void cdm_trim_images(std::vector<image::basic_image<pixel_type,dimension> >& I,
+void cdm_trim_images(std::vector<image<pixel_type,dimension> >& I,
                       crop_type& crop_from,crop_type& crop_to)
 {
     crop_from.resize(I.size());
     crop_to.resize(I.size());
-    image::vector<dimension,int> min_from,max_to;
+    vector<dimension,int> min_from,max_to;
     for(int index = 0;index < I.size();++index)
     {
-        image::crop(I[index],crop_from[index],crop_to[index]);
+        crop(I[index],crop_from[index],crop_to[index]);
         if(index == 0)
         {
             min_from = crop_from[0];
@@ -106,15 +106,15 @@ void cdm_trim_images(std::vector<image::basic_image<pixel_type,dimension> >& I,
     max_to -= min_from;
     int safe_margin = std::accumulate(max_to.begin(),max_to.end(),0.0)/(float)dimension/2.0;
     max_to += safe_margin;
-    image::geometry<dimension> geo(max_to.begin());
+    geometry<dimension> geo(max_to.begin());
     // align with respect to the min_from
     for(int index = 0;index < I.size();++index)
     {
-        image::basic_image<float,dimension> new_I(geo);
-        image::vector<dimension,int> pos(crop_from[index]);
+        image<float,dimension> new_I(geo);
+        vector<dimension,int> pos(crop_from[index]);
         pos -= min_from;
         pos += safe_margin/2;
-        image::draw(I[index],new_I,pos);
+        draw(I[index],new_I,pos);
         new_I.swap(I[index]);
         crop_from[index] -= pos;
         crop_to[index] = crop_from[index];
@@ -129,7 +129,7 @@ class poisson_equation_solver;
 template<class value_type>
 class poisson_equation_solver<value_type,2>
 {
-    typedef typename image::filter::pixel_manip<value_type>::type manip_type;
+    typedef typename filter::pixel_manip<value_type>::type manip_type;
 public:
     template<class image_type>
     void operator()(image_type& src)
@@ -164,7 +164,7 @@ public:
 template<class value_type>
 class poisson_equation_solver<value_type,3>
 {
-    typedef typename image::filter::pixel_manip<value_type>::type manip_type;
+    typedef typename filter::pixel_manip<value_type>::type manip_type;
 public:
     template<class image_type>
     void operator()(image_type& src)
@@ -184,14 +184,14 @@ public:
             if (shift[i] >= 0)
             {
                 int s = shift[i];
-                image::par_for(dest.size()-s,[&dest,&src,s](int index){
+                par_for(dest.size()-s,[&dest,&src,s](int index){
                     dest[index+s] += src[index];
                 });
             }
             else
             {
                 int s = -shift[i];
-                image::par_for(dest.size()-s,[&dest,&src,s](int index){
+                par_for(dest.size()-s,[&dest,&src,s](int index){
                     dest[index] += src[index+s];
                 });
             }
@@ -201,8 +201,8 @@ public:
 };
 
 template<class pixel_type,class vtor_type,unsigned int dimension,class terminate_type>
-void cdm_group(const std::vector<basic_image<pixel_type,dimension> >& I,// original images
-          std::vector<basic_image<vtor_type,dimension> >& d,// displacement field
+void cdm_group(const std::vector<image<pixel_type,dimension> >& I,// original images
+          std::vector<image<vtor_type,dimension> >& d,// displacement field
           float theta,float reg,terminate_type& terminated)
 {
     if (I.empty())
@@ -219,7 +219,7 @@ void cdm_group(const std::vector<basic_image<pixel_type,dimension> >& I,// origi
     if (*std::min_element(geo.begin(),geo.end()) > 16)
     {
         //downsampling
-        std::vector<basic_image<pixel_type,dimension> > rI(n);
+        std::vector<image<pixel_type,dimension> > rI(n);
         for (int index = 0;index < n;++index)
             downsample_with_padding(I[index],rI[index]);
         cdm_group(rI,d,theta/2,reg,terminated);
@@ -231,23 +231,23 @@ void cdm_group(const std::vector<basic_image<pixel_type,dimension> >& I,// origi
         }
     }
     std::cout << "dimension:" << geo[0] << "x" << geo[1] << "x" << geo[2] << std::endl;
-    basic_image<pixel_type,dimension> J0(geo);// the potential template
-    std::vector<basic_image<pixel_type,dimension> > Ji(n);// transformed I
-    std::vector<basic_image<vtor_type,dimension> > new_d(n);// new displacements
+    image<pixel_type,dimension> J0(geo);// the potential template
+    std::vector<image<pixel_type,dimension> > Ji(n);// transformed I
+    std::vector<image<vtor_type,dimension> > new_d(n);// new displacements
     std::vector<double> contrast(n);
     double current_dif = std::numeric_limits<double>::max();
     for (double dis = 0.5;dis > theta;)
     {
         // calculate Ji
         for (unsigned int index = 0;index < n;++index)
-            image::compose_displacement(I[index],d[index],Ji[index]);
+            compose_displacement(I[index],d[index],Ji[index]);
 
 
         // calculate contrast
         cdm_update_contrast(Ji,contrast);
 
         // apply contrast
-        image::multiply(Ji.begin(),Ji.end(),contrast.begin());
+        multiply(Ji.begin(),Ji.end(),contrast.begin());
 
         cdm_average_img(Ji,J0);
 
@@ -270,7 +270,7 @@ void cdm_group(const std::vector<basic_image<pixel_type,dimension> >& I,// origi
             std::cout << "." << std::flush;
 
             // gradient of Ji
-            image::gradient_sobel(J0,new_d[index]);
+            gradient_sobel(J0,new_d[index]);
 
             // dJi*sign(Ji-J0)
             for(unsigned int i = 0;i < Ji[index].size();++i)
@@ -278,29 +278,29 @@ void cdm_group(const std::vector<basic_image<pixel_type,dimension> >& I,// origi
                     new_d[index][i] = -new_d[index][i];
 
             {
-                basic_image<pixel_type,dimension> temp;
-                image::jacobian_determinant_dis(d[index],temp);
-                image::compose_displacement(temp,d[index],Ji[index]);
+                image<pixel_type,dimension> temp;
+                jacobian_determinant_dis(d[index],temp);
+                compose_displacement(temp,d[index],Ji[index]);
             }
 
             for(unsigned int i = 0;i < Ji[index].size();++i)
                 new_d[index][i] *= Ji[index][i];
 
-            //image::io::nifti header;
+            //io::nifti header;
             //header << Ji[index];
             //header.save_to_file("c:/1.nii");
 
             // solving the poisson equation using Jacobi method
             {
-                basic_image<vtor_type,dimension> solve_d(new_d[index].geometry());
+                image<vtor_type,dimension> solve_d(new_d[index].geometry());
                 for(int iter = 0;iter < 20;++iter)
                 {
                     poisson_equation_solver<vtor_type,dimension>()(solve_d);
-                    image::add_mt(solve_d,new_d[index]);
-                    image::divide_constant_mt(solve_d,dimension*2);
+                    add_mt(solve_d,new_d[index]);
+                    divide_constant_mt(solve_d,dimension*2);
                 }
                 new_d[index].swap(solve_d);
-                image::minus_constant(new_d[index].begin(),new_d[index].end(),new_d[index][0]);
+                minus_constant(new_d[index].begin(),new_d[index].end(),new_d[index][0]);
             }
 
             for (unsigned int i = 0; i < geo.size(); ++i)
@@ -312,7 +312,7 @@ void cdm_group(const std::vector<basic_image<pixel_type,dimension> >& I,// origi
         for (unsigned int index = 0;index < n && !terminated;++index)
         {
             new_d[index] *= lambda;
-            image::add(new_d[index].begin(),new_d[index].end(),d[index].begin());
+            add(new_d[index].begin(),new_d[index].end(),d[index].begin());
         }
         d.swap(new_d);
     }
@@ -321,14 +321,14 @@ void cdm_group(const std::vector<basic_image<pixel_type,dimension> >& I,// origi
 
 /*
  *  The intensity between It and Is has to be matched
- *  std::pair<double,double> r = image::linear_regression(Is.begin(),Is.end(),It.begin());
+ *  std::pair<double,double> r = linear_regression(Is.begin(),Is.end(),It.begin());
         for(unsigned int index = 0;index < Is.size();++index)
             Is[index] = std::max<float>(0,Is[index]*r.first+r.second);
  */
 template<class pixel_type,class vtor_type,unsigned int dimension,class terminate_type>
-double cdm(const basic_image<pixel_type,dimension>& It,
-            const basic_image<pixel_type,dimension>& Is,
-            basic_image<vtor_type,dimension>& d,// displacement field
+double cdm(const image<pixel_type,dimension>& It,
+            const image<pixel_type,dimension>& Is,
+            image<vtor_type,dimension>& d,// displacement field
             terminate_type& terminated,
             float resolution = 2.0,
             float cdm_smoothness = 0.3f,
@@ -340,7 +340,7 @@ double cdm(const basic_image<pixel_type,dimension>& It,
     if (*std::min_element(geo.begin(),geo.end()) > 32)
     {
         //downsampling
-        basic_image<pixel_type,dimension> rIs,rIt;
+        image<pixel_type,dimension> rIs,rIt;
         downsample_with_padding(It,rIt);
         downsample_with_padding(Is,rIs);
         float r = cdm(rIt,rIs,d,terminated,resolution/2.0,cdm_smoothness,steps);
@@ -349,8 +349,8 @@ double cdm(const basic_image<pixel_type,dimension>& It,
         if(resolution > 1.0)
             return r;
     }
-    basic_image<pixel_type,dimension> Js;// transformed I
-    basic_image<vtor_type,dimension> new_d(d.geometry());// new displacements
+    image<pixel_type,dimension> Js;// transformed I
+    image<vtor_type,dimension> new_d(d.geometry());// new displacements
     double max_t = (double)(*std::max_element(It.begin(),It.end()));
     double max_s = (double)(*std::max_element(Is.begin(),Is.end()));
     if(max_t == 0.0 || max_s == 0.0)
@@ -366,38 +366,38 @@ double cdm(const basic_image<pixel_type,dimension>& It,
     float r,prev_r = 0.0;
     for (unsigned int index = 0;index < steps && !terminated;++index)
     {
-        image::compose_displacement(Is,d,Js);
-        r = image::correlation(Js.begin(),Js.end(),It.begin());
+        compose_displacement(Is,d,Js);
+        r = tipl::correlation(Js.begin(),Js.end(),It.begin());
         if(r <= prev_r)
         {
             new_d.swap(d);
             break;
         }
         // dJ(cJ-I)
-        image::gradient_sobel(Js,new_d);
-        Js.for_each_mt([&](pixel_type&,image::pixel_index<dimension>& index){
+        gradient_sobel(Js,new_d);
+        Js.for_each_mt([&](pixel_type&,pixel_index<dimension>& index){
             if(It[index.index()] == 0.0 || It.geometry().is_edge(index))
             {
                 new_d[index.index()] = vtor_type();
                 return;
             }
             std::vector<pixel_type> Itv,Jv;
-            image::get_window(index,It,window_size,Itv);
-            image::get_window(index,Js,window_size,Jv);
+            get_window(index,It,window_size,Itv);
+            get_window(index,Js,window_size,Jv);
             double a,b,r2;
-            image::linear_regression(Jv.begin(),Jv.end(),Itv.begin(),a,b,r2);
+            linear_regression(Jv.begin(),Jv.end(),Itv.begin(),a,b,r2);
             if(a <= 0.0f)
                 new_d[index.index()] = vtor_type();
             else
                 new_d[index.index()] *= (Js[index.index()]*a+b-It[index.index()]);
         });
         // solving the poisson equation using Jacobi method
-        basic_image<vtor_type,dimension> solve_d(new_d);
-        image::multiply_constant_mt(solve_d,-inv_d2);
+        image<vtor_type,dimension> solve_d(new_d);
+        multiply_constant_mt(solve_d,-inv_d2);
         for(int iter = 0;iter < window_size*2 && !terminated;++iter)
         {
-            basic_image<vtor_type,dimension> new_solve_d(new_d.geometry());
-            image::par_for(solve_d.size(),[&](int pos)
+            image<vtor_type,dimension> new_solve_d(new_d.geometry());
+            par_for(solve_d.size(),[&](int pos)
             {
                 for(int d = 0;d < dimension;++d)
                 {
@@ -413,24 +413,24 @@ double cdm(const basic_image<pixel_type,dimension>& It,
             });
             solve_d.swap(new_solve_d);
         }
-        image::minus_constant_mt(solve_d,solve_d[0]);
+        minus_constant_mt(solve_d,solve_d[0]);
 
         new_d = solve_d;
         if(theta == 0.0f)
         {
-            image::par_for(new_d.size(),[&](int i)
+            par_for(new_d.size(),[&](int i)
             {
                float l = new_d[i].length();
                if(l > theta)
                    theta = l;
             });
         }
-        image::multiply_constant_mt(new_d,0.5f/theta);
-        image::add(new_d,d);
+        multiply_constant_mt(new_d,0.5f/theta);
+        add(new_d,d);
 
-        basic_image<vtor_type,dimension> new_ds(new_d);
-        image::filter::gaussian2(new_ds);
-        image::par_for(new_d.size(),[&](int i){
+        image<vtor_type,dimension> new_ds(new_d);
+        filter::gaussian2(new_ds);
+        par_for(new_d.size(),[&](int i){
            new_ds[i] *= cdm_smoothness;
            new_d[i] *= cdm_smoothness2;
            new_d[i] += new_ds[i];

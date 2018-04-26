@@ -4,10 +4,10 @@
 #include <deque>
 #include <map>
 #include <algorithm>
-#include "image/utility/pixel_index.hpp"
-#include "image/utility/basic_image.hpp"
+#include "tipl/utility/pixel_index.hpp"
+#include "tipl/utility/basic_image.hpp"
 
-namespace image
+namespace tipl
 {
 /**
     connected neighbors

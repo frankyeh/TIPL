@@ -5,7 +5,7 @@
 #include <vector>
 #include "bitmap.hpp"
 
-namespace image {
+namespace tipl {
 
 
 namespace io {
@@ -97,7 +97,7 @@ struct avi_stream_format_t
 {
     fourcc label;
     unsigned int headersize;
-    image::io::bitmap_info_header bh;
+    tipl::io::bitmap_info_header bh;
 public:
     avi_stream_format_t(void)
     {

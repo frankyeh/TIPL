@@ -4,9 +4,9 @@
 #include <limits>
 #include <vector>
 #include <map>
-#include "image/numerical/numerical.hpp"
-#include "image/numerical/matrix.hpp"
-namespace image
+#include "tipl/numerical/numerical.hpp"
+#include "tipl/numerical/matrix.hpp"
+namespace tipl
 {
 
 namespace optimization
@@ -21,8 +21,8 @@ void plot_fun_2d(
                 unsigned int dim1,unsigned int dim2,unsigned int sample_frequency = 100)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
-    I.resize(image::geometry<2>(sample_frequency,sample_frequency));
-    for(image::pixel_index<2> index(I.geometry());index < I.size();++index)
+    I.resize(tipl::geometry<2>(sample_frequency,sample_frequency));
+    for(tipl::pixel_index<2> index(I.geometry());index < I.size();++index)
     {
         std::vector<param_type> x(x_beg,x_end);
         x[dim1] = (x_upper[dim1]-x_lower[dim1])*index[0]/(float)sample_frequency+x_lower[dim1];
@@ -64,7 +64,7 @@ void gradient(iter_type1 x_beg,iter_type1 x_end,
 {
     unsigned int size = x_end-x_beg;
     std::copy(fun_x_ei,fun_x_ei+size,g_beg);
-    image::minus_constant(g_beg,g_beg+size,fun_x);
+    tipl::minus_constant(g_beg,g_beg+size,fun_x);
     for(unsigned int i = 0;i < size;++i)
         if(tol[i] == 0)
             g_beg[i] = 0;
@@ -158,7 +158,7 @@ bool armijo_line_search(iter_type1 x_beg,iter_type1 x_end,
     for(double step = 0.1;step <= 100.0;step *= 2)
     {
         std::vector<param_type> new_x(old_x);
-        image::vec::aypx(g_beg,g_beg+size,-step,new_x.begin());
+        tipl::vec::aypx(g_beg,g_beg+size,-step,new_x.begin());
         for(unsigned int j = 0;j < size;++j)
             new_x[j] = std::min<double>(std::max<double>(new_x[j],x_lower[j]),x_upper[j]);
         value_type new_fun_x(fun(&*new_x.begin()));
@@ -179,7 +179,7 @@ double calculate_resolution(tol_type& tols,iter_type x_upper,iter_type x_lower,d
 {
     for(unsigned int i = 0;i < tols.size();++i)
         tols[i] = (x_upper[i]-x_lower[i])*precision;
-    return image::norm2(tols.begin(),tols.end());
+    return tipl::norm2(tols.begin(),tols.end());
 }
 
 template<class iter_type1,class function_type,class terminated_class>
@@ -204,18 +204,18 @@ void quasi_newtons_minimize(
         hessian(x_beg,x_end,tols.begin(),fun_x,fun_x_ei.begin(),h.begin(),fun);
 
         std::vector<unsigned int> pivot(size);
-        if(!image::mat::lu_decomposition(h.begin(),pivot.begin(),image::dyndim(size,size)))
+        if(!tipl::mat::lu_decomposition(h.begin(),pivot.begin(),tipl::dyndim(size,size)))
             return;
-        if(!image::mat::lu_solve(h.begin(),pivot.begin(),g.begin(),p.begin(),image::dyndim(size,size)))
+        if(!tipl::mat::lu_solve(h.begin(),pivot.begin(),g.begin(),p.begin(),tipl::dyndim(size,size)))
             return;
         std::vector<param_type> new_x(x_beg,x_end);
-        image::vec::aypx(p.begin(),p.end(),-0.25,new_x.begin());
+        tipl::vec::aypx(p.begin(),p.end(),-0.25,new_x.begin());
         typename function_type::value_type new_fun_x = fun(&new_x[0]);
         if(new_fun_x > fun_x)
             return;
         std::copy(new_x.begin(),new_x.end(),x_beg);
         fun_x = new_fun_x;
-        if(image::vec::norm2(p.begin(),p.end()) < tol_length)
+        if(tipl::vec::norm2(p.begin(),p.end()) < tol_length)
             return;
     }
 }
@@ -258,11 +258,11 @@ void gradient_descent(
         estimate_change(x_beg,x_end,tols.begin(),fun_x_ei.begin(),fun);
         gradient(x_beg,x_end,tols.begin(),fun_x,fun_x_ei.begin(),g.begin());
 
-        image::multiply(g,tols); // scale the unit to parameter unit
-        double length = image::norm2(g.begin(),g.end());
+        tipl::multiply(g,tols); // scale the unit to parameter unit
+        double length = tipl::norm2(g.begin(),g.end());
         if(length == 0.0)
             return;
-        image::multiply_constant(g,tol_length/length);
+        tipl::multiply_constant(g,tol_length/length);
         if(!armijo_line_search(x_beg,x_end,x_upper,x_lower,g.begin(),fun_x,fun))
             return;
     }
@@ -293,20 +293,20 @@ void conjugate_descent(
             d = g;
         else
         {
-            image::minus(y.begin(),y.end(),g.begin());      // y = g_k-g_k_1
-            double dt_yk = image::vec::dot(d.begin(),d.end(),y.begin());
-            double y2 = image::vec::dot(y.begin(),y.end(),y.begin());
-            image::vec::axpy(y.begin(),y.end(),-2.0*y2/dt_yk,d.begin()); // y = yk-(2|y|^2/dt_yk)dk
-            double beta = image::vec::dot(y.begin(),y.end(),g.begin())/dt_yk;
-            image::multiply_constant(d.begin(),d.end(),-beta);
-            image::add(d,g);
+            tipl::minus(y.begin(),y.end(),g.begin());      // y = g_k-g_k_1
+            double dt_yk = tipl::vec::dot(d.begin(),d.end(),y.begin());
+            double y2 = tipl::vec::dot(y.begin(),y.end(),y.begin());
+            tipl::vec::axpy(y.begin(),y.end(),-2.0*y2/dt_yk,d.begin()); // y = yk-(2|y|^2/dt_yk)dk
+            double beta = tipl::vec::dot(y.begin(),y.end(),g.begin())/dt_yk;
+            tipl::multiply_constant(d.begin(),d.end(),-beta);
+            tipl::add(d,g);
         }
         y.swap(g);
         g = d;
 
-        image::multiply(g,tols); // scale the unit to parameter unit
-        double length = image::norm2(g.begin(),g.end());
-        image::multiply_constant(g,tol_length/length);
+        tipl::multiply(g,tols); // scale the unit to parameter unit
+        double length = tipl::norm2(g.begin(),g.end());
+        tipl::multiply_constant(g,tol_length/length);
         if(!armijo_line_search(x_beg,x_end,x_upper,x_lower,g.begin(),fun_x,fun,precision))
             return;
     }

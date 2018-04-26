@@ -4,7 +4,7 @@
 #include <vector>
 #define LIBSVM_VERSION 317
 
-namespace image{
+namespace tipl{
 
 namespace ml{
 

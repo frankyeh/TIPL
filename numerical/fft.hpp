@@ -1,12 +1,12 @@
 #ifndef FFT_HPP_INCLUDED
 #define FFT_HPP_INCLUDED
-#include "image/utility/basic_image.hpp"
-#include "image/utility/geometry.hpp"
+#include "tipl/utility/basic_image.hpp"
+#include "tipl/utility/geometry.hpp"
 #include <cmath>
 #include <vector>
 #include <stdexcept>
 
-namespace image
+namespace tipl
 {
 template<class image_type>
 void fft_shift_x(image_type& I)
@@ -72,14 +72,14 @@ void fft_shift_z(image_type& I)
 }
 
 template<class value_type>
-void fft_shift(basic_image<value_type,2>& I)
+void fft_shift(image<value_type,2>& I)
 {
     fft_shift_x(I);
     fft_shift_y(I);
 }
 
 template<class value_type>
-void fft_shift(basic_image<value_type,3>& I)
+void fft_shift(image<value_type,3>& I)
 {
     fft_shift_x(I);
     fft_shift_y(I);
@@ -117,13 +117,13 @@ void fft_round_up(image_type& I,pos_type& from,pos_type& to)
         from[dim] = (newI.geometry()[dim]-I.geometry()[dim]) >> 1;
         to[dim] = from[dim] + I.geometry()[dim];
     }
-    image::draw(I,newI,from);
+    tipl::draw(I,newI,from);
     I.swap(newI);
 }
 template<class image_type,class pos_type>
 void fft_round_down(image_type& I,const pos_type& from,const pos_type& to)
 {
-    image::crop(I,from,to);
+    tipl::crop(I,from,to);
 }
 
 template<unsigned int dimension,class float_type = float>
@@ -392,7 +392,7 @@ public:
     {
         if(real.geometry() != image_geo)
             throw std::runtime_error("Inconsistent image size");
-        image::geometry<dimension> geo(fftn<dimension,float_type>::geo);
+        tipl::geometry<dimension> geo(fftn<dimension,float_type>::geo);
         img.resize(geo);
         int block_size = image_geo.size()/image_geo[dimension-1];
         // dispatch data to real and img
@@ -419,7 +419,7 @@ public:
     template<class ImageType>
     void apply_inverse(ImageType& real,ImageType& img)
     {
-        image::geometry<dimension> geo(fftn<dimension,float_type>::geo);
+        tipl::geometry<dimension> geo(fftn<dimension,float_type>::geo);
         if(real.geometry() != ext_geo || img.geometry() != ext_geo)
             throw std::runtime_error("Inconsistent image size");
 

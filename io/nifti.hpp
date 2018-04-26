@@ -34,10 +34,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <memory>
 #include <stdint.h>
 #include "interface.hpp"
-#include "image/utility/basic_image.hpp"
-#include "image/numerical/basic_op.hpp"
+#include "tipl/utility/basic_image.hpp"
+#include "tipl/numerical/basic_op.hpp"
 
-namespace image
+namespace tipl
 {
 
 namespace io
@@ -187,7 +187,7 @@ struct nifti_type_info<uint64_t>
 };
 
 template<>
-struct nifti_type_info<rgb_color>
+struct nifti_type_info<rgb>
 {
     static const int16_t data_type = 128;
     static const int16_t bit_pix = 24;
@@ -795,7 +795,7 @@ public:
             rgb_write_buf.resize(source.size()*3);
             for(size_t i = 0,j = 0; i < source.size();++i,j += 3)
             {
-                image::rgb_color c = source[i];
+                tipl::rgb c = source[i];
                 rgb_write_buf[j] = c.r;
                 rgb_write_buf[j+1] = c.g;
                 rgb_write_buf[j+2] = c.b;
@@ -872,38 +872,38 @@ public:
             switch (nif_header2.datatype)
             {
             case 2://DT_UNSIGNED_CHAR 2
-                image::copy_ptr((const unsigned char*)buf_ptr,ptr,pixel_count);
+                tipl::copy_ptr((const unsigned char*)buf_ptr,ptr,pixel_count);
                 break;
             case 4://DT_SIGNED_SHORT 4
-                image::copy_ptr((const int16_t*)buf_ptr,ptr,pixel_count);
+                tipl::copy_ptr((const int16_t*)buf_ptr,ptr,pixel_count);
                 break;
             case 8://DT_SIGNED_INT 8
-                image::copy_ptr((const int32_t*)buf_ptr,ptr,pixel_count);
+                tipl::copy_ptr((const int32_t*)buf_ptr,ptr,pixel_count);
                 break;
             case 16://DT_FLOAT 16
-                image::copy_ptr((const float*)buf_ptr,ptr,pixel_count);
+                tipl::copy_ptr((const float*)buf_ptr,ptr,pixel_count);
                 break;
             case 64://DT_DOUBLE 64
-                image::copy_ptr((const double*)buf_ptr,ptr,pixel_count);
+                tipl::copy_ptr((const double*)buf_ptr,ptr,pixel_count);
                 break;
             case 128://DT_RGB
                 for(unsigned int index = 0;index < buf.size();index +=3,++ptr)
-                    *ptr = (short)image::rgb_color(buf[index],buf[index+1],buf[index+2]);
+                    *ptr = (short)tipl::rgb(buf[index],buf[index+1],buf[index+2]);
                 break;
             case 256: // DT_INT8
-                image::copy_ptr((const char*)buf_ptr,ptr,pixel_count);
+                tipl::copy_ptr((const char*)buf_ptr,ptr,pixel_count);
                 break;
             case 512: // DT_UINT16
-                image::copy_ptr((const uint16_t*)buf_ptr,ptr,pixel_count);
+                tipl::copy_ptr((const uint16_t*)buf_ptr,ptr,pixel_count);
                 break;
             case 768: // DT_UINT32
-                image::copy_ptr((const uint32_t*)buf_ptr,ptr,pixel_count);
+                tipl::copy_ptr((const uint32_t*)buf_ptr,ptr,pixel_count);
                 break;
             case 1024: // DT_UINT32
-                image::copy_ptr((const int64_t*)buf_ptr,ptr,pixel_count);
+                tipl::copy_ptr((const int64_t*)buf_ptr,ptr,pixel_count);
                 break;
             case 1280: // DT_UINT32
-                image::copy_ptr((const uint64_t*)buf_ptr,ptr,pixel_count);
+                tipl::copy_ptr((const uint64_t*)buf_ptr,ptr,pixel_count);
                 break;
             }
             return true;
@@ -922,13 +922,13 @@ public:
     {
         if(!has_data())
             return false;
-        out.resize(image::geometry<image_type::dimension>(nif_header2.dim+1));
+        out.resize(tipl::geometry<image_type::dimension>(nif_header2.dim+1));
         if(!save_to_buffer(out.begin(),(unsigned int)out.size()))
             return false;
         if(nif_header2.scl_slope != 0)
         {
-            image::multiply_constant(out,nif_header2.scl_slope);
-            image::add_constant(out,nif_header2.scl_inter);
+            tipl::multiply_constant(out,nif_header2.scl_slope);
+            tipl::add_constant(out,nif_header2.scl_inter);
         }
         return true;
     }
@@ -1006,7 +1006,7 @@ public:
                 std::swap(nif_header2.pixdim[1],nif_header2.pixdim[2]);
                 std::swap(nif_header2.dim[1],nif_header2.dim[2]);
             }
-            image::swap_xy(out);
+            tipl::swap_xy(out);
         }
         if(std::fabs(nif_header2.srow_x[0]) < std::fabs(nif_header2.srow_x[2]))
         {
@@ -1018,7 +1018,7 @@ public:
                 std::swap(nif_header2.pixdim[1],nif_header2.pixdim[3]);
                 std::swap(nif_header2.dim[1],nif_header2.dim[3]);
             }
-            image::swap_xz(out);
+            tipl::swap_xz(out);
         }
         if(std::fabs(nif_header2.srow_y[1]) < std::fabs(nif_header2.srow_y[2]))
         {
@@ -1030,14 +1030,14 @@ public:
                 std::swap(nif_header2.pixdim[2],nif_header2.pixdim[3]);
                 std::swap(nif_header2.dim[2],nif_header2.dim[3]);
             }
-            image::swap_yz(out);
+            tipl::swap_yz(out);
         }
 
         // from +x = Right  +y = Anterior +z = Superior
         // to +x = Left  +y = Posterior +z = Superior
         if(nif_header2.srow_x[0] > 0)
         {
-            image::flip_x(out);
+            tipl::flip_x(out);
             if(change_header)
             {
                 nif_header2.srow_x[3] += nif_header2.srow_x[0]*(out.width()-1);
@@ -1050,7 +1050,7 @@ public:
 
         if(nif_header2.srow_y[1] > 0)
         {
-            image::flip_y(out);
+            tipl::flip_y(out);
             if(change_header)
             {
                 nif_header2.srow_y[3] += nif_header2.srow_y[1]*(out.height()-1);
@@ -1062,7 +1062,7 @@ public:
 
         if(nif_header2.srow_z[2] < 0)
         {
-            image::flip_z(out);
+            tipl::flip_z(out);
             if(change_header)
             {
                 nif_header2.srow_z[3] += nif_header2.srow_z[2]*(out.depth()-1);

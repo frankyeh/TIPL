@@ -5,7 +5,7 @@
 #include "utility.hpp"
 
 
-namespace image{
+namespace tipl{
 
 namespace ml{
 

@@ -5,7 +5,7 @@
 #include <numeric>
 #include <algorithm>
 //---------------------------------------------------------------------------
-namespace image
+namespace tipl
 {
 
 template<int Dim>

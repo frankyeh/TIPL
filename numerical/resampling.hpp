@@ -1,14 +1,14 @@
 //---------------------------------------------------------------------------
 #ifndef RESAMPLING_HPP
 #define RESAMPLING_HPP
-#include "image/utility/basic_image.hpp"
-#include "image/numerical/transformation.hpp"
-#include "image/numerical/numerical.hpp"
-#include "image/numerical/basic_op.hpp"
-#include "image/numerical/statistics.hpp"
+#include "tipl/utility/basic_image.hpp"
+#include "tipl/numerical/transformation.hpp"
+#include "tipl/numerical/numerical.hpp"
+#include "tipl/numerical/basic_op.hpp"
+#include "tipl/numerical/statistics.hpp"
 #include "interpolation.hpp"
 
-namespace image
+namespace tipl
 {
 
 template<class IntegerType>
@@ -33,32 +33,32 @@ public:
 };
 
 template<>
-class PixelAdapter<rgb_color>
+class PixelAdapter<rgb>
 {
 private:
     unsigned int r_16,g_16,b_16;
 public:
-    PixelAdapter<rgb_color>(void):r_16(0),g_16(0),b_16(0) {}
-    void add(rgb_color color,unsigned int w_16)
+    PixelAdapter<rgb>(void):r_16(0),g_16(0),b_16(0) {}
+    void add(rgb color,unsigned int w_16)
     {
         r_16 += ((unsigned int)color.r)*w_16;
         g_16 += ((unsigned int)color.g)*w_16;
         b_16 += ((unsigned int)color.b)*w_16;
     }
-    void add(rgb_color color,const unsigned int* w_16)
+    void add(rgb color,const unsigned int* w_16)
     {
         r_16 += w_16[color.r];
         g_16 += w_16[color.g];
         b_16 += w_16[color.b];
     }
-    rgb_color get(void) const
+    rgb get(void) const
     {
-        return rgb_color(r_16 >> 16,g_16 >> 16,b_16 >> 16);
+        return rgb(r_16 >> 16,g_16 >> 16,b_16 >> 16);
     }
 };
 //---------------------------------------------------------------------------
 template<class PixelType>
-void thumb(const basic_image<PixelType,2>& from,basic_image<PixelType,2>& to)
+void thumb(const image<PixelType,2>& from,image<PixelType,2>& to)
 {
     std::vector<PixelAdapter<PixelType> > to_buffer(to.width());
     enum MoveType {MoveFrom,MoveTo};
@@ -176,7 +176,7 @@ void thumb(const basic_image<PixelType,2>& from,basic_image<PixelType,2>& to)
 }
 //---------------------------------------------------------------------------
 template<class PixelType,class ImageType2D>
-void reslicing(const basic_image<PixelType,2>& slice,ImageType2D& image,
+void reslicing(const image<PixelType,2>& slice,ImageType2D& image,
                unsigned int dim,unsigned int slice_index)
 {
     image = slice;
@@ -258,8 +258,8 @@ struct pixel_average<float>{
     }
 };
 template<>
-struct pixel_average<image::rgb_color>{
-    image::rgb_color operator()(image::rgb_color c1,image::rgb_color c2) const
+struct pixel_average<tipl::rgb>{
+    tipl::rgb operator()(tipl::rgb c1,tipl::rgb c2) const
     {
         short r = c1.r;
         short g = c1.g;
@@ -267,7 +267,7 @@ struct pixel_average<image::rgb_color>{
         r += c2.r;
         g += c2.g;
         b += c2.b;
-        return image::rgb_color(r >> 1,g >> 1,b >> 1);
+        return tipl::rgb(r >> 1,g >> 1,b >> 1);
     }
 };
 
@@ -536,8 +536,8 @@ struct downsampling_facade<unsigned char>{
 };
 
 template<>
-struct downsampling_facade<image::rgb_color>{
-    image::rgb_color operator()(image::rgb_color v1,image::rgb_color v2)
+struct downsampling_facade<tipl::rgb>{
+    tipl::rgb operator()(tipl::rgb v1,tipl::rgb v2)
     {
         unsigned short b = v1[0];
         b += v2[0];
@@ -548,7 +548,7 @@ struct downsampling_facade<image::rgb_color>{
         b >>= 1;
         g >>= 1;
         r >>= 1;
-        return image::rgb_color(r,g,b);
+        return tipl::rgb(r,g,b);
     }
 };
 
@@ -625,29 +625,29 @@ void downsample_with_padding(const image_type1& I,image_type2& rI)
     geometry<image_type1::dimension> pad_geo(I.geometry());
     for(unsigned int dim = 0;dim < image_type1::dimension;++dim)
         ++pad_geo[dim];
-    basic_image<typename image_type1::value_type,image_type1::dimension> pad_I(pad_geo);
-    image::draw(I,pad_I,pixel_index<image_type1::dimension>(I.geometry()));
-    image::downsampling(pad_I,rI);
+    image<typename image_type1::value_type,image_type1::dimension> pad_I(pad_geo);
+    tipl::draw(I,pad_I,pixel_index<image_type1::dimension>(I.geometry()));
+    tipl::downsampling(pad_I,rI);
 }
 
 template<typename image_type1,typename image_type2,class geo_type>
 void upsample_with_padding(const image_type1& I,image_type2& uI,const geo_type& geo)
 {
-    basic_image<typename image_type1::value_type,image_type1::dimension> new_I;
-    image::upsampling(I,new_I);
+    image<typename image_type1::value_type,image_type1::dimension> new_I;
+    tipl::upsampling(I,new_I);
     uI.resize(geo);
-    image::draw(new_I,uI,pixel_index<image_type1::dimension>(I.geometry()));
+    tipl::draw(new_I,uI,pixel_index<image_type1::dimension>(I.geometry()));
 }
 
 
 template<class PixelType>
-void shrink(const image::basic_image<PixelType,3>& image,
-            image::basic_image<PixelType,3>& buffer,
+void shrink(const tipl::image<PixelType,3>& image,
+            tipl::image<PixelType,3>& buffer,
             unsigned int scale)
 {
     unsigned int slice_size = image.width()*image.height();
     const PixelType* slice = image.begin();
-    buffer.resize(image::geometry<3>(
+    buffer.resize(tipl::geometry<3>(
                       image.width()/scale,
                       image.height()/scale,
                       image.depth()/scale));
@@ -655,8 +655,8 @@ void shrink(const image::basic_image<PixelType,3>& image,
     for (unsigned int index = 0;index < buffer.depth();++index)
     {
         PixelType* buffer_iter = buffer.begin() + index*buffer.width()*buffer.height();
-        image::basic_image<PixelType,2> buffer_slice(
-            image::geometry<2>(image.width() /scale,
+        tipl::image<PixelType,2> buffer_slice(
+            tipl::geometry<2>(image.width() /scale,
                                image.height() /scale));
         for (unsigned int j = 0;j < scale;++j,slice += slice_size)
         {
@@ -690,8 +690,8 @@ void shrink(const image::basic_image<PixelType,3>& image,
 }
 
 template<class PixelType>
-void fast_resample(const image::basic_image<PixelType,3>& source_image,
-                   image::basic_image<PixelType,3>& des_image)
+void fast_resample(const tipl::image<PixelType,3>& source_image,
+                   tipl::image<PixelType,3>& des_image)
 {
     double dx = (double)(source_image.width()-1)/(double)(des_image.width()-1);
     double dy = (double)(source_image.height()-1)/(double)(des_image.height()-1);
@@ -727,8 +727,8 @@ void fast_resample(const image::basic_image<PixelType,3>& source_image,
 }
 
 template<class PixelType>
-void fast_resample(const image::basic_image<PixelType,2>& source_image,
-                   image::basic_image<PixelType,2>& des_image)
+void fast_resample(const tipl::image<PixelType,2>& source_image,
+                   tipl::image<PixelType,2>& des_image)
 {
     double dx = (double)(source_image.width()-1)/(double)(des_image.width()-1);
     double dy = (double)(source_image.height()-1)/(double)(des_image.height()-1);
@@ -754,8 +754,8 @@ void fast_resample(const image::basic_image<PixelType,2>& source_image,
 }
 
 template<class PixelType>
-void scale(const image::basic_image<PixelType,3>& source_image,
-              image::basic_image<PixelType,3>& des_image)
+void scale(const tipl::image<PixelType,3>& source_image,
+              tipl::image<PixelType,3>& des_image)
 {
     double dx = (double)(source_image.width()-1)/(double)(des_image.width()-1);
     double dy = (double)(source_image.height()-1)/(double)(des_image.height()-1);
@@ -779,15 +779,15 @@ void scale(const image::basic_image<PixelType,3>& source_image,
             {
                 if (coord[0] > maxx)
                     coord[0] = maxx;
-                image::estimate(source_image,coord,des_image[index],linear);
+                tipl::estimate(source_image,coord,des_image[index],linear);
             }
         }
     }
 }
 
 template<class PixelType>
-void scale(const image::basic_image<PixelType,2>& source_image,
-              image::basic_image<PixelType,2>& des_image)
+void scale(const tipl::image<PixelType,2>& source_image,
+              tipl::image<PixelType,2>& des_image)
 {
     double dx = (double)(source_image.width()-1)/(double)(des_image.width()-1);
     double dy = (double)(source_image.height()-1)/(double)(des_image.height()-1);
@@ -804,14 +804,14 @@ void scale(const image::basic_image<PixelType,2>& source_image,
         {
             if (coord[0] > maxx)
                 coord[0] = maxx;
-            image::estimate(source_image,coord,des_image[index],linear);
+            tipl::estimate(source_image,coord,des_image[index],linear);
         }
     }
 }
 
 template<class PixelType>
-void scale_nearest(const image::basic_image<PixelType,2>& source_image,
-              image::basic_image<PixelType,2>& des_image)
+void scale_nearest(const tipl::image<PixelType,2>& source_image,
+              tipl::image<PixelType,2>& des_image)
 {
     double dx = (double)(source_image.width()-1)/(double)(des_image.width()-1);
     double dy = (double)(source_image.height()-1)/(double)(des_image.height()-1);
@@ -838,24 +838,24 @@ void scale_nearest(const image::basic_image<PixelType,2>& source_image,
 
 
 template<typename pixel_type>
-void homogenize(image::basic_image<pixel_type,3>& I,image::basic_image<pixel_type,3>& J,int block_size = 20)
+void homogenize(tipl::image<pixel_type,3>& I,tipl::image<pixel_type,3>& J,int block_size = 20)
 {
     if(I.geometry() != J.geometry())
         return;
-    double r = image::correlation(I.begin(),I.end(),J.begin());
+    double r = tipl::correlation(I.begin(),I.end(),J.begin());
     if(r < 0.80)
     {
-        image::normalize(I,*std::max_element(J.begin(),J.end()));
+        tipl::normalize(I,*std::max_element(J.begin(),J.end()));
         return;
     }
     float distance_scale = 1.0/(float)block_size/(float)block_size;
-    image::basic_image<float,3> v_map(I.geometry()),w_map(I.geometry());
+    tipl::image<float,3> v_map(I.geometry()),w_map(I.geometry());
     for(int z = block_size;z < J.depth()-block_size;z += block_size)
         for(int y = block_size;y < J.height()-block_size;y += block_size)
             for(int x = block_size;x < J.width()-block_size;x += block_size)
             {
-                std::vector<image::pixel_index<3> > neighbors;
-                image::get_neighbors(image::pixel_index<3>(x,y,z,I.geometry()),I.geometry(),block_size,neighbors);
+                std::vector<tipl::pixel_index<3> > neighbors;
+                tipl::get_neighbors(tipl::pixel_index<3>(x,y,z,I.geometry()),I.geometry(),block_size,neighbors);
                 std::vector<float> Iv(neighbors.size()),Jv(neighbors.size()),dis2(neighbors.size());
                 for(int i = 0; i < neighbors.size();++i)
                 {
@@ -867,7 +867,7 @@ void homogenize(image::basic_image<pixel_type,3>& I,image::basic_image<pixel_typ
                     Jv[i] = J[neighbors[i].index()];
                 }
                 double a,b,r2;
-                image::linear_regression(Iv.begin(),Iv.end(),Jv.begin(),a,b,r2);
+                tipl::linear_regression(Iv.begin(),Iv.end(),Jv.begin(),a,b,r2);
                 for(int i = 0; i < neighbors.size();++i)
                 {
                     float v = Iv[i]*a+b;
@@ -879,7 +879,7 @@ void homogenize(image::basic_image<pixel_type,3>& I,image::basic_image<pixel_typ
                     w_map[index] += w;
                 }
             }
-    image::upper_lower_threshold(v_map,0.0f,*std::max_element(J.begin(),J.end()));
+    tipl::upper_lower_threshold(v_map,0.0f,*std::max_element(J.begin(),J.end()));
     I = v_map;
 }
 
@@ -895,7 +895,7 @@ void match_signal(const T& VG,T& VFF)
             x.push_back(VFF[index]);
             y.push_back(VG[index]);
         }
-    std::pair<double,double> r = image::linear_regression(x.begin(),x.end(),y.begin());
+    std::pair<double,double> r = tipl::linear_regression(x.begin(),x.end(),y.begin());
     for(unsigned int index = 0;index < VG.size();++index)
         if(VG[index] > 0 && VFF[index] > 0)
             VFF[index] = std::max<float>(0,VFF[index]*r.first+r.second);
@@ -931,14 +931,14 @@ void match_signal_kernel(const T& VG,T& VFF)
             sum[index] = sum[index-1];
     }
     // smoothing
-    image::basic_image<float,1> value(image::geometry<1>(256));
+    tipl::image<float,1> value(tipl::geometry<1>(256));
     value[0] = sum[0];
     value[255] = sum[255];
     for(unsigned int index = 1;index+1 < sum.size();++index)
         value[index] = (sum[index]+sum[index]+sum[index-1]+sum[index+1])*0.25;
 
 
-    image::par_for(VG.size(),[&](int index)
+    tipl::par_for(VG.size(),[&](int index)
     {
         if(VG[index] > 0 && VFF[index] > 0)
         {
@@ -956,8 +956,8 @@ void match_signal_kernel(const T& VG,T& VFF)
 }
 
 template<class PixelType,class CoordinateType,class ScaleVecType>
-void resample(const image::basic_image<PixelType,3>& source_image,
-              image::basic_image<PixelType,3>& des_image,
+void resample(const tipl::image<PixelType,3>& source_image,
+              tipl::image<PixelType,3>& des_image,
               const CoordinateType& from_position,
               const ScaleVecType& scales,
               interpolation_type type)
@@ -984,9 +984,9 @@ template<class ImageType1,class ImageType2,class transform_type>
 void resample_mt(const ImageType1& from,ImageType2& to,const transform_type& transform,interpolation_type type)
 {
     to.for_each_mt([&transform,&from,type](typename ImageType2::value_type& value,
-                                        image::pixel_index<ImageType1::dimension> index)
+                                        tipl::pixel_index<ImageType1::dimension> index)
     {
-        image::vector<ImageType1::dimension,double> pos;
+        tipl::vector<ImageType1::dimension,double> pos;
         transform(index,pos);
         estimate(from,pos,value,type);
     });
@@ -995,13 +995,13 @@ void resample_mt(const ImageType1& from,ImageType2& to,const transform_type& tra
 template<class ImageType1,class ImageType2>
 void resample(const ImageType1& from,ImageType2& to,interpolation_type type = interpolation_type::linear)
 {
-    image::vector<ImageType1::dimension> r;
+    tipl::vector<ImageType1::dimension> r;
     for(int i =0;i < ImageType1::dimension;++i)
         r[i] = ((float)from.geometry()[i]-1.0f)/((float)to.geometry()[i]-1.0f);
-    for (image::pixel_index<ImageType1::dimension> index(to.geometry());index < to.size();++index)
+    for (tipl::pixel_index<ImageType1::dimension> index(to.geometry());index < to.size();++index)
     {
-        image::vector<ImageType1::dimension> pos(index);
-        image::multiply(pos,r);
+        tipl::vector<ImageType1::dimension> pos(index);
+        tipl::multiply(pos,r);
         estimate(from,pos,to[index.index()],type);
     }
 }
@@ -1010,10 +1010,10 @@ void resample(const ImageType1& from,ImageType2& to,interpolation_type type = in
 template<class ImageType1,class ImageType2,class transform_type>
 void resample(const ImageType1& from,ImageType2& to,const transform_type& transform,interpolation_type type)
 {
-    image::geometry<ImageType1::dimension> geo(to.geometry());
-    for (image::pixel_index<ImageType1::dimension> index(geo);index < geo.size();++index)
+    tipl::geometry<ImageType1::dimension> geo(to.geometry());
+    for (tipl::pixel_index<ImageType1::dimension> index(geo);index < geo.size();++index)
     {
-        image::vector<ImageType1::dimension,double> pos;
+        tipl::vector<ImageType1::dimension,double> pos;
         transform(index,pos);
         estimate(from,pos,to[index.index()],type);
     }
@@ -1029,11 +1029,11 @@ void resample_with_ref(const ImageType1& from,
     transform_type iT(transform);
     iT.inverse();
     RefType ref_in_from(from.geometry());
-    resample(ref,ref_in_from,iT,image::linear);
-    image::geometry<ImageType1::dimension> geo(to.geometry());
-    for (image::pixel_index<ImageType1::dimension> index(geo);index < geo.size();++index)
+    resample(ref,ref_in_from,iT,tipl::linear);
+    tipl::geometry<ImageType1::dimension> geo(to.geometry());
+    for (tipl::pixel_index<ImageType1::dimension> index(geo);index < geo.size();++index)
     {
-        image::vector<ImageType1::dimension,double> pos;
+        tipl::vector<ImageType1::dimension,double> pos;
         transform(index,pos);
         estimate_with_ref(from,ref_in_from,ref[index.index()],pos,to[index.index()]);
     }
@@ -1043,10 +1043,10 @@ void resample_with_ref(const ImageType1& from,
 template<class ImageType,class transform_type>
 void resample(ImageType& from,const transform_type& transform,interpolation_type type)
 {
-    image::basic_image<class ImageType::value_type,ImageType::dimension> I(from.geometry());
-    for (image::pixel_index<ImageType::dimension> index(from.geometry());index < from.size();++index)
+    tipl::image<class ImageType::value_type,ImageType::dimension> I(from.geometry());
+    for (tipl::pixel_index<ImageType::dimension> index(from.geometry());index < from.size();++index)
     {
-        image::vector<ImageType::dimension,double> pos;
+        tipl::vector<ImageType::dimension,double> pos;
         transform(index,pos);
         estimate(from,pos,I[index.index()],type);
     }
@@ -1056,14 +1056,14 @@ void resample(ImageType& from,const transform_type& transform,interpolation_type
 template<class ImageType1,class ImageType2,class value_type>
 void resample(const ImageType1& from,ImageType2& to,const std::vector<value_type>& trans,interpolation_type type)
 {
-    image::transformation_matrix<float> transform;
+    tipl::transformation_matrix<float> transform;
     transform.load_from_transform(trans.begin());
     resample(from,to,transform,type);
 }
 template<class ImageType1,class ImageType2,int r,int c,class value_type>
-void resample(const ImageType1& from,ImageType2& to,const image::matrix<r,c,value_type>& trans,interpolation_type type)
+void resample(const ImageType1& from,ImageType2& to,const tipl::matrix<r,c,value_type>& trans,interpolation_type type)
 {
-    image::transformation_matrix<float> transform;
+    tipl::transformation_matrix<float> transform;
     transform.load_from_transform(trans.begin());
     resample(from,to,transform,type);
 }
@@ -1071,14 +1071,14 @@ void resample(const ImageType1& from,ImageType2& to,const image::matrix<r,c,valu
 template<class ImageType,class value_type>
 void resample(ImageType& from,const std::vector<value_type>& trans,interpolation_type type)
 {
-    image::transformation_matrix<float> transform;
+    tipl::transformation_matrix<float> transform;
     transform.load_from_transform(trans.begin());
     resample(from,transform,type);
 }
 template<class ImageType,int r,int c,class value_type>
-void resample(ImageType& from,const image::matrix<r,c,value_type>& trans,interpolation_type type)
+void resample(ImageType& from,const tipl::matrix<r,c,value_type>& trans,interpolation_type type)
 {
-    image::transformation_matrix<float> transform;
+    tipl::transformation_matrix<float> transform;
     transform.load_from_transform(trans.begin());
     resample(from,transform,type);
 }

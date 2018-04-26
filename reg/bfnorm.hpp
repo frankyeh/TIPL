@@ -4,9 +4,9 @@
 #include <cmath>
 #include <vector>
 #include <future>
-#include "image/numerical/matrix.hpp"
-#include "image/numerical/numerical.hpp"
-namespace image {
+#include "tipl/numerical/matrix.hpp"
+#include "tipl/numerical/numerical.hpp"
+namespace tipl {
 
 namespace reg {
 
@@ -95,12 +95,12 @@ value_type resample_d(const ImageType& vol,value_type& gradx,value_type& grady,v
 template<class value_type,int dim = 3>
 class bfnorm_mapping {
 public:
-    image::geometry<dim> VGgeo;
-    image::geometry<dim> k_base;
+    tipl::geometry<dim> VGgeo;
+    tipl::geometry<dim> k_base;
     std::vector<value_type> T;
     std::vector<std::vector<value_type> > bas,dbas;
 public:
-    bfnorm_mapping(const image::geometry<3>& geo_,const image::geometry<dim>& k_base_):VGgeo(geo_),k_base(k_base_)
+    bfnorm_mapping(const tipl::geometry<3>& geo_,const tipl::geometry<dim>& k_base_):VGgeo(geo_),k_base(k_base_)
     {
         //void initialize_basis_function(value_type stabilise) // bounding offset
         value_type stabilise = 8;
@@ -129,18 +129,18 @@ public:
     }
 
     template<class rhs_type>
-    void get_displacement(const image::pixel_index<3>& from,rhs_type& to) const
+    void get_displacement(const tipl::pixel_index<3>& from,rhs_type& to) const
     {
-        return get_displacement(image::vector<3,int>(from[0],from[1],from[2]),to);
+        return get_displacement(tipl::vector<3,int>(from[0],from[1],from[2]),to);
     }
     template<class rhs_type>
-    void operator()(const image::pixel_index<3>& from,rhs_type& to) const
+    void operator()(const tipl::pixel_index<3>& from,rhs_type& to) const
     {
-        return (*this)(image::vector<3,int>(from[0],from[1],from[2]),to);
+        return (*this)(tipl::vector<3,int>(from[0],from[1],from[2]),to);
     }
 
     template<class rhs_type>
-    void get_displacement(const image::vector<3,int>& from,rhs_type& to) const
+    void get_displacement(const tipl::vector<3,int>& from,rhs_type& to) const
     {
         if(!VGgeo.is_valid(from))
         {
@@ -153,7 +153,7 @@ public:
         int nyz =ny*nz;
         int nxyz = k_base.size();
 
-        image::dyndim dyz_x(nyz,nx),dz_y(nz,ny),dx_1(nx,1),dy_1(ny,1);
+        tipl::dyndim dyz_x(nyz,nx),dz_y(nz,ny),dx_1(nx,1),dy_1(ny,1);
         std::vector<value_type> bx_(nx),by_(ny),bz_(nz),temp_(nyz),temp2_(nz);
         value_type *bx = &bx_[0];
         value_type *by = &by_[0];
@@ -170,20 +170,20 @@ public:
                 bz[k] = bas[2][index];
         }
 
-        image::mat::product(T.begin(),bx,temp,dyz_x,dx_1);
-        image::mat::product(temp,by,temp2,dz_y,dy_1);
-        to[0] = image::vec::dot(bz,bz+nz,temp2);
+        tipl::mat::product(T.begin(),bx,temp,dyz_x,dx_1);
+        tipl::mat::product(temp,by,temp2,dz_y,dy_1);
+        to[0] = tipl::vec::dot(bz,bz+nz,temp2);
 
-        image::mat::product(T.begin()+nxyz,bx,temp,dyz_x,dx_1);
-        image::mat::product(temp,by,temp2,dz_y,dy_1);
-        to[1] = image::vec::dot(bz,bz+nz,temp2);
+        tipl::mat::product(T.begin()+nxyz,bx,temp,dyz_x,dx_1);
+        tipl::mat::product(temp,by,temp2,dz_y,dy_1);
+        to[1] = tipl::vec::dot(bz,bz+nz,temp2);
 
-        image::mat::product(T.begin()+(nxyz << 1),bx,temp,dyz_x,dx_1);
-        image::mat::product(temp,by,temp2,dz_y,dy_1);
-        to[2] = image::vec::dot(bz,bz+nz,temp2);
+        tipl::mat::product(T.begin()+(nxyz << 1),bx,temp,dyz_x,dx_1);
+        tipl::mat::product(temp,by,temp2,dz_y,dy_1);
+        to[2] = tipl::vec::dot(bz,bz+nz,temp2);
     }
     template<class rhs_type>
-    void operator()(const image::vector<3,int>& from,rhs_type& to) const
+    void operator()(const tipl::vector<3,int>& from,rhs_type& to) const
     {
         get_displacement(from,to);
         to += from;
@@ -219,7 +219,7 @@ private:
     int nxy,nxyz,nx3,nxy3,nxyz3;
     std::vector<int> nxy_values,dim1_2_values,nx_values,ny_values,nz_values,dim1_1_values,dim1_0_values;
     int edgeskip[3];
-    image::geometry<3> dim1;
+    tipl::geometry<3> dim1;
 private:
     const std::vector<value_type>& B0;
     const std::vector<value_type>& B1;
@@ -287,7 +287,7 @@ public:
             }
             int ICO_ = mapping.k_base.size();
             value_type IC0_co = reg*std::pow(stabilise,6);
-            for(image::pixel_index<dim> pos(mapping.k_base);pos < mapping.k_base.size();++pos)
+            for(tipl::pixel_index<dim> pos(mapping.k_base);pos < mapping.k_base.size();++pos)
             {
                 int m = pos[0];
                 int j = pos[1];
@@ -374,7 +374,7 @@ public:
             std::mutex alpha_beta_lock,ss_lock;
             value_type ss_ = 0.0,nsamp_ = 0.0,ss_deriv_[3] = {0.0,0.0,0.0};
 
-            image::par_for(s0_list.size(),[&](int i)
+            tipl::par_for(s0_list.size(),[&](int i)
             {
                 value_type ss = 0.0,nsamp = 0.0,ss_deriv[3] = {0.0,0.0,0.0};
                 int s0[3] = {0,0,0};
@@ -499,7 +499,7 @@ public:
                             else wt = 0.0;
 
                             /* nonlinear transform the gradients to the same space as the template */
-                            image::vector_rotation(df,dvds0,&(J[0][0]),image::vdim<3>());
+                            tipl::vector_rotation(df,dvds0,&(J[0][0]),tipl::vdim<3>());
 
                             dv = f;
                             {
@@ -574,7 +574,7 @@ public:
 
                                     for(int x1=0; x1<nx; x1++)
                                     {
-                                        image::vec::axpy(ptr1,ptr1+x1+1,wt2,ptr2);
+                                        tipl::vec::axpy(ptr1,ptr1+x1+1,wt2,ptr2);
                                         ptr1 += m1;
                                         ptr2 += m2;
                                     }
@@ -586,7 +586,7 @@ public:
                             value_type* ptr2 = &alphax[nx*(m2*3 + i1)];
                             for(int x1=0; x1<4; x1++)
                             {
-                                image::vec::axpy(ptr1,ptr1+nx,wt1,ptr2);
+                                tipl::vec::axpy(ptr1,ptr1+nx,wt1,ptr2);
                                 ptr1 += m1;
                                 ptr2 += m2;
                             }
@@ -600,7 +600,7 @@ public:
                     value_type* ptr2 = &alphax[nx*(m2*3 + 3)];
                     for(int x1=0; x1<4; x1++)
                     {
-                        image::vec::add(ptr1,ptr1+x1+1,ptr2);
+                        tipl::vec::add(ptr1,ptr1+x1+1,ptr2);
                         ptr1 += m1;
                         ptr2 += m2;
                         betaxy[nxy3 + x1] += betax[nx3 + x1];
@@ -613,7 +613,7 @@ public:
                 /* Kronecker tensor products */
                 std::lock_guard<std::mutex> lock(alpha_beta_lock);
 
-                image::par_for(nz,[&](int z1)
+                tipl::par_for(nz,[&](int z1)
                 {
                     value_type wt1 = B2[dim1_2_values[z1]+s0[2]];
 
@@ -631,7 +631,7 @@ public:
                                 const value_type* ptr2 = &alphaxy[nxy*(m2*i1 + i2)];
                                 for(int y1=0; y1<nxy; y1++)
                                 {
-                                    image::vec::axpy(ptr1,ptr1+y1+1,wt2,ptr2);
+                                    tipl::vec::axpy(ptr1,ptr1+y1+1,wt2,ptr2);
                                     ptr1 += m1;
                                     ptr2 += m2;
                                 }
@@ -642,13 +642,13 @@ public:
                         const value_type* ptr2 = &alphaxy[nxy*(m2*3 + i1)];
                         for(int y1=0; y1<4; y1++)
                         {
-                            image::vec::axpy(ptr1,ptr1+nxy,wt1,ptr2);
+                            tipl::vec::axpy(ptr1,ptr1+nxy,wt1,ptr2);
                             ptr1 += m1;
                             ptr2 += m2;
                         }
                         /* spatial component of beta */
                         value_type* ptr3 = &beta[nxy*(nz_values[i1] + z1)];
-                        image::vec::axpy(ptr3,ptr3+nxy,wt1,&betaxy[nxy_values[i1]]);
+                        tipl::vec::axpy(ptr3,ptr3+nxy,wt1,&betaxy[nxy_values[i1]]);
                     }
                 },thread_count);
 
@@ -656,7 +656,7 @@ public:
                 const value_type* ptr2 = &alphaxy[nxy*(m2*3 + 3)];
                 for(int y1=0; y1<4; y1++)
                 {
-                    image::vec::add(ptr1,ptr1+y1+1,ptr2);
+                    tipl::vec::add(ptr1,ptr1+y1+1,ptr2);
                     ptr1 += m1;
                     ptr2 += m2;
                     /* intensity component of beta */
@@ -676,7 +676,7 @@ public:
             int m1 = nxyz3+4;
             for(int i1=0; i1<3; i1++)
             {
-                image::par_for(i1+1,[&](int i2)
+                tipl::par_for(i1+1,[&](int i2)
                 {
                     value_type *ptrz, *ptry, *ptrx;
                     ptrz = &alpha[nxyz*(m1*i1 + i2)];
@@ -702,7 +702,7 @@ public:
                 },thread_count);
             }
 
-            image::par_for(nxyz3+4,[&](int x1)
+            tipl::par_for(nxyz3+4,[&](int x1)
             {
                 for (int x2=0; x2<x1; x2++)
                     alpha[m1*x2+x1] = alpha[m1*x1+x2];
@@ -731,13 +731,13 @@ public:
             fwhm2 = std::min(fw,fwhm2);
 
 
-            image::divide_constant_mt(alpha, ss_);
-            image::divide_constant_mt(beta, ss_);
+            tipl::divide_constant_mt(alpha, ss_);
+            tipl::divide_constant_mt(beta, ss_);
 
-            image::par_for(beta.size(),[&](int i)
+            tipl::par_for(beta.size(),[&](int i)
             {
                 unsigned int pos = i*T.size();
-                beta[i] += image::vec::dot(alpha.begin()+pos,alpha.begin()+pos+T.size(),T.begin());
+                beta[i] += tipl::vec::dot(alpha.begin()+pos,alpha.begin()+pos+T.size(),T.begin());
             },thread_count);
 
 
@@ -785,7 +785,7 @@ void bfnorm(bfnorm_mapping<value_type>& mapping,
             const ImageType& VFF,terminator_type& terminated,unsigned int thread_count)
 {
     bfnorm_mrqcof<ImageType,value_type> bf_optimize(VG,VFF,mapping);
-    // image::reg::bfnorm(VG,VFF,*mni.get(),terminated);
+    // tipl::reg::bfnorm(VG,VFF,*mni.get(),terminated);
     bf_optimize.optimize(terminated,thread_count);
 }
 
@@ -827,49 +827,49 @@ void bfnorm_get_jacobian(const bfnorm_mapping<value_type>& mapping,const from_ty
         bz[k] = mapping.bas[2][index];
         dbz[k] = mapping.dbas[2][index];
     }
-    image::dyndim dyz_x(nyz,nx),dz_y(nz,ny),dx_1(nx,1),dy_1(ny,1);
+    tipl::dyndim dyz_x(nyz,nx),dz_y(nz,ny),dx_1(nx,1),dy_1(ny,1);
 
 
     // f(x)/dx
-    image::mat::product(T.begin(),dbx,temp,dyz_x,dx_1);
-    image::mat::product(temp,by,temp2,dz_y,dy_1);
-    Jbet[0] = 1 + image::vec::dot(bz,bz+nz,temp2);
+    tipl::mat::product(T.begin(),dbx,temp,dyz_x,dx_1);
+    tipl::mat::product(temp,by,temp2,dz_y,dy_1);
+    Jbet[0] = 1 + tipl::vec::dot(bz,bz+nz,temp2);
     // f(x)/dy
-    image::mat::product(T.begin(),bx,temp,dyz_x,dx_1);
-    image::mat::product(temp,dby,temp2,dz_y,dy_1);
-    Jbet[1] = image::vec::dot(bz,bz+nz,temp2);
+    tipl::mat::product(T.begin(),bx,temp,dyz_x,dx_1);
+    tipl::mat::product(temp,dby,temp2,dz_y,dy_1);
+    Jbet[1] = tipl::vec::dot(bz,bz+nz,temp2);
     // f(x)/dz
-    image::mat::product(T.begin(),bx,temp,dyz_x,dx_1);
-    image::mat::product(temp,by,temp2,dz_y,dy_1);
-    Jbet[2] = image::vec::dot(dbz,dbz+nz,temp2);
+    tipl::mat::product(T.begin(),bx,temp,dyz_x,dx_1);
+    tipl::mat::product(temp,by,temp2,dz_y,dy_1);
+    Jbet[2] = tipl::vec::dot(dbz,dbz+nz,temp2);
 
     // f(y)/dx
-    image::mat::product(T.begin()+nxyz,dbx,temp,dyz_x,dx_1);
-    image::mat::product(temp,by,temp2,dz_y,dy_1);
-    Jbet[3] = image::vec::dot(bz,bz+nz,temp2);
+    tipl::mat::product(T.begin()+nxyz,dbx,temp,dyz_x,dx_1);
+    tipl::mat::product(temp,by,temp2,dz_y,dy_1);
+    Jbet[3] = tipl::vec::dot(bz,bz+nz,temp2);
     // f(y)/dy
-    image::mat::product(T.begin()+nxyz,bx,temp,dyz_x,dx_1);
-    image::mat::product(temp,dby,temp2,dz_y,dy_1);
-    Jbet[4] = 1 + image::vec::dot(bz,bz+nz,temp2);
+    tipl::mat::product(T.begin()+nxyz,bx,temp,dyz_x,dx_1);
+    tipl::mat::product(temp,dby,temp2,dz_y,dy_1);
+    Jbet[4] = 1 + tipl::vec::dot(bz,bz+nz,temp2);
     // f(y)/dz
-    image::mat::product(T.begin()+nxyz,bx,temp,dyz_x,dx_1);
-    image::mat::product(temp,by,temp2,dz_y,dy_1);
-    Jbet[5] = image::vec::dot(dbz,dbz+nz,temp2);
+    tipl::mat::product(T.begin()+nxyz,bx,temp,dyz_x,dx_1);
+    tipl::mat::product(temp,by,temp2,dz_y,dy_1);
+    Jbet[5] = tipl::vec::dot(dbz,dbz+nz,temp2);
 
     // f(z)/dx
-    image::mat::product(T.begin()+(nxyz << 1),dbx,temp,dyz_x,dx_1);
-    image::mat::product(temp,by,temp2,dz_y,dy_1);
-    Jbet[6] = image::vec::dot(bz,bz+nz,temp2);
+    tipl::mat::product(T.begin()+(nxyz << 1),dbx,temp,dyz_x,dx_1);
+    tipl::mat::product(temp,by,temp2,dz_y,dy_1);
+    Jbet[6] = tipl::vec::dot(bz,bz+nz,temp2);
     // f(z)/dy
-    image::mat::product(T.begin()+(nxyz << 1),bx,temp,dyz_x,dx_1);
-    image::mat::product(temp,dby,temp2,dz_y,dy_1);
-    Jbet[7] = image::vec::dot(bz,bz+nz,temp2);
+    tipl::mat::product(T.begin()+(nxyz << 1),bx,temp,dyz_x,dx_1);
+    tipl::mat::product(temp,dby,temp2,dz_y,dy_1);
+    Jbet[7] = tipl::vec::dot(bz,bz+nz,temp2);
     // f(z)/dz
-    image::mat::product(T.begin()+(nxyz << 1),bx,temp,dyz_x,dx_1);
-    image::mat::product(temp,by,temp2,dz_y,dy_1);
-    Jbet[8] = 1 + image::vec::dot(dbz,dbz+nz,temp2);
+    tipl::mat::product(T.begin()+(nxyz << 1),bx,temp,dyz_x,dx_1);
+    tipl::mat::product(temp,by,temp2,dz_y,dy_1);
+    Jbet[8] = 1 + tipl::vec::dot(dbz,dbz+nz,temp2);
 
-    //image::mat::product(affine_rotation,Jbet,M,math::dim<3,3>(),math::dim<3,3>());
+    //tipl::mat::product(affine_rotation,Jbet,M,math::dim<3,3>(),math::dim<3,3>());
 }
 
 }// reg

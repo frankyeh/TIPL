@@ -2,7 +2,7 @@
 #include <limits>
 #include <memory>
 
-namespace image
+namespace tipl
 {
 
 namespace segmentation

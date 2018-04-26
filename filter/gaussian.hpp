@@ -3,7 +3,7 @@
 #define GAUSSIAN_HPP
 #include "filter_model.hpp"
 //---------------------------------------------------------------------------
-namespace image
+namespace tipl
 {
 
 namespace filter

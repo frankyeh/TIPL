@@ -35,7 +35,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <algorithm>
 #include <vector>
 
-namespace image
+namespace tipl
 {
 
 
@@ -385,7 +385,7 @@ void vector_product(left_input_iterator A,right_input_iterator x,output_iterator
     do
     {
         A_next = A + common_col_count;
-        *y = image::vec::dot(A,A_next,x);
+        *y = tipl::vec::dot(A,A_next,x);
         if (A_next == A_end)
             return;
         A = A_next;
@@ -485,7 +485,7 @@ void product_transpose(
 
     for (;lhs != lhs_end;lhs += common_col_count)
         for (right_input_iterator rhs_iter = rhs;rhs_iter != rhs_end;rhs_iter += common_col_count,++out)
-            *out = image::vec::dot(lhs,lhs+common_col_count,rhs_iter);
+            *out = tipl::vec::dot(lhs,lhs+common_col_count,rhs_iter);
 
 }
 
@@ -512,7 +512,7 @@ void square(input_iterator lhs,output_iterator out,const dim_type& dim)
         input_iterator rhs_iter = rhs;
         for (unsigned int col = 0;rhs_iter != rhs_end;rhs_iter += common_col_count,++out,++col)
             if (row <= col)// skip the symmetric part
-                *out = image::vec::dot(lhs,lhs+common_col_count,rhs_iter);
+                *out = tipl::vec::dot(lhs,lhs+common_col_count,rhs_iter);
     }
 
     unsigned int row_count = dim.row_count();
@@ -735,7 +735,7 @@ bool lu_decomposition(io_iterator A,pivot_iterator pivot,const dim_type& dim)
                 return false; // singularity
             if (max_row != k) // row swap is needed
             {
-                image::vec::swap(A+row_k,A+row_k+dim.col_count(),A+max_index-k);
+                tipl::vec::swap(A+row_k,A+row_k+dim.col_count(),A+max_index-k);
                 std::swap(pivot[k],pivot[max_row]);
             }
         }
@@ -1290,7 +1290,7 @@ bool inverse(input_iterator A_,output_iterator A,dim_type dim)
                  0, 0, 12, -1, -4,
                  0, 0, 0,  11, -3,
                  0, 0, 0,   0,  3};
-    image::matrix::inverse_upper(A,image::dyndim(5,5));
+    tipl::matrix::inverse_upper(A,tipl::dyndim(5,5));
  */
 template<class input_iterator,class dim_type>
 bool inverse_upper(input_iterator U,dim_type dim)
@@ -1333,7 +1333,7 @@ bool inverse_upper(input_iterator U,dim_type dim)
                  -5, 2, 4, 0, 0,
                  1,  -6, 2, 10, 0,
                  4, -10, 11, -30,22};
-    image::matrix::inverse_lower(A,image::dyndim(5,5));
+    tipl::matrix::inverse_lower(A,tipl::dyndim(5,5));
  */
 template<class input_iterator,class dim_type>
 bool inverse_lower(input_iterator U,dim_type dim)
@@ -1790,7 +1790,7 @@ void eigen_decomposition_sym(input_iterator A,
                 {
                     for (output_iterator1 Vrowj = V;Vrowj != Vrowi;Vrowj += dim)
                     {
-                        value_type g = image::vec::dot(Vrowi,Vrowi+i,Vrowj);
+                        value_type g = tipl::vec::dot(Vrowi,Vrowi+i,Vrowj);
                         {
                             output_iterator1 Vrowk = V;
                             for (int k = 0;k < i;++k,Vrowk += dim)
@@ -1876,7 +1876,7 @@ void eigen_decomposition_sym(input_iterator A,
                 d[i+1] = p+g;
                 p = c*r-b;
                 // Accumulate transformation.
-                image::vec::rot(Vrowi,Vrowi_end,Vrowi_end,c,-s);
+                tipl::vec::rot(Vrowi,Vrowi_end,Vrowi_end,c,-s);
                 if (--i < l)
                     break;
                 Vrowi_end = Vrowi;
@@ -1901,7 +1901,7 @@ void eigen_decomposition_sym(input_iterator A,
             if (k != i)
             {
                 std::swap(d[k],d[i]);
-                image::vec::swap(Vrowi,Vrowi+dim,V+k*dim);
+                tipl::vec::swap(Vrowi,Vrowi+dim,V+k*dim);
             }
         }
     }
@@ -1952,7 +1952,7 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
             {
                 input_iterator Arowk_k = Arowk+k;//A[k][k];
 
-                value_type s_k = image::vec::norm2(Arowk_k,Arowk_end);
+                value_type s_k = tipl::vec::norm2(Arowk_k,Arowk_end);
                 if (s_k == 0.0)
                 {
                     s[k] = 0.0;
@@ -1974,7 +1974,7 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
                 {
                     if (Arowk[k] < 0.0)
                         s_k = -s_k;
-                    image::vec::scale(Arowk_k,Arowk_end,1.0/s_k);
+                    tipl::vec::scale(Arowk_k,Arowk_end,1.0/s_k);
                     *Arowk_k += 1.0;
                     s[k] = -s_k;
                     int j = k_1;
@@ -1983,7 +1983,7 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
                         input_iterator Arowj_k = Arowk_end+k; // A[k][j];
                         do
                         {
-                            image::vec::aypx(Arowk_k,Arowk_end,image::vec::dot(Arowk_k,Arowk_end,Arowj_k)/-*Arowk_k,Arowj_k);
+                            tipl::vec::aypx(Arowk_k,Arowk_end,tipl::vec::dot(Arowk_k,Arowk_end,Arowj_k)/-*Arowk_k,Arowj_k);
                             e[j] = *Arowj_k;
                             if (++j == n)
                                 break;
@@ -1998,13 +1998,13 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
             if (k < nrt)
             {
                 value_type* e_k_1 = e + k_1;
-                value_type e_k_value = image::vec::norm2(e_k_1,e_end);
+                value_type e_k_value = tipl::vec::norm2(e_k_1,e_end);
                 if (e_k_value != 0.0)
                 {
                     if (*e_k_1 < 0.0)
                         e_k_value = -e_k_value;
 
-                    image::vec::scale(e_k_1,e_end,1.0/e_k_value);
+                    tipl::vec::scale(e_k_1,e_end,1.0/e_k_value);
                     *e_k_1 += 1.0;
                     e_k_value = -e_k_value;
                     // Apply the transformation.
@@ -2019,7 +2019,7 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
                             input_iterator Arowj_k_1 = Arowk_end+k_1;
                             do
                             {
-                                image::vec::axpy(w_k_1,w_end,e[j],Arowj_k_1);
+                                tipl::vec::axpy(w_k_1,w_end,e[j],Arowj_k_1);
                                 if (++j == n)
                                     break;
                                 Arowj_k_1 += m;
@@ -2034,7 +2034,7 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
                             value_type e_k_1_value = *e_k_1;
                             do
                             {
-                                image::vec::aypx(w_k_1,w_end,-e[j]/e_k_1_value,Arowj_k_1);
+                                tipl::vec::aypx(w_k_1,w_end,-e[j]/e_k_1_value,Arowj_k_1);
                                 if (++j == n)
                                     break;
                                 Arowj_k_1 += m;
@@ -2075,7 +2075,7 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
                 output_iterator1 Urowj_k_1 = Urowk_end+k_1;
                 do
                 {
-                    image::vec::aypx(Urowk_k_1,Urowk_end,image::vec::dot(Urowk_k_1,Urowk_end,Urowj_k_1)/-(*Urowk_k_1),Urowj_k_1);
+                    tipl::vec::aypx(Urowk_k_1,Urowk_end,tipl::vec::dot(Urowk_k_1,Urowk_end,Urowj_k_1)/-(*Urowk_k_1),Urowj_k_1);
                     if (++j == nu)
                         break;
                     Urowj_k_1 += n;
@@ -2108,13 +2108,13 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
                         input_iterator Arowj_k = Arowk_end+k;
                         while (1)
                         {
-                            image::vec::aypx(Arowk_k,Arowk_end,image::vec::dot(Arowk_k,Arowk_end,Arowj_k)/-(*Arowk_k),Arowj_k);
+                            tipl::vec::aypx(Arowk_k,Arowk_end,tipl::vec::dot(Arowk_k,Arowk_end,Arowj_k)/-(*Arowk_k),Arowj_k);
                             if (++j == nu)
                                 break;
                             Arowj_k += m;
                         }
                     }
-                    image::vec::negate(Arowk_k,Arowk_end);
+                    tipl::vec::negate(Arowk_k,Arowk_end);
                     *Arowk_k += 1.0;
                     std::fill(Arowk,Arowk_k,0.0);
                 }
@@ -2167,7 +2167,7 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
                         cs = s[j]/t;
                         sn = f/t;
                         s[j] = t;
-                        image::vec::rot(Urowj,Urowj+n,Urowpp,cs,sn);
+                        tipl::vec::rot(Urowj,Urowj+n,Urowpp,cs,sn);
                         if (j-- != k)
                         {
                             f = -sn*e[j];
@@ -2195,7 +2195,7 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
                         s[j] = t;
                         f = -sn*e[j];
                         e[j] = cs*e[j];
-                        image::vec::rot(Arowj,Arowj+m,Arowks,cs,sn);
+                        tipl::vec::rot(Arowj,Arowj+m,Arowks,cs,sn);
                         if (++j > pp)
                             break;
                         Arowj += m;
@@ -2246,7 +2246,7 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
                 g = sn*s[j_1];
                 s[j_1] *= cs;
 
-                image::vec::rot(Urowj_1-n,Urowj_1,Urowj_1,cs,sn);
+                tipl::vec::rot(Urowj_1-n,Urowj_1,Urowj_1,cs,sn);
 
                 t = hypot(f,g);
                 cs = f/t;
@@ -2258,7 +2258,7 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
                 g = sn*e[j_1];
                 e[j_1] *= cs;
 
-                image::vec::rot(Arowj_1-m,Arowj_1,Arowj_1,cs,sn);
+                tipl::vec::rot(Arowj_1-m,Arowj_1,Arowj_1,cs,sn);
                 if (++j == pp)
                     break;
                 Arowj_1 += m;
@@ -2279,7 +2279,7 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
             if (*s_iter < 0.0)
             {
                 *s_iter = -*s_iter;
-                image::vec::negate(Urowk,Urowk+n);
+                tipl::vec::negate(Urowk,Urowk+n);
             }
             if (++s_iter == s_end)
                 break;
@@ -2299,8 +2299,8 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
                 continue;
             std::swap(*s,*s_max);
             unsigned int dif = s_max-s;
-            image::vec::swap(Urow,Urow+n,Urow+dif*n);
-            image::vec::swap(Arow,Arow+m,Arow+dif*m);
+            tipl::vec::swap(Urow,Urow+n,Urow+dif*n);
+            tipl::vec::swap(Arow,Arow+m,Arow+dif*m);
         }
     }
     if (n != dimension.row_count())
@@ -2339,7 +2339,7 @@ void svd(input_iterator A,output_iterator2 s,dym_type dimension)
             {
                 input_iterator Arowk_k = Arowk+k;//A[k][k];
 
-                value_type s_k = image::vec::norm2(Arowk_k,Arowk_end);
+                value_type s_k = tipl::vec::norm2(Arowk_k,Arowk_end);
                 if (s_k == 0.0)
                 {
                     s[k] = 0.0;
@@ -2361,7 +2361,7 @@ void svd(input_iterator A,output_iterator2 s,dym_type dimension)
                 {
                     if (Arowk[k] < 0.0)
                         s_k = -s_k;
-                    image::vec::scale(Arowk_k,Arowk_end,1.0/s_k);
+                    tipl::vec::scale(Arowk_k,Arowk_end,1.0/s_k);
                     *Arowk_k += 1.0;
                     s[k] = -s_k;
                     int j = k_1;
@@ -2370,7 +2370,7 @@ void svd(input_iterator A,output_iterator2 s,dym_type dimension)
                         input_iterator Arowj_k = Arowk_end+k; // A[k][j];
                         do
                         {
-                            image::vec::aypx(Arowk_k,Arowk_end,image::vec::dot(Arowk_k,Arowk_end,Arowj_k)/-*Arowk_k,Arowj_k);
+                            tipl::vec::aypx(Arowk_k,Arowk_end,tipl::vec::dot(Arowk_k,Arowk_end,Arowj_k)/-*Arowk_k,Arowj_k);
                             e[j] = *Arowj_k;
                             if (++j == n)
                                 break;
@@ -2385,13 +2385,13 @@ void svd(input_iterator A,output_iterator2 s,dym_type dimension)
             if (k < nrt)
             {
                 value_type* e_k_1 = e + k_1;
-                value_type e_k_value = image::vec::norm2(e_k_1,e_end);
+                value_type e_k_value = tipl::vec::norm2(e_k_1,e_end);
                 if (e_k_value != 0.0)
                 {
                     if (*e_k_1 < 0.0)
                         e_k_value = -e_k_value;
 
-                    image::vec::scale(e_k_1,e_end,1.0/e_k_value);
+                    tipl::vec::scale(e_k_1,e_end,1.0/e_k_value);
                     *e_k_1 += 1.0;
                     e_k_value = -e_k_value;
                     // Apply the transformation.
@@ -2406,7 +2406,7 @@ void svd(input_iterator A,output_iterator2 s,dym_type dimension)
                             input_iterator Arowj_k_1 = Arowk_end+k_1;
                             do
                             {
-                                image::vec::axpy(w_k_1,w_end,e[j],Arowj_k_1);
+                                tipl::vec::axpy(w_k_1,w_end,e[j],Arowj_k_1);
                                 if (++j == n)
                                     break;
                                 Arowj_k_1 += m;
@@ -2421,7 +2421,7 @@ void svd(input_iterator A,output_iterator2 s,dym_type dimension)
                             value_type e_k_1_value = *e_k_1;
                             do
                             {
-                                image::vec::aypx(w_k_1,w_end,-e[j]/e_k_1_value,Arowj_k_1);
+                                tipl::vec::aypx(w_k_1,w_end,-e[j]/e_k_1_value,Arowj_k_1);
                                 if (++j == n)
                                     break;
                                 Arowj_k_1 += m;
@@ -2604,8 +2604,8 @@ void pseudo_inverse(input_iterator A_,output_iterator A,dim_type dim)
 	for(unsigned int index = 0;index < n;++index)
 		if(s[index] > threshold)
 		{
-            image::vec::gen(A,A+m,U,U+n,tmp);
-            image::vec::axpy(At,At+size,value_type(1.0)/s[index],tmp);
+            tipl::vec::gen(A,A+m,U,U+n,tmp);
+            tipl::vec::axpy(At,At+size,value_type(1.0)/s[index],tmp);
 			A += m;
 			U += n;
 		}
@@ -2672,12 +2672,12 @@ public:
     template<int c,class lhs_type,class rhs_type>
     matrix(const product_delegate<c,lhs_type,rhs_type>& prod)
     {
-        image::mat::product(prod.lhs,prod.rhs,value,dim<row_count,c>(),dim<c,col_count>());
+        tipl::mat::product(prod.lhs,prod.rhs,value,dim<row_count,c>(),dim<c,col_count>());
     }
     template<class rhs_type>
     matrix(const inverse_delegate<rhs_type>& inv)
     {
-        image::mat::inverse(inv.iter,value,dim_type());
+        tipl::mat::inverse(inv.iter,value,dim_type());
     }
 public:
     value_type& operator[](unsigned int index){return value[index];}
@@ -2709,7 +2709,7 @@ public:
     {
         value_type old_value[mat_size];
         std::copy(value,value+mat_size,old_value);
-        image::mat::product(old_value,rhs.begin(),value,dim_type(),dim_type());
+        tipl::mat::product(old_value,rhs.begin(),value,dim_type(),dim_type());
         return *this;
     }
 
@@ -2726,22 +2726,22 @@ public:
     template<int c,class lhs_type,class rhs_type>
     const matrix& operator=(const product_delegate<c,lhs_type,rhs_type>& prod)
     {
-        image::mat::product(prod.lhs,prod.rhs,value,dim<row_count,c>(),dim<c,col_count>());
+        tipl::mat::product(prod.lhs,prod.rhs,value,dim<row_count,c>(),dim<c,col_count>());
         return *this;
     }
     template<class rhs_type>
     const matrix& operator=(const inverse_delegate<rhs_type>& inv)
     {
-        image::mat::inverse(inv.iter,value,dim_type());
+        tipl::mat::inverse(inv.iter,value,dim_type());
         return *this;
     }
     bool inv(void)
     {
-        return image::mat::inverse(value,dim_type());
+        return tipl::mat::inverse(value,dim_type());
     }
     value_type det(void) const
     {
-        return image::mat::determinant(value,dim_type());
+        return tipl::mat::determinant(value,dim_type());
     }
     void zero(void)
     {
@@ -2749,7 +2749,7 @@ public:
     }
     void identity(void)
     {
-        image::mat::identity(value,dim_type());
+        tipl::mat::identity(value,dim_type());
     }
     void swap(matrix& rhs)
     {
@@ -2813,26 +2813,26 @@ public:
     template<int c,class lhs_type,class rhs_type>
     const matrix_buf& operator=(const product_delegate<c,lhs_type,rhs_type>& prod)
     {
-        image::mat::product(prod.lhs,prod.rhs,iter,dim<row_count,c>(),dim<c,col_count>());
+        tipl::mat::product(prod.lhs,prod.rhs,iter,dim<row_count,c>(),dim<c,col_count>());
         return *this;
     }
     template<class rhs_type>
     const matrix_buf& operator=(const inverse_delegate<rhs_type>& inv)
     {
-        image::mat::inverse(inv.iter,iter,rhs_type::dim_type());
+        tipl::mat::inverse(inv.iter,iter,rhs_type::dim_type());
         return *this;
     }
     bool inv(void)
     {
-        return image::mat::inverse(iter,dim_type());
+        return tipl::mat::inverse(iter,dim_type());
     }
     value_type det(void)
     {
-        return image::mat::determinant(iter,dim_type());
+        return tipl::mat::determinant(iter,dim_type());
     }
     void identity(void)
     {
-        image::mat::identity(iter,dim_type());
+        tipl::mat::identity(iter,dim_type());
     }
 };
 

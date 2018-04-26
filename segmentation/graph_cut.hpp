@@ -4,7 +4,7 @@
 #include <algorithm>
 #include "disjoint_set.hpp"
 
-namespace image
+namespace tipl
 {
 
 namespace segmentation
@@ -37,9 +37,9 @@ struct graph_cut_dis{
     }
 };
 template<>
-struct graph_cut_dis<image::rgb_color>{
+struct graph_cut_dis<tipl::rgb>{
 
-    float operator()(image::rgb_color lhs,image::rgb_color rhs)
+    float operator()(tipl::rgb lhs,tipl::rgb rhs)
     {
         return std::fabs(float(lhs[0])-float(rhs[0]))+std::fabs(float(lhs[1])-float(rhs[1]))+std::fabs(float(lhs[2])-float(rhs[2]));
     }
@@ -48,7 +48,7 @@ struct graph_cut_dis<image::rgb_color>{
 template<class image_type,class label_type>
 void graph_cut(const image_type& I,label_type& out,float c,unsigned int min_size)
 {
-    typedef image::pixel_index<image_type::dimension> index_type;
+    typedef tipl::pixel_index<image_type::dimension> index_type;
     typedef typename image_type::value_type value_type;
     std::vector<graph_edge> edges;
     edges.reserve(I.size() * 2* image_type::dimension);
@@ -56,7 +56,7 @@ void graph_cut(const image_type& I,label_type& out,float c,unsigned int min_size
     for(index_type index; index.is_valid(I.geometry()); index.next(I.geometry()))
     {
         std::vector<index_type> neighbor;
-        image::get_neighbors(index,I.geometry(),neighbor);
+        tipl::get_neighbors(index,I.geometry(),neighbor);
         for(int i = 0; i < neighbor.size(); ++i)
             if(index.index() > neighbor[i].index())
             {

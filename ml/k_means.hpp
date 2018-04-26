@@ -1,7 +1,7 @@
 #ifndef ML_K_MEANS_HPP
 #define ML_K_MEANS_HPP
 
-namespace image{
+namespace tipl{
 
 namespace ml{
 

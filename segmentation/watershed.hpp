@@ -1,16 +1,16 @@
 #include <vector>
 #include <list>
-#include "image/numerical/index_algorithm.hpp"
-#include "image/numerical/numerical.hpp"
-#include "image/numerical/basic_op.hpp"
-#include "image/morphology/morphology.hpp"
-#include "image/segmentation/otsu.hpp"
+#include "tipl/numerical/index_algorithm.hpp"
+#include "tipl/numerical/numerical.hpp"
+#include "tipl/numerical/basic_op.hpp"
+#include "tipl/morphology/morphology.hpp"
+#include "tipl/segmentation/otsu.hpp"
 
 #ifdef DEBUG
-#include "image/io/bitmap.hpp"
+#include "tipl/io/bitmap.hpp"
 #include <sstream>
 #endif
-namespace image
+namespace tipl
 {
 
 namespace segmentation
@@ -22,8 +22,8 @@ void watershed(const ImageType& input_image,LabelImageType& label)
 {
     label.clear();
     label.resize(input_image.geometry());
-    image::basic_image<unsigned char,ImageType::dimension> image(input_image.geometry());
-    image::normalize(input_image,image);
+    tipl::image<unsigned char,ImageType::dimension> image(input_image.geometry());
+    tipl::normalize(input_image,image);
 
     std::vector<std::list<pixel_index<ImageType::dimension> > > presort_table(256);
     for (pixel_index<ImageType::dimension> index;
@@ -104,21 +104,21 @@ void watershed(const ImageType& input_image,LabelImageType& label)
 template<class ImageType,class LabelImageType>
 void watershed2(const ImageType& input_image,LabelImageType& label,unsigned int size_threshold,double detail_level = 1.0)
 {
-    typedef image::pixel_index<ImageType::dimension> pixel_type;
+    typedef tipl::pixel_index<ImageType::dimension> pixel_type;
     label.clear();
     label.resize(input_image.geometry());
     ImageType I(input_image);
 
     float level = *std::max_element(input_image.begin(),input_image.end());
-    float otsu_level = image::segmentation::otsu_threshold(input_image)*detail_level;
+    float otsu_level = tipl::segmentation::otsu_threshold(input_image)*detail_level;
     unsigned int cur_region_num = 0;
     for(double L = 0.9;level*L > otsu_level;L -= 0.05)
     {
         std::vector<std::vector<unsigned int> > regions;
-        image::basic_image<unsigned char,ImageType::dimension> mask;
+        tipl::image<unsigned char,ImageType::dimension> mask;
         LabelImageType cur_label;
-        image::threshold(I,mask,level*L);
-        image::morphology::connected_component_labeling(mask,cur_label,regions);
+        tipl::threshold(I,mask,level*L);
+        tipl::morphology::connected_component_labeling(mask,cur_label,regions);
 
         // merge
         if(L != 2.0)
@@ -166,9 +166,9 @@ void watershed2(const ImageType& input_image,LabelImageType& label,unsigned int 
         #ifdef DEBUG
         std::ostringstream name;
         name << L << ".bmp";
-        image::basic_image<unsigned char,2> out;
-        image::normalize(label,out);
-        image::io::bitmap bmp;
+        tipl::image<unsigned char,2> out;
+        tipl::normalize(label,out);
+        tipl::io::bitmap bmp;
         bmp << out;
         bmp.save_to_file(name.str().c_str());
         #endif

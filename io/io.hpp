@@ -5,10 +5,10 @@
 #include <fstream>
 #include "nifti.hpp"
 #include "dicom.hpp"
-#include "image/utility/basic_image.hpp"
-#include "image/numerical/basic_op.hpp"
+#include "tipl/utility/basic_image.hpp"
+#include "tipl/numerical/basic_op.hpp"
 
-namespace image
+namespace tipl
 {
 
 namespace io
@@ -76,9 +76,9 @@ public:
             dicom_header->get_image_orientation(orientation_matrix);
             free_all();
             dicom_reader.push_back(dicom_header.release());
-            image::get_orientation(3,orientation_matrix,dim_order,flip);
-            image::reorient_vector(spatial_resolution,dim_order);
-            image::reorient_matrix(orientation_matrix,dim_order,flip);
+            tipl::get_orientation(3,orientation_matrix,dim_order,flip);
+            tipl::reorient_vector(spatial_resolution,dim_order);
+            tipl::reorient_matrix(orientation_matrix,dim_order,flip);
             return true;
         }
         std::auto_ptr<nifti> nifti_header(new nifti);
@@ -88,12 +88,12 @@ public:
             nifti_header->get_image_orientation(orientation_matrix);
             free_all();
             nifti_reader.push_back(nifti_header.release());
-            image::get_inverse_orientation(3,orientation_matrix,dim_order,flip);
+            tipl::get_inverse_orientation(3,orientation_matrix,dim_order,flip);
             change_orientation(true,true,false);
             // from +x = Right  +y = Anterior +z = Superior
             // to +x = Left  +y = Posterior +z = Superior
-            image::reorient_vector(spatial_resolution,dim_order);
-            image::reorient_matrix(orientation_matrix,dim_order,flip);
+            tipl::reorient_vector(spatial_resolution,dim_order);
+            tipl::reorient_matrix(orientation_matrix,dim_order,flip);
             return true;
         }
         return false;
@@ -129,19 +129,19 @@ public:
             }
         }
         if(!dicom_reader.empty())
-            image::get_orientation(3,orientation_matrix,dim_order,flip);
+            tipl::get_orientation(3,orientation_matrix,dim_order,flip);
         else
             if(!nifti_reader.empty())
             {
-                image::get_inverse_orientation(3,orientation_matrix,dim_order,flip);
+                tipl::get_inverse_orientation(3,orientation_matrix,dim_order,flip);
                 change_orientation(true,true,false);
                 // from +x = Right  +y = Anterior +z = Superior
                 // to +x = Left  +y = Posterior +z = Superior
             }
             else
                 return false;
-        image::reorient_vector(spatial_resolution,dim_order);
-        image::reorient_matrix(orientation_matrix,dim_order,flip);
+        tipl::reorient_vector(spatial_resolution,dim_order);
+        tipl::reorient_matrix(orientation_matrix,dim_order,flip);
         return true;
     }
     unsigned int width(void) const{return dicom_reader.empty() ? (nifti_reader.empty() ? 0 : nifti_reader.front()->width()):dicom_reader.front()->width();}
@@ -151,20 +151,20 @@ public:
     void save_to_image(image_type& source) const
     {
         typedef typename image_type::value_type value_type;
-        image::basic_image<value_type,3> buffer;
+        tipl::image<value_type,3> buffer;
         if(!dicom_reader.empty())
         {
             if(dicom_reader.size() == 1)
                 *dicom_reader.front() >> buffer;
             else
             {
-                buffer.resize(image::geometry<3>(dicom_reader.front()->width(),
+                buffer.resize(tipl::geometry<3>(dicom_reader.front()->width(),
                                              dicom_reader.front()->height(),
                                              dicom_reader.size()));
                 for(unsigned int index = 0;index < dicom_reader.size();++index)
 					dicom_reader[index]->save_to_buffer(&*buffer.begin()+index*buffer.plane_size(),buffer.plane_size());
             }
-            image::reorder(buffer,source,dim_order,flip);
+            tipl::reorder(buffer,source,dim_order,flip);
             return;
         }
         if(!nifti_reader.empty())
@@ -173,13 +173,13 @@ public:
                 *nifti_reader.front() >> buffer;
             else
             {
-                buffer.resize(image::geometry<3>(nifti_reader.front()->width(),
+                buffer.resize(tipl::geometry<3>(nifti_reader.front()->width(),
                                              nifti_reader.front()->height(),
                                              nifti_reader.size()));
                 for(unsigned int index = 0;index < nifti_reader.size();++index)
                     nifti_reader[index]->save_to_buffer(&*buffer.begin()+index*buffer.plane_size(),buffer.plane_size());
             }
-            image::reorder(buffer,source,dim_order,flip);
+            tipl::reorder(buffer,source,dim_order,flip);
             return;
         }
     }

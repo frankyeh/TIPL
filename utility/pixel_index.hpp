@@ -7,7 +7,7 @@
 #include <cmath>
 #include "geometry.hpp"
 
-namespace image
+namespace tipl
 {
 template<unsigned int dim>
 class pixel_index;

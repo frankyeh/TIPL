@@ -30,7 +30,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <iterator>
 #include <map>
 #include "interface.hpp"
-namespace image
+namespace tipl
 {
 
 namespace io
@@ -347,16 +347,16 @@ public:
         return out = (const out_type*)read_as_type(name,rows,cols,mat_type_info<out_type>::type);
     }
 	template<class data_type>
-    void read_as_image(int index,image::basic_image<data_type,2>& image_buf) const
+    void read_as_image(int index,tipl::image<data_type,2>& image_buf) const
 	{
 		if (index >= dataset.size())
             return;
-		image_buf.resize(image::geometry<2>(dataset[index]->get_cols(),dataset[index]->get_rows()));
+		image_buf.resize(tipl::geometry<2>(dataset[index]->get_cols(),dataset[index]->get_rows()));
         dataset[index]->copy_data(image_buf.begin());
 	}
 
 	template<class data_type>
-    void read_as_image(const char* name,image::basic_image<data_type,2>& image_buf) const
+    void read_as_image(const char* name,tipl::image<data_type,2>& image_buf) const
     {
 		std::map<std::string,int>::const_iterator iter = name_table.find(name);
         if (iter == name_table.end())
@@ -430,7 +430,7 @@ public:
         read("dimension",r,c,m);
         if(!m || r*c != image_type::dimension)
             return;
-        image_data.resize(image::geometry<image_type::dimension>(m));
+        image_data.resize(tipl::geometry<image_type::dimension>(m));
         const typename image_type::value_type* buf = 0;
         read("image",r,c,buf);
         if(!buf || r*c != image_data.size())

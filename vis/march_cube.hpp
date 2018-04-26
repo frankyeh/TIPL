@@ -4,9 +4,9 @@
 #include <cmath>
 #include <map>
 #include <set>
-#include "image/image.hpp"
+#include "tipl/tipl.hpp"
 
-namespace image
+namespace tipl
 {
 
 namespace MarchCubeData
@@ -353,7 +353,7 @@ public:
     std::map<VectorType,unsigned int,CompareVector<VectorType> > points_map;
     std::vector<VectorType> point_list;
     std::vector<VectorType> normal_list;
-    std::vector<image::vector<3,unsigned int> > tri_list;
+    std::vector<tipl::vector<3,unsigned int> > tri_list;
 public:
 
 
@@ -534,7 +534,7 @@ public:
             /* Create the triangle */
             for (unsigned int i=0;MarchCubeData::triTable[cubeindex][i]!=-1;i+=3)
                 tri_list.push_back(
-                    image::vector<3,unsigned int>(
+                    tipl::vector<3,unsigned int>(
                         getIndex(MarchCubeData::triTable[cubeindex][i  ]),
                         getIndex(MarchCubeData::triTable[cubeindex][i+1]),
                         getIndex(MarchCubeData::triTable[cubeindex][i+2])));

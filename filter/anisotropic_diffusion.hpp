@@ -1,9 +1,9 @@
 #ifndef ANISOTROPIC_DIFFUSION
 #define ANISOTROPIC_DIFFUSION
-#include "image/utility/basic_image.hpp"
-#include "image/numerical/numerical.hpp"
+#include "tipl/utility/basic_image.hpp"
+#include "tipl/numerical/numerical.hpp"
 
-namespace image
+namespace tipl
 {
 
 
@@ -33,32 +33,32 @@ void anisotropic_diffusion(image_type& src,float conductance_parameter = 1.0,int
         for (unsigned char index = 0;index < image_type::dimension;++index)
         {
             // gx = gradien(I), the gradient at the current dimension
-            image::gradient(src.begin(),src.end(),gx.begin(),shift,shift);
+            tipl::gradient(src.begin(),src.end(),gx.begin(),shift,shift);
             gx2 = gx;
 
             //   gx*gx
-            image::square(gx2.begin(),gx2.end());
+            tipl::square(gx2.begin(),gx2.end());
 
             float K = (float)std::accumulate(gx2.begin(),gx2.end(),(float)0);
             K /= (float)src.size();
             K *= conductance_parameter;
 
             // gx2 <= gx*gx/K
-            image::divide_constant(gx2.begin(),gx2.end(),K);
+            tipl::divide_constant(gx2.begin(),gx2.end(),K);
 
             // add scaling to avoid trancation error
             // will be scaled back later
-            image::minus_constant(gx2.begin(),gx2.end(),8);
+            tipl::minus_constant(gx2.begin(),gx2.end(),8);
 
             // px <- pow(2,-gx*gx/K)*gx
-            image::divide_pow(gx.begin(),gx.end(),gx2.begin());
+            tipl::divide_pow(gx.begin(),gx.end(),gx2.begin());
 
             // exp(gx1*gx1/K)*gx1-exp(gx2*gx2/K)*gx2
-            image::gradient(gx.begin(),gx.end(),gx2.begin(),shift,0);
+            tipl::gradient(gx.begin(),gx.end(),gx2.begin(),shift,0);
 
             // accumulate the diffusion magnitude
             // skip the boundary
-            image::add(total_gx.begin(),total_gx.end(),gx2.begin());
+            tipl::add(total_gx.begin(),total_gx.end(),gx2.begin());
 
             // proceed to next dimensiom
             shift *= src.geometry()[index];
@@ -66,14 +66,14 @@ void anisotropic_diffusion(image_type& src,float conductance_parameter = 1.0,int
         // perform I <= I + total_gx * delta_t
         // delta_t = 1.0/(1 << dimension);
         // scale back the multiplication of 8
-        image::divide_pow_constant(total_gx.begin(),total_gx.end(),image_type::dimension+8);
-        image::add(src.begin(),src.end(),total_gx.begin());
+        tipl::divide_pow_constant(total_gx.begin(),total_gx.end(),image_type::dimension+8);
+        tipl::add(src.begin(),src.end(),total_gx.begin());
     }
 }
 
 
 template<class pixel_type,size_t dimension>
-void anisotropic_diffusion_inv(image::basic_image<pixel_type,dimension>& src,
+void anisotropic_diffusion_inv(tipl::image<pixel_type,dimension>& src,
                            float conductance_parameter = 1.0,
                            size_t iteration = 5)
 {
@@ -85,28 +85,28 @@ void anisotropic_diffusion_inv(image::basic_image<pixel_type,dimension>& src,
         for (size_t index = 0;index < dimension;++index)
         {
             // gx = gradien(I), the gradient at the current dimension
-            image::gradient(src.begin(),src.end(),gx.begin(),shift,shift);
+            tipl::gradient(src.begin(),src.end(),gx.begin(),shift,shift);
             gx2 = gx;
 
             //   gx*gx
-            image::square(gx2.begin(),gx2.end());
+            tipl::square(gx2.begin(),gx2.end());
 
             float K = (float)std::accumulate(gx2.begin(),gx2.end(),(float)0);
             K /= (float)src.size();
             K *= conductance_parameter;
 
             // gx2 <- K+(gx*gx);
-            image::add_constant(gx2.begin(),gx2.end(),K);
+            tipl::add_constant(gx2.begin(),gx2.end(),K);
 
             // gx <- gx*K/(K+(gx*gx))
-            image::multiply_constant(gx.begin(),gx.end(),K);
-            image::divide(gx.begin(),gx.end(),gx2.begin());
+            tipl::multiply_constant(gx.begin(),gx.end(),K);
+            tipl::divide(gx.begin(),gx.end(),gx2.begin());
 
             // gx2 <- gradient(gx);
-            image::gradient(gx.begin(),gx.end(),gx2.begin(),shift,0);
+            tipl::gradient(gx.begin(),gx.end(),gx2.begin(),shift,0);
 
             // accumulate the diffusion magnitude
-            image::add(total_gx.begin(),total_gx.end(),gx2.begin());
+            tipl::add(total_gx.begin(),total_gx.end(),gx2.begin());
 
             // proceed to next dimensiom
             shift *= src.geometry()[index];
@@ -114,8 +114,8 @@ void anisotropic_diffusion_inv(image::basic_image<pixel_type,dimension>& src,
         // perform I <= I + total_gx * delta_t
         // delta_t = 1.0/(1 << dimension);
         // scale back the multiplication of 8
-        image::divide_pow_constant(total_gx.begin(),total_gx.end(),dimension);
-        image::add(src.begin(),src.end(),total_gx.begin());
+        tipl::divide_pow_constant(total_gx.begin(),total_gx.end(),dimension);
+        tipl::add(src.begin(),src.end(),total_gx.begin());
     }
 }
 

@@ -3,7 +3,7 @@
 
 #include "filter_model.hpp"
 //---------------------------------------------------------------------------
-namespace image
+namespace tipl
 {
 
 namespace filter
@@ -20,7 +20,7 @@ public:
     template<class image_type>
     void operator()(image_type& src)
     {
-        typedef image::basic_image<class image_type::value_type,image_type::dimension> image_buf_type;
+        typedef tipl::image<class image_type::value_type,image_type::dimension> image_buf_type;
         image_buf_type gx;
         gradient_2x(src,gx);
         absolute_value(gx.begin(),gx.end());
@@ -36,7 +36,7 @@ public:
     template<class image_type>
     void operator()(image_type& src)
     {
-        typedef image::basic_image<typename image_type::value_type,image_type::dimension> image_buf_type;
+        typedef tipl::image<typename image_type::value_type,image_type::dimension> image_buf_type;
         image_buf_type gx;
         gradient_2x(src,gx);
 
@@ -61,7 +61,7 @@ public:
     template<class image_type>
     void operator()(image_type& src)
     {
-        typedef image::basic_image<typename image_type::value_type,image_type::dimension> image_buf_type;
+        typedef tipl::image<typename image_type::value_type,image_type::dimension> image_buf_type;
         image_buf_type gx;
         gradient_2x(src,gx);
 

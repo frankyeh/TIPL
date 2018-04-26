@@ -1,7 +1,7 @@
 #ifndef ML_HMC_HPP
 #define ML_HMC_HPP
 
-namespace image{
+namespace tipl{
 
 namespace ml{
 

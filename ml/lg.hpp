@@ -2,7 +2,7 @@
 #define ML_LG_HPP
 
 
-namespace image{
+namespace tipl{
 
 namespace ml{
 

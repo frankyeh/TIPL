@@ -1,6 +1,6 @@
 #include <vector>
 
-namespace image{
+namespace tipl{
 struct disjoint_set{
 
     std::vector<unsigned int> rank;

@@ -4,9 +4,9 @@
 #include <algorithm>
 #include <numeric>
 #include <utility>
-#include "image/numerical/numerical.hpp"
+#include "tipl/numerical/numerical.hpp"
 
-namespace image
+namespace tipl
 {
 
 class sample
@@ -332,11 +332,11 @@ double t_statistics(input_iterator1 x_from,input_iterator1 x_to,input_iterator2 
 {
     double n1 = x_to-x_from;
     double n2 = y_to-x_from;
-    double mean0 = image::mean(x_from,x_to);
-    double mean1 = image::mean(y_from,y_to);
+    double mean0 = tipl::mean(x_from,x_to);
+    double mean1 = tipl::mean(y_from,y_to);
     double v = n1 + n2 - 2;
-    double va1 = image::variance(x_from,x_to,mean0);
-    double va2 = image::variance(y_from,y_to,mean1);
+    double va1 = tipl::variance(x_from,x_to,mean0);
+    double va2 = tipl::variance(y_from,y_to,mean1);
     // pooled variance:
     double sp = std::sqrt(((n1-1.0) * va1 + (n2-1.0) * va2) / v);
     // t-statistic:
@@ -349,8 +349,8 @@ template<class input_iterator>
 double t_statistics(input_iterator x_from,input_iterator x_to)
 {
     double n = x_to-x_from;
-    double mean = image::mean(x_from,x_to);
-    double var = image::variance(x_from,x_to,mean);
+    double mean = tipl::mean(x_from,x_to);
+    double var = tipl::variance(x_from,x_to,mean);
     if(var == 0.0)
         return 0.0;
     return mean* std::sqrt(double(n-1.0)/var);
@@ -464,25 +464,25 @@ public:
         X.resize(feature_count*subject_count);
         std::copy(X_,X_+X.size(),X.begin());
         Xt.resize(X.size());
-        image::mat::transpose(&*X.begin(),&*Xt.begin(),image::dyndim(subject_count,feature_count));
+        tipl::mat::transpose(&*X.begin(),&*Xt.begin(),tipl::dyndim(subject_count,feature_count));
 
         XtX.resize(feature_count*feature_count); // trans(x)*y    p by p
-        image::mat::product_transpose(&*Xt.begin(),&*Xt.begin(),
+        tipl::mat::product_transpose(&*Xt.begin(),&*Xt.begin(),
                                          &*XtX.begin(),
-                                         image::dyndim(feature_count,subject_count),
-                                         image::dyndim(feature_count,subject_count));
+                                         tipl::dyndim(feature_count,subject_count),
+                                         tipl::dyndim(feature_count,subject_count));
         piv.resize(feature_count);
-        image::mat::lu_decomposition(&*XtX.begin(),&*piv.begin(),image::dyndim(feature_count,feature_count));
+        tipl::mat::lu_decomposition(&*XtX.begin(),&*piv.begin(),tipl::dyndim(feature_count,feature_count));
 
 
         // calculate the covariance
         {
             X_cov = Xt;
             std::vector<value_type> c(feature_count),d(feature_count);
-            if(!image::mat::lq_decomposition(&*X_cov.begin(),&*c.begin(),&*d.begin(),image::dyndim(feature_count,subject_count)))
+            if(!tipl::mat::lq_decomposition(&*X_cov.begin(),&*c.begin(),&*d.begin(),tipl::dyndim(feature_count,subject_count)))
                 return false;
-            image::mat::lq_get_l(&*X_cov.begin(),&*d.begin(),&*X_cov.begin(),
-                                    image::dyndim(feature_count,subject_count));
+            tipl::mat::lq_get_l(&*X_cov.begin(),&*d.begin(),&*X_cov.begin(),
+                                    tipl::dyndim(feature_count,subject_count));
         }
 
 
@@ -490,14 +490,14 @@ public:
         for(unsigned int row = 1,pos = subject_count,pos2 = feature_count;row < feature_count;++row,pos += subject_count,pos2 += feature_count)
             std::copy(X_cov.begin() + pos,X_cov.begin() + pos + feature_count,X_cov.begin() + pos2);
 
-        image::mat::inverse_lower(&*X_cov.begin(),image::dyndim(feature_count,feature_count));
+        tipl::mat::inverse_lower(&*X_cov.begin(),tipl::dyndim(feature_count,feature_count));
 
-        image::square(X_cov.begin(),X_cov.begin()+feature_count*feature_count);
+        tipl::square(X_cov.begin(),X_cov.begin()+feature_count*feature_count);
 
         // sum column wise
         for(unsigned int row = 1,pos = feature_count;row < feature_count;++row,pos += feature_count)
-            image::add(X_cov.begin(),X_cov.begin()+feature_count,X_cov.begin()+pos);
-        image::square_root(X_cov.begin(),X_cov.begin()+feature_count);
+            tipl::add(X_cov.begin(),X_cov.begin()+feature_count,X_cov.begin()+pos);
+        tipl::square_root(X_cov.begin(),X_cov.begin()+feature_count);
 
         std::vector<value_type> new_X_cov(X_cov.begin(),X_cov.begin()+feature_count);
         new_X_cov.swap(X_cov);
@@ -518,9 +518,9 @@ public:
         regress(y,b);
         // calculate residual
         std::vector<value_type> y_(subject_count);
-        image::mat::left_vector_product(&*Xt.begin(),b,&*y_.begin(),image::dyndim(feature_count,subject_count));
-        image::minus(y_.begin(),y_.end(),y);
-        image::square(y_);
+        tipl::mat::left_vector_product(&*Xt.begin(),b,&*y_.begin(),tipl::dyndim(feature_count,subject_count));
+        tipl::minus(y_.begin(),y_.end(),y);
+        tipl::square(y_);
         value_type rmse = std::sqrt(std::accumulate(y_.begin(),y_.end(),0.0)/(subject_count-feature_count));
 
         for(unsigned int index = 0;index < feature_count;++index)
@@ -530,9 +530,9 @@ public:
     void regress(iterator1 y,iterator2 b) const
     {
         std::vector<value_type> xty(feature_count); // trans(x)*y    p by 1
-        image::mat::vector_product(&*Xt.begin(),y,&*xty.begin(),image::dyndim(feature_count,subject_count));
-        image::mat::lu_solve(&*XtX.begin(),&*piv.begin(),&*xty.begin(),b,
-                                image::dyndim(feature_count,feature_count));
+        tipl::mat::vector_product(&*Xt.begin(),y,&*xty.begin(),tipl::dyndim(feature_count,subject_count));
+        tipl::mat::lu_solve(&*XtX.begin(),&*piv.begin(),&*xty.begin(),b,
+                                tipl::dyndim(feature_count,feature_count));
     }
 
 };

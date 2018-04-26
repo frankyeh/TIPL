@@ -2,7 +2,7 @@
 #ifndef IMAGE_SLICE_HPP
 #define IMAGE_SLICE_HPP
 
-namespace image
+namespace tipl
 {
 
 template<class value_type1,class value_type2>
@@ -61,10 +61,10 @@ void get_slice_positions(unsigned char dim,double pos,
     }
 
     double z_pos = pos+(double)range_min[dim];
-    image::slice2space(dim,x_min,y_min,z_pos,points[0][0],points[0][1],points[0][2]);
-    image::slice2space(dim,x_max,y_min,z_pos,points[1][0],points[1][1],points[1][2]);
-    image::slice2space(dim,x_min,y_max,z_pos,points[2][0],points[2][1],points[2][2]);
-    image::slice2space(dim,x_max,y_max,z_pos,points[3][0],points[3][1],points[3][2]);
+    tipl::slice2space(dim,x_min,y_min,z_pos,points[0][0],points[0][1],points[0][2]);
+    tipl::slice2space(dim,x_max,y_min,z_pos,points[1][0],points[1][1],points[1][2]);
+    tipl::slice2space(dim,x_min,y_max,z_pos,points[2][0],points[2][1],points[2][2]);
+    tipl::slice2space(dim,x_max,y_max,z_pos,points[3][0],points[3][1],points[3][2]);
 }
 
 
@@ -88,10 +88,10 @@ void get_slice_positions(unsigned char dim,double pos,const GeoType& geo,ResultT
     y_max = (double)geo[(dim+2) >= 3 ? dim-1 : dim+2]-0.5;
     }
 
-    image::slice2space(dim,x_min,y_min,pos,points[0][0],points[0][1],points[0][2]);
-    image::slice2space(dim,x_max,y_min,pos,points[1][0],points[1][1],points[1][2]);
-    image::slice2space(dim,x_min,y_max,pos,points[2][0],points[2][1],points[2][2]);
-    image::slice2space(dim,x_max,y_max,pos,points[3][0],points[3][1],points[3][2]);
+    tipl::slice2space(dim,x_min,y_min,pos,points[0][0],points[0][1],points[0][2]);
+    tipl::slice2space(dim,x_max,y_min,pos,points[1][0],points[1][1],points[1][2]);
+    tipl::slice2space(dim,x_min,y_max,pos,points[2][0],points[2][1],points[2][2]);
+    tipl::slice2space(dim,x_max,y_max,pos,points[3][0],points[3][1],points[3][2]);
 }
 
 

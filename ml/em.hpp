@@ -1,9 +1,9 @@
 #ifndef ML_EM_HPP
 #define ML_EM_HPP
-#include "image/numerical/matrix.hpp"
+#include "tipl/numerical/matrix.hpp"
 
 
-namespace image{
+namespace tipl{
 
 namespace ml{
 
@@ -30,7 +30,7 @@ private:
     {
         iV.resize(covariance.size());
         id.resize(dim);
-        image::mat::eigen_decomposition_sym(covariance.begin(),iV.begin(),id.begin(),image::dyndim(dim,dim));
+        tipl::mat::eigen_decomposition_sym(covariance.begin(),iV.begin(),id.begin(),tipl::dyndim(dim,dim));
         constant = 1.0;
         unsigned int dimension = 0;
         for (unsigned int i = 0;i < id.size();++i)
@@ -122,7 +122,7 @@ public:
         for (unsigned int i = 0;i < dx.size();++i)
             dx[i] -= attributes[i];
         std::vector<double> idx(dx.size());
-        image::mat::vector_product(iV.begin(),dx.begin(),idx.begin(),image::dyndim(dim,dim));
+        tipl::mat::vector_product(iV.begin(),dx.begin(),idx.begin(),tipl::dyndim(dim,dim));
         double sum = 0.0;
         for (unsigned int i = 0;i < id.size();++i)
             sum += idx[i]*idx[i]*id[i];
@@ -167,8 +167,8 @@ public:
                     classifications_iterator_type classifications_from)
     {
         unsigned int sample_size = attributes_to-attributes;
-        image::dyndim variance_matrix_type(attribute_dimension,attribute_dimension);
-        image::dyndim mean_matrix_type(attribute_dimension,1);
+        tipl::dyndim variance_matrix_type(attribute_dimension,attribute_dimension);
+        tipl::dyndim mean_matrix_type(attribute_dimension,1);
         // initial guess
         model.resize(k);
         for (unsigned int index = 0;index < k;++index)

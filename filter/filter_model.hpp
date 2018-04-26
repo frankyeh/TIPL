@@ -1,10 +1,10 @@
 //---------------------------------------------------------------------------
 #ifndef FILTER_MODEL_HPP
 #define FILTER_MODEL_HPP
-#include "image/utility/basic_image.hpp"
-#include "image/numerical/numerical.hpp"
+#include "tipl/utility/basic_image.hpp"
+#include "tipl/numerical/numerical.hpp"
 //---------------------------------------------------------------------------
-namespace image
+namespace tipl
 {
 
 namespace filter
@@ -14,7 +14,7 @@ struct rgb_manip
 {
     int r,g,b;
 
-    rgb_manip(image::rgb_color color):r(color.r),g(color.g),b(color.b) {}
+    rgb_manip(tipl::rgb color):r(color.r),g(color.g),b(color.b) {}
     rgb_manip(void):r(0),g(0),b(0) {}
 public:
     rgb_manip operator+(const rgb_manip& rhs)
@@ -51,19 +51,19 @@ public:
         g += value;
         b += value;
     }
-    void operator=(rgb_color color)
+    void operator=(rgb color)
     {
         r = color.r;
         g = color.g;
         b = color.b;
     }
-    void operator+=(rgb_color color)
+    void operator+=(rgb color)
     {
         r += color.r;
         g += color.g;
         b += color.b;
     }
-    void operator-=(rgb_color color)
+    void operator-=(rgb color)
     {
         r -= color.r;
         g -= color.g;
@@ -99,9 +99,9 @@ public:
         if (g < 0) g = -g;
         if (b < 0) b = -b;
     }
-    image::rgb_color to_rgb(void) const
+    tipl::rgb to_rgb(void) const
     {
-        return image::rgb_color(std::min(255,r),std::min(255,g),std::min(255,b));
+        return tipl::rgb(std::min(255,r),std::min(255,g),std::min(255,b));
     }
 };
 
@@ -111,7 +111,7 @@ template<>  struct pixel_manip<unsigned char>   {typedef short type;};
 template<>  struct pixel_manip<char>            {typedef short type;};
 template<>  struct pixel_manip<short>           {typedef int type;};
 template<>  struct pixel_manip<unsigned short>  {typedef int type;};
-template<>  struct pixel_manip<image::rgb_color>{typedef rgb_manip type;};
+template<>  struct pixel_manip<tipl::rgb>{typedef rgb_manip type;};
 
 
 template<class value_type,size_t w>  struct weight               {value_type operator()(value_type value)    {return value*w;}};

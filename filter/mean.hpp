@@ -3,7 +3,7 @@
 #define MEAN_FILTER_HPP
 #include "filter_model.hpp"
 //---------------------------------------------------------------------------
-namespace image
+namespace tipl
 {
 
 namespace filter

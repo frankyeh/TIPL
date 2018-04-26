@@ -1,18 +1,18 @@
-#include "image/numerical/numerical.hpp"
-#include "image/numerical/basic_op.hpp"
-#include "image/morphology/morphology.hpp"
+#include "tipl/numerical/numerical.hpp"
+#include "tipl/numerical/basic_op.hpp"
+#include "tipl/morphology/morphology.hpp"
 #include <cstdlib>
 #include <ctime>
 
 #ifdef TIPL_DEBUG
 #include <image/io/nifti.hpp>
-#include "image/io/bitmap.hpp"
+#include "tipl/io/bitmap.hpp"
 #include <sstream>
 #endif
 
 
 
-namespace image
+namespace tipl
 {
 
 namespace segmentation
@@ -119,7 +119,7 @@ void stochastic_competition_init_pivots(
     PivotMapType& pivot_map,
     std::vector<unsigned int>& pivot_list)
 {
-    image::morphology::edge(label,pivot_map);
+    tipl::morphology::edge(label,pivot_map);
     pivot_list.clear();
     for(unsigned int index = 0; index < pivot_map.size(); ++index)
         if(pivot_map[index])
@@ -140,7 +140,7 @@ void stochastic_competition_update_pivots(
     for(unsigned int index = 0; index < neighbor_list.size(); ++index)
     {
         index_type cur_index = neighbor_list[index];
-        if(image::morphology::is_edge(label,cur_index))
+        if(tipl::morphology::is_edge(label,cur_index))
         {
             if(!pivot_map[cur_index.index()])
             {
@@ -187,7 +187,7 @@ inline unsigned int stochastic_competition_select_pivot(const std::vector<unsign
 template<class LabelImageType>
 void stochastic_competition_3region(LabelImageType& label,double inner_region_ratio = 0.5,double outer_region_ratio = 0.9)
 {
-    typedef image::pixel_index<LabelImageType::dimension> index_type;
+    typedef tipl::pixel_index<LabelImageType::dimension> index_type;
     std::vector<double> fdim(LabelImageType::dimension);
     for(unsigned int index = 0; index < fdim.size(); ++index)
         fdim[index] = ((double)label.geometry()[index])/2.0;
@@ -226,13 +226,13 @@ void stochastic_competition_debug(const ImageType& data,
     static unsigned int total_loop = 0;
     {
         // for debug
-        image::basic_image<unsigned char,ImageType::dimension> image_data;
-        image::normalize(data,image_data);
+        tipl::image<unsigned char,ImageType::dimension> image_data;
+        tipl::normalize(data,image_data);
         for(unsigned int index = 0; index < pivot_list.size(); ++index)
             if(label[pivot_list[index]])
                 image_data[pivot_list[index]] = 0x00FFFFFF;
 
-        image::io::bitmap bitmap_file;
+        tipl::io::bitmap bitmap_file;
         bitmap_file << image_data;
         std::string file_name = "c:/STRCMP";
         std::ostringstream out;
@@ -257,22 +257,22 @@ void stochastic_competition_with_lostinfo(const ImageType& src,
     const double initT = 1.0;
     const double T_cooling_step = 0.02;
     const double termination_ratio = 0.02;
-    typedef image::pixel_index<ImageType::dimension> index_type;
+    typedef tipl::pixel_index<ImageType::dimension> index_type;
     typedef typename LabelImageType::value_type label_type;
     typedef typename ImageType::value_type pixel_type;
-    typedef typename image::vector<ImageType::dimension,float> vector_type;
+    typedef typename tipl::vector<ImageType::dimension,float> vector_type;
 
 
     // initial estimation of model parameters
     std::vector<imp::intensity_likelihood<pixel_type> > intensity_model;
     imp::stochastic_competition_init_model_param(src,label,intensity_model);
     // initialize pivot pool
-    image::basic_image<unsigned int,ImageType::dimension> pivot_map;
+    tipl::image<unsigned int,ImageType::dimension> pivot_map;
     std::vector<unsigned int> pivot_list;
     imp::stochastic_competition_init_pivots(label,pivot_map,pivot_list);
     // initialize gradient vector map
-    image::basic_image<vector_type,ImageType::dimension> gre;
-    image::gradient_multiple_sampling(src,gre);
+    tipl::image<vector_type,ImageType::dimension> gre;
+    tipl::gradient_multiple_sampling(src,gre);
     imp::stochastic_competition_init_gradient(gre);
 
 #ifdef TIPL_DEBUG
@@ -306,7 +306,7 @@ void stochastic_competition_with_lostinfo(const ImageType& src,
 
         // 2: select an expected labeling
         {
-            image::get_neighbors(pivot_full_index,label.geometry(),2,neighbor_list);
+            tipl::get_neighbors(pivot_full_index,label.geometry(),2,neighbor_list);
 
             std::vector<label_type> other_label;
             for(unsigned int j = 0; j < neighbor_list.size(); ++j)
@@ -433,15 +433,15 @@ void stochastic_competition(const ImageType& src,
                             double Zr = 5.0,
                             bool consider_region_intensity = true)
 {
-    image::basic_image<unsigned char,LabelImageType::dimension> outter_contour(initial_contour);
-    image::geometry<ImageType::dimension> range_max,range_min,new_geo;
+    tipl::image<unsigned char,LabelImageType::dimension> outter_contour(initial_contour);
+    tipl::geometry<ImageType::dimension> range_max,range_min,new_geo;
 
-    image::bounding_box(initial_contour,range_min,range_max,0);
+    tipl::bounding_box(initial_contour,range_min,range_max,0);
 
-    image::morphology::dilation2(outter_contour,(range_max[0]-range_min[0])/5);
-    image::morphology::erosion2(initial_contour,(range_max[0]-range_min[0])/5);
+    tipl::morphology::dilation2(outter_contour,(range_max[0]-range_min[0])/5);
+    tipl::morphology::erosion2(initial_contour,(range_max[0]-range_min[0])/5);
 
-    image::bounding_box(outter_contour,range_min,range_max,0);
+    tipl::bounding_box(outter_contour,range_min,range_max,0);
 
     for(int dim = 0;dim < ImageType::dimension;++dim)
     {
@@ -461,10 +461,10 @@ void stochastic_competition(const ImageType& src,
             else
                 outter_contour[index] = 2;
     }
-    image::basic_image<typename ImageType::value_type,ImageType::dimension> crop_image(src);
+    tipl::image<typename ImageType::value_type,ImageType::dimension> crop_image(src);
 
-    image::crop(outter_contour,range_min,range_max);
-    image::crop(crop_image,range_min,range_max);
+    tipl::crop(outter_contour,range_min,range_max);
+    tipl::crop(crop_image,range_min,range_max);
 
     if(consider_region_intensity)
         stochastic_competition_with_lostinfo(crop_image,outter_contour,imp::intensity_enabled(),Zc,Zr);
@@ -474,7 +474,7 @@ void stochastic_competition(const ImageType& src,
     std::replace(outter_contour.begin(),outter_contour.end(),0,1);
     std::replace(outter_contour.begin(),outter_contour.end(),2,0);
     std::fill(initial_contour.begin(),initial_contour.end(),0);
-    image::draw(outter_contour,initial_contour,range_min);
+    tipl::draw(outter_contour,initial_contour,range_min);
 \
 }
 

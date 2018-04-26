@@ -2,12 +2,12 @@
 #ifndef NUMERICAL_HPP
 #define NUMERICAL_HPP
 #include <random>
-#include "image/utility/basic_image.hpp"
-#include "image/utility/multi_thread.hpp"
-#include "image/numerical/interpolation.hpp"
+#include "tipl/utility/basic_image.hpp"
+#include "tipl/utility/multi_thread.hpp"
+#include "tipl/numerical/interpolation.hpp"
 
 
-namespace image
+namespace tipl
 {
 
 template<class T>
@@ -123,7 +123,7 @@ void gradient_sobel(const PixelImageType& src,VectorImageType& dest)
 }
 //---------------------------------------------------------------------------
 template<class pixel_type,class container_type,class VectorImageType>
-void gradient_multiple_sampling(const image::basic_image<pixel_type,3,container_type>& src,
+void gradient_multiple_sampling(const tipl::image<pixel_type,3,container_type>& src,
                                 VectorImageType& dest,
                                 double line_interval = 1.0,
                                 unsigned int line_sampling_num = 3,
@@ -132,14 +132,14 @@ void gradient_multiple_sampling(const image::basic_image<pixel_type,3,container_
     gradient(src,dest);
 }
 template<class pixel_type,class container_type,class VectorImageType>
-void gradient_multiple_sampling(const image::basic_image<pixel_type,2,container_type>& src,
+void gradient_multiple_sampling(const tipl::image<pixel_type,2,container_type>& src,
                                 VectorImageType& dest,
                                 double line_interval = 1.0,
                                 unsigned int line_sampling_num = 3,
                                 unsigned int sampling_dir_num = 8)
 {
     typedef typename VectorImageType::value_type vector_type;
-    std::vector<image::interpolation<image::linear_weighting,2> >
+    std::vector<tipl::interpolation<tipl::linear_weighting,2> >
     interpo1(sampling_dir_num*line_sampling_num),interpo2(sampling_dir_num*line_sampling_num);
     std::vector<vector_type> offset_vector(sampling_dir_num*line_sampling_num);
     std::vector<double> offset_length(sampling_dir_num*line_sampling_num);
@@ -172,7 +172,7 @@ void gradient_multiple_sampling(const image::basic_image<pixel_type,2,container_
     }
 
     dest.resize(src.geometry());
-    for (image::pixel_index<2> iter(src.geometry()); iter < src.size(); ++iter)
+    for (tipl::pixel_index<2> iter(src.geometry()); iter < src.size(); ++iter)
     {
         vector_type dist;
         unsigned int total_dir = 0;
@@ -368,7 +368,7 @@ void add(image_type1& I,const image_type2& I2)
 template<class image_type1,class image_type2>
 void add_mt(image_type1& I,const image_type2& I2)
 {
-    image::par_for(I.size(),[&I,&I2](int index){
+    tipl::par_for(I.size(),[&I,&I2](int index){
        I[index] += I2[index];
     });
 }
@@ -389,7 +389,7 @@ void minus(image_type1& I,const image_type2& I2)
 template<class image_type1,class image_type2>
 void minus_mt(image_type1& I,const image_type2& I2)
 {
-    image::par_for(I.size(),[&I,&I2](int index){
+    tipl::par_for(I.size(),[&I,&I2](int index){
        I[index] -= I2[index];
     });
 }
@@ -409,7 +409,7 @@ void multiply(image_type1& I,const image_type2& I2)
 template<class image_type1,class image_type2>
 void multiply_mt(image_type1& I,const image_type2& I2)
 {
-    image::par_for(I.size(),[&I,&I2](int index){
+    tipl::par_for(I.size(),[&I,&I2](int index){
        I[index] *= I2[index];
     });
 }
@@ -469,7 +469,7 @@ void minus_constant(image_type& I,value_type value)
 template<class image_type,class value_type>
 void minus_constant_mt(image_type& I,value_type value)
 {
-    image::par_for(I.size(),[&I,value](int index)
+    tipl::par_for(I.size(),[&I,value](int index)
     {
        I[index] -= value;
     });
@@ -490,7 +490,7 @@ void multiply_constant(image_type& I,value_type value)
 template<class image_type,class value_type>
 void multiply_constant_mt(image_type& I,value_type value)
 {
-    image::par_for(I.size(),[&I,value](int index){
+    tipl::par_for(I.size(),[&I,value](int index){
        I[index] *= value;
     });
 }
@@ -511,7 +511,7 @@ void divide_constant(image_type& I,value_type value)
 template<class image_type,class value_type>
 void divide_constant_mt(image_type& I,value_type value)
 {
-    image::par_for(I.size(),[&I,value](int index){
+    tipl::par_for(I.size(),[&I,value](int index){
        I[index] /= value;
     });
 }
@@ -838,15 +838,15 @@ void apply_sort_index(container_type& c,const std::vector<index_type>& idx)
 }
 
 template<class I_type>
-image::vector<I_type::dimension,float> center_of_mass(const I_type& Im)
+tipl::vector<I_type::dimension,float> center_of_mass(const I_type& Im)
 {
-    image::vector<I_type::dimension,float> sum_mass;
+    tipl::vector<I_type::dimension,float> sum_mass;
     double total_w = 0.0;
     Im.for_each([&](typename I_type::value_type v,
-                    image::pixel_index<I_type::dimension> index)
+                    tipl::pixel_index<I_type::dimension> index)
     {
         total_w += v;
-        image::vector<I_type::dimension,float> pos(index);
+        tipl::vector<I_type::dimension,float> pos(index);
         pos *= v;
         sum_mass += pos;
     });

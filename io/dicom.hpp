@@ -35,9 +35,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <algorithm>
 #include <memory>
 #include <locale>
-#include "image/numerical/basic_op.hpp"
+#include "tipl/numerical/basic_op.hpp"
 //---------------------------------------------------------------------------
-namespace image
+namespace tipl
 {
 namespace io
 {
@@ -922,13 +922,13 @@ public:
         return get_int(0x0028,0x0103);
     }
 
-    void get_image_dimension(image::geometry<2>& geo) const
+    void get_image_dimension(tipl::geometry<2>& geo) const
     {
         geo[0] = width();
         geo[1] = height();
     }
 
-    void get_image_dimension(image::geometry<3>& geo) const
+    void get_image_dimension(tipl::geometry<3>& geo) const
     {
         geo[0] = width();
         geo[1] = height();
@@ -998,7 +998,7 @@ public:
     {
         if(!input_io.get() || !(*input_io))
             return;
-        image::geometry<image_type::dimension> geo;
+        tipl::geometry<image_type::dimension> geo;
         get_image_dimension(geo);
         if(is_mosaic)
         {

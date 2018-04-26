@@ -1,11 +1,11 @@
 //---------------------------------------------------------------------------
 #ifndef BASIC_OP_HPP
 #define BASIC_OP_HPP
-#include "image/utility/pixel_index.hpp"
-#include "image/utility/basic_image.hpp"
-#include "image/utility/multi_thread.hpp"
+#include "tipl/utility/pixel_index.hpp"
+#include "tipl/utility/basic_image.hpp"
+#include "tipl/utility/multi_thread.hpp"
 
-namespace image
+namespace tipl
 {
 
 template<class iterator_type1,class iterator_type2,class int_type>
@@ -22,7 +22,7 @@ inline void for_each(iterator_type1 iter1,iterator_type1 end,iterator_type2 iter
         fun(*iter1,*iter2);
 }
 /*
-example image::binary(classification,label,std::bind2nd (std::not_equal_to<unsigned char>(), background_index));
+example tipl::binary(classification,label,std::bind2nd (std::not_equal_to<unsigned char>(), background_index));
 */
 
 template<class ImageType,class LabelImageType,class fun_type>
@@ -68,14 +68,14 @@ void threshold(const ImageType& image,LabelImageType& out,typename ImageType::va
 
 //--------------------------------------------------------------------------
 template<class PixelType,class DimensionType,class storage_type>
-void crop(const basic_image<PixelType,2,storage_type>& from_image,
-          basic_image<PixelType,2,storage_type>& to_image,
+void crop(const image<PixelType,2,storage_type>& from_image,
+          image<PixelType,2,storage_type>& to_image,
           const DimensionType& from,
           const DimensionType& to)
 {
     if (to[0] <= from[0] || to[1] <= from[1])
         return;
-    image::geometry<2> geo(to[0]-from[0],to[1]-from[1]);
+    tipl::geometry<2> geo(to[0]-from[0],to[1]-from[1]);
     to_image.resize(geo);
     unsigned int size = geo.size();
     unsigned int from_index = from[1]*from_image.width() + from[0];
@@ -88,15 +88,15 @@ void crop(const basic_image<PixelType,2,storage_type>& from_image,
 }
 //--------------------------------------------------------------------------
 template<class PixelType,class DimensionType,class storage_type>
-void crop(const basic_image<PixelType,3,storage_type>& from_image,
-          basic_image<PixelType,3,storage_type>& to_image,
+void crop(const image<PixelType,3,storage_type>& from_image,
+          image<PixelType,3,storage_type>& to_image,
           const DimensionType& from,
           const DimensionType& to)
 {
     if (to[0] <= from[0] || to[1] <= from[1] ||
             to[2] <= from[2])
         return;
-    image::geometry<3> geo(to[0]-from[0],to[1]-from[1],to[2]-from[2]);
+    tipl::geometry<3> geo(to[0]-from[0],to[1]-from[1],to[2]-from[2]);
     to_image.resize(geo);
     unsigned int from_index = (from[2]*from_image.height()+from[1])*from_image.width()+from[0];
     unsigned int y_shift = from_image.width()-geo.width();
@@ -132,12 +132,12 @@ void fill_rect(image_type& I,PosType from,PosType to,pixel_type value)
 //--------------------------------------------------------------------------
 template<class pixel_type1,class storage_type1,
          typename pixel_type2,class storage_type2,class PosType>
-void draw(const basic_image<pixel_type1,2,storage_type1>& from_image,
-          basic_image<pixel_type2,2,storage_type2>& to_image,
+void draw(const image<pixel_type1,2,storage_type1>& from_image,
+          image<pixel_type2,2,storage_type2>& to_image,
           PosType pos)
 {
-    typedef basic_image<pixel_type1,2,storage_type1> from_image_type;
-    typedef basic_image<pixel_type2,2,storage_type2> to_image_type;
+    typedef image<pixel_type1,2,storage_type1> from_image_type;
+    typedef image<pixel_type2,2,storage_type2> to_image_type;
     int x_shift,y_shift;
     if (pos[0] < 0)
     {
@@ -171,12 +171,12 @@ void draw(const basic_image<pixel_type1,2,storage_type1>& from_image,
 //--------------------------------------------------------------------------
 template<class pixel_type1,class storage_type1,
          typename pixel_type2,class storage_type2,class PosType>
-void draw(const basic_image<pixel_type1,3,storage_type1>& from_image,
-          basic_image<pixel_type2,3,storage_type2>& to_image,
+void draw(const image<pixel_type1,3,storage_type1>& from_image,
+          image<pixel_type2,3,storage_type2>& to_image,
           PosType pos)
 {
-    typedef basic_image<pixel_type1,3,storage_type1> from_image_type;
-    typedef basic_image<pixel_type2,3,storage_type2> to_image_type;
+    typedef image<pixel_type1,3,storage_type1> from_image_type;
+    typedef image<pixel_type2,3,storage_type2> to_image_type;
     int x_shift,y_shift,z_shift;
     if (pos[0] < 0)
     {
@@ -230,28 +230,28 @@ void mosaic(const image_type1& source,
 {
     unsigned slice_num = source.depth() / skip;
     out.clear();
-    out.resize(image::geometry<2>(source.width()*mosaic_size,
+    out.resize(tipl::geometry<2>(source.width()*mosaic_size,
                                   source.height()*(std::ceil((float)slice_num/(float)mosaic_size))));
     for(unsigned int z = 0;z < slice_num;++z)
     {
-        image::vector<2,int> pos(source.width()*(z%mosaic_size),
+        tipl::vector<2,int> pos(source.width()*(z%mosaic_size),
                                  source.height()*(z/mosaic_size));
-        image::draw(source.slice_at(z*skip),out,pos);
+        tipl::draw(source.slice_at(z*skip),out,pos);
     }
 }
 //---------------------------------------------------------------------------
 template<class PixelType,class PosType>
-void move(basic_image<PixelType,2>& src,PosType pos)
+void move(image<PixelType,2>& src,PosType pos)
 {
-    basic_image<PixelType,2> dest(geometry<2>(src.width() + std::abs(pos[0]),src.height() + std::abs(pos[1])));
+    image<PixelType,2> dest(geometry<2>(src.width() + std::abs(pos[0]),src.height() + std::abs(pos[1])));
     draw(src,dest,pos);
     dest.swap(src);
 }
 //---------------------------------------------------------------------------
 template<class PixelType,class PosType>
-void move(basic_image<PixelType,3>& src,PosType pos)
+void move(image<PixelType,3>& src,PosType pos)
 {
-    basic_image<PixelType,3> dest(
+    image<PixelType,3> dest(
         geometry<3>(src.width() + std::abs(pos[0]),
                     src.height() + std::abs(pos[1]),
                     src.depth() + std::abs(pos[2])));
@@ -304,7 +304,7 @@ void bounding_box_mt(const std::vector<point_type>& points,point_type& max_value
         min_values[i] = points[0];
     }
     unsigned char dim = points[0].size();
-    image::par_for2(points.size(),[&](unsigned int index,unsigned int id)
+    tipl::par_for2(points.size(),[&](unsigned int index,unsigned int id)
     {
         for (unsigned char d = 0; d < dim; ++d)
             if (points[index][d] > max_values[id][d])
@@ -328,7 +328,7 @@ void bounding_box_mt(const std::vector<point_type>& points,point_type& max_value
 template<class ImageType>
 void trim(ImageType& image,class ImageType::value_type background = 0)
 {
-    image::geometry<ImageType::dimension> range_min,range_max;
+    tipl::geometry<ImageType::dimension> range_min,range_max;
     bounding_box(image,range_min,range_max,background);
     if (range_min[0] < range_max[0])
         crop(image,range_min,range_max);
@@ -493,7 +493,7 @@ bool reorder_shift_index(const geo_type& geo,
 template<class image_type1,class image_type2,class dim_order_type,class flip_type>
 void reorder(const image_type1& volume,image_type2& volume_out,dim_order_type dim_order,flip_type flip)
 {
-    image::geometry<image_type1::dimension> new_geo;
+    tipl::geometry<image_type1::dimension> new_geo;
     int origin[image_type1::dimension];
     int shift[image_type1::dimension];
     if (!reorder_shift_index(volume.geometry(),dim_order,flip,new_geo,origin,shift))
@@ -580,9 +580,9 @@ template<class ImageType>
 void swap_xy(ImageType& I)
 {
     typedef typename ImageType::value_type value_type;
-    image::geometry<ImageType::dimension> new_geo(I.geometry());
+    tipl::geometry<ImageType::dimension> new_geo(I.geometry());
     std::swap(new_geo[0],new_geo[1]);
-    image::basic_image<value_type,ImageType::dimension> new_volume(new_geo);
+    tipl::image<value_type,ImageType::dimension> new_volume(new_geo);
     int origin[2] = {0,0};
     int shift[2];
     shift[0] = new_geo.width();
@@ -597,9 +597,9 @@ template<class ImageType>
 void swap_xz(ImageType& I)
 {
     typedef typename ImageType::value_type value_type;
-    image::geometry<ImageType::dimension> new_geo(I.geometry());
+    tipl::geometry<ImageType::dimension> new_geo(I.geometry());
     std::swap(new_geo[0],new_geo[2]);
-    image::basic_image<value_type,ImageType::dimension> new_volume(new_geo);
+    tipl::image<value_type,ImageType::dimension> new_volume(new_geo);
 
     int origin[3] = {0,0,0};
     int shift[3];
@@ -616,9 +616,9 @@ template<class ImageType>
 void swap_yz(ImageType& I)
 {
     typedef typename ImageType::value_type value_type;
-    image::geometry<ImageType::dimension> new_geo(I.geometry());
+    tipl::geometry<ImageType::dimension> new_geo(I.geometry());
     std::swap(new_geo[1],new_geo[2]);
-    image::basic_image<value_type,ImageType::dimension> new_volume(new_geo);
+    tipl::image<value_type,ImageType::dimension> new_volume(new_geo);
 
     int origin[3] = {0,0,0};
     int shift[3];
@@ -685,8 +685,8 @@ void paint(const ImageType1& image1,ImageType2& image2,PixelType2 paint_value)
 
 /*
 template<class PixelType1,class PixelType2,class LocationType>
-void draw(const image::basic_image<PixelType1,2>& src,
-          image::basic_image<PixelType2,2>& des,LocationType place)
+void draw(const tipl::image<PixelType1,2>& src,
+          tipl::image<PixelType2,2>& des,LocationType place)
 {
     int x_src = 0;
     int x_des = place[0];
@@ -717,8 +717,8 @@ void draw(const image::basic_image<PixelType1,2>& src,
 */
 
 template<class PixelType1,class PixelType2,class LocationType,class DetermineType>
-void draw_if(const image::basic_image<PixelType1,2>& src,
-             image::basic_image<PixelType2,2>& des,LocationType place,DetermineType pred_background)
+void draw_if(const tipl::image<PixelType1,2>& src,
+             tipl::image<PixelType2,2>& des,LocationType place,DetermineType pred_background)
 {
     int x_src = 0;
     int x_des = place[0];
@@ -756,7 +756,7 @@ void draw_if(const image::basic_image<PixelType1,2>& src,
 }
 
 template<class PixelType1,class OutImageType>
-void project(const image::basic_image<PixelType1,2>& src,OutImageType& result,unsigned int dim)
+void project(const tipl::image<PixelType1,2>& src,OutImageType& result,unsigned int dim)
 {
     if(dim == 0) // project x
     {
@@ -776,8 +776,8 @@ template <typename image_type,typename output_type>
 void project_x(const image_type& I,output_type& P)
 {
     typedef typename output_type::value_type value_type;
-    P.resize(image::geometry<2>(I.height(),I.depth()));// P = I(y,z)
-    P.for_each([&](value_type& value,image::pixel_index<2> index)
+    P.resize(tipl::geometry<2>(I.height(),I.depth()));// P = I(y,z)
+    P.for_each([&](value_type& value,tipl::pixel_index<2> index)
     {
         size_t pos = (index[0]+index[1]*I.height())*I.width();
         value = std::accumulate(I.begin()+pos,I.begin()+pos+I.width(),value_type(0));
@@ -787,8 +787,8 @@ template <typename image_type,typename output_type>
 void project_y(const image_type& I,output_type& P)
 {
     typedef typename output_type::value_type value_type;
-    P.resize(image::geometry<2>(I.width(),I.depth())); // P = I(x,z)
-    P.for_each([&](value_type& value,image::pixel_index<2> index)
+    P.resize(tipl::geometry<2>(I.width(),I.depth())); // P = I(x,z)
+    P.for_each([&](value_type& value,tipl::pixel_index<2> index)
     {
         size_t pos = index[0]+index[1]*I.plane_size();
         value_type v(0);
@@ -852,7 +852,7 @@ void hist_norm(const image_type1& I1,image_type2& I2,unsigned int bin_count)
     typename image_type1::value_type max_v = *std::max_element(I1.begin(),I1.end());
 
     std::vector<unsigned int> hist;
-    image::histogram(I1,hist,min_v,max_v,bin_count);
+    tipl::histogram(I1,hist,min_v,max_v,bin_count);
 
     for(unsigned int i = 1;i < hist.size();++i)
         hist[i] += hist[i-1];

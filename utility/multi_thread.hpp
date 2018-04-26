@@ -1,7 +1,7 @@
 #ifndef MULTI_THREAD_HPP
 #define MULTI_THREAD_HPP
 #include <future>
-namespace image{
+namespace tipl{
 
 class time
 {
