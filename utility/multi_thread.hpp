@@ -39,6 +39,45 @@ void par_for(T size, Func f, int thread_count = std::thread::hardware_concurrenc
 }
 
 template <class T,class Func>
+void par_for_asyn(T size, Func f, int thread_count = std::thread::hardware_concurrency())
+{
+    std::vector<std::future<void> > futures;
+    if(thread_count > size)
+        thread_count = int(size);
+    T now = 0;
+    std::mutex read_now;
+    for(int id = 1; id < thread_count; id++)
+    {
+        futures.push_back(std::move(std::async(std::launch::async, [id,size,thread_count,&f,&now,&read_now]
+        {
+            while(now < size)
+            {
+                T i;
+                {
+                    std::lock_guard<std::mutex> lock(read_now);
+                    i = now;
+                    ++now;
+                }
+                f(i);
+            }
+        })));
+    }
+    while(now < size)
+    {
+        T i;
+        {
+            std::lock_guard<std::mutex> lock(read_now);
+            i = now;
+            ++now;
+        }
+        f(i);
+    }
+    for(auto &future : futures)
+        future.wait();
+}
+
+
+template <class T,class Func>
 void par_for2(T size, Func f, int thread_count = std::thread::hardware_concurrency())
 {
     std::vector<std::future<void> > futures;
@@ -58,6 +97,43 @@ void par_for2(T size, Func f, int thread_count = std::thread::hardware_concurren
         future.wait();
 }
 
+template <class T,class Func>
+void par_for_asyn2(T size, Func f, int thread_count = std::thread::hardware_concurrency())
+{
+    std::vector<std::future<void> > futures;
+    if(thread_count > size)
+        thread_count = int(size);
+    T now = 0;
+    std::mutex read_now;
+    for(int id = 1; id < thread_count; id++)
+    {
+        futures.push_back(std::move(std::async(std::launch::async, [id,size,thread_count,&f,&now,&read_now]
+        {
+            while(now < size)
+            {
+                T i;
+                {
+                    std::lock_guard<std::mutex> lock(read_now);
+                    i = now;
+                    ++now;
+                }
+                f(i,id);
+            }
+        })));
+    }
+    while(now < size)
+    {
+        T i;
+        {
+            std::lock_guard<std::mutex> lock(read_now);
+            i = now;
+            ++now;
+        }
+        f(i,0);
+    }
+    for(auto &future : futures)
+        future.wait();
+}
 template <class T,class Func>
 void par_for_block(T size, Func f, int thread_count = std::thread::hardware_concurrency())
 {
