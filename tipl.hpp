@@ -28,6 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "tipl/utility/basic_image.hpp"
 
+
 #include "tipl/morphology/morphology.hpp"
 #include "tipl/segmentation/segmentation.hpp"
 
@@ -81,7 +82,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "tipl/vis/march_cube.hpp"
 #include "tipl/vis/color_map.hpp"
-
 
 
 
