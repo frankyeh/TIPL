@@ -22,14 +22,13 @@ void watershed(const ImageType& input_image,LabelImageType& label)
 {
     label.clear();
     label.resize(input_image.geometry());
-    tipl::image<unsigned char,ImageType::dimension> image(input_image.geometry());
-    tipl::normalize(input_image,image);
+    tipl::image<unsigned char,ImageType::dimension> I(input_image.geometry());
+    tipl::normalize(input_image,I);
 
     std::vector<std::list<pixel_index<ImageType::dimension> > > presort_table(256);
-    for (pixel_index<ImageType::dimension> index;
-         index.is_valid(image.geometry());
-         index.next(image.geometry()))
-        presort_table[image[index.index()]].push_back(index);
+    for (pixel_index<ImageType::dimension> index(I.geometry());
+         index < I.size();++index)
+        presort_table[I[index.index()]].push_back(index);
 
     std::list<std::pair<pixel_index<ImageType::dimension>,size_t> > flooding_points;
     size_t basin_id = 1;
@@ -53,7 +52,7 @@ void watershed(const ImageType& input_image,LabelImageType& label)
         typename std::list<std::pair<pixel_index<ImageType::dimension>,size_t> >::iterator end = flooding_points.end();
         while (iter != end)
         {
-            if(image[iter->first.index()] != intensity)
+            if(I[iter->first.index()] != intensity)
             {
                 ++iter;
                 continue;
@@ -71,18 +70,18 @@ void watershed(const ImageType& input_image,LabelImageType& label)
                     cur_basin = iter->second;
                 label[iter->first.index()] = cur_basin;
 
-                pixel_index<ImageType::dimension> active_point;
+                pixel_index<ImageType::dimension> active_point(I.geometry());
                 std::vector<pixel_index<ImageType::dimension> > front,neighbor_points;
                 front.push_back(iter->first);
                 while(!front.empty())
                 {
                     active_point = front.back();
                     front.pop_back();
-                    get_connected_neighbors(active_point,image.geometry(),neighbor_points);
+                    get_connected_neighbors(active_point,I.geometry(),neighbor_points);
                     for(size_t index = 0; index < neighbor_points.size(); ++index)
                     {
                         size_t cur_index = neighbor_points[index].index();
-                        if(image[cur_index] == intensity)
+                        if(I[cur_index] == intensity)
                         {
                             if(label[cur_index] != cur_basin)
                             {
@@ -126,7 +125,7 @@ void watershed2(const ImageType& input_image,LabelImageType& label,unsigned int 
         {
             std::vector<unsigned int> grow_pos;
             std::vector<unsigned int> grow_index;
-            for(pixel_type pos;label.geometry().is_valid(pos);pos.next(label.geometry()))
+            for(pixel_type pos(label.geometry()); pos < label.size();++pos)
                 if(cur_label[pos.index()])
                 {
                     std::vector<pixel_type> neighbor_points;

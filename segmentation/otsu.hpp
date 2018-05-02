@@ -61,7 +61,7 @@ float otsu_threshold(const ImageType& src)
 }
 
 template<class ImageType,class LabelImageType>
-void otsu(const ImageType& src,LabelImageType& label,class LabelImageType::value_type foreground = 1,class LabelImageType::value_type background = 0)
+void otsu(const ImageType& src,LabelImageType& label,typename LabelImageType::value_type foreground = 1,typename LabelImageType::value_type background = 0)
 {
     threshold(src,label,otsu_threshold(src),foreground,background);
 }
