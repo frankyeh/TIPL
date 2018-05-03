@@ -21,7 +21,7 @@ namespace segmentation
 namespace imp
 {
 
-template<class pixel_type>
+template<typename pixel_type>
 class intensity_likelihood
 {
 private:
@@ -86,7 +86,7 @@ struct intensity_enabled{
 };
 
 // initialize model parameters according to the initial contour
-template<class ImageType,class LabelImageType,class pixel_type>
+template<typename ImageType,typename LabelImageType,typename pixel_type>
 void stochastic_competition_init_model_param(
     const ImageType& src,const LabelImageType& label,
     std::vector<imp::intensity_likelihood<pixel_type> >& intensity_model)
@@ -101,7 +101,7 @@ void stochastic_competition_init_model_param(
 }
 
 // normalizing gradient field
-template<class GradientImageType>
+template<typename GradientImageType>
 void stochastic_competition_init_gradient(GradientImageType& gre)
 {
     double max_gre = 0;
@@ -113,7 +113,7 @@ void stochastic_competition_init_gradient(GradientImageType& gre)
 }
 
 // initialize pivot pool
-template<class LabelImageType,class PivotMapType>
+template<typename LabelImageType,typename PivotMapType>
 void stochastic_competition_init_pivots(
     const LabelImageType& label,
     PivotMapType& pivot_map,
@@ -130,7 +130,7 @@ void stochastic_competition_init_pivots(
 }
 
 // update pivot pool
-template<class LabelImageType,class PivotMapType,class index_type>
+template<typename LabelImageType,typename PivotMapType,typename index_type>
 void stochastic_competition_update_pivots(
     const LabelImageType& label,
     const std::vector<index_type>& neighbor_list,
@@ -184,7 +184,7 @@ inline unsigned int stochastic_competition_select_pivot(const std::vector<unsign
     object region = 1
     background region = 2
 */
-template<class LabelImageType>
+template<typename LabelImageType>
 void stochastic_competition_3region(LabelImageType& label,double inner_region_ratio = 0.5,double outer_region_ratio = 0.9)
 {
     typedef tipl::pixel_index<LabelImageType::dimension> index_type;
@@ -247,7 +247,7 @@ void stochastic_competition_debug(const ImageType& data,
 
 //  Image label: 0 reserved to unknown label
 //
-template<class ImageType,class LabelImageType,class LostInfoType>
+template<typename ImageType,typename LabelImageType,typename LostInfoType>
 void stochastic_competition_with_lostinfo(const ImageType& src,
                             LabelImageType& label,
                             const LostInfoType& no_info_map,
@@ -426,7 +426,7 @@ void stochastic_competition_with_lostinfo(const ImageType& src,
 /*
 initial_contour has 1 insid the contour and 0 elsewhere.
 */
-template<class ImageType,class LabelImageType>
+template<typename ImageType,typename LabelImageType>
 void stochastic_competition(const ImageType& src,
                             LabelImageType& initial_contour,
                             double Zc = 30.0,

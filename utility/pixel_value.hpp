@@ -40,6 +40,10 @@ struct rgb
     {
         return (((short)r) + ((short)g) + ((short)b)) / 3;
     }
+    operator int() const
+    {
+        return (((int)r) + ((int)g) + ((int)b)) / 3;
+    }
     operator float() const
     {
         return (((float)r) + ((float)g) + ((float)b)) / 3.0f;
