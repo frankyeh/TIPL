@@ -636,12 +636,13 @@ public:
         tipl::uniform_dist<int> gen(2);
         for(int j = 0;j < size();++j)
         {
+            auto I = tipl::make_image(&data[j][0],input);
             if(gen())
-                tipl::flip_x(tipl::make_image(&data[j][0],input));
+                tipl::flip_x(I);
             if(gen())
-                tipl::flip_y(tipl::make_image(&data[j][0],input));
+                tipl::flip_y(I);
             if(gen())
-                tipl::swap_xy(tipl::make_image(&data[j][0],input));
+                tipl::swap_xy(I);
         }
     }
 };
