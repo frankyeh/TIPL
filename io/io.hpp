@@ -18,8 +18,8 @@ namespace io
 
 class volume{
 private:
-    std::vector<dicom*> dicom_reader;
-    std::vector<nifti*> nifti_reader;
+    std::vector<std::shared_ptr<dicom> > dicom_reader;
+    std::vector<std::shared_ptr<nifti> > nifti_reader;
     float orientation_matrix[9];
     float spatial_resolution[3];
     char dim_order[3]; // used to rotate the volume to axial view
@@ -27,13 +27,8 @@ private:
 
     void free_all(void)
     {
-        for(unsigned int index = 0;index < dicom_reader.size();++index)
-            delete dicom_reader[index];
-        for(unsigned int index = 0;index < nifti_reader.size();++index)
-            delete nifti_reader[index];
         dicom_reader.clear();
         nifti_reader.clear();
-
     }
     void change_orientation(bool x,bool y,bool z)
     {
@@ -50,8 +45,8 @@ private:
 
 public:
     ~volume(void){free_all();}
-    const dicom* get_dicom(unsigned int index) const{return index < dicom_reader.size() ? dicom_reader[index]:0;}
-    const nifti* get_nifti(unsigned int index) const{return index < nifti_reader.size() ? nifti_reader[index]:0;}
+    const std::shared_ptr<dicom> get_dicom(unsigned int index) const{return dicom_reader[index];}
+    const std::shared_ptr<nifti> get_nifti(unsigned int index) const{return nifti_reader[index];}
 
     template<class voxel_size_type>
     void get_voxel_size(voxel_size_type voxel_size) const
@@ -69,25 +64,25 @@ public:
     template<class file_name_type>
     bool load_from_file(const file_name_type& file_name)
     {
-        std::auto_ptr<dicom> dicom_header(new dicom);
+        std::shared_ptr<dicom> dicom_header(new dicom);
         if (dicom_header->load_from_file(file_name))
         {
             dicom_header->get_voxel_size(spatial_resolution);
             dicom_header->get_image_orientation(orientation_matrix);
             free_all();
-            dicom_reader.push_back(dicom_header.release());
+            dicom_reader.push_back(dicom_header);
             tipl::get_orientation(3,orientation_matrix,dim_order,flip);
             tipl::reorient_vector(spatial_resolution,dim_order);
             tipl::reorient_matrix(orientation_matrix,dim_order,flip);
             return true;
         }
-        std::auto_ptr<nifti> nifti_header(new nifti);
+        std::shared_ptr<nifti> nifti_header(new nifti);
         if (nifti_header->load_from_file(file_name))
         {
             nifti_header->get_voxel_size(spatial_resolution);
             nifti_header->get_image_orientation(orientation_matrix);
             free_all();
-            nifti_reader.push_back(nifti_header.release());
+            nifti_reader.push_back(nifti_header);
             tipl::get_inverse_orientation(3,orientation_matrix,dim_order,flip);
             change_orientation(true,true,false);
             // from +x = Right  +y = Anterior +z = Superior
@@ -106,7 +101,7 @@ public:
         free_all();
         for (unsigned int index = 0;index < count;++index)
         {
-            std::auto_ptr<dicom> dicom_header(new dicom);
+            std::shared_ptr<dicom> dicom_header(new dicom);
             if (dicom_header->load_from_file(files[index]))
             {
                 if(dicom_reader.empty())
@@ -114,10 +109,10 @@ public:
                     dicom_header->get_voxel_size(spatial_resolution);
                     dicom_header->get_image_orientation(orientation_matrix);
                 }
-                dicom_reader.push_back(dicom_header.release());
+                dicom_reader.push_back(dicom_header);
                 continue;
             }
-            std::auto_ptr<nifti> nifti_header(new nifti);
+            std::shared_ptr<nifti> nifti_header(new nifti);
             if (nifti_header->load_from_file(files[index].c_str()))
             {
                 if(nifti_reader.empty())
@@ -125,11 +120,19 @@ public:
                     nifti_header->get_voxel_size(spatial_resolution);
                     nifti_header->get_image_orientation(orientation_matrix);
                 }
-                nifti_reader.push_back(nifti_header.release());
+                nifti_reader.push_back(nifti_header);
             }
         }
         if(!dicom_reader.empty())
+        {
+            tipl::vector<3> pos1,pos2;
+            dicom_reader[0]->get_left_upper_pos(pos1.begin());
+            dicom_reader[1]->get_left_upper_pos(pos2.begin());
+            orientation_matrix[6] = pos2[0]-pos1[0];
+            orientation_matrix[7] = pos2[1]-pos1[1];
+            orientation_matrix[8] = pos2[2]-pos1[2];
             tipl::get_orientation(3,orientation_matrix,dim_order,flip);
+        }
         else
             if(!nifti_reader.empty())
             {

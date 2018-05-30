@@ -794,6 +794,16 @@ public:
         >> image_col_orientation[2];
         return true;
     }
+    template<class vector_type>
+    bool get_left_upper_pos(vector_type lp_pos) const
+    {
+        std::string pos;
+        if (!get_text(0x0020,0x0032,pos))
+            return false;
+        std::replace(pos.begin(),pos.end(),'\\',' ');
+        std::istringstream(pos) >> lp_pos[0] >> lp_pos[1] >> lp_pos[2];
+        return true;
+    }
 
     template<class vector_type>
     bool get_image_orientation(vector_type orientation_matrix) const
