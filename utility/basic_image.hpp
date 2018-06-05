@@ -271,6 +271,12 @@ public:
         geo = rhs.geometry();
         return *this;
     }
+    const image& operator=(image&& rhs)
+    {
+        data.swap(rhs.data);
+        geo.swap(rhs.geo);
+        return *this;
+    }
 public:
     void swap(image& rhs)
     {
