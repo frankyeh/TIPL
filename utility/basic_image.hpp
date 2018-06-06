@@ -468,6 +468,30 @@ public:
             future.wait();
     }
     template<typename Func>
+    void for_each_mt(Func f, int thread_count = std::thread::hardware_concurrency()) const
+    {
+        if(thread_count < 1)
+            thread_count = 1;
+        size_t block_size = data.size()/thread_count;
+
+        std::vector<std::future<void> > futures;
+        size_t pos = 0;
+        for(int id = 1; id < thread_count; id++)
+        {
+            size_t end = pos + block_size;
+            futures.push_back(std::move(std::async(std::launch::async, [this,f,pos,end]
+            {
+                for(pixel_index<dim> index(pos,geometry());index.index() < end;++index)
+                    f(data[index.index()],index);
+            })));
+            pos = end;
+        }
+        for(pixel_index<dim> index(pos,geometry());index.index() < data.size();++index)
+            f(data[index.index()],index);
+        for(auto &future : futures)
+            future.wait();
+    }
+    template<typename Func>
     void for_each_mt2(Func f, int thread_count = std::thread::hardware_concurrency())
     {
         if(thread_count < 1)
