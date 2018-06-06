@@ -578,17 +578,17 @@ public:
 
 
 template<class value_type,class geometry_type>
-pointer_image<value_type,geometry_type::dimension>&&
+pointer_image<value_type,geometry_type::dimension>
     make_image(value_type* pointer,const geometry_type& geo)
 {
-    return std::move(pointer_image<value_type,geometry_type::dimension>(pointer,geo));
+    return pointer_image<value_type,geometry_type::dimension>(pointer,geo);
 }
 
 template<class value_type,class geometry_type>
-const_pointer_image<value_type,geometry_type::dimension>&&
+const_pointer_image<value_type,geometry_type::dimension>
     make_image(const value_type* pointer,const geometry_type& geo)
 {
-    return std::move(const_pointer_image<value_type,geometry_type::dimension>(pointer,geo));
+    return const_pointer_image<value_type,geometry_type::dimension>(pointer,geo);
 }
 
 }
