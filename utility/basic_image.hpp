@@ -18,7 +18,7 @@ class pointer_container
 public:
     typedef pixel_type value_type;
     typedef pixel_type* iterator;
-    typedef const pixel_type* const_iterator;
+    typedef pixel_type* const_iterator;
     typedef pixel_type& reference;
 protected:
     iterator from,to;
@@ -255,6 +255,8 @@ public:
     }
 public:
     image(void) {}
+    image(const image& rhs){operator=(rhs);}
+    image(image&& rhs){operator=(rhs);}
     template <class rhs_pixel_type,class rhs_storage_type>
     image(const image<rhs_pixel_type,dim,rhs_storage_type>& rhs){operator=(rhs);}
     image(const geometry_type& geo_):data(geo_.size()),geo(geo_) {}
@@ -265,6 +267,13 @@ public:
 public:
     template <class rhs_pixel_type,class rhs_storage_type>
     const image& operator=(const image<rhs_pixel_type,dim,rhs_storage_type>& rhs)
+    {
+        storage_type new_data(rhs.begin(),rhs.end());
+        data.swap(new_data);
+        geo = rhs.geometry();
+        return *this;
+    }
+    const image& operator=(const image& rhs)
     {
         storage_type new_data(rhs.begin(),rhs.end());
         data.swap(new_data);
@@ -528,11 +537,11 @@ public:
     typedef pixel_type value_type;
     typedef image<pixel_type,dim,pointer_container<pixel_type> > base_type;
     typedef typename base_type::iterator iterator;
-    typedef typename base_type::const_iterator const_iterator;
+    typedef typename base_type::iterator const_iterator;
     static const unsigned int dimension = dim;
 public:
     pointer_image(void) {}
-    pointer_image(pointer_image& rhs):image(rhs.begin(),rhs.geo){}
+    pointer_image(const pointer_image& rhs){operator=(rhs);}
     template<class rhs_storage_type>
     pointer_image(image<pixel_type,dim,rhs_storage_type>& rhs):base_type(&*rhs.begin(),rhs.geometry()) {}
     pointer_image(pixel_type* pointer,const tipl::geometry<dim>& geo_):base_type(pointer,geo_) {}
@@ -556,7 +565,12 @@ public:
     static const unsigned int dimension = dim;
 public:
     const_pointer_image(void) {}
-    const_pointer_image(const const_pointer_image& rhs):image(rhs.begin(),rhs.geo){}
+    const_pointer_image(const const_pointer_image& rhs)
+    {
+        base_type::data = rhs.data;
+        base_type::geo = rhs.geometry();
+
+    }
     template<class rhs_storage_type>
     const_pointer_image(const image<pixel_type,dim,rhs_storage_type>& rhs):base_type(&*rhs.begin(),rhs.geometry()) {}
     const_pointer_image(const pixel_type* pointer,const tipl::geometry<dim>& geo_):base_type(pointer,geo_){}
@@ -564,17 +578,17 @@ public:
 
 
 template<class value_type,class geometry_type>
-pointer_image<value_type,geometry_type::dimension>
+pointer_image<value_type,geometry_type::dimension>&&
     make_image(value_type* pointer,const geometry_type& geo)
 {
-    return pointer_image<value_type,geometry_type::dimension>(pointer,geo);
+    return std::move(pointer_image<value_type,geometry_type::dimension>(pointer,geo));
 }
 
 template<class value_type,class geometry_type>
-const_pointer_image<value_type,geometry_type::dimension>
+const_pointer_image<value_type,geometry_type::dimension>&&
     make_image(const value_type* pointer,const geometry_type& geo)
 {
-    return const_pointer_image<value_type,geometry_type::dimension>(pointer,geo);
+    return std::move(const_pointer_image<value_type,geometry_type::dimension>(pointer,geo));
 }
 
 }
