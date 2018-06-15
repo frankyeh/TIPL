@@ -175,6 +175,7 @@ protected:
     int index_;
     int w,h;
 public:
+    pixel_index(void):x_(0),y_(0),z_(0),index_(0),w(0),h(0){}
     pixel_index(const geometry<3>& geo):x_(0),y_(0),z_(0),index_(0),w(geo[0]),h(geo[1]){}
     pixel_index(const pixel_index& rhs)
     {
