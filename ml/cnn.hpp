@@ -33,17 +33,6 @@ namespace tipl
 namespace ml
 {
 
-template<class value_type>
-inline float tanh_f(value_type v)
-{
-    const float ep = expf(v + v);
-    return (ep - float(1)) / (ep + float(1));
-}
-template<class value_type>
-inline float tanh_df(value_type y)
-{
-    return float(1) - y * y;
-}
 
 template<class value_type>
 inline float relu_f(value_type v)
@@ -56,7 +45,7 @@ inline float relu_df(value_type y)
     return y > value_type(0) ? float(1) : float(0);
 }
 
-enum activation_type { tanh, relu, identity};
+enum activation_type { relu, identity};
 enum status_type { training,testing};
 
 class basic_layer
@@ -74,7 +63,7 @@ public:
 public:
 
     virtual ~basic_layer() {}
-    basic_layer(activation_type af_ = activation_type::tanh):af(af_),status(testing),weight_base(1){}
+    basic_layer(activation_type af_ = activation_type::relu):af(af_),status(testing),weight_base(1){}
     void init( int input_size_, int output_size_, int weight_dim, int bias_dim)
     {
         input_size = input_size_;
@@ -94,9 +83,6 @@ public:
     virtual void forward_propagation(const float* data,float* out) = 0;
     void forward_af(float* data)
     {
-        if(af == activation_type::tanh)
-            for(int i = 0; i < output_size; ++i)
-                data[i] = tanh_f(data[i]);
         if(af == activation_type::relu)
             for(int i = 0; i < output_size; ++i)
                 data[i] = relu_f(data[i]);
@@ -105,6 +91,31 @@ public:
     {
         I.clear();
     }
+    virtual void to_image(color_image& Is,int max_width)
+    {
+        Is.clear();
+        image<float,2> I;
+        to_image(I);
+        if(I.empty())
+            return;
+        while(max_width && I.width() > max_width)
+            tipl::downsampling(I);
+        for(int j = 0;j < 2 && I.width() < max_width*0.5f;++j)
+            tipl::upsampling_nearest(I);
+        Is.resize(I.geometry());
+        std::fill(Is.begin(),Is.end(),tipl::rgb(0xFFFFFFFF));
+        for(int j = 0;j < I.size();++j)
+        {
+            if(I[j] == 0)
+                continue;
+            unsigned char s(std::min<int>(255,((int)std::fabs(I[j]*1024.0f))));
+            if(I[j] < 0) // red
+                Is[j] = tipl::rgb(s,0,0);
+            if(I[j] > 0) // blue
+                Is[j] = tipl::rgb(0,0,s);
+        }
+    }
+
     virtual void calculate_dwdb(const float*,
                                   const float*,
                                   std::vector<float>&,
@@ -114,9 +125,6 @@ public:
                                   const float*) = 0;
     void back_af(float* dE_da,const float* prev_out)
     {
-        if(af == activation_type::tanh)
-            for(int i = 0; i < output_size; ++i)
-                dE_da[i] *= tanh_df(prev_out[i]);
         if(af == activation_type::relu)
             for(int i = 0; i < output_size; ++i)
                 if(prev_out[i] <= 0)
@@ -126,7 +134,7 @@ public:
     {
         return (unsigned int)(weight.size());
     }
-    virtual void update(float rw,const std::vector<float>& dw,
+    void update(float rw,const std::vector<float>& dw,
                         float rb,const std::vector<float>& db)
     {
         tipl::vec::axpy(&weight[0],&weight[0] + weight.size(),rw,&dw[0]);
@@ -186,28 +194,38 @@ public:
         std::vector<float> w(weight),b(bias);
         tipl::normalize_abs(w);
         tipl::normalize_abs(b);
-        if(in_dim[0] == 1)
+        if(in_dim[1] == 1 || in_dim[0] == 1)
         {
-            I.resize(geometry<2>(int(bias.size()),int(weight.size()/bias.size()+3)));
-            std::copy(w.begin(),w.end(),I.begin()+I.width());
-            std::copy(b.begin(),b.end(),I.end()-I.width()*2);
+            int width = in_dim.size()+3;
+            I.resize(geometry<2>(width,b.size()));
+            for(int row = 0,row_pos = 0,w_pos = 0;row < b.size();++row,row_pos += width,w_pos += in_dim.size())
+            {
+                std::copy(&w[w_pos],&w[w_pos]+in_dim.size(),&I[row_pos]);
+                I[row_pos+width-2] = b[row];
+            }
         }
         else
         {
             int n = int(weight.size()/in_dim.plane_size());
             int col = in_dim[2];
-            for(col = std::sqrt(n);col > 1;--col)
-                if(n % col == 0)
-                    break;
+            int pad = 3;
+            while(col < std::sqrt(n))
+            {
+                col += in_dim[2];
+                pad += 3;
+            }
             int row = n/col;
-            I.resize(geometry<2>(col* (in_dim.width()+1)+1,row * (in_dim.height() +1) + 3));
+            I.resize(geometry<2>(col* (in_dim.width()+1)+pad,row * (in_dim.height() +1) + 1));
+            int b_pos = 0;
             for(int y = 0,index = 0;y < row;++y)
                 for(int x = 0;x < col;++x,++index)
                 {
                     tipl::draw(tipl::make_image(&w[0] + index*in_dim.plane_size(),tipl::geometry<2>(in_dim[0],in_dim[1])),
-                                I,tipl::geometry<2>(x*(in_dim.width()+1),y*(in_dim.height()+1)+1));
+                                I,tipl::geometry<2>(x*(in_dim.width()+1)+x/in_dim[2],y*(in_dim.height()+1)+1));
+                    if((x+1)%in_dim[2] == 0)
+                        I.at(x*(in_dim.width()+1)+x/in_dim[2]+in_dim.width(),y*(in_dim.height()+1)+1 + in_dim.height()/2) = b[b_pos++];
                 }
-            std::copy(b.begin(),b.end(),I.end()-b.size());
+            //std::copy(b.begin(),b.end(),I.end()-b.size());
         }
     }
     void back_propagation(float* in_dE_da,// output_size
@@ -241,6 +259,7 @@ public:
         weight_base = (float)std::sqrt(6.0f / (float)(o2i[0].size()+1));
         return true;
     }
+
     void forward_propagation(const float* data,float* out) override
     {
         for(int i = 0; i < o2i.size(); i++)
@@ -333,7 +352,6 @@ public:
         weight_base = (float)std::sqrt(6.0f / (float)(kernel_size2 * in_dim.depth() + kernel_size2 * out_dim.depth()));
         return true;
     }
-
     void to_image(image<float,2>& I)
     {
         std::vector<float> w(weight),b(bias);
@@ -347,7 +365,8 @@ public:
                             I,tipl::geometry<2>(x*(kernel_size+1),y*(kernel_size+1)+1));
             }
 
-        std::copy(b.begin(),b.end(),I.end()-I.width()*2);
+        for(int i = 0,pos = I.size()-I.width()*2+kernel_size/2;i < b.size();++i,pos += kernel_size+1)
+            I[pos] = b[i];
     }
     void forward_propagation(const float* data,float* out) override
     {
@@ -604,7 +623,7 @@ public:
         input = rhs.input;
         output = rhs.output;
         std::vector<std::vector<unsigned int> > label_pile;
-        get_label_pile(label_pile);
+        rhs.get_label_pile(label_pile);
         std::vector<int> list_to_remove(rhs.data.size());
         for(int i = 0;i < output.size();++i)
         {
@@ -649,42 +668,18 @@ public:
 
 class network
 {
+public:
     std::vector<std::shared_ptr<basic_layer> > layers;
     std::vector<tipl::geometry<3> > geo;
     unsigned int data_size;
-private:// for training
-    std::vector<std::vector<std::vector<float> > > dweight,dbias;
-    std::vector<std::vector<float> > in_out,back_df;
-    std::vector<float*> in_out_ptr,back_df_ptr;
-    float target_value_min,target_value_max;
-    unsigned int training_count = 0;
-    unsigned int training_error_count = 0;
     unsigned int output_size = 0;
-public:
-    float learning_rate = 0.01f;
-    float w_decay_rate = 0.0001f;
-    float b_decay_rate = 0.05f;
-    float rate_decay = 1.0f;
-    float momentum = 0.9f;
-    float bias_cap = 10.0f;
-    float weight_cap = 100.0f;
-    int batch_size = 64;
-    int epoch= 20;
-    bool resample_label = false;
-    std::vector<unsigned int> error_table;
     std::string error_msg;
-private:
-    std::mt19937 rd_gen;
 public:
     network():data_size(0){}
     void reset(void)
     {
         layers.clear();
         geo.clear();
-        dweight.clear();
-        dbias.clear();
-        training_count = 0;
-        training_error_count = 0;
         data_size = 0;
     }
     const network& operator=(const network& rhs)
@@ -768,56 +763,23 @@ public:
             bmax.push_back(0);
         }
     }
-
-    void to_image(color_image& I,std::vector<float> in,int label,int layer_height = 20,int max_width = 0)
+    void get_layer_images(std::vector<tipl::color_image>& Is,int max_width = 600)
     {
-        std::vector<tipl::color_image> Is(layers.size());
+        Is.clear();
         Is.resize(layers.size());
-
-        int total_height = 0;
-        tipl::uniform_dist<float> gen(0.0f,3.14159265358979323846f*2.0f);
-        std::vector<tipl::image<float,2> > layer_images(layers.size());
         tipl::par_for(layers.size(),[&](int i)
         {
-            layers[i]->to_image(layer_images[i]);
-            if(max_width && layer_images[i].width() > max_width)
-                tipl::downsampling(layer_images[i]);
+            layers[i]->to_image(Is[i],max_width);
         });
+    }
 
-        for(int i = 0;i < layers.size();++i)
-            max_width = std::max<int>(max_width,layer_images[i].width());
-        for(int i = 0;i < layers.size();++i)
-        {
-            tipl::rgb b;
-            b.from_hsl(gen(),0.5,0.85);
-            if(layer_images[i].empty())
-            {
-                total_height += layer_height;
-                continue;
-            }
-            for(int j = 0;j < 2 && layer_images[i].width() < max_width*0.5f;++j)
-                tipl::upsampling_nearest(layer_images[i]);
-
-            total_height += std::max<int>(layer_images[i].height(),layer_height);
-            {
-                Is[i].resize(layer_images[i].geometry());
-                std::fill(Is[i].begin(),Is[i].end(),b);
-                for(int j = 0;j < layer_images[i].size();++j)
-                {
-                    if(layer_images[i][j] == 0)
-                    {
-                        Is[i][j] = b;
-                        continue;
-                    }
-                    unsigned char s(std::min<int>(255,
-                        ((int)std::fabs(layer_images[i][j]*1024.0f))));
-                    if(layer_images[i][j] < 0) // red
-                        Is[i][j] = tipl::rgb(s,0,0);
-                    if(layer_images[i][j] > 0) // blue
-                        Is[i][j] = tipl::rgb(0,0,s);
-                }
-            }
-        }
+    void to_image(color_image& I,std::vector<float> in,int label,int layer_height = 20,int max_width = 600)
+    {
+        std::vector<tipl::color_image> Is;
+        get_layer_images(Is);
+        int total_height = 0;
+        for(int i = 0;i < Is.size();++i)
+            total_height += std::max<int>(Is[i].height(),layer_height);
 
         std::vector<tipl::color_image> values(geo.size());
         {
@@ -893,7 +855,7 @@ public:
             {
                 tipl::rgb b;
                 if(Is[i].empty())
-                    b.from_hsl(gen(),0.5,0.85);
+                    b.from_hsl(0.5,0.5,0.85);
                 else
                     b = Is[i][0];
                 tipl::fill_rect(I,tipl::geometry<2>(0,cur_height),
@@ -962,9 +924,6 @@ public:
         if(list.size() < 2)
             return false;
         activation_type af;
-        if(list[1] == "tanh")
-            af = activation_type::tanh;
-        else
             if(list[1] == "relu")
                     af = activation_type::relu;
                 else
@@ -995,6 +954,7 @@ public:
         }
         return false;
     }
+    std::shared_ptr<basic_layer> get_layer(int i) const{return layers[i];}
     std::string get_layer_text(void) const
     {
         std::ostringstream out;
@@ -1007,8 +967,6 @@ public:
             {
                 out << "|";
                 std::string af_type;
-                if(layers[i]->af == activation_type::tanh)
-                    af_type = "tanh";
                 if(layers[i]->af == activation_type::relu)
                     af_type = "relu";
                 if(layers[i]->af == activation_type::identity)
@@ -1088,6 +1046,8 @@ public:
     }
     void back_propagation(unsigned int label,const float* input,float* out_ptr)
     {
+        const float target_value_min = 0.1f;
+        const float target_value_max = 0.9f;
         const float* out_ptr2 = input + data_size - output_size;
         float* df_ptr = out_ptr + data_size - output_size;
         // calculate difference
@@ -1118,129 +1078,8 @@ public:
         }
     }
 
-    void initialize_training(void)
-    {
-        int thread_count = std::thread::hardware_concurrency();
-        dweight.resize(thread_count);
-        dbias.resize(thread_count);
-        in_out.resize(thread_count);
-        back_df.resize(thread_count);
-        in_out_ptr.resize(thread_count);
-        back_df_ptr.resize(thread_count);
-        for(int i = 0;i < thread_count;++i)
-        {
-            dweight[i].resize(layers.size());
-            dbias[i].resize(layers.size());
-            for(int j = 0;j < layers.size();++j)
-            {
-                dweight[i][j].resize(layers[j]->weight.size());
-                dbias[i][j].resize(layers[j]->bias.size());
-            }
-            in_out[i].resize(data_size);
-            back_df[i].resize(data_size);
-            in_out_ptr[i] = &in_out[i][0];
-            back_df_ptr[i] = &back_df[i][0];
-        }
-
-        if(layers.back()->af == activation_type::tanh)
-        {
-            target_value_min = -0.8f;
-            target_value_max = 0.8f;
-        }
-        else
-        {
-            target_value_min = 0.1f;
-            target_value_max = 0.9f;
-        }
-    }
-    float get_training_error(void) const
-    {
-        return 100.0f*training_error_count/training_count;
-    }
-
-    template <class network_data_type,class train_seq_type>
-    void train_batch(const network_data_type& network_data,const train_seq_type& train_seq,
-                     bool &terminated)
-    {
-        for(auto layer : layers)
-        {
-            layer->status = training;
-            layer->wlearning_base_rate = 1.0f;
-            layer->blearning_base_rate = 1.0f;
-        }
-        if(dweight.empty())
-            initialize_training();
-        const auto& data = network_data.data;
-        const auto& label_id = network_data.data_label;
-        int size = batch_size;
-        training_count = 0;
-        training_error_count = 0;
-        if(!error_table.empty())
-            std::fill(error_table.begin(),error_table.end(),0);
-        for(int i = 0;i < train_seq.size() && !terminated;i += size)
-        {
-            int size = std::min<int>(batch_size,train_seq.size()-i);
-            // train a batch
-            par_for2(size, [&](int m, int thread_id)
-            {
-                ++training_count;
-                int data_index = train_seq[i+m];
-                if(terminated)
-                    return;
-                forward_propagation(&data[data_index][0],in_out_ptr[thread_id]);
-
-                auto ptr = in_out_ptr[thread_id] + data_size - output_size;
-                size_t predicted_label = std::max_element(ptr,ptr+output_size)-ptr;
-                if(label_id[data_index] != predicted_label)
-                    ++training_error_count;
-                if(!error_table.empty())
-                {
-                    size_t pos = output_size*label_id[data_index] + predicted_label;
-                    if(pos < error_table.size())
-                        ++error_table[pos];
-                }
-                back_propagation(label_id[data_index],
-                                    in_out_ptr[thread_id],back_df_ptr[thread_id]);
-                calculate_dwdb(&data[data_index][0],in_out_ptr[thread_id],back_df_ptr[thread_id],
-                                    dweight[thread_id],dbias[thread_id]);
-            });
-            // update_weights
-            par_for(layers.size(),[this,size](int j)
-            {
-                if(layers[j]->weight.empty())
-                    return;
-                std::vector<float> dw(layers[j]->weight.size());
-                std::vector<float> db(layers[j]->bias.size());
-                for(int k = 0;k < dweight.size();++k)
-                {
-                    tipl::add(dw,dweight[k][j]);
-                    tipl::add(db,dbias[k][j]);
-                    tipl::multiply_constant(dweight[k][j],momentum);
-                    tipl::multiply_constant(dbias[k][j],momentum);
-                }
-
-                {
-                    if(w_decay_rate != 0.0f)
-                        tipl::multiply_constant(layers[j]->weight,1.0f-w_decay_rate);
-                    if(b_decay_rate != 0.0f)
-                        tipl::multiply_constant(layers[j]->bias,1.0f-b_decay_rate);
-                }
-                if(layers[j]->wlearning_base_rate == 1 && layers[j]->blearning_base_rate == 1)
-                {
-                    layers[j]->wlearning_base_rate = 1.0f/(tipl::max_abs_value(dw)+1.0f);
-                    layers[j]->blearning_base_rate = 1.0f/(tipl::max_abs_value(db)+1.0f);
-                }
-
-                layers[j]->update(-layers[j]->wlearning_base_rate*learning_rate*rate_decay/float(size),dw,
-                                  -layers[j]->blearning_base_rate*learning_rate*rate_decay/float(size),db);
-
-                tipl::upper_lower_threshold(layers[j]->bias,-bias_cap,bias_cap);
-                tipl::upper_lower_threshold(layers[j]->weight,-weight_cap,weight_cap);
-            },1);
 
 
-        }
-    }
     template <class data_type>
     void normalize_data(data_type& data)
     {
@@ -1249,42 +1088,6 @@ public:
         });
     }
 
-    template <class network_data_type,class iter_type>
-    void train(const network_data_type& data,bool &terminated,iter_type iter_fun)
-    {
-        std::vector<unsigned int> training_sequence;
-        std::vector<std::vector<unsigned int> > label_pile;
-        if(resample_label)
-        {
-            unsigned int max_sample_count = 0;
-            data.get_label_pile(label_pile);
-            for(int i = 0;i < label_pile.size();++i)
-                max_sample_count = std::max<unsigned int>(max_sample_count,label_pile[i].size());
-
-            for(int i = 0;i < label_pile.size();++i)
-            {
-                for(int count = label_pile[i].size();
-                    label_pile[i].size() && count <= max_sample_count;count *= 2)
-                {
-                    for(int j = 0;j < label_pile[i].size();++j)
-                        training_sequence.push_back(label_pile[i][j]);
-                }
-            }
-        }
-        else
-        {
-            training_sequence.resize(data.data_label.size());
-            for(int i = 0;i < training_sequence.size();++i)
-                training_sequence[i] = i;
-        }
-        rate_decay = 1.0f;
-        for(int iter = 0; iter < epoch && !terminated;iter++ ,iter_fun())
-        {
-            std::shuffle(training_sequence.begin(),training_sequence.end(), rd_gen);
-            train_batch(data,training_sequence,terminated);
-            rate_decay *= 0.98f;
-        }
-    }
 
     void predict(std::vector<float>& in)
     {
@@ -1336,6 +1139,8 @@ public:
     float test_error(const data_type& data,
                      const label_type& test_result)
     {
+        if(data.empty())
+            return 100.0f;
         std::vector<int> result;
         test(data,result);
         int num_error = 0,num_total = 0;
@@ -1358,6 +1163,194 @@ inline bool operator << (network& n, const std::string& text)
     return n.add(text);
 }
 
+//template<typename optimizer>
+class trainer{
+private:
+    std::mt19937 rd_gen;
+private:// for training
+    std::vector<std::vector<std::vector<float> > > dweight,dbias;
+    std::vector<std::vector<float> > in_out,back_df;
+    std::vector<float*> in_out_ptr,back_df_ptr;
+private:
+    unsigned int training_count = 0;
+    unsigned int training_error_count = 0;
+public:
+    float learning_rate = 0.01f;
+    float w_decay_rate = 0.0001f;
+    float b_decay_rate = 0.05f;
+    float rate_decay = 1.0f;
+    float momentum = 0.9f;
+    float bias_cap = 10.0f;
+    float weight_cap = 100.0f;
+    int batch_size = 64;
+    int epoch= 20;
+    int repeat = 1;
+    bool resample_label = false;
+    std::vector<unsigned int> error_table;
+
+public:
+    void reset(void)
+    {
+        dweight.clear();
+        dbias.clear();
+        training_count = 0;
+        training_error_count = 0;
+    }
+
+    float get_training_error(void) const
+    {
+        return 100.0f*training_error_count/training_count;
+    }
+    void initialize_training(const network& nn)
+    {
+        int thread_count = std::thread::hardware_concurrency();
+        dweight.resize(thread_count);
+        dbias.resize(thread_count);
+        in_out.resize(thread_count);
+        back_df.resize(thread_count);
+        in_out_ptr.resize(thread_count);
+        back_df_ptr.resize(thread_count);
+        for(int i = 0;i < thread_count;++i)
+        {
+            dweight[i].resize(nn.layers.size());
+            dbias[i].resize(nn.layers.size());
+            for(int j = 0;j < nn.layers.size();++j)
+            {
+                dweight[i][j].resize(nn.layers[j]->weight.size());
+                dbias[i][j].resize(nn.layers[j]->bias.size());
+            }
+            in_out[i].resize(nn.data_size);
+            back_df[i].resize(nn.data_size);
+            in_out_ptr[i] = &in_out[i][0];
+            back_df_ptr[i] = &back_df[i][0];
+        }
+
+
+    }
+    template <class network_data_type,class train_seq_type>
+    void train_batch(network& nn,const network_data_type& network_data,const train_seq_type& train_seq,
+                     bool &terminated)
+    {
+        for(auto layer : nn.layers)
+            layer->status = training;
+        const auto& data = network_data.data;
+        const auto& label_id = network_data.data_label;
+        int size = batch_size;
+        training_count = 0;
+        training_error_count = 0;
+        if(!error_table.empty())
+            std::fill(error_table.begin(),error_table.end(),0);
+        for(int i = 0;i < train_seq.size() && !terminated;i += size)
+        {
+            int size = std::min<int>(batch_size,train_seq.size()-i);
+            // train a batch
+            par_for2(size, [&](int m, int thread_id)
+            {
+                ++training_count;
+                int data_index = train_seq[i+m];
+                if(terminated)
+                    return;
+                nn.forward_propagation(&data[data_index][0],in_out_ptr[thread_id]);
+
+                auto ptr = in_out_ptr[thread_id] + nn.data_size - nn.output_size;
+                size_t predicted_label = std::max_element(ptr,ptr+nn.output_size)-ptr;
+                if(label_id[data_index] != predicted_label)
+                    ++training_error_count;
+                if(!error_table.empty())
+                {
+                    size_t pos = nn.output_size*label_id[data_index] + predicted_label;
+                    if(pos < error_table.size())
+                        ++error_table[pos];
+                }
+                nn.back_propagation(label_id[data_index],
+                                    in_out_ptr[thread_id],back_df_ptr[thread_id]);
+                nn.calculate_dwdb(&data[data_index][0],in_out_ptr[thread_id],back_df_ptr[thread_id],
+                                    dweight[thread_id],dbias[thread_id]);
+            });
+            // update_weights
+            par_for(nn.layers.size(),[this,&nn](int j)
+            {
+                if(nn.layers[j]->weight.empty())
+                    return;
+                std::vector<float> dw(nn.layers[j]->weight.size());
+                std::vector<float> db(nn.layers[j]->bias.size());
+                par_for(dweight.size(),[this,&dw,&db,j](int k)
+                {
+                    tipl::add(dw,dweight[k][j]);
+                    tipl::add(db,dbias[k][j]);
+                    tipl::multiply_constant(dweight[k][j],momentum);
+                    tipl::multiply_constant(dbias[k][j],momentum);
+                });
+
+                {
+                    if(w_decay_rate != 0.0f)
+                        tipl::multiply_constant(nn.layers[j]->weight,1.0f-w_decay_rate);
+                    if(b_decay_rate != 0.0f)
+                        tipl::multiply_constant(nn.layers[j]->bias,1.0f-b_decay_rate);
+                }
+                if(nn.layers[j]->wlearning_base_rate == 1 && nn.layers[j]->blearning_base_rate == 1)
+                {
+                    nn.layers[j]->wlearning_base_rate = 0.01f/(tipl::max_abs_value(dw)+1.0f);
+                    nn.layers[j]->blearning_base_rate = 0.01f/(tipl::max_abs_value(db)+1.0f);
+                }
+
+                nn.layers[j]->update(-nn.layers[j]->wlearning_base_rate*learning_rate*rate_decay,dw,
+                                  -nn.layers[j]->blearning_base_rate*learning_rate*rate_decay,db);
+
+                tipl::upper_lower_threshold(nn.layers[j]->bias,-bias_cap,bias_cap);
+                tipl::upper_lower_threshold(nn.layers[j]->weight,-weight_cap,weight_cap);
+            });
+        }
+    }
+
+    template <typename network_data_type,typename iter_type>
+    void train(network& nn,const network_data_type& data,bool &terminated,iter_type iter_fun)
+    {
+        std::vector<unsigned int> training_sequence;
+        std::vector<std::vector<unsigned int> > label_pile;
+        if(resample_label)
+        {
+            unsigned int max_sample_count = 0;
+            data.get_label_pile(label_pile);
+            for(int i = 0;i < label_pile.size();++i)
+                max_sample_count = std::max<unsigned int>(max_sample_count,label_pile[i].size());
+
+            for(int i = 0;i < label_pile.size();++i)
+            {
+                for(int count = label_pile[i].size();
+                    label_pile[i].size() && count <= max_sample_count;count *= 2)
+                {
+                    for(int j = 0;j < label_pile[i].size();++j)
+                        training_sequence.push_back(label_pile[i][j]);
+                }
+            }
+        }
+        else
+        {
+            training_sequence.resize(data.data_label.size());
+            for(int i = 0;i < training_sequence.size();++i)
+                training_sequence[i] = i;
+        }
+        if(dweight.empty())
+            initialize_training(nn);
+        for(int run = 0;run < repeat && !terminated;++run)
+        {
+            rate_decay = 1.0f;
+            for(auto layer : nn.layers)
+            {
+                layer->wlearning_base_rate = 1.0f;
+                layer->blearning_base_rate = 1.0f;
+            }
+            for(int iter = 0; iter < epoch && !terminated;iter++ ,iter_fun())
+            {
+                std::shuffle(training_sequence.begin(),training_sequence.end(), rd_gen);
+                train_batch(nn,data,training_sequence,terminated);
+                rate_decay *= 0.999f;
+            }
+        }
+    }
+
+};
 
 
 struct iterate_cnn_data{
