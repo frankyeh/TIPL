@@ -85,11 +85,19 @@ struct mat_type_info<char>
 class mat_matrix
 {
 private:
-    unsigned int type;
-    unsigned int rows;
-    unsigned int cols;
+    union{
+        struct{
+            unsigned int type;
+            unsigned int rows;
+            unsigned int cols;
+            unsigned int imagf;
+            unsigned int namelen;
+        };
+        char buf[20];
+    };
+
+private:
     std::string name;
-    unsigned int namelen;
 private:
     std::vector<unsigned char> data_buf;
     void* data_ptr; // for read
@@ -215,16 +223,11 @@ public:
     template<class stream_type>
     bool read(stream_type& in)
     {
-        unsigned int imagf = 0;
-        in.read((char*)&type,4);
+        in.read(buf,sizeof(buf));
         if (!in || type > 100 || type % 10 > 1)
             return false;
         if (type % 10) // text
 	    type = 0;
-        in.read((char*)&rows,4);
-        in.read((char*)&cols,4);
-        in.read((char*)&imagf,4);
-        in.read((char*)&namelen,4);
         if(!in || namelen == 0 || namelen > 255)
             return false;
         std::vector<char> buffer(namelen+1);
