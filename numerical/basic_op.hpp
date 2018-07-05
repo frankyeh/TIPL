@@ -21,6 +21,20 @@ inline void for_each(iterator_type1 iter1,iterator_type1 end,iterator_type2 iter
     for(; iter1 != end; ++iter1,++iter2)
         fun(*iter1,*iter2);
 }
+
+template <typename container_type,typename compare_type>
+std::vector<unsigned int> arg_sort(const container_type& data,compare_type comp)
+{
+    std::vector<unsigned int> idx(data.size());
+    std::iota(idx.begin(), idx.end(), 0);
+    std::sort(idx.begin(), idx.end(),
+    [&data,comp](size_t i1, size_t i2)\
+    {
+        return comp(data[i1], data[i2]);
+    });
+    return idx;
+}
+
 /*
 example tipl::binary(classification,label,std::bind2nd (std::not_equal_to<unsigned char>(), background_index));
 */
