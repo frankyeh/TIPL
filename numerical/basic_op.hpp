@@ -39,7 +39,7 @@ size_t arg_max(const container_type& data)
 {
     if(data.empty())
         return 0;
-    container_type::value_type m = data[0];
+    typename container_type::value_type m = data[0];
     size_t m_pos = 0;
     for(size_t i = 1;i < data.size();++i)
         if(data[i] > m)
@@ -54,7 +54,7 @@ size_t arg_min(const container_type& data)
 {
     if(data.empty())
         return 0;
-    container_type::value_type m = data[0];
+    typename container_type::value_type m = data[0];
     size_t m_pos = 0;
     for(size_t i = 1;i < data.size();++i)
         if(data[i] < m)
