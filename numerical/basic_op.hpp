@@ -34,6 +34,36 @@ std::vector<unsigned int> arg_sort(const container_type& data,compare_type comp)
     });
     return idx;
 }
+template <typename container_type>
+size_t arg_max(const container_type& data)
+{
+    if(data.empty())
+        return 0;
+    container_type::value_type m = data[0];
+    size_t m_pos = 0;
+    for(size_t i = 1;i < data.size();++i)
+        if(data[i] > m)
+        {
+            m = data[i];
+            m_pos = i;
+        }
+    return m_pos;
+}
+template <typename container_type>
+size_t arg_min(const container_type& data)
+{
+    if(data.empty())
+        return 0;
+    container_type::value_type m = data[0];
+    size_t m_pos = 0;
+    for(size_t i = 1;i < data.size();++i)
+        if(data[i] < m)
+        {
+            m = data[i];
+            m_pos = i;
+        }
+    return m_pos;
+}
 
 /*
 example tipl::binary(classification,label,std::bind2nd (std::not_equal_to<unsigned char>(), background_index));
