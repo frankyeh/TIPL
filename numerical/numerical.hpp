@@ -270,6 +270,12 @@ typename std::iterator_traits<iterator>::value_type norm2(iterator lhs_from,iter
     return std::sqrt(result);
 }
 //---------------------------------------------------------------------------
+template<class image_type>
+typename image_type::value_type norm2(const image_type& I)
+{
+    return norm2(I.begin(),I.end());
+}
+//---------------------------------------------------------------------------
 template<class iterator>
 void square(iterator lhs_from,iterator lhs_to)
 {
