@@ -65,7 +65,7 @@ public:
         {
             float findex = (float)index/255.0f;
             for(unsigned char rgb_index = 0;rgb_index < 3;++rgb_index)
-                color[index][rgb_index] = (unsigned char)(((float)to_color[rgb_index]*findex+(float)from_color[rgb_index]*(1.0-findex))/255.0f);
+                color[index][rgb_index] = ((float)to_color[rgb_index]*findex+(float)from_color[rgb_index]*(1.0-findex))/255.0f;
         }
     }
     void spectrum(void)
@@ -73,9 +73,9 @@ public:
         color.resize(256);
         for(unsigned int index = 0;index < 256;++index)
         {
-            color[index][0] = (unsigned char)((float)tipl::color_spectrum_value(128+64,index)/255.0f);
-            color[index][1] = (unsigned char)((float)tipl::color_spectrum_value(128,index)/255.0f);
-            color[index][2] = (unsigned char)((float)tipl::color_spectrum_value(64,index)/255.0f);
+            color[index][0] = (float)tipl::color_spectrum_value(128+64,index)/255.0f;
+            color[index][1] = (float)tipl::color_spectrum_value(128,index)/255.0f;
+            color[index][2] = (float)tipl::color_spectrum_value(64,index)/255.0f;
         }
     }
 };
