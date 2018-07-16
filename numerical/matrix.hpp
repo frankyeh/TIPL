@@ -407,7 +407,7 @@ void left_vector_product(left_input_iterator A,right_input_iterator x,output_ite
     std::fill(y,y+ldim.col_count(),typename std::iterator_traits<output_iterator>::value_type(0));
     for(left_input_iterator A_end = A + ldim.size();A != A_end;A+=ldim.col_count(),++x)
     {
-        typename std::iterator_traits<left_input_iterator>::value_type x_row = *x;
+        auto x_row = *x;
         for(unsigned int col = 0;col < ldim.col_count();++col)
             y[col] += x_row*A[col];
     }
