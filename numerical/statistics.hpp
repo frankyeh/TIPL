@@ -244,10 +244,10 @@ double variance(input_iterator from,input_iterator to,double mean)
 {
     return mean_square(from,to)-mean*mean;
 }
-template<class input_iterator>
-double standard_deviation(input_iterator from,input_iterator to,double mean)
+template<class input_iterator,typename value_type>
+value_type standard_deviation(input_iterator from,input_iterator to,value_type mean)
 {
-    return std::sqrt(std::max<double>(0,variance(from,to,mean)));
+    return std::sqrt(std::max<value_type>(0,variance(from,to,mean)));
 }
 template<class input_iterator>
 double standard_deviation(input_iterator from,input_iterator to)
