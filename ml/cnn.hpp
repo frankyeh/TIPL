@@ -1178,7 +1178,6 @@ public:
         float sum_error = 0.0;
         for(int i = 0;i < output_size;++i)
             sum_error += std::fabs(df_ptr[i] -= label[i]);
-        std::fill(df_ptr+1,df_ptr+output_size,0.0f);
         return sum_error;
     }
 
@@ -1273,6 +1272,7 @@ private:// for training
 public:
     float learning_rate = 0.01f;
     float rate_decay = 1.0f;
+    //float w_decay_rate = 0.01f;
     float momentum = 0.9f;
     float bias_cap = 10.0f;
     float weight_cap = 100.0f;
@@ -1394,7 +1394,7 @@ public:
                 });
 
                 //if(w_decay_rate != 0.0f)
-                tipl::multiply_constant(nn.layers[j]->weight,1.0f-1.0f/(float)epoch);
+                //    tipl::multiply_constant(nn.layers[j]->weight,1.0f-w_decay_rate);
 
                 if(nn.layers[j]->wlearning_base_rate == 1.0f && nn.layers[j]->blearning_base_rate == 1.0f)
                 {
@@ -1405,8 +1405,8 @@ public:
                 nn.layers[j]->update(-nn.layers[j]->wlearning_base_rate*rate_decay,dw,
                                   -nn.layers[j]->blearning_base_rate*rate_decay,db);
 
-                tipl::upper_lower_threshold(nn.layers[j]->bias,-bias_cap,bias_cap);
-                tipl::upper_lower_threshold(nn.layers[j]->weight,-weight_cap,weight_cap);
+                //tipl::upper_lower_threshold(nn.layers[j]->bias,-bias_cap,bias_cap);
+                //tipl::upper_lower_threshold(nn.layers[j]->weight,-weight_cap,weight_cap);
             });
         }
     }
