@@ -995,8 +995,9 @@ public:
         }
         handle_qform();
 
-
-        if(std::fabs(nif_header2.srow_x[0]) < std::fabs(nif_header2.srow_x[1]))
+        // swap x y
+        if(std::fabs(nif_header2.srow_y[1]) < std::fabs(nif_header2.srow_x[1]) &&
+           std::fabs(nif_header2.srow_z[1]) < std::fabs(nif_header2.srow_x[1]))
         {
             if(change_header)
             {
@@ -1008,7 +1009,9 @@ public:
             }
             tipl::swap_xy(out);
         }
-        if(std::fabs(nif_header2.srow_x[0]) < std::fabs(nif_header2.srow_x[2]))
+        // swap x z
+        if(std::fabs(nif_header2.srow_y[2]) < std::fabs(nif_header2.srow_x[2]) &&
+           std::fabs(nif_header2.srow_z[2]) < std::fabs(nif_header2.srow_x[2]))
         {
             if(change_header)
             {
@@ -1020,7 +1023,9 @@ public:
             }
             tipl::swap_xz(out);
         }
-        if(std::fabs(nif_header2.srow_y[1]) < std::fabs(nif_header2.srow_y[2]))
+        // swap y z
+        if(std::fabs(nif_header2.srow_x[2]) < std::fabs(nif_header2.srow_y[2]) &&
+           std::fabs(nif_header2.srow_z[2]) < std::fabs(nif_header2.srow_y[2]))
         {
             if(change_header)
             {
