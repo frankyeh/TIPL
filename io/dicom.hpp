@@ -164,16 +164,33 @@ public:
             if(transfer_syntax == bee)
                 change_endian(read_length);
         }
-        if (read_length == 0xFFFFFFFF)
-            read_length = 0;
-        if (read_length)
+        // Handle image pixel data
+        // http://dicom.nema.org/Dicom/2013/output/chtml/part05/sect_A.4.html
+        //
+        if(group == 0x7FE0 && element == 0x0010)
         {
-            if(group == 0x7FE0 && element == 0x0010)
+            // encapsulated pixels
+            if(read_length == 0xFFFFFFFF)
+            {
+                do{
+                    in.read(gel,8);
+                    if(length)
+                        return false;
+                }while(in);
+                length = 0;
+                return false;
+            }
+            else
             {
                 length = read_length;
                 if(pause_at_image)
                     return false;
             }
+        }
+        if (read_length == 0xFFFFFFFF)
+            read_length = 0;
+        if (read_length)
+        {
             // handle SQ here
             // http://dicom.nema.org/dicom/2013/output/chtml/part05/sect_7.5.html
             if(is_sq ||
@@ -503,8 +520,13 @@ class dicom
 {
 private:
     std::auto_ptr<std::ifstream> input_io;
-    unsigned int image_size;
+    unsigned int image_size = 0;
     transfer_syntax_type transfer_syntax;
+public:
+    bool is_compressed = false;
+    std::string encoding;
+    mutable std::vector<char> compressed_buf;
+    unsigned int buf_size = 0;
 public:
     std::vector<dicom_group_element> data;
     std::map<unsigned int,unsigned int> ge_map;
@@ -601,7 +623,14 @@ public:
             if (!ge.read(*input_io,transfer_syntax))
             {
                 if (!(*input_io))
-                    return false;
+                    return true;
+                if(is_compressed)
+                {
+                    buf_size = ge.length;
+                    is_big_endian = false;
+                    is_mosaic = false;
+                    return true;
+                }
                 image_size = ge.length;
                 std::string image_type;
                 is_big_endian = (transfer_syntax == bee);
@@ -615,10 +644,29 @@ public:
             {
                 if(std::string((char*)&*ge.data.begin()) == std::string("1.2.840.10008.1.2"))
                     transfer_syntax = lei;//Little Endian Implicit
+                else
                 if(std::string((char*)&*ge.data.begin()) == std::string("1.2.840.10008.1.2.1"))
                     transfer_syntax = lee;//Little Endian Explicit
+                else
                 if(std::string((char*)&*ge.data.begin()) == std::string("1.2.840.10008.1.2.2"))
                     transfer_syntax = bee;//Big Endian Explicit
+                else
+                {
+                    is_compressed = true;
+                    encoding = std::string((char*)&*ge.data.begin());
+                    /*
+                    1.2.840.10008.1.2.1.99 (Deflated Explicit VR Little Endian)
+                    1.2.840.10008.1.2.4.50 (JPEG Baseline (Process 1) Lossy JPEG 8-bit)
+                    1.2.840.10008.1.2.4.51 (JPEG Baseline (Processes 2 & 4) Lossy JPEG 12-bit)
+                    1.2.840.10008.1.2.4.57 (JPEG Lossless, Nonhierarchical (Processes 14))
+                    1.2.840.10008.1.2.4.70 (JPEG Lossless, Nonhierarchical (Processes 14 [Selection 1]))
+                    1.2.840.10008.1.2.4.80 (JPEG-LS Image Compression (Lossless Only))
+                    1.2.840.10008.1.2.4.81 (JPEG-LS Image Compression)
+                    1.2.840.10008.1.2.4.90 (JPEG 2000 Image Compression (Lossless Only))
+                    1.2.840.10008.1.2.4.91 (JPEG 2000 Image Compression)
+                    1.2.840.10008.1.2.5 (RLE Lossless)
+                    */
+                }
             }
             // Deal with CSA
             if (ge.group == 0x0029 && (ge.element == 0x1010 || ge.element == 0x1020))
@@ -647,7 +695,7 @@ public:
                 item = (unsigned int)(data.size());
             data.push_back(ge);
         }
-        return false;
+        return true;
     }
 
     const char* get_csa_data(const std::string& name,unsigned int index) const
@@ -1074,7 +1122,13 @@ public:
         else
         {
             out.resize(geo);
-            save_to_buffer(out.begin(),(unsigned int)out.size());
+            if(is_compressed)
+            {
+                compressed_buf.resize(buf_size);
+                input_io->read((char*)&*(compressed_buf.begin()),buf_size);
+            }
+            else
+                save_to_buffer(out.begin(),(unsigned int)out.size());
         }
     }
 
