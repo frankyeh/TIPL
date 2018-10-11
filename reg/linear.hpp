@@ -292,8 +292,8 @@ namespace reg
 enum reg_type {none = 0,translocation = 1,rotation = 2,rigid_body = 3,scaling = 4,rigid_scaling = 7,tilt = 8,affine = 15};
 enum cost_type{corr,mutual_info};
 
-template<class image_type1,class transform_type>
-void get_bound(const image_type1& from,
+template<class image_type1,class image_type2,class transform_type>
+void get_bound(const image_type1& from,const image_type2& to,
                const transform_type& trans,
                transform_type& upper_trans,
                transform_type& lower_trans,
@@ -307,7 +307,8 @@ void get_bound(const image_type1& from,
     {
         for (unsigned int index = 0; index < dimension; ++index)
         {
-            upper_trans[index] = from.geometry()[index]*0.5f;
+            upper_trans[index] = std::max<float>(std::max<float>(from.geometry()[index],to.geometry()[index])*0.5f,
+                                                 std::fabs((float)from.geometry()[index]-(float)to.geometry()[index]));
             lower_trans[index] = -upper_trans[index];
         }
     }
@@ -325,8 +326,8 @@ void get_bound(const image_type1& from,
     {
         for (unsigned int index = dimension + dimension; index < dimension+dimension+dimension; ++index)
         {
-            upper_trans[index] = 1.2f;
-            lower_trans[index] = 0.9f;
+            upper_trans[index] = 2.0f;
+            lower_trans[index] = 0.5f;
         }
     }
 
@@ -355,7 +356,7 @@ float linear(const image_type& from,const vs_type& from_vs,
     transform_type upper,lower;
     tipl::reg::fun_adoptor<image_type,vs_type,transform_type,transform_type,CostFunctionType> fun(from,from_vs,to,to_vs,arg_min);
     double optimal_value = fun(arg_min[0]);
-    tipl::reg::get_bound(from,arg_min,upper,lower,base_type);
+    tipl::reg::get_bound(from,to,arg_min,upper,lower,base_type);
     while(random_search && !terminated)
     {
         bool improved = false;
@@ -374,7 +375,7 @@ float linear(const image_type& from,const vs_type& from_vs,
 
     for(unsigned char type = 0;type < 4 && reg_list[type] <= base_type && !terminated;++type)
     {
-        tipl::reg::get_bound(from,arg_min,upper,lower,reg_list[type]);
+        tipl::reg::get_bound(from,to,arg_min,upper,lower,reg_list[type]);
         tipl::optimization::gradient_descent(arg_min.begin(),arg_min.end(),
                                              upper.begin(),lower.begin(),fun,optimal_value,terminated,precision);
     }
