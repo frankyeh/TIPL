@@ -462,11 +462,10 @@ void reorder(const image_type1& volume,image_type2& volume_out,int origin[],int 
         }
     }
 }
-template<class iterator_type,class dim_order_type>
-void reorient_vector(iterator_type spatial_resolution,dim_order_type dim_order)
+template<class dim_order_type>
+void reorient_vector(tipl::vector<3>& spatial_resolution,dim_order_type dim_order)
 {
-    float sr[3];
-    std::copy(spatial_resolution,spatial_resolution+3,sr);
+    tipl::vector<3> sr(spatial_resolution);
     for(unsigned int index = 0;index < 3;++index)
         spatial_resolution[dim_order[index]] = sr[index];
 }

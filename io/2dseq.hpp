@@ -287,10 +287,10 @@ public:
     {
         return slice_2d;
     }
-    template<class pixel_size_type>
-    void get_voxel_size(pixel_size_type pixel_size_from) const
+
+    void get_voxel_size(tipl::vector<3>& vs) const
     {
-        std::copy(resolution,resolution+3,pixel_size_from);
+        std::copy(resolution,resolution+3,vs.begin());
     }
 
     template<class image_type>

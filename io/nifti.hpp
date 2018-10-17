@@ -643,14 +643,13 @@ public:
         nif_header2.dim[0] = std::find(nif_header2.dim+1,nif_header2.dim+8,1)-(nif_header2.dim+1);
     }
 
-    template<class pixel_size_type>
-    void set_voxel_size(pixel_size_type pixel_size_from)
+    template<int dim>
+    void set_voxel_size(const tipl::vector<dim,float>& pixel_size_from)
     {
         double pixdim[8];
         std::fill(pixdim,pixdim+8,1);
-        pixdim[1] = pixel_size_from[0];
-        pixdim[2] = pixel_size_from[1];
-        pixdim[3] = pixel_size_from[2];
+        std::copy(pixel_size_from.begin(),pixel_size_from.end(),pixdim+1);
+        pixdim[0] = dim;
         std::copy(pixdim,pixdim+8,nif_header.pixdim);
         std::copy(pixdim,pixdim+8,nif_header2.pixdim);
         if(nif_header2.srow_x[0] == 1.0f)
@@ -702,10 +701,10 @@ public:
         nif_header.srow_z[1] = -nif_header.srow_z[1];
     }
 
-    template<class pixel_size_type>
-    void get_voxel_size(pixel_size_type pixel_size_from) const
+    template<int dim>
+    void get_voxel_size(tipl::vector<dim,float>& pixel_size_from) const
     {
-        std::copy(nif_header2.pixdim+1,nif_header2.pixdim+1+nif_header2.dim[0],pixel_size_from);
+        std::copy(nif_header2.pixdim+1,nif_header2.pixdim+1+dim,pixel_size_from.begin());
     }
 
     template<class float_type>

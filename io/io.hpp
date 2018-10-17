@@ -21,7 +21,7 @@ private:
     std::vector<std::shared_ptr<dicom> > dicom_reader;
     std::vector<std::shared_ptr<nifti> > nifti_reader;
     float orientation_matrix[9];
-    float spatial_resolution[3];
+    tipl::vector<3,float> spatial_resolution;
     char dim_order[3]; // used to rotate the volume to axial view
     char flip[3];        // used to rotate the volume to axial view
 
@@ -48,10 +48,9 @@ public:
     const std::shared_ptr<dicom> get_dicom(unsigned int index) const{return dicom_reader[index];}
     const std::shared_ptr<nifti> get_nifti(unsigned int index) const{return nifti_reader[index];}
 
-    template<class voxel_size_type>
-    void get_voxel_size(voxel_size_type voxel_size) const
+    void get_voxel_size(tipl::vector<3,float>& voxel_size) const
     {
-        std::copy(spatial_resolution,spatial_resolution+3,voxel_size);
+        voxel_size = spatial_resolution;
     }
 
     template<class vector_type>

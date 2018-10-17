@@ -785,8 +785,7 @@ public:
         get_value(group,element,value);
         return value;
     }
-    template<class voxel_size_type>
-    void get_voxel_size(voxel_size_type voxel_size) const
+    void get_voxel_size(tipl::vector<3,float>& voxel_size) const
     {
         std::string slice_dis;
         if (get_text(0x0018,0x0088,slice_dis) || get_text(0x0018,0x0050,slice_dis))
