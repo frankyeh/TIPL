@@ -174,16 +174,9 @@ void thumb(const image<PixelType,2>& from,image<PixelType,2>& to)
         to[to_y_index + index] = to_buffer[index].get();
 
 }
-//---------------------------------------------------------------------------
-template<class PixelType,class ImageType2D>
-void reslicing(const image<PixelType,2>& slice,ImageType2D& image,
-               unsigned int dim,unsigned int slice_index)
-{
-    image = slice;
-}
 
 template<class ImageType3D,class ImageType2D>
-void reslicing(const ImageType3D& slice,ImageType2D& image,
+void volume2slice(const ImageType3D& slice,ImageType2D& image,
                unsigned int dim,unsigned int slice_index)
 {
     const geometry<3>& geo = slice.geometry();
