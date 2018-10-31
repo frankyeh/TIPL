@@ -34,6 +34,7 @@ std::vector<unsigned int> arg_sort(const container_type& data,compare_type comp)
     });
     return idx;
 }
+
 template <typename container_type>
 size_t arg_max(const container_type& data)
 {

@@ -349,7 +349,7 @@ public:
     {
         return out = (const out_type*)read_as_type(name,rows,cols,mat_type_info<out_type>::type);
     }
-	template<class data_type>
+    template<class data_type>
     void read_as_image(int index,tipl::image<data_type,2>& image_buf) const
 	{
 		if (index >= dataset.size())
@@ -358,7 +358,7 @@ public:
         dataset[index]->copy_data(image_buf.begin());
 	}
 
-	template<class data_type>
+    template<class data_type>
     void read_as_image(const char* name,tipl::image<data_type,2>& image_buf) const
     {
 		std::map<std::string,int>::const_iterator iter = name_table.find(name);
@@ -426,34 +426,31 @@ public:
     }
 
     template<class image_type>
-    void save_to_image(image_type& image_data) const
+    bool save_to_image(image_type& image_data,const char* image_name) const
     {
         unsigned int r,c;
         const unsigned short* m = 0;
         read("dimension",r,c,m);
         if(!m || r*c != image_type::dimension)
-            return;
+            return false;
         image_data.resize(tipl::geometry<image_type::dimension>(m));
         const typename image_type::value_type* buf = 0;
-        read("image",r,c,buf);
+        read(image_name,r,c,buf);
         if(!buf || r*c != image_data.size())
-            return;
+            return false;
         std::copy(buf,buf+image_data.size(),image_data.begin());
+        return true;
     }
-    template<class voxel_size_type>
-    void get_voxel_size(voxel_size_type voxel_size) const
+    bool get_voxel_size(tipl::vector<3>& vs) const
     {
-        unsigned int r,c,r2,c2;
-        const unsigned short* m = 0;
-        read("dimension",r,c,m);
-        if(!m)
-            return;
-        const float* vs = 0;
-        read("dimension",r2,c2,vs);
-        if(!vs || r*c != r2*c2)
-            return;
-        for(unsigned int i = 0;i < r*c;++i)
-            voxel_size[i] = vs[i];
+        const float* vs_ptr = 0;
+        unsigned int r,c;
+        read("voxel_size",r,c,vs_ptr);
+        if(!vs_ptr || r*c != 3)
+            return false;
+        for(unsigned int i = 0;i < 3;++i)
+            vs[i] = vs_ptr[i];
+        return true;
     }
     const char* name(unsigned int index) const
     {
@@ -470,7 +467,7 @@ public:
     template<class image_type>
     const mat_read_base& operator>>(image_type& source) const
     {
-        save_to_image(source);
+        save_to_image(source,"image");
         return *this;
     }
 };
