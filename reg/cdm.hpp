@@ -334,6 +334,8 @@ double cdm(const image<pixel_type,dimension>& It,
             float cdm_smoothness = 0.3f,
             unsigned int steps = 30)
 {
+    if(It.geometry() != Is.geometry() || It.empty())
+        throw "Invalid cdm input image";
     geometry<dimension> geo = It.geometry();
     d.resize(geo);
     // multi resolution
