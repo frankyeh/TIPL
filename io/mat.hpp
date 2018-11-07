@@ -298,16 +298,16 @@ template<class input_interface = std_istream>
 class mat_read_base
 {
 private:
-    std::vector<mat_matrix*> dataset;
+    std::vector<std::shared_ptr<mat_matrix> > dataset;
     std::map<std::string,int> name_table;
 private:
     void copy(const mat_read_base& rhs)
     {
         for(unsigned int index = 0;index < dataset.size();++index)
         {
-            std::auto_ptr<mat_matrix> matrix(new mat_matrix);
+            std::shared_ptr<mat_matrix> matrix(new mat_matrix);
             *(matrix.get()) = *(rhs.dataset[index]);
-            dataset.push_back(matrix.release());
+            dataset.push_back(matrix);
         }
         name_table = rhs.name_table;
     }
@@ -368,29 +368,20 @@ public:
     }
 
 public:
-    ~mat_read_base(void)
-    {
-        clear();
-    }
-    void clear(void)
-    {
-        for(unsigned int index = 0; index < dataset.size(); ++index)
-            delete dataset[index];
-        dataset.clear();
-    }
+
     template<class char_type>
     bool load_from_file(const char_type* file_name,unsigned int max_count,std::string stop_name)
     {
         input_interface in;
         if(!in.open(file_name))
             return false;
-        clear();
+        dataset.clear();
         for(unsigned int i = 0;i < max_count && in;++i)
         {
-            std::auto_ptr<mat_matrix> matrix(new mat_matrix);
+            std::shared_ptr<mat_matrix> matrix(new mat_matrix);
             if (!matrix->read(in))
                 break;
-            dataset.push_back(matrix.release());
+            dataset.push_back(matrix);
             if(dataset.back()->get_name() == stop_name)
                 break;
         }
@@ -404,13 +395,13 @@ public:
         input_interface in;
         if(!in.open(file_name))
             return false;
-        clear();
+        dataset.clear();
         while(in)
         {
-            std::auto_ptr<mat_matrix> matrix(new mat_matrix);
+            std::shared_ptr<mat_matrix> matrix(new mat_matrix);
             if (!matrix->read(in))
                 break;
-            dataset.push_back(matrix.release());
+            dataset.push_back(matrix);
         }
         for (unsigned int index = 0; index < dataset.size(); ++index)
             name_table[dataset[index]->get_name()] = index;
@@ -419,9 +410,9 @@ public:
     template<class Type>
     void add(const char* name_,const Type* data_ptr,unsigned int rows,unsigned int cols)
     {
-        std::auto_ptr<mat_matrix> matrix(new mat_matrix);
+        std::shared_ptr<mat_matrix> matrix(new mat_matrix);
         matrix->assign(name_,data_ptr,rows,cols);
-        dataset.push_back(matrix.release());
+        dataset.push_back(matrix);
         name_table[name_] = dataset.size()-1;
     }
 
