@@ -744,6 +744,7 @@ public:
         std::fill((char*)&nif_header,(char*)&nif_header + sizeof(nifti_1_header),0);
         nif_header.sizeof_hdr = 348;
         nif_header.vox_offset = 352;
+        nif_header.scl_slope = 1.0;
         nif_header.sform_code = 1;
         nif_header.quatern_c = 1;
         nif_header.srow_x[0] = 1.0;
@@ -757,6 +758,7 @@ public:
         std::fill((char*)&nif_header2,(char*)&nif_header2 + sizeof(nifti_2_header),0);
         nif_header2.sizeof_hdr = 540;
         nif_header2.vox_offset = 544;
+        nif_header2.scl_slope = 1.0;
         nif_header2.sform_code = 1;
         nif_header2.quatern_c = 1;
         nif_header2.srow_x[0] = 1.0;
