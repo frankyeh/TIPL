@@ -347,39 +347,49 @@ float linear(const image_type& from,const vs_type& from_vs,
                 transform_type& arg_min,
              reg_type base_type,
              CostFunctionType,
-             bool random_search,
              teminated_class& terminated,
-             double precision)
+             double precision,int random_search_count = 0)
 {
-    std::srand(0);
     reg_type reg_list[4] = {translocation,rigid_body,rigid_scaling,affine};
     transform_type upper,lower;
     tipl::reg::fun_adoptor<image_type,vs_type,transform_type,transform_type,CostFunctionType> fun(from,from_vs,to,to_vs,arg_min);
     double optimal_value = fun(arg_min[0]);
     tipl::reg::get_bound(from,to,arg_min,upper,lower,base_type);
-    while(random_search && !terminated)
+    std::default_random_engine gen;
+
+    // translation search on translocation (x,y,z)
+    std::uniform_int_distribution<int> un(0,2);
+    tipl::par_for(std::thread::hardware_concurrency(),[&](int)
     {
-        bool improved = false;
-        for(fun.cur_dim = 0;fun.cur_dim < arg_min.size() && !terminated;++fun.cur_dim)
-            if(upper[fun.cur_dim] != lower[fun.cur_dim])
+        for(int j = 0;j < random_search_count && !terminated;++j)
+        {
+            transform_type this_arg_min = arg_min;
+            int cur_dim = un(gen);
+            if(upper[cur_dim] == lower[cur_dim])
+                continue;
+            float sd = std::max<float>(std::fabs(upper[cur_dim]-arg_min[cur_dim]),std::fabs(lower[cur_dim]-arg_min[cur_dim]))/2.0f;
+            std::normal_distribution<double> distribution(arg_min[cur_dim],sd);
+            this_arg_min[cur_dim] = distribution(gen);
+
+            auto this_value = CostFunctionType()(from,to,
+                tipl::transformation_matrix<typename transform_type::value_type>(this_arg_min,from.geometry(),from_vs,to.geometry(),to_vs));
+            if(this_value < optimal_value)
             {
-                double v = optimal_value;
-                tipl::optimization::linear_search2(
-                            arg_min[fun.cur_dim],upper[fun.cur_dim],lower[fun.cur_dim],optimal_value,fun,10);
-                if(v != optimal_value)
-                    improved = true;
+                arg_min = this_arg_min;
+                optimal_value = this_value;
             }
-        if(!improved)
-            break;
+        }
+    });
+
+    for(int type = 0;type < 4 && reg_list[type] <= base_type && !terminated;++type)
+    {
+            tipl::reg::get_bound(from,to,arg_min,upper,lower,reg_list[type]);
+            tipl::optimization::gradient_descent(arg_min.begin(),arg_min.end(),
+                                                 upper.begin(),lower.begin(),fun,optimal_value,terminated,precision);
     }
 
-    for(unsigned char type = 0;type < 4 && reg_list[type] <= base_type && !terminated;++type)
-    {
-        tipl::reg::get_bound(from,to,arg_min,upper,lower,reg_list[type]);
+    if(!terminated)
         tipl::optimization::gradient_descent(arg_min.begin(),arg_min.end(),
-                                             upper.begin(),lower.begin(),fun,optimal_value,terminated,precision);
-    }
-    tipl::optimization::gradient_descent(arg_min.begin(),arg_min.end(),
                                          upper.begin(),lower.begin(),fun,optimal_value,terminated,precision*0.1f);
     return optimal_value;
 }
@@ -394,10 +404,9 @@ float linear_mr(const image_type& from,const vs_type& from_vs,
                 teminated_class& terminated,
                 double precision = 0.01)
 {
-    bool random_search = false;
     // multi resolution
-    if (*std::min_element(from.geometry().begin(),from.geometry().end()) > 32 &&
-        *std::min_element(to.geometry().begin(),to.geometry().end()) > 32)
+    if (*std::max_element(from.geometry().begin(),from.geometry().end()) > 32 &&
+        *std::max_element(to.geometry().begin(),to.geometry().end()) > 32)
     {
         //downsampling
         image<typename image_type::value_type,image_type::dimension> from_r,to_r;
@@ -414,9 +423,8 @@ float linear_mr(const image_type& from,const vs_type& from_vs,
         if(terminated)
             return 0.0;
     }
-    else
-        random_search = true;
-    return linear(from,from_vs,to,to_vs,arg_min,base_type,cost_type,random_search,terminated,precision);
+    int random_search = 800/(*std::max_element(from.geometry().begin(),from.geometry().end())+1);
+    return linear(from,from_vs,to,to_vs,arg_min,base_type,cost_type,terminated,precision,random_search /* random search count*/);
 }
 
 template<class image_type,class vs_type,class TransType,class CostFunctionType,class teminated_class>
@@ -434,29 +442,31 @@ void two_way_linear_mr(const image_type& from,const vs_type& from_vs,
         if(i)
         {
             if(arg)
-            {
                 tipl::reg::linear_mr(from,from_vs,to,to_vs,*arg,base_type,cost_type,terminated,0.1);
-                tipl::reg::linear_mr(from,from_vs,to,to_vs,*arg,base_type,cost_type,terminated,0.01);
-            }
             else
-            {
                 tipl::reg::linear_mr(from,from_vs,to,to_vs,arg1,base_type,cost_type,terminated,0.1);
-                tipl::reg::linear_mr(from,from_vs,to,to_vs,arg1,base_type,cost_type,terminated,0.01);
-            }
         }
         else
-        {
             tipl::reg::linear_mr(to,to_vs,from,from_vs,arg2,base_type,cost_type,terminated,0.1);
-            tipl::reg::linear_mr(to,to_vs,from,from_vs,arg2,base_type,cost_type,terminated,0.01);
-        }
     },thread_count);
     TransType T1(arg == 0 ? arg1:*arg,from.geometry(),from_vs,to.geometry(),to_vs);
     TransType T2(arg2,to.geometry(),to_vs,from.geometry(),from_vs);
     T2.inverse();
     if(CostFunctionType()(from,to,T2) < CostFunctionType()(from,to,T1))
-        T = T2;
+    {
+        tipl::reg::linear(to,to_vs,from,from_vs,arg2,base_type,cost_type,terminated,0.001f);
+        TransType T22(arg2,to.geometry(),to_vs,from.geometry(),from_vs);
+        T22.inverse();
+        T = T22;
+    }
     else
-        T = T1;
+    {
+        if(arg)
+            tipl::reg::linear(from,from_vs,to,to_vs,*arg,base_type,cost_type,terminated,0.001f);
+        else
+            tipl::reg::linear(from,from_vs,to,to_vs,arg1,base_type,cost_type,terminated,0.001f);
+        T = TransType(arg == 0 ? arg1:*arg,from.geometry(),from_vs,to.geometry(),to_vs);
+    }
 }
 
 

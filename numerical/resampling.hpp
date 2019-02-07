@@ -1000,6 +1000,7 @@ void resample(const ImageType1& from,ImageType2& to,interpolation_type type = in
 }
 
 
+
 template<class ImageType1,class ImageType2,class transform_type>
 void resample(const ImageType1& from,ImageType2& to,const transform_type& transform,interpolation_type type)
 {
@@ -1011,6 +1012,21 @@ void resample(const ImageType1& from,ImageType2& to,const transform_type& transf
         estimate(from,pos,to[index.index()],type);
     }
 }
+
+template<class ImageType1,class ImageType2,class transform_type>
+void resample_dis(const ImageType1& from,ImageType2& to,const transform_type& transform,const tipl::image<tipl::vector<3>,3>& dis,interpolation_type type)
+{
+    tipl::geometry<ImageType1::dimension> geo(to.geometry());
+    for (tipl::pixel_index<ImageType1::dimension> index(geo);index < geo.size();++index)
+    {
+        tipl::vector<ImageType1::dimension,double> pos;
+        transform(index,pos);
+        pos += dis[index.index()];
+        estimate(from,pos,to[index.index()],type);
+    }
+}
+
+
 /*
  * ref image much be normalized to one
  */

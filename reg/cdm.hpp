@@ -324,6 +324,7 @@ void cdm_group(const std::vector<image<pixel_type,dimension> >& I,// original im
  *  std::pair<double,double> r = linear_regression(Is.begin(),Is.end(),It.begin());
         for(unsigned int index = 0;index < Is.size();++index)
             Is[index] = std::max<float>(0,Is[index]*r.first+r.second);
+ * cdm_smoothness 0.1: more smooth 0.9: less smooth
  */
 template<class pixel_type,class vtor_type,unsigned int dimension,class terminate_type>
 double cdm(const image<pixel_type,dimension>& It,
