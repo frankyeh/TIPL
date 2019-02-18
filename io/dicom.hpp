@@ -1179,13 +1179,13 @@ public:
             std::string group_element_str;
             {
                 std::ostringstream ge_out;
-                if(item_tag)
-                    ge_out << "[" << i << "].";
                 if(data[i].group == 0xFFFE)
                     ge_out << "item";
                 else
-                    ge_out << std::setw( 8 ) << std::setfill( '0' ) << std::hex << std::uppercase <<
-                    data[i].get_order();
+                    ge_out << "("  << std::setw( 4 ) << std::setfill( '0' ) << std::hex << std::uppercase << data[i].group
+                           << ","  << std::setw( 4 ) << std::setfill( '0' ) << std::hex << std::uppercase << data[i].element << ")";                                                        ;
+                if(item_tag)
+                    ge_out << "[" << i << "].";
                 group_element_str = ge_out.str();
             }
 
