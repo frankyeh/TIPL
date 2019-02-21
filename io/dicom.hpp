@@ -173,8 +173,16 @@ public:
             if(read_length == 0xFFFFFFFF)
             {
                 do{
+                    // usually has one or more (FFFE,00E0)
                     in.read(gel,8);
-                    if(length)
+                    // There could be dummy empty storage of (FFFE,00E0)
+                    if(length <= 16)
+                    {
+                        char buf[16];
+                        if(length)
+                            in.read(buf,length);
+                    }
+                    else
                         return false;
                 }while(in);
                 length = 0;
