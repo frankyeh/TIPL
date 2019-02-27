@@ -723,7 +723,7 @@ public:
     }
 
 
-    const float* get_transformation(void)
+    const double* get_transformation(void)
     {
         handle_qform();
         return nif_header2.srow_x;
