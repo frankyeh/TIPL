@@ -197,6 +197,117 @@ struct gaussian_radial_basis_weighting
     }
 };
 
+template<unsigned int dimension>
+struct nearest_value{};
+
+template<>
+struct nearest_value<1>
+{
+    int x;
+    template<class VTorType>
+    bool get_location(const geometry<1>& geo,const VTorType& location)
+    {
+        x = std::round(location);
+        if (x < 0 || x >= geo[0])
+            return false;
+        return true;
+    }
+
+    //---------------------------------------------------------------------------
+    template<class ImageType,class VTorType,class PixelType>
+    bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel)
+    {
+        if (get_location(source.geometry(),location))
+        {
+            pixel = source[x];
+            return true;
+        }
+        return false;
+    }
+
+    //---------------------------------------------------------------------------
+    template<class ImageType,class PixelType>
+    void estimate(const ImageType& source,PixelType& pixel)
+    {
+        pixel = source[x];
+    }
+};
+
+
+template<>
+struct nearest_value<2>
+{
+    int x,y;
+    int index = 0;
+    template<class VTorType>
+    bool get_location(const geometry<2>& geo,const VTorType& location)
+    {
+        x = std::round(location[0]);
+        y = std::round(location[1]);
+        if (x < 0 || y < 0 || x >= geo[0] || y >= geo[1])
+            return false;
+        index = x+y*geo[0];
+        return true;
+    }
+
+    //---------------------------------------------------------------------------
+    template<class ImageType,class VTorType,class PixelType>
+    bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel)
+    {
+        if (get_location(source.geometry(),location))
+        {
+            pixel = source[index];
+            return true;
+        }
+        return false;
+    }
+
+    //---------------------------------------------------------------------------
+    template<class ImageType,class PixelType>
+    void estimate(const ImageType& source,PixelType& pixel)
+    {
+        pixel = source[index];
+    }
+};
+
+
+template<>
+struct nearest_value<3>
+{
+    int x,y,z;
+    int index = 0;
+    template<class VTorType>
+    bool get_location(const geometry<3>& geo,const VTorType& location)
+    {
+        x = std::round(location[0]);
+        y = std::round(location[1]);
+        z = std::round(location[2]);
+        if (x < 0 || y < 0 || z < 0 || x >= geo[0] || y >= geo[1] || z >= geo[2])
+            return false;
+        index = x+(z*geo[1]+y)*geo[0];
+        return true;
+    }
+
+    //---------------------------------------------------------------------------
+    template<class ImageType,class VTorType,class PixelType>
+    bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel)
+    {
+        if (get_location(source.geometry(),location))
+        {
+            pixel = source[index];
+            return true;
+        }
+        return false;
+    }
+
+    //---------------------------------------------------------------------------
+    template<class ImageType,class PixelType>
+    void estimate(const ImageType& source,PixelType& pixel)
+    {
+        pixel = source[index];
+    }
+};
+
 template<class weighting_function,unsigned int dimension>
 struct interpolation{};
 
@@ -708,12 +819,14 @@ struct cubic_interpolation<3>{
     }
 };
 
-enum interpolation_type {linear, cubic};
+enum interpolation_type {nearest, linear, cubic};
 
 
 template<class ImageType,class VTorType,class PixelType>
 bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel,interpolation_type type = linear)
 {
+    if(type == nearest)
+        return nearest_value<ImageType::dimension>().estimate(source,location,pixel);
     if(type == linear)
         return interpolation<linear_weighting,ImageType::dimension>().estimate(source,location,pixel);
     if(type == cubic)
@@ -734,6 +847,11 @@ template<class ImageType,class VTorType>
 typename ImageType::value_type estimate(const ImageType& source,const VTorType& location,interpolation_type type = linear)
 {
     typename ImageType::value_type result(0);
+    if(type == nearest)
+    {
+        nearest_value<ImageType::dimension>().estimate(source,location,result);
+        return result;
+    }
     if(type == linear)
     {
         interpolation<linear_weighting,ImageType::dimension>().estimate(source,location,result);

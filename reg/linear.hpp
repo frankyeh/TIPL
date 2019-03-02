@@ -292,12 +292,14 @@ namespace reg
 enum reg_type {none = 0,translocation = 1,rotation = 2,rigid_body = 3,scaling = 4,rigid_scaling = 7,tilt = 8,affine = 15};
 enum cost_type{corr,mutual_info};
 
+const float reg_bound[6] = {0.25f,-0.25f,2.0,0.5,0.2,-0.2};
+
 template<class image_type1,class image_type2,class transform_type>
 void get_bound(const image_type1& from,const image_type2& to,
                const transform_type& trans,
                transform_type& upper_trans,
                transform_type& lower_trans,
-               reg_type type)
+               reg_type type,const float* bound = reg_bound)
 {
     typedef typename transform_type::value_type value_type;
     const unsigned int dimension = image_type1::dimension;
@@ -317,8 +319,8 @@ void get_bound(const image_type1& from,const image_type2& to,
     {
         for (unsigned int index = dimension; index < dimension + dimension; ++index)
         {
-            upper_trans[index] = 3.14159265358979323846f*0.25f;
-            lower_trans[index] = -3.14159265358979323846f*0.25f;
+            upper_trans[index] = 3.14159265358979323846f*bound[0];
+            lower_trans[index] = 3.14159265358979323846f*bound[1];
         }
     }
 
@@ -326,8 +328,8 @@ void get_bound(const image_type1& from,const image_type2& to,
     {
         for (unsigned int index = dimension + dimension; index < dimension+dimension+dimension; ++index)
         {
-            upper_trans[index] = 2.0f;
-            lower_trans[index] = 0.5f;
+            upper_trans[index] = bound[2];
+            lower_trans[index] = bound[3];
         }
     }
 
@@ -335,8 +337,8 @@ void get_bound(const image_type1& from,const image_type2& to,
     {
         for (unsigned int index = dimension + dimension + dimension; index < transform_type::total_size; ++index)
         {
-            upper_trans[index] = 0.2f;
-            lower_trans[index] = -0.2f;
+            upper_trans[index] = bound[4];
+            lower_trans[index] = bound[5];
         }
     }
 }
@@ -348,13 +350,13 @@ float linear(const image_type& from,const vs_type& from_vs,
              reg_type base_type,
              CostFunctionType,
              teminated_class& terminated,
-             double precision,int random_search_count = 0)
+             double precision,int random_search_count = 0,const float* bound = reg_bound)
 {
     reg_type reg_list[4] = {translocation,rigid_body,rigid_scaling,affine};
     transform_type upper,lower;
     tipl::reg::fun_adoptor<image_type,vs_type,transform_type,transform_type,CostFunctionType> fun(from,from_vs,to,to_vs,arg_min);
     double optimal_value = fun(arg_min[0]);
-    tipl::reg::get_bound(from,to,arg_min,upper,lower,base_type);
+    tipl::reg::get_bound(from,to,arg_min,upper,lower,base_type,bound);
     std::default_random_engine gen;
 
     // translation search on translocation (x,y,z)
@@ -402,7 +404,8 @@ float linear_mr(const image_type& from,const vs_type& from_vs,
                 reg_type base_type,
                 CostFunctionType cost_type,
                 teminated_class& terminated,
-                double precision = 0.01)
+                double precision = 0.01,
+                const float* bound = reg_bound)
 {
     // multi resolution
     if (*std::max_element(from.geometry().begin(),from.geometry().end()) > 32 &&
@@ -417,14 +420,14 @@ float linear_mr(const image_type& from,const vs_type& from_vs,
         to_vs_r *= 2.0;
         transform_type arg_min_r(arg_min);
         arg_min_r.downsampling();
-        linear_mr(from_r,from_vs_r,to_r,to_vs_r,arg_min_r,base_type,cost_type,terminated,precision);
+        linear_mr(from_r,from_vs_r,to_r,to_vs_r,arg_min_r,base_type,cost_type,terminated,precision,bound);
         arg_min_r.upsampling();
         arg_min = arg_min_r;
         if(terminated)
             return 0.0;
     }
     int random_search = 800/(*std::max_element(from.geometry().begin(),from.geometry().end())+1);
-    return linear(from,from_vs,to,to_vs,arg_min,base_type,cost_type,terminated,precision,random_search /* random search count*/);
+    return linear(from,from_vs,to,to_vs,arg_min,base_type,cost_type,terminated,precision,random_search,bound);
 }
 
 template<class image_type,class vs_type,class TransType,class CostFunctionType,class teminated_class>
@@ -435,16 +438,17 @@ void two_way_linear_mr(const image_type& from,const vs_type& from_vs,
                             CostFunctionType cost_type,
                             teminated_class& terminated,
                             unsigned int thread_count = std::thread::hardware_concurrency(),
-                            tipl::affine_transform<typename TransType::value_type>* arg = 0)
+                            tipl::affine_transform<typename TransType::value_type>* arg = 0,
+                            const float* bound = reg_bound)
 {
     tipl::affine_transform<typename TransType::value_type> arg1,arg2;
     tipl::par_for(2,[&](int i){
         if(i)
         {
             if(arg)
-                tipl::reg::linear_mr(from,from_vs,to,to_vs,*arg,base_type,cost_type,terminated,0.1);
+                tipl::reg::linear_mr(from,from_vs,to,to_vs,*arg,base_type,cost_type,terminated,0.1,bound);
             else
-                tipl::reg::linear_mr(from,from_vs,to,to_vs,arg1,base_type,cost_type,terminated,0.1);
+                tipl::reg::linear_mr(from,from_vs,to,to_vs,arg1,base_type,cost_type,terminated,0.1,bound);
         }
         else
             tipl::reg::linear_mr(to,to_vs,from,from_vs,arg2,base_type,cost_type,terminated,0.1);
@@ -454,7 +458,7 @@ void two_way_linear_mr(const image_type& from,const vs_type& from_vs,
     T2.inverse();
     if(CostFunctionType()(from,to,T2) < CostFunctionType()(from,to,T1))
     {
-        tipl::reg::linear(to,to_vs,from,from_vs,arg2,base_type,cost_type,terminated,0.001f);
+        tipl::reg::linear(to,to_vs,from,from_vs,arg2,base_type,cost_type,terminated,0.001f,0,bound);
         TransType T22(arg2,to.geometry(),to_vs,from.geometry(),from_vs);
         T22.inverse();
         T = T22;
@@ -462,9 +466,9 @@ void two_way_linear_mr(const image_type& from,const vs_type& from_vs,
     else
     {
         if(arg)
-            tipl::reg::linear(from,from_vs,to,to_vs,*arg,base_type,cost_type,terminated,0.001f);
+            tipl::reg::linear(from,from_vs,to,to_vs,*arg,base_type,cost_type,terminated,0.001f,0,bound);
         else
-            tipl::reg::linear(from,from_vs,to,to_vs,arg1,base_type,cost_type,terminated,0.001f);
+            tipl::reg::linear(from,from_vs,to,to_vs,arg1,base_type,cost_type,terminated,0.001f,0,bound);
         T = TransType(arg == 0 ? arg1:*arg,from.geometry(),from_vs,to.geometry(),to_vs);
     }
 }
