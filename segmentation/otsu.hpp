@@ -66,6 +66,15 @@ void otsu(const ImageType& src,LabelImageType& label,typename LabelImageType::va
     threshold(src,label,otsu_threshold(src),foreground,background);
 }
 
+template<class ImageType>
+unsigned int otsu_count(const ImageType& src,float level = 0.6f)
+{
+    float threshold = otsu_threshold(src)*level;
+    return std::count_if(src.begin(),src.end(),[threshold](float v){return v > threshold;});
+}
+
+
+
 }
 }
 
