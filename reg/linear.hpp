@@ -292,7 +292,7 @@ namespace reg
 enum reg_type {none = 0,translocation = 1,rotation = 2,rigid_body = 3,scaling = 4,rigid_scaling = 7,tilt = 8,affine = 15};
 enum cost_type{corr,mutual_info};
 
-const float reg_bound[6] = {0.25f,-0.25f,2.0,0.5,0.2,-0.2};
+const float reg_bound[6] = {0.25f,-0.25f,2.0f,0.5f,0.2f,-0.2f};
 
 template<class image_type1,class image_type2,class transform_type>
 void get_bound(const image_type1& from,const image_type2& to,
