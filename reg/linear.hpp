@@ -408,6 +408,7 @@ float linear_mr(const image_type& from,const vs_type& from_vs,
                 const float* bound = reg_bound)
 {
     // multi resolution
+    int random_search = 0;
     if (*std::max_element(from.geometry().begin(),from.geometry().end()) > 32 &&
         *std::max_element(to.geometry().begin(),to.geometry().end()) > 32)
     {
@@ -426,7 +427,8 @@ float linear_mr(const image_type& from,const vs_type& from_vs,
         if(terminated)
             return 0.0;
     }
-    int random_search = 800/(*std::max_element(from.geometry().begin(),from.geometry().end())+1);
+    else
+        random_search = 800/(*std::max_element(from.geometry().begin(),from.geometry().end())+1);
     return linear(from,from_vs,to,to_vs,arg_min,base_type,cost_type,terminated,precision,random_search,bound);
 }
 
