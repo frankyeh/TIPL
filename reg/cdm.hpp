@@ -431,10 +431,6 @@ bool cdm_improved(r_type& r,r_type& iter)
 }
 
 /*
- *  The intensity between It and Is has to be matched
- *  std::pair<double,double> r = linear_regression(Is.begin(),Is.end(),It.begin());
-        for(unsigned int index = 0;index < Is.size();++index)
-            Is[index] = std::max<float>(0,Is[index]*r.first+r.second);
  * cdm_smoothness 0.1: more smooth 0.9: less smooth
  */
 template<typename image_type,typename dist_type,typename terminate_type>
@@ -448,8 +444,11 @@ double cdm(const image_type& It,
 {
     typedef typename image_type::value_type pixel_type;
     typedef typename dist_type::value_type vtor_type;
+    if(It.geometry() != Is.geometry())
+        throw "Inconsistent image dimension";
     auto geo = It.geometry();
     d.resize(It.geometry());
+
     // multi resolution
     if (*std::min_element(geo.begin(),geo.end()) > 16)
     {
@@ -497,6 +496,10 @@ double cdm2(const image_type& It,const image_type& It2,
 {
     typedef typename image_type::value_type pixel_type;
     typedef typename dist_type::value_type vtor_type;
+    if(It.geometry() != It2.geometry() ||
+       It.geometry() != Is.geometry() ||
+       It.geometry() != Is2.geometry())
+        throw "Inconsistent image dimension";
     auto geo = It.geometry();
     d.resize(It.geometry());
     // multi resolution
@@ -528,8 +531,8 @@ double cdm2(const image_type& It,const image_type& It2,
         iter.push_back(index);
         if(!cdm_improved(r,iter))
             return r.front();
-        // solving the poisson equation using Jacobi method
         add(new_d,new_d2);
+        // solving the poisson equation using Jacobi method
         cdm_solve_poisson(new_d,terminated);
         if(terminated)
             break;
