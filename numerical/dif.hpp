@@ -45,6 +45,11 @@ void compose_displacement(const ImageType& src,const ComposeImageType& displace,
     dest.resize(geo);
     for(tipl::pixel_index<ImageType::dimension> index(geo);index.is_valid(geo);++index)
     {
+        if(displace[index.index()] == typename ComposeImageType::value_type())
+        {
+            dest[index.index()] = src[index.index()];
+            continue;
+        }
         typename ComposeImageType::value_type vtor(index);
         vtor += displace[index.index()];
         tipl::estimate(src,vtor,dest[index.index()]);
