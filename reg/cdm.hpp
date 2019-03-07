@@ -330,7 +330,7 @@ double cdm_get_gradient(const image_type& Js,const image_type& It,dis_type& new_
     Js.for_each_mt([&](typename image_type::value_type,pixel_index<image_type::dimension>& index){
         if(It[index.index()] == 0.0 || It.geometry().is_edge(index))
         {
-            new_d[index.index()] = dis_type::value_type();
+            new_d[index.index()] = typename dis_type::value_type();
             return;
         }
         std::vector<typename image_type::value_type> Itv,Jv;
@@ -339,7 +339,7 @@ double cdm_get_gradient(const image_type& Js,const image_type& It,dis_type& new_
         double a,b,r2;
         linear_regression(Jv.begin(),Jv.end(),Itv.begin(),a,b,r2);
         if(a <= 0.0f)
-            new_d[index.index()] = dis_type::value_type();
+            new_d[index.index()] = typename dis_type::value_type();
         else
         {
             new_d[index.index()] *= r2*(Js[index.index()]*a+b-It[index.index()]);
