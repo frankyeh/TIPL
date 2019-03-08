@@ -242,6 +242,33 @@ void gradient_2z(const InputImageType& in,OutputImageType& out)
     gradient(in,out,in.geometry().plane_size() << 1,in.geometry().plane_size());
 }
 //---------------------------------------------------------------------------
+template<class iterator1,class iterator2>
+void pdf2cdf(iterator1 lhs_from,iterator1 lhs_to,iterator2 out)
+{
+    iterator2 prev_out = out;
+    *out = *lhs_from;
+    ++out;
+    for (++lhs_from; lhs_from != lhs_to; ++lhs_from,++out)
+    {
+        *out = *prev_out + *lhs_from;
+        prev_out = out;
+    }
+}
+//---------------------------------------------------------------------------
+template<class iterator1,class iterator2>
+void cdf2pdf(iterator1 lhs_from,iterator1 lhs_to,iterator2 out)
+{
+    iterator2 prev_out = out;
+    *out = *lhs_from;
+    ++out;
+    for (++lhs_from; lhs_from != lhs_to; ++lhs_from,++out)
+    {
+        *out = *lhs_from-*prev_out;
+        prev_out = out;
+    }
+}
+
+
 template<class LHType,class RHType>
 void assign_negate(LHType& lhs,const RHType& rhs)
 {
@@ -353,9 +380,9 @@ void absolute_value(iterator lhs_from,iterator lhs_to)
 }
 //---------------------------------------------------------------------------
 template<class image_type>
-void absolute_value(image_type& I)
+void abs(image_type& I)
 {
-    absolute_value(I.begin(),I.end());
+    abs(I.begin(),I.end());
 }
 //---------------------------------------------------------------------------
 template<class iterator1,class iterator2>
