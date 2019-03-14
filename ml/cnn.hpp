@@ -34,14 +34,14 @@ namespace ml
 {
 
 
-enum activation_type { relu, identity};
+enum activation_type { relu, push2, pull2};
 enum status_type { training,testing};
 
 class basic_layer
 {
 
 public:
-    activation_type af;
+    std::vector<activation_type> af;
     status_type status;
     int input_size;
     int output_size;
@@ -52,7 +52,7 @@ public:
 public:
 
     virtual ~basic_layer() {}
-    basic_layer(activation_type af_ = activation_type::relu):af(af_),status(testing),weight_base(1){}
+    basic_layer(void):status(testing),weight_base(1){}
     void init( int input_size_, int output_size_, int weight_dim, int bias_dim)
     {
         input_size = input_size_;
@@ -72,12 +72,28 @@ public:
     virtual void forward_propagation(const float* x,float* y) = 0;
     void forward_af(float* y)
     {
-        if(af == activation_type::relu)
+        for(auto f : af)
+        {
+            if(f == activation_type::relu)
             for(int i = 0; i < output_size; ++i)
                 if(y[i] < 0.0f)
                     y[i] = 0.0f;
+            if(f == activation_type::pull2)
+                tipl::add(y,y+output_size,y-output_size-output_size);
+        }
     }
-
+    void back_af(float* dOut,const float* x)
+    {
+        for(auto f : af)
+        {
+            if(f == activation_type::relu)
+               for(int i = 0; i < output_size; ++i)
+                    if(x[i] <= 0)
+                        dOut[i] = 0;
+            if(f == activation_type::push2)
+                tipl::add(dOut,dOut+output_size,dOut+output_size+output_size);
+        }
+    }
 
     virtual void calculate_dwdb(const float*,
                                   const float*,
@@ -86,13 +102,7 @@ public:
     virtual void back_propagation(float* dOut,// output_size
                                   float* dX,// input_size
                                   const float*) = 0;
-    void back_af(float* dOut,const float* x)
-    {
-        if(af == activation_type::relu)
-            for(int i = 0; i < output_size; ++i)
-                if(x[i] <= 0)
-                    dOut[i] = 0;
-    }
+
     virtual unsigned int computation_cost(void) const
     {
         return (unsigned int)(weight.size());
@@ -110,7 +120,7 @@ class fully_connected_layer : public basic_layer
 {
 public:
     tipl::geometry<3> in_dim;
-    fully_connected_layer(activation_type af_):basic_layer(af_){}
+    fully_connected_layer(void){}
     bool init(const tipl::geometry<3>& in_dim_,const tipl::geometry<3>& out_dim) override
     {
         in_dim = in_dim_;
@@ -154,138 +164,6 @@ public:
 };
 
 
-class residual_learning_layer : public fully_connected_layer
-{
-    void orthogonize(void)
-    {
-        std::vector<float> vector_length(output_size);
-        for(int i = 0,pos = 0; i < output_size;++i, pos += input_size)
-            vector_length[i] = tipl::vec::norm2(&weight[0]+pos,&weight[0]+pos+input_size);
-        for(int m = 1;m < output_size;++m)
-        {
-            size_t max_pos = tipl::arg_max(vector_length);
-            if(vector_length[max_pos] == 0.0f)
-                return;
-            std::vector<float> unit_v(&weight[0]+max_pos*input_size,&weight[0]+(max_pos+1)*input_size);
-            tipl::multiply_constant(unit_v,1.0f/vector_length[max_pos]);
-            vector_length[max_pos] = 0.0f;
-            for(int i = 0,pos = 0;i < output_size;++i,pos += input_size)
-                if(vector_length[i] > 0.0f)
-                {
-                    auto from = &weight[0]+pos;
-                    auto to = &weight[0]+pos+input_size;
-                    tipl::vec::axpy(&weight[0]+pos,&weight[0]+pos+input_size,
-                            -tipl::vec::dot(from,to,&unit_v[0]),&unit_v[0]);
-                    vector_length[i] = tipl::vec::norm2(from,to);
-                }
-        }
-    }
-
-public:
-    residual_learning_layer(activation_type af_):fully_connected_layer(af_){}
-    virtual void update(float rw,const std::vector<float>& dw,
-                        float rb,const std::vector<float>& db)
-    {
-        basic_layer::update(rw,dw,rb,db);
-        orthogonize();
-    }
-};
-
-
-class partially_connected_layer : public fully_connected_layer
-{
-public:
-    std::vector<std::vector<int> > mapping;
-public:
-    partially_connected_layer(activation_type af_):fully_connected_layer(af_){}
-    bool init(const tipl::geometry<3>& in_dim_,const tipl::geometry<3>& out_dim) override
-    {
-        fully_connected_layer::init(in_dim_,out_dim);
-        mapping.resize(output_size);
-        return true;
-    }
-    void initialize_weight(tipl::uniform_dist<float>& gen)
-    {
-        size_t w_sum = 0;
-        for(int i = 0;i < mapping.size();++i)
-            w_sum += (mapping[i].empty() ? input_size : mapping[i].size());
-        weight.resize(w_sum);
-        basic_layer::initialize_weight(gen);
-    }
-    void forward_propagation(const float* x,float* y) override
-    {
-        for(int i = 0,i_pos = 0;i < output_size;++i)
-            if(!mapping[i].empty())
-            {
-                const auto& cur_mapping = mapping[i];
-                size_t new_size = cur_mapping.size();
-                float sum = bias[i];
-                for(int j = 0;j < new_size;++j)
-                    sum += weight[i_pos++]*x[cur_mapping[j]];
-                y[i] = sum;
-            }
-            else
-            {
-                y[i] = bias[i] + tipl::vec::dot(&weight[i_pos],&weight[i_pos]+input_size,&x[0]);
-                i_pos += input_size;
-            }
-        //for(int i = 0,i_pos = 0;i < output_size;++i,i_pos += input_size)
-        //    y[i] = bias[i] + tipl::vec::dot(&weight[i_pos],&weight[i_pos]+input_size,&x[0]);
-    }
-
-    void calculate_dwdb(const float* dOut,
-                        const float* x,
-                        std::vector<float>& dweight,
-                        std::vector<float>& dbias) override
-    {
-        tipl::add(&dbias[0],&dbias[0]+output_size,dOut);
-        for(int i = 0,i_pos = 0; i < output_size; i++)
-        {
-            if(dOut[i] != float(0))
-            {
-                const auto& cur_mapping = mapping[i];
-                size_t new_size = cur_mapping.size();
-                float w = dOut[i];
-                if(new_size)
-                {
-                    for(int j = 0;j < new_size;++j)
-                        dweight[i_pos++] += w*x[cur_mapping[j]];
-                }
-                else
-                {
-                    tipl::vec::axpy(&dweight[i_pos],&dweight[i_pos]+input_size,dOut[i],x);
-                    i_pos += input_size;
-                }
-            }
-            else
-                i_pos += (mapping[i].empty() ? input_size : mapping[i].size());
-        }
-        /*
-        tipl::add(&dbias[0],&dbias[0]+output_size,dOut);
-        for(int i = 0,i_pos = 0; i < output_size; i++,i_pos += input_size)
-            if(dOut[i] != float(0))
-                tipl::vec::axpy(&dweight[i_pos],&dweight[i_pos]+input_size,dOut[i],x);
-        */
-
-    }
-    void back_propagation(float* ,// output_size
-                          float* ,// input_size
-                          const float*) override
-    {
-        /*
-        for(int i = 0,i_pos = 0;i < output_size;++i)
-        {
-            const auto& cur_mapping = mapping[i];
-            size_t new_size = cur_mapping.size();
-            float w = dOut[i];
-            for(int j = 0;j < new_size;++j)
-                dX[cur_mapping[j]] += weight[i_pos++]*w;
-        }
-        */
-        //    tipl::mat::left_vector_product(&weight[0],dOut,dX,tipl::dyndim(output_size,input_size));
-    }
-};
-
 class max_pooling_layer : public basic_layer
 {
     std::vector<std::vector<int> > o2i;
@@ -296,8 +174,7 @@ class max_pooling_layer : public basic_layer
 public:
     int pool_size;
 public:
-    max_pooling_layer(activation_type af_,int pool_size_)
-        : basic_layer(af_),pool_size(pool_size_){}
+    max_pooling_layer(int pool_size_):pool_size(pool_size_){}
     bool init(const tipl::geometry<3>& in_dim_,const tipl::geometry<3>& out_dim_) override
     {
         in_dim = in_dim_;
@@ -379,51 +256,67 @@ private:
 
 class convolutional_layer : public basic_layer
 {
+private:
+    int strip,strip_2,shift,max_x,max_y;
+    std::vector<int> kernel_index;
 public:
     geometry<3> in_dim,out_dim;
     int kernel_size,kernel_size2;
     // check if any kernel is zero and re-initialize it
 
 public:
-    convolutional_layer(activation_type af_,int kernel_size_)
-        : basic_layer(af_),
-          kernel_size(kernel_size_),kernel_size2(kernel_size_*kernel_size_)
+    convolutional_layer(int kernel_size_) : kernel_size(kernel_size_),kernel_size2(kernel_size_*kernel_size_)
     {
     }
     bool init(const tipl::geometry<3>& in_dim_,const tipl::geometry<3>& out_dim_) override
     {
         in_dim = in_dim_;
         out_dim = out_dim_;
-        if(in_dim.width()-out_dim.width()+1 != kernel_size ||
-           in_dim.height()-out_dim.height()+1 != kernel_size)
+        if(in_dim.width() != out_dim.width() ||
+           in_dim.height() != out_dim.height())
             return false;
+        strip = (kernel_size-1);
+        strip_2 = (kernel_size-1)/2;
+        shift = strip_2*out_dim.width()+strip_2;
+        max_y = out_dim.height()-strip;
+        max_x = out_dim.width()-strip;
+        kernel_index.resize(kernel_size2);
+        for(int y = 0,index = 0;y < kernel_size;++y)
+            for(int x = 0;x < kernel_size;++x,++index)
+                kernel_index[index] = x + y*in_dim.width();
+
         //weight_dim = tipl::geometry<3>(kernel_size,kernel_size,in_dim.depth() * out_dim.depth()),
         basic_layer::init(in_dim_.size(), out_dim_.size(),kernel_size2* in_dim.depth() * out_dim.depth(), out_dim.depth());
         weight_base = (float)std::sqrt(6.0f / (float)(kernel_size2 * in_dim.depth() + kernel_size2 * out_dim.depth()));
         return true;
     }
 
-    void forward_propagation(const float* x,float* y) override
+    void forward_propagation(const float* in,float* out) override
     {
-        for(int o = 0, o_index = 0,o_index2 = 0; o < out_dim.depth(); ++o, o_index += out_dim.plane_size())
+
+        float* out_ptr = out;
+        const float* w_ptr = &weight[0];
+        // for each output channel
+        for(int outc = 0; outc < out_dim.depth(); ++outc, out_ptr += out_dim.plane_size())
         {
-            std::fill(y+o_index,y+o_index+out_dim.plane_size(),bias[o]);
-            for(int inc = 0, inc_index = 0; inc < in_dim.depth(); inc++, inc_index += in_dim.plane_size(),o_index2 += kernel_size2)
+            std::fill(out_ptr,out_ptr+out_dim.plane_size(),bias[outc]);
+            const float* in_ptr = in;
+            // for each input channel
+            for(int inc = 0; inc < in_dim.depth(); inc++, in_ptr += in_dim.plane_size(),w_ptr += kernel_size2)
                 {
-                    for(int yy = 0, y_index = 0, index = 0; yy < out_dim.height(); yy++, y_index += in_dim.width())
+                    const float* in_line = in_ptr;
+                    float* out_line = out_ptr + shift;
+
+                    for(int y = 0; y < max_y; y++,in_line += in_dim.width(),out_line += out_dim.width())
                     {
-                        for(int xx = 0; xx < out_dim.width(); xx++, ++index)
+                        for(int x = 0; x < max_x; x++)
                         {
-                            const float * w = &weight[o_index2];
-                            const float * p = &x[inc_index] + y_index + xx;
+                            const float * w = w_ptr;
+                            const float * p = in_line + x;
                             float sum(0);
-                            for(int wy = 0; wy < kernel_size; wy++)
-                            {
-                                sum += tipl::vec::dot(w,w+kernel_size,p);
-                                w += kernel_size;
-                                p += in_dim.width();
-                            }
-                            y[o_index+index] += sum;
+                            for(int i = 0; i < kernel_size2; i++)
+                                sum += w[i]*p[kernel_index[i]];
+                            out_line[x] += sum;
                         }
                     }
                 }
@@ -444,10 +337,10 @@ public:
                     for(int wx = 0; wx < kernel_size; wx++, ++index)
                     {
                         const float * prevo = x + (in_dim.height() * inc + wy) * in_dim.width() + wx;
-                        const float * delta = &dOut[outc_pos];
+                        const float * delta = &dOut[outc_pos]+shift;
                         float sum(0);
-                        for(int y = 0; y < out_dim.height(); y++, prevo += in_dim.width(), delta += out_dim.width())
-                            sum += vec::dot(prevo, prevo + out_dim.width(), delta);
+                        for(int y = 0; y < max_y; y++, prevo += in_dim.width(), delta += out_dim.width())
+                            sum += vec::dot(prevo, prevo + max_x, delta);
                         dweight[index] += sum;
                     }
                 }
@@ -470,17 +363,19 @@ public:
         {
             for(int inc = 0, inc_pos = 0; inc < in_dim.depth(); ++inc, inc_pos += in_dim.plane_size(),w_index += kernel_size2)
             {
-                const float *pdelta_src = dOut + outc_pos;
-                float *pdelta_dst = dX + inc_pos;
-                for(int y = 0, y_pos = 0, index = 0; y < out_dim.height(); y++, y_pos += in_dim.width())
-                    for(int x = 0; x < out_dim.width(); x++, ++index)
+                float *dX_pos = dX + inc_pos;
+                const float *dOut_pos = dOut + outc_pos + shift;
+                for(int y = 0, y_pos = 0; y < max_y; y++, y_pos += in_dim.width(),dOut_pos += out_dim.width())
+                {
+                    for(int x = 0; x < max_x; x++)
                     {
                         const float * ppw = &weight[w_index];
-                        const float ppdelta_src = pdelta_src[index];
-                        float *p = pdelta_dst + y_pos + x;
-                        for(int wy = 0; wy < kernel_size; wy++,ppw += kernel_size,p += in_dim.width())
-                            tipl::vec::axpy(p,p+kernel_size,ppdelta_src,ppw);
+                        const float v = dOut_pos[x];
+                        float *p = dX_pos + y_pos + x;
+                        for(int i = 0; i < kernel_size2; i++)
+                            p[kernel_index[i]] += v*ppw[i];
                     }
+                }
 
             }
         }
@@ -499,8 +394,7 @@ private:
     tipl::bernoulli bgen;
 public:
     float dropout_rate;
-    dropout_layer(float dropout_rate_)
-        : basic_layer(activation_type::identity),dropout_rate(dropout_rate_),
+    dropout_layer(float dropout_rate_) : dropout_rate(dropout_rate_),
           bgen(dropout_rate_)
     {
     }
@@ -560,10 +454,7 @@ public:
 
 class soft_max_layer : public basic_layer{
 public:
-    soft_max_layer(void)
-        : basic_layer(activation_type::identity)
-    {
-    }
+    soft_max_layer(void){}
     bool init(const tipl::geometry<3>& in_dim,const tipl::geometry<3>& out_dim) override
     {
         if(in_dim.size() != out_dim.size())
@@ -988,60 +879,47 @@ public:
         if(list.empty())
             return false;
         if(list[0] == "soft_max")
-        {
             layers.push_back(std::make_shared<soft_max_layer>());
-            return true;
-        }
-        if(list[0] == "dropout")
-        {
-            float param = 0.9f;
-            std::istringstream(list[1]) >> param;
-            layers.push_back(std::make_shared<dropout_layer>(param));
-            return true;
-        }
-
-        if(list.size() < 2)
-            return false;
-        activation_type af;
-            if(list[1] == "relu")
-                    af = activation_type::relu;
-                else
-                    if(list[1] == "identity")
-                        af = activation_type::identity;
-                    else
-                        return false;
-
+        else
         if(list[0] == "full")
+            layers.push_back(std::make_shared<fully_connected_layer>());
+        else
+        if(list[0].find("max_pooling") == 0)
         {
-            layers.push_back(std::make_shared<fully_connected_layer>(af));
-            return true;
+            int param = list[0].back()-'0';
+            if(param <= 0 || param > 9)
+                return false;
+            layers.push_back(std::make_shared<max_pooling_layer>(param));
         }
-        if(list[0] == "partially")
+        else
+        if(list[0].find("conv") == 0)
         {
-            layers.push_back(std::make_shared<partially_connected_layer>(af));
-            return true;
+            int param = list[0].back()-'0';
+            if(param <= 0 || param > 9)
+                return false;
+            layers.push_back(std::make_shared<convolutional_layer>(param));
         }
-
-        if(list[0] == "res")
+        else
+        if(list[0].find("dropout") == 0)
         {
-            layers.push_back(std::make_shared<residual_learning_layer>(af));
-            return true;
+            float param = std::stof(list[0].substr(7,list[0].length()-7));
+            if(param <= 0.0f || param >= 1.0f)
+                return false;
+            layers.push_back(std::make_shared<dropout_layer>(param));
         }
-        if(list.size() < 3)
+        else
             return false;
-        int param;
-        std::istringstream(list[2]) >> param;
-        if(list[0] == "max_pooling")
+
+        for(int i = 1;i < list.size();++i)
         {
-            layers.push_back(std::make_shared<max_pooling_layer>(af,param));
-            return true;
+            if(list[i] == "relu")
+                layers.back()->af.push_back(activation_type::relu);
+            if(list[i] == "push2")
+                layers.back()->af.push_back(activation_type::push2);
+            if(list[i] == "pull2")
+                layers.back()->af.push_back(activation_type::pull2);
         }
-        if(list[0] == "conv")
-        {
-            layers.push_back(std::make_shared<convolutional_layer>(af,param));
-            return true;
-        }
-        return false;
+        return true;
     }
     std::shared_ptr<basic_layer> get_layer(int i) const{return layers[i];}
     const tipl::geometry<3>& get_geo(int i) const{return geo[i];}
@@ -1056,28 +934,25 @@ public:
             if(i < layers.size())
             {
                 out << "|";
-                std::string af_type;
-                if(layers[i]->af == activation_type::relu)
-                    af_type = "relu";
-                if(layers[i]->af == activation_type::identity)
-                    af_type = "identity";
-
                 if(dynamic_cast<convolutional_layer*>(layers[i].get()))
-                    out << "conv," << af_type << "," << dynamic_cast<convolutional_layer*>(layers[i].get())->kernel_size;
+                    out << "conv" << dynamic_cast<convolutional_layer*>(layers[i].get())->kernel_size;
                 if(dynamic_cast<max_pooling_layer*>(layers[i].get()))
-                    out << "max_pooling," << af_type << "," << dynamic_cast<max_pooling_layer*>(layers[i].get())->pool_size;
-                if(dynamic_cast<partially_connected_layer*>(layers[i].get()))
-                    out << "partially," << af_type;
-                else
-                    if(dynamic_cast<residual_learning_layer*>(layers[i].get()))
-                        out << "res," << af_type;
-                    else
-                        if(dynamic_cast<fully_connected_layer*>(layers[i].get()))
-                            out << "full," << af_type;
+                    out << "max_pooling" << dynamic_cast<max_pooling_layer*>(layers[i].get())->pool_size;
+                if(dynamic_cast<fully_connected_layer*>(layers[i].get()))
+                    out << "full";
                 if(dynamic_cast<soft_max_layer*>(layers[i].get()))
                     out << "soft_max";
                 if(dynamic_cast<dropout_layer*>(layers[i].get()))
-                    out << "dropout," << dynamic_cast<dropout_layer*>(layers[i].get())->dropout_rate;
+                    out << "dropout" << dynamic_cast<dropout_layer*>(layers[i].get())->dropout_rate;
+                for(auto f : layers[i]->af)
+                {
+                    if(f == activation_type::relu)
+                        out << ",relu";
+                    if(f == activation_type::push2)
+                        out << ",push2";
+                    if(f == activation_type::pull2)
+                        out << ",pull2";
+                }
 
             }
         }
@@ -1140,6 +1015,23 @@ public:
             out_ptr += layers[k]->output_size;
         }
     }
+
+
+    void back_propagation(const float* out_ptr2,float* df_ptr) const
+    {
+        for(int k = (int)layers.size()-1;k >= 0;--k)
+        {
+            layers[k]->back_af(df_ptr,out_ptr2);
+            const float* next_out_ptr = out_ptr2 - layers[k]->input_size;
+            float* next_df_ptr = df_ptr - layers[k]->input_size;
+            if(k)
+                layers[k]->back_propagation(df_ptr,next_df_ptr,next_out_ptr);
+            out_ptr2 = next_out_ptr;
+            df_ptr = next_df_ptr;
+        }
+
+    }
+
     void forward_propagation(std::vector<float>& in) const
     {
         std::vector<float> out(data_size);
@@ -1181,20 +1073,6 @@ public:
         return sum_error;
     }
 
-    void back_propagation(const float* out_ptr2,float* df_ptr) const
-    {
-        for(int k = (int)layers.size()-1;k >= 0;--k)
-        {
-            layers[k]->back_af(df_ptr,out_ptr2);
-            const float* next_out_ptr = out_ptr2 - layers[k]->input_size;
-            float* next_df_ptr = df_ptr - layers[k]->input_size;
-            if(k)
-                layers[k]->back_propagation(df_ptr,next_df_ptr,next_out_ptr);
-            out_ptr2 = next_out_ptr;
-            df_ptr = next_df_ptr;
-        }
-
-    }
     void calculate_dwdb(const float* data_entry,
                         const float* dOut,const float* x,
                         std::vector<std::vector<float> >& dweight,
@@ -1405,8 +1283,8 @@ public:
                 nn.layers[j]->update(-nn.layers[j]->wlearning_base_rate*rate_decay,dw,
                                   -nn.layers[j]->blearning_base_rate*rate_decay,db);
 
-                //tipl::upper_lower_threshold(nn.layers[j]->bias,-bias_cap,bias_cap);
-                //tipl::upper_lower_threshold(nn.layers[j]->weight,-weight_cap,weight_cap);
+                tipl::upper_lower_threshold(nn.layers[j]->bias,-100.0f,100.0f);
+                tipl::upper_lower_threshold(nn.layers[j]->weight,-100.0f,100.0f);
             });
         }
     }
