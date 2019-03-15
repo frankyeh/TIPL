@@ -74,7 +74,7 @@ public:
 
 class push_layer : public basic_activation_layer{
 public:
-    void back_af(float* dOut,const float* x)
+    void back_af(float* dOut,const float*)
     {
 
         tipl::add(dOut,dOut+output_size,dOut+output_size+output_size);
@@ -97,7 +97,7 @@ public:
     }
     void forward_af(float* y)
     {
-        float rate = 1.0f/(float)count;
+        float rate = std::max<float>(1.0/count,0.001f);
         for(int ch = 0;ch < scale.size();++ch,y += plane_size)
         {
             auto from = y;
@@ -111,9 +111,8 @@ public:
             tipl::multiply_constant(from,to,scale[ch]);
             tipl::add_constant(from,to,shift[ch]);
         }
-        ++count;
     }
-    void back_af(float* dOut,const float* x)
+    void back_af(float* dOut,const float* )
     {
         for(int ch = 0;ch < scale.size();++ch)
         {
@@ -246,6 +245,85 @@ public:
 
 };
 
+
+class stratified_connected_layer : public fully_connected_layer
+{
+    tipl::geometry<3> w_dim;
+public:
+    int fold = 0;
+    stratified_connected_layer(int fold_):fold(fold_){}
+    bool init(const tipl::geometry<3>& in_dim_,const tipl::geometry<3>& out_dim)
+    {
+        in_dim = in_dim_;
+        fully_connected_layer::init(in_dim_,out_dim);
+        w_dim[0] = input_size/fold;
+        w_dim[1] = output_size/fold;
+        w_dim[2] = fold;
+        return true;
+    }
+    void initialize_weight(tipl::uniform_dist<float>& gen)
+    {
+        fully_connected_layer::initialize_weight(gen);
+        std::vector<float> new_weight(weight.size());
+        const float* w = &weight[0];
+        float* nw = &new_weight[0];
+
+        for(int i = 0;i < fold;++i)
+        {
+            for(int j = 0;j < w_dim[1];++j,w += input_size,nw += input_size)
+                std::copy(w,w+w_dim[0],nw);
+            w += w_dim[0];
+            nw += w_dim[0];
+        }
+        weight.swap(new_weight);
+    }
+    void forward_propagation(const float* x,float* y) override
+    {
+        const float* w = &weight[0];
+        const float* b = &bias[0];
+        for(int i = 0;i < fold;++i,x += w_dim[0])
+        {
+            for(int j = 0;j < w_dim[1];++j,w += input_size,++y,++b)
+                *y = *b + tipl::vec::dot(w,w+w_dim[0],x);
+            w += w_dim[0];
+        }
+
+    }
+    //dW += dOut * x
+    //db += dOut
+    void calculate_dwdb(const float* dOut,
+                        const float* x,
+                        std::vector<float>& dweight,
+                        std::vector<float>& dbias) override
+    {
+        tipl::add(&dbias[0],&dbias[0]+output_size,dOut);
+        float* dw = &dweight[0];
+        for(int i = 0;i < fold;++i,x += w_dim[0])
+        {
+            for(int j = 0; j < w_dim[1]; j++,dw += input_size,++dOut)
+                if(*dOut != float(0))
+                    tipl::vec::axpy(dw,dw+w_dim[0],*dOut,x);
+            dw += w_dim[0];
+        }
+    }
+    // dX = dOut * W
+    void back_propagation(float* dOut,// output_size
+                          float* dX,// input_size
+                          const float*) override
+    {
+        const float* w = &weight[0];
+        std::fill(dX,dX+input_size,0.0f);
+        for(int i = 0;i < fold;++i,dX += w_dim[0])
+        {
+            for(int j = 0; j < w_dim[1]; j++,w += input_size,++dOut)
+                if(*dOut != float(0))
+                    tipl::vec::axpy(dX,dX+w_dim[0],*dOut,w);
+            w += w_dim[0];
+        }
+    }
+
+
+};
 
 
 class max_pooling_layer : public basic_layer
@@ -472,71 +550,6 @@ public:
 };
 
 
-class dropout_layer : public basic_layer
-{
-private:
-    tipl::geometry<3> dim;
-    tipl::bernoulli bgen;
-public:
-    float dropout_rate;
-    dropout_layer(float dropout_rate_) : dropout_rate(dropout_rate_),
-          bgen(dropout_rate_)
-    {
-    }
-    bool init(const tipl::geometry<3>& in_dim_,const tipl::geometry<3>& out_dim_)
-    {
-        if(in_dim_.size() != out_dim_.size())
-            return false;
-        dim =in_dim_;
-        basic_layer::init(dim,dim);
-        return true;
-    }
-
-    void back_propagation(float* dOut,// output_size
-                          float* dX,// input_size
-                          const float* pre_out) override
-    {
-        pre_out += dim.size();
-        //if(dim.plane_size() == 1)
-            for(unsigned int i = 0; i < dim.size(); i++)
-                dX[i] = (pre_out[i] == 0.0f ? 0.0f: dOut[i]);
-        //else
-            /*
-        {
-            for(unsigned int i = 0; i < dim.depth(); i++,
-                pre_out += dim.plane_size(),dX += dim.plane_size(),dOut += dim.plane_size())
-            if(pre_out[0] == 0.0f)
-                std::fill(dX,dX+dim.plane_size(),0.0f);
-            else
-                std::copy(dOut,dOut+dim.plane_size(),dX);
-        }*/
-    }
-    void forward_propagation(const float* x,float* y) override
-    {
-        if(status == testing)
-        {
-            std::copy(x,x+dim.size(),y);
-            return;
-        }
-        //if(dim.plane_size() == 1)
-            for(unsigned int i = 0; i < input_size; i++)
-                y[i] = bgen() ? 0.0f: (x[i] == 0.0f ? std::numeric_limits<float>::min() : x[i]);
-        /*
-        else
-        for(unsigned int i = 0; i < dim.depth(); i++,x += dim.plane_size(),y += dim.plane_size())
-            if(bgen())
-                std::fill(y,y+dim.plane_size(),0.0f);
-            else
-            {
-                std::copy(x,x+dim.plane_size(),y);
-                if(*y == 0.0f)
-                    *y = std::numeric_limits<float>::min();
-            }
-            */
-
-    }
-};
-
 class soft_max_layer : public basic_layer{
 public:
     soft_max_layer(void){}
@@ -735,7 +748,7 @@ public:
         return tipl::correlation(d.begin(),d.end(),d2.begin());
     }
 
-    int calculate_miss(const std::vector<float>& result) const
+    int calculate_miss(const std::vector<label_type>& result) const
     {
         int mis_count = 0;
         for(int i = 0;i < size();++i)
@@ -985,13 +998,13 @@ public:
             layers.push_back(std::make_shared<convolutional_layer>(param));
         }
         else
-        if(list[0].find("dropout") == 0)
-        {
-            float param = std::stof(list[0].substr(7,list[0].length()-7));
-            if(param <= 0.0f || param >= 1.0f)
-                return false;
-            layers.push_back(std::make_shared<dropout_layer>(param));
-        }
+            if(list[0].find("strata") == 0)
+            {
+                int param = list[0].back()-'0';
+                if(param <= 0 || param > 9)
+                    return false;
+                layers.push_back(std::make_shared<stratified_connected_layer>(param));
+            }
         else
             return false;
 
@@ -1025,12 +1038,13 @@ public:
                     out << "conv" << dynamic_cast<convolutional_layer*>(layers[i].get())->kernel_size;
                 if(dynamic_cast<max_pooling_layer*>(layers[i].get()))
                     out << "max_pooling" << dynamic_cast<max_pooling_layer*>(layers[i].get())->pool_size;
-                if(dynamic_cast<fully_connected_layer*>(layers[i].get()))
-                    out << "full";
+                if(dynamic_cast<stratified_connected_layer*>(layers[i].get()))
+                    out << "strata" << dynamic_cast<stratified_connected_layer*>(layers[i].get())->fold;
+                else
+                    if(dynamic_cast<fully_connected_layer*>(layers[i].get()))
+                        out << "full";
                 if(dynamic_cast<soft_max_layer*>(layers[i].get()))
                     out << "soft_max";
-                if(dynamic_cast<dropout_layer*>(layers[i].get()))
-                    out << "dropout" << dynamic_cast<dropout_layer*>(layers[i].get())->dropout_rate;
                 for(auto f : layers[i]->af)
                 {
                     if(dynamic_cast<relu_layer*>(f.get()))
@@ -1237,6 +1251,8 @@ public:
     float momentum = 0.9f;
     float bias_cap = 10.0f;
     float weight_cap = 100.0f;
+    float w_decay = 0.0f;
+    float b_decay = 0.0f;
     int batch_size = 64;
     int epoch= 20;
     int repeat = 1;
@@ -1354,10 +1370,12 @@ public:
                     tipl::multiply_constant(dbias[k][j],momentum);
                 });
 
-                //if(w_decay_rate != 0.0f)
-                //    tipl::multiply_constant(nn.layers[j]->weight,1.0f-w_decay_rate);
+                if(w_decay != 0.0f)
+                    tipl::multiply_constant(nn.layers[j]->weight,1.0f-w_decay);
+                if(b_decay != 0.0f)
+                    tipl::multiply_constant(nn.layers[j]->bias,1.0f-b_decay);
 
-                if(nn.layers[j]->wlearning_base_rate == 1.0f && nn.layers[j]->blearning_base_rate == 1.0f)
+                //if(nn.layers[j]->wlearning_base_rate == 1.0f && nn.layers[j]->blearning_base_rate == 1.0f)
                 {
                     nn.layers[j]->wlearning_base_rate = learning_rate*0.01f/(tipl::max_abs_value(dw)+1.0f);
                     nn.layers[j]->blearning_base_rate = learning_rate*0.01f/(tipl::max_abs_value(db)+1.0f);
@@ -1366,8 +1384,8 @@ public:
                 nn.layers[j]->update(-nn.layers[j]->wlearning_base_rate*rate_decay,dw,
                                   -nn.layers[j]->blearning_base_rate*rate_decay,db);
 
-                tipl::upper_lower_threshold(nn.layers[j]->bias,-100.0f,100.0f);
-                tipl::upper_lower_threshold(nn.layers[j]->weight,-100.0f,100.0f);
+                tipl::upper_lower_threshold(nn.layers[j]->bias,-bias_cap,bias_cap);
+                tipl::upper_lower_threshold(nn.layers[j]->weight,-weight_cap,weight_cap);
             });
         }
     }
