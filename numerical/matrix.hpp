@@ -2756,6 +2756,22 @@ public:
         for(int i = 0;i < mat_size;++i)
             std::swap(value[i],rhs.value[i]);
     }
+    friend std::ostream & operator<<(std::ostream& out, const matrix<row_count,col_count,value_type>& T)
+    {
+        for(int row = 0,index = 0;row < row_count;++row)
+        {
+            for(int col = 0;col < col_count;++col,++index)
+            {
+                if(col)
+                    out << " ";
+                out << T[index];
+            }
+            out << std::endl;
+        }
+        return out;
+    }
+
+
 };
 
 
