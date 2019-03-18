@@ -82,46 +82,6 @@ public:
 };
 
 
-class norm_layer : public basic_activation_layer{
-    std::vector<float> scale,shift;
-    int count = 10;
-    int plane_size = 0;
-public:
-    virtual void init(const tipl::geometry<3>& out_dim)
-    {
-        scale.resize(out_dim.depth());
-        shift.resize(out_dim.depth());
-        plane_size = out_dim.plane_size();
-        output_size = out_dim.size();
-
-    }
-    void forward_af(float* y)
-    {
-        float rate = std::max<float>(1.0/count,0.001f);
-        for(int ch = 0;ch < scale.size();++ch,y += plane_size)
-        {
-            auto from = y;
-            auto to = from+plane_size;
-            float mean = tipl::mean(from,to);
-            float sd = tipl::standard_deviation(from,to,mean);
-            if(sd <= 0.001f)
-                sd = 1.0f;
-            scale[ch] = (1.0f-rate)*scale[ch]+rate/sd;
-            shift[ch] = (1.0f-rate)*shift[ch]-rate*mean;
-            tipl::multiply_constant(from,to,scale[ch]);
-            tipl::add_constant(from,to,shift[ch]);
-        }
-    }
-    void back_af(float* dOut,const float* )
-    {
-        for(int ch = 0;ch < scale.size();++ch)
-        {
-            tipl::multiply_constant(dOut,dOut+plane_size,scale[ch]);
-            dOut += plane_size;
-        }
-    }
-};
-
 class basic_layer
 {
 
@@ -132,8 +92,6 @@ public:
     int input_size;
     int output_size;
     float weight_base;
-    float wlearning_base_rate = 1.0f;
-    float blearning_base_rate = 1.0f;
     std::vector<float> weight,bias;
 public:
 
@@ -198,6 +156,9 @@ public:
 
 class fully_connected_layer : public basic_layer
 {
+    float bias_shift = 0.0f;
+    float weight_scale = 0.0f;
+    unsigned int count = 0;
 public:
     tipl::geometry<3> in_dim;
     fully_connected_layer(void){}
@@ -213,14 +174,18 @@ public:
     void initialize_weight(tipl::uniform_dist<float>& gen)
     {
         basic_layer::initialize_weight(gen);
-        std::vector<float> u(output_size*output_size),s(output_size);
-        tipl::mat::svd(&weight[0],&u[0],&s[0],tipl::dyndim(output_size,input_size));
     }
 
     void forward_propagation(const float* x,float* y) override
     {
         for(int i = 0,i_pos = 0;i < output_size;++i,i_pos += input_size)
             y[i] = bias[i] + tipl::vec::dot(&weight[i_pos],&weight[i_pos]+input_size,&x[0]);
+
+        ++count;
+        float mean = tipl::mean(y,y+output_size);
+        bias_shift += mean;
+        weight_scale += tipl::variance(y,y+output_size,mean);
+
     }
     //dW += dOut * x
     //db += dOut
@@ -242,7 +207,21 @@ public:
         tipl::mat::left_vector_product(&weight[0],dOut,dX,tipl::dyndim(output_size,input_size));
     }
 
+    void update(float rw,const std::vector<float>& dw,
+                float rb,const std::vector<float>& db)
+    {
 
+        const float reg = 0.0001f;
+        bias_shift /= count;
+        weight_scale /= count;
+        weight_scale = std::sqrt(weight_scale);
+        tipl::multiply_constant(weight,1.0f-(weight_scale-1.0f)*reg);
+        tipl::add_constant(&bias[0],&bias[0]+output_size,-bias_shift*reg);
+        count = 0;
+        bias_shift = 0.0f;
+        weight_scale = 0.0f;
+        basic_layer::update(rw,dw,rb,db);
+    }
 };
 
 
@@ -846,11 +825,7 @@ public:
     {
         tipl::uniform_dist<float> gen(-1.0,1.0,seed);
         for(auto layer : layers)
-        {
             layer->initialize_weight(gen);
-            layer->wlearning_base_rate = 1.0f;
-            layer->blearning_base_rate = 1.0f;
-        }
         initialized = true;
     }
     void sort_fully_layer(void)
@@ -1016,8 +991,6 @@ public:
                 layers.back()->af.push_back(std::make_shared<push_layer>());
             if(list[i] == "pull")
                 layers.back()->af.push_back(std::make_shared<pull_layer>());
-            if(list[i] == "norm")
-                layers.back()->af.push_back(std::make_shared<norm_layer>());
         }
         return true;
     }
@@ -1053,8 +1026,6 @@ public:
                         out << ",push";
                     if(dynamic_cast<pull_layer*>(f.get()))
                         out << ",pull";
-                    if(dynamic_cast<norm_layer*>(f.get()))
-                        out << ",norm";
                 }
 
             }
@@ -1247,15 +1218,11 @@ private:// for training
 public:
     float learning_rate = 0.01f;
     float rate_decay = 1.0f;
-    //float w_decay_rate = 0.01f;
     float momentum = 0.9f;
     float bias_cap = 10.0f;
     float weight_cap = 100.0f;
-    float w_decay = 0.0f;
-    float b_decay = 0.0f;
     int batch_size = 64;
-    int epoch= 20;
-    int repeat = 1;
+    int epoch= 100;
 public:
     std::vector<unsigned int> error_table;
     unsigned int training_count = 0;
@@ -1366,23 +1333,19 @@ public:
                 {
                     tipl::add(dw,dweight[k][j]);
                     tipl::add(db,dbias[k][j]);
-                    tipl::multiply_constant(dweight[k][j],momentum);
-                    tipl::multiply_constant(dbias[k][j],momentum);
+                    if(momentum > 0.0f)
+                    {
+                        tipl::multiply_constant(dweight[k][j],momentum);
+                        tipl::multiply_constant(dbias[k][j],momentum);
+                    }
+                    else
+                    {
+                        std::fill(dweight[k][j].begin(),dweight[k][j].end(),0.0f);
+                        std::fill(dbias[k][j].begin(),dbias[k][j].end(),0.0f);
+                    }
                 });
 
-                if(w_decay != 0.0f)
-                    tipl::multiply_constant(nn.layers[j]->weight,1.0f-w_decay);
-                if(b_decay != 0.0f)
-                    tipl::multiply_constant(nn.layers[j]->bias,1.0f-b_decay);
-
-                //if(nn.layers[j]->wlearning_base_rate == 1.0f && nn.layers[j]->blearning_base_rate == 1.0f)
-                {
-                    nn.layers[j]->wlearning_base_rate = learning_rate*0.01f/(tipl::max_abs_value(dw)+1.0f);
-                    nn.layers[j]->blearning_base_rate = learning_rate*0.01f/(tipl::max_abs_value(db)+1.0f);
-                }
-
-                nn.layers[j]->update(-nn.layers[j]->wlearning_base_rate*rate_decay,dw,
-                                  -nn.layers[j]->blearning_base_rate*rate_decay,db);
+                nn.layers[j]->update(-learning_rate*rate_decay,dw,-learning_rate*rate_decay,db);
 
                 tipl::upper_lower_threshold(nn.layers[j]->bias,-bias_cap,bias_cap);
                 tipl::upper_lower_threshold(nn.layers[j]->weight,-weight_cap,weight_cap);
@@ -1422,14 +1385,27 @@ public:
             nn.init_weights(seed);
         reset();
         initialize_training(nn);
-        for(int run = 0;run < repeat && !terminated;++run)
+
+        rate_decay = 1.0f;
+        std::deque<float> train_errors;
+        for(int iter = 0; iter < epoch && !terminated;iter++ ,iter_fun())
         {
-            rate_decay = 1.0f;
-            for(int iter = 0; iter < epoch && !terminated;iter++ ,iter_fun())
+            data.shuffle(rd_gen);
+            train_batch(nn,data,terminated);
+            train_errors.push_back(get_training_error_value());
+            if(train_errors.size() > 50)
             {
-                data.shuffle(rd_gen);
-                train_batch(nn,data,terminated);
-                rate_decay *= 0.998f;
+                double a,b,r2;
+                std::vector<float> iter(train_errors.size());
+                std::iota(iter.begin(), iter.end(), 0);
+                tipl::linear_regression(iter.begin(),iter.end(),train_errors.begin(),a,b,r2);
+                if(a > 0.0f)
+                {
+                    rate_decay *= 0.5f;
+                    train_errors.clear();
+                }
+                else
+                    train_errors.pop_front();
             }
         }
     }
