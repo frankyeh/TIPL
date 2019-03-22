@@ -708,7 +708,7 @@ public:
             d[i] = get_label(i);
         return tipl::correlation(d.begin(),d.end(),result.begin());
     }
-    float calculate_mae(const std::vector<std::vector<float> >& result,int index) const
+    float calculate_mae(const std::vector<std::vector<float> >& result,size_t index) const
     {
         float sum_error = 0.0f;
         for(int i = 0;i < size();++i)
@@ -716,7 +716,7 @@ public:
         return sum_error/size();
     }
 
-    float calculate_r(const std::vector<std::vector<float> >& result,int index) const
+    float calculate_r(const std::vector<std::vector<float> >& result,size_t index) const
     {
         std::vector<float> d(size()),d2(size());
         for(int i = 0;i < d.size();++i)
