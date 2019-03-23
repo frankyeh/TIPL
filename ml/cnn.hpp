@@ -180,12 +180,13 @@ public:
     {
         for(int i = 0,i_pos = 0;i < output_size;++i,i_pos += input_size)
             y[i] = bias[i] + tipl::vec::dot(&weight[i_pos],&weight[i_pos]+input_size,&x[0]);
-
-        ++count;
-        float mean = tipl::mean(y,y+output_size);
-        bias_shift += mean;
-        weight_scale += tipl::variance(y,y+output_size,mean);
-
+        if(!af.empty())
+        {
+            ++count;
+            float mean = tipl::mean(y,y+output_size);
+            bias_shift += mean;
+            weight_scale += tipl::variance(y,y+output_size,mean);
+        }
     }
     //dW += dOut * x
     //db += dOut
@@ -210,16 +211,18 @@ public:
     void update(float rw,const std::vector<float>& dw,
                 float rb,const std::vector<float>& db)
     {
-
-        const float reg = 0.0001f;
-        bias_shift /= count;
-        weight_scale /= count;
-        weight_scale = std::sqrt(weight_scale);
-        tipl::multiply_constant(weight,1.0f-(weight_scale-1.0f)*reg);
-        tipl::add_constant(&bias[0],&bias[0]+output_size,-bias_shift*reg);
-        count = 0;
-        bias_shift = 0.0f;
-        weight_scale = 0.0f;
+        if(!af.empty())
+        {
+            const float reg = 0.001f;
+            bias_shift /= count;
+            weight_scale /= count;
+            weight_scale = std::sqrt(weight_scale);
+            tipl::multiply_constant(weight,1.0f-(weight_scale-1.0f)*reg);
+            tipl::add_constant(&bias[0],&bias[0]+output_size,-bias_shift*reg);
+            count = 0;
+            bias_shift = 0.0f;
+            weight_scale = 0.0f;
+        }
         basic_layer::update(rw,dw,rb,db);
     }
 };
@@ -1388,12 +1391,13 @@ public:
 
         rate_decay = 1.0f;
         std::deque<float> train_errors;
+        bool has_improved = true;
         for(int iter = 0; iter < epoch && !terminated;iter++ ,iter_fun())
         {
             data.shuffle(rd_gen);
             train_batch(nn,data,terminated);
             train_errors.push_back(get_training_error_value());
-            if(train_errors.size() > 50)
+            if(train_errors.size() > 32)
             {
                 double a,b,r2;
                 std::vector<float> iter(train_errors.size());
@@ -1403,9 +1407,15 @@ public:
                 {
                     rate_decay *= 0.5f;
                     train_errors.clear();
+                    if(!has_improved)
+                        break;
+                    has_improved = false;
                 }
                 else
+                {
+                    has_improved = true;
                     train_errors.pop_front();
+                }
             }
         }
     }
