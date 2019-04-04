@@ -318,11 +318,13 @@ public:
     {
         return data.back();
     }
-    pixel_type operator[](unsigned int index) const
+    template<typename value_type>
+    pixel_type operator[](value_type index) const
     {
         return data[index];
     }
-    reference operator[](unsigned int index)
+    template<typename value_type>
+    reference operator[](value_type index)
     {
         return data[index];
     }

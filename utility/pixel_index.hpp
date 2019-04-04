@@ -266,15 +266,15 @@ public:
 public:
     bool operator<(const pixel_index& rhs) const
     {
-        return index_ < rhs.index_;
+        return index_ < int(rhs.index_);
     }
     bool operator==(const pixel_index& rhs) const
     {
-        return index_ == rhs.index_;
+        return index_ == int(rhs.index_);
     }
     bool operator!=(const pixel_index& rhs) const
     {
-        return index_ != rhs.index_;
+        return index_ != int(rhs.index_);
     }
     bool operator<(int rhs) const
     {
