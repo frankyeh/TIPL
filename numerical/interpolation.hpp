@@ -525,8 +525,8 @@ struct interpolation<weighting_function,3>
             double sum_ratio = 0.0;
             for(int i = 0;i < ref_count;++i)
             {
-                double dif = ref_value-ref_in_source[dindex[i]];
-                ratio[i] *= 2.0*std::exp(-dif*dif*2.0f);
+                double w_s = std::max<double>(0.0,1.0-std::fabs(ref_value-ref_in_source[dindex[i]]));
+                ratio[i] = (ratio[i]+0.01)*(w_s+0.01);
                 sum_ratio += ratio[i];
             }
             if(sum_ratio != 0.0)
