@@ -82,6 +82,39 @@ public:
             return dummy;
         return iter->second;
     }
+    template<typename value_type>
+    bool read(const std::string& tag,std::vector<value_type>& data) const
+    {
+        data.clear();
+        std::istringstream in((*this)[tag]);
+        while(in)
+        {
+            std::string item;
+            in >> item;
+            if(item.empty())
+                continue;
+            // handle repeat value in parameter file e.g. @40*(1233717)
+            if(item[0] == '@' && item.find('*') != std::string::npos)
+            {
+                std::string count_text = item.substr(1,item.find('*')-1);
+                int count = std::stoi(count_text);
+                int start = item.find('(');
+                int end = item.find(')');
+                if(start != std::string::npos && end != std::string::npos)
+                {
+                    std::string value_text = item.substr(start+1,end-start-1);
+                    double value = std::stod(value_text);
+                    for(int i = 0;i < count;++i)
+                        data.push_back(value);
+                }
+                continue;
+            }
+            value_type value;
+            std::istringstream(item) >> value;
+            data.push_back(value);
+        }
+        return !data.empty();
+    }
 };
 
 
@@ -177,10 +210,8 @@ public:
         }
         // get image slope
         {
-            std::istringstream slope_text_parser(info["RECO_map_slope"]);
-            std::copy(std::istream_iterator<double>(slope_text_parser),
-                      std::istream_iterator<double>(),
-                      std::back_inserter(slopes));
+            if(!info.read("RECO_map_slope",slopes))
+                return false;
             float max_slope = *std::max_element(slopes.begin(),slopes.end());
             for(unsigned int i = 0;i < slopes.size();++i)
                 slopes[i] /= max_slope;
@@ -188,13 +219,8 @@ public:
         // get resolution
         {
             std::vector<float> fov_data,size; // in cm
-            std::istringstream in1(info["RECO_fov"]),in2(info["RECO_size"]);
-            std::copy(std::istream_iterator<float>(in1),
-                      std::istream_iterator<float>(),
-                      std::back_inserter(fov_data));
-            std::copy(std::istream_iterator<float>(in2),
-                      std::istream_iterator<float>(),
-                      std::back_inserter(size));
+            info.read("RECO_fov",fov_data);
+            info.read("RECO_size",size);
             std::fill(resolution,resolution+3,0.0);
             for(unsigned int index = 0;index < 3 && index < fov_data.size() && index < size.size();++index)
                 resolution[index] = fov_data[index]*10.0/size[index]; // in mm
@@ -207,18 +233,7 @@ public:
             }
 
             if(resolution[2] == 0)
-            {
-                if(!no_visu)
-                {
-                    tipl::vector<3> v1,v2;
-                    std::istringstream(visu["VisuCorePosition"])
-                        >> v1[0] >> v1[1] >> v1[2]
-                        >> v2[0] >> v2[1] >> v2[2];
-                    resolution[2] = (v1-v2).length();
-                }
-                else
-                    resolution[2] = resolution[0];
-            }
+                resolution[2] = resolution[0];
         }
 
 
@@ -259,8 +274,6 @@ public:
             std::copy((int32_t*)&buffer[0],(int32_t*)&buffer[0]+data.size(),data.begin());
         if (info["RECO_wordtype"] == std::string("_32BIT_FLOAT"))
             std::copy((float*)&buffer[0],(float*)&buffer[0]+data.size(),data.begin());
-
-
 
         if(!slopes.empty())
         {
