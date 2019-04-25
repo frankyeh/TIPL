@@ -35,6 +35,15 @@ std::vector<unsigned int> arg_sort(const container_type& data,compare_type comp)
     return idx;
 }
 
+template <typename compare_type>
+std::vector<unsigned int> arg_sort(size_t size,compare_type comp)
+{
+    std::vector<unsigned int> idx(size);
+    std::iota(idx.begin(), idx.end(), 0);
+    std::sort(idx.begin(), idx.end(),comp);
+    return idx;
+}
+
 template <typename container_type>
 size_t arg_max(const container_type& data)
 {
