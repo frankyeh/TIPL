@@ -244,14 +244,14 @@ void gradient_descent(
                 iter_type2 x_upper,iter_type2 x_lower,
                 function_type& fun,
                 typename function_type::value_type& fun_x,
-                terminated_class& terminated,double precision = 0.001)
+                terminated_class& terminated,double precision = 0.001,int max_iteration = 30)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
     typedef typename function_type::value_type value_type;
     unsigned int size = x_end-x_beg;
     std::vector<param_type> tols(size);
     double tol_length = calculate_resolution(tols,x_upper,x_lower,precision);
-    for(unsigned int iter = 0;iter < 1000 && !terminated;++iter)
+    for(unsigned int iter = 0;iter < max_iteration && !terminated;++iter)
     {
         std::vector<value_type> fun_x_ei(size);
         std::vector<param_type> g(size);
@@ -261,10 +261,10 @@ void gradient_descent(
         tipl::multiply(g,tols); // scale the unit to parameter unit
         double length = tipl::norm2(g.begin(),g.end());
         if(length == 0.0)
-            return;
+            break;
         tipl::multiply_constant(g,tol_length/length);
         if(!armijo_line_search(x_beg,x_end,x_upper,x_lower,g.begin(),fun_x,fun))
-            return;
+            break;
     }
 }
 
