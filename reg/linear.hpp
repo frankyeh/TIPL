@@ -97,9 +97,7 @@ namespace reg
         mt_correlation(int){}
         mt_correlation(void):end(false),status(std::thread::hardware_concurrency()),I1(0)
         {
-            for(unsigned int index = 1;index < status.size();++index)
-                threads.push_back(std::make_shared<std::future<void> >(std::async(std::launch::async,
-                                                                                  [this,index](){evaluate(index);})));
+
         }
         ~mt_correlation(void)
         {
@@ -147,6 +145,10 @@ namespace reg
             image_type y(Ifrom.geometry());
             Y.swap(y);
             std::fill(status.begin(),status.end(),1);
+            if(threads.empty())
+                for(unsigned int index = 1;index < status.size();++index)
+                    threads.push_back(std::make_shared<std::future<void> >(std::async(std::launch::async,
+                                                                                      [this,index](){evaluate(index);})));
             evaluate(0);
             for(unsigned int index = 1;index < status.size();++index)
                 if(status[index] == 1)
@@ -382,7 +384,6 @@ float linear(const image_type& from,const vs_type& from_vs,
             }
         }
     });
-
     for(int type = 0;type < 4 && reg_list[type] <= base_type && !terminated;++type)
     {
             tipl::reg::get_bound(from,to,arg_min,upper,lower,reg_list[type]);
