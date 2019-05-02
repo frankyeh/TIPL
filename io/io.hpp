@@ -108,6 +108,8 @@ public:
                     dicom_header->get_voxel_size(spatial_resolution);
                     dicom_header->get_image_orientation(orientation_matrix);
                 }
+                if(spatial_resolution[2] == 0.0f && index == 1)
+                    spatial_resolution[2] = std::fabs(dicom_header->get_slice_location()-dicom_reader.front()->get_slice_location());
                 dicom_reader.push_back(dicom_header);
                 continue;
             }
