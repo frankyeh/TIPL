@@ -580,6 +580,13 @@ private:
             }
         }
     }
+    static void clean_name(std::string& text)
+    {
+        std::replace(text.begin(),text.end(),'-','_');
+        std::replace(text.begin(),text.end(),'/','_');
+        std::replace(text.begin(),text.end(),'^','_');
+        std::replace(text.begin(),text.end(),':','_');
+    }
 public:
     dicom(void):transfer_syntax(lee) {}
     dicom(const dicom& rhs)
@@ -907,8 +914,7 @@ public:
         using namespace std;
         gender.erase(remove(gender.begin(),gender.end(),' '),gender.end());
         id.erase(remove(id.begin(),id.end(),' '),id.end());
-        std::replace(id.begin(),id.end(),'-','_');
-        std::replace(id.begin(),id.end(),'/','_');
+        clean_name(id);
         info = date;
         info += "_";
         info += gender;
@@ -921,14 +927,12 @@ public:
         get_text(0x0008,0x103E,seq);
         using namespace std;
         seq.erase(remove(seq.begin(),seq.end(),' '),seq.end());
-        std::replace(seq.begin(),seq.end(),'-','_');
+        clean_name(seq);
     }
-    void get_sequence(std::string& info)
+    void get_sequence_num(std::string& info)
     {
-        std::string series_num,series_des;
-        series_num = series_des = "_";
+        std::string series_num;
         get_text(0x0020,0x0011,series_num);
-        get_sequence_id(series_des);
         using namespace std;
         series_num.erase(remove(series_num.begin(),series_num.end(),' '),series_num.end());
         if (series_num.size() == 1)
@@ -938,7 +942,13 @@ public:
         }
         else
             info = series_num;
-
+    }
+    void get_sequence(std::string& info)
+    {
+        std::string series_num,series_des;
+        get_sequence_num(series_num);
+        get_sequence_id(series_des);
+        info = series_num;
         info += "_";
         info += series_des;
     }
