@@ -580,12 +580,12 @@ private:
             }
         }
     }
-    static void clean_name(std::string& text)
+    static void clean_name(std::string& s)
     {
-        std::replace(text.begin(),text.end(),'-','_');
-        std::replace(text.begin(),text.end(),'/','_');
-        std::replace(text.begin(),text.end(),'^','_');
-        std::replace(text.begin(),text.end(),':','_');
+        std::string key_chars = "\\/:?\"<>|^";
+        for (size_t i = 0;i < s.length();++i)
+            if(key_chars.find(s[i]) != std::string::npos)
+                s[i] = '_';
     }
 public:
     dicom(void):transfer_syntax(lee) {}
