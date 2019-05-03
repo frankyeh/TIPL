@@ -972,6 +972,8 @@ void resample(const tipl::image<PixelType,3>& source_image,
     }
 }
 
+
+
 template<class ImageType1,class ImageType2,class transform_type>
 void resample_mt(const ImageType1& from,ImageType2& to,const transform_type& transform,interpolation_type type = interpolation_type::linear)
 {
