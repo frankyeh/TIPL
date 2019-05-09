@@ -41,6 +41,453 @@ namespace tipl
 {
 namespace io
 {
+
+
+//---------------------------------------------------------------------------
+// decode_1_2_840_10008_1_2_4_70
+// modified from https://www.mccauslandcenter.sc.edu/crnl/tools/jpeg-formats
+//---------------------------------------------------------------------------
+struct HufTables {
+    uint8_t SSSSszRA[18];
+    uint8_t LookUpRA[256];
+    int DHTliRA[32];
+    int DHTstartRA[32];
+    int HufSz[32];
+    int HufCode[32];
+    int HufVal[32];
+    int MaxHufSi;
+    int MaxHufVal;
+}; //end HufTables()
+const int bitMask[16] = {0, 1, 3, 7, 15, 31, 63, 127, 255, 511, 1023, 2047, 4095, 8191, 16383, 32767 };
+
+inline int dcm_decode_pixel(unsigned char *buf_ptr, long *buf_pos, int *bit_pos, struct HufTables l)
+{
+    int lByte = (buf_ptr[*buf_pos] << *bit_pos) + (buf_ptr[*buf_pos+1] >> (8- *bit_pos));
+    lByte = lByte & 255;
+    int lHufValSSSS = l.LookUpRA[lByte];
+    if (lHufValSSSS < 255) {
+        *bit_pos = l.SSSSszRA[lHufValSSSS] + *bit_pos;
+        *buf_pos = *buf_pos + (*bit_pos >> 3);
+        *bit_pos = *bit_pos & 7;
+    } else { //full SSSS is not in the first 8-bits
+        int lInput = lByte;
+        int lInputBits = 8;
+        (*buf_pos)++; // forward 8 bits = precisely 1 byte
+        do {
+            lInputBits++;
+            lInput = (lInput << 1);
+            //Read the next single bit
+            {
+                lInput += (buf_ptr[*buf_pos] >> (7 - *bit_pos)) & 1;
+                (*bit_pos)++;
+                if (*bit_pos == 8) {
+                    (*buf_pos)++;
+                    *bit_pos = 0;
+                }
+            }
+            if (l.DHTliRA[lInputBits] != 0) { //if any entries with this length
+                for (int lI = l.DHTstartRA[lInputBits]; lI <= (l.DHTstartRA[lInputBits]+l.DHTliRA[lInputBits]-1); lI++) {
+                    if (lInput == l.HufCode[lI])
+                        lHufValSSSS = l.HufVal[lI];
+                } //check each code
+            } //if any entries with this length
+            if ((lInputBits >= l.MaxHufSi) && (lHufValSSSS > 254)) //exhausted options CR: added rev13
+                lHufValSSSS = l.MaxHufVal;
+        } while (!(lHufValSSSS < 255)); // found;
+    } //answer in first 8 bits
+    //The HufVal is referred to as the SSSS in the Codec, so it is called 'lHufValSSSS'
+    if (lHufValSSSS == 0) //NO CHANGE
+      return 0;
+    else if (lHufValSSSS == 16) { //ALL CHANGE 16 bit difference: Codec H.1.2.2 "No extra bits are appended after SSSS = 16 is encoded." Osiris Cornell Libraries fail here
+        return 32768; //see H.1.2.2 and table H.2 of ISO 10918-1
+    }
+    //to get here - there is a 1..15 bit difference
+    int lDiff = buf_ptr[*buf_pos];
+    lDiff = (lDiff << 8) + buf_ptr[(*buf_pos)+1];
+    lDiff = (lDiff << 8) + buf_ptr[(*buf_pos)+2];
+    lDiff = (lDiff >> (24 - *bit_pos -lHufValSSSS)) & bitMask[lHufValSSSS]; //bit_pos is incremented from 1, so -1
+    *bit_pos = *bit_pos + lHufValSSSS;
+    if (*bit_pos > 7) {
+            *buf_pos = *buf_pos + (*bit_pos >> 3); // div 8
+            *bit_pos = *bit_pos & 7; //mod 8
+    }
+    if (lDiff <= bitMask[lHufValSSSS-1] )//add
+        lDiff = lDiff - bitMask[lHufValSSSS];
+    return lDiff;
+} //end dcm_decode_pixel()
+
+inline uint16_t dcm_read_word(unsigned char *buf_ptr, long *buf_pos) {
+    uint16_t ret = (uint16_t(buf_ptr[*buf_pos]) << 8) + uint16_t(buf_ptr[*buf_pos+1]);
+    (*buf_pos) += 2;
+    return ret;
+} //end dcm_read_word()
+
+inline bool decode_1_2_840_10008_1_2_4_70(unsigned char *buf_ptr, long buf_size, std::vector<unsigned char>& buf,
+                                       int *dimX, int *dimY, int *bits, int *frames)
+{
+    unsigned char *lImgRA8 = 0;
+    if ((buf_ptr[0] != 0xFF) || (buf_ptr[1] != 0xD8) || (buf_ptr[2] != 0xFF))
+        return false;
+    //next: read header
+    long buf_pos = 2; //Skip initial 0xFFD8, begin with third byte
+    unsigned char btS1, btS2, SOSss, SOSse, SOSahal, SOSpttrans, btMarkerType, SOSns = 0x00; //tag
+    uint8_t SOFnf, SOFprecision;
+    uint16_t SOFydim, SOFxdim; //, lRestartSegmentSz;
+    long SOFarrayPos, SOSarrayPos;
+    int lnHufTables = 0;
+    const int kmaxFrames = 4;
+    struct HufTables l[kmaxFrames+1];
+    do { //read each marker in the header
+        do {
+            btS1 = buf_ptr[buf_pos++];
+            if (btS1 != 0xFF) {
+                printf("JPEG header tag must begin with 0xFF\n");
+                return false;
+            }
+            btMarkerType =  buf_ptr[buf_pos++];
+            if ((btMarkerType == 0x01) || (btMarkerType == 0xFF) || ((btMarkerType >= 0xD0) && (btMarkerType <= 0xD7) ) )
+                btMarkerType = 0;//only process segments with length fields
+
+        } while ((buf_pos < buf_size) && (btMarkerType == 0));
+        uint16_t lSegmentLength = dcm_read_word (buf_ptr, &buf_pos); //read marker length
+        long lSegmentEnd = buf_pos+(lSegmentLength - 2);
+        if (lSegmentEnd > buf_size)  {
+            return false;
+        }
+        if ( ((btMarkerType >= 0xC0) && (btMarkerType <= 0xC3)) || ((btMarkerType >= 0xC5) && (btMarkerType <= 0xCB)) || ((btMarkerType >= 0xCD) && (btMarkerType <= 0xCF)) )  {
+            //if Start-Of-Frame (SOF) marker
+            SOFprecision = buf_ptr[buf_pos++];
+            SOFydim = dcm_read_word(buf_ptr, &buf_pos);
+            SOFxdim = dcm_read_word(buf_ptr, &buf_pos);
+            SOFnf = buf_ptr[buf_pos++];
+            SOFarrayPos = buf_pos;
+            buf_pos = (lSegmentEnd);
+            if (btMarkerType != 0xC3) { //lImgTypeC3 = true;
+                printf("This JPEG decoder can only decompress lossless JPEG ITU-T81 images (SoF must be 0XC3, not %#02X)\n",btMarkerType );
+                return false;
+            }
+            if ( (SOFprecision < 1) || (SOFprecision > 16) || (SOFnf < 1) || (SOFnf == 2) || (SOFnf > 3)
+                || ((SOFnf == 3) &&  (SOFprecision > 8))   ) {
+                printf("Scalar data must be 1..16 bit, RGB data must be 8-bit (%d-bit, %d frames)\n", SOFprecision, SOFnf);
+                return false;
+            }
+        } else if (btMarkerType == 0xC4) {//if SOF marker else if define-Huffman-tables marker (DHT)
+            int lFrameCount = 1;
+            do {
+                uint8_t DHTnLi = buf_ptr[buf_pos++]; //we read but ignore DHTtcth.
+                DHTnLi = 0;
+                for (int lInc = 1; lInc <= 16; lInc++) {
+                    l[lFrameCount].DHTliRA[lInc] = buf_ptr[buf_pos++];
+                    DHTnLi = DHTnLi +  l[lFrameCount].DHTliRA[lInc];
+                    if (l[lFrameCount].DHTliRA[lInc] != 0) l[lFrameCount].MaxHufSi = lInc;
+                }
+                if (DHTnLi > 17) {
+                    printf("Huffman table corrupted.\n");
+                    return false;
+                }
+                int lIncY = 0; //frequency
+                for (int lInc = 0; lInc <= 31; lInc++) {//lInc := 0 to 31 do begin
+                    l[lFrameCount].HufVal[lInc] = -1;
+                    l[lFrameCount].HufSz[lInc] = -1;
+                    l[lFrameCount].HufCode[lInc] = -1;
+                }
+                for (int lInc = 1; lInc <= 16; lInc++) {//set the huffman size values
+                    if (l[lFrameCount].DHTliRA[lInc] > 0) {
+                        l[lFrameCount].DHTstartRA[lInc] = lIncY+1;
+                        for (int lIncX = 1; lIncX <= l[lFrameCount].DHTliRA[lInc]; lIncX++) {
+                            lIncY++;
+                            btS1 = buf_ptr[buf_pos++];
+                            l[lFrameCount].HufVal[lIncY] = btS1;
+                            l[lFrameCount].MaxHufVal = btS1;
+                            if ((btS1 >= 0) && (btS1 <= 16))
+                                l[lFrameCount].HufSz[lIncY] = lInc;
+                            else {
+                                printf("Huffman size array corrupted.\n");
+                                return false;
+                            }
+                        }
+                    }
+                } //set huffman size values
+                int K = 1;
+                int Code = 0;
+                int Si = l[lFrameCount].HufSz[K];
+                do {
+                    while (Si == l[lFrameCount].HufSz[K]) {
+                        l[lFrameCount].HufCode[K] = Code;
+                        Code = Code + 1;
+                        K++;
+                    }
+                    if (K <= DHTnLi) {
+                        while (l[lFrameCount].HufSz[K] > Si) {
+                            Code = Code << 1; //Shl!!!
+                            Si = Si + 1;
+                        }//while Si
+                    }//K <= 17
+
+                } while (K <= DHTnLi);
+                lFrameCount++;
+            } while ((lSegmentEnd-buf_pos) >= 18);
+            lnHufTables = lFrameCount - 1;
+            buf_pos = (lSegmentEnd);
+        } else if (btMarkerType == 0xDD) {  //if DHT marker else if Define restart interval (DRI) marker
+            printf("This image uses Restart Segments - please contact Chris Rorden to add support for this format.\n");
+            return false;
+            //lRestartSegmentSz = dcm_read_word(buf_ptr, &buf_pos, buf_size);
+            //buf_pos = lSegmentEnd;
+        } else if (btMarkerType == 0xDA) {  //if DRI marker else if read Start of Scan (SOS) marker
+            SOSns = buf_ptr[buf_pos++];
+            //if Ns = 1 then NOT interleaved, else interleaved: see B.2.3
+            SOSarrayPos = buf_pos;
+            if (SOSns > 0) {
+                for (int lInc = 1; lInc <= SOSns; lInc++) {
+                    btS1 = buf_ptr[buf_pos++]; //component identifier 1=Y,2=Cb,3=Cr,4=I,5=Q
+                    btS2 = buf_ptr[buf_pos++]; //horizontal and vertical sampling factors
+                }
+            }
+            SOSss = buf_ptr[buf_pos++]; //predictor selection B.3
+            SOSse = buf_ptr[buf_pos++];
+            SOSahal = buf_ptr[buf_pos++]; //lower 4bits= pointtransform
+            SOSpttrans = SOSahal & 16;
+            buf_pos = (lSegmentEnd);
+        } else  //if SOS marker else skip marker
+            buf_pos = (lSegmentEnd);
+    } while ((buf_pos < buf_size) && (btMarkerType != 0xDA)); //0xDA=Start of scan: loop for reading header
+    //NEXT: Huffman decoding
+    if (lnHufTables < 1)
+        return false;
+    // Decoding error: no Huffman tables
+    //NEXT: unpad data - delete byte that follows $FF
+    long lIncI = buf_pos; //input position
+    long lIncO = buf_pos; //output position
+    do {
+        buf_ptr[lIncO] = buf_ptr[lIncI];
+        if (buf_ptr[lIncI] == 255) {
+            if (buf_ptr[lIncI+1] == 0)
+                lIncI = lIncI+1;
+            else if (buf_ptr[lIncI+1] == 0xD9)
+                lIncO = -666; //end of padding
+        }
+        lIncI++;
+        lIncO++;
+    } while (lIncO > 0);
+    //NEXT: some RGB images use only a single Huffman table for all 3 colour planes. In this case, replicate the correct values
+    //NEXT: prepare lookup table
+
+    for (int lFrameCount = 1; lFrameCount <= lnHufTables; lFrameCount ++) {
+        for (int lInc = 0; lInc <= 17; lInc ++)
+            l[lFrameCount].SSSSszRA[lInc] = 123; //Impossible value for SSSS, suggests 8-bits can not describe answer
+        for (int lInc = 0; lInc <= 255; lInc ++)
+            l[lFrameCount].LookUpRA[lInc] = 255; //Impossible value for SSSS, suggests 8-bits can not describe answer
+    }
+    //NEXT: fill lookuptable
+
+
+    for (int lFrameCount = 1; lFrameCount <= lnHufTables; lFrameCount ++) {
+        int lIncY = 0;
+        for (int lSz = 1; lSz <= 8; lSz ++) { //set the huffman lookup table for keys with lengths <=8
+            if (l[lFrameCount].DHTliRA[lSz]> 0) {
+                for (int lIncX = 1; lIncX <= l[lFrameCount].DHTliRA[lSz]; lIncX ++) {
+                    lIncY++;
+                    int lHufVal = l[lFrameCount].HufVal[lIncY]; //SSSS
+                    l[lFrameCount].SSSSszRA[lHufVal] = lSz;
+                    int k = (l[lFrameCount].HufCode[lIncY] << (8-lSz )) & 255; //K= most sig bits for hufman table
+                    if (lSz < 8) { //fill in all possible bits that exceed the huffman table
+                        int lInc = bitMask[8-lSz];
+                        for (int bit_pos = 0; bit_pos <= lInc; bit_pos++) {
+                            l[lFrameCount].LookUpRA[k+bit_pos] = lHufVal;
+                        }
+                    } else
+                        l[lFrameCount].LookUpRA[k] = lHufVal; //SSSS
+                    //printf("Frame %d SSSS %d Size %d Code %d SHL %d EmptyBits %ld\n", lFrameCount, lHufRA[lFrameCount][lIncY].HufVal, lHufRA[lFrameCount][lIncY].HufSz,lHufRA[lFrameCount][lIncY].HufCode, k, lInc);
+                } //Set SSSS
+            } //Length of size lInc > 0
+        } //for lInc := 1 to 8
+    } //For each frame, e.g. once each for Red/Green/Blue
+    //NEXT: some RGB images use only a single Huffman table for all 3 colour planes. In this case, replicate the correct values
+    if (lnHufTables < SOFnf) { //use single Hufman table for each frame
+        for (int lFrameCount = 2; lFrameCount <= SOFnf; lFrameCount++) {
+            l[lFrameCount] = l[1];
+        } //for each frame
+    } // if lnHufTables < SOFnf
+    //NEXT: uncompress data: different loops for different predictors
+    int lItems =  SOFxdim*SOFydim*SOFnf;
+    // buf_pos++;// <- only for Pascal where array is indexed from 1 not 0 first byte of data
+    int bit_pos = 0; //read in a new byte
+
+    //depending on SOSss, we see Table H.1
+    int lPredA = 0;
+    int lPredB = 0;
+    int lPredC = 0;
+    if (SOSss == 2) //predictor selection 2: above
+        lPredA = SOFxdim-1;
+    else if (SOSss == 3) //predictor selection 3: above+left
+        lPredA = SOFxdim;
+    else if ((SOSss == 4) || (SOSss == 5)) { //these use left, above and above+left WEIGHT LEFT
+        lPredA = 0; //Ra left
+        lPredB = SOFxdim-1; //Rb directly above
+        lPredC = SOFxdim; //Rc UpperLeft:above and to the left
+    } else if (SOSss == 6) { //also use left, above and above+left, WEIGHT ABOVE
+        lPredB = 0;
+        lPredA = SOFxdim-1; //Rb directly above
+        lPredC = SOFxdim; //Rc UpperLeft:above and to the left
+    }   else
+        lPredA = 0; //Ra: directly to left)
+    if (SOFprecision > 8) { //start - 16 bit data
+        *bits = 16;
+        int lPx = -1; //pixel position
+        int lPredicted =  1 << (SOFprecision-1-SOSpttrans);
+        buf.resize(lItems*2);
+        lImgRA8 = &buf[0];
+        uint16_t *lImgRA16 = (uint16_t*) lImgRA8;
+        for (int i = 0; i < lItems; i++)
+            lImgRA16[i] = 0; //zero array
+        int frame = 1;
+        for (int lIncX = 1; lIncX <= SOFxdim; lIncX++) { //for first row - here we ALWAYS use LEFT as predictor
+            lPx++; //writenext voxel
+            if (lIncX > 1) lPredicted = lImgRA16[lPx-1];
+            lImgRA16[lPx] = lPredicted+ dcm_decode_pixel(buf_ptr, &buf_pos, &bit_pos, l[frame]);
+        }
+        for (int lIncY = 2; lIncY <= SOFydim; lIncY++) {//for all subsequent rows
+            lPx++; //write next voxel
+            lPredicted = lImgRA16[lPx-SOFxdim]; //use ABOVE
+            lImgRA16[lPx] = lPredicted+dcm_decode_pixel(buf_ptr, &buf_pos, &bit_pos, l[frame]);
+            if (SOSss == 4) {
+                for (int lIncX = 2; lIncX <= SOFxdim; lIncX++) {
+                    lPredicted = lImgRA16[lPx-lPredA]+lImgRA16[lPx-lPredB]-lImgRA16[lPx-lPredC];
+                    lPx++; //writenext voxel
+                    lImgRA16[lPx] = lPredicted+dcm_decode_pixel(buf_ptr, &buf_pos, &bit_pos, l[frame]);
+                } //for lIncX
+            } else if ((SOSss == 5) || (SOSss == 6)) {
+                for (int lIncX = 2; lIncX <= SOFxdim; lIncX++) {
+                    lPredicted = lImgRA16[lPx-lPredA]+ ((lImgRA16[lPx-lPredB]-lImgRA16[lPx-lPredC]) >> 1);
+                    lPx++; //writenext voxel
+                    lImgRA16[lPx] = lPredicted+dcm_decode_pixel(buf_ptr, &buf_pos, &bit_pos, l[frame]);
+                } //for lIncX
+            } else if (SOSss == 7) {
+                for (int lIncX = 2; lIncX <= SOFxdim; lIncX++) {
+                    lPx++; //writenext voxel
+                    lPredicted = (lImgRA16[lPx-1]+lImgRA16[lPx-SOFxdim]) >> 1;
+                    lImgRA16[lPx] = lPredicted+dcm_decode_pixel(buf_ptr, &buf_pos, &bit_pos, l[frame]);
+                } //for lIncX
+            } else { //SOSss 1,2,3 read single values
+                for (int lIncX = 2; lIncX <= SOFxdim; lIncX++) {
+                    lPredicted = lImgRA16[lPx-lPredA];
+                    lPx++; //writenext voxel
+                    lImgRA16[lPx] = lPredicted+dcm_decode_pixel(buf_ptr, &buf_pos, &bit_pos, l[frame]);
+                } //for lIncX
+            } // if..else possible predictors
+        }//for lIncY
+    } else if (SOFnf == 3) { //if 16-bit data; else 8-bit 3 frames
+        *bits = 8;
+        buf.resize(lItems);
+        lImgRA8 = &buf[0];
+
+        int lPx[kmaxFrames+1], lPredicted[kmaxFrames+1]; //pixel position
+        for (int f = 1; f <= SOFnf; f++) {
+            lPx[f] = ((f-1) * (SOFxdim * SOFydim) ) -1;
+            lPredicted[f] = 1 << (SOFprecision-1-SOSpttrans);
+        }
+        for (int i = 0; i < lItems; i++)
+            lImgRA8[i] = 255; //zero array
+        for (int lIncX = 1; lIncX <= SOFxdim; lIncX++) { //for first row - here we ALWAYS use LEFT as predictor
+            for (int f = 1; f <= SOFnf; f++) {
+                lPx[f]++; //writenext voxel
+                if (lIncX > 1) lPredicted[f] = lImgRA8[lPx[f]-1];
+                lImgRA8[lPx[f]] = lPredicted[f] + dcm_decode_pixel(buf_ptr, &buf_pos, &bit_pos, l[f]);
+            }
+        } //first row always predicted by LEFT
+        for (int lIncY = 2; lIncY <= SOFydim; lIncY++) {//for all subsequent rows
+            for (int f = 1; f <= SOFnf; f++) {
+                lPx[f]++; //write next voxel
+                lPredicted[f] = lImgRA8[lPx[f]-SOFxdim]; //use ABOVE
+                lImgRA8[lPx[f]] = lPredicted[f] + dcm_decode_pixel(buf_ptr, &buf_pos, &bit_pos, l[f]);
+            }//first column of row always predicted by ABOVE
+            if (SOSss == 4) {
+                for (int lIncX = 2; lIncX <= SOFxdim; lIncX++) {
+                    for (int f = 1; f <= SOFnf; f++) {
+                        lPredicted[f] = lImgRA8[lPx[f]-lPredA]+lImgRA8[lPx[f]-lPredB]-lImgRA8[lPx[f]-lPredC];
+                        lPx[f]++; //writenext voxel
+                        lImgRA8[lPx[f]] = lPredicted[f]+dcm_decode_pixel(buf_ptr, &buf_pos, &bit_pos, l[f]);
+                    }
+                } //for lIncX
+            } else if ((SOSss == 5) || (SOSss == 6)) {
+                for (int lIncX = 2; lIncX <= SOFxdim; lIncX++) {
+                    for (int f = 1; f <= SOFnf; f++) {
+                        lPredicted[f] = lImgRA8[lPx[f]-lPredA]+ ((lImgRA8[lPx[f]-lPredB]-lImgRA8[lPx[f]-lPredC]) >> 1);
+                        lPx[f]++; //writenext voxel
+                        lImgRA8[lPx[f]] = lPredicted[f] + dcm_decode_pixel(buf_ptr, &buf_pos, &bit_pos, l[f]);
+                    }
+                } //for lIncX
+            } else if (SOSss == 7) {
+                for (int lIncX = 2; lIncX <= SOFxdim; lIncX++) {
+                    for (int f = 1; f <= SOFnf; f++) {
+                        lPx[f]++; //writenext voxel
+                        lPredicted[f] = (lImgRA8[lPx[f]-1]+lImgRA8[lPx[f]-SOFxdim]) >> 1;
+                        lImgRA8[lPx[f]] = lPredicted[f] + dcm_decode_pixel(buf_ptr, &buf_pos, &bit_pos, l[f]);
+                    }
+                } //for lIncX
+            } else { //SOSss 1,2,3 read single values
+                for (int lIncX = 2; lIncX <= SOFxdim; lIncX++) {
+                    for (int f = 1; f <= SOFnf; f++) {
+                        lPredicted[f] = lImgRA8[lPx[f]-lPredA];
+                        lPx[f]++; //writenext voxel
+                        lImgRA8[lPx[f]] = lPredicted[f] + dcm_decode_pixel(buf_ptr, &buf_pos, &bit_pos, l[f]);
+                    }
+                } //for lIncX
+            } // if..else possible predictors
+        }//for lIncY
+    }else { //if 8-bit data 3frames; else 8-bit 1 frames
+        *bits = 8;
+        buf.resize(lItems);
+        lImgRA8 = &buf[0];
+        int lPx = -1; //pixel position
+        int lPredicted =  1 << (SOFprecision-1-SOSpttrans);
+        for (int i = 0; i < lItems; i++)
+            lImgRA8[i] = 0; //zero array
+        for (int lIncX = 1; lIncX <= SOFxdim; lIncX++) { //for first row - here we ALWAYS use LEFT as predictor
+            lPx++; //writenext voxel
+            if (lIncX > 1) lPredicted = lImgRA8[lPx-1];
+            int dx = dcm_decode_pixel(buf_ptr, &buf_pos, &bit_pos, l[1]);
+            lImgRA8[lPx] = lPredicted+dx;
+        }
+        for (int lIncY = 2; lIncY <= SOFydim; lIncY++) {//for all subsequent rows
+            lPx++; //write next voxel
+            lPredicted = lImgRA8[lPx-SOFxdim]; //use ABOVE
+            lImgRA8[lPx] = lPredicted+dcm_decode_pixel(buf_ptr, &buf_pos, &bit_pos, l[1]);
+            if (SOSss == 4) {
+                for (int lIncX = 2; lIncX <= SOFxdim; lIncX++) {
+                    lPredicted = lImgRA8[lPx-lPredA]+lImgRA8[lPx-lPredB]-lImgRA8[lPx-lPredC];
+                    lPx++; //writenext voxel
+                    lImgRA8[lPx] = lPredicted+dcm_decode_pixel(buf_ptr, &buf_pos, &bit_pos, l[1]);
+                } //for lIncX
+            } else if ((SOSss == 5) || (SOSss == 6)) {
+                for (int lIncX = 2; lIncX <= SOFxdim; lIncX++) {
+                    lPredicted = lImgRA8[lPx-lPredA]+ ((lImgRA8[lPx-lPredB]-lImgRA8[lPx-lPredC]) >> 1);
+                    lPx++; //writenext voxel
+                    lImgRA8[lPx] = lPredicted+dcm_decode_pixel(buf_ptr, &buf_pos, &bit_pos, l[1]);
+                } //for lIncX
+            } else if (SOSss == 7) {
+                for (int lIncX = 2; lIncX <= SOFxdim; lIncX++) {
+                    lPx++; //writenext voxel
+                    lPredicted = (lImgRA8[lPx-1]+lImgRA8[lPx-SOFxdim]) >> 1;
+                    lImgRA8[lPx] = lPredicted+dcm_decode_pixel(buf_ptr, &buf_pos, &bit_pos, l[1]);
+                } //for lIncX
+            } else { //SOSss 1,2,3 read single values
+                for (int lIncX = 2; lIncX <= SOFxdim; lIncX++) {
+                    lPredicted = lImgRA8[lPx-lPredA];
+                    lPx++; //writenext voxel
+                    lImgRA8[lPx] = lPredicted+dcm_decode_pixel(buf_ptr, &buf_pos, &bit_pos, l[1]);
+                } //for lIncX
+            } // if..else possible predictors
+        }//for lIncY
+    } //if 16bit else 8bit
+    *dimX = SOFxdim;
+    *dimY = SOFydim;
+    *frames = SOFnf;
+    return lImgRA8;
+}
+//---------------------------------------------------------------------------
+
 enum transfer_syntax_type {lee,bee,lei};
 //---------------------------------------------------------------------------
 const char dicom_long_flag[] = "OBOFUNOWSQUT";
@@ -531,8 +978,8 @@ private:
     unsigned int image_size = 0;
     transfer_syntax_type transfer_syntax;
 public:
-    bool is_compressed = false;
     std::string encoding;
+    mutable bool is_compressed = false;
     mutable std::vector<char> compressed_buf;
     unsigned int buf_size = 0;
 public:
@@ -639,18 +1086,19 @@ public:
             {
                 if (!(*input_io))
                     return true;
+                {
+                    std::string image_type;
+                    is_mosaic = get_int(0x0019,0x100A) > 1 ||   // multiple frame (new version)
+                            (get_text(0x0008,0x0008,image_type) && image_type.find("MOSAIC") != std::string::npos);
+                }
                 if(is_compressed)
                 {
                     buf_size = ge.length;
                     is_big_endian = false;
-                    is_mosaic = false;
                     return true;
                 }
                 image_size = ge.length;
-                std::string image_type;
                 is_big_endian = (transfer_syntax == bee);
-                is_mosaic = get_int(0x0019,0x100A) > 1 ||   // multiple frame (new version)
-                            (get_text(0x0008,0x0008,image_type) && image_type.find("MOSAIC") != std::string::npos);
                 return true;
             }
 
@@ -668,7 +1116,8 @@ public:
                 else
                 {
                     is_compressed = true;
-                    encoding = std::string((char*)&*ge.data.begin());
+                    encoding.resize(ge.data.size());
+                    std::copy(ge.data.begin(),ge.data.end(),encoding.begin());
                     /*
                     1.2.840.10008.1.2.1.99 (Deflated Explicit VR Little Endian)
                     1.2.840.10008.1.2.4.50 (JPEG Baseline (Process 1) Lossy JPEG 8-bit)
@@ -1032,6 +1481,27 @@ public:
     void save_to_buffer(pointer_type ptr,unsigned int pixel_count) const
     {
         typedef typename std::iterator_traits<pointer_type>::value_type value_type;
+        if(is_compressed)
+        {
+            compressed_buf.resize(buf_size);
+            input_io->read((char*)&*(compressed_buf.begin()),buf_size);
+            if(encoding == "1.2.840.10008.1.2.4.70")
+            {
+                std::vector<unsigned char> buf;
+                int X,Y,bits,frames;
+                if(decode_1_2_840_10008_1_2_4_70((unsigned char*)&*(compressed_buf.begin()),buf_size,buf,&X,&Y,&bits,&frames))
+                {
+                    if(bits == 8)
+                        std::copy(buf.begin(),buf.begin()+std::min<size_t>(pixel_count,buf.size()),ptr);
+                    if(bits == 16)
+                        std::copy((const short*)&buf[0],(const short*)&buf[0] + +std::min<size_t>(pixel_count,buf.size() >> 1),ptr);
+                    compressed_buf.clear();
+                    is_compressed = false;
+                }
+            }
+            return;
+        }
+
         if(sizeof(value_type) == get_bit_count()/8)
             input_io->read((char*)&*ptr,pixel_count*sizeof(value_type));
         else
@@ -1139,13 +1609,7 @@ public:
         else
         {
             out.resize(geo);
-            if(is_compressed)
-            {
-                compressed_buf.resize(buf_size);
-                input_io->read((char*)&*(compressed_buf.begin()),buf_size);
-            }
-            else
-                save_to_buffer(out.begin(),(unsigned int)out.size());
+            save_to_buffer(out.begin(),(unsigned int)out.size());
         }
     }
 
