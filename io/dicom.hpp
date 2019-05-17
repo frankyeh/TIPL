@@ -1133,7 +1133,7 @@ public:
                 }
             }
             // Deal with CSA
-            if (ge.group == 0x0029 && (ge.element == 0x1010 || ge.element == 0x1020))
+            if (ge.group == 0x0029 && (ge.element == 0x1010 || ge.element == 0x1020) && ge.get().size() >= 4)
             {
                 std::string SV10(ge.get().begin(),ge.get().begin()+4);
                 if (SV10 == "SV10")
