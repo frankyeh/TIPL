@@ -56,6 +56,24 @@ void compose_displacement(const ImageType& src,const ComposeImageType& displace,
     }
 }
 //---------------------------------------------------------------------------
+template<class ImageType,class ComposeImageType,class OutImageType,class transform_type>
+void compose_displacement(const ImageType& src,OutImageType& dest,
+                          const transform_type& transform,
+                          const ComposeImageType& displace,
+                          interpolation_type type = interpolation_type::linear)
+{
+    dest.for_each_mt([&](typename OutImageType::value_type& value,
+                      tipl::pixel_index<OutImageType::dimension> index)
+    {
+        typename ComposeImageType::value_type vtor(index);
+        vtor += displace[index.index()];
+        tipl::vector<OutImageType::dimension,double> pos;
+        transform(vtor,pos);
+        tipl::estimate(src,pos,dest[index.index()],type);
+    });
+}
+
+//---------------------------------------------------------------------------
 template<class ImageType,class ComposeImageType,class OutImageType>
 void compose_displacement_with_jacobian(const ImageType& src,const ComposeImageType& displace,OutImageType& dest)
 {
