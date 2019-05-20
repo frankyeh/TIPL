@@ -56,6 +56,19 @@ void compose_displacement(const ImageType& src,const ComposeImageType& displace,
     }
 }
 //---------------------------------------------------------------------------
+template<class ComposeImageType,class transform_type>
+void displacement_to_mapping(ComposeImageType& mapping,
+                          const transform_type& transform)
+{
+    mapping.for_each_mt([&](typename ComposeImageType::value_type& value,
+                             tipl::pixel_index<ComposeImageType::dimension> index)
+    {
+        typename ComposeImageType::value_type vtor(index),pos;
+        vtor += value;
+        transform(vtor,value);
+    });
+}
+//---------------------------------------------------------------------------
 template<class ImageType,class ComposeImageType,class OutImageType,class transform_type>
 void compose_displacement(const ImageType& src,OutImageType& dest,
                           const transform_type& transform,
