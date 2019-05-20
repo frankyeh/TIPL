@@ -496,6 +496,16 @@ public:
     {
         return write(name_,&data[0],1,uint32_t(data.size()));
     }
+    template<class container_type>
+    bool write(const char* name_,const container_type& data,uint32_t d)
+    {
+        return write(name_,&data[0],d,uint32_t(data.size()/d));
+    }
+    template<class container_type>
+    bool write(const char* name_,const std::string text)
+    {
+        return write(name_,text.c_str(),1,text.size());
+    }
     bool write(const mat_matrix& data)
     {
         return data.write(out);
