@@ -78,7 +78,7 @@ void par_for_asyn(T size, Func f, int thread_count = std::thread::hardware_concu
 
 
 template <class T,class Func>
-void par_for2(T size, Func f, int thread_count = std::thread::hardware_concurrency())
+void par_for2(T size, Func f, unsigned int thread_count = std::thread::hardware_concurrency())
 {
     std::vector<std::future<void> > futures;
     if(thread_count > size)
