@@ -663,23 +663,19 @@ public:
         }
     }
 
-    template<class float_type>
-    void set_image_transformation(float_type R)
+    template<class matrix_type>
+    void set_image_transformation(matrix_type& R)
     {
         nif_header.sform_code = 1.0;
         nif_header.qform_code = 0.0;
-        std::copy(R,R+4,nif_header.srow_x);
-        std::copy(R+4,R+8,nif_header.srow_y);
-        std::copy(R+8,R+12,nif_header.srow_z);
+        std::copy(R.begin(),R.begin()+12,nif_header.srow_x);
 
         nif_header2.sform_code = 1.0;
         nif_header2.qform_code = 0.0;
-        std::copy(R,R+4,nif_header2.srow_x);
-        std::copy(R+4,R+8,nif_header2.srow_y);
-        std::copy(R+8,R+12,nif_header2.srow_z);
+        std::copy(R.begin(),R.begin()+12,nif_header2.srow_x);
     }
-    template<typename float_type,typename geo_type>
-    void set_LPS_transformation(float_type R,const geo_type& out)
+    template<typename matrix_type,typename geo_type>
+    void set_LPS_transformation(matrix_type& R,const geo_type& out)
     {
         set_image_transformation(R);
         nif_header2.srow_x[3] += nif_header2.srow_x[0]*(out.width()-1);
@@ -715,11 +711,12 @@ public:
         std::copy(nif_header2.srow_y,nif_header2.srow_y+3,R+3);
         std::copy(nif_header2.srow_z,nif_header2.srow_z+3,R+6);
     }
-    template<class float_type>
-    void get_image_transformation(float_type R)
+    template<class matrix_type>
+    void get_image_transformation(matrix_type& R)
     {
         handle_qform();
-        std::copy(nif_header2.srow_x,nif_header2.srow_x+12,R);
+        R.identity();
+        std::copy(nif_header2.srow_x,nif_header2.srow_x+12,R.begin());
     }
 
 
