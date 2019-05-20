@@ -319,7 +319,7 @@ public:
         return data.back();
     }
     template<typename value_type>
-    pixel_type operator[](value_type index) const
+    const pixel_type& operator[](value_type index) const
     {
         return data[index];
     }

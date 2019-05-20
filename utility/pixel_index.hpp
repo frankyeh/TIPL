@@ -654,7 +654,7 @@ public:
     }
 
 public:
-    data_type operator[](unsigned int index) const
+    const data_type& operator[](unsigned int index) const
     {
         return data_[index];
     }
