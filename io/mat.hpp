@@ -491,6 +491,11 @@ public:
         out.write((const char*)data_ptr,rows*cols*sizeof(Type));
         return out;
     }
+    template<class container_type>
+    bool write(const char* name_,const container_type& data)
+    {
+        return write(name_,&data[0],1,uint32_t(data.size()));
+    }
     bool write(const mat_matrix& data)
     {
         return data.write(out);
