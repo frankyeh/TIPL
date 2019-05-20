@@ -859,13 +859,13 @@ public:
     }
     double length(void)	const
     {
-        return std::sqrt((double)(x_*x_+y_*y_+z_*z_));
+        return std::sqrt(double(x_*x_+y_*y_+z_*z_));
     }
 
     data_type normalize(void)
     {
         data_type r = std::sqrt(length2());
-        if (r == (data_type)0)
+        if (r == data_type(0))
             return 0;
         x_ /= r;
         y_ /= r;
