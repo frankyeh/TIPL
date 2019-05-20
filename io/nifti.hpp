@@ -987,11 +987,11 @@ public:
 
     //from RAS to LPS
     template<class image_type>
-    bool toLPS(image_type& out,bool change_header = true)
+    bool toLPS(image_type& out,bool change_header = true,bool load_image = true)
     {
         if(!write_buf)
         {
-            if(!save_to_image(out))
+            if(load_image && !save_to_image(out))
                 return false;
         }
         handle_qform();
@@ -1008,7 +1008,8 @@ public:
                 std::swap(nif_header2.pixdim[1],nif_header2.pixdim[2]);
                 std::swap(nif_header2.dim[1],nif_header2.dim[2]);
             }
-            tipl::swap_xy(out);
+            if(load_image)
+                tipl::swap_xy(out);
         }
         // swap x z
         if(std::fabs(nif_header2.srow_y[2]) < std::fabs(nif_header2.srow_x[2]) &&
@@ -1022,7 +1023,8 @@ public:
                 std::swap(nif_header2.pixdim[1],nif_header2.pixdim[3]);
                 std::swap(nif_header2.dim[1],nif_header2.dim[3]);
             }
-            tipl::swap_xz(out);
+            if(load_image)
+                tipl::swap_xz(out);
         }
         // swap y z
         if(std::fabs(nif_header2.srow_x[2]) < std::fabs(nif_header2.srow_y[2]) &&
@@ -1036,30 +1038,32 @@ public:
                 std::swap(nif_header2.pixdim[2],nif_header2.pixdim[3]);
                 std::swap(nif_header2.dim[2],nif_header2.dim[3]);
             }
-            tipl::swap_yz(out);
+            if(load_image)
+                tipl::swap_yz(out);
         }
 
         // from +x = Right  +y = Anterior +z = Superior
         // to +x = Left  +y = Posterior +z = Superior
         if(nif_header2.srow_x[0] > 0)
         {
-            tipl::flip_x(out);
+            if(load_image)
+                tipl::flip_x(out);
             if(change_header)
             {
-                nif_header2.srow_x[3] += nif_header2.srow_x[0]*(out.width()-1);
+                nif_header2.srow_x[3] += nif_header2.srow_x[0]*(nif_header2.dim[1]-1);
                 nif_header2.srow_x[0] = -nif_header2.srow_x[0];
                 nif_header2.srow_y[0] = -nif_header2.srow_y[0];
                 nif_header2.srow_z[0] = -nif_header2.srow_z[0];
-
             }
         }
 
         if(nif_header2.srow_y[1] > 0)
         {
-            tipl::flip_y(out);
+            if(load_image)
+                tipl::flip_y(out);
             if(change_header)
             {
-                nif_header2.srow_y[3] += nif_header2.srow_y[1]*(out.height()-1);
+                nif_header2.srow_y[3] += nif_header2.srow_y[1]*(nif_header2.dim[2]-1);
                 nif_header2.srow_x[1] = -nif_header2.srow_x[1];
                 nif_header2.srow_y[1] = -nif_header2.srow_y[1];
                 nif_header2.srow_z[1] = -nif_header2.srow_z[1];
@@ -1068,10 +1072,11 @@ public:
 
         if(nif_header2.srow_z[2] < 0)
         {
-            tipl::flip_z(out);
+            if(load_image)
+                tipl::flip_z(out);
             if(change_header)
             {
-                nif_header2.srow_z[3] += nif_header2.srow_z[2]*(out.depth()-1);
+                nif_header2.srow_z[3] += nif_header2.srow_z[2]*(nif_header2.dim[3]-1);
                 nif_header2.srow_x[2] = -nif_header2.srow_x[2];
                 nif_header2.srow_y[2] = -nif_header2.srow_y[2];
                 nif_header2.srow_z[2] = -nif_header2.srow_z[2];
