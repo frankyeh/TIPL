@@ -276,15 +276,18 @@ public:
     {
         return index_ != int(rhs.index_);
     }
-    bool operator<(int rhs) const
+    template<typename value_type>
+    bool operator<(value_type rhs) const
     {
         return index_ < rhs;
     }
-    bool operator==(int rhs) const
+    template<typename value_type>
+    bool operator==(value_type rhs) const
     {
         return index_ == rhs;
     }
-    bool operator!=(int rhs) const
+    template<typename value_type>
+    bool operator!=(value_type rhs) const
     {
         return index_ != rhs;
     }
