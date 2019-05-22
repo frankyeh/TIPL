@@ -44,6 +44,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "tipl/numerical/optimization.hpp"
 #include "tipl/numerical/statistics.hpp"
 
+#include "tipl/numerical/dif.hpp"
+
 
 #include "tipl/io/io.hpp"
 #include "tipl/io/dicom.hpp"

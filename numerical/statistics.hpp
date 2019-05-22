@@ -406,13 +406,13 @@ std::pair<double,double> linear_regression(input_iterator1 x_from,input_iterator
     return std::pair<double,double>(a,b);
 }
 
-template<class input_iterator1,class input_iterator2>
-void linear_regression(input_iterator1 x_from,input_iterator1 x_to,input_iterator2 y_from,double& a,double& b,double& r2)
+template<typename input_iterator1,typename input_iterator2,typename value_type>
+void linear_regression(input_iterator1 x_from,input_iterator1 x_to,input_iterator2 y_from,value_type& a,value_type& b,value_type& r2)
 {
-    double mean_x = mean(x_from,x_to);
-    double mean_y = mean(y_from,y_from+(x_to-x_from));
-    double x_var = variance(x_from,x_to,mean_x);
-    double y_var = variance(y_from,y_from+(x_to-x_from),mean_y);
+    value_type mean_x = mean(x_from,x_to);
+    value_type mean_y = mean(y_from,y_from+(x_to-x_from));
+    value_type x_var = variance(x_from,x_to,mean_x);
+    value_type y_var = variance(y_from,y_from+(x_to-x_from),mean_y);
     if(x_var == 0 || y_var == 0)
     {
         a = 0;
@@ -420,7 +420,7 @@ void linear_regression(input_iterator1 x_from,input_iterator1 x_to,input_iterato
         r2 = 0;
         return;
     }
-    double cov = covariance(x_from,x_to,y_from,mean_x,mean_y);
+    value_type cov = covariance(x_from,x_to,y_from,mean_x,mean_y);
     a = cov/x_var;
     b = mean_y-a*mean_x;
     r2 = cov*cov/x_var/y_var;
