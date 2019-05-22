@@ -1,6 +1,7 @@
 #ifndef DIF_HPP
 #define DIF_HPP
-
+#include "tipl/utility/basic_image.hpp"
+#include "tipl/numerical/interpolation.hpp"
 namespace tipl
 {
 
@@ -34,7 +35,7 @@ void compose_mapping(const ImageType& src,const ComposeImageType& compose,OutIma
     typename ComposeImageType::const_iterator end = compose.end();
     typename OutImageType::iterator out = dest.begin();
     for (; iter != end; ++iter,++out)
-        tipl::estimate(src,*iter,*out);
+        estimate(src,*iter,*out);
 }
 //---------------------------------------------------------------------------
 template<class ImageType,class ComposeImageType,class OutImageType>
@@ -75,7 +76,7 @@ void compose_displacement(const ImageType& src,OutImageType& dest,
                           const ComposeImageType& displace,
                           interpolation_type type = interpolation_type::linear)
 {
-    dest.for_each_mt([&](typename OutImageType::value_type& value,
+    dest.for_each_mt([&](typename OutImageType::value_type&,
                       tipl::pixel_index<OutImageType::dimension> index)
     {
         typename ComposeImageType::value_type vtor(index);
@@ -258,11 +259,8 @@ void jacobian_dis_at(const image<VectorType,3>& src,const tipl::pixel_index<3>& 
 template<class VectorType,class DetType>
 void jacobian_determinant_dis(const image<VectorType,3>& src,DetType& dest)
 {
-    typedef typename DetType::value_type value_type;
     geometry<3> geo(src.geometry());
     dest.resize(geo);
-    int w = src.width();
-    int wh = src.plane_size();
     for (tipl::pixel_index<3> index(geo); index < geo.size();++index)
     {
         if (geo.is_edge(index))
@@ -312,7 +310,6 @@ void jacobian_determinant_dis(const image<VectorType,2>& src,image<PixelType,2>&
 {
     geometry<2> geo(src.geometry());
     dest.resize(geo);
-    int w = src.width();
     for (tipl::pixel_index<2> index(geo); index < geo.size();++index)
     {
         if (geo.is_edge(index))
