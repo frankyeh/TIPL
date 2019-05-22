@@ -1509,9 +1509,9 @@ void to_image(std::shared_ptr<layer_type> l,color_image& Is,int max_width)
             continue;
         unsigned char s(std::min<int>(255,((int)std::fabs(I[j]*1024.0f))));
         if(I[j] < 0) // red
-            Is[j] = tipl::rgb(s,0,0);
+            Is[j] = tipl::rgb(s,uint8_t(0),uint8_t(0));
         if(I[j] > 0) // blue
-            Is[j] = tipl::rgb(0,0,s);
+            Is[j] = tipl::rgb(uint8_t(0),uint8_t(0),s);
     }
 }
 
@@ -1567,14 +1567,14 @@ void to_image(network& nn,color_image& I,std::vector<float> in,label_type label,
                     {
                         unsigned char s1(std::min<int>(255,int(255.0f*std::fabs(v1[j]))));
                         if(v1[j] < 0) // red
-                            Iv1[j] = tipl::rgb(s1,0,0);
+                            Iv1[j] = tipl::rgb(s1,uint8_t(0),uint8_t(0));
                         if(v1[j] >= 0) // blue
-                            Iv1[j] = tipl::rgb(0,0,s1);
+                            Iv1[j] = tipl::rgb(uint8_t(0),uint8_t(0),s1);
                         unsigned char s2(std::min<int>(255,int(255.0f*std::fabs(v2[j]))));
                         if(v2[j] < 0) // red
-                            Iv2[j] = tipl::rgb(s2,0,0);
+                            Iv2[j] = tipl::rgb(s2,uint8_t(0),uint8_t(0));
                         if(v2[j] >= 0) // blue
-                            Iv2[j] = tipl::rgb(0,0,s2);
+                            Iv2[j] = tipl::rgb(uint8_t(0),uint8_t(0),s2);
                     }
                     tipl::draw(Iv1,values[i],tipl::geometry<2>(x*(geo[i].width()+1)+1,y*(geo[i].height()+1)+1));
                     if(i)

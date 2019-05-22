@@ -625,7 +625,8 @@ protected:
     };
 public:
     vector(void):x_(0),y_(0),z_(0)				{}
-    vector(data_type x,data_type y,data_type z):x_(x),y_(y),z_(z){}
+    template<typename value_type>
+    vector(value_type x,value_type y,value_type z):x_(data_type(x)),y_(data_type(y)),z_(data_type(z)){}
     vector(const vector<3,data_type>& rhs)
     {
         *this = rhs;

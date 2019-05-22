@@ -1,6 +1,7 @@
 #ifndef PIXEL_VALUE_HPP
 #define PIXEL_VALUE_HPP
 #include <cmath>
+#include <algorithm>
 namespace tipl
 {
 
@@ -23,10 +24,12 @@ struct rgb
     rgb(unsigned int color_): color(color_) {}
     rgb(int color_): color(color_) {}
     rgb(const rgb& rhs): color(rhs.color) {}
-    rgb(unsigned char r_, unsigned char g_, unsigned char b_):
-        b(b_), g(g_), r(r_), a(0) {}
-    rgb(unsigned char r_, unsigned char g_, unsigned char b_, unsigned char a_):
-        b(b_), g(g_), r(r_), a(a_) {}
+    template<typename value_type>
+    rgb(value_type r_, value_type g_, value_type b_):
+        b(uint8_t(b_)), g(uint8_t(g_)), r(uint8_t(r_)), a(0) {}
+    template<typename value_type>
+    rgb(value_type r_,value_type g_,value_type b_,value_type a_):
+        b(uint8_t(b_)), g(uint8_t(g_)), r(uint8_t(r_)), a(uint8_t(a_)) {}
     rgb(unsigned char gray):
         b(gray), g(gray), r(gray), a(0) {}
     rgb(float gray):
@@ -60,6 +63,12 @@ struct rgb
         data[2] = std::max<short>(0,std::min<short>(255,v[2]));
         return *this;
     }
+    template<typename value_type>
+    const rgb& operator=(value_type gray)
+    {
+        r = g = b = uint8_t(gray);
+        return *this;
+    }
     const rgb& operator=(unsigned int color_)
     {
         color = color_;
@@ -68,36 +77,6 @@ struct rgb
     const rgb& operator=(int color_)
     {
         color = color_;
-        return *this;
-    }
-    const rgb& operator=(const rgb& rhs)
-    {
-        color = rhs.color;
-        return *this;
-    }
-    const rgb& operator=(unsigned char gray)
-    {
-        r = g = b = gray;
-        return *this;
-    }
-    const rgb& operator=(unsigned short gray)
-    {
-        r = g = b = (unsigned char)gray;
-        return *this;
-    }
-    const rgb& operator=(short gray)
-    {
-        r = g = b = (unsigned char)gray;
-        return *this;
-    }
-    const rgb& operator=(float gray)
-    {
-        r = g = b = (unsigned char)gray;
-        return *this;
-    }
-    const rgb& operator=(double gray)
-    {
-        r = g = b = (unsigned char)gray;
         return *this;
     }
     unsigned char& operator[](unsigned char index)
