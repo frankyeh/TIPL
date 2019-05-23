@@ -632,18 +632,41 @@ void flip_xy(ImageType& I)
 template<class ImageType>
 void swap_xy(ImageType& I)
 {
-    typedef typename ImageType::value_type value_type;
+    if(I.empty())
+        return;
+    if(I.width() == I.height())
+    {
+        size_t w_1 = I.width()+1;
+        for(size_t i = 0;i < I.size();i += I.plane_size())
+        {
+            auto plane_ptr = &I[i];
+            for(uint32_t y = 0,pos = 0;y < I.height();++y,pos += w_1)
+            {
+                size_t pos_x = pos+1;
+                size_t pos_y = pos+I.width();
+                for(uint32_t x = y+1;x < I.width();++x)
+                {
+                    std::swap(plane_ptr[pos_x],plane_ptr[pos_y]);
+                    ++pos_x;
+                    pos_y += I.width();
+                }
+            }
+        }
+        return;
+    }
+    tipl::image<typename ImageType::value_type,2> plane(tipl::geometry<2>(I.width(),I.height()));
+    for(size_t i = 0;i < I.size();i += plane.size())
+    {
+        auto plane_ptr = &I[i];
+        std::copy(plane_ptr,plane_ptr+I.plane_size(),&plane[0]);
+        for(size_t y = 0,p1 = 0;y < I.height();++y)
+            for(size_t x = 0,p2 = y;x < I.width();++x,++p1,p2+=I.height())
+                plane_ptr[p2] = plane[p1];
+    }
     tipl::geometry<ImageType::dimension> new_geo(I.geometry());
     std::swap(new_geo[0],new_geo[1]);
-    tipl::image<value_type,ImageType::dimension> new_volume(new_geo);
-    int origin[2] = {0,0};
-    int shift[2];
-    shift[0] = new_geo.width();
-    shift[1] = 1;
-    reorder(I,new_volume,origin,shift,2);
-
     I.resize(new_geo);
-    std::copy(new_volume.begin(),new_volume.end(),I.begin());
+
 }
 //---------------------------------------------------------------------------
 template<class ImageType>
