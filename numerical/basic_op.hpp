@@ -429,19 +429,19 @@ void get_inverse_orientation(int dim,iterator_type rotation_matrix,dim_order_typ
 }
 //---------------------------------------------------------------------------
 template<class image_type1,class image_type2>
-void reorder(const image_type1& volume,image_type2& volume_out,int origin[],int shift[],int index_dim)
+void reorder(const image_type1& volume,image_type2& volume_out,uint64_t origin[],uint64_t shift[],uint64_t index_dim)
 {
-    unsigned int index = 0;
-    unsigned int base_index = 0;
+    uint64_t index = 0;
+    uint64_t base_index = 0;
     while(index < volume.size())
     {
         if(index_dim == 2)
         {
-            int y_index = base_index + origin[1];
-            for (int y = 0; y < volume.height(); ++y)
+            uint64_t y_index = base_index + origin[1];
+            for (uint64_t y = 0; y < volume.height(); ++y)
             {
-                int x_index = y_index + origin[0];
-                for (int x = 0; x < volume.width(); ++x,++index)
+                uint64_t x_index = y_index + origin[0];
+                for (uint64_t x = 0; x < volume.width(); ++x,++index)
                 {
                     volume_out[x_index] = volume[index];
                     x_index += shift[0];
@@ -452,14 +452,14 @@ void reorder(const image_type1& volume,image_type2& volume_out,int origin[],int 
         }
         if(index_dim == 3)
         {
-            int z_index = base_index + origin[2];
-            for (int z = 0; z < volume.geometry()[2]; ++z)
+            uint64_t z_index = base_index + origin[2];
+            for (uint64_t z = 0; z < volume.geometry()[2]; ++z)
             {
-                int y_index = z_index + origin[1];
-                for (int y = 0; y < volume.height(); ++y)
+                uint64_t y_index = z_index + origin[1];
+                for (uint64_t y = 0; y < volume.height(); ++y)
                 {
-                    int x_index = y_index + origin[0];
-                    for (int x = 0; x < volume.width(); ++x,++index)
+                    uint64_t x_index = y_index + origin[0];
+                    for (uint64_t x = 0; x < volume.width(); ++x,++index)
                     {
                         volume_out[x_index] = volume[index];
                         x_index += shift[0];
@@ -468,7 +468,7 @@ void reorder(const image_type1& volume,image_type2& volume_out,int origin[],int 
                 }
                 z_index += shift[2];
             }
-            base_index += (unsigned int)(volume_out.plane_size()*volume.depth());
+            base_index += (uint64_t)(volume_out.plane_size()*volume.depth());
         }
     }
 }
@@ -515,7 +515,7 @@ bool reorder_shift_index(const geo_type& geo,
             need_update = true;
     }
 
-    std::vector<int> shift_vector(geo_type::dimension);
+    std::vector<uint64_t> shift_vector(geo_type::dimension);
     shift_vector[0] = 1;
     for(unsigned char dim = 1;dim < geo_type::dimension;++dim)
         shift_vector[dim] = shift_vector[dim-1]*new_geo[dim-1];
@@ -547,8 +547,8 @@ template<class image_type1,class image_type2,class dim_order_type,class flip_typ
 void reorder(const image_type1& volume,image_type2& volume_out,dim_order_type dim_order,flip_type flip)
 {
     tipl::geometry<image_type1::dimension> new_geo;
-    int origin[image_type1::dimension];
-    int shift[image_type1::dimension];
+    uint64_t origin[image_type1::dimension];
+    uint64_t shift[image_type1::dimension];
     if (!reorder_shift_index(volume.geometry(),dim_order,flip,new_geo,origin,shift))
     {
         volume_out = volume;
@@ -677,8 +677,8 @@ void swap_xz(ImageType& I)
     std::swap(new_geo[0],new_geo[2]);
     tipl::image<value_type,ImageType::dimension> new_volume(new_geo);
 
-    int origin[3] = {0,0,0};
-    int shift[3];
+    uint64_t origin[3] = {0,0,0};
+    uint64_t shift[3];
     shift[0] = new_geo.plane_size();
     shift[1] = new_geo.width();
     shift[2] = 1;
@@ -691,20 +691,56 @@ void swap_xz(ImageType& I)
 template<class ImageType>
 void swap_yz(ImageType& I)
 {
-    typedef typename ImageType::value_type value_type;
+    if(I.empty())
+        return;
     tipl::geometry<ImageType::dimension> new_geo(I.geometry());
     std::swap(new_geo[1],new_geo[2]);
-    tipl::image<value_type,ImageType::dimension> new_volume(new_geo);
 
-    int origin[3] = {0,0,0};
-    int shift[3];
-    shift[0] = 1;
-    shift[1] = new_geo.plane_size();
-    shift[2] = new_geo.width();
-    reorder(I,new_volume,origin,shift,3);
+    size_t volume_size = size_t(I.width())*size_t(I.height())*size_t(I.depth());
+    for(size_t v = 0;v < I.size();v += volume_size)
+    for(size_t x = 0;x < I.width();++x)
+    {
+        size_t start_pos = x+v;
+        if(I.height() == I.depth())
+        {
+            for(uint16_t z = 0;z < I.depth();++z,start_pos += I.width()+I.plane_size())
+            {
+                size_t pos_y = start_pos+I.width();
+                size_t pos_z = start_pos+I.plane_size();
+                for(uint16_t y = z+1;y < I.height();++y)
+                {
+                    std::swap(I[pos_y],I[pos_z]);
+                    pos_y += I.width();
+                    pos_z += I.plane_size();
+                }
+            }
+        }
+        else
+        {
+            tipl::image<typename ImageType::value_type,2> plane(tipl::geometry<2>(I.height(),I.depth()));
+            {
+                size_t index = 0;
+                size_t pos = start_pos;
+                for(uint32_t z = 0;z < I.depth();++z)
+                    for(uint32_t y = 0;y < I.height();++y,++index,pos += I.width())
+                        plane[index] = I[pos];
+            }
 
-    I.resize(new_geo);
-    std::copy(new_volume.begin(),new_volume.end(),I.begin());
+            {
+                size_t index = 0;
+                size_t new_pos = start_pos;
+                for(uint16_t z = 0;z < I.depth();++z,new_pos += new_geo.width())
+                {
+                    size_t pos = new_pos;
+                    for(uint16_t y = 0;y < I.height();++y,++index,pos += new_geo.plane_size())
+                        I[pos] = plane[index] ;
+                }
+            }
+        }
+    }
+
+    if(I.height() != I.depth())
+        I.resize(new_geo);
 }
 //---------------------------------------------------------------------------
 template<class ImageType>

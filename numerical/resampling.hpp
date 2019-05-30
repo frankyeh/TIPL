@@ -177,7 +177,7 @@ void thumb(const image<PixelType,2>& from,image<PixelType,2>& to)
 
 template<class ImageType3D,class ImageType2D>
 void volume2slice(const ImageType3D& slice,ImageType2D& image,
-               unsigned int dim,unsigned int slice_index)
+               unsigned int dim,size_t slice_index)
 {
     const geometry<3>& geo = slice.geometry();
     if (dim == 2)   //XY
@@ -196,9 +196,9 @@ void volume2slice(const ImageType3D& slice,ImageType2D& image,
             if(slice_index >= slice.height())
                 return;
             image.resize(geometry<2>(geo[0],geo[2]));
-            unsigned int wh = geo[0]*geo[1];
-            unsigned int sindex = slice_index*geo[0];
-            for (unsigned int index = 0;index < image.size();index += geo[0],sindex += wh)
+            size_t wh = geo.plane_size();
+            size_t sindex = size_t(slice_index)*size_t(geo[0]);
+            for (size_t index = 0;index < image.size();index += geo[0],sindex += wh)
                 std::copy(slice.begin() + sindex,
                           slice.begin() + sindex+geo[0],
                           image.begin() + index);
@@ -209,9 +209,9 @@ void volume2slice(const ImageType3D& slice,ImageType2D& image,
                 if(slice_index >= slice.width())
                     return;
                 image.resize(geometry<2>(geo[1],geo[2]));
-                unsigned int sindex = slice_index;
-                unsigned int w = geo[0];
-                for (unsigned int index = 0;index < image.size();++index,sindex += w)
+                size_t sindex = slice_index;
+                size_t w = geo[0];
+                for (size_t index = 0;index < image.size();++index,sindex += w)
                     image[index] = slice[sindex];
             }
 
