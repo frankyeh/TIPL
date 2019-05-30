@@ -53,11 +53,13 @@ public:
         return *this;
     }
 public:
-    const reference operator[](unsigned int index) const
+    template<typename value_type>
+    const reference operator[](value_type index) const
     {
         return from[index];
     }
-    reference operator[](unsigned int index)
+    template<typename value_type>
+    reference operator[](value_type index)
     {
         return from[index];
     }
@@ -150,11 +152,13 @@ public:
         return *this;
     }
 public:
-    reference operator[](unsigned int index) const
+    template<typename value_type>
+    reference operator[](value_type index) const
     {
         return from[index];
     }
-    reference operator[](unsigned int index)
+    template<typename value_type>
+    reference operator[](value_type index)
     {
         return from[index];
     }
@@ -247,11 +251,11 @@ public:
 
     pixel_type at(unsigned int x,unsigned int y,unsigned int z) const
     {
-        return data[(z*geo[1]+y)*geo[0]+x];
+        return data[size_t(z*geo[1]+y)*geo[0]+x];
     }
     reference at(unsigned int x,unsigned int y,unsigned int z)
     {
-        return data[(z*geo[1]+y)*geo[0]+x];
+        return data[size_t(z*geo[1]+y)*geo[0]+x];
     }
 public:
     image(void) {}
