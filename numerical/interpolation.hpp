@@ -97,7 +97,8 @@ public:
     {
         return (*storage)[*iter];
     }
-    value_type operator[](unsigned int index) const
+    template<typename value_type>
+    value_type operator[](value_type index) const
     {
         return (*storage)[iter[index]];
     }
@@ -203,7 +204,7 @@ struct nearest_value{};
 template<>
 struct nearest_value<1>
 {
-    int x;
+    int64_t x;
     template<class VTorType>
     bool get_location(const geometry<1>& geo,const VTorType& location)
     {
@@ -237,8 +238,8 @@ struct nearest_value<1>
 template<>
 struct nearest_value<2>
 {
-    int x,y;
-    int index = 0;
+    int64_t x,y;
+    int64_t index = 0;
     template<class VTorType>
     bool get_location(const geometry<2>& geo,const VTorType& location)
     {
@@ -274,8 +275,8 @@ struct nearest_value<2>
 template<>
 struct nearest_value<3>
 {
-    int x,y,z;
-    int index = 0;
+    int64_t x,y,z;
+    int64_t index = 0;
     template<class VTorType>
     bool get_location(const geometry<3>& geo,const VTorType& location)
     {
@@ -316,7 +317,7 @@ struct interpolation<weighting_function,1>
 {
     static const unsigned int ref_count = 2;
     float ratio[ref_count];
-    int dindex[ref_count];
+    int64_t dindex[ref_count];
     weighting_function weighting;
 
     template<class VTorType>
@@ -327,7 +328,7 @@ struct interpolation<weighting_function,1>
         if (x < 0)
             return false;
         float fx = std::floor(x);
-        unsigned int ix = fx;
+        int64_t ix = fx;
         if (ix + 1 >= geo[0])
             return false;
         p = x-fx;
@@ -350,8 +351,8 @@ struct interpolation<weighting_function,1>
     {
         if (get_location(source.geometry(),location))
         {
-            weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int*>(source,dindex),
-                const_reference_iterator<ImageType,int*>(source,dindex+ref_count),ratio,pixel);
+            weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int64_t*>(source,dindex),
+                const_reference_iterator<ImageType,int64_t*>(source,dindex+ref_count),ratio,pixel);
             return true;
         }
         return false;
@@ -361,8 +362,8 @@ struct interpolation<weighting_function,1>
     template<class ImageType,class PixelType>
     void estimate(const ImageType& source,PixelType& pixel)
     {
-        weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int*>(source,dindex),
-                const_reference_iterator<ImageType,int*>(source,dindex+ref_count),ratio,pixel);
+        weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int64_t*>(source,dindex),
+                const_reference_iterator<ImageType,int64_t*>(source,dindex+ref_count),ratio,pixel);
     }
 };
 
@@ -371,8 +372,8 @@ struct interpolation<weighting_function,2>
 {
     static const unsigned int ref_count = 4;
     float ratio[ref_count];
-    int dindex[ref_count];
-	weighting_function weighting;
+    int64_t dindex[ref_count];
+    weighting_function weighting;
 
     template<class VTorType>
     bool get_location(const geometry<2>& geo,const VTorType& location)
@@ -384,13 +385,13 @@ struct interpolation<weighting_function,2>
             return false;
         float fx = std::floor(x);
         float fy = std::floor(y);
-        unsigned int ix = fx;
-        unsigned int iy = fy;
+        int64_t ix = fx;
+        int64_t iy = fy;
         if (ix + 1 >= geo[0] || iy + 1>= geo[1])
             return false;
         p[1] = y-fy;
         p[0] = x-fx;
-        dindex[ 0] = iy*geo[0] + ix;
+        dindex[0] = iy*geo[0] + ix;
         dindex[1] = dindex[0] + 1;
         dindex[2] = dindex[0] + geo[0];
         dindex[3] = dindex[2] + 1;
@@ -416,8 +417,8 @@ struct interpolation<weighting_function,2>
     {
         if (get_location(source.geometry(),location))
         {
-            weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int*>(source,dindex),
-                const_reference_iterator<ImageType,int*>(source,dindex+ref_count),ratio,pixel);
+            weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int64_t*>(source,dindex),
+                const_reference_iterator<ImageType,int64_t*>(source,dindex+ref_count),ratio,pixel);
             return true;
         }
         return false;
@@ -427,8 +428,8 @@ struct interpolation<weighting_function,2>
     template<class ImageType,class PixelType>
     void estimate(const ImageType& source,PixelType& pixel)
     {
-        weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int*>(source,dindex),
-                const_reference_iterator<ImageType,int*>(source,dindex+ref_count),ratio,pixel);
+        weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int64_t*>(source,dindex),
+                const_reference_iterator<ImageType,int64_t*>(source,dindex+ref_count),ratio,pixel);
     }
 };
 
@@ -437,8 +438,8 @@ struct interpolation<weighting_function,3>
 {
     static const unsigned int ref_count = 8;
     float ratio[ref_count];
-    int dindex[ref_count];
-        weighting_function weighting;
+    int64_t dindex[ref_count];
+    weighting_function weighting;
 
     template<class VTorType>
     bool get_location(const geometry<3>& geo,const VTorType& location)
@@ -452,16 +453,16 @@ struct interpolation<weighting_function,3>
         float fx = std::floor(x);
         float fy = std::floor(y);
         float fz = std::floor(z);
-        int ix = fx;
-        int iy = fy;
-        int iz = fz;
+        int64_t ix = fx;
+        int64_t iy = fy;
+        int64_t iz = fz;
         if (ix + 1 >= geo[0] || iy + 1 >= geo[1] || iz + 1 >= geo[2])
             return false;
         p[1] = y-fy;
         p[0] = x-fx;
         p[2] = z-fz;
-        unsigned int wh = geo.plane_size();
-        dindex[ 0] = iz*wh + iy*geo[0] + ix;
+        int64_t wh = geo.plane_size();
+        dindex[0] = iz*wh + iy*geo[0] + ix;
         dindex[1] = dindex[0] + 1;
         dindex[2] = dindex[0] + geo[0];
         dindex[3] = dindex[2] + 1;
@@ -506,8 +507,8 @@ struct interpolation<weighting_function,3>
     {
         if (get_location(source.geometry(),location))
         {
-            weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int*>(source,dindex),
-                const_reference_iterator<ImageType,int*>(source,dindex+ref_count),ratio,pixel);
+            weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int64_t*>(source,dindex),
+                const_reference_iterator<ImageType,int64_t*>(source,dindex+ref_count),ratio,pixel);
             return true;
         }
         return false;
@@ -533,8 +534,8 @@ struct interpolation<weighting_function,3>
                 sum_ratio = 1.0/sum_ratio;
             for(int i = 0;i < ref_count;++i)
                 ratio[i] *= sum_ratio;
-            weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int*>(source,dindex),
-                const_reference_iterator<ImageType,int*>(source,dindex+ref_count),ratio,pixel);
+            weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int64_t*>(source,dindex),
+                const_reference_iterator<ImageType,int64_t*>(source,dindex+ref_count),ratio,pixel);
             return true;
         }
         return false;
@@ -544,8 +545,8 @@ struct interpolation<weighting_function,3>
     template<class ImageType,class PixelType>
     void estimate(const ImageType& source,PixelType& pixel)
     {
-        weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int*>(source,dindex),
-                const_reference_iterator<ImageType,int*>(source,dindex+ref_count),ratio,pixel);
+        weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int64_t*>(source,dindex),
+                const_reference_iterator<ImageType,int64_t*>(source,dindex+ref_count),ratio,pixel);
     }
 };
 
@@ -614,7 +615,7 @@ template<>
 struct cubic_interpolation<1>{
 
     float dx,dx2,dx3;
-    int dindex[4];
+    int64_t dindex[4];
 
     template<class VTorType>
     bool get_location(const geometry<1>& geo,const VTorType& location)
@@ -623,12 +624,12 @@ struct cubic_interpolation<1>{
         if (x < 0 || x > geo[0])
             return false;
         float fx = std::floor(x);
-        int ix = x;
+        int64_t ix = x;
         dx = x-fx;
         dx2 = dx*dx;
         dx3 = dx2*dx;
-        int x_shift[4];
-        int max_x = geo.width()-1;
+        int64_t x_shift[4];
+        int64_t max_x = geo.width()-1;
         x_shift[1] = std::min<int>(ix,max_x);
         x_shift[0] = std::max<int>(0,ix-1);
         x_shift[2] = std::min<int>(ix+1,max_x);
@@ -674,7 +675,7 @@ template<>
 struct cubic_interpolation<2>{
 
     float dx,dx2,dx3,dy,dy2,dy3;
-    int dindex[16];
+    int64_t dindex[16];
 
     template<class VTorType>
     bool get_location(const geometry<2>& geo,const VTorType& location)
@@ -685,26 +686,26 @@ struct cubic_interpolation<2>{
             return false;
         float fx = std::floor(x);
         float fy = std::floor(y);
-        int ix = x;
-        int iy = y;
+        int64_t ix = x;
+        int64_t iy = y;
         dx = x-fx;
         dy = y-fy;
         dx2 = dx*dx;
         dy2 = dy*dy;
         dx3 = dx2*dx;
         dy3 = dy2*dy;
-        int x_shift[4],y_shift[4];
-        int max_x = geo.width()-1;
-        x_shift[1] = std::min<int>(ix,max_x);
-        x_shift[0] = std::max<int>(0,ix-1);
-        x_shift[2] = std::min<int>(ix+1,max_x);
-        x_shift[3] = std::min<int>(ix+2,max_x);
+        int64_t x_shift[4],y_shift[4];
+        int64_t max_x = geo.width()-1;
+        x_shift[1] = std::min<int64_t>(ix,max_x);
+        x_shift[0] = std::max<int64_t>(0,ix-1);
+        x_shift[2] = std::min<int64_t>(ix+1,max_x);
+        x_shift[3] = std::min<int64_t>(ix+2,max_x);
 
-        int max_y = geo.plane_size()-geo.width();
-        y_shift[1] = std::min<int>(iy*geo.width(),max_y);
-        y_shift[0] = std::max<int>(0,y_shift[1]-geo.width());
-        y_shift[2] = std::min<int>(y_shift[1]+geo.width(),max_y);
-        y_shift[3] = std::min<int>(y_shift[1]+geo.width()+geo.width(),max_y);
+        int64_t max_y = geo.plane_size()-geo.width();
+        y_shift[1] = std::min<int64_t>(iy*geo.width(),max_y);
+        y_shift[0] = std::max<int64_t>(0,y_shift[1]-geo.width());
+        y_shift[2] = std::min<int64_t>(y_shift[1]+geo.width(),max_y);
+        y_shift[3] = std::min<int64_t>(y_shift[1]+geo.width()+geo.width(),max_y);
 
         for(int x = 0,index = 0;x <= 3;++x)
             for(int y = 0;y <= 3;++y,++index)
@@ -748,7 +749,7 @@ template<>
 struct cubic_interpolation<3>{
 
     float dx,dx2,dx3,dy,dy2,dy3,dz,dz2,dz3;
-    int dindex[64];
+    int64_t dindex[64];
 
     template<class VTorType>
     bool get_location(const geometry<3>& geo,const VTorType& location)
@@ -761,9 +762,9 @@ struct cubic_interpolation<3>{
         float fx = std::floor(x);
         float fy = std::floor(y);
         float fz = std::floor(z);
-        int ix = x;
-        int iy = y;
-        int iz = z;
+        int64_t ix = x;
+        int64_t iy = y;
+        int64_t iz = z;
         dx = x-fx;
         dy = y-fy;
         dz = z-fz;
@@ -773,24 +774,24 @@ struct cubic_interpolation<3>{
         dx3 = dx2*dx;
         dy3 = dy2*dy;
         dz3 = dz2*dz;
-        int x_shift[4],y_shift[4],z_shift[4];
-        int max_x = geo.width()-1;
-        x_shift[1] = std::min<int>(ix,max_x);
-        x_shift[0] = std::max<int>(0,ix-1);
-        x_shift[2] = std::min<int>(ix+1,max_x);
-        x_shift[3] = std::min<int>(ix+2,max_x);
+        int64_t x_shift[4],y_shift[4],z_shift[4];
+        int64_t max_x = geo.width()-1;
+        x_shift[1] = std::min<int64_t>(ix,max_x);
+        x_shift[0] = std::max<int64_t>(0,ix-1);
+        x_shift[2] = std::min<int64_t>(ix+1,max_x);
+        x_shift[3] = std::min<int64_t>(ix+2,max_x);
 
-        int max_y = geo.plane_size()-geo.width();
-        y_shift[1] = std::min<int>(iy*geo.width(),max_y);
-        y_shift[0] = std::max<int>(0,y_shift[1]-geo.width());
-        y_shift[2] = std::min<int>(y_shift[1]+geo.width(),max_y);
-        y_shift[3] = std::min<int>(y_shift[1]+geo.width()+geo.width(),max_y);
+        int64_t max_y = geo.plane_size()-geo.width();
+        y_shift[1] = std::min<int64_t>(iy*geo.width(),max_y);
+        y_shift[0] = std::max<int64_t>(0,y_shift[1]-geo.width());
+        y_shift[2] = std::min<int64_t>(y_shift[1]+geo.width(),max_y);
+        y_shift[3] = std::min<int64_t>(y_shift[1]+geo.width()+geo.width(),max_y);
 
-        int max_z = geo.size()-geo.plane_size();
-        z_shift[1] = std::min<int>(iz*geo.plane_size(),max_z);
-        z_shift[0] = std::max<int>(0,z_shift[1]-geo.plane_size());
-        z_shift[2] = std::min<int>(z_shift[1]+geo.plane_size(),max_z);
-        z_shift[3] = std::min<int>(z_shift[1]+geo.plane_size()+geo.plane_size(),max_z);
+        int64_t max_z = geo.size()-geo.plane_size();
+        z_shift[1] = std::min<int64_t>(iz*geo.plane_size(),max_z);
+        z_shift[0] = std::max<int64_t>(0,z_shift[1]-geo.plane_size());
+        z_shift[2] = std::min<int64_t>(z_shift[1]+geo.plane_size(),max_z);
+        z_shift[3] = std::min<int64_t>(z_shift[1]+geo.plane_size()+geo.plane_size(),max_z);
 
         for(int x = 0,index = 0;x <= 3;++x)
             for(int y = 0;y <= 3;++y)
