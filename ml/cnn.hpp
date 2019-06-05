@@ -156,7 +156,9 @@ public:
 
 class fully_connected_layer : public basic_layer
 {
-    float bias_shift = 0.0f;
+public:
+    float bn_ratio = 0.0f;
+private:
     float weight_scale = 0.0f;
     unsigned int count = 0;
 public:
@@ -169,6 +171,8 @@ public:
         weight.resize(in_dim.size() * out_dim.size());
         bias.resize(out_dim.size());
         weight_base = (float)std::sqrt(6.0f / (float)(input_size+output_size));
+        count = 0;
+        weight_scale = 0.0f;
         return true;
     }
     void initialize_weight(tipl::uniform_dist<float>& gen)
@@ -180,11 +184,10 @@ public:
     {
         for(int i = 0,i_pos = 0;i < output_size;++i,i_pos += input_size)
             y[i] = bias[i] + tipl::vec::dot(&weight[i_pos],&weight[i_pos]+input_size,&x[0]);
-        if(!af.empty())
+        if(!af.empty() && bn_ratio != 0.0f)
         {
             ++count;
             float mean = tipl::mean(y,y+output_size);
-            bias_shift += mean;
             weight_scale += tipl::variance(y,y+output_size,mean);
         }
     }
@@ -211,16 +214,11 @@ public:
     void update(float rw,const std::vector<float>& dw,
                 float rb,const std::vector<float>& db)
     {
-        if(!af.empty())
+        if(!af.empty() && bn_ratio != 0.0f)
         {
-            const float reg = 0.001f;
-            bias_shift /= count;
-            weight_scale /= count;
-            weight_scale = std::sqrt(weight_scale);
-            tipl::multiply_constant(weight,1.0f-(weight_scale-1.0f)*reg);
-            tipl::add_constant(&bias[0],&bias[0]+output_size,-bias_shift*reg);
+            weight_scale = std::sqrt(weight_scale/count);
+            tipl::multiply_constant(weight,1.0f-(weight_scale-1.0f)*bn_ratio);
             count = 0;
-            bias_shift = 0.0f;
             weight_scale = 0.0f;
         }
         basic_layer::update(rw,dw,rb,db);
@@ -1232,15 +1230,6 @@ public:
     unsigned int training_error_count = 0;
     float training_error_value = 0.0;
 public:
-    void reset(void)
-    {
-        dweight.clear();
-        dbias.clear();
-        training_count = 0;
-        training_error_count = 0;
-        training_error_value = 0.0f;
-    }
-
     float get_training_error(void) const
     {
         return 100.0f*training_error_count/training_count;
@@ -1252,6 +1241,11 @@ public:
     void initialize_training(const network& nn)
     {
         int thread_count = std::thread::hardware_concurrency();
+        dweight.clear();
+        dbias.clear();
+        training_count = 0;
+        training_error_count = 0;
+        training_error_value = 0.0f;
         dweight.resize(thread_count);
         dbias.resize(thread_count);
         in_out.resize(thread_count);
@@ -1307,7 +1301,8 @@ public:
         for(int i = 0;i < data.size() && !terminated;i += batch_size)
         {
             // train a batch
-            par_for2(std::min<int>(batch_size,data.size()-i),[&](int m, int thread_id)
+            int cur_size = std::min<int>(batch_size,data.size()-i);
+            par_for2(cur_size,[&](int m, int thread_id)
             {
                 ++training_count;
                 int data_index = i+m;
@@ -1326,7 +1321,7 @@ public:
                                                             dweight[thread_id],dbias[thread_id]);
             });
             // update_weights
-            par_for(nn.layers.size(),[this,&nn](int j)
+            par_for(nn.layers.size(),[this,&nn,cur_size](int j)
             {
                 if(nn.layers[j]->weight.empty())
                     return;
@@ -1348,7 +1343,7 @@ public:
                     }
                 });
 
-                nn.layers[j]->update(-learning_rate*rate_decay,dw,-learning_rate*rate_decay,db);
+                nn.layers[j]->update(-learning_rate*rate_decay/float(cur_size),dw,-learning_rate*rate_decay/float(cur_size),db);
 
                 tipl::upper_lower_threshold(nn.layers[j]->bias,-bias_cap,bias_cap);
                 tipl::upper_lower_threshold(nn.layers[j]->weight,-weight_cap,weight_cap);
@@ -1365,7 +1360,6 @@ public:
             network tmp;
             tmp.add(nn.get_layer_text());
             tmp.init_weights(seed);
-            reset();
             initialize_training(tmp);
             for(int i = 0;i < 5 && !terminated;++i)
             {
@@ -1386,9 +1380,7 @@ public:
     {
         if(!nn.initialized)
             nn.init_weights(seed);
-        reset();
         initialize_training(nn);
-
         rate_decay = 1.0f;
         std::deque<float> train_errors;
         bool has_improved = true;
