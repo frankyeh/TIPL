@@ -751,15 +751,16 @@ void data_fold_for_cv(const network_data<label_type>& rhs,
         training_data[i].source = &rhs;
         testing_data[i].source = &rhs;
     }
+    auto order = arg_sort(rhs.data_label,std::less<label_type>());
     for(int i = 0,bin = 0;i < rhs.size();++i,++bin)
     {
         if(bin >= total_fold)
             bin = 0;
         for(int j = 0;j < total_fold;++j)
             if(bin == j)
-                testing_data[j].pos.push_back(i);
+                testing_data[j].pos.push_back(order[i]);
             else
-                training_data[j].pos.push_back(i);
+                training_data[j].pos.push_back(order[i]);
     }
 }
 /*
