@@ -805,6 +805,19 @@ public:
         is_nii = true;
     }
 
+    template<class char_type,class image_type,class vs_type,class srow_type>
+    static bool save_to_file(const char_type* pfile_name,image_type& I,const vs_type& vs,const srow_type& T,bool apply_T,const char* descript = 0)
+    {
+        nifti_base<typename input_interface,typename output_interface> nii;
+        nii.set_voxel_size(vs);
+        if(apply_T)
+            nii.set_LPS_transformation(T,I.geometry());
+        tipl::flip_xy(I);
+        nii.load_from_image(I);
+        if(descript)
+            nii.set_descrip(descript);
+        return nii.save_to_file(pfile_name);
+    }
     template<class char_type>
     bool save_to_file(const char_type* pfile_name)
     {
