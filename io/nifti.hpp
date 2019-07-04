@@ -808,7 +808,7 @@ public:
     template<class char_type,class image_type,class vs_type,class srow_type>
     static bool save_to_file(const char_type* pfile_name,image_type& I,const vs_type& vs,const srow_type& T,bool apply_T,const char* descript = 0)
     {
-        nifti_base<typename input_interface,typename output_interface> nii;
+        nifti_base nii;
         nii.set_voxel_size(vs);
         if(apply_T)
             nii.set_LPS_transformation(T,I.geometry());
