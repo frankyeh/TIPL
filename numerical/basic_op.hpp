@@ -429,7 +429,7 @@ void get_inverse_orientation(int dim,iterator_type rotation_matrix,dim_order_typ
 }
 //---------------------------------------------------------------------------
 template<class image_type1,class image_type2>
-void reorder(const image_type1& volume,image_type2& volume_out,uint64_t origin[],uint64_t shift[],uint64_t index_dim)
+void reorder(const image_type1& volume,image_type2& volume_out,int64_t origin[],int64_t shift[],uint8_t index_dim)
 {
     uint64_t index = 0;
     uint64_t base_index = 0;
@@ -547,8 +547,8 @@ template<class image_type1,class image_type2,class dim_order_type,class flip_typ
 void reorder(const image_type1& volume,image_type2& volume_out,dim_order_type dim_order,flip_type flip)
 {
     tipl::geometry<image_type1::dimension> new_geo;
-    uint64_t origin[image_type1::dimension];
-    uint64_t shift[image_type1::dimension];
+    int64_t origin[image_type1::dimension];
+    int64_t shift[image_type1::dimension];
     if (!reorder_shift_index(volume.geometry(),dim_order,flip,new_geo,origin,shift))
     {
         volume_out = volume;
@@ -677,8 +677,8 @@ void swap_xz(ImageType& I)
     std::swap(new_geo[0],new_geo[2]);
     tipl::image<value_type,ImageType::dimension> new_volume(new_geo);
 
-    uint64_t origin[3] = {0,0,0};
-    uint64_t shift[3];
+    int64_t origin[3] = {0,0,0};
+    int64_t shift[3];
     shift[0] = new_geo.plane_size();
     shift[1] = new_geo.width();
     shift[2] = 1;
