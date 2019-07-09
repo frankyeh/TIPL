@@ -434,7 +434,7 @@ public:
     {
     }
     template<typename ImageType>
-    march_cube(const ImageType& source_image,typename ImageType::value_type isolevel)
+    march_cube(const ImageType& source_image,double isolevel)
     {
         w = source_image.geometry()[0];
         wh = source_image.geometry().plane_size();
