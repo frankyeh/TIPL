@@ -440,7 +440,7 @@ public:
         wh = source_image.geometry().plane_size();
         // get all the edge cubes
         {
-            std::vector<ImageType::value_type> pixels;
+            std::vector<typename imageType::value_type> pixels;
             for (pixel_index<3> iter(source_image.geometry());iter < source_image.size();++iter)
             {
                 pixels.clear();
