@@ -845,9 +845,9 @@ public:
         return out;
     }
     template<class pointer_type>
-    bool save_to_buffer(pointer_type ptr,unsigned int pixel_count) const
+    bool save_to_buffer(pointer_type ptr,size_t pixel_count) const
     {
-        const int byte_per_pixel = nif_header2.bitpix/8;
+        const size_t byte_per_pixel = nif_header2.bitpix/8;
         typedef typename std::iterator_traits<pointer_type>::value_type value_type;
         if(compatible(nifti_type_info<value_type>::data_type,nif_header2.datatype))
         {
@@ -870,13 +870,13 @@ public:
                 switch (byte_per_pixel)
                 {
                     case 2:
-                        change_endian((int16_t*)buf_ptr,int(buf.size()/2));
+                        change_endian((int16_t*)buf_ptr,buf.size()/2);
                         break;
                     case 4:
-                        change_endian((int32_t*)buf_ptr,int(buf.size()/4));
+                        change_endian((int32_t*)buf_ptr,buf.size()/4);
                         break;
                     case 8:
-                        change_endian((double*)buf_ptr,int(buf.size()/8));
+                        change_endian((double*)buf_ptr,buf.size()/8);
                         break;
                 }
             }
@@ -898,7 +898,7 @@ public:
                 tipl::copy_ptr((const double*)buf_ptr,ptr,pixel_count);
                 break;
             case 128://DT_RGB
-                for(unsigned int index = 0;index < buf.size();index +=3,++ptr)
+                for(size_t index = 0;index < buf.size();index +=3,++ptr)
                     *ptr = (short)tipl::rgb(buf[index],buf[index+1],buf[index+2]);
                 break;
             case 256: // DT_INT8
@@ -934,7 +934,7 @@ public:
         if(!has_data())
             return false;
         out.resize(tipl::geometry<image_type::dimension>(nif_header2.dim+1));
-        if(!save_to_buffer(out.begin(),(unsigned int)out.size()))
+        if(!save_to_buffer(out.begin(),out.size()))
             return false;
         if(nif_header2.scl_slope != 0)
         {

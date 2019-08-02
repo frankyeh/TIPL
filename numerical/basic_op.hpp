@@ -231,7 +231,7 @@ void draw(const image<pixel_type1,3,storage_type1>& from_image,
 {
     typedef image<pixel_type1,3,storage_type1> from_image_type;
     typedef image<pixel_type2,3,storage_type2> to_image_type;
-    int x_shift,y_shift,z_shift;
+    int64_t x_shift,y_shift,z_shift;
     if (pos[0] < 0)
     {
         x_shift = -pos[0];
@@ -254,23 +254,23 @@ void draw(const image<pixel_type1,3,storage_type1>& from_image,
     else
         z_shift = 0;
 
-    int x_width = std::min((int)to_image.width() - (int)pos[0],(int)from_image.width()-x_shift);
+    int64_t x_width = std::min((int64_t)to_image.width() - (int64_t)pos[0],(int64_t)from_image.width()-x_shift);
     if (x_width <= 0)
         return;
-    int y_height = std::min((int)to_image.height() - (int)pos[1],(int)from_image.height()-y_shift);
+    int64_t y_height = std::min((int64_t)to_image.height() - (int64_t)pos[1],(int64_t)from_image.height()-y_shift);
     if (y_height <= 0)
         return;
-    int z_depth = std::min((int)to_image.depth() - (int)pos[2],(int)from_image.depth()-z_shift);
+    int64_t z_depth = std::min((int64_t)to_image.depth() - (int64_t)pos[2],(int64_t)from_image.depth()-z_shift);
     if (z_depth <= 0)
         return;
-    for (unsigned int z = 0; z < z_depth; ++z)
+    for (int64_t z = 0; z < z_depth; ++z)
     {
         typename from_image_type::const_iterator iter = from_image.begin() +
-                ((z_shift+z)*from_image.height() + y_shift)*from_image.width()+x_shift;
-        typename from_image_type::const_iterator end = iter + (y_height-1)*from_image.width();
+                ((z_shift+z)*int64_t(from_image.height()) + y_shift)*int64_t(from_image.width())+x_shift;
+        typename from_image_type::const_iterator end = iter + int64_t(y_height-1)*int64_t(from_image.width());
         typename to_image_type::iterator out = to_image.begin() +
-                ((pos[2]+z)*to_image.height() + pos[1])*to_image.width()+pos[0];
-        for (; iter != end; iter += from_image.width(),out += to_image.width())
+                ((int64_t(pos[2])+z)*int64_t(to_image.height()) + int64_t(pos[1]))*int64_t(to_image.width())+int64_t(pos[0]);
+        for (; iter < end; iter += from_image.width(),out += to_image.width())
             std::copy(iter,iter+x_width,out);
         std::copy(iter,iter+x_width,out);
     }
@@ -1036,7 +1036,7 @@ inline void change_endian(float& data)
 }
 
 template<class datatype>
-inline void change_endian(datatype* data,int count)
+inline void change_endian(datatype* data,size_t count)
 {
     for (int index = 0; index < count; ++index)
         change_endian(data[index]);
