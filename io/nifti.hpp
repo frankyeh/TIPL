@@ -806,12 +806,11 @@ public:
     }
 
     template<class char_type,class image_type,class vs_type,class srow_type>
-    static bool save_to_file(const char_type* pfile_name,image_type& I,const vs_type& vs,const srow_type& T,bool apply_T,const char* descript = 0)
+    static bool save_to_file(const char_type* pfile_name,image_type& I,const vs_type& vs,const srow_type& T,const char* descript = 0)
     {
         nifti_base nii;
         nii.set_voxel_size(vs);
-        if(apply_T)
-            nii.set_LPS_transformation(T,I.geometry());
+        nii.set_LPS_transformation(T,I.geometry());
         tipl::flip_xy(I);
         nii.load_from_image(I);
         if(descript)
