@@ -1164,6 +1164,13 @@ public:
             layer->status = (test ? testing:training);
     }
 
+    unsigned int predict(std::vector<float>& in)const
+    {
+        unsigned int label = 0;
+        predict(&in[0],label);
+        return label;
+    }
+
     template<typename output_type>
     void predict(std::vector<float>& in,output_type& output)const
     {
@@ -1219,6 +1226,7 @@ private:// for training
     std::vector<float*> in_out_ptr,back_df_ptr;
 public:
     float learning_rate = 0.01f;
+    float w_decay = 0.0f;
     float rate_decay = 1.0f;
     float momentum = 0.9f;
     float bias_cap = 10.0f;
@@ -1348,6 +1356,9 @@ public:
 
                 tipl::upper_lower_threshold(nn.layers[j]->bias,-bias_cap,bias_cap);
                 tipl::upper_lower_threshold(nn.layers[j]->weight,-weight_cap,weight_cap);
+
+                if(dynamic_cast<fully_connected_layer*>(nn.layers[j].get()) == nullptr && w_decay != 0.0f)
+                    tipl::multiply_constant(nn.layers[j]->weight,1.0f-w_decay);
             });
         }
     }
@@ -1625,7 +1636,7 @@ struct iterate_cnn_data{
     std::string str;
     int num_conv = 0;
     int depth = 0;
-    enum {root = 1, conv = 2, max_pooling = 4, fully = 8, fully_dropout = 16} previous_layer;
+    enum {root = 1, conv = 2, max_pooling = 4, fully = 8} previous_layer;
 
 };
 
@@ -1674,7 +1685,7 @@ void iterate_cnn(
                     new_layer = cur_layer;
                     new_layer.dim[0] /= 2;
                     new_layer.dim[1] /= 2;
-                    new_layer.str += std::string("max_pooling,identity,2|");
+                    new_layer.str += std::string("max_pooling2|");
                     new_layer.previous_layer = iterate_cnn_data::max_pooling;
                     int cost = cur_layer.dim.size()+layer_cost;
                     if(cur_cost+cost < max_cost && new_layer.dim.size() > out_dim.size())
@@ -1691,24 +1702,24 @@ void iterate_cnn(
                         break;
                     new_layer = cur_layer;
                     ++new_layer.num_conv;
-                    new_layer.dim[0] -= kernel-1;
-                    new_layer.dim[1] -= kernel-1;
+                    //new_layer.dim[0] -= kernel-1;
+                    //new_layer.dim[1] -= kernel-1;
                     new_layer.dim[2] = width/2;
-                    new_layer.str += std::string("conv,relu,")+std::to_string(kernel)+"|";
+                    new_layer.str += std::string("conv")+std::to_string(kernel)+",relu|";
                     new_layer.previous_layer = iterate_cnn_data::conv;
 
                     int cost = new_layer.dim.size()*cur_layer.dim.depth()*kernel*kernel+layer_cost;
                     if(cur_cost+cost < max_cost)
                         candidates.insert(std::make_pair(cur_cost+cost,new_layer));
                 }
-                // add fully connected
+
                 if(cur_layer.previous_layer != iterate_cnn_data::root)
                 {
                     new_layer = cur_layer;
                     new_layer.dim[0] = 1;
                     new_layer.dim[1] = 1;
                     new_layer.dim[2] = width;
-                    new_layer.str += std::string("full,relu|1,1,")+std::to_string(width)+"|dropout,0.1|";
+                    new_layer.str += std::string("full,relu|");
                     new_layer.previous_layer = iterate_cnn_data::fully;
                     int cost = cur_layer.dim.size()*new_layer.dim.size()+layer_cost;
                     if(cur_cost+cost < max_cost)
@@ -1721,7 +1732,7 @@ void iterate_cnn(
             {
                 std::ostringstream sout;
                 sout << out_dim[0] << "," << out_dim[1] << "," << out_dim[2];
-                std::string s = cur_layer.str + std::string("full,relu|")+sout.str();
+                std::string s = cur_layer.str + std::string("full|")+sout.str();
                 int cost = cur_layer.dim.size()*out_dim.size()+out_dim.size();
                 if(cost+cur_cost < max_cost)
                     sorted_list.insert(std::make_pair(cost+cur_cost,s));
