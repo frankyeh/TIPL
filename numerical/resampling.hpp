@@ -985,6 +985,14 @@ void resample_mt(const ImageType1& from,ImageType2& to,const transform_type& tra
         estimate(from,pos,value,type);
     });
 }
+template<class ImageType1,class ImageType2,int r,int c,typename value_type>
+void resample_mt(const ImageType1& from,ImageType2& to,const tipl::matrix<r,c,value_type>& trans,interpolation_type type = interpolation_type::linear)
+{
+    tipl::transformation_matrix<value_type> transform;
+    transform.load_from_transform(trans.begin());
+    resample_mt(from,to,transform,type);
+}
+
 
 template<class ImageType1,class ImageType2>
 void resample(const ImageType1& from,ImageType2& to,interpolation_type type = interpolation_type::linear)
