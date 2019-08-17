@@ -445,6 +445,9 @@ void two_way_linear_mr(const image_type& from,const vs_type& from_vs,
                             const float* bound = reg_bound)
 {
     tipl::affine_transform<typename TransType::value_type> arg1,arg2;
+    if(arg)
+        arg2.translocation[2] = -arg->translocation[2]*from_vs[2]/to_vs[2];
+
     tipl::par_for(2,[&](int i){
         if(i)
         {
@@ -474,6 +477,7 @@ void two_way_linear_mr(const image_type& from,const vs_type& from_vs,
             tipl::reg::linear(from,from_vs,to,to_vs,arg1,base_type,cost_type,terminated,0.001f,0,bound);
         T = TransType(arg == 0 ? arg1:*arg,from.geometry(),from_vs,to.geometry(),to_vs);
     }
+
 }
 
 
