@@ -515,10 +515,10 @@ bool reorder_shift_index(const geo_type& geo,
             need_update = true;
     }
 
-    std::vector<uint64_t> shift_vector(geo_type::dimension);
+    std::vector<int64_t> shift_vector(geo_type::dimension);
     shift_vector[0] = 1;
     for(unsigned char dim = 1;dim < geo_type::dimension;++dim)
-        shift_vector[dim] = shift_vector[dim-1]*new_geo[dim-1];
+        shift_vector[dim] = shift_vector[dim-1]*int64_t(new_geo[dim-1]);
 
     for (unsigned int index = 0; index < geo_type::dimension;++index)
     {
