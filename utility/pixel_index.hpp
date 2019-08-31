@@ -172,7 +172,7 @@ protected:
             int z_;
         };
     };
-    int index_;
+    size_t index_;
     int w,h;
 public:
     pixel_index(void):x_(0),y_(0),z_(0),index_(0),w(0),h(0){}
@@ -182,7 +182,7 @@ public:
         *this = rhs;
     }
     template<class vtype>
-    pixel_index(vtype x,vtype y,vtype z,int i,const geometry<3>& geo):x_(int(x)),y_(int(y)),z_(int(z)),index_(i),w(geo[0]),h(geo[1]){}
+    pixel_index(vtype x,vtype y,vtype z,size_t i,const geometry<3>& geo):x_(int(x)),y_(int(y)),z_(int(z)),index_(i),w(geo[0]),h(geo[1]){}
     template<class vtype>
     pixel_index(vtype x,vtype y,vtype z,const geometry<3>& geo):
             x_(int(x)),y_(int(y)),z_(int(z)),index_((int(z)*geo.height() + int(y))*geo.width()+int(x)),w(geo[0]),h(geo[1]){}
@@ -230,11 +230,11 @@ public:
     {
         return z_;
     }
-    int index(void) const
+    size_t index(void) const
     {
         return index_;
     }
-    int& index(void)
+    size_t& index(void)
     {
         return index_;
     }
