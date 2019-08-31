@@ -59,8 +59,26 @@ public:
     void back_af(float* dOut,const float* x)
     {
         for(int i = 0; i < output_size; ++i)
-             if(x[i] <= 0)
+             if(x[i] < 0)
                  dOut[i] = 0;
+    }
+};
+
+class leaky_relu_layer : public basic_activation_layer{
+public:
+    void forward_af(float* y)
+    {
+
+        for(int i = 0; i < output_size; ++i)
+            if(y[i] < 0.0f)
+                y[i] *= 0.01f;
+
+    }
+    void back_af(float* dOut,const float* x)
+    {
+        for(int i = 0; i < output_size; ++i)
+             if(x[i] < 0)
+                 dOut[i] *= 0.01f;
     }
 };
 
@@ -223,86 +241,6 @@ public:
         }
         basic_layer::update(rw,dw,rb,db);
     }
-};
-
-
-class stratified_connected_layer : public fully_connected_layer
-{
-    tipl::geometry<3> w_dim;
-public:
-    int fold = 0;
-    stratified_connected_layer(int fold_):fold(fold_){}
-    bool init(const tipl::geometry<3>& in_dim_,const tipl::geometry<3>& out_dim)
-    {
-        in_dim = in_dim_;
-        fully_connected_layer::init(in_dim_,out_dim);
-        w_dim[0] = input_size/fold;
-        w_dim[1] = output_size/fold;
-        w_dim[2] = fold;
-        return true;
-    }
-    void initialize_weight(tipl::uniform_dist<float>& gen)
-    {
-        fully_connected_layer::initialize_weight(gen);
-        std::vector<float> new_weight(weight.size());
-        const float* w = &weight[0];
-        float* nw = &new_weight[0];
-
-        for(int i = 0;i < fold;++i)
-        {
-            for(int j = 0;j < w_dim[1];++j,w += input_size,nw += input_size)
-                std::copy(w,w+w_dim[0],nw);
-            w += w_dim[0];
-            nw += w_dim[0];
-        }
-        weight.swap(new_weight);
-    }
-    void forward_propagation(const float* x,float* y) override
-    {
-        const float* w = &weight[0];
-        const float* b = &bias[0];
-        for(int i = 0;i < fold;++i,x += w_dim[0])
-        {
-            for(int j = 0;j < w_dim[1];++j,w += input_size,++y,++b)
-                *y = *b + tipl::vec::dot(w,w+w_dim[0],x);
-            w += w_dim[0];
-        }
-
-    }
-    //dW += dOut * x
-    //db += dOut
-    void calculate_dwdb(const float* dOut,
-                        const float* x,
-                        std::vector<float>& dweight,
-                        std::vector<float>& dbias) override
-    {
-        tipl::add(&dbias[0],&dbias[0]+output_size,dOut);
-        float* dw = &dweight[0];
-        for(int i = 0;i < fold;++i,x += w_dim[0])
-        {
-            for(int j = 0; j < w_dim[1]; j++,dw += input_size,++dOut)
-                if(*dOut != float(0))
-                    tipl::vec::axpy(dw,dw+w_dim[0],*dOut,x);
-            dw += w_dim[0];
-        }
-    }
-    // dX = dOut * W
-    void back_propagation(float* dOut,// output_size
-                          float* dX,// input_size
-                          const float*) override
-    {
-        const float* w = &weight[0];
-        std::fill(dX,dX+input_size,0.0f);
-        for(int i = 0;i < fold;++i,dX += w_dim[0])
-        {
-            for(int j = 0; j < w_dim[1]; j++,w += input_size,++dOut)
-                if(*dOut != float(0))
-                    tipl::vec::axpy(dX,dX+w_dim[0],*dOut,w);
-            w += w_dim[0];
-        }
-    }
-
-
 };
 
 
@@ -556,6 +494,30 @@ public:
         std::copy(dOut,dOut+input_size,dX);
         tipl::minus_constant(dX,dX+output_size,tipl::vec::dot(dOut,dOut+input_size,x));
         tipl::multiply(dX,dX+output_size,x);
+    }
+};
+
+class max_layer : public basic_layer{
+public:
+    max_layer(void){}
+    bool init(const tipl::geometry<3>& in_dim,const tipl::geometry<3>& out_dim)
+    {
+        if(in_dim.size() != out_dim.size())
+            return false;
+        basic_layer::init(in_dim,in_dim);
+        return true;
+    }
+    void forward_propagation(const float* x,float* y) override
+    {
+        int pos = std::max_element(x,x+input_size)-x;
+        std::fill(y,y+input_size,0.0f);
+        y[pos] = 1.0f;
+    }
+    void back_propagation(float* dOut,// output_size
+                          float* dX,// input_size
+                          const float*) override
+    {
+        std::copy(dOut,dOut+input_size,dX);
     }
 };
 
@@ -953,6 +915,9 @@ public:
 
         if(list.empty())
             return false;
+        if(list[0] == "max")
+            layers.push_back(std::make_shared<max_layer>());
+        else
         if(list[0] == "soft_max")
             layers.push_back(std::make_shared<soft_max_layer>());
         else
@@ -975,20 +940,14 @@ public:
             layers.push_back(std::make_shared<convolutional_layer>(param));
         }
         else
-            if(list[0].find("strata") == 0)
-            {
-                int param = list[0].back()-'0';
-                if(param <= 0 || param > 9)
-                    return false;
-                layers.push_back(std::make_shared<stratified_connected_layer>(param));
-            }
-        else
             return false;
 
         for(int i = 1;i < list.size();++i)
         {
             if(list[i] == "relu")
                 layers.back()->af.push_back(std::make_shared<relu_layer>());
+            if(list[i] == "lrelu")
+                layers.back()->af.push_back(std::make_shared<leaky_relu_layer>());
             if(list[i] == "push")
                 layers.back()->af.push_back(std::make_shared<push_layer>());
             if(list[i] == "pull")
@@ -1013,17 +972,18 @@ public:
                     out << "conv" << dynamic_cast<convolutional_layer*>(layers[i].get())->kernel_size;
                 if(dynamic_cast<max_pooling_layer*>(layers[i].get()))
                     out << "max_pooling" << dynamic_cast<max_pooling_layer*>(layers[i].get())->pool_size;
-                if(dynamic_cast<stratified_connected_layer*>(layers[i].get()))
-                    out << "strata" << dynamic_cast<stratified_connected_layer*>(layers[i].get())->fold;
-                else
-                    if(dynamic_cast<fully_connected_layer*>(layers[i].get()))
-                        out << "full";
+                if(dynamic_cast<fully_connected_layer*>(layers[i].get()))
+                    out << "full";
                 if(dynamic_cast<soft_max_layer*>(layers[i].get()))
                     out << "soft_max";
+                if(dynamic_cast<max_layer*>(layers[i].get()))
+                    out << "max";
                 for(auto f : layers[i]->af)
                 {
                     if(dynamic_cast<relu_layer*>(f.get()))
                         out << ",relu";
+                    if(dynamic_cast<leaky_relu_layer*>(f.get()))
+                        out << ",lrelu";
                     if(dynamic_cast<push_layer*>(f.get()))
                         out << ",push";
                     if(dynamic_cast<pull_layer*>(f.get()))
