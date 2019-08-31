@@ -113,10 +113,10 @@ private:
         data_ptr = data_buf.empty() ? 0 : &*data_buf.begin();
     }
 
-    unsigned int get_total_size(unsigned int ty) const
+    size_t get_total_size(unsigned int ty) const
     {
         unsigned int element_size_array[10] = {8,4,4,2,2,1,0,0,0,0};
-        return rows*cols*element_size_array[(ty%100)/10];
+        return size_t(rows)*size_t(cols)*size_t(element_size_array[(ty%100)/10]);
     }
 public:
     mat_matrix(void):type(0),rows(0),cols(0),namelen(0),data_ptr(0){}
@@ -143,7 +143,7 @@ public:
         namelen = name.length();
         rows = rows_;
         cols = cols_;
-        data_buf.resize(rows*cols*sizeof(Type));
+        data_buf.resize(size_t(rows)*size_t(cols)*size_t(sizeof(Type)));
         std::copy((const char*)data_ptr_,(const char*)data_ptr_+data_buf.size(),data_buf.begin());
         data_ptr = &*data_buf.begin();
     }
@@ -151,25 +151,26 @@ public:
     template<class OutType>
     void copy_data(OutType out)
     {
+        size_t size = size_t(rows)*size_t(cols);
         switch (type)
         {
         case 0://double
-            std::copy((const double*)data_ptr,((const double*)data_ptr) + rows*cols,out);
+            std::copy((const double*)data_ptr,((const double*)data_ptr) + size,out);
             break;
         case 10://float
-            std::copy((const float*)data_ptr,((const float*)data_ptr) + rows*cols,out);
+            std::copy((const float*)data_ptr,((const float*)data_ptr) + size,out);
             break;
         case 20://unsigned int
-            std::copy((const unsigned int*)data_ptr,((const unsigned int*)data_ptr) + rows*cols,out);
+            std::copy((const unsigned int*)data_ptr,((const unsigned int*)data_ptr) + size,out);
             break;
         case 30://short
-            std::copy((const short*)data_ptr,((const short*)data_ptr) + rows*cols,out);
+            std::copy((const short*)data_ptr,((const short*)data_ptr) + size,out);
             break;
         case 40://unsigned short
-            std::copy((const unsigned short*)data_ptr,((const unsigned short*)data_ptr) + rows*cols,out);
+            std::copy((const unsigned short*)data_ptr,((const unsigned short*)data_ptr) + size,out);
             break;
         case 50://unsigned char
-            std::copy((const unsigned char*)data_ptr,((const unsigned char*)data_ptr) + rows*cols,out);
+            std::copy((const unsigned char*)data_ptr,((const unsigned char*)data_ptr) + size,out);
             break;
         }
     }
@@ -427,7 +428,7 @@ public:
         image_data.resize(tipl::geometry<image_type::dimension>(m));
         const typename image_type::value_type* buf = 0;
         read(image_name,r,c,buf);
-        if(!buf || r*c != image_data.size())
+        if(!buf || size_t(r)*size_t(c) != image_data.size())
             return false;
         std::copy(buf,buf+image_data.size(),image_data.begin());
         return true;
@@ -488,7 +489,7 @@ public:
         out.write((const char*)&imagf,4);
         out.write((const char*)&namelen,4);
         out.write((const char*)&*name.begin(),namelen);
-        out.write((const char*)data_ptr,rows*cols*sizeof(Type));
+        out.write((const char*)data_ptr,size_t(rows)*size_t(cols)*sizeof(Type));
         return out;
     }
     template<class container_type>

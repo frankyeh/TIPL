@@ -445,7 +445,7 @@ public:
     size_t size(void) const
     {
         if(w && !size_)
-            size_ = (size_t)plane_size()*(size_t)d;
+            size_ = size_t(plane_size())*size_t(d);
         return size_;
     }
     void clear(void)
