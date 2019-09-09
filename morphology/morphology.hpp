@@ -319,7 +319,7 @@ unsigned char get_neighbor_count(ImageType& image,std::vector<unsigned char>& ac
 {
     act.resize(image.size());
     neighbor_index_shift<ImageType::dimension> neighborhood(image.geometry());
-    for (unsigned int index = 0;index < neighborhood.index_shift.size();++index)
+    tipl::par_for(neighborhood.index_shift.size(),[&](int index)
     {
         int shift = neighborhood.index_shift[index];
         if (shift > 0)
@@ -340,7 +340,7 @@ unsigned char get_neighbor_count(ImageType& image,std::vector<unsigned char>& ac
                 if (*iter2)
                     (++*iter1);
         }
-    }
+    });
     return neighborhood.index_shift.size();
 }
 
@@ -388,7 +388,7 @@ void smoothing(ImageType& I)
 {
     std::vector<unsigned char> act;
     unsigned int threshold = get_neighbor_count(I,act) >> 1;
-    for (unsigned int index = 0;index < I.size();++index)
+    tipl::par_for (I.size(),[&](size_t index)
     {
         if (act[index] > threshold)
         {
@@ -401,7 +401,7 @@ void smoothing(ImageType& I)
                 I[index] = 0;
         }
 
-    }
+    });
 }
 
 template<class ImageType>
@@ -432,7 +432,7 @@ void recursive_smoothing(ImageType& I,unsigned int max_iteration = 100)
         bool has_change = false;
         std::vector<unsigned char> act;
         unsigned int threshold = get_neighbor_count(I,act) >> 1;
-        for (unsigned int index = 0;index < I.size();++index)
+        tipl::par_for(I.size(),[&](size_t index)
         {
             if (act[index] > threshold)
             {
@@ -450,8 +450,7 @@ void recursive_smoothing(ImageType& I,unsigned int max_iteration = 100)
                     has_change = true;
                 }
             }
-
-        }
+        });
         if(!has_change)
             break;
     }
