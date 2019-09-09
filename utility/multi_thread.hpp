@@ -28,11 +28,11 @@ void par_for(T size, Func f, int thread_count = std::thread::hardware_concurrenc
     {
         futures.push_back(std::move(std::async(std::launch::async, [id,size,thread_count,&f]
         {
-            for(int i = id; i < size; i += thread_count)
+            for(T i = id; i < size; i += thread_count)
                 f(i);
         })));
     }
-    for(int i = 0; i < size; i += thread_count)
+    for(T i = 0; i < size; i += thread_count)
         f(i);
     for(auto &future : futures)
         future.wait();
@@ -87,11 +87,11 @@ void par_for2(T size, Func f, unsigned int thread_count = std::thread::hardware_
     {
         futures.push_back(std::move(std::async(std::launch::async, [id,size,thread_count,&f]
         {
-            for(int i = id; i < size; i += thread_count)
+            for(T i = id; i < size; i += thread_count)
                 f(i,id);
         })));
     }
-    for(int i = 0; i < size; i += thread_count)
+    for(T i = 0; i < size; i += thread_count)
         f(i,0);
     for(auto &future : futures)
         future.wait();
