@@ -125,7 +125,7 @@ class bruker_2dseq
 
 
     // spatial resolution
-    float resolution[3];
+    tipl::vector<3> resolution;
     float orientation[9];
     bool slice_2d = true;
 private:
@@ -221,7 +221,6 @@ public:
             std::vector<float> fov_data,size; // in cm
             info.read("RECO_fov",fov_data);
             info.read("RECO_size",size);
-            std::fill(resolution,resolution+3,0.0);
             for(unsigned int index = 0;index < 3 && index < fov_data.size() && index < size.size();++index)
                 resolution[index] = fov_data[index]*10.0/size[index]; // in mm
 
@@ -231,9 +230,6 @@ public:
                 dim[1] = size[1];
                 dim[2] = slopes.size();
             }
-
-            if(resolution[2] == 0)
-                resolution[2] = resolution[0];
         }
 
 
@@ -303,7 +299,7 @@ public:
 
     void get_voxel_size(tipl::vector<3>& vs) const
     {
-        std::copy(resolution,resolution+3,vs.begin());
+        vs = resolution;
     }
 
     template<class image_type>
