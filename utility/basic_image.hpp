@@ -437,6 +437,14 @@ public:
         out.load_from_image(*this);
         return out.save_to_file(file_name);
     }
+    template<class format_type,class voxel_type>
+    bool save_to_file(const char* file_name,voxel_type vs) const
+    {
+        format_type out;
+        out.load_from_image(*this);
+        out.set_voxel_size(vs);
+        return out.save_to_file(file_name);
+    }
     template<class format_type>
     bool load_from_file(const char* file_name)
     {
