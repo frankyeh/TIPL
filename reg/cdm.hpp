@@ -472,11 +472,9 @@ float cdm(const image_type& It,
         r.push_back(cdm_get_gradient(Js,It,new_d));
         iter.push_back(index);
         if(!cdm_improved(r,iter))
-            return r.front();
+            break;
         // solving the poisson equation using Jacobi method
         cdm_solve_poisson(new_d,terminated);
-        if(terminated)
-            break;
         cdm_accumulate_dis(d,new_d,theta,cdm_smoothness);
     }
     return r.front();
@@ -526,12 +524,10 @@ float cdm2(const image_type& It,const image_type& It2,
         r.push_back((cdm_get_gradient(Js,It,new_d)+cdm_get_gradient(Js2,It2,new_d2))*0.5f);
         iter.push_back(index);
         if(!cdm_improved(r,iter))
-            return r.front();
+            break;
         add(new_d,new_d2);
         // solving the poisson equation using Jacobi method
         cdm_solve_poisson(new_d,terminated);
-        if(terminated)
-            break;
         cdm_accumulate_dis(d,new_d,theta,cdm_smoothness);
     }
     return r.front();
