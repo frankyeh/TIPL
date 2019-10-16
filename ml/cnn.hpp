@@ -704,7 +704,7 @@ template<typename label_type>
 void data_fold_for_cv(const network_data<label_type>& rhs,
                       std::vector<network_data_proxy<label_type> > & training_data,
                       std::vector<network_data_proxy<label_type> > & testing_data,
-                      int total_fold = 10)
+                      int total_fold = 10,bool stratified = true)
 {
     training_data = std::vector<network_data_proxy<label_type> >(total_fold);
     testing_data = std::vector<network_data_proxy<label_type> >(total_fold);
@@ -713,16 +713,30 @@ void data_fold_for_cv(const network_data<label_type>& rhs,
         training_data[i].source = &rhs;
         testing_data[i].source = &rhs;
     }
-    auto order = arg_sort(rhs.data_label,std::less<label_type>());
-    for(int i = 0,bin = 0;i < rhs.size();++i,++bin)
+    if(stratified)
     {
-        if(bin >= total_fold)
-            bin = 0;
+        auto order = arg_sort(rhs.data_label,std::less<label_type>());
+        for(int i = 0,bin = 0;i < rhs.size();++i,++bin)
+        {
+            if(bin >= total_fold)
+                bin = 0;
+            for(int j = 0;j < total_fold;++j)
+                if(bin == j)
+                    testing_data[j].pos.push_back(order[i]);
+                else
+                    training_data[j].pos.push_back(order[i]);
+        }
+    }
+    else
+    {
         for(int j = 0;j < total_fold;++j)
-            if(bin == j)
-                testing_data[j].pos.push_back(order[i]);
+        for(int i = 0;i < rhs.size();++i)
+        {
+            if(j == total_fold*i/rhs.size())
+                testing_data[j].pos.push_back(i);
             else
-                training_data[j].pos.push_back(order[i]);
+                training_data[j].pos.push_back(i);
+        }
     }
 }
 /*
