@@ -122,10 +122,7 @@ class bruker_2dseq
 {
     // the 2dseq data
     tipl::image<float,3> data;
-
-
-    // spatial resolution
-    tipl::vector<3> resolution;
+    tipl::vector<3> vs;
     float orientation[9];
     bool slice_2d = true;
 private:
@@ -151,6 +148,13 @@ private:
         if(name[0] != L'2' || name[1] != L'd' || name[2] != L's' || name[3] != L'e' || name[4] != L'q')
             return false;
         return true;
+    }
+    const char* load_method(const char* filename)
+    {
+        std::string str = filename;
+        tmp = str.substr(0,str.find_last_of("/\\",str.find_last_of("/\\",str.find_last_of("/\\")-1)-1)+1);
+        tmp += "method";
+        return tmp.c_str();
     }
     const char* load_reco(const char* filename)
     {
@@ -192,12 +196,14 @@ public:
 
         // read image dimension
         bool no_visu = false;
-        bruker_info visu,info;
+        bool no_method = false;
+        bruker_info visu,info,method;
         if(!info.load_from_file(load_reco(file_name)))
             return false;
         if(!visu.load_from_file(load_visu(file_name)))
             no_visu = true;
-
+        if(!method.load_from_file(load_method(file_name)))
+            no_method = true;
         tipl::geometry<3> dim;
         // get image dimension
         if(!no_visu)
@@ -216,19 +222,31 @@ public:
             for(unsigned int i = 0;i < slopes.size();++i)
                 slopes[i] /= max_slope;
         }
-        // get resolution
+        // get vs
         {
             std::vector<float> fov_data,size; // in cm
             info.read("RECO_fov",fov_data);
             info.read("RECO_size",size);
             for(unsigned int index = 0;index < 3 && index < fov_data.size() && index < size.size();++index)
-                resolution[index] = fov_data[index]*10.0/size[index]; // in mm
+                vs[index] = fov_data[index]*10.0/size[index]; // in mm
 
             if(no_visu)
             {
                 dim[0] = size[0];
                 dim[1] = size[1];
                 dim[2] = slopes.size();
+            }
+            if(!no_method)
+            {
+                float slice_thickness,in_plane1,in_plane2;
+                std::istringstream(method["PVM_SliceThick"]) >> slice_thickness;
+                std::istringstream(method["PVM_SpatResol"]) >> in_plane1 >> in_plane2;
+                if(in_plane1 != 0.0f)
+                    vs[0] = in_plane1;
+                if(in_plane2 != 0.0f)
+                    vs[1] = in_plane2;
+                if(slice_thickness != 0.0f)
+                    vs[2] = slice_thickness;
             }
         }
 
@@ -297,9 +315,9 @@ public:
         return slice_2d;
     }
 
-    void get_voxel_size(tipl::vector<3>& vs) const
+    void get_voxel_size(tipl::vector<3>& vs_) const
     {
-        vs = resolution;
+        vs_ = vs;
     }
 
     template<class image_type>
