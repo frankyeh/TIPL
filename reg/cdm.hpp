@@ -454,7 +454,7 @@ float cdm(const image_type& It,
         image_type rIs,rIt;
         downsample_with_padding(It,rIt);
         downsample_with_padding(Is,rIs);
-        float r = cdm(rIt,rIs,d,terminated,resolution/2.0,cdm_smoothness+0.05,steps*2);
+        float r = cdm(rIt,rIs,d,terminated,resolution/2.0,cdm_smoothness,steps*2);
         upsample_with_padding(d,d,geo);
         d *= 2.0f;
         if(resolution > 1.0f)
