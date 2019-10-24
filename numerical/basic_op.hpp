@@ -107,7 +107,8 @@ inline void binary(ImageType& image,fun_type fun)
 
 //---------------------------------------------------------------------------
 template<class ImageType,class LabelImageType>
-void threshold(const ImageType& image,LabelImageType& out,typename ImageType::value_type threshold_value,typename LabelImageType::value_type foreground = 255,typename LabelImageType::value_type background = 0)
+void threshold(const ImageType& image,LabelImageType& out,typename ImageType::value_type threshold_value,
+               typename LabelImageType::value_type foreground = 255,typename LabelImageType::value_type background = 0)
 {
     out.resize(image.geometry());
     typename ImageType::const_iterator iter = image.begin();
