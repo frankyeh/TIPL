@@ -425,7 +425,7 @@ bool smoothing_fill(ImageType& I)
 }
 
 template<class ImageType>
-void recursive_smoothing(ImageType& I,unsigned int max_iteration = 100)
+void recursive_smoothing_mt(ImageType& I,unsigned int max_iteration = 100)
 {
     for(unsigned int iter = 0;iter < max_iteration;++iter)
     {
@@ -456,6 +456,37 @@ void recursive_smoothing(ImageType& I,unsigned int max_iteration = 100)
     }
 }
 
+template<class ImageType>
+void recursive_smoothing(ImageType& I,unsigned int max_iteration = 100)
+{
+    for(unsigned int iter = 0;iter < max_iteration;++iter)
+    {
+        bool has_change = false;
+        std::vector<unsigned char> act;
+        unsigned int threshold = get_neighbor_count(I,act) >> 1;
+        for(size_t index = 0;index < I.size();++index)
+        {
+            if (act[index] > threshold)
+            {
+                if (!I[index])
+                {
+                    I[index] = 1;
+                    has_change = true;
+                }
+            }
+            if (act[index] < threshold)
+            {
+                if (I[index])
+                {
+                    I[index] = 0;
+                    has_change = true;
+                }
+            }
+        }
+        if(!has_change)
+            break;
+    }
+}
 
 /**
 //  grow can be std::equal_to, std::less, std::greater  std::greater_equal std::less_equal
