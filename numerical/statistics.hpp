@@ -503,6 +503,9 @@ public:
         new_X_cov.swap(X_cov);
         return true;
     }
+
+
+
     /*
      *       y0       x00 ...x0p
      *       y1       x10 ...x1p    b0
@@ -511,21 +514,26 @@ public:
      *       yn       xn0 ...xnp
      *
      **/
-
     template<class iterator1,class iterator2,class iterator3>
     void regress(iterator1 y,iterator2 b,iterator3 t) const
     {
         regress(y,b);
-        // calculate residual
+        value_type rmse = get_rmse(y,b); // residual
+        for(unsigned int index = 0;index < feature_count;++index)
+            t[index] = b[index]/X_cov[index]/rmse;
+    }
+    // calculate residual
+    template<class iterator1,class iterator2>
+    value_type get_rmse(iterator1 y,iterator2 b) const
+    {
         std::vector<value_type> y_(subject_count);
         tipl::mat::left_vector_product(&*Xt.begin(),b,&*y_.begin(),tipl::dyndim(feature_count,subject_count));
         tipl::minus(y_.begin(),y_.end(),y);
         tipl::square(y_);
-        value_type rmse = std::sqrt(std::accumulate(y_.begin(),y_.end(),0.0)/(subject_count-feature_count));
-
-        for(unsigned int index = 0;index < feature_count;++index)
-            t[index] = b[index]/X_cov[index]/rmse;
+        return std::sqrt(std::accumulate(y_.begin(),y_.end(),value_type(0.0))/(subject_count-feature_count));
     }
+
+
     template<class iterator1,class iterator2>
     void regress(iterator1 y,iterator2 b) const
     {
