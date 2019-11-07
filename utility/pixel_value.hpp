@@ -203,6 +203,12 @@ struct rgb
         b = (b_ >= 255.0) ? 255 : (unsigned char)b_;
     }
 
+    void operator|=(const rgb& rhs)
+    {
+        r = rhs.r | r;
+        g = rhs.g | g;
+        b = rhs.b | b;
+    }
     bool operator==(const rgb& rhs) const
     {
         return color == rhs.color;
