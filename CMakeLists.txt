@@ -1,0 +1,8 @@
+cmake_minimum_required (VERSION 3.0)
+project (TIPL VERSION 0 LANGUAGES NONE)
+configure_file (tipl.pc.in tipl.pc @ONLY)
+file (GLOB_RECURSE headers *.hpp)
+list (REMOVE_ITEM headers ${CMAKE_CURRENT_SOURCE_DIR}/image.hpp)
+install (FILES ${CMAKE_CURRENT_BINARY_DIR}/tipl.pc DESTINATION share/pkgconfig)
+install (FILES ${headers} DESTINATION include/image)
+install (FILES image.hpp DESTINATION include)

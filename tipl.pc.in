@@ -1,0 +1,9 @@
+preifx=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+includedir=${prefix}/include
+
+Name: @PROJECT_NAME@
+Description: Template image processing library
+Version: @PROJECT_VERSION@
+Libs: -lsvm
+Cflags: -I${includedir}
