@@ -224,6 +224,20 @@ public:
         }
         // get vs
         {
+            if(!no_method)
+            {
+                std::vector<float> sr;
+                method.read("PVM_SpatResol",sr);
+                std::copy(sr.begin(),sr.begin()+std::min<int>(3,sr.size()),vs.begin());
+                if(sr.size() == 2)
+                {
+                    float slice_thickness;
+                    std::istringstream(method["PVM_SliceThick"]) >> slice_thickness;
+                    if(slice_thickness != 0.0f)
+                        vs[2] = slice_thickness;
+                }
+            }
+
             std::vector<float> fov_data,size; // in cm
             info.read("RECO_fov",fov_data);
             info.read("RECO_size",size);
@@ -235,18 +249,6 @@ public:
                 dim[0] = size[0];
                 dim[1] = size[1];
                 dim[2] = slopes.size();
-            }
-            if(!no_method)
-            {
-                float slice_thickness,in_plane1,in_plane2;
-                std::istringstream(method["PVM_SliceThick"]) >> slice_thickness;
-                std::istringstream(method["PVM_SpatResol"]) >> in_plane1 >> in_plane2;
-                if(in_plane1 != 0.0f)
-                    vs[0] = in_plane1;
-                if(in_plane2 != 0.0f)
-                    vs[1] = in_plane2;
-                if(slice_thickness != 0.0f)
-                    vs[2] = slice_thickness;
             }
         }
 
