@@ -295,7 +295,7 @@ enum reg_type {none = 0,translocation = 1,rotation = 2,rigid_body = 3,scaling = 
 enum cost_type{corr,mutual_info};
 
 const float reg_bound[6] = {0.25f,-0.25f,2.0f,0.5f,0.2f,-0.2f};
-
+const float reg_bound2[6] = {1.0f,-1.0f,4.0f,0.2f,0.5f,-0.5f};
 template<class image_type1,class image_type2,class transform_type>
 void get_bound(const image_type1& from,const image_type2& to,
                const transform_type& trans,
@@ -321,8 +321,8 @@ void get_bound(const image_type1& from,const image_type2& to,
     {
         for (unsigned int index = dimension; index < dimension + dimension; ++index)
         {
-            upper_trans[index] = 3.14159265358979323846f*bound[0];
-            lower_trans[index] = 3.14159265358979323846f*bound[1];
+            upper_trans[index] += 3.14159265358979323846f*bound[0];
+            lower_trans[index] += 3.14159265358979323846f*bound[1];
         }
     }
 
