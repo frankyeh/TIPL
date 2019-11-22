@@ -295,7 +295,7 @@ enum reg_type {none = 0,translocation = 1,rotation = 2,rigid_body = 3,scaling = 
 enum cost_type{corr,mutual_info};
 
 const float reg_bound[6] = {0.25f,-0.25f,2.0f,0.5f,0.2f,-0.2f};
-const float reg_bound2[6] = {1.0f,-1.0f,4.0f,0.2f,0.5f,-0.5f};
+const float reg_bound2[6] = {1.2f,-1.2f,4.0f,0.2f,0.5f,-0.5f};
 template<class image_type1,class image_type2,class transform_type>
 void get_bound(const image_type1& from,const image_type2& to,
                const transform_type& trans,
@@ -434,7 +434,7 @@ float linear_mr(const image_type& from,const vs_type& from_vs,
 }
 
 template<class image_type,class vs_type,class TransType,class CostFunctionType,class teminated_class>
-void two_way_linear_mr(const image_type& from,const vs_type& from_vs,
+float two_way_linear_mr(const image_type& from,const vs_type& from_vs,
                             const image_type& to,const vs_type& to_vs,
                             TransType& T,
                             reg_type base_type,
@@ -462,9 +462,10 @@ void two_way_linear_mr(const image_type& from,const vs_type& from_vs,
     TransType T1(arg == 0 ? arg1:*arg,from.geometry(),from_vs,to.geometry(),to_vs);
     TransType T2(arg2,to.geometry(),to_vs,from.geometry(),from_vs);
     T2.inverse();
+    float cost = 0.0f;
     if(CostFunctionType()(from,to,T2) < CostFunctionType()(from,to,T1))
     {
-        tipl::reg::linear(to,to_vs,from,from_vs,arg2,base_type,cost_type,terminated,0.001f,0,bound);
+        cost = tipl::reg::linear(to,to_vs,from,from_vs,arg2,base_type,cost_type,terminated,0.001f,0,bound);
         TransType T22(arg2,to.geometry(),to_vs,from.geometry(),from_vs);
         T22.inverse();
         T = T22;
@@ -472,12 +473,12 @@ void two_way_linear_mr(const image_type& from,const vs_type& from_vs,
     else
     {
         if(arg)
-            tipl::reg::linear(from,from_vs,to,to_vs,*arg,base_type,cost_type,terminated,0.001f,0,bound);
+            cost = tipl::reg::linear(from,from_vs,to,to_vs,*arg,base_type,cost_type,terminated,0.001f,0,bound);
         else
-            tipl::reg::linear(from,from_vs,to,to_vs,arg1,base_type,cost_type,terminated,0.001f,0,bound);
+            cost = tipl::reg::linear(from,from_vs,to,to_vs,arg1,base_type,cost_type,terminated,0.001f,0,bound);
         T = TransType(arg == 0 ? arg1:*arg,from.geometry(),from_vs,to.geometry(),to_vs);
     }
-
+    return cost;
 }
 
 
