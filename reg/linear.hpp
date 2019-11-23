@@ -21,275 +21,274 @@ namespace tipl
 
 namespace reg
 {
-    struct square_error
+struct square_error
+{
+    typedef double value_type;
+    template<class ImageType,class TransformType>
+    double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
     {
-        typedef double value_type;
-        template<class ImageType,class TransformType>
-        double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
+        const unsigned int dim = ImageType::dimension;
+        tipl::geometry<dim> geo(Ifrom.geometry());
+        double error = 0.0;
+        tipl::vector<dim,double> pos;
+        for (tipl::pixel_index<dim> index(geo);index < geo.size();++index)
         {
-            const unsigned int dim = ImageType::dimension;
-            tipl::geometry<dim> geo(Ifrom.geometry());
-            double error = 0.0;
-            tipl::vector<dim,double> pos;
-            for (tipl::pixel_index<dim> index(geo);index < geo.size();++index)
+            transform(index,pos);
+            double to_pixel = 0;
+            if (estimate(Ito,pos,to_pixel,tipl::linear) && to_pixel != 0)
+                to_pixel -= Ifrom[index.index()];
+            else
+                to_pixel = Ifrom[index.index()];
+            error += to_pixel*to_pixel;
+
+        }
+        return error;
+    }
+};
+struct negative_product
+{
+    typedef double value_type;
+    template<class ImageType,class TransformType>
+    double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
+    {
+        const unsigned int dim = ImageType::dimension;
+        tipl::geometry<dim> geo(Ifrom.geometry());
+        double error = 0.0;
+        tipl::vector<dim,double> pos;
+        for (tipl::pixel_index<dim> index(geo);index < geo.size();++index)
+        if(Ifrom[index.index()])
+        {
+            transform(index,pos);
+            double to_pixel = 0;
+            if (estimate(Ito,pos,to_pixel,tipl::linear) && to_pixel != 0)
+                error -= to_pixel*Ifrom[index.index()];
+        }
+        return error;
+    }
+};
+struct correlation
+{
+    typedef double value_type;
+    template<class ImageType,class TransformType>
+    double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
+    {
+        tipl::geometry<ImageType::dimension> geo(Ifrom.geometry());
+        tipl::image<typename ImageType::value_type,ImageType::dimension> y(geo);
+        tipl::resample(Ito,y,transform,tipl::linear);
+        float c = tipl::correlation(Ifrom.begin(),Ifrom.end(),y.begin());
+        return -c*c;
+    }
+};
+
+template<class image_type,class transform_type>
+struct mt_correlation
+{
+    typedef double value_type;
+    std::list<std::shared_ptr<std::future<void> > > threads;
+    std::vector<unsigned char> status;
+    const image_type* I1;
+    const image_type* I2;
+    image_type Y;
+    transform_type T;
+    double mean_from;
+    double sd_from;
+    bool end;
+    mt_correlation(int){}
+    mt_correlation(void):end(false),status(std::thread::hardware_concurrency()),I1(0)
+    {
+
+    }
+    ~mt_correlation(void)
+    {
+        end = true;
+        for(auto& i:threads)
+            i->wait();
+    }
+    void evaluate(unsigned int id)
+    {
+        while(!end)
+        {
+            if(status[id] == 1)
             {
-                transform(index,pos);
-                double to_pixel = 0;
-                if (estimate(Ito,pos,to_pixel,tipl::linear) && to_pixel != 0)
-                    to_pixel -= Ifrom[index.index()];
-                else
-                    to_pixel = Ifrom[index.index()];
-                error += to_pixel*to_pixel;
-
-            }
-            return error;
-        }
-    };
-    struct negative_product
-    {
-        typedef double value_type;
-        template<class ImageType,class TransformType>
-        double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
-        {
-            const unsigned int dim = ImageType::dimension;
-            tipl::geometry<dim> geo(Ifrom.geometry());
-            double error = 0.0;
-            tipl::vector<dim,double> pos;
-            for (tipl::pixel_index<dim> index(geo);index < geo.size();++index)
-            if(Ifrom[index.index()])
-            {
-                transform(index,pos);
-                double to_pixel = 0;
-                if (estimate(Ito,pos,to_pixel,tipl::linear) && to_pixel != 0)
-                    error -= to_pixel*Ifrom[index.index()];
-            }
-            return error;
-        }
-    };
-
-    struct correlation
-    {
-        typedef double value_type;
-        template<class ImageType,class TransformType>
-        double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
-        {
-            tipl::geometry<ImageType::dimension> geo(Ifrom.geometry());
-            tipl::image<typename ImageType::value_type,ImageType::dimension> y(geo);
-            tipl::resample(Ito,y,transform,tipl::linear);
-            float c = tipl::correlation(Ifrom.begin(),Ifrom.end(),y.begin());
-            return -c*c;
-        }
-    };
-
-    template<class image_type,class transform_type>
-    struct mt_correlation
-    {
-        typedef double value_type;
-        std::list<std::shared_ptr<std::future<void> > > threads;
-        std::vector<unsigned char> status;
-        const image_type* I1;
-        const image_type* I2;
-        image_type Y;
-        transform_type T;
-        double mean_from;
-        double sd_from;
-        bool end;
-        mt_correlation(int){}
-        mt_correlation(void):end(false),status(std::thread::hardware_concurrency()),I1(0)
-        {
-
-        }
-        ~mt_correlation(void)
-        {
-            end = true;
-            for(auto& i:threads)
-                i->wait();
-        }
-        void evaluate(unsigned int id)
-        {
-            while(!end)
-            {
-                if(status[id] == 1)
+                unsigned int size = I1->size();
+                unsigned int thread_size = (size/status.size())+1;
+                unsigned int from_size = id*thread_size;
+                unsigned int to_size = std::min<unsigned int>(size,(id+1)*thread_size);
+                tipl::geometry<image_type::dimension> geo(I1->geometry());
+                for (tipl::pixel_index<image_type::dimension> index(from_size,geo);
+                     index < to_size;++index)
                 {
-                    unsigned int size = I1->size();
-                    unsigned int thread_size = (size/status.size())+1;
-                    unsigned int from_size = id*thread_size;
-                    unsigned int to_size = std::min<unsigned int>(size,(id+1)*thread_size);
-                    tipl::geometry<image_type::dimension> geo(I1->geometry());
-                    for (tipl::pixel_index<image_type::dimension> index(from_size,geo);
-                         index < to_size;++index)
-                    {
-                        tipl::vector<image_type::dimension,double> pos;
-                        T(index,pos);
-                        tipl::estimate(*I2,pos,Y[index.index()],tipl::linear);
-                    }
-                    status[id] = 2;
+                    tipl::vector<image_type::dimension,double> pos;
+                    T(index,pos);
+                    tipl::estimate(*I2,pos,Y[index.index()],tipl::linear);
                 }
-                if(id == 0)
-                    return;
+                status[id] = 2;
             }
+            if(id == 0)
+                return;
         }
+    }
 
-        double operator()(const image_type& Ifrom,const image_type& Ito,
-                          const transform_type& transform)
+    double operator()(const image_type& Ifrom,const image_type& Ito,
+                      const transform_type& transform)
+    {
+        if(!I1)
         {
-            if(!I1)
-            {
-                I1 = &Ifrom;
-                I2 = &Ito;
-                mean_from = tipl::mean(Ifrom.begin(),Ifrom.end());
-                sd_from = tipl::standard_deviation(Ifrom.begin(),Ifrom.end(),mean_from);
-                Y.resize(Ifrom.geometry());
-            }
-            T = transform;
-            image_type y(Ifrom.geometry());
-            Y.swap(y);
-            std::fill(status.begin(),status.end(),1);
-            if(threads.empty())
-                for(unsigned int index = 1;index < status.size();++index)
-                    threads.push_back(std::make_shared<std::future<void> >(std::async(std::launch::async,
-                                                                                      [this,index](){evaluate(index);})));
-            evaluate(0);
+            I1 = &Ifrom;
+            I2 = &Ito;
+            mean_from = tipl::mean(Ifrom.begin(),Ifrom.end());
+            sd_from = tipl::standard_deviation(Ifrom.begin(),Ifrom.end(),mean_from);
+            Y.resize(Ifrom.geometry());
+        }
+        T = transform;
+        image_type y(Ifrom.geometry());
+        Y.swap(y);
+        std::fill(status.begin(),status.end(),1);
+        if(threads.empty())
             for(unsigned int index = 1;index < status.size();++index)
-                if(status[index] == 1)
-                    --index;
-            double mean_to = tipl::mean(Y.begin(),Y.end());
-            double sd_to = tipl::standard_deviation(Y.begin(),Y.end(),mean_to);
-            if(sd_from == 0 || sd_to == 0)
-                return 0;
-            float c = tipl::covariance(Ifrom.begin(),Ifrom.end(),Y.begin(),mean_from,mean_to)/sd_from/sd_to;
-            return -c*c;
-        }
-    };
+                threads.push_back(std::make_shared<std::future<void> >(std::async(std::launch::async,
+                                                                                  [this,index](){evaluate(index);})));
+        evaluate(0);
+        for(unsigned int index = 1;index < status.size();++index)
+            if(status[index] == 1)
+                --index;
+        double mean_to = tipl::mean(Y.begin(),Y.end());
+        double sd_to = tipl::standard_deviation(Y.begin(),Y.end(),mean_to);
+        if(sd_from == 0 || sd_to == 0)
+            return 0;
+        float c = tipl::covariance(Ifrom.begin(),Ifrom.end(),Y.begin(),mean_from,mean_to)/sd_from/sd_to;
+        return -c*c;
+    }
+};
 
-    struct mutual_information
+
+struct mutual_information
+{
+    typedef double value_type;
+    unsigned int band_width;
+    unsigned int his_bandwidth;
+    std::vector<unsigned int> from_hist;
+    std::vector<unsigned char> from;
+    std::vector<unsigned char> to;
+public:
+    mutual_information(unsigned int band_width_ = 6):band_width(band_width_),his_bandwidth(1 << band_width_) {}
+public:
+    template<class ImageType,class TransformType>
+    double operator()(const ImageType& from_,const ImageType& to_,const TransformType& transform)
     {
-        typedef double value_type;
-        unsigned int band_width;
-        unsigned int his_bandwidth;
-        std::vector<unsigned int> from_hist;
-        std::vector<unsigned char> from;
-        std::vector<unsigned char> to;
-    public:
-        mutual_information(unsigned int band_width_ = 6):band_width(band_width_),his_bandwidth(1 << band_width_) {}
-    public:
-        template<class ImageType,class TransformType>
-        double operator()(const ImageType& from_,const ImageType& to_,const TransformType& transform)
+        if (from_hist.empty() || to_.size() != to.size() || from_.size() != from.size())
         {
-            if (from_hist.empty() || to_.size() != to.size() || from_.size() != from.size())
+            to.resize(to_.size());
+            from.resize(from_.size());
+            tipl::normalize(to_.begin(),to_.end(),to.begin(),his_bandwidth-1);
+            tipl::normalize(from_.begin(),from_.end(),from.begin(),his_bandwidth-1);
+            tipl::histogram(from,from_hist,0,his_bandwidth-1,his_bandwidth);
+        }
+
+
+        // obtain the histogram
+        tipl::geometry<ImageType::dimension> geo(from_.geometry());
+        unsigned int thread_count = std::thread::hardware_concurrency();
+
+
+        std::vector<tipl::image<double,2> > mutual_hist(thread_count);
+        std::vector<std::vector<double> > to_hist(thread_count);
+        for(int i = 0;i < thread_count;++i)
+        {
+            mutual_hist[i].resize(tipl::geometry<2>(his_bandwidth,his_bandwidth));
+            to_hist[i].resize(his_bandwidth);
+        }
+
+        tipl::make_image(&from[0],geo).for_each_mt2([&](unsigned char value,pixel_index<ImageType::dimension> index,int id)
+        {
+            tipl::interpolation<tipl::linear_weighting,ImageType::dimension> interp;
+            unsigned int from_index = ((unsigned int)value) << band_width;
+            tipl::vector<ImageType::dimension,float> pos;
+            transform(index,pos);
+            if (!interp.get_location(to_.geometry(),pos))
             {
-                to.resize(to_.size());
-                from.resize(from_.size());
-                tipl::normalize(to_.begin(),to_.end(),to.begin(),his_bandwidth-1);
-                tipl::normalize(from_.begin(),from_.end(),from.begin(),his_bandwidth-1);
-                tipl::histogram(from,from_hist,0,his_bandwidth-1,his_bandwidth);
+                to_hist[id][0] += 1.0;
+                mutual_hist[id][from_index] += 1.0;
             }
-
-
-            // obtain the histogram
-            tipl::geometry<ImageType::dimension> geo(from_.geometry());
-            unsigned int thread_count = std::thread::hardware_concurrency();
-
-
-            std::vector<tipl::image<double,2> > mutual_hist(thread_count);
-            std::vector<std::vector<double> > to_hist(thread_count);
-            for(int i = 0;i < thread_count;++i)
-            {
-                mutual_hist[i].resize(tipl::geometry<2>(his_bandwidth,his_bandwidth));
-                to_hist[i].resize(his_bandwidth);
-            }
-
-            tipl::make_image(&from[0],geo).for_each_mt2([&](unsigned char value,pixel_index<ImageType::dimension> index,int id)
-            {
-                tipl::interpolation<tipl::linear_weighting,ImageType::dimension> interp;
-                unsigned int from_index = ((unsigned int)value) << band_width;
-                tipl::vector<ImageType::dimension,float> pos;
-                transform(index,pos);
-                if (!interp.get_location(to_.geometry(),pos))
+            else
+                for (unsigned int i = 0; i < tipl::interpolation<tipl::linear_weighting,ImageType::dimension>::ref_count; ++i)
                 {
-                    to_hist[id][0] += 1.0;
-                    mutual_hist[id][from_index] += 1.0;
+                    float weighting = interp.ratio[i];
+                    unsigned int to_index = to[interp.dindex[i]];
+                    to_hist[id][to_index] += weighting;
+                    mutual_hist[id][from_index+ to_index] += weighting;
                 }
-                else
-                    for (unsigned int i = 0; i < tipl::interpolation<tipl::linear_weighting,ImageType::dimension>::ref_count; ++i)
-                    {
-                        float weighting = interp.ratio[i];
-                        unsigned int to_index = to[interp.dindex[i]];
-                        to_hist[id][to_index] += weighting;
-                        mutual_hist[id][from_index+ to_index] += weighting;
-                    }
-            });
+        });
 
-            for(int i = 1;i < thread_count;++i)
+        for(int i = 1;i < thread_count;++i)
+        {
+            tipl::add(mutual_hist[0],mutual_hist[i]);
+            tipl::add(to_hist[0],to_hist[i]);
+        }
+
+        // calculate the cost
+        {
+            float sum = 0.0;
+            tipl::geometry<2> geo(mutual_hist[0].geometry());
+            for (tipl::pixel_index<2> index(geo);index < geo.size();++index)
             {
-                tipl::add(mutual_hist[0],mutual_hist[i]);
-                tipl::add(to_hist[0],to_hist[i]);
+                float mu = mutual_hist[0][index.index()];
+                if (mu == 0.0)
+                    continue;
+                sum += mu*std::log(mu/((float)from_hist[index.y()])/to_hist[0][index.x()]);
             }
-
-            // calculate the cost
-            {
-                float sum = 0.0;
-                tipl::geometry<2> geo(mutual_hist[0].geometry());
-                for (tipl::pixel_index<2> index(geo);index < geo.size();++index)
-                {
-                    float mu = mutual_hist[0][index.index()];
-                    if (mu == 0.0)
-                        continue;
-                    sum += mu*std::log(mu/((float)from_hist[index.y()])/to_hist[0][index.x()]);
-                }
-                return -sum;
-            }
+            return -sum;
         }
-    };
+    }
+};
 
+template<class image_type,
+         typename vs_type,
+         typename param_type,
+         typename transform_type,
+         typename fun_type>
+class fun_adoptor{
+public:
+    const image_type& from;
+    const image_type& to;
+    const vs_type& from_vs;
+    const vs_type& to_vs;
+    param_type& param;
+    fun_type fun;
+    unsigned int cur_dim;
+    unsigned int count;
+    typedef typename fun_type::value_type value_type;
+    typedef typename param_type::value_type param_value_type;
+public:
+    fun_adoptor(const image_type& from_,const vs_type& from_vs_,
+                const image_type& to_,const vs_type& to_vs_,param_type& param_):
+        from(from_),from_vs(from_vs_),
+        to(to_),to_vs(to_vs_),
+        param(param_),count(0),cur_dim(0){}
+    float operator()(const param_type& new_param)
+    {
+        transform_type affine(new_param);
+        tipl::transformation_matrix<typename transform_type::value_type> T(affine,from.geometry(),from_vs,to.geometry(),to_vs);
+        ++count;
+        return fun(from,to,T);
+    }
 
-    template<class image_type,
-             typename vs_type,
-             typename param_type,
-             typename transform_type,
-             typename fun_type>
-    class fun_adoptor{
-        const image_type& from;
-        const image_type& to;
-        const vs_type& from_vs;
-        const vs_type& to_vs;
-        param_type& param;
-        fun_type fun;
-    public:
-        unsigned int cur_dim;
-        unsigned int count;
-        typedef typename fun_type::value_type value_type;
-        typedef typename param_type::value_type param_value_type;
-    public:
-        fun_adoptor(const image_type& from_,const vs_type& from_vs_,
-                    const image_type& to_,const vs_type& to_vs_,param_type& param_):
-            from(from_),from_vs(from_vs_),
-            to(to_),to_vs(to_vs_),
-            param(param_),count(0),cur_dim(0){}
-        float operator()(const param_type& new_param)
-        {
-            transform_type affine(new_param);
-            tipl::transformation_matrix<typename transform_type::value_type> T(affine,from.geometry(),from_vs,to.geometry(),to_vs);
-            ++count;
-            return fun(from,to,T);
-        }
-
-        float operator()(param_value_type param_value)
-        {
-            transform_type affine(param);
-            affine[cur_dim] = param_value;
-            tipl::transformation_matrix<typename transform_type::value_type> T(affine,from.geometry(),from_vs,to.geometry(),to_vs);
-            ++count;
-            return fun(from,to,T);
-        }
-        float operator()(const param_value_type* param)
-        {
-            transform_type affine(&*param);
-            tipl::transformation_matrix<typename transform_type::value_type> T(affine,from.geometry(),from_vs,to.geometry(),to_vs);
-            ++count;
-            return fun(from,to,T);
-        }
-    };
+    float operator()(param_value_type param_value)
+    {
+        transform_type affine(param);
+        affine[cur_dim] = param_value;
+        tipl::transformation_matrix<typename transform_type::value_type> T(affine,from.geometry(),from_vs,to.geometry(),to_vs);
+        ++count;
+        return fun(from,to,T);
+    }
+    float operator()(const param_value_type* param)
+    {
+        transform_type affine(&*param);
+        tipl::transformation_matrix<typename transform_type::value_type> T(affine,from.geometry(),from_vs,to.geometry(),to_vs);
+        ++count;
+        return fun(from,to,T);
+    }
+};
 
 enum reg_type {none = 0,translocation = 1,rotation = 2,rigid_body = 3,scaling = 4,rigid_scaling = 7,tilt = 8,affine = 15};
 enum cost_type{corr,mutual_info};
@@ -345,49 +344,30 @@ void get_bound(const image_type1& from,const image_type2& to,
     }
 }
 
+
+
 template<class image_type,class vs_type,class transform_type,class CostFunctionType,class teminated_class>
 float linear(const image_type& from,const vs_type& from_vs,
              const image_type& to  ,const vs_type& to_vs,
-                transform_type& arg_min,
+             transform_type& arg_min,
              reg_type base_type,
              CostFunctionType,
              teminated_class& terminated,
              double precision,int random_search_count = 0,const float* bound = reg_bound)
 {
-    reg_type reg_list[4] = {translocation,rigid_body,rigid_scaling,affine};
-    transform_type upper,lower;
     tipl::reg::fun_adoptor<image_type,vs_type,transform_type,transform_type,CostFunctionType> fun(from,from_vs,to,to_vs,arg_min);
-    double optimal_value = fun(arg_min[0]);
+    transform_type upper,lower;
     tipl::reg::get_bound(from,to,arg_min,upper,lower,base_type,bound);
-    std::default_random_engine gen;
 
-    // translation search on translocation (x,y,z)
-    std::uniform_int_distribution<int> un(0,2);
-    tipl::par_for(std::thread::hardware_concurrency(),[&](int)
-    {
-        for(int j = 0;j < random_search_count && !terminated;++j)
-        {
-            transform_type this_arg_min = arg_min;
-            int cur_dim = un(gen);
-            if(upper[cur_dim] == lower[cur_dim])
-                continue;
-            float sd = std::max<float>(std::fabs(upper[cur_dim]-arg_min[cur_dim]),std::fabs(lower[cur_dim]-arg_min[cur_dim]))/2.0f;
-            std::normal_distribution<double> distribution(arg_min[cur_dim],sd);
-            this_arg_min[cur_dim] = distribution(gen);
+    double optimal_value = tipl::optimization::random_search(arg_min.begin(),arg_min.end(),
+                                         upper.begin(),lower.begin(),fun,terminated,random_search_count);
 
-            auto this_value = CostFunctionType()(from,to,
-                tipl::transformation_matrix<typename transform_type::value_type>(this_arg_min,from.geometry(),from_vs,to.geometry(),to_vs));
-            if(this_value < optimal_value)
-            {
-                arg_min = this_arg_min;
-                optimal_value = this_value;
-            }
-        }
-    });
+    reg_type reg_list[4] = {translocation,rigid_body,rigid_scaling,affine};
+
     for(int type = 0;type < 4 && reg_list[type] <= base_type && !terminated;++type)
     {
-            tipl::reg::get_bound(from,to,arg_min,upper,lower,reg_list[type]);
-            tipl::optimization::gradient_descent(arg_min.begin(),arg_min.end(),
+        tipl::reg::get_bound(from,to,arg_min,upper,lower,reg_list[type]);
+        tipl::optimization::gradient_descent(arg_min.begin(),arg_min.end(),
                                                  upper.begin(),lower.begin(),fun,optimal_value,terminated,precision);
     }
 

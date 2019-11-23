@@ -238,6 +238,39 @@ void graient_descent_1d(param_type& x,param_type upper,param_type lower,
     }
 }
 
+template<class iter_type1,class iter_type2,class function_type,class teminated_class>
+double random_search(iter_type1 x_beg,iter_type1 x_end,
+                     iter_type2 x_upper,iter_type2 x_lower,
+                     function_type& fun,
+                     teminated_class& terminated,
+                     int random_search_count)
+{
+    typedef typename std::iterator_traits<iter_type1>::value_type param_type;
+    double optimal_value = fun(x_beg);
+    std::default_random_engine gen;
+    std::uniform_int_distribution<int> un(0,2);
+    tipl::par_for(std::thread::hardware_concurrency(),[&](int)
+    {
+        for(int j = 0;j < random_search_count && !terminated;++j)
+        {
+            int cur_dim = un(gen);
+            if(x_upper[cur_dim] == x_lower[cur_dim])
+                continue;
+            float sd = std::max<float>(std::fabs(x_upper[cur_dim]-x_beg[cur_dim]),std::fabs(x_lower[cur_dim]-x_beg[cur_dim]))/2.0f;
+            std::normal_distribution<double> distribution(x_beg[cur_dim],sd);
+            std::vector<param_type> param(x_beg,x_end);
+            param[cur_dim] = distribution(gen);
+            double current_value = fun(&*param.begin());
+            if(current_value < optimal_value)
+            {
+                x_beg[cur_dim] = param[cur_dim];
+                optimal_value = current_value;
+            }
+        }
+    });
+    return optimal_value;
+}
+
 template<class iter_type1,class iter_type2,class function_type,class terminated_class>
 void gradient_descent(
                 iter_type1 x_beg,iter_type1 x_end,
