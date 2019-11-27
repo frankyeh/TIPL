@@ -805,8 +805,30 @@ public:
         is_nii = true;
     }
 
+    template<class char_type,class image_type,class vs_type>
+    static bool load_from_file(const char_type* pfile_name,image_type& I,vs_type& vs)
+    {
+        nifti_base nii;
+        if(!nii.load_from_file(pfile_name) ||
+           !nii.toLPS(I))
+            return false;
+        nii.get_voxel_size(vs);
+        return true;
+    }
     template<class char_type,class image_type,class vs_type,class srow_type>
-    static bool save_to_file(const char_type* pfile_name,image_type& I,const vs_type& vs,const srow_type& T,const char* descript = 0)
+    static bool load_from_file(const char_type* pfile_name,image_type& I,vs_type& vs,srow_type& T)
+    {
+        nifti_base nii;
+        if(!nii.load_from_file(pfile_name) ||
+           !nii.toLPS(I))
+            return false;
+        nii.get_voxel_size(vs);
+        nii.get_image_transformation(T);
+        return true;
+    }
+
+    template<class char_type,class image_type,class vs_type,class srow_type>
+    static bool save_to_file(const char_type* pfile_name,image_type& I,const vs_type& vs,const srow_type& T,const char* descript = nullptr)
     {
         nifti_base nii;
         nii.set_voxel_size(vs);
