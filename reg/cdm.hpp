@@ -480,7 +480,28 @@ float cdm(const image_type& It,
     return r.front();
 }
 
-
+template<typename image_type>
+void cdm_pre(image_type& I)
+{
+    if(I.empty())
+        return;
+    float mean = float(tipl::mean(I));
+    if(mean != 0.0f)
+        I *= 1.0f/mean;
+}
+template<typename image_type>
+void cdm_pre(image_type& It,image_type& It2,
+             image_type& Is,image_type& Is2)
+{
+    std::thread t1([&](){cdm_pre(It);});
+    std::thread t2([&](){cdm_pre(It2);});
+    std::thread t3([&](){cdm_pre(Is);});
+    std::thread t4([&](){cdm_pre(Is2);});
+    t1.join();
+    t2.join();
+    t3.join();
+    t4.join();
+}
 template<typename image_type,typename dist_type,typename terminate_type>
 float cdm2(const image_type& It,const image_type& It2,
             const image_type& Is,const image_type& Is2,
