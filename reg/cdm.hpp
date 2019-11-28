@@ -440,7 +440,7 @@ float cdm(const image_type& It,
             terminate_type& terminated,
             float resolution = 2.0f,
             float cdm_smoothness = 0.3f,
-            unsigned int steps = 60)
+            unsigned int iterations = 60)
 {
     if(It.geometry() != Is.geometry())
         throw "Inconsistent image dimension";
@@ -454,7 +454,7 @@ float cdm(const image_type& It,
         image_type rIs,rIt;
         downsample_with_padding(It,rIt);
         downsample_with_padding(Is,rIs);
-        float r = cdm(rIt,rIs,d,terminated,resolution/2.0,cdm_smoothness,steps*2);
+        float r = cdm(rIt,rIs,d,terminated,resolution/2.0,cdm_smoothness,iterations*2);
         upsample_with_padding(d,d,geo);
         d *= 2.0f;
         if(resolution > 1.0f)
@@ -465,7 +465,7 @@ float cdm(const image_type& It,
     float theta = 0.0;
 
     std::deque<float> r,iter;
-    for (unsigned int index = 0;index < steps && !terminated;++index)
+    for (unsigned int index = 0;index < iterations && !terminated;++index)
     {
         compose_displacement(Is,d,Js);
         // dJ(cJ-I)
@@ -509,7 +509,7 @@ float cdm2(const image_type& It,const image_type& It2,
             terminate_type& terminated,
             float resolution = 2.0,
             float cdm_smoothness = 0.3f,
-            unsigned int steps = 60)
+            unsigned int iterations = 60)
 {
     if(It.geometry() != It2.geometry() ||
        It.geometry() != Is.geometry() ||
@@ -526,7 +526,7 @@ float cdm2(const image_type& It,const image_type& It2,
         downsample_with_padding(Is,rIs);
         downsample_with_padding(It2,rIt2);
         downsample_with_padding(Is2,rIs2);
-        float r = cdm2(rIt,rIt2,rIs,rIs2,d,terminated,resolution/2.0,cdm_smoothness+0.05,steps*2);
+        float r = cdm2(rIt,rIt2,rIs,rIs2,d,terminated,resolution/2.0,cdm_smoothness+0.05,iterations*2);
         upsample_with_padding(d,d,geo);
         d *= 2.0f;
         if(resolution > 1.0f)
@@ -537,7 +537,7 @@ float cdm2(const image_type& It,const image_type& It2,
     float theta = 0.0;
 
     std::deque<float> r,iter;
-    for (unsigned int index = 0;index < steps && !terminated;++index)
+    for (unsigned int index = 0;index < iterations && !terminated;++index)
     {
         compose_displacement(Is,d,Js);
         compose_displacement(Is2,d,Js2);
