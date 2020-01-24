@@ -293,8 +293,9 @@ public:
 enum reg_type {none = 0,translocation = 1,rotation = 2,rigid_body = 3,scaling = 4,rigid_scaling = 7,tilt = 8,affine = 15};
 enum cost_type{corr,mutual_info};
 
-const float reg_bound[6] = {0.25f,-0.25f,2.0f,0.5f,0.2f,-0.2f};
-const float reg_bound2[6] = {1.2f,-1.2f,4.0f,0.2f,0.5f,-0.5f};
+const float narrow_bound[8] = {0.2f,-0.2f,0.1f, -0.1f, 1.5f,0.9f,0.1f,-0.1f};
+const float reg_bound[8] =    {1.0f,-1.0f,0.25f,-0.25f,2.0f,0.5f,0.2f,-0.2f};
+const float large_bound[8] =  {1.0f,-1.0f,1.2f, -1.2f, 4.0f,0.2f,0.5f,-0.5f};
 template<class image_type1,class image_type2,class transform_type>
 void get_bound(const image_type1& from,const image_type2& to,
                const transform_type& trans,
@@ -310,9 +311,10 @@ void get_bound(const image_type1& from,const image_type2& to,
     {
         for (unsigned int index = 0; index < dimension; ++index)
         {
-            upper_trans[index] = std::max<float>(std::max<float>(from.geometry()[index],to.geometry()[index])*0.5f,
-                                                 std::fabs((float)from.geometry()[index]-(float)to.geometry()[index]));
-            lower_trans[index] = -upper_trans[index];
+            float range = std::max<float>(std::max<float>(from.geometry()[index],to.geometry()[index])*0.5f,
+                                          std::fabs((float)from.geometry()[index]-(float)to.geometry()[index]));
+            upper_trans[index] = range*bound[0];
+            lower_trans[index] = range*bound[1];
         }
     }
 
@@ -320,8 +322,8 @@ void get_bound(const image_type1& from,const image_type2& to,
     {
         for (unsigned int index = dimension; index < dimension + dimension; ++index)
         {
-            upper_trans[index] += 3.14159265358979323846f*bound[0];
-            lower_trans[index] += 3.14159265358979323846f*bound[1];
+            upper_trans[index] += 3.14159265358979323846f*bound[2];
+            lower_trans[index] += 3.14159265358979323846f*bound[3];
         }
     }
 
@@ -329,8 +331,8 @@ void get_bound(const image_type1& from,const image_type2& to,
     {
         for (unsigned int index = dimension + dimension; index < dimension+dimension+dimension; ++index)
         {
-            upper_trans[index] = bound[2];
-            lower_trans[index] = bound[3];
+            upper_trans[index] = bound[4];
+            lower_trans[index] = bound[5];
         }
     }
 
@@ -338,8 +340,8 @@ void get_bound(const image_type1& from,const image_type2& to,
     {
         for (unsigned int index = dimension + dimension + dimension; index < transform_type::total_size; ++index)
         {
-            upper_trans[index] = bound[4];
-            lower_trans[index] = bound[5];
+            upper_trans[index] = bound[6];
+            lower_trans[index] = bound[7];
         }
     }
 }
