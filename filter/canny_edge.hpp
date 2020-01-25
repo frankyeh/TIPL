@@ -194,10 +194,11 @@ public:
     }
 };
 
-template<typename pixel_type,size_t dimension>
-void canny_edge(image<pixel_type,dimension>& src)
+
+template<class image_type>
+void canny_edge(image_type& src)
 {
-    canny_edge_filter_imp<pixel_type,dimension>()(src);
+    canny_edge_filter_imp<typename image_type::value_type,image_type::dimension>()(src);
 }
 
 
