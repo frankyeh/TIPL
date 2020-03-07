@@ -4,6 +4,8 @@
 #include <functional>
 #include <numeric>
 #include <algorithm>
+#include <iosfwd>
+#include <string>
 //---------------------------------------------------------------------------
 namespace tipl
 {
@@ -391,7 +393,11 @@ public:
     {
         return !(*this == rhs);
     }
-
+    friend std::ostream& operator<<(std::ostream& out,const geometry<2>& dim)
+    {
+        out << "(" << dim[0] << "," << dim[1] << ")";
+        return out;
+    }
 };
 template<>
 class geometry<3>
@@ -539,6 +545,11 @@ public:
     bool operator!=(const geometry<3>& rhs) const
     {
         return !(*this == rhs);
+    }
+    friend std::ostream& operator<<(std::ostream& out,const geometry<3>& dim)
+    {
+        out << "(" << dim[0] << "," << dim[1] << "," << dim[2] << ")";
+        return out;
     }
 
 };
