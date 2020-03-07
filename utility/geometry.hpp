@@ -4,8 +4,7 @@
 #include <functional>
 #include <numeric>
 #include <algorithm>
-#include <iosfwd>
-#include <string>
+#include <iostream>
 //---------------------------------------------------------------------------
 namespace tipl
 {
