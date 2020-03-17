@@ -345,35 +345,35 @@ unsigned char get_neighbor_count(ImageType& image,std::vector<unsigned char>& ac
 }
 
 template<class ImageType>
-void closing(ImageType& I,int threshold_shift = 0)
+size_t closing(ImageType& I,int threshold_shift = 0)
 {
     std::vector<unsigned char> act;
     unsigned int threshold = get_neighbor_count(I,act) >> 1;
     threshold += threshold_shift;
+    size_t count = 0;
     for (unsigned int index = 0;index < I.size();++index)
-    {
-        if (act[index] > threshold)
+        if (!I[index] && act[index] > threshold)
         {
-            if (!I[index])
-                I[index] = 1;
+            I[index] = 1;
+            ++count;
         }
-    }
+    return count;
 }
 
 template<class ImageType>
-void opening(ImageType& I,int threshold_shift = 0)
+size_t opening(ImageType& I,int threshold_shift = 0)
 {
     std::vector<unsigned char> act;
     unsigned int threshold = get_neighbor_count(I,act) >> 1;
     threshold += threshold_shift;
+    size_t count = 0;
     for (unsigned int index = 0;index < I.size();++index)
-    {
-        if (act[index] < threshold)
+        if (I[index] && act[index] < threshold)
         {
-            if (I[index])
-                I[index] = 0;
+            I[index] = 0;
+            ++count;
         }
-    }
+    return count;
 }
 
 template<class ImageType>
