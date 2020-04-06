@@ -376,7 +376,7 @@ public:
     {
         if (index >= dataset.size())
             return;
-        image_buf.resize(image_type::geometry_type(dataset[index]->get_cols(),dataset[index]->get_rows()));
+        image_buf.resize(typename image_type::geometry_type(dataset[index]->get_cols(),dataset[index]->get_rows()));
         dataset[index]->copy_data(image_buf.begin());
     }
 
@@ -446,7 +446,7 @@ public:
         read("dimension",r,c,m);
         if(!m || r*c != image_type::dimension)
             return false;
-        image_data.resize(image_type::geometry_type(m));
+        image_data.resize(typename image_type::geometry_type(m));
         const typename image_type::value_type* buf = 0;
         read(image_name,r,c,buf);
         if(!buf || size_t(r)*size_t(c) != image_data.size())
