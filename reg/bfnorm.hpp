@@ -190,11 +190,11 @@ public:
     }
 };
 
-template<class value_type>
-void fill_values(std::vector<value_type>& values,value_type step)
+template<class value_type,class value_type2>
+void fill_values(std::vector<value_type>& values,value_type2 step)
 {
     value_type value = 0;
-    for(unsigned int index = 0; index < values.size(); ++index,value += step)
+    for(unsigned int index = 0; index < values.size(); ++index,value += value_type(step))
         values[index] = value;
 }
 template<class parameter_type>
