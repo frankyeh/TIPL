@@ -13,7 +13,7 @@ template<int Dim>
 class geometry
 {
 public:
-    int dim[Dim];
+    unsigned int dim[Dim];
 public:
     static const int dimension = Dim;
 public:
@@ -21,7 +21,7 @@ public:
     {
         clear();
     }
-    geometry(int x,int y,int z,int t)
+    geometry(unsigned int x,unsigned int y,unsigned int z,unsigned int t)
     {
         dim[0] = x;
         dim[1] = y;
@@ -55,12 +55,12 @@ public:
     {
         size_t prod = dim[0];
         for (int index = 1;index < Dim;++index)
-            prod *= (size_t)dim[index];
+            prod *= size_t(dim[index]);
         return prod;
     }
     size_t plane_size(void) const
     {
-        return (size_t)dim[0]*(size_t)dim[1];
+        return size_t(dim[0])*size_t(dim[1]);
     }
     void clear(void)
     {
@@ -72,27 +72,28 @@ public:
             std::swap(dim[index],rhs.dim[index]);
     }
 public:
-    const int* begin(void) const
+    const unsigned int* begin(void) const
     {
         return dim;
     }
-    const int* end(void) const
+    const unsigned int* end(void) const
     {
         return dim+Dim;
     }
-    int operator[](int index) const
+    unsigned int operator[](int index) const
     {
         return dim[index];
     }
-    int* begin(void)
+    unsigned int* begin(void)
     {
         return dim;
     }
-    int* end(void)
+    unsigned int* end(void)
     {
         return dim+Dim;
     }
-    int& operator[](int index)
+    template<typename index_type>
+    unsigned int& operator[](index_type index)
     {
         return dim[index];
     }
@@ -114,15 +115,15 @@ public:
         return false;
     }
 public:
-    int width(void) const
+    unsigned int width(void) const
     {
         return dim[0];
     }
-    int height(void) const
+    unsigned int height(void) const
     {
         return dim[1];
     }
-    int depth(void) const
+    unsigned int depth(void) const
     {
         return dim[2];
     }
@@ -149,17 +150,17 @@ class geometry<1>
 {
     union
     {
-        int dim[1];
+        unsigned int dim[1];
         struct
         {
-            int w;
+            unsigned int w;
         };
     };
 public:
     static const int dimension = 1;
 public:
     geometry(void):w(0) {}
-    geometry(int w_):w(w_) {}
+    geometry(unsigned int w_):w(w_) {}
 
     geometry(const geometry<1>& rhs)
     {
@@ -187,9 +188,9 @@ public:
         return *this;
     }
 public:
-    int size(void) const
+    size_t size(void) const
     {
-        return w;
+        return size_t(w);
     }
     void clear(void)
     {
@@ -200,27 +201,28 @@ public:
         std::swap(w,rhs.w);
     }
 public:
-    const int* begin(void) const
+    const unsigned int* begin(void) const
     {
         return dim;
     }
-    const int* end(void) const
+    const unsigned int* end(void) const
     {
         return dim+1;
     }
-    const int& operator[](int index) const
+    template<typename index_type>
+    const unsigned int& operator[](index_type index) const
     {
         return dim[index];
     }
-    int* begin(void)
+    unsigned int* begin(void)
     {
         return dim;
     }
-    int* end(void)
+    unsigned int* end(void)
     {
         return dim+1;
     }
-    int& operator[](int index)
+    unsigned int& operator[](size_t index)
     {
         return dim[index];
     }
@@ -246,13 +248,13 @@ public:
         return pos[0] == 0 || pos[0]+1 == dim[0];
     }
 public:
-    int width(void) const
+    unsigned int width(void) const
     {
         return w;
     }
-    int plane_size(void) const
+    size_t plane_size(void) const
     {
-        return w;
+        return size_t(w);
     }
 public:
     bool operator==(const geometry<1>& rhs) const
@@ -271,18 +273,18 @@ class geometry<2>
 {
     union
     {
-        int dim[2];
+        unsigned int dim[2];
         struct
         {
-            int w;
-            int h;
+            unsigned int w;
+            unsigned int h;
         };
     };
 public:
     static const int dimension = 2;
 public:
     geometry(void):w(0),h(0) {}
-    geometry(int w_,int h_):w(w_),h(h_) {}
+    geometry(unsigned int w_,unsigned int h_):w(w_),h(h_) {}
     geometry(const geometry<2>& rhs)
     {
         *this = rhs;
@@ -306,9 +308,9 @@ public:
         return *this;
     }
 public:
-    int size(void) const
+    size_t size(void) const
     {
-        return w*h;
+        return size_t(w)*size_t(h);
     }
     void clear(void)
     {
@@ -320,27 +322,29 @@ public:
         std::swap(h,rhs.h);
     }
 public:
-    const int* begin(void) const
+    const unsigned int* begin(void) const
     {
         return dim;
     }
-    const int* end(void) const
+    const unsigned int* end(void) const
     {
         return dim+2;
     }
-    const int& operator[](int index) const
+    template<typename index_type>
+    const unsigned int& operator[](index_type index) const
     {
         return dim[index];
     }
-    int* begin(void)
+    unsigned int* begin(void)
     {
         return dim;
     }
-    int* end(void)
+    unsigned int* end(void)
     {
         return dim+2;
     }
-    int& operator[](int index)
+    template<typename index_type>
+    unsigned int& operator[](index_type index)
     {
         return dim[index];
     }
@@ -367,21 +371,21 @@ public:
         return pos[0] == 0 || pos[1] == 0 || pos[0]+1 == dim[0] || pos[1]+1 == dim[1];
     }
 public:
-    int width(void) const
+    unsigned int width(void) const
     {
         return w;
     }
-    int height(void) const
+    unsigned int height(void) const
     {
         return h;
     }
-    int depth(void) const
+    unsigned int depth(void) const
     {
         return 1;
     }
-    int plane_size(void) const
+    size_t plane_size(void) const
     {
-        return w*h;
+        return size();
     }
 public:
     bool operator==(const geometry<2>& rhs) const
@@ -404,21 +408,21 @@ class geometry<3>
 public:
     union
     {
-        int dim[3];
+        unsigned int dim[3];
         struct
         {
-            int w;
-            int h;
-            int d;
+            unsigned int w;
+            unsigned int h;
+            unsigned int d;
         };
     };
-    mutable int wh;
+    mutable size_t wh;
     mutable size_t size_;
 public:
     static const int dimension = 3;
 public:
     geometry(void):w(0),h(0),d(0),wh(0),size_(0) {}
-    geometry(int w_,int h_,int d_):w(w_),h(h_),d(d_),wh(0),size_(0) {}
+    geometry(unsigned int w_,unsigned int h_,unsigned int d_):w(w_),h(h_),d(d_),wh(0),size_(0) {}
     geometry(const geometry<3>& rhs)
     {
         *this = rhs;
@@ -450,12 +454,13 @@ public:
     size_t size(void) const
     {
         if(w && !size_)
-            size_ = size_t(plane_size())*size_t(d);
+            size_ = plane_size()*size_t(d);
         return size_;
     }
     void clear(void)
     {
-        w = h = d = wh = size_ = 0;
+        w = h = d = 0;
+        wh = size_ = 0;
     }
     void swap(geometry<3>& rhs)
     {
@@ -466,29 +471,31 @@ public:
         std::swap(size_,rhs.size_);
     }
 public:
-    const int* begin(void) const
+    const unsigned int* begin(void) const
     {
         return dim;
     }
-    const int* end(void) const
+    const unsigned int* end(void) const
     {
         return dim+3;
     }
-    const int& operator[](int index) const
+    template<typename index_type>
+    const unsigned int& operator[](index_type index) const
     {
         return dim[index];
     }
-    int* begin(void)
+    unsigned int* begin(void)
     {
         wh = size_ = 0;
         return dim;
     }
-    int* end(void)
+    unsigned int* end(void)
     {
         wh = size_ = 0;
         return dim+3;
     }
-    int& operator[](int index)
+    template<typename index_type>
+    unsigned int& operator[](index_type index)
     {
         wh = size_ = 0;
         return dim[index];
@@ -518,22 +525,22 @@ public:
                pos[0]+1 == dim[0] || pos[1]+1 == dim[1] || pos[2]+1 == dim[2];
     }
 public:
-    int width(void) const
+    unsigned int width(void) const
     {
         return w;
     }
-    int height(void) const
+    unsigned int height(void) const
     {
         return h;
     }
-    int depth(void) const
+    unsigned int depth(void) const
     {
         return d;
     }
-    int plane_size(void) const
+    size_t plane_size(void) const
     {
         if (w && !wh)
-            wh = w*h;
+            wh = size_t(w)*size_t(h);
         return wh;
     }
 public:

@@ -27,10 +27,10 @@ inline void get_connected_neighbors(const pixel_index<2>& index,const geometry<2
         iterations.push_back(pixel_index<2>(index.x()+1,index.y(),index.index()+1,geo));
 
     if (index.y() >= 1)
-        iterations.push_back(pixel_index<2>(index.x(),index.y()-1,index.index()-geo.width(),geo));
+        iterations.push_back(pixel_index<2>(index.x(),index.y()-1,index.index()-int(geo.width()),geo));
 
     if (index.y()+1 < geo.height())
-        iterations.push_back(pixel_index<2>(index.x(),index.y()+1,index.index()+geo.width(),geo));
+        iterations.push_back(pixel_index<2>(index.x(),index.y()+1,index.index()+int(geo.width()),geo));
 }
 
 /**

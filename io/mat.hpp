@@ -517,7 +517,9 @@ public:
     template<class image_type>
     void load_from_image(const image_type& image_data)
     {
-        write("dimension",&*image_data.geometry().begin(),1,image_type::dimension);
+        unsigned short dim[image_type::dimension];
+        std::copy(image_data.geometry().begin(),image_data.geometry().end(),dim);
+        write("dimension",dim,1,image_type::dimension);
         write("image",&*image_data.begin(),1,image_data.size());
     }
 
