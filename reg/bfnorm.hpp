@@ -190,11 +190,11 @@ public:
     }
 };
 
-template<class value_type,class value_type2>
-void fill_values(std::vector<value_type>& values,value_type2 step)
+template<class value_type>
+void fill_values(std::vector<value_type>& values,value_type step)
 {
     value_type value = 0;
-    for(unsigned int index = 0; index < values.size(); ++index,value += value_type(step))
+    for(unsigned int index = 0; index < values.size(); ++index,value += step)
         values[index] = value;
 }
 template<class parameter_type>
@@ -327,9 +327,9 @@ public:
         fill_values(ny_values,ny);
         fill_values(nz_values,nz);
         fill_values(nxy_values,nxy);
-        fill_values(dim1_2_values,dim1[2]);
-        fill_values(dim1_1_values,dim1[1]);
-        fill_values(dim1_0_values,dim1[0]);
+        fill_values(dim1_2_values,int(dim1[2]));
+        fill_values(dim1_1_values,int(dim1[1]));
+        fill_values(dim1_0_values,int(dim1[0]));
 
         /* Because of edge effects from the smoothing, ignore voxels that are too close */
         edgeskip[0] = std::floor(fwhm);
