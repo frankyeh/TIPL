@@ -624,7 +624,7 @@ public:
         std::copy(rhs.data,rhs.data+total_size,data);
         return *this;
     }
-    void operator+=(const transformation_matrix& rhs)
+    void operator*=(const transformation_matrix& rhs)
     {
         tipl::matrix<3,3,value_type> sr_tmp(sr);
         tipl::mat::product(rhs.sr,sr_tmp.begin(),sr,tipl::dim<3,3>(),tipl::dim<3,3>());
