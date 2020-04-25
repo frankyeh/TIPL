@@ -145,7 +145,7 @@ public:
         rows = rows_;
         cols = cols_;
         data_buf.resize(size_t(rows)*size_t(cols)*size_t(sizeof(Type)));
-        std::copy(reinterpret_cast<const char*>(data_ptr_),reinterpret_cast<const char*>(data_ptr_+data_buf.size()),data_buf.begin());
+        std::copy(reinterpret_cast<const char*>(data_ptr_),reinterpret_cast<const char*>(data_ptr_)+data_buf.size(),data_buf.begin());
         data_ptr = &*data_buf.begin();
     }
 
