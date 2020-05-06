@@ -5,6 +5,7 @@
 #include <numeric>
 #include <utility>
 #include "tipl/numerical/numerical.hpp"
+#include "tipl/numerical/matrix.hpp"
 
 namespace tipl
 {
@@ -444,6 +445,7 @@ void linear_regression(input_iterator1 x_from,input_iterator1 x_to,input_iterato
  */
 template<class value_type>
 class multiple_regression{
+public:
     // the subject data are stored in each row
     std::vector<value_type> X,Xt,XtX;
     std::vector<value_type> X_cov;
@@ -523,6 +525,14 @@ public:
             t[index] = b[index]/X_cov[index]/rmse;
     }
     // calculate residual
+    template<class iterator1,class iterator2>
+    void residual(iterator1 y,iterator2 b) const
+    {
+        std::vector<value_type> y_(subject_count);
+        tipl::mat::left_vector_product(&*Xt.begin(),b,&*y_.begin(),tipl::dyndim(feature_count,subject_count));
+        tipl::minus(y,y+subject_count,&*y_.begin());
+    }
+
     template<class iterator1,class iterator2>
     value_type get_rmse(iterator1 y,iterator2 b) const
     {
