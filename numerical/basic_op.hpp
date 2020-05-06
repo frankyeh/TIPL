@@ -35,6 +35,22 @@ std::vector<unsigned int> arg_sort(const container_type& data,compare_type comp)
     return idx;
 }
 
+template <typename container_type,typename compare_type>
+std::vector<unsigned int> rank(const container_type& data,compare_type comp)
+{
+    std::vector<unsigned int> idx(data.size()),rank(data.size());
+    std::iota(idx.begin(), idx.end(), 0);
+    std::sort(idx.begin(), idx.end(),
+    [&data,comp](size_t i1, size_t i2)\
+    {
+        return comp(data[i1], data[i2]);
+    });
+    for(size_t i = 0;i < rank.size();++i)
+        rank[idx[i]] = i;
+    return rank;
+}
+
+
 template <typename compare_type>
 std::vector<unsigned int> arg_sort(size_t size,compare_type comp)
 {
