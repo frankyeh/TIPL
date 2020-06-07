@@ -194,7 +194,7 @@ public:
         write("movi");
         return true;
     }
-    void add_frame(unsigned char *buffer, unsigned int len, bool compressed)
+    void add_frame(const char *buffer, unsigned int len, bool compressed)
     {
         if(!buffer)
             return;
@@ -206,9 +206,9 @@ public:
         write(compressed ? "00dc" : "00db");
         offsets.push_back(len + pad);
         write(offsets.back());
-        out->write((const char*)buffer,len);
-        unsigned int dummy = 0;
-        out->write((const char*)&dummy,pad);
+        out->write(buffer,len);
+        char dummy[4] = {0,0,0,0};
+        out->write(dummy,pad);
         return;
     }
     void close(void)
