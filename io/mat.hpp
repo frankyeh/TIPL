@@ -529,7 +529,7 @@ public:
     template<class container_type>
     bool write(const char* name_,const std::string text)
     {
-        return write(name_,text.c_str(),1,text.size());
+        return write(name_,text.c_str(),1,text.size()+1);
     }
     bool write(const mat_matrix& data)
     {
