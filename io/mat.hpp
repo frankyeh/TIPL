@@ -371,6 +371,40 @@ public:
     {
         return out = reinterpret_cast<const out_type*>(read_as_type(name,rows,cols,mat_type_info<out_type>::type));
     }
+    template<class iterator>
+    bool read(const char* name,iterator first,iterator last) const
+    {
+        unsigned int rows,cols,size(std::distance(first,last));
+        const typename std::iterator_traits<iterator>::value_type* ptr = nullptr;
+        if(read(name,rows,cols,ptr) == nullptr || rows*cols < size)
+            return false;
+        std::copy(ptr,ptr+size,first);
+        return true;
+    }
+    template<class class_type>
+    bool read(const char* name,class_type& data) const
+    {
+        return read(name,data.begin(),data.end());
+    }
+    bool read(const char* name,std::string& str) const
+    {
+        const char* buf = nullptr;
+        unsigned int row,col;
+        if(!read(name,row,col,buf))
+            return false;
+        str = std::string(buf,buf+row*col);
+        return true;
+    }
+    std::string read_string(const char* name) const
+    {
+        const char* buf = nullptr;
+        unsigned int row,col;
+        if(!read(name,row,col,buf))
+            return std::string();
+        return std::string(buf,buf+row*col);
+    }
+
+
     template<class data_type,class image_type>
     void read_as_image(int index,image_type& image_buf) const
     {
