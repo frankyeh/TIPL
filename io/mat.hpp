@@ -535,6 +535,8 @@ public:
     template<class Type,class size_type,class size_type2>
     bool write(const char* name_,const Type* data_ptr,size_type rows_,size_type2 cols_)
     {
+        if(!rows_ || !cols_)
+            return false;
         unsigned int imagf = 0;
         unsigned int type = mat_type_info<Type>::type;
         std::string name(name_);
@@ -560,9 +562,10 @@ public:
     {
         return write(name_,&data[0],d,uint32_t(data.size()/d));
     }
-    template<class container_type>
     bool write(const char* name_,const std::string text)
     {
+        if(text.empty())
+            return false;
         return write(name_,text.c_str(),1,text.size()+1);
     }
     bool write(const mat_matrix& data)
