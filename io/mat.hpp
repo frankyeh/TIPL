@@ -392,7 +392,10 @@ public:
         unsigned int row,col;
         if(!read(name,row,col,buf))
             return false;
-        str = std::string(buf,buf+row*col);
+        if(buf[row*col-1] == 0)
+            str = buf;
+        else
+            str = std::string(buf,buf+row*col);
         return true;
     }
     std::string read_string(const char* name) const
@@ -401,6 +404,8 @@ public:
         unsigned int row,col;
         if(!read(name,row,col,buf))
             return std::string();
+        if(buf[row*col-1] == 0)
+            return std::string(buf);
         return std::string(buf,buf+row*col);
     }
 
