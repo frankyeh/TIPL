@@ -360,7 +360,6 @@ float linear(const image_type& from,const vs_type& from_vs,
     tipl::reg::fun_adoptor<image_type,vs_type,transform_type,transform_type,CostFunctionType> fun(from,from_vs,to,to_vs,arg_min);
     transform_type upper,lower;
     tipl::reg::get_bound(from,to,arg_min,upper,lower,base_type,bound);
-
     double optimal_value = tipl::optimization::random_search(arg_min.begin(),arg_min.end(),
                                          upper.begin(),lower.begin(),fun,terminated,random_search_count);
 
@@ -368,7 +367,7 @@ float linear(const image_type& from,const vs_type& from_vs,
 
     for(int type = 0;type < 4 && reg_list[type] <= base_type && !terminated;++type)
     {
-        tipl::reg::get_bound(from,to,arg_min,upper,lower,reg_list[type]);
+        tipl::reg::get_bound(from,to,arg_min,upper,lower,reg_list[type],bound);
         tipl::optimization::gradient_descent(arg_min.begin(),arg_min.end(),
                                                  upper.begin(),lower.begin(),fun,optimal_value,terminated,precision);
     }
@@ -439,8 +438,10 @@ float two_way_linear_mr(const image_type& from,const vs_type& from_vs,
                 tipl::reg::linear_mr(from,from_vs,to,to_vs,arg1,base_type,cost_type,terminated,0.1,bound);
         }
         else
-            tipl::reg::linear_mr(to,to_vs,from,from_vs,arg2,base_type,cost_type,terminated,0.1);
+            tipl::reg::linear_mr(to,to_vs,from,from_vs,arg2,base_type,cost_type,terminated,0.1,bound);
     },thread_count);
+
+
     TransType T1(arg == 0 ? arg1:*arg,from.geometry(),from_vs,to.geometry(),to_vs);
     TransType T2(arg2,to.geometry(),to_vs,from.geometry(),from_vs);
     T2.inverse();
