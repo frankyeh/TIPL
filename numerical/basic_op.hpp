@@ -212,14 +212,14 @@ void draw(const image<pixel_type1,2,storage_type1>& from_image,
     int x_shift,y_shift;
     if (pos[0] < 0)
     {
-        x_shift = -pos[0];
+        x_shift = -int(pos[0]);
         pos[0] = 0;
     }
     else
         x_shift = 0;
     if (pos[1] < 0)
     {
-        y_shift = -pos[1];
+        y_shift = -int(pos[1]);
         pos[1] = 0;
     }
     else
