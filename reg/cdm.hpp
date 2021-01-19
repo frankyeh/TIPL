@@ -328,7 +328,9 @@ float cdm_get_gradient(const image_type& Js,const image_type& It,dis_type& new_d
     const unsigned int window_size = 3;
     gradient_sobel(Js,new_d);
     Js.for_each_mt([&](typename image_type::value_type,pixel_index<image_type::dimension>& index){
-        if(It[index.index()] == 0.0 || It.geometry().is_edge(index))
+        if(It[index.index()] == 0.0 ||
+           Js[index.index()] == 0.0 ||
+           It.geometry().is_edge(index))
         {
             new_d[index.index()] = typename dis_type::value_type();
             return;
@@ -350,6 +352,8 @@ float cdm_get_gradient(const image_type& Js,const image_type& It,dis_type& new_d
     return accumulated_r2/float(r_num);
 }
 
+
+/*
 template<typename dis_type,typename terminated_type>
 void cdm_solve_poisson(dis_type& new_d,terminated_type& terminated)
 {
@@ -379,6 +383,56 @@ void cdm_solve_poisson(dis_type& new_d,terminated_type& terminated)
             }
             new_solve_d[pos] -= new_d[pos];
             new_solve_d[pos] *= inv_d2;
+        });
+        solve_d.swap(new_solve_d);
+    }
+    minus_constant_mt(solve_d,solve_d[0]);
+    new_d.swap(solve_d);
+}
+*/
+
+template<typename dis_type,typename terminated_type>
+void cdm_solve_poisson(tipl::image<dis_type,3>& new_d,terminated_type& terminated)
+{
+    float inv_d2 = 0.5f/3.0f;
+    tipl::image<dis_type,3> solve_d(new_d);
+    multiply_constant_mt(solve_d,-inv_d2);
+
+    int w = new_d.width();
+    int wh = new_d.plane_size();
+    for(int iter = 0;iter < 6 && !terminated;++iter)
+    {
+        tipl::image<dis_type,3> new_solve_d(new_d.geometry());
+        tipl::par_for(solve_d.size(),[&](int pos)
+        {
+            auto v = new_solve_d[pos];
+            {
+                int p1 = pos-1;
+                int p2 = pos+1;
+                if(p1 >= 0)
+                   v += solve_d[p1];
+                if(p2 < solve_d.size())
+                   v += solve_d[p2];
+            }
+            {
+                int p1 = pos-w;
+                int p2 = pos+w;
+                if(p1 >= 0)
+                   v += solve_d[p1];
+                if(p2 < solve_d.size())
+                   v += solve_d[p2];
+            }
+            {
+                int p1 = pos-wh;
+                int p2 = pos+wh;
+                if(p1 >= 0)
+                   v += solve_d[p1];
+                if(p2 < solve_d.size())
+                   v += solve_d[p2];
+            }
+            v -= new_d[pos];
+            v *= inv_d2;
+            new_solve_d[pos] = v;
         });
         solve_d.swap(new_solve_d);
     }
@@ -507,7 +561,7 @@ float cdm2(const image_type& It,const image_type& It2,
             const image_type& Is,const image_type& Is2,
             dist_type& d,// displacement field
             terminate_type& terminated,
-            float resolution = 2.0,
+            float resolution = 2.0f,
             float cdm_smoothness = 0.3f,
             unsigned int iterations = 60)
 {
@@ -526,7 +580,7 @@ float cdm2(const image_type& It,const image_type& It2,
         downsample_with_padding(Is,rIs);
         downsample_with_padding(It2,rIt2);
         downsample_with_padding(Is2,rIs2);
-        float r = cdm2(rIt,rIt2,rIs,rIs2,d,terminated,resolution/2.0,cdm_smoothness+0.05,iterations*2);
+        float r = cdm2(rIt,rIt2,rIs,rIs2,d,terminated,resolution/2.0f,cdm_smoothness+0.05,iterations*2);
         upsample_with_padding(d,d,geo);
         d *= 2.0f;
         if(resolution > 1.0f)
