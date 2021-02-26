@@ -17,14 +17,14 @@ namespace io
 
 
 class volume{
-private:
+public:
     std::vector<std::shared_ptr<dicom> > dicom_reader;
     std::vector<std::shared_ptr<nifti> > nifti_reader;
     float orientation_matrix[9];
     tipl::geometry<3> dim;
     tipl::vector<3,float> vs;
-    char dim_order[3]; // used to rotate the volume to axial view
-    char flip[3];        // used to rotate the volume to axial view
+    uint8_t dim_order[3]; // used to rotate the volume to axial view
+    uint8_t flip[3];        // used to rotate the volume to axial view
 
     void free_all(void)
     {
