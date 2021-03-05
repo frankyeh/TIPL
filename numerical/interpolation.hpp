@@ -519,15 +519,15 @@ struct interpolation<weighting_function,3>
     bool estimate_with_ref(const ImageType& source,
                            const RefImageType& ref_in_source,
                            double ref_value,
-                           const VTorType& location,PixelType& pixel)
+                           const VTorType& location,PixelType& pixel,double var)
     {
         if (get_location(source.geometry(),location))
         {
             double sum_ratio = 0.0;
             for(int i = 0;i < ref_count;++i)
             {
-                double w_s = std::max<double>(0.0,1.0-std::fabs(ref_value-ref_in_source[dindex[i]]));
-                ratio[i] = (ratio[i]+0.01)*(w_s+0.01);
+                double dis = ref_value-ref_in_source[dindex[i]];
+                ratio[i] *= std::exp(-var*dis*dis);
                 sum_ratio += ratio[i];
             }
             if(sum_ratio != 0.0)
@@ -839,9 +839,9 @@ template<class ImageType,class RefType,class VTorType,class PixelType>
 bool estimate_with_ref(const ImageType& source,
                        const RefType& ref,
                        double ref_value,
-                       const VTorType& location,PixelType& pixel)
+                       const VTorType& location,PixelType& pixel,double var)
 {
-    return interpolation<linear_weighting,ImageType::dimension>().estimate_with_ref(source,ref,ref_value,location,pixel);
+    return interpolation<linear_weighting,ImageType::dimension>().estimate_with_ref(source,ref,ref_value,location,pixel,var);
 }
 
 template<class ImageType,class VTorType>

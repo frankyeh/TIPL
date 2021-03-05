@@ -175,9 +175,8 @@ void thumb(const image<PixelType,2>& from,image<PixelType,2>& to)
 
 }
 
-template<class ImageType3D,class ImageType2D>
-void volume2slice(const ImageType3D& slice,ImageType2D& image,
-               unsigned int dim,size_t slice_index)
+template<class ImageType3D,class ImageType2D,typename dim_type,typename slice_pos_type>
+void volume2slice(const ImageType3D& slice,ImageType2D& image,dim_type dim,slice_pos_type slice_index)
 {
     const geometry<3>& geo = slice.geometry();
     if (dim == 2)   //XY
@@ -1042,7 +1041,7 @@ void resample_dis(const ImageType1& from,ImageType2& to,const transform_type& tr
 template<class ImageType1,class RefType,class ImageType2,class transform_type>
 void resample_with_ref(const ImageType1& from,
                        const RefType& ref, // has the geometry the same as to.geometry()
-                       ImageType2& to,const transform_type& transform)
+                       ImageType2& to,const transform_type& transform,double var)
 {
     transform_type iT(transform);
     iT.inverse();
@@ -1053,7 +1052,7 @@ void resample_with_ref(const ImageType1& from,
     {
         tipl::vector<ImageType1::dimension,double> pos;
         transform(index,pos);
-        estimate_with_ref(from,ref_in_from,ref[index.index()],pos,to[index.index()]);
+        estimate_with_ref(from,ref_in_from,ref[index.index()],pos,to[index.index()],var);
     }
 }
 
