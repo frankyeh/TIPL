@@ -352,6 +352,29 @@ float cdm_get_gradient(const image_type& Js,const image_type& It,dis_type& new_d
     return accumulated_r2/float(r_num);
 }
 
+// calculate dJ(cJ-I)
+template<typename image_type,typename dis_type>
+float cdm_get_gradient_abs_dif(const image_type& Js,const image_type& It,dis_type& new_d)
+{
+    float accumulated_r2 = 0.0f;
+    unsigned int r_num = 0;
+    gradient_sobel(Js,new_d);
+    Js.for_each_mt([&](typename image_type::value_type,pixel_index<image_type::dimension>& index){
+        if(It[index.index()] == 0.0 ||
+           Js[index.index()] == 0.0 ||
+           It.geometry().is_edge(index))
+        {
+            new_d[index.index()] = typename dis_type::value_type();
+            return;
+        }
+        auto dif = Js[index.index()]-It[index.index()];
+        new_d[index.index()] *= dif;
+        accumulated_r2 += dif*dif;
+        ++r_num;
+    });
+    return accumulated_r2/float(r_num);
+}
+
 
 /*
 template<typename dis_type,typename terminated_type>
