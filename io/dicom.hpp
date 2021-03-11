@@ -567,20 +567,16 @@ public:
     {
         if (!in.read(gel,8))
             return false;
+        // group 0002 is in Little Endian Implicit VR
+        if(group == 0x0002)
+            transfer_syntax = lee;
         if(transfer_syntax == bee)
         {
-            if(group == 0x0002)
-                transfer_syntax = lee;
-            else
-            {
-                change_endian(group);
-                change_endian(element);
-            }
+            change_endian(group);
+            change_endian(element);
         }
         unsigned int read_length = length;
-        bool is_explicit_vr = (transfer_syntax == bee || transfer_syntax == lee ||
-                               (lt0 >= 'A' && lt0 <= 'Z' &&
-                                lt1 >= 'A' && lt1 <= 'Z' && lt2 > 0));
+        bool is_explicit_vr = (transfer_syntax == bee || transfer_syntax == lee);
         bool is_sq = false;
         // SQ related Data Elements treated as implicit VR
         // http://dicom.nema.org/dicom/2013/output/chtml/part05/sect_7.5.html
