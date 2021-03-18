@@ -777,7 +777,12 @@ public:
     {
         std::copy(nif_header2.dim+1,nif_header2.dim+1+dimension,geo.begin());
     }
-
+    bool is_integer(void) const
+    {
+        if(nif_header.datatype)
+            return nif_header.datatype != 16 && nif_header.datatype != 64;
+        return nif_header2.datatype != 16 && nif_header2.datatype != 64;
+    }
     template<class image_type>
     void load_from_image(const image_type& source)
     {
