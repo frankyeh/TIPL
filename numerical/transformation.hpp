@@ -131,8 +131,8 @@ template<class angle_type,class output_iter>
 void rotation_matrix(angle_type theta,output_iter m,vdim<2>)
 {
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
-    value_type cos_theta = std::cos(theta[0]);
-    value_type sin_theta = std::sin(theta[0]);
+    value_type cos_theta = std::cos(theta);
+    value_type sin_theta = std::sin(theta);
     m[0] = cos_theta;
     m[1] = -sin_theta;
     m[2] = sin_theta;
@@ -226,8 +226,8 @@ template<class angle_type,class scale_type,class affine_type,class output_type>
 void rotation_scaling_affine_matrix(angle_type theta,scale_type s,affine_type a,output_type m,vdim<2>)
 {
     rotation_scaling_matrix(theta,s,m,vdim<2>());
-    m[0] += m[2]*a[0];
-    m[1] += m[3]*a[0];
+    m[0] += m[2]*a;
+    m[1] += m[3]*a;
 }
 
 /*
@@ -457,6 +457,84 @@ void create_affine_transformation_matrix(input_scaling_iter scaling,input_rotati
     create_transformation_matrixation_matrix(M,shift,m,vdim<3>());
 }
 
+
+
+template<class value_type_ = float>
+class affine_transform_2d
+{
+public:
+    typedef value_type_ value_type;
+    static const unsigned int dimension = 2;
+    static const unsigned int affine_dim = 2;
+    static const unsigned int total_size = 6;
+    union
+    {
+        struct
+        {
+            value_type translocation[2];
+            value_type rotation;
+            value_type scaling[2];
+            value_type affine;
+        };
+        value_type data[6];
+    };
+private:
+    template<typename other_vluae_type>
+    void assign(const affine_transform_2d<other_vluae_type>& rhs)
+    {
+        std::copy(rhs.data,rhs.data+total_size,data);
+    }
+public:
+    affine_transform_2d(void)
+    {
+        clear();
+    }
+    affine_transform_2d(const value_type* data_)
+    {
+        std::copy(data_,data_+total_size,data);
+    }
+    affine_transform_2d(const affine_transform_2d& rhs)
+    {
+        assign(rhs);
+    }
+    void clear(void)
+    {
+        std::fill(data,data+total_size,0);
+        std::fill(scaling,scaling+dimension,1);
+    }
+    template<typename other_vluae_type>
+    const affine_transform_2d<value_type>& operator=(const affine_transform_2d<other_vluae_type>& rhs)
+    {
+        assign(rhs);
+        return *this;
+    }
+    value_type operator[](unsigned int i) const{return data[i];}
+    value_type& operator[](unsigned int i) {return data[i];}
+    const value_type* begin(void) const{return data;}
+    const value_type* end(void) const{return data+total_size;}
+    value_type* begin(void) {return data;}
+    value_type* end(void) {return data+total_size;}
+    unsigned int size(void) const{return total_size;}
+    void downsampling(void)
+    {
+        translocation[0] *= 0.5;
+        translocation[1] *= 0.5;
+    }
+    void upsampling(void)
+    {
+        translocation[0] *= 2;
+        translocation[1] *= 2;
+    }
+    friend std::ostream & operator<<(std::ostream& out, const affine_transform_2d<value_type> &T)
+    {
+        out << "translocation=" << T.translocation[0] << " " << T.translocation[1] << std::endl;
+        out << "rotation=" << T.rotation << std::endl;
+        out << "scaling=" << T.scaling[0] << " " << T.scaling[1] << std::endl;
+        out << "affine=" << T.affine<< std::endl;
+        return out;
+    }
+};
+
 template<class value_type_ = float>
 class affine_transform
 {
@@ -534,6 +612,126 @@ public:
         return out;
     }
 
+};
+
+template<class value_type_ = float>
+struct transformation_matrix_2d
+{
+    typedef value_type_ value_type;
+    static const unsigned int dimension = 2;
+    static const unsigned int sr_size = 4;
+    static const unsigned int total_size = 6;
+public:
+    union
+    {
+        struct
+        {
+            value_type sr[4];
+            value_type shift[2];
+        };
+        value_type data[6];
+    };
+
+public:
+    transformation_matrix_2d(void)
+    {
+        std::fill((value_type*)data,(value_type*)data+total_size,0);
+    }
+
+    // (Affine*Scaling*R1*R2*R3*vs*Translocation*shift_center)*from = (vs*shift_center)*to;
+    transformation_matrix_2d(const affine_transform_2d<value_type>& rb,
+                          const tipl::geometry<2>& from,
+                          const tipl::vector<2>& from_vs,
+                          const tipl::geometry<2>& to,
+                          const tipl::vector<2>& to_vs)
+    {
+        //now sr = Scaling*R1*R2*R3
+        tipl::rotation_scaling_affine_matrix(rb.rotation,rb.scaling,rb.affine,sr,tipl::vdim<dimension>());
+        // calculate (vs*Translocation*shift_center)
+        tipl::vector<2> t(from[0],from[1]);
+        t *= -0.5;
+        t += rb.translocation;
+        t[0] *= from_vs[0];
+        t[1] *= from_vs[1];
+        // (Affine*Scaling*R1*R2*R3)*(vs*Translocation*shift_center)
+        shift[0] = sr[0]*t[0]+sr[1]*t[1];
+        shift[1] = sr[2]*t[0]+sr[3]*t[1];
+        sr[0] *= from_vs[0];
+        sr[1] *= from_vs[1];
+        sr[2] *= from_vs[0];
+        sr[3] *= from_vs[1];
+        // inv(vs) ... = inv(vs)(vs*shift_center)...
+        if(to_vs[0] != 1.0f)
+        {
+            sr[0] /= to_vs[0];
+            sr[1] /= to_vs[0];
+            sr[2] /= to_vs[0];
+            shift[0] /= to_vs[0];
+        }
+        if(to_vs[1] != 1.0f)
+        {
+            sr[3] /= to_vs[1];
+            sr[4] /= to_vs[1];
+            sr[5] /= to_vs[1];
+            shift[1] /= to_vs[1];
+        }
+        // inv(shift_center) ... = inv(shift_center)(shift_center)...
+        shift[0] += to[0]*0.5;
+        shift[1] += to[1]*0.5;
+        shift[2] += to[2]*0.5;
+    }
+
+    template<typename other_value_type>
+    const transformation_matrix_2d<value_type>& operator=(const transformation_matrix_2d<other_value_type>& rhs)
+    {
+        std::copy(rhs.data,rhs.data+total_size,data);
+        return *this;
+    }
+    void operator*=(const transformation_matrix_2d& rhs)
+    {
+        tipl::matrix<2,2,value_type> sr_tmp(sr);
+        tipl::mat::product(rhs.sr,sr_tmp.begin(),sr,tipl::dim<3,3>(),tipl::dim<2,2>());
+        tipl::vector<2> shift_t(shift);
+        vector_transformation(shift_t.begin(),shift,rhs.sr,rhs.shift,tipl::dim<2,2>());
+    }
+
+    value_type* get(void){return data;}
+    const value_type* get(void) const{return data;}
+    value_type operator[](unsigned int i) const{return data[i];}
+    value_type& operator[](unsigned int i) {return data[i];}
+
+    bool inverse(void)
+    {
+        tipl::matrix<2,2,value_type> iT(sr);
+        if(!iT.inv())
+            return false;
+        value_type new_shift[3];
+        vector_rotation(shift,new_shift,iT.begin(),tipl::vdim<2>());
+        for(unsigned int d = 0;d < 2;++d)
+            shift[d] = -new_shift[d];
+        std::copy(iT.begin(),iT.end(),sr);
+        return true;
+    }
+
+    template<class vtype1,class vtype2>
+    void operator()(const vtype1& from,vtype2& to) const
+    {
+        vector_transformation(from.begin(),to.begin(),sr,shift,tipl::vdim<2>());
+    }
+    template<class vtype>
+    void operator()(vtype& pos) const
+    {
+        vtype result;
+        vector_transformation(pos.begin(),result.begin(),sr,shift,tipl::vdim<2>());
+        pos = result;
+    }
+
+    friend std::ostream & operator<<(std::ostream& out, const transformation_matrix_2d& T)
+    {
+        out << T[0] << " " << T[1] << " " << T[2] << std::endl;
+        out << T[3] << " " << T[4] << " " << T[5] << std::endl;
+        return out;
+    }
 };
 
 
