@@ -242,6 +242,26 @@ public:
     }
 };
 
+template<typename fun_type>
+struct faster
+{
+    typedef typename fun_type::value_type value_type;
+    fun_type fun;
+    template<class ImageType,class TransformType>
+    double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& T)
+    {
+        if(Ifrom.size() < Ito.size())
+            return fun(Ifrom,Ito,T);
+        else
+        {
+            TransformType iT = T;
+            iT.inverse();
+            return fun(Ito,Ifrom,iT);
+        }
+    }
+};
+
+
 template<class image_type,
          typename vs_type,
          typename param_type,
