@@ -362,7 +362,7 @@ public:
         return read_as_type(iter->second,rows,cols,type);
     }
     template<class out_type>
-    const out_type*& read(int index,unsigned int& rows,unsigned int& cols,const out_type*& out) const
+    const out_type*& read(unsigned int index,unsigned int& rows,unsigned int& cols,const out_type*& out) const
     {
         return out = reinterpret_cast<const out_type*>(read_as_type(index,rows,cols,mat_type_info<out_type>::type));
     }
