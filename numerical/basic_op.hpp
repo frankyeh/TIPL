@@ -293,6 +293,48 @@ void draw(const image<pixel_type1,3,storage_type1>& from_image,
     }
 }
 //---------------------------------------------------------------------------
+template<typename fun_type>
+void draw_line(int x,int y,int x1,int y1,fun_type fun)
+{
+    int dx = x1-x;
+    int dy = y1-y;
+    int abs_dx = std::abs(dx);
+    int abs_dy = std::abs(dy);
+    if(abs_dx <= 1 && abs_dy <= 1)
+    {
+        fun(x,y);
+        return;
+    }
+    if(abs_dx > abs_dy)
+    {
+        if(x1 < x)
+        {
+            std::swap(x1,x);
+            std::swap(y1,y);
+            dy = -dy;
+        }
+        for(int i = 0;i < abs_dx;++i)
+        {
+            int px = i+x;
+            fun(px,dy*i/abs_dx+y);
+        }
+    }
+    else
+    {
+        if(y1 < y)
+        {
+            std::swap(x1,x);
+            std::swap(y1,y);
+            dx = -dx;
+        }
+        for(int i = 0;i < abs_dy;++i)
+        {
+            int py = i+y;
+            fun(dx*i/abs_dy+x,py);
+        }
+    }
+};
+//---------------------------------------------------------------------------
 template<typename image_type1,typename image_type2>
 void mosaic(const image_type1& source,
             image_type2& out,
