@@ -122,14 +122,13 @@ void closing(ImageType& image)
 }
 */
 
-template<class ImageType,class LabelType>
-void edge(const ImageType& image,LabelType& act)
+template<typename ImageType,typename LabelType,typename ShiftType>
+void edge(const ImageType& image,LabelType& act,const ShiftType& shift_list)
 {
     act.resize(image.geometry());
-    neighbor_index_shift<ImageType::dimension> neighborhood(image.geometry());
-    for (unsigned int index = 0;index < neighborhood.index_shift.size();++index)
+    for (unsigned int index = 0;index < shift_list.size();++index)
     {
-        int shift = neighborhood.index_shift[index];
+        int shift = shift_list[index];
         if (shift > 0)
         {
             typename LabelType::value_type* iter1 = &*act.begin() + shift;
@@ -152,42 +151,62 @@ void edge(const ImageType& image,LabelType& act)
         }
     }
 }
-
-template<class ImageType>
+template<typename ImageType,typename LabelType>
+void edge(const ImageType& image,LabelType& act)
+{
+    neighbor_index_shift<ImageType::dimension> neighborhood(image.geometry());
+    edge(image,act,neighborhood.index_shift);
+}
+template<typename ImageType>
 void edge(ImageType& image)
 {
-	ImageType out;
-	edge(image,out);
-	image = out;
+    ImageType out;
+    edge(image,out);
+    image = out;
 }
 
-template<class ImageType,class LabelType>
-void edge_thin(const ImageType& image,LabelType& act)
-{
-    act.resize(image.geometry());
-    neighbor_index_shift_narrow<ImageType::dimension> neighborhood(image.geometry());
-    for (unsigned int index = 0;index < neighborhood.index_shift.size();++index)
-    {
-        int shift = neighborhood.index_shift[index];
-        if (shift > 0)
-        {
-            typename LabelType::value_type* iter1 = &*act.begin() + shift;
-            const typename ImageType::value_type* iter2 = &*image.begin();
-            const typename ImageType::value_type* iter3 = &*image.begin()+shift;
-            typename LabelType::value_type* end = &*act.begin() + act.size();
-            for (;iter1 < end;++iter1,++iter2,++iter3)
-                if (*iter2 != *iter3)
-                    *iter1 = 1;
-        }
-    }
-}
 template<class ImageType>
 void edge_thin(ImageType& image)
 {
     ImageType out;
-    edge_thin(image,out);
+    neighbor_index_shift_narrow<ImageType::dimension> neighborhood(image.geometry());
+    neighborhood.index_shift.resize(neighborhood.index_shift.size()/2);
+    edge(image,out,neighborhood.index_shift);
     image = out;
 }
+template<class ImageType>
+void edge_xy(ImageType& image)
+{
+    ImageType out;
+    std::vector<int> index_shift;
+    index_shift.push_back(-1);
+    index_shift.push_back(-int(image.width()));
+    edge(image,out,index_shift);
+    image = out;
+}
+
+template<class ImageType>
+void edge_yz(ImageType& image)
+{
+    ImageType out;
+    std::vector<int> index_shift;
+    index_shift.push_back(-int(image.width()));
+    index_shift.push_back(-int(image.plane_size()));
+    edge(image,out,index_shift);
+    image = out;
+}
+
+template<class ImageType>
+void edge_xz(ImageType& image)
+{
+    ImageType out;
+    std::vector<int> index_shift;
+    index_shift.push_back(-1);
+    index_shift.push_back(-int(image.plane_size()));
+    edge(image,out,index_shift);
+    image = out;
+}
+
 template<class ImageType,class LabelType>
 void inner_edge(const ImageType& image,LabelType& act)
 {
