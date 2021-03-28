@@ -184,9 +184,9 @@ void edge_thin(const ImageType& image,LabelType& act)
 template<class ImageType>
 void edge_thin(ImageType& image)
 {
-        ImageType out;
-        edge_thin(image,out);
-        image = out;
+    ImageType out;
+    edge_thin(image,out);
+    image = out;
 }
 template<class ImageType,class LabelType>
 void inner_edge(const ImageType& image,LabelType& act)
