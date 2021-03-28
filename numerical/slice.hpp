@@ -8,6 +8,22 @@ namespace tipl
 template<class value_type1,class value_type2>
 void space2slice(unsigned char dim_index,
         value_type1 px,value_type1 py,value_type1 pz,
+        value_type2& x,value_type2& y)
+{
+    switch(dim_index)
+    {
+        case 2:
+             x = px;y = py;return;
+        case 1:
+             x = px;y = pz;return;
+        case 0:
+             x = py;y = pz;return;
+    }
+}
+
+template<class value_type1,class value_type2>
+void space2slice(unsigned char dim_index,
+        value_type1 px,value_type1 py,value_type1 pz,
         value_type2& x,value_type2& y,value_type2& slice_index)
 {
     switch(dim_index)
