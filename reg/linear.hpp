@@ -397,7 +397,28 @@ float linear(const image_type& from,const vs_type& from_vs,
                                          upper.begin(),lower.begin(),fun,optimal_value,terminated,precision*0.1f);
     return optimal_value;
 }
-
+/*
+ *  This linear version use only gradient descent
+ *
+ */
+template<class image_type,class vs_type,class transform_type,class CostFunctionType,class teminated_class>
+double linear2(const image_type& from,const vs_type& from_vs,
+             const image_type& to  ,const vs_type& to_vs,
+             transform_type& arg_min,
+             tipl::reg::reg_type base_type,
+             CostFunctionType,
+             teminated_class& terminated,
+             double precision = 0.001,int random_search_count = 0,const float* bound = tipl::reg::reg_bound)
+{
+    tipl::reg::fun_adoptor<image_type,vs_type,transform_type,transform_type,CostFunctionType> fun(from,from_vs,to,to_vs,arg_min);
+    transform_type upper,lower;
+    tipl::reg::get_bound(from,to,arg_min,upper,lower,base_type,bound);
+    double optimal_value = tipl::optimization::random_search(arg_min.begin(),arg_min.end(),
+                                         upper.begin(),lower.begin(),fun,terminated,random_search_count);
+    tipl::optimization::gradient_descent(arg_min.begin(),arg_min.end(),
+                                         upper.begin(),lower.begin(),fun,optimal_value,terminated,precision);
+    return optimal_value;
+}
 
 template<class image_type,class vs_type,class transform_type,class CostFunctionType,class teminated_class>
 float linear_mr(const image_type& from,const vs_type& from_vs,
