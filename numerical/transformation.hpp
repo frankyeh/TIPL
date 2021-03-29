@@ -756,20 +756,25 @@ public:
 public:
     transformation_matrix(void)
     {
-        std::fill((value_type*)data,(value_type*)data+total_size,0);
+        std::fill(data,data+total_size,0);
     }
-
+    template<typename container_type>
+    transformation_matrix(const container_type& M)
+    {
+        (*this) = M;
+    }
     // (Affine*Scaling*R1*R2*R3*vs*Translocation*shift_center)*from = (vs*shift_center)*to;
+    template<typename geo_type,typename vs_type>
     transformation_matrix(const affine_transform<value_type>& rb,
-                          const tipl::geometry<3>& from,
-                          const tipl::vector<3>& from_vs,
-                          const tipl::geometry<3>& to,
-                          const tipl::vector<3>& to_vs)
+                          const geo_type& from,
+                          const vs_type& from_vs,
+                          const geo_type& to,
+                          const vs_type& to_vs)
     {
         //now sr = Affine*Scaling*R1*R2*R3
         rotation_scaling_affine_matrix(rb.rotation,rb.scaling,rb.affine,sr,vdim<dimension>());
         // calculate (vs*Translocation*shift_center)
-        tipl::vector<3> t(from[0],from[1],from[2]);
+        vs_type t(from[0],from[1],from[2]);
         t *= -0.5;
         t += rb.translocation;
         t[0] *= from_vs[0];
@@ -822,30 +827,36 @@ public:
         std::copy(rhs.data,rhs.data+total_size,data);
         return *this;
     }
-    void operator*=(const transformation_matrix& rhs)
+    template<typename container_type>
+    const transformation_matrix<value_type>& operator=(const container_type& M)
     {
-        tipl::matrix<3,3,value_type> sr_tmp(sr);
-        tipl::mat::product(rhs.sr,sr_tmp.begin(),sr,tipl::dim<3,3>(),tipl::dim<3,3>());
-        tipl::vector<3> shift_t(shift);
-        vector_transformation(shift_t.begin(),shift,rhs.sr,rhs.shift,vdim<3>());
-    }
+        data[0] = M[0];
+        data[1] = M[1];
+        data[2] = M[2];
 
-    value_type* get(void){return data;}
-    const value_type* get(void) const{return data;}
-    value_type operator[](unsigned int i) const{return data[i];}
-    value_type& operator[](unsigned int i) {return data[i];}
+        data[3] = M[4];
+        data[4] = M[5];
+        data[5] = M[6];
 
-    // load from 4 x 3 M matrix
-    template<class InputIterType>
-    void load_from_transform(InputIterType M)
-    {
-        std::copy(M,M+3,data);
-        std::copy(M+4,M+7,data+3);
-        std::copy(M+8,M+11,data+6);
+        data[6] = M[8];
+        data[7] = M[9];
+        data[8] = M[10];
+
         data[9] = M[3];
         data[10] = M[7];
         data[11] = M[11];
+        return *this;
     }
+
+    const transformation_matrix<value_type>& operator*=(const transformation_matrix& rhs)
+    {
+        tipl::matrix<3,3,value_type> sr_tmp(sr);
+        tipl::mat::product(rhs.sr,sr_tmp.begin(),sr,tipl::dim<3,3>(),tipl::dim<3,3>());
+        value_type shift_t[3] = {shift[0],shift[1],shift[2]};
+        vector_transformation(shift_t,shift,rhs.sr,rhs.shift,vdim<3>());
+        return *this;
+    }
+
     template<class InputIterType>
     void save_to_transform(InputIterType M)
     {
@@ -885,9 +896,9 @@ public:
 
     friend std::ostream & operator<<(std::ostream& out, const transformation_matrix<value_type> &T)
     {
-        out << T[0] << " " << T[1] << " " << T[2] << " " << T[9] << std::endl;
-        out << T[3] << " " << T[4] << " " << T[5] << " " << T[10] << std::endl;
-        out << T[6] << " " << T[7] << " " << T[8] << " " << T[11] << std::endl;
+        out << T.data[0] << " " << T.data[1] << " " << T.data[2] << " " << T.data[9] << std::endl;
+        out << T.data[3] << " " << T.data[4] << " " << T.data[5] << " " << T.data[10] << std::endl;
+        out << T.data[6] << " " << T.data[7] << " " << T.data[8] << " " << T.data[11] << std::endl;
         return out;
     }
 };
