@@ -43,15 +43,15 @@ namespace tipl
 template<unsigned int row,unsigned int col>
 struct dim
 {
-    unsigned int row_count(void)const
+    unsigned int row_count(void) const
     {
         return row;
     }
-    unsigned int col_count(void)const
+    unsigned int col_count(void) const
     {
         return col;
     }
-    unsigned int size(void)const
+    unsigned int size(void) const
     {
         return row*col;
     }
@@ -822,7 +822,18 @@ void ll_solve(io_iterator A,pivot_iterator p,input_iterator2 b,output_iterator x
     }
 }
 
+/*
 
+A: m-by-n matrix
+
+The upper triangular matrix R is returned in the upper triangle of a,
+except for the diagonal elements of R which are returned in d[1..n].
+The orthogonal matrix Q is represented as a product of n− 1 Householder matrices Q1 . . .Qn−1,
+where Qj = I−uj (cross) uj/cj. The ith component of uj is zero for i = 1, . . . , j −1
+while the nonzero components are returned in a[i][j] for i=j, .. , n.
+returns as true (1) if singularity is encountered during the decomposition,
+but the decomposition is still completed in this case; otherwise it returns false (0)
+  */
 
 template<class io_iterator,class output_iterator1,class output_iterator2,class dim_type>
 bool qr_decomposition(io_iterator A,output_iterator1 c,output_iterator2 d,const dim_type& dim)
@@ -839,11 +850,11 @@ bool qr_decomposition(io_iterator A,output_iterator1 c,output_iterator2 d,const 
         {
             io_iterator A_i_k = A_row_k+k;
             for (unsigned int i=k;i<m;i++,A_i_k += n)
-                scale=std::max<value_type>(scale,*A_i_k < 0 ? -*A_i_k : *A_i_k);
+                scale=std::max<value_type>(scale,std::abs(*A_i_k));
         }
-        if (scale == 0.0)
+        if (scale == value_type(0))
         {
-            c[k]=d[k]=0.0;
+            c[k]=d[k]= value_type(0);
             singular = true;
         }
         else
@@ -859,12 +870,10 @@ bool qr_decomposition(io_iterator A,output_iterator1 c,output_iterator2 d,const 
             A_row_k[k] += sigma;
             c[k]=sigma*A_row_k[k];
             d[k] = -scale*sigma;
-
-
             for (unsigned int j=k+1;j < n;j++)
             {
                 io_iterator A_row_i = A_row_k;
-                sum = 0.0;
+                sum = value_type(0);
                 for (unsigned int i=k;i<m;i++,A_row_i += n)
                     sum += A_row_i[k]*A_row_i[j];
                 value_type tau=sum/c[k];
@@ -875,6 +884,67 @@ bool qr_decomposition(io_iterator A,output_iterator1 c,output_iterator2 d,const 
         }
     }
     return !singular;
+}
+
+/*
+ A is a m by n matrix
+ Compute the m-by-n Q matrix
+ Also make diagonal of A positive
+ */
+template<class io_iterator,class iterator1,class output_iterator2,class dim_type>
+void qr_compute_q(io_iterator A,iterator1 c,output_iterator2 Q,const dim_type& dim)
+{
+    typedef typename std::iterator_traits<io_iterator>::value_type value_type;
+    unsigned int m = dim.row_count();
+    unsigned int n = dim.col_count();
+    unsigned int mn = m*n;
+    unsigned int Q_leap_size = m+1;
+
+    // make identity
+    auto Q_end = Q+mn;
+    std::fill(Q,Q_end,value_type(0));
+    for (auto qrow_di = Q;qrow_di < Q_end;qrow_di += Q_leap_size)
+        *qrow_di = value_type(1);
+
+    auto arow_k = A;
+    for (unsigned int k = 0;k < m-1; k++,arow_k += n)
+        if (c[k] != value_type(0))
+        {
+            auto qrow_j = Q;
+            for (unsigned int j=0;j<m;j++,qrow_j += m)
+            {
+                value_type sum(0);
+                auto arow_i = arow_k;
+                for (unsigned int i=k;i<m;i++,arow_i += n)
+                    sum += arow_i[k]*qrow_j[i];
+                sum /= c[k];
+                arow_i = arow_k;
+                for (unsigned int i=k;i<m;i++,arow_i += n)
+                    qrow_j[i] -= sum*arow_i[k];
+            }
+        }
+}
+
+// make sure the diagonal of A is positive, otherwise, apply negative to row/col vector of Q and R
+template<class io_iterator,class output_iterator2,class dim_type>
+void qr_positive_r(io_iterator R,output_iterator2 Q,const dim_type& dim)
+{
+    typedef typename std::iterator_traits<io_iterator>::value_type value_type;
+    unsigned int m = dim.row_count();
+    unsigned int n = dim.col_count();
+    unsigned int min_m_n = std::min(m,n);
+    auto Q_end = Q+m*m;
+    auto arowi = R;
+    for(unsigned int i = 0;i < min_m_n;++i,arowi += n)
+        if(arowi[i] < value_type(0))
+        {
+            // negate A row
+            for(auto arow = arowi+n-1;arow >= arowi;--arow)
+                *arow = -*arow;
+            // negate Q col
+            for(auto qcoli = Q+i;qcoli < Q_end;qcoli += m)
+                *qcoli = -*qcoli;
+        }
 }
 
 template<class io_iterator,class output_iterator1,class output_iterator2,class dim_type>
@@ -2660,6 +2730,7 @@ template<int row_count,int col_count,class value_type>
 struct matrix{
     static const unsigned int mat_size = row_count*col_count;
     value_type value[mat_size];
+    typedef value_type value_type;
     typedef value_type* iterator;
     typedef const value_type* const_iterator;
     typedef matrix<row_count,col_count,value_type> type;
