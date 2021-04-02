@@ -1069,32 +1069,17 @@ void resample(ImageType& from,const transform_type& transform,interpolation_type
 }
 
 
-template<class ImageType1,class ImageType2,class value_type>
-void resample(const ImageType1& from,ImageType2& to,const std::vector<value_type>& trans,interpolation_type type)
-{
-    tipl::transformation_matrix<float> transform;
-    transform.load_from_transform(trans.begin());
-    resample(from,to,transform,type);
-}
-template<class ImageType1,class ImageType2,int r,int c,class value_type>
-void resample(const ImageType1& from,ImageType2& to,const tipl::matrix<r,c,value_type>& trans,interpolation_type type)
+template<class ImageType1,class ImageType2,class ContainerType,class value_type>
+void resample(const ImageType1& from,ImageType2& to,const ContainerType& trans,interpolation_type type)
 {
     tipl::transformation_matrix<float> transform(trans);
     resample(from,to,transform,type);
 }
 
-template<class ImageType,class value_type>
-void resample(ImageType& from,const std::vector<value_type>& trans,interpolation_type type)
+template<class ImageType,class ContainerType,class value_type>
+void resample(ImageType& from,const ContainerType& trans,interpolation_type type)
 {
-    tipl::transformation_matrix<float> transform;
-    transform.load_from_transform(trans.begin());
-    resample(from,transform,type);
-}
-template<class ImageType,int r,int c,class value_type>
-void resample(ImageType& from,const tipl::matrix<r,c,value_type>& trans,interpolation_type type)
-{
-    tipl::transformation_matrix<float> transform;
-    transform.load_from_transform(trans.begin());
+    tipl::transformation_matrix<float> transform(trans);
     resample(from,transform,type);
 }
 
