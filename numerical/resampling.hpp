@@ -1008,13 +1008,13 @@ void resample(const ImageType1& from,ImageType2& to,interpolation_type type = in
 
 
 
-template<class ImageType1,class ImageType2,class transform_type>
-void resample(const ImageType1& from,ImageType2& to,const transform_type& transform,interpolation_type type)
+template<class ImageType1,class ImageType2,class value_type>
+void resample(const ImageType1& from,ImageType2& to,const tipl::transformation_matrix<value_type>& transform,interpolation_type type)
 {
     tipl::geometry<ImageType1::dimension> geo(to.geometry());
     for (tipl::pixel_index<ImageType1::dimension> index(geo);index < geo.size();++index)
     {
-        tipl::vector<ImageType1::dimension,double> pos;
+        tipl::vector<ImageType1::dimension,value_type> pos;
         transform(index,pos);
         estimate(from,pos,to[index.index()],type);
     }
@@ -1056,30 +1056,30 @@ void resample_with_ref(const ImageType1& from,
 }
 
 
-template<class ImageType,class transform_type>
-void resample(ImageType& from,const transform_type& transform,interpolation_type type)
+template<class ImageType,class value_type>
+void resample(ImageType& from,const tipl::transformation_matrix<value_type>& transform,interpolation_type type)
 {
     tipl::image<class ImageType::value_type,ImageType::dimension> I(from.geometry());
     for (tipl::pixel_index<ImageType::dimension> index(from.geometry());index < from.size();++index)
     {
-        tipl::vector<ImageType::dimension,double> pos;
+        tipl::vector<ImageType::dimension,value_type> pos;
         transform(index,pos);
         estimate(from,pos,I[index.index()],type);
     }
 }
 
 
-template<class ImageType1,class ImageType2,class ContainerType,class value_type>
+template<class ImageType1,class ImageType2,class ContainerType>
 void resample(const ImageType1& from,ImageType2& to,const ContainerType& trans,interpolation_type type)
 {
-    tipl::transformation_matrix<float> transform(trans);
+    tipl::transformation_matrix<typename ContainerType::value_type> transform(trans);
     resample(from,to,transform,type);
 }
 
-template<class ImageType,class ContainerType,class value_type>
+template<class ImageType,class ContainerType>
 void resample(ImageType& from,const ContainerType& trans,interpolation_type type)
 {
-    tipl::transformation_matrix<float> transform(trans);
+    tipl::transformation_matrix<typename ContainerType::value_type> transform(trans);
     resample(from,transform,type);
 }
 
