@@ -648,6 +648,18 @@ void transpose(io_iterator io,const dim_type& dim)
     transpose(temp.begin(),io,dim);
 }
 
+template<unsigned int row,unsigned int col>
+dim<col,row> transpose(dim<row,col>)
+{
+    return dim<col,row>();
+}
+
+template<typename other_dim_type>
+other_dim_type transpose(const other_dim_type& d)
+{
+    return other_dim_type(d.col_count(),d.row_count());
+}
+
 template<typename input_iterator,typename dim_type>
 typename std::iterator_traits<input_iterator>::value_type
 trace(input_iterator A,const dim_type& dim)
@@ -824,16 +836,37 @@ void ll_solve(io_iterator A,pivot_iterator p,input_iterator2 b,output_iterator x
 
 /*
 
-A: m-by-n matrix
+compute A=QR
 
-The upper triangular matrix R is returned in the upper triangle of a,
-except for the diagonal elements of R which are returned in d[1..n].
-The orthogonal matrix Q is represented as a product of n− 1 Householder matrices Q1 . . .Qn−1,
-where Qj = I−uj (cross) uj/cj. The ith component of uj is zero for i = 1, . . . , j −1
-while the nonzero components are returned in a[i][j] for i=j, .. , n.
-returns as true (1) if singularity is encountered during the decomposition,
-but the decomposition is still completed in this case; otherwise it returns false (0)
-  */
+A: m-by-n matrix
+Q: m-by-n matrix
+R: n-by-n matrix
+input: A m-by-n matrix
+
+output:
+
+d: [1..min(m,n)] diagnonal of R
+A: return the nonzero off diagonal components of R
+c: a product of n− 1 Householder matrices Q1 . . .Qn−1,where Qj = I−uj (cross) uj/cj. The ith component of uj is zero for i = 1, . . . , j −1
+
+example:
+(1) to get diagonal elements at d:
+
+    tipl::matrix<100,4,double> X,Q;
+    std::ifstream in("d:/X.txt");
+    std::copy(std::istream_iterator<double>(in),
+              std::istream_iterator<double>(),X.begin());
+    tipl::matrix<4,1,double> c,d;
+    tipl::mat::qr_decomposition(&*X.begin(),&*c.begin(),&*d.begin(),tipl::dyndim(100,4));
+
+(2) to get R matrix
+
+    tipl::matrix<4,4,double> R;
+    tipl::mat::qr_get_r(&*X.begin(),&*d.begin(),&*R.begin(),tipl::dyndim(100,4));
+
+(3) to get Q matrix
+
+*/
 
 template<typename io_iterator,typename output_iterator1,typename output_iterator2,typename dim_type>
 bool qr_decomposition(io_iterator A,output_iterator1 c,output_iterator2 d,const dim_type& dim)
@@ -842,10 +875,16 @@ bool qr_decomposition(io_iterator A,output_iterator1 c,output_iterator2 d,const 
     bool singular = false;
     unsigned int m = dim.row_count();
     unsigned int n = dim.col_count();
-    unsigned int min = std::min<unsigned int>(m,n);
+    unsigned int min = std::min(m,n);
     io_iterator A_row_k = A;
     for (unsigned int k = 0;k < min;k++,A_row_k += n)
     {
+        if(k == min-1 && min == m)
+        {
+            d[k] = A_row_k[k];
+            c[k]= value_type(0);
+            return d[k] != value_type(0);
+        }
         value_type scale(0);
         {
             io_iterator A_i_k = A_row_k+k;
@@ -859,27 +898,30 @@ bool qr_decomposition(io_iterator A,output_iterator1 c,output_iterator2 d,const 
         }
         else
         {
-            value_type sum(0);
-            io_iterator A_i_k = A_row_k+k;
-            for (unsigned int i=k;i<m;i++,A_i_k += n)
             {
-                value_type t = (*A_i_k /= scale);
-                sum += t*t;
+                io_iterator A_i_k = A_row_k+k;
+                value_type sum (0);
+                for (unsigned int i=k;i<m;i++,A_i_k += n)
+                {
+                    value_type t = (*A_i_k /= scale);
+                    sum += t*t;
+                }
+                value_type sigma = (A_row_k[k] >= 0) ? std::sqrt(sum):-std::sqrt(sum);
+                A_row_k[k] += sigma;
+                c[k]=sigma*A_row_k[k];
+                d[k] = -scale*sigma;
             }
-            value_type sigma = (A_row_k[k] >= 0) ? std::sqrt(sum):-std::sqrt(sum);
-            A_row_k[k] += sigma;
-            c[k]=sigma*A_row_k[k];
-            d[k] = -scale*sigma;
+
             for (unsigned int j=k+1;j < n;j++)
             {
                 io_iterator A_row_i = A_row_k;
-                sum = value_type(0);
+                value_type sum (0);
                 for (unsigned int i=k;i<m;i++,A_row_i += n)
                     sum += A_row_i[k]*A_row_i[j];
-                value_type tau=sum/c[k];
+                sum /= c[k];
                 A_row_i = A_row_k;
                 for (unsigned int i=k;i<m;i++,A_row_i += n)
-                    A_row_i[j] -= tau*A_row_i[k];
+                    A_row_i[j] -= sum*A_row_i[k];
             }
         }
     }
@@ -887,43 +929,145 @@ bool qr_decomposition(io_iterator A,output_iterator1 c,output_iterator2 d,const 
 }
 
 /*
- A is a m by n matrix
- Compute the m-by-n Q matrix
- Also make diagonal of A positive
+ A is m-by-n matrix from qr_decompose
+ d is n-by-n matrixfrom qr_decompose
+ Compute the n-by-n R matrix
  */
+
+template<typename io_iterator1,typename io_iterator2,typename output_iterator,typename dim_type>
+void qr_get_r(io_iterator1 A,io_iterator2 d,output_iterator R,const dim_type& dim)
+{
+    unsigned int m = dim.row_count();
+    unsigned int n = dim.col_count();
+    for(unsigned int i = 0,pos = 0;i < n;++i,pos += n+1)
+    {
+        R[pos] = d[i];
+        for(unsigned int j = 1;j <= i;++j)
+            R[pos-j] = 0;
+        for(unsigned int j = 1;j < n-i;++j)
+            R[pos+j] = A[pos+j];
+    }
+}
+/*
+ A is m-by-n matrix from qr_decompose
+ d is n-by-n matrixfrom qr_decompose
+ Compute the n-by-n R matrix back to A matrix
+ */
+template<typename io_iterator1,typename output_iterator,typename dim_type>
+void qr_get_r(io_iterator1 A,output_iterator d,const dim_type& dim)
+{
+    unsigned int m = dim.row_count();
+    unsigned int n = dim.col_count();
+    unsigned int min = std::min(m,n);
+    for(unsigned int i = 0,pos = 0;i < min;++i,pos += n+1)
+    {
+        A[pos] = d[i];
+        for(unsigned int j = 1;j <= i;++j)
+            A[pos-j] = 0;
+    }
+}
+
+/*
+
+compute A=QR
+
+input A: m-by-n matrix
+output Q: if (m < n) m-by-m matrix, else m-by-n matrix
+
+
+example:
+
+    tipl::matrix<100,4,double> X,Q;
+    std::ifstream in("d:/X.txt");
+    std::copy(std::istream_iterator<double>(in),
+              std::istream_iterator<double>(),X.begin());
+    tipl::mat::qr_decomposition(&*X.begin(),&*Q.begin(),tipl::dyndim(100,4));
+    std::cout << "X=" << X << std::endl;
+    std::cout << "Q=" << Q << std::endl;
+
+*/
+
 template<typename io_iterator,typename iterator1,typename output_iterator2,typename dim_type>
 void qr_compute_q(io_iterator A,iterator1 c,output_iterator2 Q,const dim_type& dim)
 {
     typedef typename std::iterator_traits<io_iterator>::value_type value_type;
     unsigned int m = dim.row_count();
     unsigned int n = dim.col_count();
-    unsigned int mn = m*n;
-    unsigned int Q_leap_size = m+1;
-
-    // make identity
-    auto Q_end = Q+mn;
-    std::fill(Q,Q_end,value_type(0));
-    for (auto qrow_di = Q;qrow_di < Q_end;qrow_di += Q_leap_size)
-        *qrow_di = value_type(1);
-
-    auto arow_k = A;
-    for (unsigned int k = 0;k < m-1; k++,arow_k += n)
-        if (c[k] != value_type(0))
-        {
-            auto qrow_j = Q;
-            for (unsigned int j=0;j<m;j++,qrow_j += m)
+    if(m <= n) // Q is a square matrix, compute Qt in place.
+    {
+        std::fill(Q,Q+m*m,value_type(0));
+        for (unsigned int i = 0,pos = 0;i < m;++i,pos += m+1)
+            Q[pos] = 1;
+        for (unsigned int k = 0,rowk = 0;k < n; k++,rowk += n)
+            if (c[k] != value_type(0))
+                for (unsigned int j=0,rowj = 0;j< m;j++,rowj += m)
+                {
+                    value_type sum(0);
+                    for (unsigned int i=k,rowi = rowk;i < m;i++,rowi += n)
+                        sum += A[rowi+k]*Q[rowj+i];
+                    sum /= c[k];
+                    for (unsigned int i=k,rowi = rowk;i < m;i++,rowi += n)
+                        Q[rowj+i] -= sum*A[rowi+k];
+                }
+    }
+    else
+    // for m >> n, this is not efficient, better use inverted R to get Q
+    {
+        unsigned int min = std::min(m,n);
+        std::vector<value_type> Qt(m*m);
+        for (unsigned int i = 0,pos = 0;i < m;++i,pos += m+1)
+            Qt[pos] = 1;
+        auto Arowk = A;
+        auto Qtrowk = &Qt[0];
+        for (unsigned int k = 0;k < min; k++,Arowk += n,Qtrowk += m)
+            if (c[k] != value_type(0))
             {
-                value_type sum(0);
-                auto arow_i = arow_k;
-                for (unsigned int i=k;i<m;i++,arow_i += n)
-                    sum += arow_i[k]*qrow_j[i];
-                sum /= c[k];
-                arow_i = arow_k;
-                for (unsigned int i=k;i<m;i++,arow_i += n)
-                    qrow_j[i] -= sum*arow_i[k];
+                for (unsigned int j=0;j< m;j++)
+                {
+                    value_type sum(0);
+                    auto Arowi = Arowk;
+                    auto Qtrowi = Qtrowk;
+                    for (unsigned int i=k;i < m;i++,Arowi += n,Qtrowi += m)
+                        sum += Arowi[k]*Qtrowi[j];
+                    sum /= c[k];
+                    Arowi = Arowk;
+                    Qtrowi = Qtrowk;
+                    for (unsigned int i=k;i < m;i++,Arowi += n,Qtrowi += m)
+                        Qtrowi[j] -= sum*Arowi[k];
+                }
             }
-        }
+        tipl::mat::transpose(&*Qt.begin(),Q,tipl::mat::transpose(dim));
+    }
 }
+
+
+/*
+
+compute A=QR
+
+input A: m-by-n matrix
+output
+if m < n
+    Q: m-by-m matrix
+    R: m-by-n matrix write back to matrix A
+ifm > n
+    Q: m-by-n matrix
+    R: n-by-n matrix write back to matrix A
+*/
+
+template<typename io_iterator,typename output_iterator1,typename dim_type>
+bool qr_decomposition(io_iterator A,output_iterator1 Q,const dim_type& dim)
+{
+    bool result = true;
+    typedef typename std::iterator_traits<io_iterator>::value_type value_type;
+    unsigned int min = std::min(dim.row_count(),dim.col_count());
+    std::vector<value_type> c(min),d(min);
+    result = qr_decomposition(A,&*c.begin(),&*d.begin(),dim);
+    qr_compute_q(A,&*c.begin(),Q,dim);
+    tipl::mat::qr_get_r(A,&*d.begin(),dim);
+    return result;
+}
+
 
 // make sure the diagonal of A is positive, otherwise, apply negative to row/col vector of Q and R
 template<typename io_iterator,typename output_iterator2,typename dim_type>
@@ -932,13 +1076,13 @@ void qr_positive_r(io_iterator R,output_iterator2 Q,const dim_type& dim)
     typedef typename std::iterator_traits<io_iterator>::value_type value_type;
     unsigned int m = dim.row_count();
     unsigned int n = dim.col_count();
-    unsigned int min_m_n = std::min(m,n);
+    unsigned int min = std::min(m,n);
     auto Q_end = Q+m*m;
     auto arowi = R;
-    for(unsigned int i = 0;i < min_m_n;++i,arowi += n)
+    for(unsigned int i = 0;i < min;++i,arowi += n)
         if(arowi[i] < value_type(0))
         {
-            // negate A row
+            // negate R row
             for(auto arow = arowi+n-1;arow >= arowi;--arow)
                 *arow = -*arow;
             // negate Q col
@@ -947,6 +1091,20 @@ void qr_positive_r(io_iterator R,output_iterator2 Q,const dim_type& dim)
         }
 }
 
+/*
+compute A=LQ
+
+The tranposed version of QR decopositionA: m-by-n matrix
+
+input: A m-by-n matrix
+
+output:
+
+d: [1..min(m,n)] diagnonal of R
+A: return the nonzero off diagonal components of R
+c: a product of min(m,n)−1 Householder matrices Q1 . . .Qn−1,where Qj = I−uj (cross) uj/cj. The ith component of uj is zero for i = 1, . . . , j −1
+*/
+
 template<typename io_iterator,typename output_iterator1,typename output_iterator2,typename dim_type>
 bool lq_decomposition(io_iterator A,output_iterator1 c,output_iterator2 d,const dim_type& dim)
 {
@@ -954,7 +1112,7 @@ bool lq_decomposition(io_iterator A,output_iterator1 c,output_iterator2 d,const 
     bool singular = false;
     unsigned int m = dim.row_count();
     unsigned int n = dim.col_count();
-    unsigned int min = std::min<unsigned int>(m,n);
+    unsigned int min = std::min(m,n);
     io_iterator A_row_k = A;
     for (unsigned int k = 0;k < min;k++,A_row_k += n)
     {
@@ -1005,7 +1163,7 @@ void lq_get_l(io_iterator1 A,io_iterator2 d,output_iterator L,const dim_type& di
 {
     unsigned int m = dim.row_count();
     unsigned int n = dim.col_count();
-    unsigned int min = std::min<unsigned int>(m,n);
+    unsigned int min = std::min(m,n);
     if(A != L)
         std::copy(A,A+m*n,L);
     for(unsigned int i = 0,pos = 0;i < min;++i,pos += n+1)
@@ -1013,6 +1171,20 @@ void lq_get_l(io_iterator1 A,io_iterator2 d,output_iterator L,const dim_type& di
         L[pos] = d[i];
         for(unsigned int j = 1;j < n-i;++j)
             L[pos+j] = 0;
+    }
+}
+
+template<typename io_iterator1,typename io_iterator2,typename output_iterator,typename dim_type>
+void lq_get_l(io_iterator1 A,io_iterator2 d,const dim_type& dim)
+{
+    unsigned int m = dim.row_count();
+    unsigned int n = dim.col_count();
+    unsigned int min = std::min(m,n);
+    for(unsigned int i = 0,pos = 0;i < min;++i,pos += n+1)
+    {
+        A[pos] = d[i];
+        for(unsigned int j = 1;j < n-i;++j)
+            A[pos+j] = 0;
     }
 }
 
