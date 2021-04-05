@@ -185,6 +185,23 @@ void rotation_matrix(angle_type theta,output_type m,vdim<3>)
     m[8] = cos_y;
      */
 }
+
+template<typename iterator_type1,typename iterator_type2>
+void rotation_matrix_to_angles(iterator_type1 m,iterator_type2 theta,vdim<3>)
+{
+    float sy = std::sqrt(m[0]*m[0]+m[1]*m[1]);
+    if (sy > 1.0e-6f)
+    {
+        theta[0] = atan2(m[5],m[8]);
+        theta[2] = atan2(m[1],m[0]);
+    }
+    else
+    {
+        theta[0] = atan2(-m[7], m[4]);
+        theta[2] = 0;
+    }
+    theta[1] = atan2(-m[2], sy);
+}
 /*
  Scaling*Rotate
  */
@@ -249,6 +266,48 @@ void rotation_scaling_affine_matrix(angle_type theta,scale_type s,affine_type a,
     m[3] += m[6]*a[2];
     m[4] += m[7]*a[2];
     m[5] += m[8]*a[2];
+}
+
+template<typename intput_type,class angle_type,class scale_type,class affine_type>
+void matrix_to_rotation_scaling_affine(intput_type m,angle_type theta,scale_type s,affine_type a,vdim<3>)
+{
+    typedef typename std::iterator_traits<intput_type>::value_type value_type;
+    value_type Q[9];
+    tipl::mat::inverse(m,tipl::dim<3,3>());
+    tipl::mat::qr_decomposition(m,Q,tipl::dim<3,3>());
+    tipl::mat::inverse_upper(m,tipl::dim<3,3>());
+    tipl::mat::transpose(Q,tipl::dim<3,3>());
+    if(m[0] < 0)
+    {
+        m[0] = -m[0];
+        Q[0] = -Q[0];
+        Q[1] = -Q[1];
+        Q[2] = -Q[2];
+    }
+    if(m[4] < 0)
+    {
+        m[1] = -m[1];
+        m[4] = -m[4];
+        Q[3] = -Q[3];
+        Q[4] = -Q[4];
+        Q[5] = -Q[5];
+    }
+    if(m[8] < 0)
+    {
+        m[2] = -m[2];
+        m[5] = -m[5];
+        m[8] = -m[8];
+        Q[6] = -Q[6];
+        Q[7] = -Q[7];
+        Q[8] = -Q[8];
+    }
+    s[0] = m[0];
+    s[1] = m[4];
+    s[2] = m[8];
+    a[0] = m[1]/m[4];
+    a[1] = m[2]/m[8];
+    a[2] = m[5]/m[8];
+    rotation_matrix_to_angles(Q,theta,tipl::vdim<3>());
 }
 
 template<class output_iter>
