@@ -1422,6 +1422,20 @@ bool inverse(input_iterator iter,dim<2,2>)
     return true;
 }
 
+template<typename input_iterator,typename output_iterator>
+bool inverse(input_iterator iter,output_iterator out,dim<2,2>)
+{
+    typedef typename std::iterator_traits<input_iterator>::value_type value_type;
+    value_type det = determinant(iter,dim<2,2>());
+    if (det+value_type(1) == value_type(1))
+        return false;
+    out[0] = iter[3]/det;
+    out[1] = -iter[1]/det;
+    out[2] = -iter[2]/det;
+    out[3] = iter[0]/det;
+    return true;
+}
+
 template<typename input_iterator>
 bool inverse(input_iterator iter,dim<3,3>)
 {
@@ -1448,6 +1462,35 @@ bool inverse(input_iterator iter,dim<3,3>)
     iter[6] = temp[6]/det;
     iter[7] = temp[7]/det;
     iter[8] = temp[8]/det;
+    return true;
+}
+
+
+template<typename input_iterator,typename output_iterator>
+bool inverse(input_iterator iter,output_iterator out,dim<3,3>)
+{
+    typedef typename std::iterator_traits<input_iterator>::value_type value_type;
+    value_type det = determinant(iter,dim<3,3>());
+    if (det+value_type(1) == value_type(1))
+        return false;
+    out[0] = iter[4]*iter[8]-iter[5]*iter[7];
+    out[1] = iter[2]*iter[7]-iter[1]*iter[8];
+    out[2] = iter[1]*iter[5]-iter[2]*iter[4];
+    out[3] = iter[5]*iter[6]-iter[3]*iter[8];
+    out[4] = iter[0]*iter[8]-iter[2]*iter[6];
+    out[5] = iter[2]*iter[3]-iter[0]*iter[5];
+    out[6] = iter[3]*iter[7]-iter[4]*iter[6];
+    out[7] = iter[1]*iter[6]-iter[0]*iter[7];
+    out[8] = iter[0]*iter[4]-iter[1]*iter[3];
+    out[0] /= det;
+    out[1] /= det;
+    out[2] /= det;
+    out[3] /= det;
+    out[4] /= det;
+    out[5] /= det;
+    out[6] /= det;
+    out[7] /= det;
+    out[8] /= det;
     return true;
 }
 
