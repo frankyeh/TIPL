@@ -811,7 +811,32 @@ public:
         };
         value_type data[12];
     };
-
+public:
+    const value_type& operator[](unsigned int index) const
+    {
+        return data[index];
+    }
+    value_type& operator[](unsigned int index)
+    {
+        return data[index];
+    }
+    value_type* begin(void)
+    {
+        return data;
+    }
+    value_type* end(void)
+    {
+        return data+12;
+    }
+    const value_type* begin(void)const
+    {
+        return data;
+    }
+    const value_type* end(void)	const
+    {
+        return data+12;
+    }
+    size_t size(void) const{return 12;}
 public:
     transformation_matrix(void)
     {
