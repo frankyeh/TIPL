@@ -209,6 +209,12 @@ struct rgb
         g = rhs.g | g;
         b = rhs.b | b;
     }
+    void operator&=(const rgb& rhs)
+    {
+        r = rhs.r & r;
+        g = rhs.g & g;
+        b = rhs.b & b;
+    }
     bool operator==(const rgb& rhs) const
     {
         return color == rhs.color;
