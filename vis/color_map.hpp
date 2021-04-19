@@ -85,7 +85,7 @@ public:
         {
             float findex = float(index)/255.0f;
             for(unsigned char rgb_index = 0;rgb_index < 3;++rgb_index)
-                color[index][rgb_index] = uint8_t((float(to_color[rgb_index])*findex+float(from_color[rgb_index])*(1.0f-findex))/255.0f);
+                color[index][rgb_index] = (float(to_color[rgb_index])*findex+float(from_color[rgb_index])*(1.0f-findex))/255.0f;
         }
     }
     void spectrum(void)
