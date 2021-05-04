@@ -31,7 +31,7 @@ public:
         {
             float findex = float(index)/float(height());
             tipl::rgb color;
-            for(unsigned char rgb_index = 0;rgb_index < 3;++rgb_index)
+            for(unsigned char rgb_index = 0;rgb_index < 4;++rgb_index)
                 color[rgb_index] = uint8_t(float(from_color[rgb_index])*findex+float(to_color[rgb_index])*(1.0f-findex));
             std::fill(begin()+index*width()+1,begin()+(index+1)*width()-1,color);
         }
@@ -84,7 +84,7 @@ public:
         for(unsigned int index = 0;index < 256;++index)
         {
             float findex = float(index)/255.0f;
-            for(unsigned char rgb_index = 0;rgb_index < 3;++rgb_index)
+            for(unsigned char rgb_index = 0;rgb_index < 4;++rgb_index)
                 color[index][rgb_index] = (float(to_color[rgb_index])*findex+float(from_color[rgb_index])*(1.0f-findex))/255.0f;
         }
     }
@@ -128,7 +128,7 @@ public:
     {
         for(unsigned int index = 0;index < 256;++index)
         {
-            for(unsigned char rgb_index = 0;rgb_index < 3;++rgb_index)
+            for(unsigned char rgb_index = 0;rgb_index < 4;++rgb_index)
                 color[index][rgb_index] =
                         uint8_t(std::min<float>(255.0f,(float(to_color[rgb_index])*index+float(from_color[rgb_index])*(255.0f-index))/255.0f));
         }
