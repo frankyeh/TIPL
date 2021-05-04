@@ -1948,11 +1948,11 @@ void eigen_decomposition_sym(input_iterator A,
             value_type I1_3 = (I1/3.0);
             value_type v = I1_3*I1_3-I2/3.0;
             value_type s = I1_3*I1_3*I1_3-I1*I2/6.0+I3/2.0;
-            if(v + 1.0 == 1.0)
+            if(v == value_type(0))
             {
-                std::fill(d,d+3,0.0);
-                std::fill(V,V+9,0.0);
-                V[0] = V[4] = V[8] = 1.0;
+                std::fill(d,d+3,value_type(0));
+                std::fill(V,V+9,value_type(0));
+                V[0] = V[4] = V[8] = value_type(1);
                 return;
             }
             value_type sqrt_v = std::sqrt(v);
