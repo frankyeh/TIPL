@@ -770,6 +770,7 @@ public:
         nif_header2.magic[6] = 32;
         nif_header2.magic[7] = '\n';
         is_nii = true;
+        set_voxel_size(tipl::vector<3>(1.0f,1.0f,1.0f));
     }
 public:
     template<int dimension>
