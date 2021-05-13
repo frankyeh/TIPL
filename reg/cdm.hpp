@@ -325,11 +325,10 @@ float cdm_get_gradient(const image_type& Js,const image_type& It,dis_type& new_d
 {
     float accumulated_r2 = 0.0f;
     unsigned int r_num = 0;
-    const unsigned int window_size = 3;
+    const unsigned int window_size = 2;
     gradient_sobel(Js,new_d);
     Js.for_each_mt([&](typename image_type::value_type,pixel_index<image_type::dimension>& index){
-        if(It[index.index()] == 0.0 ||
-           Js[index.index()] == 0.0 ||
+        if(It[index.index()] == 0.0 || Js[index.index()] == 0.0 ||
            It.geometry().is_edge(index))
         {
             new_d[index.index()] = typename dis_type::value_type();
@@ -351,6 +350,7 @@ float cdm_get_gradient(const image_type& Js,const image_type& It,dis_type& new_d
     });
     return accumulated_r2/float(r_num);
 }
+
 
 // calculate dJ(cJ-I)
 template<typename image_type,typename dis_type>
@@ -464,7 +464,7 @@ void cdm_solve_poisson(tipl::image<dis_type,3>& new_d,terminated_type& terminate
 }
 
 template<typename dist_type,typename value_type>
-void cdm_accumulate_dis(dist_type& d,dist_type& new_d,value_type& theta,float cdm_smoothness)
+void cdm_accumulate_dis(dist_type& d,dist_type& new_d,value_type& theta,float cdm_smoothness,float constrain_length)
 {
     value_type cdm_smoothness2 = value_type(1.0)-cdm_smoothness;
     if(theta == 0.0)
@@ -487,6 +487,30 @@ void cdm_accumulate_dis(dist_type& d,dist_type& new_d,value_type& theta,float cd
        new_d[i] += new_ds[i];
     });
     new_d.swap(d);
+
+
+    unsigned int shift = 1;
+    for(unsigned char dim = 0;dim < dist_type::dimension;++dim)
+    {
+        auto dim_length = d.geometry()[dim];
+        d.for_each_mt([&](tipl::vector<3>& p1,const tipl::pixel_index<3>& pos)
+        {
+            if(p1[dim] > 0.0f && pos[dim] + 1 < int(dim_length))
+            {
+                auto& v1 = p1[dim];
+                auto& v2 = d[pos.index()+shift][dim];
+                auto dis = v2-v1;
+                auto abs_dis = std::fabs(dis);
+                if(abs_dis > constrain_length)
+                {
+                    dis *= 0.5f*(abs_dis-constrain_length)/abs_dis;
+                    v1 += dis;
+                    v2 -= dis;
+                }
+            }
+        });
+        shift *= dim_length;
+    }
 }
 
 template<typename r_type>
@@ -507,6 +531,14 @@ bool cdm_improved(r_type& r,r_type& iter)
     return true;
 }
 
+struct cdm_param{
+    float resolution = 2.0f;
+    float cdm_smoothness = 0.3f;
+    float contraint = 0.5f;
+    unsigned int iterations = 60;
+    unsigned int min_dimension = 32;
+};
+
 /*
  * cdm_smoothness 0.1: more smooth 0.9: less smooth
  */
@@ -515,9 +547,7 @@ float cdm(const image_type& It,
             const image_type& Is,
             dist_type& d,// displacement field
             terminate_type& terminated,
-            float resolution = 2.0f,
-            float cdm_smoothness = 0.3f,
-            unsigned int iterations = 60)
+            cdm_param param = cdm_param())
 {
     if(It.geometry() != Is.geometry())
         throw "Inconsistent image dimension";
@@ -525,16 +555,19 @@ float cdm(const image_type& It,
     d.resize(It.geometry());
 
     // multi resolution
-    if (*std::min_element(geo.begin(),geo.end()) > 16)
+    if (*std::min_element(geo.begin(),geo.end()) > param.min_dimension)
     {
         //downsampling
         image_type rIs,rIt;
         downsample_with_padding(It,rIt);
         downsample_with_padding(Is,rIs);
-        float r = cdm(rIt,rIs,d,terminated,resolution/2.0,cdm_smoothness,iterations*2);
+        cdm_param param2 = param;
+        param2.resolution /= 2.0;
+        param2.iterations *= 2;
+        float r = cdm(rIt,rIs,d,terminated,param2);
         upsample_with_padding(d,d,geo);
         d *= 2.0f;
-        if(resolution > 1.0f)
+        if(param.resolution > 1.0f)
             return r;
     }
     image_type Js;// transformed I
@@ -542,7 +575,7 @@ float cdm(const image_type& It,
     float theta = 0.0;
 
     std::deque<float> r,iter;
-    for (unsigned int index = 0;index < iterations && !terminated;++index)
+    for (unsigned int index = 0;index < param.iterations && !terminated;++index)
     {
         compose_displacement(Is,d,Js);
         // dJ(cJ-I)
@@ -552,7 +585,7 @@ float cdm(const image_type& It,
             break;
         // solving the poisson equation using Jacobi method
         cdm_solve_poisson(new_d,terminated);
-        cdm_accumulate_dis(d,new_d,theta,cdm_smoothness);
+        cdm_accumulate_dis(d,new_d,theta,param.cdm_smoothness,param.contraint);
     }
     return r.front();
 }
@@ -581,12 +614,10 @@ void cdm_pre(image_type& It,image_type& It2,
 }
 template<typename image_type,typename dist_type,typename terminate_type>
 float cdm2(const image_type& It,const image_type& It2,
-            const image_type& Is,const image_type& Is2,
-            dist_type& d,// displacement field
-            terminate_type& terminated,
-            float resolution = 2.0f,
-            float cdm_smoothness = 0.3f,
-            unsigned int iterations = 60)
+           const image_type& Is,const image_type& Is2,
+           dist_type& d,// displacement field
+           terminate_type& terminated,
+           cdm_param param = cdm_param())
 {
     if(It.geometry() != It2.geometry() ||
        It.geometry() != Is.geometry() ||
@@ -595,7 +626,7 @@ float cdm2(const image_type& It,const image_type& It2,
     auto geo = It.geometry();
     d.resize(It.geometry());
     // multi resolution
-    if (*std::min_element(geo.begin(),geo.end()) > 16)
+    if (*std::min_element(geo.begin(),geo.end()) > param.min_dimension)
     {
         //downsampling
         image_type rIs,rIt,rIs2,rIt2;
@@ -603,10 +634,14 @@ float cdm2(const image_type& It,const image_type& It2,
         downsample_with_padding(Is,rIs);
         downsample_with_padding(It2,rIt2);
         downsample_with_padding(Is2,rIs2);
-        float r = cdm2(rIt,rIt2,rIs,rIs2,d,terminated,resolution/2.0f,cdm_smoothness+0.05,iterations*2);
+        cdm_param param2 = param;
+        param2.resolution /= 2.0;
+        param2.iterations *= 2;
+        param2.cdm_smoothness += 0.05;
+        float r = cdm2(rIt,rIt2,rIs,rIs2,d,terminated,param2);
         upsample_with_padding(d,d,geo);
         d *= 2.0f;
-        if(resolution > 1.0f)
+        if(param.resolution > 1.0f)
             return r;
     }
     image_type Js,Js2;// transformed I
@@ -614,7 +649,7 @@ float cdm2(const image_type& It,const image_type& It2,
     float theta = 0.0;
 
     std::deque<float> r,iter;
-    for (unsigned int index = 0;index < iterations && !terminated;++index)
+    for (unsigned int index = 0;index < param.iterations && !terminated;++index)
     {
         compose_displacement(Is,d,Js);
         compose_displacement(Is2,d,Js2);
@@ -626,10 +661,12 @@ float cdm2(const image_type& It,const image_type& It2,
         add(new_d,new_d2);
         // solving the poisson equation using Jacobi method
         cdm_solve_poisson(new_d,terminated);
-        cdm_accumulate_dis(d,new_d,theta,cdm_smoothness);
+        cdm_accumulate_dis(d,new_d,theta,param.cdm_smoothness,param.contraint);
     }
     return r.front();
 }
+
+
 
 
 }// namespace reg
