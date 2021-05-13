@@ -833,7 +833,9 @@ void normalize(ImageType& image,float upper_limit = 255)
 {
     if(image.empty())
         return;
-    multiply_constant(image.begin(),image.end(),upper_limit/(*std::max_element(image.begin(),image.end())));
+    auto m = (*std::max_element(image.begin(),image.end()));
+    if( m != 0)
+        multiply_constant(image.begin(),image.end(),upper_limit/m);
 }
 template<class ImageType>
 void normalize_abs(ImageType& image,float upper_limit = 1.0f)
