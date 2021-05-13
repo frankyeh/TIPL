@@ -131,7 +131,7 @@ void threshold(const ImageType& image,LabelImageType& out,typename ImageType::va
     typename ImageType::const_iterator end = image.end();
     typename LabelImageType::iterator out_iter = out.begin();
     for(; iter!=end; ++iter,++out_iter)
-        if(*iter >= threshold_value)
+        if(*iter > threshold_value)
             *out_iter = foreground;
         else
             *out_iter = background;
