@@ -130,10 +130,10 @@ inline bool decode_1_2_840_10008_1_2_4_70(unsigned char *buf_ptr, long buf_size,
         return false;
     //next: read header
     long buf_pos = 2; //Skip initial 0xFFD8, begin with third byte
-    unsigned char btS1, btS2, SOSss, SOSse, SOSahal, SOSpttrans, btMarkerType, SOSns = 0x00; //tag
+    unsigned char btS1, SOSss, SOSse, SOSahal, SOSpttrans, btMarkerType, SOSns = 0x00; //tag
     uint8_t SOFnf, SOFprecision;
     uint16_t SOFydim, SOFxdim; //, lRestartSegmentSz;
-    long SOFarrayPos, SOSarrayPos;
+    long SOSarrayPos;
     int lnHufTables = 0;
     const int kmaxFrames = 4;
     struct HufTables l[kmaxFrames+1];
@@ -160,7 +160,6 @@ inline bool decode_1_2_840_10008_1_2_4_70(unsigned char *buf_ptr, long buf_size,
             SOFydim = dcm_read_word(buf_ptr, &buf_pos);
             SOFxdim = dcm_read_word(buf_ptr, &buf_pos);
             SOFnf = buf_ptr[buf_pos++];
-            SOFarrayPos = buf_pos;
             buf_pos = (lSegmentEnd);
             if (btMarkerType != 0xC3) { //lImgTypeC3 = true;
                 printf("This JPEG decoder can only decompress lossless JPEG ITU-T81 images (SoF must be 0XC3, not %#02X)\n",btMarkerType );
@@ -199,7 +198,7 @@ inline bool decode_1_2_840_10008_1_2_4_70(unsigned char *buf_ptr, long buf_size,
                             btS1 = buf_ptr[buf_pos++];
                             l[lFrameCount].HufVal[lIncY] = btS1;
                             l[lFrameCount].MaxHufVal = btS1;
-                            if ((btS1 >= 0) && (btS1 <= 16))
+                            if (btS1 <= 16)
                                 l[lFrameCount].HufSz[lIncY] = lInc;
                             else {
                                 printf("Huffman size array corrupted.\n");
@@ -241,7 +240,6 @@ inline bool decode_1_2_840_10008_1_2_4_70(unsigned char *buf_ptr, long buf_size,
             if (SOSns > 0) {
                 for (int lInc = 1; lInc <= SOSns; lInc++) {
                     btS1 = buf_ptr[buf_pos++]; //component identifier 1=Y,2=Cb,3=Cr,4=I,5=Q
-                    btS2 = buf_ptr[buf_pos++]; //horizontal and vertical sampling factors
                 }
             }
             SOSss = buf_ptr[buf_pos++]; //predictor selection B.3
@@ -970,7 +968,7 @@ public:
 class dicom
 {
 private:
-    std::auto_ptr<std::ifstream> input_io;
+    std::shared_ptr<std::ifstream> input_io;
     unsigned int image_size = 0;
     transfer_syntax_type transfer_syntax;
 public:
