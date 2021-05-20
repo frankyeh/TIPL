@@ -332,7 +332,7 @@ public:
     bool is_nii2;
     std::string error;
 private:
-    std::auto_ptr<input_interface> input_stream;
+    std::shared_ptr<input_interface> input_stream;
     bool big_endian;
 private:
     std::vector<char> rgb_write_buf;
@@ -480,7 +480,7 @@ public:
         input_stream.reset(new input_interface);
         if (!input_stream->open(pfile_name))
         {
-            input_stream.reset(0);
+            input_stream.reset();
             error = "Cannot read the file. No reading privilege or the file does not exist.";
             return false;
         }
@@ -555,7 +555,7 @@ public:
                 input_stream.reset(new input_interface);
                 if(!input_stream->open(data_file.c_str()))
                 {
-                    input_stream.reset(0);
+                    input_stream.reset();
                     error = "Failed to open the img file.";
                     return false;
                 }
