@@ -114,7 +114,7 @@ void fast_marching(const ImageType& gradient_image,TimeType& pass_time,IndexType
 
     while(!narrow_band.empty())
     {
-        std::auto_ptr<narrow_band_point> active_point(narrow_band.front());
+        std::shared_ptr<narrow_band_point> active_point(narrow_band.front());
         std::pop_heap(narrow_band.begin(),narrow_band.end(),imp::fast_marching_T_comp<narrow_band_point>());
         narrow_band.pop_back();
         get_connected_neighbors(active_point->second,gradient_image.geometry(),neighbor_points);
