@@ -76,7 +76,7 @@ inline void get_neighbors(const pixel_index<2>& index,const geometry<2>& geo,
     iterations.reserve(8);
     bool has_left = index.x() >= 1;
     bool has_right = index.x()+1 < geo.width();
-    int x_left,x_right;
+    int x_left(0),x_right(0);
     if(has_left)
         x_left = index.x()-1;
     if(has_right)
