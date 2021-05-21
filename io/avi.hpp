@@ -134,7 +134,7 @@ struct riff_header {
 };
 
 class avi {
-    std::auto_ptr<std::ofstream> out;
+    std::shared_ptr<std::ofstream> out;
     std::vector<unsigned int> offsets;
     std::vector<riff_header> riff;
     void write(unsigned int value) {
@@ -148,7 +148,7 @@ private:
     unsigned int number_of_frames_pos;
     unsigned int data_length_pos;
 public:
-    avi(void):out(0),frame_count(0)
+    avi(void):frame_count(0)
     {
     }
     bool open(const char *filename, unsigned int width, unsigned int height,
