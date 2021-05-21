@@ -130,10 +130,9 @@ inline bool decode_1_2_840_10008_1_2_4_70(unsigned char *buf_ptr, long buf_size,
         return false;
     //next: read header
     long buf_pos = 2; //Skip initial 0xFFD8, begin with third byte
-    unsigned char btS1, SOSss, SOSahal, SOSpttrans, btMarkerType, SOSns = 0x00; //tag
-    uint8_t SOFnf, SOFprecision;
-    uint16_t SOFydim, SOFxdim; //, lRestartSegmentSz;
-    long SOSarrayPos;
+    unsigned char btS1, SOSss(0), SOSahal, SOSpttrans, btMarkerType, SOSns = 0x00; //tag
+    uint8_t SOFnf(0), SOFprecision(0);
+    uint16_t SOFydim(0), SOFxdim(0); //, lRestartSegmentSz;
     int lnHufTables = 0;
     const int kmaxFrames = 4;
     struct HufTables l[kmaxFrames+1];
@@ -236,7 +235,6 @@ inline bool decode_1_2_840_10008_1_2_4_70(unsigned char *buf_ptr, long buf_size,
         } else if (btMarkerType == 0xDA) {  //if DRI marker else if read Start of Scan (SOS) marker
             SOSns = buf_ptr[buf_pos++];
             //if Ns = 1 then NOT interleaved, else interleaved: see B.2.3
-            SOSarrayPos = buf_pos;
             if (SOSns > 0) {
                 for (int lInc = 1; lInc <= SOSns; lInc++) {
                     btS1 = buf_ptr[buf_pos++]; //component identifier 1=Y,2=Cb,3=Cr,4=I,5=Q
