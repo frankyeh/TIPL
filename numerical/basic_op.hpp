@@ -1059,7 +1059,7 @@ void change_endian(type& value)
     type data = value;
     unsigned char* temp = (unsigned char*)&value;
     unsigned char* pdata = ((unsigned char*)&data)+sizeof(type)-1;
-    for (char i = 0; i < sizeof(type); ++i,--pdata)
+    for (unsigned char i = 0; i < sizeof(type); ++i,--pdata)
         temp[i] = *pdata;
 }
 inline void change_endian(unsigned short& data)
@@ -1097,7 +1097,7 @@ inline void change_endian(float& data)
 template<class datatype>
 inline void change_endian(datatype* data,size_t count)
 {
-    for (int index = 0; index < count; ++index)
+    for (size_t index = 0; index < count; ++index)
         change_endian(data[index]);
 }
 
