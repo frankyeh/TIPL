@@ -429,8 +429,8 @@ public:
     march_cube(const march_cube& rhs):
             points_map(rhs.points_map),
             point_list(rhs.point_list),
-            tri_list(rhs.tri_list),
-            normal_list(rhs.normal_list)
+            normal_list(rhs.normal_list),
+            tri_list(rhs.tri_list)
     {
     }
     template<typename ImageType>
