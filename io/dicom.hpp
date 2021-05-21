@@ -125,12 +125,12 @@ inline uint16_t dcm_read_word(unsigned char *buf_ptr, long *buf_pos) {
 inline bool decode_1_2_840_10008_1_2_4_70(unsigned char *buf_ptr, long buf_size, std::vector<unsigned char>& buf,
                                        int *dimX, int *dimY, int *bits, int *frames)
 {
-    unsigned char *lImgRA8 = 0;
+    unsigned char *lImgRA8 = nullptr;
     if ((buf_ptr[0] != 0xFF) || (buf_ptr[1] != 0xD8) || (buf_ptr[2] != 0xFF))
         return false;
     //next: read header
     long buf_pos = 2; //Skip initial 0xFFD8, begin with third byte
-    unsigned char btS1, SOSss, SOSse, SOSahal, SOSpttrans, btMarkerType, SOSns = 0x00; //tag
+    unsigned char btS1, SOSss, SOSahal, SOSpttrans, btMarkerType, SOSns = 0x00; //tag
     uint8_t SOFnf, SOFprecision;
     uint16_t SOFydim, SOFxdim; //, lRestartSegmentSz;
     long SOSarrayPos;
@@ -240,10 +240,11 @@ inline bool decode_1_2_840_10008_1_2_4_70(unsigned char *buf_ptr, long buf_size,
             if (SOSns > 0) {
                 for (int lInc = 1; lInc <= SOSns; lInc++) {
                     btS1 = buf_ptr[buf_pos++]; //component identifier 1=Y,2=Cb,3=Cr,4=I,5=Q
+                    buf_pos++; //horizontal and vertical sampling factors
                 }
             }
             SOSss = buf_ptr[buf_pos++]; //predictor selection B.3
-            SOSse = buf_ptr[buf_pos++];
+            buf_pos++;
             SOSahal = buf_ptr[buf_pos++]; //lower 4bits= pointtransform
             SOSpttrans = SOSahal & 16;
             buf_pos = (lSegmentEnd);
