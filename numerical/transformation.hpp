@@ -495,7 +495,6 @@ void rotation_matrix_to_rotation_angle(input_rotation_iter rotation_matrix,outpu
 template<class input_rotation_iter,class input_shift_iter,class output_iter>
 void create_affine_transformation_matrix(input_rotation_iter rotation_scaling,input_shift_iter shift,output_iter m,vdim<3>)
 {
-    typedef typename std::iterator_traits<output_iter>::value_type value_type;
     std::copy(rotation_scaling,rotation_scaling+3,m);
     std::copy(rotation_scaling+3,rotation_scaling+6,m+4);
     std::copy(rotation_scaling+6,rotation_scaling+9,m+8);
