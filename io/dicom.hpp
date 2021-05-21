@@ -130,7 +130,7 @@ inline bool decode_1_2_840_10008_1_2_4_70(unsigned char *buf_ptr, long buf_size,
         return false;
     //next: read header
     long buf_pos = 2; //Skip initial 0xFFD8, begin with third byte
-    unsigned char btS1, SOSss(0), SOSahal, SOSpttrans, btMarkerType, SOSns = 0x00; //tag
+    unsigned char btS1, SOSss(0), SOSahal, SOSpttrans(0), btMarkerType, SOSns = 0x00; //tag
     uint8_t SOFnf(0), SOFprecision(0);
     uint16_t SOFydim(0), SOFxdim(0); //, lRestartSegmentSz;
     int lnHufTables = 0;
