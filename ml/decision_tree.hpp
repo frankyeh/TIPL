@@ -72,8 +72,8 @@ private:
                       (p_y1_x1 == 0 ? 0.0 : p_y1_x1*std::log(p_y1_x1)));
     }
 private:
-    std::auto_ptr<decision_tree<attribute_type,classification_type> > left_tree;
-    std::auto_ptr<decision_tree<attribute_type,classification_type> > right_tree;
+    std::shared_ptr<decision_tree<attribute_type,classification_type> > left_tree;
+    std::shared_ptr<decision_tree<attribute_type,classification_type> > right_tree;
 private:
     size_t attribute_index;
     double param;
