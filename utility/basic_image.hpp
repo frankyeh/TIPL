@@ -555,7 +555,7 @@ public:
     static const unsigned int dimension = dim;
 public:
     pointer_image(void) {}
-    pointer_image(const pointer_image& rhs){operator=(rhs);}
+    pointer_image(const pointer_image& rhs):base_type(){operator=(rhs);}
     template<class rhs_storage_type>
     pointer_image(image<pixel_type,dim,rhs_storage_type>& rhs):base_type(&*rhs.begin(),rhs.geometry()) {}
     pointer_image(pixel_type* pointer,const tipl::geometry<dim>& geo_):base_type(pointer,geo_) {}
