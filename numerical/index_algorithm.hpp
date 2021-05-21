@@ -126,7 +126,7 @@ inline void get_neighbors(const pixel_index<3>& index,const geometry<3>& geo,
     bool has_right = index.x()+1 < geo.width();
     bool has_top = index.y() >= 1;
     bool has_bottom = index.y()+1 < geo.height();
-    int x_left,x_right,y_top,y_bottom;
+    int x_left(0),x_right(0),y_top(0),y_bottom(0);
     if(has_left)
         x_left = index.x()-1;
     if(has_right)
