@@ -106,7 +106,7 @@ public:
         std::fill(Dt.begin(),Dt.end(),1.0/((double)sample_size));
         for (size_t t = 0;t < max_iteration;++t)
         {
-            std::auto_ptr<method_type> ht(new method_type);
+            std::shared_ptr<method_type> ht(new method_type);
             ht->learn(attributes_from,attributes_to,attribute_dimension,Dt.begin(),classifications_from);
             std::vector<unsigned char> correct_predict(sample_size);
             // get the classification result 1 for correc predict, 0 otherwise
