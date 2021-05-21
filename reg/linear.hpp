@@ -275,16 +275,16 @@ public:
     const vs_type& to_vs;
     param_type& param;
     fun_type fun;
-    unsigned int cur_dim;
-    unsigned int count;
+    unsigned int cur_dim = 0;
+    unsigned int count = 0;
+public:
     typedef typename fun_type::value_type value_type;
     typedef typename param_type::value_type param_value_type;
 public:
     fun_adoptor(const image_type& from_,const vs_type& from_vs_,
                 const image_type& to_,const vs_type& to_vs_,param_type& param_):
-        from(from_),from_vs(from_vs_),
-        to(to_),to_vs(to_vs_),
-        param(param_),count(0),cur_dim(0){}
+        from(from_),to(to_),from_vs(from_vs_),to_vs(to_vs_),
+        param(param_){}
     float operator()(const param_type& new_param)
     {
         transform_type affine(new_param);
@@ -323,7 +323,6 @@ void get_bound(const image_type1& from,const image_type2& to,
                transform_type& lower_trans,
                reg_type type,const float* bound = reg_bound)
 {
-    typedef typename transform_type::value_type value_type;
     const unsigned int dimension = image_type1::dimension;
     upper_trans = trans;
     lower_trans = trans;
