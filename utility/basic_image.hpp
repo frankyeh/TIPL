@@ -579,11 +579,10 @@ public:
     static const unsigned int dimension = dim;
 public:
     const_pointer_image(void) {}
-    const_pointer_image(const const_pointer_image& rhs)
+    const_pointer_image(const const_pointer_image& rhs):base_type()
     {
         base_type::data = rhs.data;
         base_type::geo = rhs.geometry();
-
     }
     template<class rhs_storage_type>
     const_pointer_image(const image<pixel_type,dim,rhs_storage_type>& rhs):base_type(&*rhs.begin(),rhs.geometry()) {}
