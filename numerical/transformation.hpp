@@ -910,8 +910,8 @@ public:
                           const geo_type& to,
                           const vs_type& to_vs)
     {
-        value_type R[9],iR[9];
-        std::copy(sr,sr+9,R);
+        tipl::matrix<3,3,float> R,iR;
+        std::copy(sr,sr+9,R.begin());
 
         value_type t[3];
         t[0] = shift[0]-to[0]*value_type(0.5);
@@ -950,11 +950,11 @@ public:
         R[6] /= from_vs[0];
         R[7] /= from_vs[1];
         R[8] /= from_vs[2];
-        tipl::mat::inverse(R,iR,tipl::dim<3,3>());
+        iR = tipl::inverse(R);
         rb.translocation[0] = (iR[0]*t[0]+iR[1]*t[1]+iR[2]*t[2])/from_vs[0]+from[0]*value_type(0.5);
         rb.translocation[1] = (iR[3]*t[0]+iR[4]*t[1]+iR[5]*t[2])/from_vs[1]+from[1]*value_type(0.5);
         rb.translocation[2] = (iR[6]*t[0]+iR[7]*t[1]+iR[8]*t[2])/from_vs[2]+from[2]*value_type(0.5);
-        matrix_to_rotation_scaling_affine(R,rb.rotation,rb.scaling,rb.affine,vdim<dimension>());
+        matrix_to_rotation_scaling_affine(R.begin(),rb.rotation,rb.scaling,rb.affine,vdim<dimension>());
     }
     template<typename other_value_type>
     const transformation_matrix<value_type>& operator=(const transformation_matrix<other_value_type>& rhs)
