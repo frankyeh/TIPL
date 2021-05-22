@@ -444,7 +444,6 @@ struct interpolation<weighting_function,3>
     template<class VTorType>
     bool get_location(const geometry<3>& geo,const VTorType& location)
     {
-        float p[3],n[3];
         float x = location[0];
         float y = location[1];
         float z = location[2];
@@ -453,15 +452,19 @@ struct interpolation<weighting_function,3>
         float fx = std::floor(x);
         float fy = std::floor(y);
         float fz = std::floor(z);
-        int64_t ix = fx;
-        int64_t iy = fy;
-        int64_t iz = fz;
+        int64_t ix = int64_t(fx);
+        int64_t iy = int64_t(fy);
+        int64_t iz = int64_t(fz);
         if (ix + 1 >= geo[0] || iy + 1 >= geo[1] || iz + 1 >= geo[2])
             return false;
-        p[1] = y-fy;
-        p[0] = x-fx;
-        p[2] = z-fz;
-        int64_t wh = geo.plane_size();
+        float p0 = x-fx;
+        float p1 = y-fy;
+        float p2 = z-fz;
+        float n0 = 1.0f-p0;
+        float n1 = 1.0f-p1;
+        float n2 = 1.0f-p2;
+
+        int64_t wh = int64_t(geo.plane_size());
         dindex[0] = iz*wh + iy*geo[0] + ix;
         dindex[1] = dindex[0] + 1;
         dindex[2] = dindex[0] + geo[0];
@@ -471,33 +474,29 @@ struct interpolation<weighting_function,3>
         dindex[6] = dindex[2] + wh;
         dindex[7] = dindex[3] + wh;
 
-        n[0] = (float)1.0-p[0];
-        n[1] = (float)1.0-p[1];
-        n[2] = (float)1.0-p[2];
+        weighting(p0);
+        weighting(p1);
+        weighting(p2);
+        weighting(n0);
+        weighting(n1);
+        weighting(n2);
 
-        weighting(p[0]);
-        weighting(p[1]);
-        weighting(p[2]);
-        weighting(n[0]);
-        weighting(n[1]);
-        weighting(n[2]);
-
-        ratio[0] = n[0]*n[1];
-        ratio[1] = p[0]*n[1];
-        ratio[2] = n[0]*p[1];
-        ratio[3] = p[0]*p[1];
+        ratio[0] = n0*n1;
+        ratio[1] = p0*n1;
+        ratio[2] = n0*p1;
+        ratio[3] = p0*p1;
         ratio[4] = ratio[0];
         ratio[5] = ratio[1];
         ratio[6] = ratio[2];
         ratio[7] = ratio[3];
-        ratio[0] *= n[2];
-        ratio[1] *= n[2];
-        ratio[2] *= n[2];
-        ratio[3] *= n[2];
-        ratio[4] *= p[2];
-        ratio[5] *= p[2];
-        ratio[6] *= p[2];
-        ratio[7] *= p[2];
+        ratio[0] *= n2;
+        ratio[1] *= n2;
+        ratio[2] *= n2;
+        ratio[3] *= n2;
+        ratio[4] *= p2;
+        ratio[5] *= p2;
+        ratio[6] *= p2;
+        ratio[7] *= p2;
         return true;
     }
 
