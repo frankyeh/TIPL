@@ -221,13 +221,13 @@ public:
         if (!in)
             return false;
 
-		try{
-			std::vector<unsigned char> allocator(get_total_size(type));
-			allocator.swap(data_buf);
-		}
-		catch(...)
-		{
-			return false;
+        try{
+            std::vector<unsigned char> allocator(get_total_size(type));
+            allocator.swap(data_buf);
+        }
+        catch(...)
+        {
+            return false;
         }
         data_ptr = &*data_buf.begin();
         in.read(reinterpret_cast<char*>(data_ptr),get_total_size(type));
@@ -549,6 +549,8 @@ public:
     template<typename container_type>
     bool write(const char* name_,const container_type& data,uint32_t d)
     {
+        if(data.empty())
+            return false;
         return write(name_,&data[0],d,uint32_t((data.end()-data.begin())/d));
     }
     bool write(const char* name_,const std::string text)
