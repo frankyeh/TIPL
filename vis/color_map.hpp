@@ -70,7 +70,7 @@ public:
     }
 };
 
-struct color_map{
+class color_map{
     std::vector<tipl::vector<3,float> > color;
 public:
     color_map(void):color(256){}
@@ -80,18 +80,16 @@ public:
     tipl::vector<3,float> max_color(void)const{return color.back();}
     void two_color(tipl::rgb from_color,tipl::rgb to_color)
     {
-        color.resize(256);
-        for(unsigned int index = 0;index < 256;++index)
+        for(unsigned int index = 0;index < color.size();++index)
         {
             float findex = float(index)/255.0f;
-            for(unsigned char rgb_index = 0;rgb_index < 4;++rgb_index)
+            for(unsigned char rgb_index = 0;rgb_index < 3;++rgb_index)
                 color[index][rgb_index] = (float(to_color[rgb_index])*findex+float(from_color[rgb_index])*(1.0f-findex))/255.0f;
         }
     }
     void spectrum(void)
     {
-        color.resize(256);
-        for(unsigned int index = 0;index < 256;++index)
+        for(unsigned int index = 0;index < color.size();++index)
         {
             color[index][0] = float(tipl::color_spectrum_value(128+64,uint8_t(index)))/255.0f;
             color[index][1] = float(tipl::color_spectrum_value(128,uint8_t(index)))/255.0f;
@@ -116,7 +114,7 @@ public:
 };
 
 
-struct color_map_rgb{
+class color_map_rgb{
     std::vector<tipl::rgb> color;
 public:
     color_map_rgb(void):color(256){}
@@ -163,7 +161,7 @@ public:
 };
 
 template<class value_type>
-struct value_to_color{
+class value_to_color{
 private:
     value_type min_value,max_value,r;
     tipl::color_map_rgb map;
