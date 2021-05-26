@@ -310,7 +310,7 @@ private:
     }
 
 public:
-    mat_read_base(void){}
+    mat_read_base(void):in(new input_interface){}
     mat_read_base(const mat_read_base& rhs){copy(rhs);}
     const mat_read_base& operator=(const mat_read_base& rhs)
     {
@@ -404,18 +404,17 @@ public:
     }
 
 public:
-
+    std::shared_ptr<input_interface> in;
     template<typename char_type>
     bool load_from_file(const char_type* file_name,unsigned int max_count,std::string stop_name)
     {
-        input_interface in;
-        if(!in.open(file_name))
+        if(!in->open(file_name))
             return false;
         dataset.clear();
-        for(unsigned int i = 0;i < max_count && in;++i)
+        for(unsigned int i = 0;i < max_count && *in;++i)
         {
             std::shared_ptr<mat_matrix> matrix(new mat_matrix);
-            if (!matrix->read(in))
+            if (!matrix->read(*in.get()))
                 break;
             dataset.push_back(matrix);
             if(dataset.back()->get_name() == stop_name)
@@ -428,14 +427,13 @@ public:
     template<typename char_type>
     bool load_from_file(const char_type* file_name)
     {
-        input_interface in;
-        if(!in.open(file_name))
+        if(!in->open(file_name))
             return false;
         dataset.clear();
-        while(in)
+        while(*in)
         {
             std::shared_ptr<mat_matrix> matrix(new mat_matrix);
-            if (!matrix->read(in))
+            if (!matrix->read(*in.get()))
                 break;
             dataset.push_back(matrix);
         }
@@ -576,7 +574,7 @@ public:
     }
 
     template<typename image_type>
-    mat_write_base& operator<<(image_type& source)
+    mat_write_base& operator<<(const image_type& source)
     {
         load_from_image(source);
         return *this;
