@@ -331,8 +331,9 @@ public:
     bool is_nii; // backward compatibility to ANALYE 7.5
     bool is_nii2;
     std::string error;
-private:
+public:
     std::shared_ptr<input_interface> input_stream;
+private:
     bool big_endian;
 private:
     std::vector<char> rgb_write_buf;
@@ -477,10 +478,8 @@ public:
     template<class char_type>
     bool load_from_file(const char_type* pfile_name)
     {
-        input_stream.reset(new input_interface);
         if (!input_stream->open(pfile_name))
         {
-            input_stream.reset();
             error = "Cannot read the file. No reading privilege or the file does not exist.";
             return false;
         }
@@ -555,7 +554,6 @@ public:
                 input_stream.reset(new input_interface);
                 if(!input_stream->open(data_file.c_str()))
                 {
-                    input_stream.reset();
                     error = "Failed to open the img file.";
                     return false;
                 }
@@ -630,7 +628,16 @@ public:
     {
         return nif_header2.dim[index];
     }
-
+    bool select_volume(size_t i)
+    {
+        if(!(*input_stream))
+            return false;
+        const size_t byte_per_pixel = nif_header2.bitpix/8;
+        tipl::geometry<3> geo(nif_header2.dim+1);
+        size_t volume_size = byte_per_pixel*geo.size();
+        input_stream->seek(size_t(nif_header.vox_offset)+i*volume_size);
+        return (*input_stream);
+    }
     template<class geometry_type>
     void set_dim(const geometry_type& geo)
     {
@@ -731,7 +738,7 @@ public:
         return nif_header2.bitpix;
     }
 public:
-    nifti_base(void)
+    nifti_base(void):input_stream(new input_interface)
     {
         init_header();
     }
