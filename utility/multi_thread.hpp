@@ -18,6 +18,29 @@ class time
     std::chrono::high_resolution_clock::time_point t1, t2;
 };
 
+class estimate_time{
+    std::string name;
+    size_t n = 0;
+    double time_total = 0.0;
+    std::chrono::high_resolution_clock::time_point s;
+public:
+    estimate_time(const char* name_):name(name_){}
+    ~estimate_time()
+    {
+        std::cout << name.c_str() << time_total/double(n) << " microseconds" << std::endl;
+    }
+    void start(void)
+    {
+        s = std::chrono::high_resolution_clock::now();
+    }
+    void stop(void)
+    {
+        auto stop = std::chrono::high_resolution_clock::now();
+        time_total += std::chrono::duration_cast<std::chrono::microseconds>(stop-s).count();
+        ++n;
+    }
+};
+
 template <class T,class Func>
 void par_for(T size, Func f, int thread_count = std::thread::hardware_concurrency())
 {
