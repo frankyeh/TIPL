@@ -630,11 +630,10 @@ public:
     }
     bool select_volume(size_t i)
     {
-        if(!(*input_stream))
-            return false;
         const size_t byte_per_pixel = nif_header2.bitpix/8;
         tipl::geometry<3> geo(nif_header2.dim+1);
         size_t volume_size = byte_per_pixel*geo.size();
+        input_stream->clear();
         input_stream->seek(size_t(nif_header.vox_offset)+i*volume_size);
         return (*input_stream);
     }
