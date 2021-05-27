@@ -76,7 +76,8 @@ private:
     std::string name;
 private:
     std::vector<unsigned char> data_buf;
-    void* data_ptr; // for read
+    void* data_ptr = nullptr; // for read
+    size_t delay_read_pos = 0;
 private:
     void copy(const mat_matrix& rhs)
     {
@@ -95,8 +96,8 @@ private:
         return size_t(rows)*size_t(cols)*size_t(element_size_array[(ty%100)/10]);
     }
 public:
-    mat_matrix(void):type(0),rows(0),cols(0),namelen(0),data_ptr(nullptr){}
-    mat_matrix(const std::string& name_):type(0),rows(0),cols(0),namelen(uint32_t(name_.size()+1)),name(name_),data_ptr(nullptr) {}
+    mat_matrix(void):type(0),rows(0),cols(0),namelen(0){}
+    mat_matrix(const std::string& name_):type(0),rows(0),cols(0),namelen(uint32_t(name_.size()+1)),name(name_){}
     mat_matrix(const mat_matrix& rhs){copy(rhs);}
     const mat_matrix& operator=(const mat_matrix& rhs)
     {
@@ -156,12 +157,16 @@ public:
             break;
         }
     }
+    bool type_compatible(unsigned int get_type) const
+    {
+        // same type or unsigned short v.s. short
+        return get_type == type || (type == 40 && get_type == 30) || (type == 30 && get_type == 40);
+    }
     const void* get_data(unsigned int get_type)
     {
         if(get_type != 0 && get_type != 10 && get_type != 20 && get_type != 30 && get_type != 40 && get_type != 50)
             return nullptr;
-        // same type or unsigned short v.s. short
-        if (get_type == type || (type == 40 && get_type == 30) || (type == 30 && get_type == 40))
+        if (type_compatible(get_type))
             return data_ptr;
         std::vector<unsigned char> allocator(get_total_size(get_type));
         void* new_data = &*allocator.begin();
@@ -203,9 +208,21 @@ public:
     {
         return name;
     }
-    template<typename stream_type>
-    bool read(stream_type& in)
+    bool has_delay_read(void) const
     {
+        return delay_read_pos;
+    }
+    template<typename stream_type>
+    bool read(stream_type& in,bool delayed_read = false)
+    {
+        // second time read the buffer
+        if(delay_read_pos)
+        {
+            in.clear();
+            in.seek(delay_read_pos);
+            delay_read_pos = 0;
+            goto read;
+        }
         in.read(buf,sizeof(buf));
         if (!in || type > 100 || type % 10 > 1)
             return false;
@@ -213,14 +230,27 @@ public:
 	    type = 0;
         if(!in || namelen == 0 || namelen > 255)
             return false;
-        std::vector<char> buffer(namelen+1);
-        in.read(reinterpret_cast<char*>(&*buffer.begin()),namelen);
-        if(rows*cols == 0)
-            return false;
-        name = &*buffer.begin();
+        {
+            std::vector<char> buffer(namelen+1);
+            in.read(reinterpret_cast<char*>(&*buffer.begin()),namelen);
+            if(rows*cols == 0)
+                return false;
+            name = &*buffer.begin();
+        }
+
+        // first time, do not read the data
+        if(delayed_read && get_total_size(type) > 16777216) // 16MB
+        {
+            delay_read_pos = in.tell();
+            data_ptr = nullptr;
+            in.seek(delay_read_pos + get_total_size(type));
+            return true;
+        }
+
+        // read buffer
+        read:
         if (!in)
             return false;
-
         try{
             std::vector<unsigned char> allocator(get_total_size(type));
             allocator.swap(data_buf);
@@ -325,6 +355,14 @@ public:
     {
         if (index >= dataset.size())
             return nullptr;
+        if(dataset[index]->has_delay_read())
+        {
+            if(!dataset[index]->read(*in.get()))
+                return nullptr;
+            // if type is not compatible, make sure all data are flushed before calling get_data
+            if(!dataset[index]->type_compatible(type))
+                in->flush();
+        }
         rows = dataset[index]->get_rows();
         cols = dataset[index]->get_cols();
         return dataset[index]->get_data(type);
@@ -384,46 +422,9 @@ public:
         return std::string(buf,buf+row*col);
     }
 
-
-    template<typename data_type,typename image_type>
-    void read_as_image(int index,image_type& image_buf) const
-    {
-        if (index >= dataset.size())
-            return;
-        image_buf.resize(typename image_type::geometry_type(dataset[index]->get_cols(),dataset[index]->get_rows()));
-        dataset[index]->copy_data(image_buf.begin());
-    }
-
-    template<typename data_type,typename image_type>
-    void read_as_image(const char* name,image_type& image_buf) const
-    {
-        std::map<std::string,int>::const_iterator iter = name_table.find(name);
-        if (iter == name_table.end())
-            return;
-        read_as_image(iter->second,image_buf);
-    }
-
 public:
     std::shared_ptr<input_interface> in;
-    template<typename char_type>
-    bool load_from_file(const char_type* file_name,unsigned int max_count,std::string stop_name)
-    {
-        if(!in->open(file_name))
-            return false;
-        dataset.clear();
-        for(unsigned int i = 0;i < max_count && *in;++i)
-        {
-            std::shared_ptr<mat_matrix> matrix(new mat_matrix);
-            if (!matrix->read(*in.get()))
-                break;
-            dataset.push_back(matrix);
-            if(dataset.back()->get_name() == stop_name)
-                break;
-        }
-        for (unsigned int index = 0; index < dataset.size(); ++index)
-            name_table[dataset[index]->get_name()] = index;
-        return true;
-    }
+    bool delay_read = false;
     template<typename char_type>
     bool load_from_file(const char_type* file_name)
     {
@@ -433,7 +434,7 @@ public:
         while(*in)
         {
             std::shared_ptr<mat_matrix> matrix(new mat_matrix);
-            if (!matrix->read(*in.get()))
+            if (!matrix->read(*in.get(),delay_read))
                 break;
             dataset.push_back(matrix);
         }
@@ -496,6 +497,7 @@ public:
     {
         return dataset.size();
     }
+
     mat_matrix& operator[](unsigned int index){return *dataset[index];}
     const mat_matrix& operator[](unsigned int index) const {return *dataset[index];}
 
