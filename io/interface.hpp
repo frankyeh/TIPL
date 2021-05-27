@@ -49,7 +49,10 @@ public:
     {
         return size_;
     }
-
+    void flush(void) const
+    {
+        ;
+    }
     operator bool() const	{return in.good();}
     bool operator!() const	{return !in.good();}
 };
