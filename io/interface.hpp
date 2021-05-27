@@ -37,9 +37,13 @@ public:
     {
         in.seekg(pos,std::ios::end);
     }
-    size_t cur(void)
+    size_t tell(void)
     {
         return in.tellg();
+    }
+    void clear(void)
+    {
+        in.clear();
     }
     size_t size(void)
     {
