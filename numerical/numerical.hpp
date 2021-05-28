@@ -759,6 +759,35 @@ min_max_value(iterator_type iter,iterator_type end)
     return std::make_pair(min_value,max_value);
 }
 
+//---------------------------------------------------------------------------
+template<class iterator_type>
+std::pair<typename std::iterator_traits<iterator_type>::value_type,typename std::iterator_traits<iterator_type>::value_type>
+min_max_value_mt(iterator_type iter,iterator_type end)
+{
+    if(iter == end)
+        return std::make_pair(0,0);
+    auto n = std::thread::hardware_concurrency();
+    size_t size = size_t(end-iter);
+    typedef typename std::iterator_traits<iterator_type>::value_type value_type;
+    std::vector<value_type> max_v(n,*iter),min_v(n,*iter);
+    tipl::par_for(n,[&](uint16_t thread)
+    {
+        value_type& max_value = max_v[thread];
+        value_type& min_value = min_v[thread];
+        for(size_t i = 0;i < size;i += n)
+        {
+            auto value = iter[i];
+            if(value > max_value)
+                max_value = value;
+            else if(value < min_value)
+                min_value = value;
+        }
+    });
+    return std::make_pair(*std::min_element(min_v.begin(),min_v.end()),
+                          *std::max_element(max_v.begin(),max_v.end()));
+}
+
+
 template<class InputIter,class OutputIter>
 void normalize(InputIter from,InputIter to,OutputIter out,float upper_limit = 255.0)
 {
