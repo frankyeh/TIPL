@@ -464,7 +464,7 @@ template<class iterator1,class value_type>
 void add_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
-        *lhs_from = typename std::iterator_traits<iterator1>::value_type(*lhs_from+value);
+        *lhs_from += value;
 }
 //---------------------------------------------------------------------------
 template<class image_type,class value_type>
