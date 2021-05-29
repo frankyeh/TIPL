@@ -394,11 +394,6 @@ public:
         std::copy(ptr,ptr+size,first);
         return true;
     }
-    template<typename class_type>
-    bool read(const char* name,class_type& data) const
-    {
-        return read(name,data.begin(),data.end());
-    }
     bool read(const char* name,std::string& str) const
     {
         const char* buf = nullptr;
@@ -411,15 +406,17 @@ public:
             str = std::string(buf,buf+row*col);
         return true;
     }
-    std::string read_string(const char* name) const
+    template<typename class_type>
+    bool read(const char* name,class_type& data) const
     {
-        const char* buf = nullptr;
-        unsigned int row,col;
-        if(!read(name,row,col,buf))
-            return std::string();
-        if(buf[row*col-1] == 0)
-            return std::string(buf);
-        return std::string(buf,buf+row*col);
+        return read(name,data.begin(),data.end());
+    }
+    template<typename class_type>
+    class_type read(const char* name) const
+    {
+        class_type data;
+        read(name,data);
+        return data;
     }
 
 public:
