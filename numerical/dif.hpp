@@ -103,13 +103,13 @@ void compose_displacement_with_jacobian(const ImageType& src,const ComposeImageT
 }
 //---------------------------------------------------------------------------
 template<class ComposeImageType>
-void invert_displacement(const ComposeImageType& v0,ComposeImageType& v1)
+void invert_displacement(const ComposeImageType& v0,ComposeImageType& v1,uint8_t iterations = 16)
 {
     ComposeImageType vv;
     v1.resize(v0.geometry());
     for (int index = 0;index < v1.size();++index)
         v1[index] = -v0[index];
-    for(int i = 0;i < 15;++i)
+    for(uint8_t i = 0;i < iterations;++i)
     {
         tipl::compose_displacement(v0,v1,vv);
         for (int index = 0;index < v1.size();++index)
@@ -118,20 +118,20 @@ void invert_displacement(const ComposeImageType& v0,ComposeImageType& v1)
 }
 //---------------------------------------------------------------------------
 template<class ComposeImageType>
-void invert_displacement(ComposeImageType& v)
+void invert_displacement(ComposeImageType& v,uint8_t iterations = 16)
 {
     ComposeImageType v0;
-    invert_displacement(v,v0);
+    invert_displacement(v,v0,iterations);
     v.swap(v0);
 }
 
 //---------------------------------------------------------------------------
 template<class ComposeImageType>
-void invert_mapping(const ComposeImageType& s0,ComposeImageType& s1)
+void invert_mapping(const ComposeImageType& s0,ComposeImageType& s1,uint8_t iterations)
 {
     ComposeImageType v0(s0);
     mapping_to_displacement(v0);
-    invert_displacement(v0,s1);
+    invert_displacement(v0,s1,iterations);
     displacement_to_mapping(s1);
 }
 //---------------------------------------------------------------------------
