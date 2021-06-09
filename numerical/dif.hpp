@@ -39,7 +39,8 @@ void compose_mapping(const ImageType& src,const ComposeImageType& compose,OutIma
 }
 //---------------------------------------------------------------------------
 template<class ImageType,class ComposeImageType,class OutImageType>
-void compose_displacement(const ImageType& src,const ComposeImageType& displace,OutImageType& dest)
+void compose_displacement(const ImageType& src,const ComposeImageType& displace,OutImageType& dest,
+                          interpolation_type type = interpolation_type::linear)
 {
     tipl::geometry<ImageType::dimension> geo(src.geometry());
     dest.clear();
@@ -53,7 +54,7 @@ void compose_displacement(const ImageType& src,const ComposeImageType& displace,
         }
         typename ComposeImageType::value_type vtor(index);
         vtor += displace[index.index()];
-        tipl::estimate(src,vtor,dest[index.index()]);
+        tipl::estimate(src,vtor,dest[index.index()],type);
     }
 }
 //---------------------------------------------------------------------------
@@ -71,7 +72,7 @@ void displacement_to_mapping(ComposeImageType& mapping,
 }
 //---------------------------------------------------------------------------
 template<class ImageType,class ComposeImageType,class OutImageType,class transform_type>
-void compose_displacement(const ImageType& src,OutImageType& dest,
+void compose_displacement_with_affine(const ImageType& src,OutImageType& dest,
                           const transform_type& transform,
                           const ComposeImageType& displace,
                           interpolation_type type = interpolation_type::linear)
