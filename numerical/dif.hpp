@@ -77,8 +77,10 @@ void compose_displacement_with_affine(const ImageType& src,OutImageType& dest,
                           const ComposeImageType& displace,
                           interpolation_type type = interpolation_type::linear)
 {
-    dest.for_each_mt([&](typename OutImageType::value_type&,
-                      tipl::pixel_index<OutImageType::dimension> index)
+    tipl::geometry<ImageType::dimension> geo(displace.geometry());
+    dest.clear();
+    dest.resize(geo);
+    dest.for_each_mt([&](typename OutImageType::value_type&,tipl::pixel_index<OutImageType::dimension> index)
     {
         typename ComposeImageType::value_type vtor(index);
         vtor += displace[index.index()];
