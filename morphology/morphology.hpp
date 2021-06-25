@@ -93,6 +93,34 @@ void dilation(ImageType& image,const std::vector<int>& index_shift)
 }
 
 template<class ImageType>
+void dilation_mt(ImageType& image,const std::vector<int>& index_shift)
+{
+    std::vector<typename ImageType::value_type> act(image.size());
+    tipl::par_for (index_shift.size(),[&](unsigned int index)
+    {
+        int shift = index_shift[index];
+        if (shift > 0)
+        {
+            typename ImageType::value_type* iter1 = &*act.begin() + shift;
+            typename ImageType::value_type* iter2 = &*image.begin();
+            typename ImageType::value_type* end = &*act.begin() + act.size();
+            for (;iter1 < end;++iter1,++iter2)
+                *iter1 |= *iter2;
+        }
+        if (shift < 0)
+        {
+            typename ImageType::value_type* iter1 = &*act.begin();
+            typename ImageType::value_type* iter2 = &*image.begin() - shift;
+            typename ImageType::value_type* end = &*image.begin() + image.size();
+            for (;iter2 < end;++iter1,++iter2)
+                *iter1 |= *iter2;
+        }
+    });
+    for (unsigned int index = 0;index < image.size();++index)
+        image[index] |= act[index];
+}
+
+template<class ImageType>
 void dilation(ImageType& image)
 {
     neighbor_index_shift_narrow<ImageType::dimension> neighborhood(image.geometry());
@@ -103,7 +131,7 @@ template<class ImageType>
 void dilation2(ImageType& image,int radius)
 {
     neighbor_index_shift<ImageType::dimension> neighborhood(image.geometry(),radius);
-    dilation(image,neighborhood.index_shift);
+    dilation_mt(image,neighborhood.index_shift);
 }
 
 /*
