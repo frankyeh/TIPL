@@ -1745,6 +1745,171 @@ void eigen_decomposition_sym(input_iterator A,
 }
 
 
+/*
+ *
+ *  tipl::uniform_dist<float> rand_gen2(-10.0,10.0,0);
+    for(int i = 0; i < 30; ++i)
+    {
+        tipl::matrix<3,3,double> c;
+        tipl::matrix<3,3,double> V;
+        tipl::vector<3,double> d;
+
+        std::fill(c.begin(),c.end(),0.0f);
+        c[0] = rand_gen2();
+        c[4] = rand_gen2();
+        c[8] = rand_gen2();
+
+        c[3] = c[1] = rand_gen2();
+        c[2] = c[6] = rand_gen2();
+        c[5] = c[7] = rand_gen2();
+
+        tipl::mat::eigen_decomposition_sym(c.begin(),V.begin(),d.begin(),tipl::dim<3,3>());
+
+        for(int j = 0;j < 3;++j)
+        {
+            auto cc = c;
+            cc[0] -= d[j];
+            cc[4] -= d[j];
+            cc[8] -= d[j];
+            if(std::abs(tipl::vector<3>(cc.begin()+j*3)*tipl::vector<3>(V.begin()+j*3)) > 0.000001f)
+            {
+                std::cout << "A=" << std::endl;
+                std::cout << c << std::endl;
+                std::cout << "d=" << std::endl;
+                std::cout << d << std::endl;
+                std::cout << "V=" << std::endl;
+                std::cout << V << std::endl;
+                std::cout << "ERROR checking d[" << j << "]" << std::endl;
+                std::cout << "result = " << tipl::vector<3>(cc.begin()+j*3)*tipl::vector<3>(V.begin()+j*3) << std::endl;
+            }
+        }
+    }
+*/
+template <class input_iterator,typename output_iterator>
+void eigen_decomposition_sym(input_iterator A,
+                                    output_iterator V,
+                                    output_iterator d,dim<3,3>)
+{
+    typedef typename std::iterator_traits<input_iterator>::value_type value_type;
+    // check plane stress or plane strain
+    if(A[1] == value_type(0))
+    {
+        if(A[2] == value_type(0))
+        {
+            // all off-diagonal are zeros
+            if(A[5] == value_type(0))
+            {
+                d[0] = A[0];
+                d[1] = A[4];
+                d[2] = A[8];
+                std::fill(V,V+9,value_type(0));
+                V[0] = V[4] = V[8] = value_type(1);
+                return;
+            }
+            value_type A5A5 = A[5]*A[5];
+            d[0] = A[0];
+            d[1] = d[2] = (A[4] + A[8])*value_type(0.5);
+            value_type A4_A8 = (A[4] - A[8])*value_type(0.5);
+            value_type l = std::sqrt(A4_A8*A4_A8+A5A5);
+            d[1] += l;
+            d[2] -= l;
+            std::fill(V,V+9,value_type(0));
+            V[0] = value_type(1);
+            value_type A4_d1 = A[4]-d[1];
+            value_type length = std::sqrt(A5A5+A4_d1*A4_d1);
+            V[4] = V[8] = -A[5]/length;
+            V[5] = A4_d1/length;
+            V[7] = -V[5];
+            return;
+        }
+        if(A[5] == value_type(0))
+        {
+            value_type A2A2 = A[2]*A[2];
+            d[0] = A[4];
+            d[1] = d[2] = (A[0] + A[8])*value_type(0.5);
+            value_type A0_A8 = (A[0] - A[8])*value_type(0.5);
+            value_type l = std::sqrt(A0_A8*A0_A8+A2A2);
+            d[1] += l;
+            d[2] -= l;
+            std::fill(V,V+9,value_type(0));
+            V[1] = value_type(1);
+            value_type A0_d1 = A[0]-d[1];
+            value_type length = std::sqrt(A2A2+A0_d1*A0_d1);
+            V[3] = V[8] = -A[2]/length;
+            V[5] = A0_d1/length;
+            V[6] = -V[5];
+            return;
+        }
+    }
+    else
+        if(A[2] == value_type(0) && A[5] == value_type(0))
+        {
+            value_type A1A1 = A[1]*A[1];
+            d[0] = A[8];
+            d[1] = d[2] = (A[0] + A[4])*value_type(0.5);
+            value_type A0_A4 = (A[0] - A[4])*value_type(0.5);
+            value_type l = std::sqrt(A0_A4*A0_A4+A1A1);
+            d[1] += l;
+            d[2] -= l;
+            std::fill(V,V+9,value_type(0));
+            V[2] = value_type(1);
+            value_type A0_d1 = A[0]-d[1];
+            value_type length = std::sqrt(A1A1+A0_d1*A0_d1);
+            V[3] = V[7] = -A[1]/length;
+            V[4] = A0_d1/length;
+            V[6] = -V[4];
+            return;
+        }
+
+    value_type A2A1 = A[2]*A[1];
+    value_type A1A5 = A[1]*A[5];
+    value_type A2A5 = A[2]*A[5];
+    value_type A0A4 = A[0]*A[4];
+    value_type A1A1 = A[1]*A[1];
+    value_type A2A2 = A[2]*A[2];
+    value_type A5A5 = A[5]*A[5];
+    value_type A0_A4 = A[0] + A[4];
+    {
+        value_type I1 = A0_A4 + A[8];
+        value_type I2 = A0A4 + A0_A4*A[8]-A1A1-A2A2-A5A5;
+        value_type I3 = A0A4*A[8]+2.0*A2A1*A[5]-(A[8]*A1A1+A[4]*A2A2+A[0]*A5A5);
+        value_type I1_3 = (I1/3.0);
+        value_type I1_3_I1_3 = I1_3*I1_3;
+        value_type v = I1_3_I1_3-I2/3.0;
+        value_type s = I1_3_I1_3*I1_3-I1*I2/6.0+I3/2.0;
+        if(v == value_type(0))
+        {
+            std::fill(d,d+3,value_type(0));
+            std::fill(V,V+9,value_type(0));
+            V[0] = V[4] = V[8] = value_type(1);
+            return;
+        }
+        value_type sqrt_v = std::sqrt(v);
+        value_type angle = std::acos(std::max<value_type>(-1.0,std::min<value_type>(1.0,s/v/sqrt_v)))/3.0;
+        d[0] = I1_3 + 2.0*sqrt_v*std::cos(angle);
+        d[1] = I1_3 - 2.0*sqrt_v*std::cos(3.14159265358979323846/3.0+angle);
+        d[2] = I1-d[0]-d[1];
+    }
+
+    for(int i = 0;i < 3;++i,V+=3)
+    {
+        value_type Ai = A[0]-d[i];
+        value_type Bi = A[4]-d[i];
+        value_type Ci = A[8]-d[i];
+        value_type q1 = (A2A1-Ai*A[5]);
+        value_type q2 = (A1A5-Bi*A[2]);
+        value_type q3 = (A2A5-Ci*A[1]);
+        V[0] = q2*q3;
+        V[1] = q3*q1;
+        V[2] = q2*q1;
+        value_type length = std::sqrt(V[0]*V[0]+V[1]*V[1]+V[2]*V[2]);
+        V[0] /= length;
+        V[1] /= length;
+        V[2] /= length;
+    }
+}
+
+
 template<typename input_iterator,typename dim_type>
 void col_swap(input_iterator i1,input_iterator i2,const dim_type& dim)
 {
@@ -1941,43 +2106,7 @@ void eigen_decomposition_sym(input_iterator A,
     typedef typename std::iterator_traits<input_iterator>::value_type value_type;
     if(dimension.col_count() == 3)
     {
-        {
-            value_type I1 = A[0] + A[4] + A[8];
-            value_type I2 = A[0]*A[4] + A[0]*A[8]+ A[4]*A[8]-A[1]*A[1]-A[2]*A[2]-A[5]*A[5];
-            value_type I3 = A[0]*A[4]*A[8]+2.0*A[1]*A[2]*A[5]-(A[8]*A[1]*A[1]+A[4]*A[2]*A[2]+A[0]*A[5]*A[5]);
-            value_type I1_3 = (I1/3.0);
-            value_type v = I1_3*I1_3-I2/3.0;
-            value_type s = I1_3*I1_3*I1_3-I1*I2/6.0+I3/2.0;
-            if(v == value_type(0))
-            {
-                std::fill(d,d+3,value_type(0));
-                std::fill(V,V+9,value_type(0));
-                V[0] = V[4] = V[8] = value_type(1);
-                return;
-            }
-            value_type sqrt_v = std::sqrt(v);
-            value_type angle = std::acos(std::max<value_type>(-1.0,std::min<value_type>(1.0,s/v/sqrt_v)))/3.0;
-            d[0] = I1_3 + 2.0*sqrt_v*std::cos(angle);
-            d[1] = I1_3 - 2.0*sqrt_v*std::cos(3.14159265358979323846/3.0+angle);
-            d[2] = I1-d[0]-d[1];
-        }
-
-        for(int i = 0;i < 3;++i,V+=3)
-        {
-            value_type Ai = A[0]-d[i];
-            value_type Bi = A[4]-d[i];
-            value_type Ci = A[8]-d[i];
-            value_type q1 = (A[2]*A[1]-Ai*A[5]);
-            value_type q2 = (A[1]*A[5]-Bi*A[2]);
-            value_type q3 = (A[2]*A[5]-Ci*A[1]);
-            V[0] = q2*q3;
-            V[1] = q3*q1;
-            V[2] = q2*q1;
-            value_type length = std::sqrt(V[0]*V[0]+V[1]*V[1]+V[2]*V[2]);
-            V[0] = V[0]/length;
-            V[1] = V[1]/length;
-            V[2] = V[2]/length;
-        }
+        eigen_decomposition_sym(A,V,d,dim<3,3>());
         return;
     }
     const int size = dimension.size();
