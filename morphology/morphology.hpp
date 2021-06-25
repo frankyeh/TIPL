@@ -725,33 +725,39 @@ void connected_component_labeling_pass(const ImageType& image,
     {
         regions.clear();
         labels.resize(image.geometry());
+        std::mutex add_lock;
 
-        unsigned int group_id = 0;
         unsigned int width = image.width();
-        for (unsigned int index = 0,x = 0;index < image.size();++index,++x)
+        tipl::par_for(image.size()/width,[&](unsigned int y)
         {
-            if (x >= width)
+            unsigned int index = y*width;
+            unsigned int end_index = index+width;
+            while (index < end_index)
             {
-                x = 0;
-                group_id = 0;
+                if (image[index] == 0)
+                {
+                    labels[index] = 0;
+                    ++index;
+                    continue;
+                }
+                unsigned int start_index = index;
+                do{
+                    ++index;
+                }while(index < end_index && image[index] != 0);
+                std::vector<unsigned int> voxel_pos(index-start_index);
+                std::iota(voxel_pos.begin(),voxel_pos.end(),start_index);
+                unsigned int group_id;
+                {
+                    std::lock_guard<std::mutex> lock(add_lock);
+                    regions.push_back(std::move(voxel_pos));
+                    group_id = regions.size();
+                }
+                std::fill(labels.begin()+start_index,labels.begin()+index,group_id);
             }
-            if (image[index] == 0)
-            {
-                group_id = 0;
-                labels[index] = 0;
-                continue;
-            }
-            if (!group_id)
-            {
-                regions.push_back(std::vector<unsigned int>());
-                group_id = regions.size();
-            }
-            regions.back().push_back(index);
-            labels[index] = group_id;
-        }
+        });
     }
     else
-        // growing in higher dimension
+    // growing in higher dimension
     {
         for (unsigned int x = 0;x < shift;++x)
         {
