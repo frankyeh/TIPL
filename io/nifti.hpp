@@ -642,11 +642,11 @@ public:
     {
         std::fill(nif_header.dim,nif_header.dim+8,1);
         std::copy(geo.begin(),geo.end(),nif_header.dim+1);
-        nif_header.dim[0] = std::find(nif_header.dim+1,nif_header.dim+8,1)-(nif_header.dim+1);
+        nif_header.dim[0] = geometry_type::dimension;
 
         std::fill(nif_header2.dim,nif_header2.dim+8,1);
         std::copy(geo.begin(),geo.end(),nif_header2.dim+1);
-        nif_header2.dim[0] = std::find(nif_header2.dim+1,nif_header2.dim+8,1)-(nif_header2.dim+1);
+        nif_header2.dim[0] = geometry_type::dimension;
     }
 
     template<int dim>
@@ -844,8 +844,7 @@ public:
     {
         nifti_base nii;
         nii.set_voxel_size(vs);
-        nii.set_LPS_transformation(T,I.geometry());
-        tipl::flip_xy(I);
+        nii.set_image_transformation(T);
         nii.load_from_image(I);
         if(descript)
             nii.set_descrip(descript);
