@@ -629,18 +629,17 @@ void reorder(image_type& volume,dim_order_type dim_order,flip_type flip)
 template<class iterator_type>
 void flip_block(iterator_type beg,iterator_type end,unsigned int block_size)
 {
-    while (beg < end)
+    tipl::par_for((end-beg)/block_size,[&](unsigned int i)
     {
-        iterator_type from = beg;
-        beg += block_size;
-        iterator_type to = beg-1;
+        iterator_type from = beg+i*block_size;
+        iterator_type to = from+block_size-1;
         while (from < to)
         {
             std::swap(*from,*to);
             ++from;
             --to;
         }
-    }
+    });
 }
 //---------------------------------------------------------------------------
 template<class iterator_type>
