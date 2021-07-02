@@ -26,38 +26,6 @@ void mapping_to_displacement(image<vtor_type,dimension>& s)
         s[index.index()] -= index;
 }
 //---------------------------------------------------------------------------
-template<class ImageType,class ComposeImageType,class OutImageType>
-void compose_mapping(const ImageType& src,const ComposeImageType& compose,OutImageType& dest)
-{
-    dest.clear();
-    dest.resize(compose.geometry());
-    typename ComposeImageType::const_iterator iter = compose.begin();
-    typename ComposeImageType::const_iterator end = compose.end();
-    typename OutImageType::iterator out = dest.begin();
-    for (; iter != end; ++iter,++out)
-        estimate(src,*iter,*out);
-}
-//---------------------------------------------------------------------------
-template<class ImageType,class ComposeImageType,class OutImageType>
-void compose_displacement(const ImageType& src,const ComposeImageType& displace,OutImageType& dest,
-                          interpolation_type type = interpolation_type::linear)
-{
-    tipl::geometry<ImageType::dimension> geo(src.geometry());
-    dest.clear();
-    dest.resize(geo);
-    for(tipl::pixel_index<ImageType::dimension> index(geo);index.is_valid(geo);++index)
-    {
-        if(displace[index.index()] == typename ComposeImageType::value_type())
-        {
-            dest[index.index()] = src[index.index()];
-            continue;
-        }
-        typename ComposeImageType::value_type vtor(index);
-        vtor += displace[index.index()];
-        tipl::estimate(src,vtor,dest[index.index()],type);
-    }
-}
-//---------------------------------------------------------------------------
 template<class ComposeImageType,class transform_type>
 void displacement_to_mapping(ComposeImageType& mapping,
                           const transform_type& transform)
@@ -71,39 +39,54 @@ void displacement_to_mapping(ComposeImageType& mapping,
     });
 }
 //---------------------------------------------------------------------------
+template<class ImageType,class MappingType,class OutImageType>
+void compose_mapping(const ImageType& src,const MappingType& mapping,OutImageType& dest,
+                     interpolation_type type = interpolation_type::linear)
+{
+    dest.clear();
+    dest.resize(mapping.geometry());
+    tipl::par_for(dest.size(),[&](unsigned int index)
+    {
+        estimate(src,mapping[index],dest[index],type);
+    });
+}
+//---------------------------------------------------------------------------
+template<class ImageType,class ComposeImageType,class OutImageType>
+void compose_displacement(const ImageType& src,const ComposeImageType& displace,OutImageType& dest,
+                          interpolation_type type = interpolation_type::linear)
+{
+    dest.resize(src.geometry());
+    dest.for_each_mt([&](typename OutImageType::value_type& value,
+                         tipl::pixel_index<ComposeImageType::dimension> index)
+    {
+        if(displace[index.index()] == typename ComposeImageType::value_type())
+        {
+            value = src[index.index()];
+            return;
+        }
+        typename ComposeImageType::value_type vtor(index);
+        vtor += displace[index.index()];
+        tipl::estimate(src,vtor,value,type);
+    });
+}
+//---------------------------------------------------------------------------
 template<class ImageType,class ComposeImageType,class OutImageType,class transform_type>
 void compose_displacement_with_affine(const ImageType& src,OutImageType& dest,
                           const transform_type& transform,
                           const ComposeImageType& displace,
                           interpolation_type type = interpolation_type::linear)
 {
-    tipl::geometry<ImageType::dimension> geo(displace.geometry());
-    dest.clear();
-    dest.resize(geo);
-    dest.for_each_mt([&](typename OutImageType::value_type&,tipl::pixel_index<OutImageType::dimension> index)
+    dest.resize(displace.geometry());
+    dest.for_each_mt([&](typename OutImageType::value_type& value,tipl::pixel_index<OutImageType::dimension> index)
     {
         typename ComposeImageType::value_type vtor(index);
         vtor += displace[index.index()];
-        tipl::vector<OutImageType::dimension,double> pos;
+        tipl::vector<OutImageType::dimension> pos;
         transform(vtor,pos);
-        tipl::estimate(src,pos,dest[index.index()],type);
+        tipl::estimate(src,pos,value,type);
     });
 }
 
-//---------------------------------------------------------------------------
-template<class ImageType,class ComposeImageType,class OutImageType>
-void compose_displacement_with_jacobian(const ImageType& src,const ComposeImageType& displace,OutImageType& dest)
-{
-    tipl::geometry<ImageType::dimension> geo(src.geometry());
-    dest.clear();
-    dest.resize(geo);
-    for(tipl::pixel_index<ImageType::dimension> index(geo);index.is_valid(geo);++index)
-    {
-        typename ComposeImageType::value_type vtor(index);
-        vtor += displace[index.index()];
-        tipl::estimate(src,vtor,dest[index.index()]);
-    }
-}
 //---------------------------------------------------------------------------
 template<class ComposeImageType>
 void invert_displacement(const ComposeImageType& v0,ComposeImageType& v1,uint8_t iterations = 16)
