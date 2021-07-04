@@ -840,7 +840,6 @@ public:
     transformation_matrix(void)
     {
         std::fill(data,data+total_size,0);
-        sr[0] = sr[4] = sr[8] = 1.0f;
     }
     template<typename container_type>
     transformation_matrix(const container_type& M)
