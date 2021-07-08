@@ -338,36 +338,35 @@ struct CompareVector
     }
 };
 
-template<typename VectorType>
+template<typename value_type>
+struct GridCell
+{
+    tipl::vector<3> corner[8];
+    value_type value[8];
+};
+
+
 class march_cube
 {
 
 public:
-    struct GridCell
-    {
-        VectorType corner[8];
-        float value[8];
-    };
-
-
-    std::map<VectorType,unsigned int,CompareVector<VectorType> > points_map;
-    std::vector<VectorType> point_list;
-    std::vector<VectorType> normal_list;
+    std::map<tipl::vector<3>,unsigned int> points_map;
+    std::vector<tipl::vector<3> > point_list;
+    std::vector<tipl::vector<3> > normal_list;
     std::vector<tipl::vector<3,unsigned int> > tri_list;
-public:
-
-
 
 private:
-    VectorType vertlist[12];
-    unsigned int wh,w;
-    unsigned int getIndex(unsigned int index)
+    tipl::vector<3> vertlist[12];
+    unsigned int w,wh;
+    size_t offset[7];
+private:
+
+    size_t getIndex(int index)
     {
-        typename std::map<VectorType,unsigned int,CompareVector<VectorType> >::const_iterator iter =
-            points_map.find(vertlist[index]);
+        auto iter = points_map.find(vertlist[index]);
         if (iter == points_map.end())
         {
-            unsigned int result = point_list.size();
+            unsigned int result = uint32_t(point_list.size());
             point_list.push_back(vertlist[index]);
             points_map[vertlist[index]] = result;
             return result;
@@ -376,32 +375,40 @@ private:
             return iter->second;
     }
 
+
     /*
        Linearly interpolate the position where an isosurface cuts
        an edge between two vertices, each with their own scalar value
     */
-    void VertexInterp(unsigned int vert_index,float isolevel,
-                      VectorType p1,VectorType p2,float valp1,float valp2)
+    static bool equal(float v1,float v2)
     {
-        float mu;
-        if (std::fabs(isolevel-valp1) < 1.0e-4)
+        return std::fabs(v1-v2) < 1.0e-5f;
+    }
+    static bool equal(unsigned char v1,unsigned char v2)
+    {
+        return v1 == v2;
+    }
+    template<typename value_type>
+    void VertexInterp(unsigned int vert_index,value_type isolevel,tipl::vector<3> p1,tipl::vector<3> p2,value_type valp1,value_type valp2)
+    {
+        if (equal(isolevel,valp1))
         {
             vertlist[vert_index] = p1;
             return;
         }
-        if (std::fabs(isolevel-valp2) < 1.0e-4)
+        if (equal(isolevel,valp2))
         {
             vertlist[vert_index] = p2;
             return;
         }
-        if (std::fabs(valp1-valp2) < 1.0e-4)
+        if (equal(valp1,valp2))
         {
             vertlist[vert_index] = p1;
             return;
         }
-        mu = (isolevel - valp1) / (valp2 - valp1);
+        float mu = (float(isolevel) - float(valp1)) / (float(valp2) - float(valp1));
         p2 *= mu;
-        p2+=p1*(1-mu);
+        p2 += p1*(1.0f-mu);
         vertlist[vert_index] = p2;
     }
 
@@ -409,7 +416,7 @@ private:
     {
         normal_list.clear();
         normal_list.resize(point_list.size());
-        VectorType n;
+        tipl::vector<3> n;
         for (unsigned int index = 0; index < tri_list.size(); ++index)
         {
             unsigned int p1 = tri_list[index][0];
@@ -434,40 +441,29 @@ public:
     {
     }
     template<typename ImageType>
-    march_cube(const ImageType& source_image,typename ImageType::value_type isolevel)
+    march_cube(ImageType& source_image,typename ImageType::value_type isolevel):
+        w(source_image.geometry()[0]),
+        wh(uint32_t(source_image.geometry().plane_size()))
     {
-        typedef typename ImageType::value_type value_type;
-        w = source_image.geometry()[0];
-        wh = source_image.geometry().plane_size();
-        // get all the edge cubes
-        {
-            std::vector<value_type> pixels;
-            for (pixel_index<3> iter(source_image.geometry());iter < source_image.size();++iter)
-            {
-                pixels.clear();
-                get_window(iter,source_image,pixels);
-                if (pixels.size() != 27)
-                    continue;
-                if (source_image[iter.index()] <= isolevel)
-                {
-                    for (unsigned int index = 0;index < pixels.size();++index)
-                        if (pixels[index] > isolevel)
-                        {
-                            addCube(source_image,iter,isolevel);
-                            break;
-                        }
-                }
-                else
-                {
-                    for (unsigned int index = 0;index < pixels.size();++index)
-                        if (pixels[index] <= isolevel)
-                        {
-                            addCube(source_image,iter,isolevel);
-                            break;
-                        }
-                }
-            }
+        offset[0] = 1;
+        offset[1] = 1+w;
+        offset[2] = w;
+        offset[3] = wh;
+        offset[4] = 1+wh;
+        offset[5] = 1+w+wh;
+        offset[6] = w+wh;
 
+        // get all the edge cubes
+        size_t image_size = source_image.size()-offset[5]; // make sure the image index will not out of bound
+        for (size_t index = 0;index < image_size;++index)
+        {
+            bool greater = source_image[index] <= isolevel;
+            for (auto shift : offset)
+                if(greater ^ (source_image[index+shift] <= isolevel))
+                {
+                    addCube(source_image,tipl::pixel_index<3>(index,source_image.geometry()),isolevel);
+                    break;
+                }
         }
         get_normal();
     }
@@ -475,32 +471,24 @@ public:
     template<typename ImageType>
     void addCube(const ImageType& source_image,const pixel_index<3>& point,typename ImageType::value_type isolevel)
     {
-        pixel_index<3> iter0(point);
-        pixel_index<3> iter1(point[0]+1,point[1],point[2],point.index()+1,source_image.geometry());
-        pixel_index<3> iter2(point[0]+1,point[1]+1,point[2],point.index()+1+w,source_image.geometry());
-        pixel_index<3> iter3(point[0],point[1]+1,point[2],point.index()+w,source_image.geometry());
-        pixel_index<3> iter4(point[0],point[1],point[2]+1,point.index()+wh,source_image.geometry());
-        pixel_index<3> iter5(point[0]+1,point[1],point[2]+1,point.index()+1+wh,source_image.geometry());
-        pixel_index<3> iter6(point[0]+1,point[1]+1,point[2]+1,point.index()+1+w+wh,source_image.geometry());
-        pixel_index<3> iter7(point[0],point[1]+1,point[2]+1,point.index()+w+wh,source_image.geometry());
-
-        GridCell cell;
-        cell.corner[0] = iter0;
-        cell.corner[1] = iter1;
-        cell.corner[2] = iter2;
-        cell.corner[3] = iter3;
-        cell.corner[4] = iter4;
-        cell.corner[5] = iter5;
-        cell.corner[6] = iter6;
-        cell.corner[7] = iter7;
-        cell.value[0] = source_image[iter0.index()];
-        cell.value[1] = source_image[iter1.index()];
-        cell.value[2] = source_image[iter2.index()];
-        cell.value[3] = source_image[iter3.index()];
-        cell.value[4] = source_image[iter4.index()];
-        cell.value[5] = source_image[iter5.index()];
-        cell.value[6] = source_image[iter6.index()];
-        cell.value[7] = source_image[iter7.index()];
+        using value_type = typename ImageType::value_type;
+        GridCell<value_type> cell;
+        cell.corner[0] = tipl::vector<3>(point[0],point[1],point[2]);
+        cell.corner[1] = tipl::vector<3>(point[0]+1,point[1],point[2]);
+        cell.corner[2] = tipl::vector<3>(point[0]+1,point[1]+1,point[2]);
+        cell.corner[3] = tipl::vector<3>(point[0],point[1]+1,point[2]);
+        cell.corner[4] = tipl::vector<3>(point[0],point[1],point[2]+1);
+        cell.corner[5] = tipl::vector<3>(point[0]+1,point[1],point[2]+1);
+        cell.corner[6] = tipl::vector<3>(point[0]+1,point[1]+1,point[2]+1);
+        cell.corner[7] = tipl::vector<3>(point[0],point[1]+1,point[2]+1);
+        cell.value[0] = source_image[point.index()];
+        cell.value[1] = source_image[point.index()+offset[0]];
+        cell.value[2] = source_image[point.index()+offset[1]];
+        cell.value[3] = source_image[point.index()+offset[2]];
+        cell.value[4] = source_image[point.index()+offset[3]];
+        cell.value[5] = source_image[point.index()+offset[4]];
+        cell.value[6] = source_image[point.index()+offset[5]];
+        cell.value[7] = source_image[point.index()+offset[6]];
         /** Polygonise
         Given a grid cell and an isolevel, calculate the triangular
         facets required to represent the isosurface through the cell.
@@ -526,11 +514,11 @@ public:
             /* Find the vertices where the surface intersects the cube */
             for (unsigned int index = 0;index < 12;++index)
                 if (MarchCubeData::edgeTable[cubeindex] & (1 << index))
-                    VertexInterp(index,float(isolevel),
+                    VertexInterp(index,isolevel,
                                  cell.corner[MarchCubeData::intersectTable[index][0]],
                                  cell.corner[MarchCubeData::intersectTable[index][1]],
-                                 float(cell.value[MarchCubeData::intersectTable[index][0]]),
-                                 float(cell.value[MarchCubeData::intersectTable[index][1]]));
+                                 cell.value[MarchCubeData::intersectTable[index][0]],
+                                 cell.value[MarchCubeData::intersectTable[index][1]]);
 
             /* Create the triangle */
             for (unsigned int i=0;MarchCubeData::triTable[cubeindex][i]!=-1;i+=3)
@@ -543,9 +531,9 @@ public:
         }
     }
 
-    VectorType get_center(void) const
+    tipl::vector<3> get_center(void) const
     {
-        VectorType center_point;
+        tipl::vector<3> center_point;
         for (unsigned int index = 0;index < tri_list.size();++index)
         {
             center_point += point_list[tri_list[index][0]];
@@ -560,6 +548,7 @@ public:
 
 
 }
+
 
 
 
