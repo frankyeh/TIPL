@@ -416,13 +416,13 @@ public:
             unsigned int d;
         };
     };
-    mutable size_t wh;
-    mutable size_t size_;
+    mutable size_t wh = 0;
+    mutable size_t size_ = 0;
 public:
     static const int dimension = 3;
 public:
-    geometry(void):w(0),h(0),d(0),wh(0),size_(0) {}
-    geometry(unsigned int w_,unsigned int h_,unsigned int d_):w(w_),h(h_),d(d_),wh(0),size_(0) {}
+    geometry(void):w(0),h(0),d(0){}
+    geometry(unsigned int w_,unsigned int h_,unsigned int d_):w(w_),h(h_),d(d_){}
     geometry(const geometry<3>& rhs)
     {
         *this = rhs;
