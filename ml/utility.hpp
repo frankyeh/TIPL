@@ -148,14 +148,15 @@ public:
         }
 		feature_count = data.features.front().size();
 	}
-    void subsample(const subsampled_data<feature_type, class_type>& data, size_t n)
+    template<typename rend_gen>
+    void subsample(const subsampled_data<feature_type, class_type>& data, size_t n,rend_gen r)
 	{
 		feature_count = data.feature_count;
 		// randomize all the data
         std::vector<size_t> new_sequence(data.features.size());
         for(size_t index = 0; index < new_sequence.size(); ++index)
             new_sequence[index] = index;
-        std::random_shuffle(new_sequence.begin(), new_sequence.end());
+        std::shuffle(new_sequence.begin(), new_sequence.end(),r);
 
 		features.resize(n);
 		classification.resize(n);
