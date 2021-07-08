@@ -8,7 +8,7 @@ namespace tipl
 {
 //---------------------------------------------------------------------------
 template<typename ImageType,typename PixelType>
-void get_window(const pixel_index<2>& index,ImageType& image,unsigned int width,std::vector<PixelType>& pixels)
+void get_window(const pixel_index<2>& index,const ImageType& image,unsigned int width,std::vector<PixelType>& pixels)
 {
     unsigned int fx = (index.x() > width) ? index.x() - width:0;
     unsigned int fy = (index.y() > width) ? index.y() - width:0;
@@ -24,7 +24,7 @@ void get_window(const pixel_index<2>& index,ImageType& image,unsigned int width,
 }
 //---------------------------------------------------------------------------
 template<typename ImageType,typename PixelType>
-void get_window(const pixel_index<2>& index,ImageType& image,std::vector<PixelType>& pixels)
+void get_window(const pixel_index<2>& index,const ImageType& image,std::vector<PixelType>& pixels)
 {
     unsigned int width = image.width();
     unsigned int height = image.height();
@@ -66,7 +66,7 @@ void get_window(const pixel_index<2>& index,ImageType& image,std::vector<PixelTy
 }
 //---------------------------------------------------------------------------
 template<typename ImageType,typename PixelType>
-void get_window(const pixel_index<3>& index,ImageType& image,unsigned int width,std::vector<PixelType>& pixels)
+void get_window(const pixel_index<3>& index,const ImageType& image,unsigned int width,std::vector<PixelType>& pixels)
 {
     unsigned int wh = image.width()*image.height();
     unsigned int fx = (index.x() > width) ? index.x() - width:0;
@@ -89,7 +89,7 @@ void get_window(const pixel_index<3>& index,ImageType& image,unsigned int width,
 }
 //---------------------------------------------------------------------------
 template<typename ImageType,typename PixelType>
-void get_window(const pixel_index<3>& index,ImageType& image,std::vector<PixelType>& pixels)
+void get_window(const pixel_index<3>& index,const ImageType& image,std::vector<PixelType>& pixels)
 {
     pixels.clear();
     pixels.reserve(27);
