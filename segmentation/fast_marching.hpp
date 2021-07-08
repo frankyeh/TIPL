@@ -82,16 +82,7 @@ float fast_marching_estimateT(const pass_time_type& T,float g,const geometry<3>&
     return (Tsum + b2_4ac)/3.0;
 }
 
-template<class narrow_band_point>
-struct fast_marching_T_comp: public std::binary_function<narrow_band_point*, narrow_band_point*, bool>
-{
-    bool operator()(const narrow_band_point* p1,const narrow_band_point* p2) const
-    {
-        return p1->first > p2->first;
-    }
-};
 }
-
 
 /**
    Fast marching method
@@ -115,7 +106,10 @@ void fast_marching(const ImageType& gradient_image,TimeType& pass_time,IndexType
     while(!narrow_band.empty())
     {
         std::shared_ptr<narrow_band_point> active_point(narrow_band.front());
-        std::pop_heap(narrow_band.begin(),narrow_band.end(),imp::fast_marching_T_comp<narrow_band_point>());
+        std::pop_heap(narrow_band.begin(),narrow_band.end(),[&](const narrow_band_point* p1,const narrow_band_point* p2)
+        {
+            return p1->first > p2->first;
+        });
         narrow_band.pop_back();
         get_connected_neighbors(active_point->second,gradient_image.geometry(),neighbor_points);
         for(size_t index = 0; index < neighbor_points.size(); ++index)
@@ -126,7 +120,10 @@ void fast_marching(const ImageType& gradient_image,TimeType& pass_time,IndexType
             float cur_T = imp::fast_marching_estimateT(pass_time,gradient_image[cur_index],gradient_image.geometry(),neighbor_points[index]);
             pass_time[cur_index] = cur_T;
             narrow_band.push_back(new narrow_band_point(cur_T,neighbor_points[index]));
-            std::push_heap(narrow_band.begin(),narrow_band.end(),imp::fast_marching_T_comp<narrow_band_point>());
+            std::push_heap(narrow_band.begin(),narrow_band.end(),[&](const narrow_band_point* p1,const narrow_band_point* p2)
+            {
+                return p1->first > p2->first;
+            });
         }
     }
 }
