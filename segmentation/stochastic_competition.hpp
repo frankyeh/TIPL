@@ -279,6 +279,8 @@ void stochastic_competition_with_lostinfo(const ImageType& src,
     stochastic_competition_debug(src,pivot_list,label);
 #endif
     //stochastic EM
+    std::random_device rd;
+    std::mt19937 g(rd());
     double T = initT;
     const unsigned int clique_radius = 2;
     const unsigned int clique_size = 25;
@@ -327,7 +329,7 @@ void stochastic_competition_with_lostinfo(const ImageType& src,
             if(other_label.empty())
                 continue;
             // choose a random label
-            std::random_shuffle(other_label.begin(),other_label.end());
+            std::shuffle(other_label.begin(),other_label.end(),g);
             expected_label = other_label.front();
             if(expected_label == 0)//unkwnown_label
                 continue;
