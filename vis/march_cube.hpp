@@ -346,7 +346,7 @@ public:
     struct GridCell
     {
         VectorType corner[8];
-        double value[8];
+        float value[8];
     };
 
 
@@ -380,21 +380,21 @@ private:
        Linearly interpolate the position where an isosurface cuts
        an edge between two vertices, each with their own scalar value
     */
-    void VertexInterp(unsigned int vert_index,double isolevel,
-                      VectorType p1,VectorType p2,double valp1,double valp2)
+    void VertexInterp(unsigned int vert_index,float isolevel,
+                      VectorType p1,VectorType p2,float valp1,float valp2)
     {
-        double mu;
-        if (std::fabs(isolevel-valp1) < 1.0e-10)
+        float mu;
+        if (std::fabs(isolevel-valp1) < 1.0e-4)
         {
             vertlist[vert_index] = p1;
             return;
         }
-        if (std::fabs(isolevel-valp2) < 1.0e-10)
+        if (std::fabs(isolevel-valp2) < 1.0e-4)
         {
             vertlist[vert_index] = p2;
             return;
         }
-        if (std::fabs(valp1-valp2) < 1.0e-10)
+        if (std::fabs(valp1-valp2) < 1.0e-4)
         {
             vertlist[vert_index] = p1;
             return;
@@ -434,13 +434,14 @@ public:
     {
     }
     template<typename ImageType>
-    march_cube(const ImageType& source_image,double isolevel)
+    march_cube(const ImageType& source_image,typename ImageType::value_type isolevel)
     {
+        typedef typename ImageType::value_type value_type;
         w = source_image.geometry()[0];
         wh = source_image.geometry().plane_size();
         // get all the edge cubes
         {
-            std::vector<typename ImageType::value_type> pixels;
+            std::vector<value_type> pixels;
             for (pixel_index<3> iter(source_image.geometry());iter < source_image.size();++iter)
             {
                 pixels.clear();
@@ -472,7 +473,7 @@ public:
     }
 
     template<typename ImageType>
-    void addCube(const ImageType& source_image,const pixel_index<3>& point,double isolevel)
+    void addCube(const ImageType& source_image,const pixel_index<3>& point,typename ImageType::value_type isolevel)
     {
         pixel_index<3> iter0(point);
         pixel_index<3> iter1(point[0]+1,point[1],point[2],point.index()+1,source_image.geometry());
@@ -525,11 +526,11 @@ public:
             /* Find the vertices where the surface intersects the cube */
             for (unsigned int index = 0;index < 12;++index)
                 if (MarchCubeData::edgeTable[cubeindex] & (1 << index))
-                    VertexInterp(index,isolevel,
+                    VertexInterp(index,float(isolevel),
                                  cell.corner[MarchCubeData::intersectTable[index][0]],
                                  cell.corner[MarchCubeData::intersectTable[index][1]],
-                                 cell.value[MarchCubeData::intersectTable[index][0]],
-                                 cell.value[MarchCubeData::intersectTable[index][1]]);
+                                 float(cell.value[MarchCubeData::intersectTable[index][0]]),
+                                 float(cell.value[MarchCubeData::intersectTable[index][1]]));
 
             /* Create the triangle */
             for (unsigned int i=0;MarchCubeData::triTable[cubeindex][i]!=-1;i+=3)
@@ -551,7 +552,7 @@ public:
             center_point += point_list[tri_list[index][1]];
             center_point += point_list[tri_list[index][2]];
         }
-        center_point /= ((double)tri_list.size())*3.0;
+        center_point /= tri_list.size()*3;
         return center_point;
     }
 };
