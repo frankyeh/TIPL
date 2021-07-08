@@ -7,7 +7,7 @@
 namespace tipl
 {
 //---------------------------------------------------------------------------
-template<class ImageType,class PixelType>
+template<typename ImageType,typename PixelType>
 void get_window(const pixel_index<2>& index,ImageType& image,unsigned int width,std::vector<PixelType>& pixels)
 {
     unsigned int fx = (index.x() > width) ? index.x() - width:0;
@@ -23,7 +23,7 @@ void get_window(const pixel_index<2>& index,ImageType& image,unsigned int width,
     }
 }
 //---------------------------------------------------------------------------
-template<class ImageType,class PixelType>
+template<typename ImageType,typename PixelType>
 void get_window(const pixel_index<2>& index,ImageType& image,std::vector<PixelType>& pixels)
 {
     unsigned int width = image.width();
@@ -65,7 +65,7 @@ void get_window(const pixel_index<2>& index,ImageType& image,std::vector<PixelTy
     }
 }
 //---------------------------------------------------------------------------
-template<class ImageType,class PixelType>
+template<typename ImageType,typename PixelType>
 void get_window(const pixel_index<3>& index,ImageType& image,unsigned int width,std::vector<PixelType>& pixels)
 {
     unsigned int wh = image.width()*image.height();
@@ -88,7 +88,7 @@ void get_window(const pixel_index<3>& index,ImageType& image,unsigned int width,
     }
 }
 //---------------------------------------------------------------------------
-template<class ImageType,class PixelType>
+template<typename ImageType,typename PixelType>
 void get_window(const pixel_index<3>& index,ImageType& image,std::vector<PixelType>& pixels)
 {
     pixels.clear();
