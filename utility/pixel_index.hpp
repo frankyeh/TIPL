@@ -635,36 +635,10 @@ public:
     vector(void):x_(0),y_(0),z_(0)				{}
     template<typename value_type>
     vector(value_type x,value_type y,value_type z):x_(data_type(x)),y_(data_type(y)),z_(data_type(z)){}
-    vector(const vector<3,data_type>& rhs)
-    {
-        *this = rhs;
-    }
-    vector(const geometry<3>& rhs)
-    {
-        *this = rhs;
-    }
     template<class rhs_type>
-    explicit vector(const rhs_type& rhs):x_(rhs[0]),y_(rhs[1]),z_(rhs[2]){}
+    vector(const rhs_type& rhs):x_(data_type(rhs[0])),y_(data_type(rhs[1])),z_(data_type(rhs[2])){}
     template<class rhs_type>
-    explicit vector(const rhs_type* rhs):x_(rhs[0]),y_(rhs[1]),z_(rhs[2]){}
-
-    template<class rhs_type>
-    const vector<3,data_type>& operator=(const rhs_type* rhs)
-    {
-        x_ = rhs[0];
-        y_ = rhs[1];
-        z_ = rhs[2];
-        return *this;
-    }
-        template<class rhs_type>
-    const vector<3,data_type>& operator=(const rhs_type& rhs)
-    {
-        x_ = rhs[0];
-        y_ = rhs[1];
-        z_ = rhs[2];
-        return *this;
-    }
-
+    vector(const rhs_type* rhs):x_(data_type(rhs[0])),y_(data_type(rhs[1])),z_(data_type(rhs[2])){}
 public:
     const data_type& operator[](unsigned int index) const
     {
