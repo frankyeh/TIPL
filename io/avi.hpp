@@ -26,70 +26,55 @@ struct fourcc {
         value = rhs.value;
         return *this;
     }
-    const fourcc& operator=(const char* rhs)
-    {
-        cc[0] = rhs[0];cc[1] = rhs[1];cc[2] = rhs[2];cc[3] = rhs[3];
-        return *this;
-    }
 };
 
 struct avi_header_t
 {
     fourcc fcc;
     unsigned int   cb;
-    unsigned int   dwMicroSecPerFrame;
-    unsigned int   dwMaxBytesPerSec;
-    unsigned int   dwPaddingGranularity;
-    unsigned int   dwFlags;
-    unsigned int   dwTotalFrames;
-    unsigned int   dwInitialFrames;
-    unsigned int   dwStreams;
-    unsigned int   dwSuggestedBufferSize;
-    unsigned int   dwWidth;
-    unsigned int   dwHeight;
-    unsigned int   dwReserved[4];
+    unsigned int   dwMicroSecPerFrame = 0;
+    unsigned int   dwMaxBytesPerSec = 0;
+    unsigned int   dwPaddingGranularity = 0;
+    unsigned int   dwFlags = 0x10;
+    unsigned int   dwTotalFrames = 0;
+    unsigned int   dwInitialFrames = 0;
+    unsigned int   dwStreams = 1; // no audio supported
+    unsigned int   dwSuggestedBufferSize = 0;
+    unsigned int   dwWidth = 0;
+    unsigned int   dwHeight = 0;
+    unsigned int   dwReserved[4] = {0,0,0,0};
 public:
-    avi_header_t(void)
-    {
-        memset(this,0,sizeof(*this));
-        fcc = "avih";
-        cb = sizeof(avi_header_t)-8;
-        dwFlags = 0x10;
-        dwStreams = 1; // no audio supported
+    avi_header_t(void):fcc("avih"),cb(sizeof(avi_header_t)-8)
+    { 
     }
 };
 
 struct avi_stream_header_t
 {
     fourcc fcc;
-    unsigned int  cb;
+    unsigned int  cb = 0;
     fourcc fccType;
     fourcc fccHandler;
-    unsigned int  dwFlags;
-    unsigned short   wPriority;
-    unsigned short   wLanguage;
-    unsigned int  dwInitialFrames;
-    unsigned int  dwScale;
-    unsigned int  dwRate;
-    unsigned int  dwStart;
-    unsigned int  dwLength;
-    unsigned int  dwSuggestedBufferSize;
-    unsigned int  dwQuality;
-    unsigned int  dwSampleSize;
+    unsigned int  dwFlags = 0;
+    unsigned short   wPriority = 0;
+    unsigned short   wLanguage = 0;
+    unsigned int  dwInitialFrames = 0;
+    unsigned int  dwScale = 1;
+    unsigned int  dwRate = 0;
+    unsigned int  dwStart = 0;
+    unsigned int  dwLength = 0;
+    unsigned int  dwSuggestedBufferSize = 0;
+    unsigned int  dwQuality = 0;
+    unsigned int  dwSampleSize = 0;
     struct {
-        short int left;
-        short int top;
-        short int right;
-        short int bottom;
+        short int left = 0;
+        short int top = 0;
+        short int right = 0;
+        short int bottom = 0;
     } rcFrame;
 public:
-    avi_stream_header_t(void)
+    avi_stream_header_t(void):fcc("strh"),cb(sizeof(avi_stream_header_t)-8),fccType("vids")
     {
-        memset(this,0,sizeof(*this));
-        fcc = "strh";
-        fccType = "vids";
-        cb = sizeof(avi_stream_header_t)-8;
-        dwScale = 1;
     }
 };
 
