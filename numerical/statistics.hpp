@@ -91,7 +91,7 @@ double gaussian_radial_basis(value_type dx,value_type sd)
 {
     if(sd == 0.0)
         return 0;
-	dx /= sd;
+    dx /= sd;
     dx *= dx;
     dx /= 2.0;
     return std::exp(-dx);
