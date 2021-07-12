@@ -93,12 +93,12 @@ void invert_displacement(const ComposeImageType& v0,ComposeImageType& v1,uint8_t
 {
     ComposeImageType vv;
     v1.resize(v0.geometry());
-    for (int index = 0;index < v1.size();++index)
+    for(size_t index = 0;index < v1.size();++index)
         v1[index] = -v0[index];
     for(uint8_t i = 0;i < iterations;++i)
     {
         tipl::compose_displacement(v0,v1,vv);
-        for (int index = 0;index < v1.size();++index)
+        for(size_t index = 0;index < v1.size();++index)
             v1[index] = -vv[index];
     }
 }
