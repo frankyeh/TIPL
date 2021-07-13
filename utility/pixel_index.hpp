@@ -632,6 +632,8 @@ protected:
         };
     };
 public:
+    using value_type = data_type;
+public:
     vector(void):x_(0),y_(0),z_(0)				{}
     template<typename value_type>
     vector(value_type x,value_type y,value_type z):x_(data_type(x)),y_(data_type(y)),z_(data_type(z)){}
