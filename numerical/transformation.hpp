@@ -844,7 +844,7 @@ public:
     template<typename container_type>
     transformation_matrix(const container_type& M)
     {
-        (*this) = M;
+        std::copy(M.begin(),M.end(),data);
     }
     // (Affine*Scaling*R1*R2*R3*vs*Translocation*shift_center)*from = (vs*shift_center)*to;
     template<typename geo_type,typename vs_type>
@@ -955,12 +955,6 @@ public:
         rb.translocation[1] = (iR[3]*t[0]+iR[4]*t[1]+iR[5]*t[2])/from_vs[1]+from[1]*value_type(0.5);
         rb.translocation[2] = (iR[6]*t[0]+iR[7]*t[1]+iR[8]*t[2])/from_vs[2]+from[2]*value_type(0.5);
         matrix_to_rotation_scaling_affine(R.begin(),rb.rotation,rb.scaling,rb.affine,vdim<dimension>());
-    }
-    template<typename other_value_type>
-    const transformation_matrix<value_type>& operator=(const transformation_matrix<other_value_type>& rhs)
-    {
-        std::copy(rhs.data,rhs.data+total_size,data);
-        return *this;
     }
     template<typename container_type>
     const transformation_matrix<value_type>& operator=(const container_type& M)
