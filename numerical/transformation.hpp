@@ -841,11 +841,31 @@ public:
     {
         std::fill(data,data+total_size,0);
     }
-    template<typename container_type>
-    transformation_matrix(const container_type& M)
+    template<typename rhs_value_type>
+    transformation_matrix(const transformation_matrix<rhs_value_type>& M)
     {
         std::copy(M.begin(),M.end(),data);
     }
+    template<typename rhs_value_type>
+    transformation_matrix(const tipl::matrix<4,4,rhs_value_type>& M)
+    {
+        data[0] = M[0];
+        data[1] = M[1];
+        data[2] = M[2];
+
+        data[3] = M[4];
+        data[4] = M[5];
+        data[5] = M[6];
+
+        data[6] = M[8];
+        data[7] = M[9];
+        data[8] = M[10];
+
+        data[9] = M[3];
+        data[10] = M[7];
+        data[11] = M[11];
+    }
+
     // (Affine*Scaling*R1*R2*R3*vs*Translocation*shift_center)*from = (vs*shift_center)*to;
     template<typename geo_type,typename vs_type>
     transformation_matrix(const affine_transform<value_type>& rb,
@@ -908,7 +928,7 @@ public:
                           const geo_type& from,
                           const vs_type& from_vs,
                           const geo_type& to,
-                          const vs_type& to_vs)
+                          const vs_type& to_vs) const
     {
         tipl::matrix<3,3,float> R,iR;
         std::copy(sr,sr+9,R.begin());
@@ -956,26 +976,7 @@ public:
         rb.translocation[2] = (iR[6]*t[0]+iR[7]*t[1]+iR[8]*t[2])/from_vs[2]+from[2]*value_type(0.5);
         matrix_to_rotation_scaling_affine(R.begin(),rb.rotation,rb.scaling,rb.affine,vdim<dimension>());
     }
-    template<typename container_type>
-    const transformation_matrix<value_type>& operator=(const container_type& M)
-    {
-        data[0] = M[0];
-        data[1] = M[1];
-        data[2] = M[2];
 
-        data[3] = M[4];
-        data[4] = M[5];
-        data[5] = M[6];
-
-        data[6] = M[8];
-        data[7] = M[9];
-        data[8] = M[10];
-
-        data[9] = M[3];
-        data[10] = M[7];
-        data[11] = M[11];
-        return *this;
-    }
 
     const transformation_matrix<value_type>& operator*=(const transformation_matrix& rhs)
     {
