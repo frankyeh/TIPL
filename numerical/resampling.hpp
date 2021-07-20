@@ -560,6 +560,26 @@ OutputIterator downsampling_x(IteratorType from,IteratorType to,OutputIterator o
 }
 
 template<class IteratorType,class OutputIterator>
+OutputIterator downsampling_x_with_padding(IteratorType from,IteratorType to,OutputIterator out,int width)
+{
+    typedef typename std::iterator_traits<IteratorType>::value_type value_type;
+    downsampling_facade<value_type> average;
+    int half_width = width >> 1;
+    for(;from != to;from += width)
+    {
+        IteratorType read_end = from + (half_width << 1);
+        for(IteratorType read = from;read != read_end;++out,read += 2)
+            *out = average((*read),*(read+1));
+        if(width & 1) // the padding x dimension by 1
+        {
+            *out = *read_end;
+            ++out;
+        }
+    }
+    return out;
+}
+
+template<class IteratorType,class OutputIterator>
 OutputIterator downsampling_y(IteratorType from,IteratorType to,OutputIterator out,int width,int height)
 {
     typedef typename std::iterator_traits<IteratorType>::value_type value_type;
@@ -580,10 +600,41 @@ OutputIterator downsampling_y(IteratorType from,IteratorType to,OutputIterator o
     return out;
 }
 template<class IteratorType,class OutputIterator>
+OutputIterator downsampling_y_with_padding(IteratorType from,IteratorType to,OutputIterator out,int width,int height)
+{
+    typedef typename std::iterator_traits<IteratorType>::value_type value_type;
+    downsampling_facade<value_type> average;
+    int half_height = height >> 1;
+    int plane_size = width*height;
+    int plane_size2 = (half_height << 1 )*width;
+    for(;from != to;from += plane_size)
+    {
+        IteratorType line_end = from+plane_size2;
+        for(IteratorType line = from;line != line_end;line += width)
+        {
+            for(IteratorType end_line = line + width;line != end_line;++line,++out)
+                *out = average(*line,line[width]);
+        }
+        if(height & 1) // padding y dimension by 1
+        {
+            for(IteratorType plane_end = line_end + width;line_end != plane_end;++line_end,++out)
+                *out = *line_end;
+        }
+    }
+    return out;
+}
+template<class IteratorType,class OutputIterator>
 IteratorType downsampling_z(IteratorType from,IteratorType to,OutputIterator out,int width,int height,int depth)
 {
     return downsampling_y(from,to,out,width*height,depth);
 }
+
+template<class IteratorType,class OutputIterator>
+IteratorType downsampling_z_with_padding(IteratorType from,IteratorType to,OutputIterator out,int width,int height,int depth)
+{
+    return downsampling_y_with_padding(from,to,out,width*height,depth);
+}
+
 
 template<class ImageType1,class ImageType2>
 void downsampling(const ImageType1& in,ImageType2& out)
@@ -602,12 +653,34 @@ void downsampling(const ImageType1& in,ImageType2& out)
     out.resize(new_geo);
 }
 
+template<class ImageType1,class ImageType2>
+void downsample_with_padding2(const ImageType1& in,ImageType2& out)
+{
+    out.resize(in.geometry());
+    geometry<ImageType1::dimension> new_geo(in.geometry());
+    typename ImageType2::iterator end_iter = downsampling_x_with_padding(in.begin(),in.end(),out.begin(),in.width());
+    new_geo[0] = ((new_geo[0]+1) >> 1);
+    unsigned int plane_size = new_geo[0];
+    for(int dim = 1;dim < ImageType1::dimension;++dim)
+    {
+        end_iter = downsampling_y_with_padding(out.begin(),end_iter,out.begin(),plane_size,in.geometry()[dim]);
+        new_geo[dim] = ((in.geometry()[dim]+1) >> 1);
+        plane_size *= new_geo[dim];
+    }
+    out.resize(new_geo);
+}
 
 
 template<class ImageType>
 void downsampling(ImageType& in)
 {
     downsampling(in,in);
+}
+
+template<class ImageType>
+void downsample_with_padding2(ImageType& in)
+{
+    downsample_with_padding2(in,in);
 }
 
 
