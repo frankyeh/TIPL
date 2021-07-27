@@ -30,14 +30,7 @@ public:
     pointer_container(any_iterator_type from_,any_iterator_type to_):
         from(&*from_),to(0),size_(to_-from_){to = from + size_;}
     template<class any_container_type>
-    pointer_container(const any_container_type& rhs)
-    {
-        if (this == &rhs)
-            return;
-        from = rhs.from;
-        to = rhs.to;
-        size_ = rhs.size_;
-    }
+    pointer_container(const any_container_type& rhs){operator=(rhs);}
     pointer_container(std::vector<pixel_type>& rhs)
     {
         if((size_ = rhs.size()))
@@ -47,6 +40,16 @@ public:
         }
         else
             from = to = 0;
+    }
+public:
+    template<class any_container_type>
+    pointer_container& operator=(const any_container_type& rhs)
+    {
+        if (this == &rhs)
+            return *this;
+        from = rhs.from;
+        to = rhs.to;
+        size_ = rhs.size_;
     }
 public:
     template<typename value_type>
@@ -123,14 +126,7 @@ public:
     const_pointer_container(any_iterator_type from_,any_iterator_type to_):
         from(&*from_),to(0),size_(to_-from_){to = from + size_;}
     template<class any_container_type>
-    const_pointer_container(const any_container_type& rhs)
-    {
-        if (this == &rhs)
-            return;
-        from = rhs.begin();
-        to = rhs.end();
-        size_ = rhs.size();
-    }
+    const_pointer_container(const any_container_type& rhs){operator=(rhs);}
     const_pointer_container(const std::vector<pixel_type>& rhs)
     {
         if((size_ = rhs.size()))
@@ -141,7 +137,17 @@ public:
         else
             from = to = 0;
     }
-
+public:
+    template<class any_container_type>
+    const_pointer_container& operator=(const any_container_type& rhs)
+    {
+        if (this == &rhs)
+            return *this;
+        from = rhs.begin();
+        to = rhs.end();
+        size_ = rhs.size();
+        return *this;
+    }
 public:
     template<typename value_type>
     reference operator[](value_type index) const
@@ -546,14 +552,17 @@ public:
     static const unsigned int dimension = dim;
 public:
     pointer_image(void) {}
-    pointer_image(const pointer_image& rhs):base_type()
-    {
-        base_type::data = rhs.data;
-        base_type::geo = rhs.geometry();
-    }
+    pointer_image(const pointer_image& rhs){operator=(rhs);}
     template<class rhs_storage_type>
     pointer_image(image<pixel_type,dim,rhs_storage_type>& rhs):base_type(&*rhs.begin(),rhs.geometry()) {}
     pointer_image(pixel_type* pointer,const tipl::geometry<dim>& geo_):base_type(pointer,geo_) {}
+public:
+    pointer_image& operator=(const pointer_image& rhs)
+    {
+        base_type::data = rhs.data;
+        base_type::geo = rhs.geometry();
+        return *this;
+    }
 };
 
 template <class pixel_type,unsigned int dim>
@@ -567,14 +576,18 @@ public:
     static const unsigned int dimension = dim;
 public:
     const_pointer_image(void) {}
-    const_pointer_image(const const_pointer_image& rhs):base_type()
-    {
-        base_type::data = rhs.data;
-        base_type::geo = rhs.geometry();
-    }
+    const_pointer_image(const const_pointer_image& rhs){operator=(rhs);}
     template<class rhs_storage_type>
     const_pointer_image(const image<pixel_type,dim,rhs_storage_type>& rhs):base_type(&*rhs.begin(),rhs.geometry()) {}
     const_pointer_image(const pixel_type* pointer,const tipl::geometry<dim>& geo_):base_type(pointer,geo_){}
+public:
+    const_pointer_image& operator=(const const_pointer_image& rhs)
+    {
+        base_type::data = rhs.data;
+        base_type::geo = rhs.geometry();
+        return *this;
+    }
+
 };
 
 
