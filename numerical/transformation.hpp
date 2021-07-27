@@ -523,7 +523,7 @@ class affine_transform_2d
 public:
     typedef value_type_ value_type;
     static const unsigned int dimension = 2;
-    static const unsigned int affine_dim = 2;
+    static const unsigned int affine_dim = dimension;
     static const unsigned int total_size = 6;
     union
     {
@@ -536,12 +536,6 @@ public:
         };
         value_type data[6];
     };
-private:
-    template<typename other_vluae_type>
-    void assign(const affine_transform_2d<other_vluae_type>& rhs)
-    {
-        std::copy(rhs.data,rhs.data+total_size,data);
-    }
 public:
     affine_transform_2d(void)
     {
@@ -551,20 +545,19 @@ public:
     {
         std::copy(data_,data_+total_size,data);
     }
-    affine_transform_2d(const affine_transform_2d& rhs)
+    template<typename rhs_type>
+    affine_transform_2d(const rhs_type& rhs){operator=(rhs);}
+    template<typename rhs_type>
+    affine_transform_2d& operator=(const rhs_type& rhs)
     {
-        assign(rhs);
+        std::copy(rhs.begin(),rhs.end(),data);
+        return *this;
     }
+public:
     void clear(void)
     {
         std::fill(data,data+total_size,0);
         std::fill(scaling,scaling+dimension,1);
-    }
-    template<typename other_vluae_type>
-    const affine_transform_2d<value_type>& operator=(const affine_transform_2d<other_vluae_type>& rhs)
-    {
-        assign(rhs);
-        return *this;
     }
     value_type operator[](unsigned int i) const{return data[i];}
     value_type& operator[](unsigned int i) {return data[i];}
@@ -599,7 +592,7 @@ class affine_transform
 public:
     typedef value_type_ value_type;
     static const unsigned int dimension = 3;
-    static const unsigned int affine_dim = 3;
+    static const unsigned int affine_dim = dimension;
     static const unsigned int total_size = 12;
     union
     {
@@ -612,12 +605,6 @@ public:
         };
         value_type data[12];
     };
-private:
-    template<typename other_vluae_type>
-    void assign(const affine_transform<other_vluae_type>& rhs)
-    {
-        std::copy(rhs.data,rhs.data+total_size,data);
-    }
 public:
     affine_transform(void)
     {
@@ -627,20 +614,19 @@ public:
     {
         std::copy(data_,data_+total_size,data);
     }
-    affine_transform(const affine_transform& rhs)
+    template<typename rhs_type>
+    affine_transform(const rhs_type& rhs){operator=(rhs);}
+    template<typename rhs_type>
+    affine_transform& operator=(const rhs_type& rhs)
     {
-        assign(rhs);
+        std::copy(rhs.begin(),rhs.end(),data);
+        return *this;
     }
+public:
     void clear(void)
     {
         std::fill(data,data+total_size,0);
         std::fill(scaling,scaling+dimension,1);
-    }
-    template<typename other_vluae_type>
-    const affine_transform<value_type>& operator=(const affine_transform<other_vluae_type>& rhs)
-    {
-        assign(rhs);
-        return *this;
     }
     value_type operator[](unsigned int i) const{return data[i];}
     value_type& operator[](unsigned int i) {return data[i];}
@@ -842,30 +828,7 @@ public:
         std::fill(data,data+total_size,0);
     }
     template<typename rhs_value_type>
-    transformation_matrix(const transformation_matrix<rhs_value_type>& M)
-    {
-        std::copy(M.begin(),M.end(),data);
-    }
-    template<typename rhs_value_type>
-    transformation_matrix(const tipl::matrix<4,4,rhs_value_type>& M)
-    {
-        data[0] = M[0];
-        data[1] = M[1];
-        data[2] = M[2];
-
-        data[3] = M[4];
-        data[4] = M[5];
-        data[5] = M[6];
-
-        data[6] = M[8];
-        data[7] = M[9];
-        data[8] = M[10];
-
-        data[9] = M[3];
-        data[10] = M[7];
-        data[11] = M[11];
-    }
-
+    transformation_matrix(const rhs_value_type& M){operator=(M);}
     // (Affine*Scaling*R1*R2*R3*vs*Translocation*shift_center)*from = (vs*shift_center)*to;
     template<typename geo_type,typename vs_type>
     transformation_matrix(const affine_transform<value_type>& rb,
@@ -976,7 +939,35 @@ public:
         rb.translocation[2] = (iR[6]*t[0]+iR[7]*t[1]+iR[8]*t[2])/from_vs[2]+from[2]*value_type(0.5);
         matrix_to_rotation_scaling_affine(R.begin(),rb.rotation,rb.scaling,rb.affine,vdim<dimension>());
     }
+public:
+    template<typename rhs_value_type>
+    transformation_matrix& operator=(const transformation_matrix<rhs_value_type>& M)
+    {
+        std::copy(M.begin(),M.end(),data);
+        return *this;
+    }
+    template<typename rhs_value_type>
+    transformation_matrix& operator=(const tipl::matrix<4,4,rhs_value_type>& M)
+    {
+        data[0] = M[0];
+        data[1] = M[1];
+        data[2] = M[2];
 
+        data[3] = M[4];
+        data[4] = M[5];
+        data[5] = M[6];
+
+        data[6] = M[8];
+        data[7] = M[9];
+        data[8] = M[10];
+
+        data[9] = M[3];
+        data[10] = M[7];
+        data[11] = M[11];
+        return *this;
+    }
+
+public:
 
     const transformation_matrix<value_type>& operator*=(const transformation_matrix& rhs)
     {
