@@ -1,5 +1,6 @@
 #ifndef BITMAP_IO_HPP
 #define BITMAP_IO_HPP
+#include <vector>
 #include <stdexcept>
 #include <fstream>
 namespace tipl
@@ -10,8 +11,8 @@ namespace io
 
 struct bitmap_file_header
 {
-    unsigned int bfSize;
-    unsigned int bfOffBits;
+    unsigned int bfSize = 0;
+    unsigned int bfOffBits = 0;
     bool read(std::istream& in)
     {
         unsigned short bfType;
@@ -61,7 +62,7 @@ private:
 public:
     bitmap(void)
     {
-        std::fill((char*)&bmih,(char*)&bmih+sizeof(bmih),0);
+        std::fill(reinterpret_cast<char*>(&bmih),reinterpret_cast<char*>(&bmih)+sizeof(bmih),0);
         bmih.biSize = sizeof(bitmap_info_header);
     }
     template<class char_type>
@@ -71,13 +72,13 @@ public:
             throw std::runtime_error("failed to open bitmap file");
     }
     template<class char_type>
-    bool save_to_file(const char_type* file_name)
+    bool save_to_file(const char_type* file_name) const
     {
         std::ofstream out(file_name,std::ios::binary);
         if (!bmfh.write(out))
             return false;
-        out.write((const char*)&bmih,sizeof(bitmap_info_header));
-        out.write((const char*)&*data.begin(),data.size());
+        out.write(reinterpret_cast<const char*>(&bmih),sizeof(bitmap_info_header));
+        out.write(reinterpret_cast<const char*>(&*data.begin()),int64_t(data.size()));
         return true;
     }
     template<class char_type>
@@ -86,7 +87,7 @@ public:
         std::ifstream in(file_name,std::ios::binary);
         if (!in || !bmfh.read(in))
             return false;
-        in.read((char*)&bmih,sizeof(bitmap_info_header));
+        in.read(reinterpret_cast<char*>(&bmih),sizeof(bitmap_info_header));
         if (!in || bmih.biWidth <= 0 || bmih.biHeight <= 0 || bmih.biCompression != 0)
             return false;
         try
@@ -98,7 +99,7 @@ public:
             return false;
         }
         in.seekg(bmfh.bfOffBits,std::ios::beg);
-        in.read((char*)&*data.begin(),data.size());
+        in.read(reinterpret_cast<char*>(&*data.begin()),int64_t(data.size()));
         if (!in)
             return false;
         return true;
@@ -135,10 +136,12 @@ public:
         switch (bmih.biBitCount)
         {
         case 8:
-            std::copy((unsigned char*)&*data.begin(),(unsigned char*)&*data.begin()+image.size(),image.begin());
+            std::copy(reinterpret_cast<const unsigned char*>(&*data.begin()),
+                      reinterpret_cast<const unsigned char*>(&*data.begin())+image.size(),image.begin());
             break;
         case 32:
-            std::copy((rgb*)&*data.begin(),(rgb*)&*data.begin()+image.size(),image.begin());
+            std::copy(reinterpret_cast<const tipl::rgb*>(&*data.begin()),
+                      reinterpret_cast<const tipl::rgb*>(&*data.begin())+image.size(),image.begin());
             break;
         case 24:
         {
