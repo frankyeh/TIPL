@@ -56,7 +56,7 @@ struct rgb
         return color;
     }
     template<typename value_type>
-    const rgb& operator=(const value_type* v)
+    rgb& operator=(const value_type* v)
     {
         data[0] = std::max<short>(0,std::min<short>(255,v[0]));
         data[1] = std::max<short>(0,std::min<short>(255,v[1]));
@@ -64,17 +64,22 @@ struct rgb
         return *this;
     }
     template<typename value_type>
-    const rgb& operator=(value_type gray)
+    rgb& operator=(value_type gray)
     {
         r = g = b = uint8_t(gray);
         return *this;
     }
-    const rgb& operator=(unsigned int color_)
+    rgb& operator=(const rgb& rhs)
+    {
+        color = rhs.color;
+        return *this;
+    }
+    rgb& operator=(unsigned int color_)
     {
         color = color_;
         return *this;
     }
-    const rgb& operator=(int color_)
+    rgb& operator=(int color_)
     {
         color = color_;
         return *this;
