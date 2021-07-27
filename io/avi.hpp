@@ -81,12 +81,11 @@ public:
 struct avi_stream_format_t
 {
     fourcc label;
-    unsigned int headersize;
+    unsigned int headersize = 0;
     tipl::io::bitmap_info_header bh;
 public:
     avi_stream_format_t(void)
     {
-        memset(this,0,sizeof(*this));
         label = "strf";
         headersize = sizeof(avi_stream_format_t)-8;
         bh.biSize = sizeof(bitmap_info_header);
@@ -98,22 +97,22 @@ public:
 
 
 struct riff_header {
-    unsigned int pos;
-    std::ofstream *out;
+    unsigned int pos = 0;
+    std::ofstream *out = nullptr;
     riff_header(const char* fourcc,std::ofstream *out_):out(out_)
     {
-        out->write((const char*)fourcc,4);
-        pos = (unsigned int)out->tellp();
+        out->write(fourcc,4);
+        pos = uint32_t(out->tellp());
         unsigned int dummy = 0;
-        out->write((const char*)&dummy,4);
+        out->write(reinterpret_cast<const char*>(&dummy),4);
     }
 
     ~riff_header(void)
     {
-        unsigned int cur_pos = (unsigned int)out->tellp();
+        unsigned int cur_pos = uint32_t(out->tellp());
         out->seekp(pos);
         unsigned int size = cur_pos-pos-4;
-        out->write((const char*)&size,4);
+        out->write(reinterpret_cast<const char*>(&size),4);
         out->seekp(cur_pos);
     }
 };
@@ -123,19 +122,17 @@ class avi {
     std::vector<unsigned int> offsets;
     std::vector<riff_header> riff;
     void write(unsigned int value) {
-        out->write((const char*)&value,4);
+        out->write(reinterpret_cast<const char*>(&value),4);
     }
     void write(const char* cc) {
         out->write(cc,4);
     }
 private:
-    unsigned int frame_count;
-    unsigned int number_of_frames_pos;
-    unsigned int data_length_pos;
+    unsigned int frame_count = 0;
+    unsigned int number_of_frames_pos = 0;
+    unsigned int data_length_pos = 0;
 public:
-    avi(void):frame_count(0)
-    {
-    }
+    avi(void){}
     bool open(const char *filename, unsigned int width, unsigned int height,
               fourcc codec, unsigned int fps)
     {
@@ -166,13 +163,13 @@ public:
         write("AVI ");
         riff.push_back(riff_header("LIST",out.get()));
         write("hdrl");
-        number_of_frames_pos = (unsigned int)out->tellp()+24; // the number of frame will be updated at close
-        out->write((const char*)&ah,sizeof(ah));
+        number_of_frames_pos = uint32_t(out->tellp())+24; // the number of frame will be updated at close
+        out->write(reinterpret_cast<const char*>(&ah),sizeof(ah));
         riff.push_back(riff_header("LIST",out.get()));
         write("strl");
-        data_length_pos = (unsigned int)out->tellp()+40; // the data length will be updated at close
-        out->write((const char*)&sh,sizeof(sh));
-        out->write((const char*)&sf,sizeof(sf));
+        data_length_pos = uint32_t(out->tellp())+40; // the data length will be updated at close
+        out->write(reinterpret_cast<const char*>(&sh),sizeof(sh));
+        out->write(reinterpret_cast<const char*>(&sf),sizeof(sf));
         riff.pop_back(); // "LIST"
         riff.pop_back(); // "LIST"
         riff.push_back(riff_header("LIST",out.get()));
@@ -214,7 +211,7 @@ public:
 
         // update frame count
         {
-            unsigned int cur_pos = (unsigned int)out->tellp();
+            auto cur_pos = out->tellp();
             out->seekp(number_of_frames_pos);
             write(frame_count);
             out->seekp(data_length_pos);
