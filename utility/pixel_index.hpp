@@ -36,16 +36,16 @@ public:
     {
         *this = rhs;
     }
-    template<class vtype>
+    template<typename vtype>
     pixel_index(vtype x,vtype y,vtype index,const geometry<2>& geo):
             x_(int(x)),y_(int(y)),index_(index),w(geo[0]){}
-    template<class vtype>
+    template<typename vtype>
     pixel_index(vtype x,vtype y,const geometry<2>& geo):
             x_(int(x)),y_(int(y)),index_(int(y)*geo.width()+int(x)),w(geo[0]){}
-    template<class vtype>
+    template<typename vtype>
     pixel_index(vtype* offset,const geometry<2>& geo):
             x_(offset[0]),y_(offset[1]),index_(offset[1]*geo.width()+offset[0]),w(geo[0]){}
-    template<class vtype>
+    template<typename vtype>
     pixel_index(vtype y,const geometry<2>& geo):
             x_(y % geo.width()),y_(y / geo.width()),index_(y),w(geo[0]){}
 
@@ -57,7 +57,7 @@ public:
         return *this;
     }
 
-    template<class rhs_type>
+    template<typename rhs_type>
     const pixel_index<2>& operator=(const rhs_type& rhs)
     {
         x_ = rhs[0];
@@ -143,7 +143,7 @@ public:
         ++offset_[1];
         return *this;
     }
-    template<class stream_type>
+    template<typename stream_type>
     friend stream_type& operator>>(stream_type& in,pixel_index& rhs)
     {
         in >> rhs.x_ >> rhs.y_;
@@ -181,12 +181,12 @@ public:
     {
         *this = rhs;
     }
-    template<class vtype>
+    template<typename vtype>
     pixel_index(vtype x,vtype y,vtype z,size_t i,const geometry<3>& geo):x_(int(x)),y_(int(y)),z_(int(z)),index_(i),w(int(geo[0])),h(int(geo[1])){}
-    template<class vtype>
+    template<typename vtype>
     pixel_index(vtype x,vtype y,vtype z,const geometry<3>& geo):
             x_(int(x)),y_(int(y)),z_(int(z)),index_(voxel2index(x,y,z,geo)),w(int(geo[0])),h(int(geo[1])){}
-    template<class vtype>
+    template<typename vtype>
     pixel_index(const vtype* offset,const geometry<3>& geo):
             x_(offset[0]),y_(offset[1]),z_(offset[2]),
             index_(voxel2index(offset,geo)),
@@ -199,12 +199,12 @@ public:
         z_ = int(index / geo.height());
     }
 public:
-    template<class ptr_type>
+    template<typename ptr_type>
     static size_t voxel2index(const ptr_type* offset,const geometry<3>& geo)
     {
         return (size_t(offset[2])*size_t(geo.height()) + size_t(offset[1]))*size_t(geo.width())+size_t(offset[0]);
     }
-    template<class vtype>
+    template<typename vtype>
     static size_t voxel2index(vtype x,vtype y,vtype z,const geometry<3>& geo)
     {
         return (size_t(z)*size_t(geo.height()) + size_t(y))*size_t(geo.width())+size_t(x);
@@ -217,7 +217,7 @@ public:
         index_ = rhs.index_;
         return *this;
     }
-    template<class rhs_type>
+    template<typename rhs_type>
     const pixel_index<3>& operator=(const rhs_type& rhs)
     {
         x_ = rhs[0];
@@ -318,7 +318,7 @@ public:
     {
         return offset_[2] < int(geo[2]);
     }
-    template<class stream_type>
+    template<typename stream_type>
     friend stream_type& operator>>(stream_type& in,pixel_index& rhs)
     {
         in >> rhs.x_ >> rhs.y_ >> rhs.z_;
@@ -330,7 +330,7 @@ public:
 template<int dim,class data_type = float>
 class vector;
 
-template<class data_type>
+template<typename data_type>
 class vector<2,data_type>
 {
 protected:
@@ -346,30 +346,19 @@ protected:
 public:
     vector(void):x_(0),y_(0)				{}
     vector(data_type x,data_type y):x_(x),y_(y){}
-    vector(const vector& rhs)
-    {
-        *this = rhs;
-    }
-    vector(const geometry<2>& rhs)
-    {
-        *this = rhs;
-    }
-
-    template<class rhs_type>
-    explicit vector(const rhs_type& rhs):x_(rhs[0]),y_(rhs[1]){}
-    template<class rhs_type>
-    explicit vector(const rhs_type* rhs):x_(rhs[0]),y_(rhs[1]){}
-
-
-    template<class rhs_type>
-    const vector<2,data_type>& operator=(const rhs_type* rhs)
+    template<typename rhs_type>
+    vector(const rhs_type& rhs):x_(rhs[0]),y_(rhs[1]){}
+    template<typename rhs_type>
+    vector(const rhs_type* rhs):x_(rhs[0]),y_(rhs[1]){}
+    template<typename rhs_type>
+    vector& operator=(const rhs_type* rhs)
     {
         x_ = rhs[0];
         y_ = rhs[1];
         return *this;
     }
-    template<class rhs_type>
-    const vector<2,data_type>& operator=(const rhs_type& rhs)
+    template<typename  rhs_type>
+    vector<2,data_type>& operator=(const rhs_type& rhs)
     {
         x_ = rhs[0];
         y_ = rhs[1];
@@ -403,33 +392,33 @@ public:
     }
     size_t size(void) const{return 2;}
 public:
-    template<class func>
+    template<typename func>
     void for_each(func)
     {
         std::for_each(data_,data_+2,func());
     }
-    template<class rhs_type>
+    template<typename rhs_type>
     vector<2,data_type>& operator+=(const rhs_type* rhs)
     {
         x_ += rhs[0];
         y_ += rhs[1];
         return *this;
     }
-    template<class rhs_type>
+    template<typename rhs_type>
     vector<2,data_type>& operator-=(const rhs_type* rhs)
     {
         x_ -= rhs[0];
         y_ -= rhs[1];
         return *this;
     }
-    template<class rhs_type>
+    template<typename rhs_type>
     vector<2,data_type>& operator+=(const vector<2,rhs_type>& rhs)
     {
         x_ += rhs[0];
         y_ += rhs[1];
         return *this;
     }
-    template<class rhs_type>
+    template<typename rhs_type>
     vector<2,data_type>& operator-=(const vector<2,rhs_type>& rhs)
     {
         x_ -= rhs[0];
@@ -462,12 +451,12 @@ public:
         y_ /= r;
         return *this;
     }
-    template<class rhs_type>
+    template<typename rhs_type>
     vector<2,data_type> operator+(const rhs_type& rhs) const
     {
         return vector<2,data_type>(*this)+=rhs;
     }
-    template<class rhs_type>
+    template<typename rhs_type>
     vector<2,data_type> operator-(const rhs_type& rhs) const
     {
         return vector<2,data_type>(*this)-=rhs;
@@ -510,7 +499,7 @@ public:
         x_ = std::abs(x_);
         y_ = std::abs(y_);
     }
-    template<class rhs_type>
+    template<typename rhs_type>
     data_type operator*(const vector<2,rhs_type>& rhs) const
     {
         return x_*rhs.x_+y_*rhs.y_;
@@ -544,28 +533,28 @@ public:
         vector<2,data_type> proj = *this;
         return *this*(*this*rhs/length2());
     }
-    template<class tran_type>
+    template<typename tran_type>
     void to(const tran_type& m)
     {
         data_type x__(x_),y__(y_);
         x_ = x__*m[0] + y__*m[1] + m[2];
         y_ = x__*m[3] + y__*m[4] + m[5];
     }
-    template<class tran_type>
+    template<typename tran_type>
     void to(const tran_type* m)
     {
         data_type x__(x_),y__(y_);
         x_ = x__*m[0] + y__*m[1] + m[2];
         y_ = x__*m[3] + y__*m[4] + m[5];
     }
-    template<class tran_type>
+    template<typename tran_type>
     void rotate(const tran_type& m)
     {
         data_type x__(x_),y__(y_);
         x_ = x__*m[0] + y__*m[1];
         y_ = x__*m[2] + y__*m[3];
     }
-    template<class tran_type>
+    template<typename tran_type>
     void rotate(const tran_type* m)
     {
         data_type x__(x_),y__(y_);
@@ -617,7 +606,7 @@ public:
 };
 
 
-template<class data_type>
+template<typename data_type>
 class vector<3,data_type>
 {
 protected:
@@ -637,10 +626,18 @@ public:
     vector(void):x_(0),y_(0),z_(0)				{}
     template<typename value_type>
     vector(value_type x,value_type y,value_type z):x_(data_type(x)),y_(data_type(y)),z_(data_type(z)){}
-    template<class rhs_type>
+    template<typename rhs_type>
     vector(const rhs_type& rhs):x_(data_type(rhs[0])),y_(data_type(rhs[1])),z_(data_type(rhs[2])){}
-    template<class rhs_type>
+    template<typename rhs_type>
     vector(const rhs_type* rhs):x_(data_type(rhs[0])),y_(data_type(rhs[1])),z_(data_type(rhs[2])){}
+    template<typename rhs_type>
+    vector& operator=(const rhs_type& rhs)
+    {
+        x_ = rhs[0];
+        y_ = rhs[1];
+        z_ = rhs[2];
+        return *this;
+    }
 public:
     const data_type& operator[](unsigned int index) const
     {
@@ -668,12 +665,12 @@ public:
     }
     size_t size(void) const{return 3;}
 public:
-    template<class func>
+    template<typename func>
     void for_each(func)
     {
         std::for_each(data_,data_+3,func());
     }
-    template<class rhs_type>
+    template<typename rhs_type>
     vector<3,data_type>& operator+=(const rhs_type* rhs)
     {
         x_ += rhs[0];
@@ -681,7 +678,7 @@ public:
         z_ += rhs[2];
         return *this;
     }
-    template<class rhs_type>
+    template<typename rhs_type>
     vector<3,data_type>& operator-=(const rhs_type* rhs)
     {
         x_ -= rhs[0];
@@ -689,7 +686,7 @@ public:
         z_ -= rhs[2];
         return *this;
     }
-    template<class rhs_type>
+    template<typename rhs_type>
     vector<3,data_type>& operator+=(const vector<3,rhs_type>& rhs)
     {
         x_ += rhs[0];
@@ -697,7 +694,7 @@ public:
         z_ += rhs[2];
         return *this;
     }
-    template<class rhs_type>
+    template<typename rhs_type>
     vector<3,data_type>& operator-=(const vector<3,rhs_type>& rhs)
     {
         x_ -= rhs[0];
@@ -735,13 +732,13 @@ public:
         z_ /= r;
         return *this;
     }
-    template<class rhs_type>
+    template<typename rhs_type>
     vector<3,data_type> operator+(const rhs_type& rhs) const
     {
         vector<3,data_type> result(*this);result += rhs;
         return result;
     }
-    template<class rhs_type>
+    template<typename rhs_type>
     vector<3,data_type> operator-(const rhs_type& rhs) const
     {
         vector<3,data_type> result(*this);result -= rhs;
@@ -796,7 +793,7 @@ public:
 		return result;
     }
 	//apply(std::ptr_fun(static_cast <float(*)(float)>(&std::floor)));
-    template<class function_type>
+    template<typename function_type>
 	void apply(function_type& function)
 	{
 		x_ = function(x_);
@@ -835,7 +832,7 @@ public:
         return x_*rhs.x_+y_*rhs.y_+z_*rhs.z_;
     }
 
-    template<class rhs_type>
+    template<typename rhs_type>
     data_type operator*(const vector<3,rhs_type>& rhs) const
     {
         return x_*rhs[0]+y_*rhs[1]+z_*rhs[2];
@@ -872,7 +869,7 @@ public:
 		sum += t*t;
 		return sum;
 	}
-    template<class pointer_type>
+    template<typename pointer_type>
 	data_type distance2(const pointer_type* rhs)
 	{
 		data_type sum = 0;
@@ -888,12 +885,12 @@ public:
 	{
 		return std::sqrt(distance2(rhs));
 	}
-    template<class pointer_type>
+    template<typename pointer_type>
 	data_type distance(const pointer_type* rhs)
 	{
 		return std::sqrt(distance2(rhs));
 	}
-        template<class tran_type>
+        template<typename tran_type>
         void to(const tran_type& m)
         {
             data_type x__(x_),y__(y_),z__(z_);
@@ -901,7 +898,7 @@ public:
             y_ = x__*m[4] + y__*m[5] + z__*m[6] + m[7];
             z_ = x__*m[8] + y__*m[9] + z__*m[10] + m[11];
         }
-        template<class tran_type>
+        template<typename tran_type>
         void to(const tran_type* m)
         {
             data_type x__(x_),y__(y_),z__(z_);
@@ -909,7 +906,7 @@ public:
             y_ = x__*m[4] + y__*m[5] + z__*m[6] + m[7];
             z_ = x__*m[8] + y__*m[9] + z__*m[10] + m[11];
         }
-        template<class tran_type>
+        template<typename tran_type>
         void rotate(const tran_type& m)
         {
             data_type x__(x_),y__(y_),z__(z_);
@@ -917,7 +914,7 @@ public:
             y_ = x__*m[3] + y__*m[4] + z__*m[5];
             z_ = x__*m[6] + y__*m[7] + z__*m[8];
         }
-        template<class tran_type>
+        template<typename tran_type>
         void rotate(const tran_type* m)
         {
             data_type x__(x_),y__(y_),z__(z_);
