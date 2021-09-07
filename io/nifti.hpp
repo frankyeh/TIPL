@@ -976,7 +976,7 @@ public:
         return true;
     }
     template<class image_type>
-    const nifti_base& operator>>(image_type& source) const
+    const nifti_base& operator>>(image_type& source)
     {
         toLPS(source);
         return *this;
