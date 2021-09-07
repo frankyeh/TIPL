@@ -1126,6 +1126,55 @@ public:
         }
         return true;
     }
+    friend std::ostream& operator<<(std::ostream& out,const nifti_base& nii)
+    {
+        out << "sizeof_hdr=" << nii.nif_header2.sizeof_hdr << std::endl;
+        out << "ndim_info=" << (int)nii.nif_header2.dim_info << std::endl;
+        for(unsigned int i = 0;i < 8;++i)
+            out << "dim[" << i << "]=" << nii.nif_header2.dim[i] << std::endl;
+        out << "intent_p1=" << nii.nif_header2.intent_p1 << std::endl;
+        out << "intent_p2=" << nii.nif_header2.intent_p2 << std::endl;
+        out << "intent_p3=" << nii.nif_header2.intent_p3 << std::endl;
+        out << "intent_code=" << nii.nif_header2.intent_code << std::endl;
+        out << "datatype=" << nii.nif_header2.datatype << std::endl;
+        out << "bitpix=" << nii.nif_header2.bitpix << std::endl;
+        out << "slice_start=" << nii.nif_header2.slice_start << std::endl;
+
+        for(unsigned int i = 0;i < 8;++i)
+            out << "pixdim[" << i << "]=" << nii.nif_header2.pixdim[i] << std::endl;
+
+        out << "vox_offset=" << nii.nif_header2.vox_offset << std::endl;
+        out << "scl_slope=" << nii.nif_header2.scl_slope << std::endl;
+        out << "scl_inter=" << nii.nif_header2.scl_inter << std::endl;
+        out << "slice_end=" << nii.nif_header2.slice_end << std::endl;
+        out << "slice_code=" << (int)nii.nif_header2.slice_code << std::endl;
+        out << "xyzt_units=" << (int)nii.nif_header2.xyzt_units << std::endl;
+        out << "scl_inter=" << nii.nif_header2.scl_inter << std::endl;
+        out << "cal_max=" << nii.nif_header2.cal_max << std::endl;
+        out << "cal_min=" << nii.nif_header2.cal_min << std::endl;
+        out << "slice_duration=" << nii.nif_header2.slice_duration << std::endl;
+        out << "toffset=" << nii.nif_header2.toffset << std::endl;
+        out << "descrip=" << nii.nif_header2.descrip << std::endl;
+        out << "aux_file=" << nii.nif_header2.aux_file << std::endl;
+        out << "qform_code=" << nii.nif_header2.qform_code << std::endl;
+        out << "sform_code=" << nii.nif_header2.sform_code << std::endl;
+        out << "quatern_b=" << nii.nif_header2.quatern_b << std::endl;
+        out << "quatern_c=" << nii.nif_header2.quatern_c << std::endl;
+        out << "quatern_d=" << nii.nif_header2.quatern_d << std::endl;
+        out << "qoffset_x=" << nii.nif_header2.qoffset_x << std::endl;
+        out << "qoffset_y=" << nii.nif_header2.qoffset_y << std::endl;
+        out << "qoffset_z=" << nii.nif_header2.qoffset_z << std::endl;
+
+        for(unsigned int i = 0;i < 4;++i)
+            out << "srow_x[" << i << "]=" << nii.nif_header2.srow_x[i] << std::endl;
+        for(unsigned int i = 0;i < 4;++i)
+            out << "srow_y[" << i << "]=" << nii.nif_header2.srow_y[i] << std::endl;
+        for(unsigned int i = 0;i < 4;++i)
+            out << "srow_z[" << i << "]=" << nii.nif_header2.srow_z[i] << std::endl;
+        out << "intent_name=" << nii.nif_header2.intent_name << std::endl;
+        return out;
+    }
+
 };
 
 typedef nifti_base<> nifti;
