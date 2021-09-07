@@ -75,6 +75,11 @@ public:
     bool save_to_file(const char_type* file_name) const
     {
         std::ofstream out(file_name,std::ios::binary);
+        return save_to_stream(out);
+    }
+    template<typename stream_type>
+    bool save_to_stream(stream_type& out) const
+    {
         if (!bmfh.write(out))
             return false;
         out.write(reinterpret_cast<const char*>(&bmih),sizeof(bitmap_info_header));
@@ -192,7 +197,6 @@ public:
         load_from_image(source);
         return *this;
     }
-
 };
 
 
