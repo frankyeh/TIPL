@@ -126,7 +126,7 @@ template<typename ImageType,class LabelImageType>
 void threshold(const ImageType& I,LabelImageType& out,typename ImageType::value_type threshold_value,
                typename LabelImageType::value_type foreground = 255,typename LabelImageType::value_type background = 0)
 {
-    out.resize(image.geometry());
+    out.resize(I.geometry());
     typename ImageType::const_iterator iter = I.begin();
     typename ImageType::const_iterator end = I.end();
     typename LabelImageType::iterator out_iter = out.begin();
