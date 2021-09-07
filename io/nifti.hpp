@@ -961,7 +961,7 @@ public:
     }
 
     template<class image_type>
-    bool save_to_image(image_type& out) const
+    bool get_untouched_image(image_type& out) const
     {
         if(!has_data())
             return false;
@@ -978,7 +978,7 @@ public:
     template<class image_type>
     const nifti_base& operator>>(image_type& source) const
     {
-        save_to_image(source);
+        toLPS(source);
         return *this;
     }
     template<class image_type>
@@ -1033,7 +1033,7 @@ public:
     {
         if(!write_buf)
         {
-            if(load_image && !save_to_image(out))
+            if(load_image && !get_untouched_image(out))
                 return false;
         }
         handle_qform();

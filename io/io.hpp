@@ -188,7 +188,7 @@ public:
         if(!nifti_reader.empty())
         {
             if(nifti_reader.size() == 1)
-                *nifti_reader.front() >> buffer;
+                nifti_reader.front()->get_untouched_image(buffer);
             else
             {
                 buffer.resize(dim);
