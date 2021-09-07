@@ -1,8 +1,8 @@
 #ifndef OTSU_HPP
 #define OTSU_HPP
 #include <vector>
-#include "tipl/numerical/numerical.hpp"
-#include "tipl/numerical/basic_op.hpp"
+#include "../numerical/numerical.hpp"
+#include "../numerical/basic_op.hpp"
 
 namespace tipl{
 

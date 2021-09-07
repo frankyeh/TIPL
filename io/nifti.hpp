@@ -35,6 +35,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include "interface.hpp"
 #include "../numerical/basic_op.hpp"
+#include "../numerical/numerical.hpp"
 
 namespace tipl
 {
