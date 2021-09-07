@@ -3,8 +3,8 @@
 #include <vector>
 #include <fstream>
 #include <iterator>
-#include "tipl/utility/basic_image.hpp"
-#include "tipl/numerical/basic_op.hpp"
+#include "../utility/basic_image.hpp"
+#include "../numerical/basic_op.hpp"
 namespace tipl{
 
 inline unsigned char color_spectrum_value(unsigned char center, unsigned char value)

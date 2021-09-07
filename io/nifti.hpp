@@ -34,8 +34,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <memory>
 #include <stdint.h>
 #include "interface.hpp"
-#include "tipl/utility/basic_image.hpp"
-#include "tipl/numerical/basic_op.hpp"
+#include "../numerical/basic_op.hpp"
 
 namespace tipl
 {
@@ -999,18 +998,18 @@ public:
             float c2 = c*c;
             float d2 = d*d;
             float sum = b2+c2+d2;
-            float a2 = (sum > 1.0) ? 0.0:1.0-sum;
+            float a2 = (sum > 1.0f) ? 0.0f:1.0f-sum;
             float a = std::sqrt(a2);
-            float ab2 = 2.0*a*b;
-            float ac2 = 2.0*a*c;
-            float ad2 = 2.0*a*d;
-            float bc2 = 2.0*b*c;
-            float bd2 = 2.0*b*d;
-            float cd2 = 2.0*c*d;
+            float ab2 = 2.0f*a*b;
+            float ac2 = 2.0f*a*c;
+            float ad2 = 2.0f*a*d;
+            float bc2 = 2.0f*b*c;
+            float bd2 = 2.0f*b*d;
+            float cd2 = 2.0f*c*d;
 
             float qfac = nif_header2.pixdim[0];
-            if(qfac == 0.0)
-                qfac = 1.0;
+            if(qfac == 0.0f)
+                qfac = 1.0f;
             nif_header2.srow_x[0] = (a2+b2-c2-d2)*nif_header2.pixdim[1];
             nif_header2.srow_x[1] = bc2-ad2;
             nif_header2.srow_x[2] = bd2+ac2;

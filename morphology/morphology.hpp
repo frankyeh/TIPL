@@ -4,11 +4,11 @@
 #include <map>
 #include <list>
 #include <set>
-#include "tipl/numerical/basic_op.hpp"
-#include "tipl/utility/basic_image.hpp"
-#include "tipl/utility/pixel_index.hpp"
-#include "tipl/numerical/index_algorithm.hpp"
-#include "tipl/numerical/window.hpp"
+#include "../numerical/basic_op.hpp"
+#include "../utility/basic_image.hpp"
+#include "../utility/pixel_index.hpp"
+#include "../numerical/index_algorithm.hpp"
+#include "../numerical/window.hpp"
 
 
 namespace tipl

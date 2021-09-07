@@ -4,8 +4,8 @@
 #include <limits>
 #include <vector>
 #include <map>
-#include "tipl/numerical/numerical.hpp"
-#include "tipl/numerical/matrix.hpp"
+#include "numerical.hpp"
+#include "matrix.hpp"
 namespace tipl
 {
 

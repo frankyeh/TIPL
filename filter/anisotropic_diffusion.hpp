@@ -1,7 +1,7 @@
 #ifndef ANISOTROPIC_DIFFUSION
 #define ANISOTROPIC_DIFFUSION
-#include "tipl/utility/basic_image.hpp"
-#include "tipl/numerical/numerical.hpp"
+#include "../utility/basic_image.hpp"
+#include "../numerical/numerical.hpp"
 
 namespace tipl
 {

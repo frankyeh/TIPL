@@ -1,8 +1,8 @@
 //---------------------------------------------------------------------------
 #ifndef FILTER_MODEL_HPP
 #define FILTER_MODEL_HPP
-#include "tipl/utility/basic_image.hpp"
-#include "tipl/numerical/numerical.hpp"
+#include "../utility/basic_image.hpp"
+#include "../numerical/numerical.hpp"
 //---------------------------------------------------------------------------
 namespace tipl
 {

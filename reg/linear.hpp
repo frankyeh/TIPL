@@ -6,15 +6,15 @@
 #include <memory>
 #include <cstdlib>     /* srand, rand */
 #include <ctime>
-#include "tipl/numerical/interpolation.hpp"
-#include "tipl/numerical/numerical.hpp"
-#include "tipl/numerical/basic_op.hpp"
-#include "tipl/numerical/transformation.hpp"
-#include "tipl/numerical/optimization.hpp"
-#include "tipl/numerical/statistics.hpp"
-#include "tipl/numerical/resampling.hpp"
-#include "tipl/segmentation/otsu.hpp"
-#include "tipl/morphology/morphology.hpp"
+#include "../numerical/interpolation.hpp"
+#include "../numerical/numerical.hpp"
+#include "../numerical/basic_op.hpp"
+#include "../numerical/transformation.hpp"
+#include "../numerical/optimization.hpp"
+#include "../numerical/statistics.hpp"
+#include "../numerical/resampling.hpp"
+#include "../segmentation/otsu.hpp"
+#include "../morphology/morphology.hpp"
 
 namespace tipl
 {

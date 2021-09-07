@@ -1,7 +1,7 @@
 #ifndef DIF_HPP
 #define DIF_HPP
-#include "tipl/utility/basic_image.hpp"
-#include "tipl/numerical/interpolation.hpp"
+#include "../utility/basic_image.hpp"
+#include "interpolation.hpp"
 namespace tipl
 {
 

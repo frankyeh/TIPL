@@ -4,7 +4,6 @@
 #include <cmath>
 #include <map>
 #include <set>
-#include "tipl/tipl.hpp"
 
 namespace tipl
 {

@@ -35,7 +35,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <algorithm>
 #include <memory>
 #include <locale>
-#include "tipl/numerical/basic_op.hpp"
+#include "../numerical/basic_op.hpp"
 //---------------------------------------------------------------------------
 namespace tipl
 {

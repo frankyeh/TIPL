@@ -1,7 +1,7 @@
 //---------------------------------------------------------------------------
 #ifndef INTERPOLATION_HPP
 #define INTERPOLATION_HPP
-#include "tipl/utility/basic_image.hpp"
+#include "../utility/basic_image.hpp"
 #include "index_algorithm.hpp"
 
 namespace tipl

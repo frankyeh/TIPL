@@ -1,11 +1,11 @@
 //---------------------------------------------------------------------------
 #ifndef RESAMPLING_HPP
 #define RESAMPLING_HPP
-#include "tipl/utility/basic_image.hpp"
-#include "tipl/numerical/transformation.hpp"
-#include "tipl/numerical/numerical.hpp"
-#include "tipl/numerical/basic_op.hpp"
-#include "tipl/numerical/statistics.hpp"
+#include "../utility/basic_image.hpp"
+#include "transformation.hpp"
+#include "numerical.hpp"
+#include "basic_op.hpp"
+#include "statistics.hpp"
 #include "interpolation.hpp"
 
 namespace tipl

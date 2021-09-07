@@ -2,7 +2,7 @@
 #ifndef WINDOW_HPP
 #define WINDOW_HPP
 #include <vector>
-#include "tipl/utility/pixel_index.hpp"
+#include "../utility/pixel_index.hpp"
 
 namespace tipl
 {

@@ -4,8 +4,8 @@
 #include <cmath>
 #include <vector>
 #include <future>
-#include "tipl/numerical/matrix.hpp"
-#include "tipl/numerical/numerical.hpp"
+#include "../numerical/matrix.hpp"
+#include "../numerical/numerical.hpp"
 namespace tipl {
 
 namespace reg {

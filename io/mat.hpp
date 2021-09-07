@@ -495,8 +495,8 @@ public:
         return dataset.size();
     }
 
-    mat_matrix& operator[](unsigned int index){return *dataset[index];}
-    const mat_matrix& operator[](unsigned int index) const {return *dataset[index];}
+    mat_matrix& operator[](size_t index){return *dataset[index];}
+    const mat_matrix& operator[](size_t index) const {return *dataset[index];}
 
     template<typename image_type>
     const mat_read_base& operator>>(image_type& source) const

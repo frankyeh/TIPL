@@ -2,9 +2,9 @@
 #ifndef NUMERICAL_HPP
 #define NUMERICAL_HPP
 #include <random>
-#include "tipl/utility/basic_image.hpp"
-#include "tipl/utility/multi_thread.hpp"
-#include "tipl/numerical/interpolation.hpp"
+#include "../utility/basic_image.hpp"
+#include "../utility/multi_thread.hpp"
+#include "interpolation.hpp"
 
 
 namespace tipl

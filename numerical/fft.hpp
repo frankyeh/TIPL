@@ -1,7 +1,7 @@
 #ifndef FFT_HPP_INCLUDED
 #define FFT_HPP_INCLUDED
-#include "tipl/utility/basic_image.hpp"
-#include "tipl/utility/geometry.hpp"
+#include "../utility/basic_image.hpp"
+#include "../utility/geometry.hpp"
 #include <cmath>
 #include <vector>
 #include <stdexcept>

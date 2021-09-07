@@ -1,12 +1,12 @@
 #ifndef LDDMM_HPP_INCLUDED
 #define LDDMM_HPP_INCLUDED
-#include "tipl/numerical/basic_op.hpp"
-#include "tipl/numerical/fft.hpp"
-#include "tipl/numerical/dif.hpp"
-#include "tipl/numerical/resampling.hpp"
+#include "../numerical/basic_op.hpp"
+#include "../numerical/fft.hpp"
+#include "../numerical/dif.hpp"
+#include "../numerical/resampling.hpp"
 
-#include "tipl/io/nifti.hpp"
-#include "tipl/filter/gaussian.hpp"
+#include "../io/nifti.hpp"
+#include "../filter/gaussian.hpp"
 
 #include <iostream>
 #include <limits>

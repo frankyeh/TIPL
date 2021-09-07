@@ -1,6 +1,6 @@
 #ifndef TRANSFORMATION_HPP_INCLUDED
 #define TRANSFORMATION_HPP_INCLUDED
-#include "tipl/numerical/matrix.hpp"
+#include "../numerical/matrix.hpp"
 namespace tipl{
 
 template<unsigned int dim>

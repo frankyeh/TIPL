@@ -4,8 +4,8 @@
 #include <deque>
 #include <map>
 #include <algorithm>
-#include "tipl/utility/pixel_index.hpp"
-#include "tipl/utility/basic_image.hpp"
+#include "../utility/pixel_index.hpp"
+#include "../utility/basic_image.hpp"
 
 namespace tipl
 {

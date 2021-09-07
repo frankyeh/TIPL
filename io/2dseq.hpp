@@ -5,7 +5,7 @@
 #include <sstream>
 #include <iterator>
 #include <memory>
-#include "tipl/numerical/basic_op.hpp"
+#include "../numerical/basic_op.hpp"
 
 namespace tipl
 {
