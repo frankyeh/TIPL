@@ -19,13 +19,13 @@
 #include <vector>
 #include <random>
 
-#include "tipl/numerical/matrix.hpp"
-#include "tipl/numerical/numerical.hpp"
-#include "tipl/numerical/basic_op.hpp"
-#include "tipl/numerical/resampling.hpp"
-#include "tipl/utility/geometry.hpp"
-#include "tipl/utility/basic_image.hpp"
-#include "tipl/utility/multi_thread.hpp"
+#include "../numerical/matrix.hpp"
+#include "../numerical/numerical.hpp"
+#include "../numerical/basic_op.hpp"
+#include "../numerical/resampling.hpp"
+#include "../utility/geometry.hpp"
+#include "../utility/basic_image.hpp"
+#include "../utility/multi_thread.hpp"
 
 
 namespace tipl

@@ -1,6 +1,6 @@
 #ifndef ML_EM_HPP
 #define ML_EM_HPP
-#include "tipl/numerical/matrix.hpp"
+#include "../numerical/matrix.hpp"
 
 
 namespace tipl{
