@@ -478,12 +478,12 @@ void brent_method(eval_fun_type& f,value_type b/*max*/,value_type a/*min*/,value
                 d=p/q;
                 u.first=x.first+d;
                 if (u.first-a < tol2 || b-u.first < tol2)
-                    d=tol1 >= 0 ? xm-x.first:x.first-xm;
+                    d=(tol1 >= 0 ? xm-x.first:x.first-xm);
             }
         }
         else
             d=gold_ratio*(e=(x.first >= xm ? a-x.first : b-x.first));
-        u.first=(std::abs(d) >= tol1 ? x.first + d : (x.first + (d >= 0) ? tol1:-tol1));
+        u.first=(std::abs(d) >= tol1 ? x.first + d : (x.first + ((d >= 0) ? tol1:-tol1)));
 
         typename std::map<value_type,value_type>::const_iterator past_result = record.find(u.first);
         if (past_result != record.end())

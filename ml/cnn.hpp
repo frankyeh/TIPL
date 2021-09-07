@@ -182,7 +182,7 @@ private:
 public:
     tipl::geometry<3> in_dim;
     fully_connected_layer(void){}
-    bool init(const tipl::geometry<3>& in_dim_,const tipl::geometry<3>& out_dim)
+    bool init(const tipl::geometry<3>& in_dim_,const tipl::geometry<3>& out_dim) override
     {
         in_dim = in_dim_;
         basic_layer::init(in_dim_,out_dim);
@@ -193,7 +193,7 @@ public:
         weight_scale = 0.0f;
         return true;
     }
-    void initialize_weight(tipl::uniform_dist<float>& gen)
+    void initialize_weight(tipl::uniform_dist<float>& gen) override
     {
         basic_layer::initialize_weight(gen);
     }
@@ -230,7 +230,7 @@ public:
     }
 
     void update(float rw,const std::vector<float>& dw,
-                float rb,const std::vector<float>& db)
+                float rb,const std::vector<float>& db) override
     {
         if(!af.empty() && bn_ratio != 0.0f)
         {
@@ -255,7 +255,7 @@ public:
     int pool_size;
 public:
     max_pooling_layer(int pool_size_):pool_size(pool_size_){}
-    bool init(const tipl::geometry<3>& in_dim_,const tipl::geometry<3>& out_dim_)
+    bool init(const tipl::geometry<3>& in_dim_,const tipl::geometry<3>& out_dim_) override
     {
         basic_layer::init(in_dim_,out_dim_);
         in_dim = in_dim_;
@@ -304,7 +304,7 @@ public:
             dX[i] = (max_idx[outi] == i) ? dOut[outi] : float(0);
         }
     }
-    virtual unsigned int computation_cost(void) const
+    virtual unsigned int computation_cost(void) const override
     {
         return (unsigned int)(out_dim.size()*pool_size*pool_size/10.0f);
     }
@@ -348,7 +348,7 @@ public:
     convolutional_layer(int kernel_size_) : kernel_size(kernel_size_),kernel_size2(kernel_size_*kernel_size_)
     {
     }
-    bool init(const tipl::geometry<3>& in_dim_,const tipl::geometry<3>& out_dim_)
+    bool init(const tipl::geometry<3>& in_dim_,const tipl::geometry<3>& out_dim_) override
     {
         basic_layer::init(in_dim_, out_dim_);
         in_dim = in_dim_;
@@ -461,7 +461,7 @@ public:
             }
         }
     }
-    virtual unsigned int computation_cost(void) const
+    virtual unsigned int computation_cost(void) const override
     {
         return out_dim.size()*in_dim.depth()*kernel_size*kernel_size;
     }
@@ -471,7 +471,7 @@ public:
 class soft_max_layer : public basic_layer{
 public:
     soft_max_layer(void){}
-    bool init(const tipl::geometry<3>& in_dim,const tipl::geometry<3>& out_dim)
+    bool init(const tipl::geometry<3>& in_dim,const tipl::geometry<3>& out_dim) override
     {
         if(in_dim.size() != out_dim.size())
             return false;
@@ -500,7 +500,7 @@ public:
 class max_layer : public basic_layer{
 public:
     max_layer(void){}
-    bool init(const tipl::geometry<3>& in_dim,const tipl::geometry<3>& out_dim)
+    bool init(const tipl::geometry<3>& in_dim,const tipl::geometry<3>& out_dim) override
     {
         if(in_dim.size() != out_dim.size())
             return false;
