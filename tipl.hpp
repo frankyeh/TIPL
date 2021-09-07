@@ -86,5 +86,60 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "vis/color_map.hpp"
 
 
+#ifdef INCLUDE_NLOHMANN_JSON_HPP_
+// XEUS interface
+#include "xtl/xbase64.hpp"
+#include "nlohmann/json.hpp"
+namespace nl = nlohmann;
+
+namespace tipl
+{
+    template <typename pixel_type,typename storage_type>
+    nl::json mime_bundle_repr(const tipl::image<pixel_type,2,storage_type>& I)
+    {
+        tipl::io::bitmap bmp;
+        bmp << I;
+        std::stringstream out;
+        bmp.save_to_stream(out);
+        auto bundle = nl::json::object();
+        bundle["image/png"] = xtl::base64encode(out.str());
+        return bundle;
+    }
+    template <typename pixel_type,typename storage_type>
+    nl::json mime_bundle_repr(const tipl::image<pixel_type,3,storage_type>& I)
+    {
+        return mime_bundle_repr(I.slice_at(I.depth()/2));
+    }
+    template <int dim>
+    nl::json mime_bundle_repr(const tipl::geometry<dim>& d)
+    {
+        std::stringstream out;
+        out << d;
+        auto bundle = nl::json::object();
+        bundle["text/plain"] = out.str();
+        return bundle;
+    }
+    template <int dim,typename value_type>
+    nl::json mime_bundle_repr(const tipl::vector<dim,value_type>& v)
+    {
+        std::stringstream out;
+        out << v;
+        auto bundle = nl::json::object();
+        bundle["text/plain"] = out.str();
+        return bundle;
+    }
+    namespace io{
+        nl::json mime_bundle_repr(const tipl::io::nifti& nii)
+        {
+            std::stringstream out;
+            out << nii;
+            auto bundle = nl::json::object();
+            bundle["text/plain"] = out.str();
+            return bundle;
+        }
+    }
+}
+
+#endif//INCLUDE_NLOHMANN_JSON_HPP_
 
 #endif//IMAGE_HPP
