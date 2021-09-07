@@ -53,7 +53,7 @@ public:
     }
 public:
     template<typename value_type>
-    const reference operator[](value_type index) const
+    reference operator[](value_type index) const
     {
         return from[index];
     }
