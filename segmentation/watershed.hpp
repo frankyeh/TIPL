@@ -1,13 +1,13 @@
 #include <vector>
 #include <list>
-#include "tipl/numerical/index_algorithm.hpp"
-#include "tipl/numerical/numerical.hpp"
-#include "tipl/numerical/basic_op.hpp"
-#include "tipl/morphology/morphology.hpp"
-#include "tipl/segmentation/otsu.hpp"
+#include "../numerical/index_algorithm.hpp"
+#include "../numerical/numerical.hpp"
+#include "../numerical/basic_op.hpp"
+#include "../morphology/morphology.hpp"
+#include "../segmentation/otsu.hpp"
 
 #ifdef DEBUG
-#include "tipl/io/bitmap.hpp"
+#include "../io/bitmap.hpp"
 #include <sstream>
 #endif
 namespace tipl

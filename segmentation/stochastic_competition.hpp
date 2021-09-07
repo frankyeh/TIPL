@@ -1,12 +1,12 @@
-#include "tipl/numerical/numerical.hpp"
-#include "tipl/numerical/basic_op.hpp"
-#include "tipl/morphology/morphology.hpp"
 #include <cstdlib>
 #include <ctime>
+#include "../numerical/numerical.hpp"
+#include "../numerical/basic_op.hpp"
+#include "../morphology/morphology.hpp"
 
-#ifdef TIPL_DEBUG
-#include <image/io/nifti.hpp>
-#include "tipl/io/bitmap.hpp"
+#ifdef DEBUG
+#include "../io/nifti.hpp"
+#include "../io/bitmap.hpp"
 #include <sstream>
 #endif
 
