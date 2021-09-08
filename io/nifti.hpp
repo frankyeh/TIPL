@@ -975,6 +975,13 @@ public:
         }
         return true;
     }
+
+    template<class image_type>
+    bool save_to_image(image_type& out) const
+    {
+        return toLPS(out);
+    }
+
     template<class image_type>
     const nifti_base& operator>>(image_type& source)
     {
