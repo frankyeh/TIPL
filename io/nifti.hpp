@@ -977,7 +977,7 @@ public:
     }
 
     template<class image_type>
-    bool save_to_image(image_type& out) const
+    bool save_to_image(image_type& out)
     {
         return toLPS(out);
     }
