@@ -26,18 +26,18 @@ void erosion(ImageType& I,const std::vector<int>& index_shift)
         int shift = index_shift[index];
         if (shift > 0)
         {
-            typename ImageType::value_type* iter1 = &*act.begin() + shift;
-            typename ImageType::value_type* iter2 = &*I.begin();
-            typename ImageType::value_type* end = &*act.begin() + act.size();
+            auto iter1 = &*act.begin() + shift;
+            auto iter2 = &*I.begin();
+            auto end = &*act.begin() + act.size();
             for (;iter1 < end;++iter1,++iter2)
                 if (*iter2 == 0)
                     *iter1 = 1;
         }
         if (shift < 0)
         {
-            typename ImageType::value_type* iter1 = &*act.begin();
-            typename ImageType::value_type* iter2 = &*I.begin() - shift;
-            typename ImageType::value_type* end = &*I.begin() + I.size();
+            auto iter1 = &*act.begin();
+            auto iter2 = &*I.begin() - shift;
+            auto end = &*I.begin() + I.size();
             for (;iter2 < end;++iter1,++iter2)
                 if (*iter2 == 0)
                     *iter1 = 1;
@@ -72,17 +72,17 @@ void dilation(ImageType& I,const std::vector<int>& index_shift)
         int shift = index_shift[index];
         if (shift > 0)
         {
-            typename ImageType::value_type* iter1 = &*act.begin() + shift;
-            typename ImageType::value_type* iter2 = &*I.begin();
-            typename ImageType::value_type* end = &*act.begin() + act.size();
+            auto iter1 = &*act.begin() + shift;
+            auto iter2 = &*I.begin();
+            auto end = &*act.begin() + act.size();
             for (;iter1 < end;++iter1,++iter2)
                 *iter1 |= *iter2;
         }
         if (shift < 0)
         {
-            typename ImageType::value_type* iter1 = &*act.begin();
-            typename ImageType::value_type* iter2 = &*I.begin() - shift;
-            typename ImageType::value_type* end = &*I.begin() + I.size();
+            auto iter1 = &*act.begin();
+            auto iter2 = &*I.begin() - shift;
+            auto end = &*I.begin() + I.size();
             for (;iter2 < end;++iter1,++iter2)
                 *iter1 |= *iter2;
         }
@@ -101,17 +101,17 @@ void dilation_mt(ImageType& I,const std::vector<int>& index_shift)
         int shift = index_shift[index];
         if (shift > 0)
         {
-            typename ImageType::value_type* iter1 = &*act.begin() + shift;
-            typename ImageType::value_type* iter2 = &*I.begin();
-            typename ImageType::value_type* end = &*act.begin() + act.size();
+            auto iter1 = &*act.begin() + shift;
+            auto iter2 = &*I.begin();
+            auto end = &*act.begin() + act.size();
             for (;iter1 < end;++iter1,++iter2)
                 *iter1 |= *iter2;
         }
         if (shift < 0)
         {
-            typename ImageType::value_type* iter1 = &*act.begin();
-            typename ImageType::value_type* iter2 = &*I.begin() - shift;
-            typename ImageType::value_type* end = &*I.begin() + I.size();
+            auto iter1 = &*act.begin();
+            auto iter2 = &*I.begin() - shift;
+            auto end = &*I.begin() + I.size();
             for (;iter2 < end;++iter1,++iter2)
                 *iter1 |= *iter2;
         }
@@ -159,20 +159,20 @@ void edge(const ImageType& I,LabelType& act,const ShiftType& shift_list)
         int shift = shift_list[index];
         if (shift > 0)
         {
-            typename LabelType::value_type* iter1 = &*act.begin() + shift;
-            const typename ImageType::value_type* iter2 = &*I.begin();
-            const typename ImageType::value_type* iter3 = &*I.begin()+shift;
-            typename LabelType::value_type* end = &*act.begin() + act.size();
+            auto iter1 = &*act.begin() + shift;
+            auto iter2 = &*I.begin();
+            auto iter3 = &*I.begin()+shift;
+            auto end = &*act.begin() + act.size();
             for (;iter1 < end;++iter1,++iter2,++iter3)
                 if (*iter2 != *iter3)
                     *iter1 = 1;
         }
         if (shift < 0)
         {
-            typename LabelType::value_type* iter1 = &*act.begin();
-            const typename ImageType::value_type* iter2 = &*I.begin() - shift;
-            const typename ImageType::value_type* iter3 = &*I.begin();
-            const typename ImageType::value_type* end = &*I.begin() + I.size();
+            auto iter1 = &*act.begin();
+            auto iter2 = &*I.begin() - shift;
+            auto iter3 = &*I.begin();
+            auto end = &*I.begin() + I.size();
             for (;iter2 < end;++iter1,++iter2,++iter3)
                 if (*iter2 != *iter3)
                     *iter1 = 1;
@@ -246,8 +246,8 @@ void inner_edge(const ImageType& I,LabelType& act)
         if (shift > 0)
         {
             typename LabelType::value_type* iter1 = &*act.begin() + shift;
-            const typename ImageType::value_type* iter2 = &*I.begin();
-            const typename ImageType::value_type* iter3 = &*I.begin()+shift;
+            const auto iter2 = &*I.begin();
+            const auto iter3 = &*I.begin()+shift;
             typename LabelType::value_type* end = &*act.begin() + act.size();
             for (;iter1 < end;++iter1,++iter2,++iter3)
                 if (*iter2 < *iter3)
@@ -256,9 +256,9 @@ void inner_edge(const ImageType& I,LabelType& act)
         if (shift < 0)
         {
             typename LabelType::value_type* iter1 = &*act.begin();
-            const typename ImageType::value_type* iter2 = &*I.begin() - shift;
-            const typename ImageType::value_type* iter3 = &*I.begin();
-            const typename ImageType::value_type* end = &*I.begin() + I.size();
+            const auto iter2 = &*I.begin() - shift;
+            const auto iter3 = &*I.begin();
+            const auto end = &*I.begin() + I.size();
             for (;iter2 < end;++iter1,++iter2,++iter3)
                 if (*iter2 < *iter3)
                     *iter1 = 1;
@@ -399,7 +399,7 @@ unsigned char get_neighbor_count(ImageType& I,std::vector<unsigned char>& act)
         if (shift > 0)
         {
             unsigned char* iter1 = &*act.begin() + shift;
-            typename ImageType::value_type* iter2 = &*I.begin();
+            auto iter2 = &*I.begin();
             unsigned char* end = &*act.begin() + act.size();
             for (;iter1 < end;++iter1,++iter2)
                 if (*iter2)
@@ -408,8 +408,8 @@ unsigned char get_neighbor_count(ImageType& I,std::vector<unsigned char>& act)
         if (shift < 0)
         {
             unsigned char* iter1 = &*act.begin();
-            typename ImageType::value_type* iter2 = &*I.begin() - shift;
-            typename ImageType::value_type* end = &*I.begin() + I.size();
+            auto iter2 = &*I.begin() - shift;
+            auto end = &*I.begin() + I.size();
             for (;iter2 < end;++iter1,++iter2)
                 if (*iter2)
                     (++*iter1);
