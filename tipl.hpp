@@ -63,7 +63,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "filter/sobel.hpp"
 #include "filter/canny_edge.hpp"
 #include "filter/gradient_magnitude.hpp"
-
+#include "filter/laplacian.hpp"
 
 #include "reg/linear.hpp"
 #include "reg/lddmm.hpp"
