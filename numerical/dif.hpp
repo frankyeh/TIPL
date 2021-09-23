@@ -26,18 +26,35 @@ void mapping_to_displacement(image<vtor_type,dimension>& s)
         s[index.index()] -= index;
 }
 //---------------------------------------------------------------------------
-template<class ComposeImageType,class transform_type>
-void displacement_to_mapping(ComposeImageType& mapping,
-                          const transform_type& transform)
+template<typename DisType,typename MappingType,typename transform_type>
+void displacement_to_mapping(const DisType& dis,MappingType& mapping,const transform_type& T)
 {
-    mapping.for_each_mt([&](typename ComposeImageType::value_type& value,
-                             tipl::pixel_index<ComposeImageType::dimension> index)
+    mapping = dis;
+    mapping.for_each_mt([&](typename MappingType::value_type& value,
+                             tipl::pixel_index<MappingType::dimension> index)
     {
-        typename ComposeImageType::value_type vtor(index),pos;
+        typename MappingType::value_type vtor(index),pos;
         vtor += value;
-        transform(vtor,value);
+        T(vtor,value);
     });
 }
+
+//---------------------------------------------------------------------------
+template<typename DisType,typename MappingType,typename transform_type>
+void inv_displacement_to_mapping(const DisType& inv_dis,MappingType& inv_mapping,const transform_type& T)
+{
+    auto iT = T;
+    iT.inverse();
+    inv_mapping.for_each_mt([&](tipl::vector<3,float>& v,const tipl::pixel_index<3>& pos)
+    {
+        tipl::vector<3> p(pos),d;
+        iT(p);
+        v = p;
+        tipl::estimate(inv_dis,v,d,tipl::linear);
+        v += d;
+    });
+}
+
 //---------------------------------------------------------------------------
 template<class ImageType,class MappingType,class OutImageType>
 void compose_mapping(const ImageType& src,const MappingType& mapping,OutImageType& dest,
