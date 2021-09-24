@@ -3150,6 +3150,19 @@ public:
         tipl::mat::inverse(inv.iter,value,dim_type());
         return *this;
     }
+public:
+    bool operator!=(const matrix& rhs) const
+    {
+        return !((*this)==rhs);
+    }
+    bool operator==(const matrix& rhs) const
+    {
+        for(size_t i = 0;i < mat_size;++i)
+            if(value[i] != rhs.value[i])
+                return false;
+        return true;
+    }
+public:
     bool inv(void)
     {
         return tipl::mat::inverse(value,dim_type());
