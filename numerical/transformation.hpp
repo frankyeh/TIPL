@@ -1025,6 +1025,21 @@ public:
 };
 
 
+template<typename value_type>
+class from_space : public tipl::matrix<4,4,value_type>{
+private:
+    const tipl::matrix<4,4,value_type>& origin;
+public:
+    from_space(const tipl::matrix<4,4,value_type>& space_):tipl::matrix<4,4,value_type>(),origin(space_){}
+    from_space& to(const tipl::matrix<4,4,value_type>& target)
+    {
+        std::copy(target.begin(),target.end(),begin());
+        inv();
+        (*this) *= origin;
+        return *this;
+    }
+};
+
 
 
 
