@@ -649,10 +649,10 @@ public:
     }
     friend std::ostream & operator<<(std::ostream& out, const affine_transform<value_type> &T)
     {
-        out << "translocation=" << T.translocation[0] << " " << T.translocation[1] << " " << T.translocation[2] << std::endl;
-        out << "rotation=" << T.rotation[0] << " " << T.rotation[1] << " " << T.rotation[2] << std::endl;
-        out << "scaling=" << T.scaling[0] << " " << T.scaling[1] << " " << T.scaling[2] << std::endl;
-        out << "shear=" << T.affine[0] << " " << T.affine[1] << " " << T.affine[2] << std::endl;
+        out << "translocation:" << T.translocation[0] << " " << T.translocation[1] << " " << T.translocation[2] << std::endl;
+        out << "rotation:" << T.rotation[0] << " " << T.rotation[1] << " " << T.rotation[2] << std::endl;
+        out << "scaling:" << T.scaling[0] << " " << T.scaling[1] << " " << T.scaling[2] << std::endl;
+        out << "shear:" << T.affine[0] << " " << T.affine[1] << " " << T.affine[2] << std::endl;
         return out;
     }
 
