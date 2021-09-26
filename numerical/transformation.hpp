@@ -1034,7 +1034,7 @@ public:
     from_space& to(const tipl::matrix<4,4,value_type>& target)
     {
         std::copy(target.begin(),target.end(),tipl::matrix<4,4,value_type>::begin());
-        inv();
+        tipl::matrix<4,4,value_type>::inv();
         (*this) *= origin;
         return *this;
     }
