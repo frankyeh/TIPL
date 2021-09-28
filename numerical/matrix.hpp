@@ -3091,7 +3091,7 @@ struct inverse_delegate{
         return *this;
     }
     template<int row,int col,typename iterator>
-    void solve(iterator value) const
+    void solve(iterator value,dim<row,col>) const
     {
         tipl::mat::inverse(iter,value,dim<row,col>());
     }
@@ -3122,37 +3122,37 @@ struct product_delegate{
     }
 private:
     template<int row,int col,typename left_type,typename right_type,typename iterator>
-    void solve(const left_type& left,const right_type& right, iterator value) const
+    void solve(const left_type& left,const right_type& right, iterator value,dim<row,col>) const
     {
         tipl::mat::product(left,right,value,dim<row,c>(),dim<c,col>());
     }
     template<int row,int col,typename left_type,typename right_type,typename iterator>
-    void solve(const left_type& left,const inverse_delegate<right_type>& right,iterator value) const
+    void solve(const left_type& left,const inverse_delegate<right_type>& right,iterator value,dim<row,col>) const
     {
         using value_type = typename std::iterator_traits<iterator>::value_type;
         value_type buf[c*col];
-        right.solve<c,col>(buf);
-        solve<row,col>(left,buf,value);
+        right.solve(buf,dim<c,col>());
+        solve(left,buf,value,dim<row,col>());
     }
     template<int row,int col,typename left_type,typename right_type,typename iterator>
-    void solve(const inverse_delegate<left_type>& left,const right_type& right,iterator value) const
+    void solve(const inverse_delegate<left_type>& left,const right_type& right,iterator value,dim<row,col>) const
     {
         using value_type = typename std::iterator_traits<iterator>::value_type;
         value_type buf[row*c];
-        left.solve<row,c>(buf);
-        solve<row,col>(buf,right,value);
+        left.solve(buf,dim<row,c>());
+        solve(buf,right,value,dim<row,col>());
     }
 
 public:
     template<int row,int col,typename iterator>
-    void solve(iterator value) const
+    void solve(iterator value,dim<row,col>) const
     {
-        solve<row,col>(lhs,rhs,value);
+        solve(lhs,rhs,value,dim<row,col>());
     }
 };
 
 
-template<int r,int c,typename value_type_>
+template<int r,int c,typename value_type_,typename storage_type = value_type_ [r*c] >
 struct matrix{
     using value_type = value_type_;
     using iterator = value_type*;
@@ -3160,11 +3160,14 @@ struct matrix{
     using type = matrix<r,c,value_type>;
     using dim_type = dim<r,c>;
     static constexpr unsigned int mat_size = r*c;
-    value_type value[mat_size];
+    storage_type value;
 public:
     matrix(void){}
     template<typename rhs_type>
-    matrix(const rhs_type& rhs){(*this) = rhs;}
+    matrix(const rhs_type& rhs)
+    {
+        (*this) = rhs;
+    }
 public:
     value_type& operator[](unsigned int index){return value[index];}
     const value_type& operator[](unsigned int index) const{return value[index];}
@@ -3193,13 +3196,13 @@ public:
     template<int cc,typename lhs_type,typename rhs_type>
     const matrix& operator=(const product_delegate<cc,lhs_type,rhs_type>& prod)
     {
-        prod.solve<r,c>(value);
+        prod.solve(value,dim<r,c>());
         return *this;
     }
     template<typename rhs_type>
     const matrix& operator=(const inverse_delegate<rhs_type>& inv)
     {
-        inv.solve<r,c>(value);
+        inv.solve(value,dim<r,c>());
         return *this;
     }
 public:
@@ -3280,86 +3283,11 @@ public:
 
 
 template<int r,int c,typename iterator_type>
-struct matrix_buf{
-    static constexpr unsigned int mat_size = r*c;
-    typedef iterator_type iterator;
-    typedef const iterator_type const_iterator;
-    typedef typename std::iterator_traits<iterator_type>::value_type value_type;
-    typedef matrix_buf<r,c,iterator_type> type;
-    typedef dim<r,c> dim_type;
-public:
-    iterator_type iter;
-public:
-    matrix_buf(void){}
-    matrix_buf(const matrix_buf& rhs):iter(rhs.iter){}
-    matrix_buf(iterator_type iter_):iter(iter_){}
-public:
-    value_type& operator[](unsigned int index){return iter[index];}
-    const value_type& operator[](unsigned int index) const{return iter[index];}
-    iterator_type begin(void){return iter;}
-    const iterator_type begin(void) const{return iter;}
-    iterator_type end(void){return iter+mat_size;}
-    const iterator_type end(void) const{return iter+mat_size;}
-public:
-    const matrix_buf& operator=(const matrix_buf& rhs)
-    {
-        iter = rhs.iter;
-        return *this;
-    }
-
-    template<typename rhs_type>
-    const matrix_buf& operator=(const rhs_type& rhs)
-    {
-        std::copy(rhs.begin(),rhs.end(),iter);
-        return *this;
-    }
-    template<typename rhs_type>
-    const matrix_buf& operator=(const rhs_type* rhs)
-    {
-        std::copy(rhs,rhs+mat_size,iter);
-        return *this;
-    }
-
-    template<typename rhs_type>
-    product_delegate<c,const_iterator,typename rhs_type::const_iterator> operator*(const rhs_type& rhs)
-    {
-        return product_delegate<c,const_iterator,typename rhs_type::const_iterator>(iter,rhs.begin());
-    }
-    template<typename pointer_type>
-    product_delegate<c,const_iterator,const pointer_type*> operator*(const pointer_type* rhs)
-    {
-        return product_delegate<c,const_iterator,const pointer_type*>(iter,rhs);
-    }
-    template<int cc,typename lhs_type,typename rhs_type>
-    const matrix_buf& operator=(const product_delegate<cc,lhs_type,rhs_type>& prod)
-    {
-        tipl::mat::product(prod.lhs,prod.rhs,iter,dim<r,cc>(),dim<cc,c>());
-        return *this;
-    }
-    template<typename rhs_type>
-    const matrix_buf& operator=(const inverse_delegate<rhs_type>& inv)
-    {
-        tipl::mat::inverse(inv.iter,iter,rhs_type::dim_type());
-        return *this;
-    }
-    bool inv(void)
-    {
-        return tipl::mat::inverse(iter,dim_type());
-    }
-    value_type det(void)
-    {
-        return tipl::mat::determinant(iter,dim_type());
-    }
-    void identity(void)
-    {
-        tipl::mat::identity(iter,dim_type());
-    }
-};
-
-template<int r,int c,typename iterator_type>
-matrix_buf<r,c,iterator_type> make_matrix(iterator_type iterator,dim<r,c>)
+matrix<r,c,typename std::iterator_traits<iterator_type>::value_type,iterator_type> make_matrix(iterator_type iterator,dim<r,c>)
 {
-    return matrix_buf<r,c,iterator_type>(iterator);
+    matrix<r,c,typename std::iterator_traits<iterator_type>::value_type,iterator_type> result;
+    result.value = iterator;
+    return result;
 }
 
 }
