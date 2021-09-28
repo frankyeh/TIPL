@@ -119,6 +119,15 @@ namespace tipl
         bundle["text/plain"] = out.str();
         return bundle;
     }
+    template <int r,int c,typename value_type>
+    nl::json mime_bundle_repr(const tipl::matrix<r,c,value_type>& m)
+    {
+        std::stringstream out;
+        out << m;
+        auto bundle = nl::json::object();
+        bundle["text/plain"] = out.str();
+        return bundle;
+    }
     template <int dim,typename value_type>
     nl::json mime_bundle_repr(const tipl::vector<dim,value_type>& v)
     {
