@@ -151,11 +151,9 @@ ImageType& threshold(ImageType& I,typename ImageType::value_type threshold_value
 }
 
 //--------------------------------------------------------------------------
-template<typename PixelType,typename DimensionType,typename storage_type>
+template<typename PixelType,typename PosType,typename storage_type>
 void crop(const image<PixelType,2,storage_type>& from_image,
-          image<PixelType,2,storage_type>& to_image,
-          const DimensionType& from,
-          const DimensionType& to)
+          image<PixelType,2,storage_type>& to_image,PosType from,PosType to)
 {
     if (to[0] <= from[0] || to[1] <= from[1])
         return;
@@ -171,11 +169,9 @@ void crop(const image<PixelType,2,storage_type>& from_image,
 
 }
 //--------------------------------------------------------------------------
-template<typename PixelType,typename DimensionType,typename storage_type>
+template<typename PixelType,typename PosType,typename storage_type>
 void crop(const image<PixelType,3,storage_type>& from_image,
-          image<PixelType,3,storage_type>& to_image,
-          const DimensionType& from,
-          const DimensionType& to)
+          image<PixelType,3,storage_type>& to_image,PosType from,PosType to)
 {
     if (to[0] <= from[0] || to[1] <= from[1] ||
             to[2] <= from[2])
