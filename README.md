@@ -11,7 +11,21 @@
 
 ## Introduction
 
-Template Image Processing Library (TIPL) is a lightweight C++ template library designed mainly for medical imaging processing. The design paradigm is to provide an "easy-to-use" and also "ready-to-use" library. You need only to include the header files to use it. There is no need to build the source codes.
+Template Image Processing Library (TIPL) is a lightweight C++ template library designed mainly for medical imaging processing. The design paradigm is to provide an "easy-to-use" and also "ready-to-use" library. You need only to include the header files to use it. 
+
+First, get header files from Github
+
+```
+!git clone http://github.com/frankyeh/TIPL/
+```
+
+Then 
+
+```
+#include "TIPL/tipl.hpp"  
+```
+
+Now you can use TIPL
 
 ## Support Jupyter notebook
 
