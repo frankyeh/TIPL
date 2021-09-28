@@ -977,6 +977,22 @@ inline tipl::vector<3,value_type> v(value_type x,value_type y,value_type z)
 {
     return tipl::vector<3>(x,y,z);
 }
+template<typename value_type>
+inline tipl::vector<2,value_type> v(value_type x,value_type y)
+{
+    return tipl::vector<2>(x,y);
+}
+template<typename value_type>
+inline tipl::shape<3> s(value_type x,value_type y,value_type z)
+{
+    return tipl::shape<3>(x,y,z);
+}
+template<typename value_type>
+inline tipl::shape<2> s(value_type x,value_type y)
+{
+    return tipl::shape<2>(x,y);
+}
+
 
 }
 #endif
