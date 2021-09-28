@@ -44,11 +44,6 @@ public:
 template <class T,class Func>
 void par_for(T size, Func f, int thread_count = std::thread::hardware_concurrency())
 {
-#ifdef USING_XEUS_CLING
-// xeus-cling still has an issue using std::future
-    for(T i = 0; i < size;++i)
-        f(i);
-#else
     std::vector<std::future<void> > futures;
     if(thread_count > size)
         thread_count = int(size);
@@ -64,7 +59,6 @@ void par_for(T size, Func f, int thread_count = std::thread::hardware_concurrenc
         f(i);
     for(auto &future : futures)
         future.wait();
-#endif
 }
 
 template <class T,class Func>
@@ -109,11 +103,6 @@ void par_for_asyn(T size, Func f, int thread_count = std::thread::hardware_concu
 template <class T,class Func>
 void par_for2(T size, Func f, uint16_t thread_count = std::thread::hardware_concurrency())
 {
-#ifdef USING_XEUS_CLING
-// xeus-cling still has an issue using std::future
-    for(T i = 0; i < size;++i)
-        f(i,i%thread_count);
-#else
     std::vector<std::future<void> > futures;
     if(thread_count > size)
         thread_count = size;
@@ -129,7 +118,6 @@ void par_for2(T size, Func f, uint16_t thread_count = std::thread::hardware_conc
         f(i,0);
     for(auto &future : futures)
         future.wait();
-#endif
 }
 
 template <class T,class Func>
