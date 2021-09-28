@@ -1508,7 +1508,7 @@ public:
                 return;
             case 16://DT_SIGNED_SHORT 4
                 if(is_big_endian)
-                    change_endian((const unsigned short*)&(data[0]),pixel_count);
+                    change_endian((unsigned short*)&(data[0]),pixel_count);
                 if(is_signed())
                     std::copy((const short*)&(data[0]),(const short*)&(data[0])+pixel_count,ptr);
                 else
@@ -1516,7 +1516,7 @@ public:
                 return;
             case 32://DT_SIGNED_INT 8
                 if(is_big_endian)
-                    change_endian((const unsigned int*)&(data[0]),pixel_count);
+                    change_endian((unsigned int*)&(data[0]),pixel_count);
                 if(is_signed())
                     std::copy((const int*)&(data[0]),(const int*)&(data[0])+pixel_count,ptr);
                 else
@@ -1524,7 +1524,7 @@ public:
                 return;
             case 64://DT_DOUBLE 64
                 if(is_big_endian)
-                    change_endian((const double*)&(data[0]),pixel_count);
+                    change_endian((double*)&(data[0]),pixel_count);
                 std::copy((const double*)&(data[0]),(const double*)&(data[0])+pixel_count,ptr);
                 return;
             }
