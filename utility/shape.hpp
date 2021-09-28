@@ -400,7 +400,7 @@ public:
     }
     friend std::ostream& operator<<(std::ostream& out,const shape<2>& dim)
     {
-        out << "(" << dim[0] << "," << dim[1] << ")";
+        out << int(dim[0]) << " " << int(dim[1]);
         return out;
     }
 };
