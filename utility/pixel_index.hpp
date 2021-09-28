@@ -972,7 +972,11 @@ public:
     }
 };
 
-
+template<typename value_type>
+inline tipl::vector<3,value_type> v(value_type x,value_type y,value_type z)
+{
+    return tipl::vector<3>(x,y,z);
+}
 
 }
 #endif
