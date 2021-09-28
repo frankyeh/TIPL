@@ -61,18 +61,18 @@ struct dim
     }
 };
 
-template<unsigned int row,unsigned int col>
-constexpr unsigned int col_count(dim<row,col>)
+template<int row,int col>
+constexpr int col_count(dim<row,col>)
 {
     return col;
 }
-template<unsigned int row,unsigned int col>
-constexpr unsigned int row_count(dim<row,col>)
+template<int row,int col>
+constexpr int row_count(dim<row,col>)
 {
     return row;
 }
-template<unsigned int row,unsigned int col>
-constexpr unsigned int size(dim<row,col>)
+template<int row,int col>
+constexpr int size(dim<row,col>)
 {
     return row*col;
 }
