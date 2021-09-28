@@ -3120,10 +3120,34 @@ struct product_delegate{
         rhs = rhs.rhs;
         return *this;
     }
+private:
+    template<int row,int col,typename left_type,typename right_type,typename iterator>
+    void solve(const left_type& left,const right_type& right, iterator value) const
+    {
+        tipl::mat::product(left,right,value,dim<row,c>(),dim<c,col>());
+    }
+    template<int row,int col,typename left_type,typename right_type,typename iterator>
+    void solve(const left_type& left,const inverse_delegate<right_type>& right,iterator value) const
+    {
+        using value_type = typename std::iterator_traits<iterator>::value_type;
+        value_type buf[c*col];
+        right.solve<c,col>(buf);
+        solve<row,col>(left,buf,value);
+    }
+    template<int row,int col,typename left_type,typename right_type,typename iterator>
+    void solve(const inverse_delegate<left_type>& left,const right_type& right,iterator value) const
+    {
+        using value_type = typename std::iterator_traits<iterator>::value_type;
+        value_type buf[row*c];
+        left.solve<row,c>(buf);
+        solve<row,col>(buf,right,value);
+    }
+
+public:
     template<int row,int col,typename iterator>
     void solve(iterator value) const
     {
-        tipl::mat::product(lhs,rhs,value,dim<row,c>(),dim<c,col>());
+        solve<row,col>(lhs,rhs,value);
     }
 };
 
@@ -3187,7 +3211,11 @@ public:
         tipl::mat::product(old_value,rhs.begin(),value,dim_type(),dim_type());
         return *this;
     }
-
+    template<typename rhs_type>
+    product_delegate<col_count,const_iterator,inverse_delegate<rhs_type> > operator*(const inverse_delegate<rhs_type>& inv)
+    {
+        return product_delegate<col_count,const_iterator,inverse_delegate<rhs_type> >(value,inv);
+    }
     template<typename rhs_type>
     product_delegate<col_count,const_iterator,typename rhs_type::const_iterator> operator*(const rhs_type& rhs)
     {
