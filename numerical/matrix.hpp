@@ -40,22 +40,22 @@ namespace tipl
 
 
 // data type for specifying the matrix dimension in compiler time
-template<unsigned int row,unsigned int col>
+template<int row,int col>
 struct dim
 {
-    constexpr unsigned int row_count(void) const
+    constexpr int row_count(void) const
     {
         return row;
     }
-    constexpr unsigned int col_count(void) const
+    constexpr int col_count(void) const
     {
         return col;
     }
-    constexpr unsigned int size(void) const
+    constexpr int size(void) const
     {
         return row*col;
     }
-    constexpr unsigned int operator[](const int index)
+    constexpr int operator[](const int index)
     {
         return index ==0 ? row:col;
     }
@@ -3095,11 +3095,6 @@ struct inverse_delegate{
     {
         tipl::mat::inverse(iter,value,dim<row,col>());
     }
-    template<int row,int col,typename value_type>
-    void solve(value_type* value,dim<row,col>) const
-    {
-        tipl::mat::inverse(iter,value,dim<row,col>());
-    }
 };
 
 template<typename right_type>
@@ -3151,11 +3146,6 @@ private:
 public:
     template<int row,int col,typename iterator>
     void solve(iterator value,dim<row,col>) const
-    {
-        solve(lhs,rhs,value,dim<row,col>());
-    }
-    template<int row,int col,typename value_type>
-    void solve(value_type* value,dim<row,col>) const
     {
         solve(lhs,rhs,value,dim<row,col>());
     }
@@ -3217,13 +3207,13 @@ public:
     template<int cc,typename lhs_type,typename rhs_type>
     const matrix& operator=(const product_delegate<cc,lhs_type,rhs_type>& prod)
     {
-        prod.solve(begin(),dim<r,c>());
+        prod.solve(value,dim<r,c>());
         return *this;
     }
     template<typename rhs_type>
     const matrix& operator=(const inverse_delegate<rhs_type>& inv)
     {
-        inv.solve(begin(),dim<r,c>());
+        inv.solve(value,dim<r,c>());
         return *this;
     }
 public:
