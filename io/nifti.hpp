@@ -467,9 +467,8 @@ private:
         change_endian(nif_header2.xyzt_units);
         change_endian(nif_header2.intent_code);
     }
-private:
-    nifti_base(const nifti_base& rhs);
-    const nifti_base& operator=(const nifti_base& rhs);
+    nifti_base(const nifti_base&) = delete;
+    nifti_base& operator=(const nifti_base&) = delete;
 public:
     bool load_from_file(const std::string& file_name)
     {
