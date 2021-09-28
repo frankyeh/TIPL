@@ -115,7 +115,8 @@ struct shape
     unsigned int row,col;
     shape(void) {}
     shape(unsigned int row_):row(row_),col(1) {}
-    shape(unsigned int row_,unsigned int col_):row(row_),col(col_) {}
+    template<typename T1,typename T2>
+    shape(T1 row_,T2 col_):row(uint32_t(row_)),col(uint32_t(col_)) {}
     unsigned int row_count(void)const
     {
         return row;
@@ -3138,14 +3139,8 @@ struct matrix{
     value_type value[mat_size];
 public:
     matrix(void){}
-    matrix(const matrix& rhs){std::copy(rhs.begin(),rhs.end(),value);}
-    template<typename vtype>
-    matrix(const vtype* ptr){std::copy(ptr,ptr+mat_size,value);}
-    template<typename delegate>
-    matrix(const delegate& d)
-    {
-        d.solve<row_count,col_count>(value);
-    }
+    template<typename rhs_type>
+    matrix(const rhs_type& rhs){(*this) = rhs;}
 public:
     value_type& operator[](unsigned int index){return value[index];}
     const value_type& operator[](unsigned int index) const{return value[index];}
@@ -3171,6 +3166,19 @@ public:
         std::copy(rhs,rhs+row_count*col_count,value);
         return *this;
     }
+    template<int c,typename lhs_type,typename rhs_type>
+    const matrix& operator=(const product_delegate<c,lhs_type,rhs_type>& prod)
+    {
+        prod.solve<row_count,col_count>(value);
+        return *this;
+    }
+    template<typename rhs_type>
+    const matrix& operator=(const inverse_delegate<rhs_type>& inv)
+    {
+        inv.solve<row_count,col_count>(value);
+        return *this;
+    }
+public:
     template<typename rhs_type>
     const matrix& operator*=(const rhs_type& rhs)
     {
@@ -3189,18 +3197,6 @@ public:
     product_delegate<col_count,const_iterator,const pointer_type*> operator*(const pointer_type* rhs)
     {
         return product_delegate<col_count,const_iterator,const pointer_type*>(value,rhs);
-    }
-    template<int c,typename lhs_type,typename rhs_type>
-    const matrix& operator=(const product_delegate<c,lhs_type,rhs_type>& prod)
-    {
-        tipl::mat::product(prod.lhs,prod.rhs,value,dim<row_count,c>(),dim<c,col_count>());
-        return *this;
-    }
-    template<typename rhs_type>
-    const matrix& operator=(const inverse_delegate<rhs_type>& inv)
-    {
-        tipl::mat::inverse(inv.iter,value,dim_type());
-        return *this;
     }
 public:
     bool operator!=(const matrix& rhs) const
