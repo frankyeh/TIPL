@@ -467,25 +467,25 @@ public:
         X.resize(feature_count*subject_count);
         std::copy(X_,X_+X.size(),X.begin());
         Xt.resize(X.size());
-        tipl::mat::transpose(&*X.begin(),&*Xt.begin(),tipl::dyndim(subject_count,feature_count));
+        tipl::mat::transpose(&*X.begin(),&*Xt.begin(),tipl::shape(subject_count,feature_count));
 
         XtX.resize(feature_count*feature_count); // trans(x)*y    p by p
         tipl::mat::product_transpose(&*Xt.begin(),&*Xt.begin(),
                                          &*XtX.begin(),
-                                         tipl::dyndim(feature_count,subject_count),
-                                         tipl::dyndim(feature_count,subject_count));
+                                         tipl::shape(feature_count,subject_count),
+                                         tipl::shape(feature_count,subject_count));
         piv.resize(feature_count);
-        tipl::mat::lu_decomposition(&*XtX.begin(),&*piv.begin(),tipl::dyndim(feature_count,feature_count));
+        tipl::mat::lu_decomposition(&*XtX.begin(),&*piv.begin(),tipl::shape(feature_count,feature_count));
 
 
         // calculate the covariance
         {
             X_cov = Xt;
             std::vector<value_type> c(feature_count),d(feature_count);
-            if(!tipl::mat::lq_decomposition(&*X_cov.begin(),&*c.begin(),&*d.begin(),tipl::dyndim(feature_count,subject_count)))
+            if(!tipl::mat::lq_decomposition(&*X_cov.begin(),&*c.begin(),&*d.begin(),tipl::shape(feature_count,subject_count)))
                 return false;
             tipl::mat::lq_get_l(&*X_cov.begin(),&*d.begin(),&*X_cov.begin(),
-                                    tipl::dyndim(feature_count,subject_count));
+                                    tipl::shape(feature_count,subject_count));
         }
 
 
@@ -493,7 +493,7 @@ public:
         for(unsigned int row = 1,pos = subject_count,pos2 = feature_count;row < feature_count;++row,pos += subject_count,pos2 += feature_count)
             std::copy(X_cov.begin() + pos,X_cov.begin() + pos + feature_count,X_cov.begin() + pos2);
 
-        tipl::mat::inverse_lower(&*X_cov.begin(),tipl::dyndim(feature_count,feature_count));
+        tipl::mat::inverse_lower(&*X_cov.begin(),tipl::shape(feature_count,feature_count));
 
         tipl::square(X_cov.begin(),X_cov.begin()+feature_count*feature_count);
 
@@ -530,7 +530,7 @@ public:
     void residual(iterator1 y,iterator2 b) const
     {
         std::vector<value_type> y_(subject_count);
-        tipl::mat::left_vector_product(&*Xt.begin(),b,&*y_.begin(),tipl::dyndim(feature_count,subject_count));
+        tipl::mat::left_vector_product(&*Xt.begin(),b,&*y_.begin(),tipl::shape(feature_count,subject_count));
         tipl::minus(y,y+subject_count,&*y_.begin());
     }
 
@@ -538,7 +538,7 @@ public:
     value_type get_rmse(iterator1 y,iterator2 b) const
     {
         std::vector<value_type> y_(subject_count);
-        tipl::mat::left_vector_product(&*Xt.begin(),b,&*y_.begin(),tipl::dyndim(feature_count,subject_count));
+        tipl::mat::left_vector_product(&*Xt.begin(),b,&*y_.begin(),tipl::shape(feature_count,subject_count));
         tipl::minus(y_.begin(),y_.end(),y);
         tipl::square(y_);
         return std::sqrt(std::accumulate(y_.begin(),y_.end(),value_type(0.0))/(subject_count-feature_count));
@@ -549,9 +549,9 @@ public:
     void regress(iterator1 y,iterator2 b) const
     {
         std::vector<value_type> xty(feature_count); // trans(x)*y    p by 1
-        tipl::mat::vector_product(&*Xt.begin(),y,&*xty.begin(),tipl::dyndim(feature_count,subject_count));
+        tipl::mat::vector_product(&*Xt.begin(),y,&*xty.begin(),tipl::shape(feature_count,subject_count));
         tipl::mat::lu_solve(&*XtX.begin(),&*piv.begin(),&*xty.begin(),b,
-                                tipl::dyndim(feature_count,feature_count));
+                                tipl::shape(feature_count,feature_count));
     }
 
 };

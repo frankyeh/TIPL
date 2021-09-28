@@ -204,9 +204,9 @@ void quasi_newtons_minimize(
         hessian(x_beg,x_end,tols.begin(),fun_x,fun_x_ei.begin(),h.begin(),fun);
 
         std::vector<unsigned int> pivot(size);
-        if(!tipl::mat::lu_decomposition(h.begin(),pivot.begin(),tipl::dyndim(size,size)))
+        if(!tipl::mat::lu_decomposition(h.begin(),pivot.begin(),tipl::shape(size,size)))
             return;
-        if(!tipl::mat::lu_solve(h.begin(),pivot.begin(),g.begin(),p.begin(),tipl::dyndim(size,size)))
+        if(!tipl::mat::lu_solve(h.begin(),pivot.begin(),g.begin(),p.begin(),tipl::shape(size,size)))
             return;
         std::vector<param_type> new_x(x_beg,x_end);
         tipl::vec::aypx(p.begin(),p.end(),-0.25,new_x.begin());
@@ -657,7 +657,7 @@ struct BFGS
         param_type g_k = g(xk);
         param_type p = -g_k;
         std::vector<value_type> invB(dim2),B1(dim2),B2(dim2),B2syn(dim2);
-        math::matrix_identity(invB.begin(),math::dyndim(dimension,dimension));
+        math::matrix_identity(invB.begin(),math::shape(dimension,dimension));
         value_type end_gradient = tol*tol*(g_k*g_k);
 		// parameter for back tracking
 		value_type line_search_rate = 0.5;
@@ -698,7 +698,7 @@ struct BFGS
             param_type invB_y_k;
 			
 			// invB*Yk
-            math::matrix_vector_product(invB.begin(),y_k.begin(),invB_y_k.begin(),math::dyndim(dimension,dimension));
+            math::matrix_vector_product(invB.begin(),y_k.begin(),invB_y_k.begin(),math::shape(dimension,dimension));
 
 			// B1 = Sk*Skt
             math::vector_op_gen(s_k.begin(),s_k.begin()+dimension,s_k.begin(),B1.begin());
@@ -706,14 +706,14 @@ struct BFGS
 			// B2 = B-1YkSkt
             math::vector_op_gen(invB_y_k.begin(),invB_y_k.begin()+dimension,s_k.begin(),B2.begin());
 
-            math::matrix_transpose(B2.begin(),B2.begin(),math::dyndim(dimension,dimension));
+            math::matrix_transpose(B2.begin(),B2.begin(),math::shape(dimension,dimension));
 			
             double tmp = (s_k_y_k+y_k*invB_y_k)/s_k_y_k;
             for (unsigned int index = 0;index < invB.size();++index)
                 invB[index] += (tmp*B1[index]-(B2[index]+B2syn[index]))/s_k_y_k;
 
             param_type p_k_1;
-            math::matrix_vector_product(invB.begin(),g_k_1.begin(),p_k_1.begin(),math::dyndim(dimension,dimension));
+            math::matrix_vector_product(invB.begin(),g_k_1.begin(),p_k_1.begin(),math::shape(dimension,dimension));
 
             p = -p_k_1;
             xk = x_k_1;

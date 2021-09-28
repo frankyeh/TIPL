@@ -153,7 +153,7 @@ public:
         int nyz =ny*nz;
         int nxyz = k_base.size();
 
-        tipl::dyndim dyz_x(nyz,nx),dz_y(nz,ny),dx_1(nx,1),dy_1(ny,1);
+        tipl::shape dyz_x(nyz,nx),dz_y(nz,ny),dx_1(nx,1),dy_1(ny,1);
         std::vector<value_type> bx_(nx),by_(ny),bz_(nz),temp_(nyz),temp2_(nz);
         value_type *bx = &bx_[0];
         value_type *by = &by_[0];
@@ -827,7 +827,7 @@ void bfnorm_get_jacobian(const bfnorm_mapping<value_type>& mapping,const from_ty
         bz[k] = mapping.bas[2][index];
         dbz[k] = mapping.dbas[2][index];
     }
-    tipl::dyndim dyz_x(nyz,nx),dz_y(nz,ny),dx_1(nx,1),dy_1(ny,1);
+    tipl::shape dyz_x(nyz,nx),dz_y(nz,ny),dx_1(nx,1),dy_1(ny,1);
 
 
     // f(x)/dx

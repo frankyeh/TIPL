@@ -226,7 +226,7 @@ public:
                           float* dX,// input_size
                           const float*) override
     {
-        tipl::mat::left_vector_product(&weight[0],dOut,dX,tipl::dyndim(output_size,input_size));
+        tipl::mat::left_vector_product(&weight[0],dOut,dX,tipl::shape(output_size,input_size));
     }
 
     void update(float rw,const std::vector<float>& dw,

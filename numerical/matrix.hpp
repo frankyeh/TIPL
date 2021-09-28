@@ -43,20 +43,55 @@ namespace tipl
 template<unsigned int row,unsigned int col>
 struct dim
 {
-    unsigned int row_count(void) const
+    constexpr unsigned int row_count(void) const
     {
         return row;
     }
-    unsigned int col_count(void) const
+    constexpr unsigned int col_count(void) const
     {
         return col;
     }
-    unsigned int size(void) const
+    constexpr unsigned int size(void) const
     {
         return row*col;
     }
+    constexpr unsigned int operator[](const int index)
+    {
+        return index ==0 ? row:col;
+    }
 };
 
+template<unsigned int row,unsigned int col>
+constexpr unsigned int col_count(dim<row,col>)
+{
+    return col;
+}
+template<unsigned int row,unsigned int col>
+constexpr unsigned int row_count(dim<row,col>)
+{
+    return row;
+}
+template<unsigned int row,unsigned int col>
+constexpr unsigned int size(dim<row,col>)
+{
+    return row*col;
+}
+
+template<typename T>
+constexpr T col_count(const std::initializer_list<T> d)
+{
+    return *(d.begin()+1);
+}
+template<typename T>
+constexpr T row_count(const std::initializer_list<T> d)
+{
+    return *d.begin();
+}
+template<typename T>
+constexpr T size(const std::initializer_list<T> d)
+{
+    return col_count(d)*row_count(d);
+}
 
 template<typename value_type>
 struct one{
@@ -75,13 +110,12 @@ struct zero{
 };
 
 // data type for specifying the matrix dimension in runtime
-
-struct dyndim
+struct shape
 {
     unsigned int row,col;
-    dyndim(void) {}
-    dyndim(unsigned int row_):row(row_),col(1) {}
-    dyndim(unsigned int row_,unsigned int col_):row(row_),col(col_) {}
+    shape(void) {}
+    shape(unsigned int row_):row(row_),col(1) {}
+    shape(unsigned int row_,unsigned int col_):row(row_),col(col_) {}
     unsigned int row_count(void)const
     {
         return row;
@@ -95,6 +129,19 @@ struct dyndim
         return row*col;
     }
 };
+
+inline unsigned int col_count(const shape& d)
+{
+    return d.col_count();
+}
+inline unsigned int row_count(const shape& d)
+{
+    return d.row_count();
+}
+inline unsigned int size(const shape& d)
+{
+    return d.size();
+}
 
 namespace vec
 {
@@ -377,10 +424,10 @@ typename output_iterator,
 typename left_dim_type>
 void vector_product(left_input_iterator A,right_input_iterator x,output_iterator y,const left_dim_type& ldim)
 {
-    left_input_iterator A_end = A + ldim.size();
+    left_input_iterator A_end = A + size(ldim);
     if (A == A_end)
         return;
-    unsigned int common_col_count = ldim.col_count();
+    unsigned int common_col_count = col_count(ldim);
     left_input_iterator A_next;
     do
     {
@@ -404,11 +451,11 @@ typename output_iterator,
 typename left_dim_type>
 void left_vector_product(left_input_iterator A,right_input_iterator x,output_iterator y,const left_dim_type& ldim)
 {
-    std::fill(y,y+ldim.col_count(),typename std::iterator_traits<output_iterator>::value_type(0));
-    for(left_input_iterator A_end = A + ldim.size();A != A_end;A+=ldim.col_count(),++x)
+    std::fill(y,y+col_count(ldim),typename std::iterator_traits<output_iterator>::value_type(0));
+    for(left_input_iterator A_end = A + size(ldim);A != A_end;A+=col_count(ldim),++x)
     {
         auto x_row = *x;
-        for(unsigned int col = 0;col < ldim.col_count();++col)
+        for(unsigned int col = 0;col < col_count(ldim);++col)
             y[col] += x_row*A[col];
     }
 }
@@ -434,10 +481,10 @@ void product(left_input_iterator lhs			    /*A*/,
                     const left_dim_type& ldim			/* the dimension of A*/,
                     const right_dim_type& rdim			/* the dimension of B*/)
 {
-    unsigned int common_col_count = ldim.col_count();
-    unsigned int right_col_count = rdim.col_count();
-    left_input_iterator lhs_end = lhs + ldim.size();
-    right_input_iterator rhs_end = rhs + rdim.col_count();
+    unsigned int common_col_count = col_count(ldim);
+    unsigned int right_col_count = col_count(rdim);
+    left_input_iterator lhs_end = lhs + size(ldim);
+    right_input_iterator rhs_end = rhs + col_count(rdim);
 
     while (lhs != lhs_end)
     {
@@ -479,9 +526,9 @@ void product_transpose(
     const left_dim_type& ldim			/* the dimension of A*/,
     const right_dim_type& rdim			/* the dimension of B*/)
 {
-    unsigned int common_col_count = ldim.col_count();
-    left_input_iterator lhs_end = lhs + ldim.size();
-    right_input_iterator rhs_end = rhs + rdim.size();
+    unsigned int common_col_count = col_count(ldim);
+    left_input_iterator lhs_end = lhs + size(ldim);
+    right_input_iterator rhs_end = rhs + size(rdim);
 
     for (;lhs != lhs_end;lhs += common_col_count)
         for (right_input_iterator rhs_iter = rhs;rhs_iter != rhs_end;rhs_iter += common_col_count,++out)
@@ -503,10 +550,10 @@ void square(input_iterator lhs,output_iterator out,const dim_type& dim)
 {
     output_iterator iter = out;
 
-    unsigned int common_col_count = dim.col_count();
+    unsigned int common_col_count = col_count(dim);
     input_iterator rhs = lhs;
-    input_iterator lhs_end = lhs + dim.size();
-    input_iterator rhs_end = rhs + dim.size();
+    input_iterator lhs_end = lhs + size(dim);
+    input_iterator rhs_end = rhs + size(dim);
     for (unsigned int row = 0;lhs != lhs_end;lhs += common_col_count,++row)
     {
         input_iterator rhs_iter = rhs;
@@ -515,7 +562,7 @@ void square(input_iterator lhs,output_iterator out,const dim_type& dim)
                 *out = tipl::vec::dot(lhs,lhs+common_col_count,rhs_iter);
     }
 
-    unsigned int row_count = dim.row_count();
+    unsigned int row_count = row_count(dim);
     if (row_count > 1)
     {
         input_iterator col_wise = iter + 1;
@@ -559,10 +606,10 @@ template<typename input_iterator,typename dim_type>
 bool is_symmetric(input_iterator iter,const dim_type& dim)
 {
     input_iterator col_wise = iter + 1;
-    input_iterator row_wise = iter + dim.col_count();
-    unsigned int row_count = dim.row_count();
-    unsigned int shift = dim.col_count() + 1;
-    for (unsigned int length = dim.col_count() - 1;length > 0;--length)
+    input_iterator row_wise = iter + col_count(dim);
+    unsigned int row_count = row_count(dim);
+    unsigned int shift = col_count(dim) + 1;
+    for (unsigned int length = col_count(dim) - 1;length > 0;--length)
     {
         input_iterator col_from = col_wise;
         input_iterator col_to = col_wise + length;
@@ -624,10 +671,10 @@ template<typename input_iterator,typename output_iterator,typename dim_type>
 void transpose(input_iterator in,output_iterator out,const dim_type& dim)
 {
     unsigned int col = 0;
-    unsigned int out_leap = dim.row_count();
+    unsigned int out_leap = row_count(dim);
     output_iterator out_col = out + col;
-    output_iterator out_end = out + dim.size()-out_leap;// last leap position
-    for (input_iterator end = in + dim.size();in != end;++in)
+    output_iterator out_end = out + size(dim)-out_leap;// last leap position
+    for (input_iterator end = in + size(dim);in != end;++in)
     {
         *out_col = *in;
         if (out_col >= out_end)
@@ -644,7 +691,7 @@ template<typename io_iterator,typename dim_type>
 void transpose(io_iterator io,const dim_type& dim)
 {
     typedef typename std::iterator_traits<io_iterator>::value_type value_type;
-    std::vector<value_type> temp(io,io+dim.size());
+    std::vector<value_type> temp(io,io+size(dim));
     transpose(temp.begin(),io,dim);
 }
 
@@ -657,7 +704,7 @@ dim<col,row> transpose(dim<row,col>)
 template<typename other_dim_type>
 other_dim_type transpose(const other_dim_type& d)
 {
-    return other_dim_type(d.col_count(),d.row_count());
+    return other_dim_type(col_count(d),row_count(d));
 }
 
 template<typename input_iterator,typename dim_type>
@@ -666,8 +713,8 @@ trace(input_iterator A,const dim_type& dim)
 {
     typedef typename std::iterator_traits<input_iterator>::value_type value_type;
     value_type result = A[0];
-    unsigned int leap_size = dim.col_count()+1;
-    for (unsigned int index = leap_size;index < dim.size();index += leap_size)
+    unsigned int leap_size = col_count(dim)+1;
+    for (unsigned int index = leap_size;index < size(dim);index += leap_size)
         result += A[index];
     return result;
 }
@@ -697,11 +744,11 @@ void col_rotate_dyn(input_iterator col1,input_iterator col2,
 template <class iterator_type,typename dim_type>
 void identity(iterator_type I,const dim_type& dim)
 {
-    unsigned int size = dim.size();
+    unsigned int s = size(dim);
     typedef typename std::iterator_traits<iterator_type>::value_type value_type;
-    std::fill(I,I+size,value_type(0));
-    unsigned int leap_size = dim.col_count()+1;
-    for (unsigned int index = 0;index < size;index += leap_size)
+    std::fill(I,I+s,value_type(0));
+    unsigned int leap_size = col_count(dim)+1;
+    for (unsigned int index = 0;index < s;index += leap_size)
         I[index] = value_type(1);
 }
 
@@ -721,8 +768,8 @@ template<typename io_iterator,typename pivot_iterator,typename dim_type>
 bool lu_decomposition(io_iterator A,pivot_iterator pivot,const dim_type& dim)
 {
     typedef typename std::iterator_traits<io_iterator>::value_type value_type;
-    const unsigned int dimension = dim.row_count();
-    const unsigned int size = dim.size();
+    const unsigned int dimension = row_count(dim);
+    const unsigned int s = size(dim);
     for (unsigned int k = 0;k < dimension;++k)
         pivot[k] = k;
     for (unsigned int k = 0,row_k = 0;k < dimension;++k,row_k+=dimension)
@@ -747,13 +794,13 @@ bool lu_decomposition(io_iterator A,pivot_iterator pivot,const dim_type& dim)
                 return false; // singularity
             if (max_row != k) // row swap is needed
             {
-                tipl::vec::swap(A+row_k,A+row_k+dim.col_count(),A+max_index-k);
+                tipl::vec::swap(A+row_k,A+row_k+col_count(dim),A+max_index-k);
                 std::swap(pivot[k],pivot[max_row]);
             }
         }
         //  reduce the matrix
         value_type bjj = A[row_k + k];
-        for (unsigned int row_i = row_k + dimension;row_i < size;row_i += dimension)
+        for (unsigned int row_i = row_k + dimension;row_i < s;row_i += dimension)
         {
             value_type temp = A[row_i + k] /= bjj;
             unsigned int offset = row_i-row_k;
@@ -772,8 +819,8 @@ lu_determinant(input_iterator A,const dim_type& dim)
 {
     typedef typename std::iterator_traits<input_iterator>::value_type value_type;
     value_type result = A[0];
-    unsigned int leap_size = dim.col_count()+1;
-    for (unsigned int index = leap_size;index < dim.size();index += leap_size)
+    unsigned int leap_size = col_count(dim)+1;
+    for (unsigned int index = leap_size;index < size(dim);index += leap_size)
         result *= A[index];
     return result;
 }
@@ -783,7 +830,7 @@ template<typename io_iterator,typename pivot_iterator,typename dim_type>
 bool ll_decomposition(io_iterator A,pivot_iterator p,const dim_type& dim)
 {
     typedef typename std::iterator_traits<io_iterator>::value_type value_type;
-    const unsigned int dimension = dim.row_count();
+    const unsigned int dimension = row_count(dim);
     for (unsigned int i = 0,row_i = 0;i < dimension;i++,row_i += dimension)
     {
         for (unsigned int j = i,row_j = row_i;j < dimension;j++,row_j += dimension)
@@ -811,7 +858,7 @@ template<typename io_iterator,typename pivot_iterator,typename input_iterator2,
 void ll_solve(io_iterator A,pivot_iterator p,input_iterator2 b,output_iterator x,const dim_type& dim)
 {
     typedef typename std::iterator_traits<io_iterator>::value_type value_type;
-    const unsigned int dimension = dim.row_count();
+    const unsigned int dimension = row_count(dim);
     // i = 0;
     x[0] = b[0]/p[0];
     for (unsigned int i = 1,row_i = dimension;
@@ -824,7 +871,7 @@ void ll_solve(io_iterator A,pivot_iterator p,input_iterator2 b,output_iterator x
     }
     // i = dimension-1
     x[dimension-1] /= p[dimension-1];
-    for (int i = dimension-2,row_i = dim.size()-dimension-dimension;
+    for (int i = dimension-2,row_i = size(dim)-dimension-dimension;
             i >= 0;--i,row_i -= dimension)
     {
         value_type sum = x[i];
@@ -857,12 +904,12 @@ example:
     std::copy(std::istream_iterator<double>(in),
               std::istream_iterator<double>(),X.begin());
     tipl::matrix<4,1,double> c,d;
-    tipl::mat::qr_decomposition(&*X.begin(),&*c.begin(),&*d.begin(),tipl::dyndim(100,4));
+    tipl::mat::qr_decomposition(&*X.begin(),&*c.begin(),&*d.begin(),tipl::shape(100,4));
 
 (2) to get R matrix
 
     tipl::matrix<4,4,double> R;
-    tipl::mat::qr_get_r(&*X.begin(),&*d.begin(),&*R.begin(),tipl::dyndim(100,4));
+    tipl::mat::qr_get_r(&*X.begin(),&*d.begin(),&*R.begin(),tipl::shape(100,4));
 
 (3) to get Q matrix
 
@@ -873,8 +920,8 @@ bool qr_decomposition(io_iterator A,output_iterator1 c,output_iterator2 d,const 
 {
     typedef typename std::iterator_traits<io_iterator>::value_type value_type;
     bool singular = false;
-    unsigned int m = dim.row_count();
-    unsigned int n = dim.col_count();
+    unsigned int m = row_count(dim);
+    unsigned int n = col_count(dim);
     unsigned int min = std::min(m,n);
     io_iterator A_row_k = A;
     for (unsigned int k = 0;k < min;k++,A_row_k += n)
@@ -937,8 +984,8 @@ bool qr_decomposition(io_iterator A,output_iterator1 c,output_iterator2 d,const 
 template<typename io_iterator1,typename io_iterator2,typename output_iterator,typename dim_type>
 void qr_get_r(io_iterator1 A,io_iterator2 d,output_iterator R,const dim_type& dim)
 {
-    unsigned int m = dim.row_count();
-    unsigned int n = dim.col_count();
+    unsigned int m = row_count(dim);
+    unsigned int n = col_count(dim);
     for(unsigned int i = 0,pos = 0;i < n;++i,pos += n+1)
     {
         R[pos] = d[i];
@@ -956,8 +1003,8 @@ void qr_get_r(io_iterator1 A,io_iterator2 d,output_iterator R,const dim_type& di
 template<typename io_iterator1,typename output_iterator,typename dim_type>
 void qr_get_r(io_iterator1 A,output_iterator d,const dim_type& dim)
 {
-    unsigned int m = dim.row_count();
-    unsigned int n = dim.col_count();
+    unsigned int m = row_count(dim);
+    unsigned int n = col_count(dim);
     unsigned int min = std::min(m,n);
     for(unsigned int i = 0,pos = 0;i < min;++i,pos += n+1)
     {
@@ -981,7 +1028,7 @@ example:
     std::ifstream in("d:/X.txt");
     std::copy(std::istream_iterator<double>(in),
               std::istream_iterator<double>(),X.begin());
-    tipl::mat::qr_decomposition(&*X.begin(),&*Q.begin(),tipl::dyndim(100,4));
+    tipl::mat::qr_decomposition(&*X.begin(),&*Q.begin(),tipl::shape(100,4));
     std::cout << "X=" << X << std::endl;
     std::cout << "Q=" << Q << std::endl;
 
@@ -991,8 +1038,8 @@ template<typename io_iterator,typename iterator1,typename output_iterator2,typen
 void qr_compute_q(io_iterator A,iterator1 c,output_iterator2 Q,const dim_type& dim)
 {
     typedef typename std::iterator_traits<io_iterator>::value_type value_type;
-    unsigned int m = dim.row_count();
-    unsigned int n = dim.col_count();
+    unsigned int m = row_count(dim);
+    unsigned int n = col_count(dim);
     if(m <= n) // Q is a square matrix, compute Qt in place.
     {
         std::fill(Q,Q+m*m,value_type(0));
@@ -1060,7 +1107,7 @@ bool qr_decomposition(io_iterator A,output_iterator1 Q,const dim_type& dim)
 {
     bool result = true;
     typedef typename std::iterator_traits<io_iterator>::value_type value_type;
-    unsigned int min = std::min(dim.row_count(),dim.col_count());
+    unsigned int min = std::min(row_count(dim),col_count(dim));
     std::vector<value_type> c(min),d(min);
     result = qr_decomposition(A,&*c.begin(),&*d.begin(),dim);
     qr_compute_q(A,&*c.begin(),Q,dim);
@@ -1074,8 +1121,8 @@ template<typename io_iterator,typename output_iterator2,typename dim_type>
 void qr_positive_r(io_iterator R,output_iterator2 Q,const dim_type& dim)
 {
     typedef typename std::iterator_traits<io_iterator>::value_type value_type;
-    unsigned int m = dim.row_count();
-    unsigned int n = dim.col_count();
+    unsigned int m = row_count(dim);
+    unsigned int n = col_count(dim);
     unsigned int min = std::min(m,n);
     auto Q_end = Q+m*m;
     auto arowi = R;
@@ -1110,8 +1157,8 @@ bool lq_decomposition(io_iterator A,output_iterator1 c,output_iterator2 d,const 
 {
     typedef typename std::iterator_traits<io_iterator>::value_type value_type;
     bool singular = false;
-    unsigned int m = dim.row_count();
-    unsigned int n = dim.col_count();
+    unsigned int m = row_count(dim);
+    unsigned int n = col_count(dim);
     unsigned int min = std::min(m,n);
     io_iterator A_row_k = A;
     for (unsigned int k = 0;k < min;k++,A_row_k += n)
@@ -1161,8 +1208,8 @@ bool lq_decomposition(io_iterator A,output_iterator1 c,output_iterator2 d,const 
 template<typename io_iterator1,typename io_iterator2,typename output_iterator,typename dim_type>
 void lq_get_l(io_iterator1 A,io_iterator2 d,output_iterator L,const dim_type& dim)
 {
-    unsigned int m = dim.row_count();
-    unsigned int n = dim.col_count();
+    unsigned int m = row_count(dim);
+    unsigned int n = col_count(dim);
     unsigned int min = std::min(m,n);
     if(A != L)
         std::copy(A,A+m*n,L);
@@ -1177,8 +1224,8 @@ void lq_get_l(io_iterator1 A,io_iterator2 d,output_iterator L,const dim_type& di
 template<typename io_iterator1,typename io_iterator2,typename output_iterator,typename dim_type>
 void lq_get_l(io_iterator1 A,io_iterator2 d,const dim_type& dim)
 {
-    unsigned int m = dim.row_count();
-    unsigned int n = dim.col_count();
+    unsigned int m = row_count(dim);
+    unsigned int n = col_count(dim);
     unsigned int min = std::min(m,n);
     for(unsigned int i = 0,pos = 0;i < min;++i,pos += n+1)
     {
@@ -1195,7 +1242,7 @@ template<typename io_iterator,typename input_iterator2,typename dim_type>
 bool jacobi_regularize(io_iterator A,input_iterator2 piv,const dim_type& dim)
 {
     typedef typename std::iterator_traits<io_iterator>::value_type value_type;
-    const unsigned int dimension = dim.row_count();
+    const unsigned int dimension = row_count(dim);
     std::vector<unsigned char> selected(dimension);
     for(int row = dimension-1;row >= 0;--row)
     {
@@ -1222,7 +1269,7 @@ template<typename io_iterator,typename pivot_iterator,typename input_iterator2,
 bool jacobi_solve(io_iterator A,pivot_iterator p,input_iterator2 b,output_iterator x,const dim_type& dim)
 {
     typedef typename std::iterator_traits<output_iterator>::value_type value_type;
-    const unsigned int dimension = dim.row_count();
+    const unsigned int dimension = row_count(dim);
     io_iterator Arow_j = A;
     for(unsigned int i = 0;i < dimension;++i)
     {
@@ -1244,7 +1291,7 @@ template<typename io_iterator,typename input_iterator2,typename output_iterator,
 bool jacobi_solve(io_iterator A,input_iterator2 b,output_iterator x,const dim_type& dim)
 {
     typedef typename std::iterator_traits<output_iterator>::value_type value_type;
-    const unsigned int dimension = dim.row_count();
+    const unsigned int dimension = row_count(dim);
     io_iterator Arow_j = A;
     for(unsigned int i = 0;i < dimension;++i)
     {
@@ -1334,31 +1381,31 @@ template<typename input_iterator1,typename input_iterator2,typename piv_iterator
 bool lu_solve(input_iterator1 A,piv_iterator piv,input_iterator2 b,output_iterator x,const dim_type& dim)
 {
     typedef typename std::iterator_traits<input_iterator1>::value_type value_type;
-    const unsigned int col_count = dim.col_count();
-    const unsigned int matrix_size = dim.size();
-    for (unsigned int i = 0; i < col_count;++i)
+    const unsigned int c = col_count(dim);
+    const unsigned int matrix_size = size(dim);
+    for (unsigned int i = 0; i < c;++i)
         *(x+i) = b[piv[i]];
     // Solve L*Y = B(piv)
     {
-        for (unsigned int j = 0, k = 0;j < matrix_size;j += col_count,++k)
+        for (unsigned int j = 0, k = 0;j < matrix_size;j += c,++k)
         {
 			value_type x_k = *(x+k); 
-            for (unsigned int i = j + col_count + k, m = k+1;i < matrix_size;i += col_count,++m)
+            for (unsigned int i = j + c + k, m = k+1;i < matrix_size;i += c,++m)
                 *(x+m) -= x_k*(A[i]);  // A[i][k]
         }
     }
     // Solve U*X = Y;
     {
         unsigned int j = matrix_size - 1;
-        unsigned int diagonal_shift = col_count + 1;
-        for (int k = dim.row_count()-1;k >= 0;--k,j -= diagonal_shift)
+        unsigned int diagonal_shift = c + 1;
+        for (int k = row_count(dim)-1;k >= 0;--k,j -= diagonal_shift)
         {
             value_type Arowk_value = A[j];
             if (Arowk_value + value_type(1) == value_type(1))
                 return false;
             value_type x_k(*(x+k) /= Arowk_value);
             input_iterator1 Arowi = A + k;
-            for (unsigned int i = 0;i < k;++i,Arowi += col_count)
+            for (unsigned int i = 0;i < k;++i,Arowi += c)
                 *(x+i) -= x_k*(*Arowi);
         }
     }
@@ -1373,15 +1420,15 @@ template<typename input_iterator1,typename input_iterator2,typename piv_iterator
 bool lu_solve(input_iterator1 A,piv_iterator piv,input_iterator2 B,output_iterator X,const dim_type& dim,const dim_type& Bdim)
 {
     typedef typename std::iterator_traits<input_iterator1>::value_type value_type;
-    std::vector<value_type> b(Bdim.row_count());
-    std::vector<value_type> x(Bdim.row_count());
+    std::vector<value_type> b(row_count(Bdim));
+    std::vector<value_type> x(row_count(Bdim));
     bool result = true;
-    for (unsigned int col = 0;col < Bdim.col_count();++col)
+    for (unsigned int col = 0;col < col_count(Bdim);++col)
     {
-        for (unsigned int row = 0,index = col;row < Bdim.row_count();++row,index += Bdim.col_count())
+        for (unsigned int row = 0,index = col;row < row_count(Bdim);++row,index += col_count(Bdim))
             b[row] = B[index];
         if (lu_solve(A,piv,&*b.begin(),&*x.begin(),dim))
-            for (unsigned int row = 0,index = col;row < Bdim.row_count();++row,index += Bdim.col_count())
+            for (unsigned int row = 0,index = col;row < row_count(Bdim);++row,index += col_count(Bdim))
                 X[index] = x[row];
         else
             result = false;
@@ -1498,8 +1545,8 @@ template<typename input_iterator,typename dim_type>
 bool inverse(input_iterator A_,dim_type dim)
 {
 	typedef typename std::iterator_traits<input_iterator>::value_type value_type;
-    const unsigned int dimension = dim.row_count();
-    const unsigned int matrix_size = dim.size();
+    const unsigned int dimension = row_count(dim);
+    const unsigned int matrix_size = size(dim);
 	std::vector<value_type> buf(A_,A_+matrix_size);
 	std::vector<size_t> piv(dimension);
     value_type* A = &(buf[0]);
@@ -1563,7 +1610,7 @@ bool inverse(input_iterator A_,dim_type dim)
 template<typename input_iterator,typename output_iterator,typename dim_type>
 bool inverse(input_iterator A_,output_iterator A,dim_type dim)
 {
-    std::copy(A_,A_+dim.size(),A);
+    std::copy(A_,A_+size(dim),A);
     return inverse(A,dim);
 }
 
@@ -1575,13 +1622,13 @@ bool inverse(input_iterator A_,output_iterator A,dim_type dim)
                  0, 0, 12, -1, -4,
                  0, 0, 0,  11, -3,
                  0, 0, 0,   0,  3};
-    tipl::matrix::inverse_upper(A,tipl::dyndim(5,5));
+    tipl::matrix::inverse_upper(A,tipl::shape(5,5));
  */
 template<typename input_iterator,typename dim_type>
 bool inverse_upper(input_iterator U,dim_type dim)
 {
     typedef typename std::iterator_traits<input_iterator>::value_type value_type;
-    unsigned int n = dim.col_count();
+    unsigned int n = col_count(dim);
     unsigned int n_1 = n+1;
     // inverse the diagonal
     unsigned int pos = 0;
@@ -1618,13 +1665,13 @@ bool inverse_upper(input_iterator U,dim_type dim)
                  -5, 2, 4, 0, 0,
                  1,  -6, 2, 10, 0,
                  4, -10, 11, -30,22};
-    tipl::matrix::inverse_lower(A,tipl::dyndim(5,5));
+    tipl::matrix::inverse_lower(A,tipl::shape(5,5));
  */
 template<typename input_iterator,typename dim_type>
 bool inverse_lower(input_iterator U,dim_type dim)
 {
     typedef typename std::iterator_traits<input_iterator>::value_type value_type;
-    unsigned int n = dim.col_count();
+    unsigned int n = col_count(dim);
     unsigned int n_1 = n+1;
     // inverse the diagonal
     unsigned int pos = 0;
@@ -1699,7 +1746,7 @@ x[0] -= x_norm;
 // only lower part of vector a is changed
 // Pa' = a'-u*uT*a'/uu_2
 
-for (unsigned int i = col_index + 1; i < dim.col_count();++i)
+for (unsigned int i = col_index + 1; i < col_count(dim);++i)
 {
     // perform a' <- a' - (u*a/uu_2)u
     row_iterator a(row.index(),row.iterator()+i);
@@ -1913,9 +1960,9 @@ void eigen_decomposition_sym(input_iterator A,
 template<typename input_iterator,typename dim_type>
 void col_swap(input_iterator i1,input_iterator i2,const dim_type& dim)
 {
-    unsigned int col_count = dim.col_count();
+    unsigned int col_count = col_count(dim);
     // started from 1 for leap iterator problem
-    for (unsigned int i = 1;i < dim.row_count();++i,i1 += col_count, i2 += col_count)
+    for (unsigned int i = 1;i < row_count(dim);++i,i1 += col_count, i2 += col_count)
         std::swap(*i1,*i2);
     std::swap(*i1,*i2);
 }
@@ -1925,8 +1972,8 @@ void eigenvalue(input_iterator A,output_iterator d,const dym_type& dimension)
 {
     typedef typename std::iterator_traits<input_iterator>::value_type value_type;
     typedef value_type* iterator_type;
-    const unsigned int size = dimension.size();
-    const unsigned int dim = dimension.col_count();
+    const unsigned int size = size(dimension);
+    const unsigned int dim = col_count(dimension);
     const unsigned int shift = dim + 1;
     std::vector<value_type> V_(size);
     std::vector<value_type> e_(dim);
@@ -2104,17 +2151,17 @@ void eigen_decomposition_sym(input_iterator A,
                                     output_iterator2 d,const dym_type& dimension)
 {
     typedef typename std::iterator_traits<input_iterator>::value_type value_type;
-    if(dimension.col_count() == 3)
+    if(col_count(dimension) == 3)
     {
         eigen_decomposition_sym(A,V,d,dim<3,3>());
         return;
     }
-    const int size = dimension.size();
-    const int dim = dimension.col_count();
+    const int s = size(dimension);
+    const int dim = col_count(dimension);
     std::vector<value_type> e_(dim+1);
     value_type* e = &*e_.begin();
 
-    std::copy(A,A+size,V);
+    std::copy(A,A+s,V);
     std::fill(d,d+dim,value_type(0));
 
     //void tridiagonalize(void)
@@ -2125,7 +2172,7 @@ void eigen_decomposition_sym(input_iterator A,
         //  Fortran subroutine in EISPACK.
         // Householder reduction to tridiagonal form.
         {
-            output_iterator1 Vrowi = V+size-dim;//n-1 row
+            output_iterator1 Vrowi = V+s-dim;//n-1 row
             for (unsigned int i = dim-1;i > 1;--i,Vrowi -= dim)
             {
                 value_type h(0),g,f;
@@ -2338,8 +2385,8 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
 {
     using namespace std;
     typedef typename std::iterator_traits<input_iterator>::value_type value_type;
-    int n = dimension.row_count();
-    int m = dimension.col_count();
+    int n = row_count(dimension);
+    int m = col_count(dimension);
 	if(n > m)
 		return;
     int nu = n;
@@ -2717,7 +2764,7 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
             tipl::vec::swap(Arow,Arow+m,Arow+dif*m);
         }
     }
-    if (n != dimension.row_count())
+    if (n != row_count(dimension))
     {
         transpose(A,dimension);
     }
@@ -2727,8 +2774,8 @@ template <class input_iterator,typename output_iterator2,typename dym_type>
 void svd(input_iterator A,output_iterator2 s,dym_type dimension)
 {
     typedef typename std::iterator_traits<input_iterator>::value_type value_type;
-    int n = dimension.row_count();
-    int m = dimension.col_count();
+    int n = row_count(dimension);
+    int m = col_count(dimension);
     int nu = n;
     std::vector<value_type> e_(n);
     value_type* e = &*e_.begin();
@@ -2980,13 +3027,13 @@ template<typename input_iterator1,typename input_iterator2,typename output_itera
 void pseudo_inverse_solve(input_iterator1 At,input_iterator2 y,output_iterator x,dim_type dim)
 {
     typedef typename std::iterator_traits<output_iterator>::value_type value_type;
-    unsigned int n = dim.row_count();
+    unsigned int n = row_count(dim);
     std::vector<value_type> tmp(n),AtA(n*n);
     std::vector<int> pv(n);
     vector_product(At,y,&*tmp.begin(),dim);
     product_transpose(At,At,&*AtA.begin(),dim,dim);
-    lu_decomposition(&*AtA.begin(),&*pv.begin(),dyndim(n,n));
-    lu_solve(&*AtA.begin(),&*pv.begin(),&*tmp.begin(),x,dyndim(n,n));
+    lu_decomposition(&*AtA.begin(),&*pv.begin(),shape(n,n));
+    lu_solve(&*AtA.begin(),&*pv.begin(),&*tmp.begin(),x,shape(n,n));
 }
 
 
@@ -2994,9 +3041,9 @@ template<typename input_iterator,typename output_iterator,typename dim_type>
 void pseudo_inverse(input_iterator A_,output_iterator A,dim_type dim)
 {
     typedef typename std::iterator_traits<output_iterator>::value_type value_type;
-    unsigned int n = dim.row_count();
-    unsigned int m = dim.col_count();
-	unsigned int size = dim.size();
+    unsigned int n = row_count(dim);
+    unsigned int m = col_count(dim);
+    unsigned int s = size(dim);
 	if(n > m)
 		return;
     //A: n singular vector having m dimensions (right side matrix)
@@ -3005,12 +3052,12 @@ void pseudo_inverse(input_iterator A_,output_iterator A,dim_type dim)
 	std::vector<value_type> U_buffer(n*n);
 	value_type* U = &*U_buffer.begin();
 	std::vector<value_type> s(n);
-	std::copy(A_,A_+size,A);
+        std::copy(A_,A_+s,A);
     svd(A,U,&*s.begin(),dim);
 
 	value_type threshold = std::numeric_limits<value_type>::epsilon()*(value_type)m*s[0];
     
-	std::vector<value_type> At_buffer(size),tmp_buffer(size);
+        std::vector<value_type> At_buffer(s),tmp_buffer(s);
 	value_type* At = &*At_buffer.begin();
 	value_type* tmp = &*tmp_buffer.begin();
 	
@@ -3019,12 +3066,12 @@ void pseudo_inverse(input_iterator A_,output_iterator A,dim_type dim)
 		if(s[index] > threshold)
 		{
             tipl::vec::gen(A,A+m,U,U+n,tmp);
-            tipl::vec::axpy(At,At+size,value_type(1.0)/s[index],tmp);
+            tipl::vec::axpy(At,At+s,value_type(1.0)/s[index],tmp);
 			A += m;
 			U += n;
 		}
 
-	std::copy(At,At+size,out);
+        std::copy(At,At+s,out);
 }
 
 
