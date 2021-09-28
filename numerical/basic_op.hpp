@@ -28,7 +28,7 @@ std::vector<unsigned int> arg_sort(const container_type& data,compare_type comp)
     std::vector<unsigned int> idx(data.size());
     std::iota(idx.begin(), idx.end(), 0);
     std::sort(idx.begin(), idx.end(),
-    [&data,comp](size_t i1, size_t i2)\
+    [&data,comp](size_t i1, size_t i2)
     {
         return comp(data[i1], data[i2]);
     });
@@ -38,16 +38,16 @@ std::vector<unsigned int> arg_sort(const container_type& data,compare_type comp)
 template <typename container_type,typename compare_type>
 std::vector<unsigned int> rank(const container_type& data,compare_type comp)
 {
-    std::vector<unsigned int> idx(data.size()),rank(data.size());
+    std::vector<unsigned int> idx(data.size()),r(data.size());
     std::iota(idx.begin(), idx.end(), 0);
     std::sort(idx.begin(), idx.end(),
-    [&data,comp](size_t i1, size_t i2)\
+    [&data,comp](size_t i1, size_t i2)
     {
         return comp(data[i1], data[i2]);
     });
-    for(size_t i = 0;i < rank.size();++i)
-        rank[idx[i]] = i;
-    return rank;
+    for(unsigned int i = 0;i < r.size();++i)
+        r[idx[i]] = i;
+    return r;
 }
 
 
@@ -161,7 +161,7 @@ void crop(const image<PixelType,2,storage_type>& from_image,
         return;
     tipl::geometry<2> geo(to[0]-from[0],to[1]-from[1]);
     to_image.resize(geo);
-    unsigned int size = geo.size();
+    auto size = geo.size();
     unsigned int from_index = from[1]*from_image.width() + from[0];
     unsigned int shift = from_image.width()-geo.width();
     for (unsigned int to_index = 0,step_index = geo.width();
@@ -239,10 +239,10 @@ void draw(const image<pixel_type1,2,storage_type1>& from_image,
     else
         y_shift = 0;
 
-    int x_width = std::min((int)to_image.width() - (int)pos[0],(int)from_image.width()-x_shift);
+    int x_width = std::min(int(to_image.width()) - int(pos[0]),int(from_image.width())-x_shift);
     if (x_width <= 0)
         return;
-    int y_height = std::min((int)to_image.height() - (int)pos[1],(int)from_image.height()-y_shift);
+    int y_height = std::min(int(to_image.height()) - int(pos[1]),int(from_image.height())-y_shift);
     if (y_height <= 0)
         return;
     typename from_image_type::const_iterator iter = from_image.begin() + y_shift*from_image.width()+x_shift;
@@ -285,13 +285,13 @@ void draw(const image<pixel_type1,3,storage_type1>& from_image,
     else
         z_shift = 0;
 
-    int64_t x_width = std::min((int64_t)to_image.width() - (int64_t)pos[0],(int64_t)from_image.width()-x_shift);
+    int64_t x_width = std::min(int64_t(to_image.width()) - int64_t(pos[0]),int64_t(from_image.width())-x_shift);
     if (x_width <= 0)
         return;
-    int64_t y_height = std::min((int64_t)to_image.height() - (int64_t)pos[1],(int64_t)from_image.height()-y_shift);
+    int64_t y_height = std::min(int64_t(to_image.height()) - int64_t(pos[1]),int64_t(from_image.height())-y_shift);
     if (y_height <= 0)
         return;
-    int64_t z_depth = std::min((int64_t)to_image.depth() - (int64_t)pos[2],(int64_t)from_image.depth()-z_shift);
+    int64_t z_depth = std::min(int64_t(to_image.depth()) - int64_t(pos[2]),int64_t(from_image.depth())-z_shift);
     if (z_depth <= 0)
         return;
     for (int64_t z = 0; z < z_depth; ++z)
@@ -358,7 +358,7 @@ void mosaic(const image_type1& source,
     unsigned slice_num = source.depth() / skip;
     out.clear();
     out.resize(tipl::geometry<2>(source.width()*mosaic_size,
-                                  source.height()*(std::ceil((float)slice_num/(float)mosaic_size))));
+                                  source.height()*(std::ceil(float(slice_num)/float(mosaic_size)))));
     for(unsigned int z = 0;z < slice_num;++z)
     {
         tipl::vector<2,int> pos(source.width()*(z%mosaic_size),
@@ -371,7 +371,7 @@ template<typename ImageType,typename PosType>
 ImageType& move(ImageType& I,PosType pos)
 {
     ImageType dest(I.geometry());
-    draw(src,dest,pos);
+    draw(I,dest,pos);
     dest.swap(I);
     return I;
 }
@@ -914,7 +914,7 @@ void project(const tipl::image<PixelType1,2>& src,OutImageType& result,unsigned 
     {
         result.resize(src.height());
         for(unsigned int y = 0,index = 0; y < src.height(); ++y,index += src.width())
-            result[y] = std::accumulate(src.begin()+index,src.begin()+index+src.width(),(typename OutImageType::value_type)0);
+            result[y] = std::accumulate(src.begin()+index,src.begin()+index+src.width(),typename OutImageType::value_type(0));
     }
     else//project y
     {
@@ -977,10 +977,10 @@ void histogram(const ImageType& src,std::vector<unsigned int>& hist,
         return;
     float range = max_value;
     range -= min_value;
-    if(range + 1.0 == range)
-        range = 1.0;
+    if(range == 0.0f)
+        range = 1.0f;
     hist.clear();
-    range = (float)resolution_count/range;
+    range = float(resolution_count)/range;
     hist.resize(resolution_count);
     typename ImageType::const_iterator iter = src.begin();
     typename ImageType::const_iterator end = src.end();
@@ -989,12 +989,12 @@ void histogram(const ImageType& src,std::vector<unsigned int>& hist,
         float value = *iter;
         value -= min_value;
         value *= range;
-        int index = std::floor(value);
+        int index = int(std::floor(value));
         if(index < 0)
             index = 0;
-        if(index >= hist.size())
-            index = hist.size()-1;
-        ++hist[index];
+        if(index >= int(hist.size()))
+            index = int(hist.size())-1;
+        ++hist[uint32_t(index)];
     }
 }
 template<typename image_type1,typename image_type2>
@@ -1011,20 +1011,20 @@ void hist_norm(const image_type1& I1,image_type2& I2,unsigned int bin_count)
     if(I2.size() != I1.size())
         I2.resize(I1.geometry());
     float range = max_v-min_v;
-    if(range == 0)
-        range = 1;
+    if(range == 0.0f)
+        range = 1.0f;
     float r = (hist.size()+1)/range;
     for(unsigned int i = 1;i < I1.size();++i)
     {
-        int rank = std::floor((float)(I1[i]-min_v)*r);
+        int rank = std::floor(float(I1[i]-min_v)*r);
         if(rank <= 0)
             I2[i] = min_v;
         else
         {
             --rank;
-            if(rank >= hist.size())
-                rank = hist.size()-1;
-            I2[i] = range*(float)hist[rank]/(float)hist.back()+min_v;
+            if(rank >= int(hist.size()))
+                rank = int(hist.size())-1;
+            I2[i] = range*float(hist[rank])/float(hist.back())+min_v;
         }
     }
 }
@@ -1039,41 +1039,41 @@ template<typename type>
 void change_endian(type& value)
 {
     type data = value;
-    unsigned char* temp = (unsigned char*)&value;
-    unsigned char* pdata = ((unsigned char*)&data)+sizeof(type)-1;
+    unsigned char* temp = reinterpret_cast<unsigned char*>(&value);
+    unsigned char* pdata = reinterpret_cast<unsigned char*>(&data)+sizeof(type)-1;
     for (unsigned char i = 0; i < sizeof(type); ++i,--pdata)
         temp[i] = *pdata;
 }
 inline void change_endian(unsigned short& data)
 {
-    unsigned char* h = (unsigned char*)&data;
+    unsigned char* h = reinterpret_cast<unsigned char*>(&data);
     std::swap(*h,*(h+1));
 }
 
 inline void change_endian(short& data)
 {
-    unsigned char* h = (unsigned char*)&data;
+    unsigned char* h = reinterpret_cast<unsigned char*>(&data);
     std::swap(*h,*(h+1));
 }
 
 
 inline void change_endian(unsigned int& data)
 {
-    unsigned char* h = (unsigned char*)&data;
+    unsigned char* h = reinterpret_cast<unsigned char*>(&data);
     std::swap(*h,*(h+3));
     std::swap(*(h+1),*(h+2));
 }
 
 inline void change_endian(int& data)
 {
-    unsigned char* h = (unsigned char*)&data;
+    unsigned char* h = reinterpret_cast<unsigned char*>(&data);
     std::swap(*h,*(h+3));
     std::swap(*(h+1),*(h+2));
 }
 
 inline void change_endian(float& data)
 {
-    change_endian(*(int*)&data);
+    change_endian(*reinterpret_cast<int*>(&data));
 }
 
 template<typename datatype>
