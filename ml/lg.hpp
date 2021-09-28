@@ -6,7 +6,7 @@ namespace tipl{
 
 namespace ml{
 
-template<class attribute_type,class classification_type>
+template<typename attribute_type,typename classification_type>
 class logistic_regression
 {
 
@@ -17,7 +17,7 @@ private:
 private:
     std::vector<double> w;
 
-    template<class sample_iterator_type>
+    template<typename sample_iterator_type>
     void get_gradient_single(sample_iterator_type sample,classification_type classification,double* dw)
     {
         double dy = classification;
@@ -27,7 +27,7 @@ private:
         for (size_t index = 0;index < attribute_dimension;++index)
             dw[index] += sample[index]*dy;
     }
-    template<class sample_iterator_type,class sample_weighted_type>
+    template<typename sample_iterator_type,typename sample_weighted_type>
     void get_gradient_single(sample_iterator_type sample,sample_weighted_type Dt,classification_type classification,double* dw)
     {
         double dy = classification;
@@ -38,7 +38,7 @@ private:
         for (size_t index = 0;index < attribute_dimension;++index)
             dw[index] += sample[index]*dy;
     }
-    template<class attributes_iterator_type,class classifications_iterator_type>
+    template<typename attributes_iterator_type,typename classifications_iterator_type>
     void get_gradient(attributes_iterator_type attributes_from,
                       attributes_iterator_type attributes_to,
                       classifications_iterator_type classifications_from,double* dw)
@@ -47,7 +47,7 @@ private:
         for (;attributes_from != attributes_to;++attributes_from,++classifications_from)
             get_gradient_single(&((*attributes_from)[0]),*classifications_from,dw);
     }
-    template<class attributes_iterator_type,class sample_weighting_type,class classifications_iterator_type>
+    template<typename attributes_iterator_type,typename sample_weighting_type,typename classifications_iterator_type>
     void get_gradient(attributes_iterator_type attributes_from,
                       attributes_iterator_type attributes_to,
                       sample_weighting_type Dt,
@@ -66,7 +66,7 @@ public:
             :learning_rate(learning_rate_),
             precision(precision_) {}
 
-    template<class sample_iterator_type>
+    template<typename sample_iterator_type>
     double estimate_posterior(sample_iterator_type sample,classification_type classification) const
     {
         double inner_product = w[0];
@@ -77,7 +77,7 @@ public:
         return 1.0/(1.0+exp_wx);
     }
 
-    template<class attributes_iterator_type,class classifications_iterator_type>
+    template<typename attributes_iterator_type,typename classifications_iterator_type>
     void learn(attributes_iterator_type attributes_from,
                attributes_iterator_type attributes_to,
                size_t attribute_dimension_,
@@ -107,7 +107,7 @@ public:
     }
 
 
-    template<class attributes_iterator_type,class sample_weighting_type,class classifications_iterator_type>
+    template<typename attributes_iterator_type,typename sample_weighting_type,typename classifications_iterator_type>
     void learn(attributes_iterator_type attributes_from,
                attributes_iterator_type attributes_to,
                size_t attribute_dimension_,
@@ -139,13 +139,13 @@ public:
     }
 
 
-    template<class sample_iterator_type>
+    template<typename sample_iterator_type>
     classification_type predict(sample_iterator_type attributes)  const
     {
         return (estimate_posterior(attributes,1) >= 0.5 )? 1:0;
     }
 
-    template<class sample_iterator_type>
+    template<typename sample_iterator_type>
     double regression(sample_iterator_type attributes) const
     {
         return estimate_posterior(attributes,1);

@@ -54,14 +54,14 @@ public:
         voxel_size = vs;
     }
 
-    template<class vector_type>
+    template<typename vector_type>
     void get_image_row_orientation(vector_type image_row_orientation) const
     {
         std::copy(orientation_matrix,orientation_matrix+9,image_row_orientation);
     }
 
 
-    template<class file_name_type>
+    template<typename file_name_type>
     bool load_from_file(const file_name_type& file_name)
     {
         std::shared_ptr<dicom> dicom_header(new dicom);
@@ -95,7 +95,7 @@ public:
         }
         return false;
     }
-    template<class string_list_type>
+    template<typename string_list_type>
     bool load_from_files(const string_list_type& files,unsigned int count)
     {
         if(count == 1)
@@ -167,7 +167,7 @@ public:
         tipl::reorient_matrix(orientation_matrix,dim_order,flip);
         return true;
     }
-    template<class image_type>
+    template<typename image_type>
     void save_to_image(image_type& source) const
     {
         typedef typename image_type::value_type value_type;
@@ -200,7 +200,7 @@ public:
         }
     }
 
-    template<class image_type>
+    template<typename image_type>
     const volume& operator>>(image_type& source) const
     {
         save_to_image(source);

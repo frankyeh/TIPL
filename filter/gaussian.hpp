@@ -9,15 +9,15 @@ namespace tipl
 namespace filter
 {
 
-template<class value_type,size_t dimension>
+template<typename value_type,size_t dimension>
 class gaussian_filter_imp2;
 
-template<class value_type>
+template<typename value_type>
 struct gaussian_filter_imp2<value_type,1>
 {
     typedef typename pixel_manip<value_type>::type manip_type;
 public:
-    template<class image_type>
+    template<typename image_type>
     void operator()(image_type& src)
     {
         std::vector<manip_type> dest(src.size());
@@ -31,12 +31,12 @@ public:
 
 
 
-template<class value_type>
+template<typename value_type>
 class gaussian_filter_imp2<value_type,2>
 {
     typedef typename pixel_manip<value_type>::type manip_type;
 public:
-    template<class image_type>
+    template<typename image_type>
     void operator()(image_type& src)
     {
         std::vector<manip_type> dest(src.size());
@@ -54,12 +54,12 @@ public:
     }
 };
 
-template<class value_type>
+template<typename value_type>
 class gaussian_filter_imp2<value_type,3>
 {
     typedef typename pixel_manip<value_type>::type manip_type;
 public:
-    template<class image_type>
+    template<typename image_type>
     void operator()(image_type& src)
     {
         std::vector<manip_type> dest(src.size());
@@ -78,15 +78,15 @@ public:
 };
 
 
-template<class value_type,size_t dimension>
+template<typename value_type,size_t dimension>
 class gaussian_filter_imp;
 
-template<class value_type>
+template<typename value_type>
 struct gaussian_filter_imp<value_type,1>
 {
     typedef typename pixel_manip<value_type>::type manip_type;
 public:
-    template<class image_type>
+    template<typename image_type>
     void operator()(image_type& src)
     {
         std::vector<manip_type> dest(src.size());
@@ -101,12 +101,12 @@ public:
 };
 
 
-template<class value_type>
+template<typename value_type>
 class gaussian_filter_imp<value_type,2>
 {
     typedef typename pixel_manip<value_type>::type manip_type;
 public:
-    template<class image_type>
+    template<typename image_type>
     void operator()(image_type& src)
     {
         std::vector<manip_type> dest(src.size());
@@ -133,12 +133,12 @@ public:
 };
 
 
-template<class value_type>
+template<typename value_type>
 class gaussian_filter_imp<value_type,3>
 {
     typedef typename pixel_manip<value_type>::type manip_type;
 public:
-    template<class image_type>
+    template<typename image_type>
     void operator()(image_type& src)
     {
         std::vector<manip_type> dest(src.size());
@@ -177,16 +177,18 @@ public:
     }
 };
 
-template<class image_type>
-void gaussian(image_type& src)
+template<typename image_type>
+image_type& gaussian(image_type& src)
 {
     gaussian_filter_imp<typename image_type::value_type,image_type::dimension>()(src);
+    return src;
 }
 
-template<class image_type>
-void gaussian2(image_type& src)
+template<typename image_type>
+image_type& gaussian2(image_type& src)
 {
     gaussian_filter_imp2<typename image_type::value_type,image_type::dimension>()(src);
+    return src;
 }
 
 

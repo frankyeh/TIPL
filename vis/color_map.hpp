@@ -160,7 +160,7 @@ public:
     }
 };
 
-template<class value_type>
+template<typename value_type>
 class value_to_color{
 private:
     value_type min_value,max_value,r;
@@ -199,7 +199,7 @@ public:
             ivalue = map.size()-1;
         return map[ivalue];
     }
-    template<class value_image_type,class color_image_type>
+    template<typename value_image_type,typename color_image_type>
     void convert(const value_image_type& I1,color_image_type& I2) const
     {
         I2.resize(I1.shape());

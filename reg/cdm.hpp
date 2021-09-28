@@ -17,7 +17,7 @@ namespace tipl
 namespace reg
 {
 
-template<class pixel_type,size_t dimension>
+template<typename pixel_type,size_t dimension>
 void cdm_average_img(const std::vector<image<pixel_type,dimension> >& Ji, image<pixel_type,dimension>& J0)
 {
     J0 = Ji[0];
@@ -26,7 +26,7 @@ void cdm_average_img(const std::vector<image<pixel_type,dimension> >& Ji, image<
     divide_constant(J0.begin(),J0.end(),float(Ji.size()));
 }
 
-template<class pixel_type,size_t dimension>
+template<typename pixel_type,size_t dimension>
 float cdm_img_dif(const image<pixel_type,dimension>& I0,
                     const image<pixel_type,dimension>& I1)
 {
@@ -39,7 +39,7 @@ float cdm_img_dif(const image<pixel_type,dimension>& I0,
     return value;
 }
 
-template<class pixel_type,size_t dimension>
+template<typename pixel_type,size_t dimension>
 float cdm_img_dif(const std::vector<image<pixel_type,dimension> >& Ji,const image<pixel_type,dimension>& J0)
 {
     float next_dif = 0;
@@ -49,7 +49,7 @@ float cdm_img_dif(const std::vector<image<pixel_type,dimension> >& Ji,const imag
 }
 
 
-template<class pixel_type,size_t dimension>
+template<typename pixel_type,size_t dimension>
 float cdm_contrast(const image<pixel_type,dimension>& J0,
                      const image<pixel_type,dimension>& Ji)
 {
@@ -65,7 +65,7 @@ float cdm_contrast(const image<pixel_type,dimension>& J0,
     return value1/value2;
 }
 
-template<class pixel_type,size_t dimension>
+template<typename pixel_type,size_t dimension>
 void cdm_update_contrast(const std::vector<image<pixel_type,dimension> >& Ji,
                           std::vector<float>& contrast)
 {
@@ -81,7 +81,7 @@ void cdm_update_contrast(const std::vector<image<pixel_type,dimension> >& Ji,
 
 
 // trim the image size to uniform
-template<class pixel_type,unsigned int dimension,class crop_type>
+template<typename pixel_type,unsigned int dimension,typename crop_type>
 void cdm_trim_images(std::vector<image<pixel_type,dimension> >& I,
                       crop_type& crop_from,crop_type& crop_to)
 {
@@ -123,15 +123,15 @@ void cdm_trim_images(std::vector<image<pixel_type,dimension> >& I,
 
 }
 
-template<class value_type,size_t dimension>
+template<typename value_type,size_t dimension>
 class poisson_equation_solver;
 
-template<class value_type>
+template<typename value_type>
 class poisson_equation_solver<value_type,2>
 {
     typedef typename filter::pixel_manip<value_type>::type manip_type;
 public:
-    template<class image_type>
+    template<typename image_type>
     void operator()(image_type& src)
     {
         image_type dest(src.shape());
@@ -161,12 +161,12 @@ public:
         dest.swap(src);
     }
 };
-template<class value_type>
+template<typename value_type>
 class poisson_equation_solver<value_type,3>
 {
     typedef typename filter::pixel_manip<value_type>::type manip_type;
 public:
-    template<class image_type>
+    template<typename image_type>
     void operator()(image_type& src)
     {
         image_type dest(src.shape());
@@ -200,7 +200,7 @@ public:
     }
 };
 
-template<class pixel_type,class vtor_type,unsigned int dimension,class terminate_type>
+template<typename pixel_type,typename vtor_type,unsigned int dimension,typename terminate_type>
 void cdm_group(const std::vector<image<pixel_type,dimension> >& I,// original images
           std::vector<image<vtor_type,dimension> >& d,// displacement field
           float theta,float reg,terminate_type& terminated)

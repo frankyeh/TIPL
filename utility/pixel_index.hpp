@@ -327,7 +327,7 @@ public:
 };
 
 
-template<int dim,class data_type = float>
+template<int dim,typename data_type = float>
 class vector;
 
 template<typename data_type>

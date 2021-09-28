@@ -8,7 +8,7 @@ namespace tipl{
 
 namespace segmentation{
 
-template<class ImageType>
+template<typename ImageType>
 float otsu_threshold(const ImageType& src)
 {
     std::pair<typename ImageType::value_type,typename ImageType::value_type>
@@ -60,13 +60,13 @@ float otsu_threshold(const ImageType& src)
     return optimal_threshold_value;
 }
 
-template<class ImageType,class LabelImageType>
+template<typename ImageType,typename LabelImageType>
 void otsu(const ImageType& src,LabelImageType& label,typename LabelImageType::value_type foreground = 1,typename LabelImageType::value_type background = 0)
 {
     threshold(src,label,otsu_threshold(src),foreground,background);
 }
 
-template<class ImageType>
+template<typename ImageType>
 unsigned int otsu_count(const ImageType& src,float level = 0.6f)
 {
     float threshold = otsu_threshold(src)*level;

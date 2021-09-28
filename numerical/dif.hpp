@@ -5,21 +5,21 @@
 namespace tipl
 {
 
-template<class vtor_type,unsigned int dimension>
+template<typename vtor_type,unsigned int dimension>
 void make_identity(image<vtor_type,dimension>& s)
 {
     for (tipl::pixel_index<dimension> index(s.shape()); index < s.size();++index)
         s[index.index()] = index;
 }
 //---------------------------------------------------------------------------
-template<class vtor_type,unsigned int dimension>
+template<typename vtor_type,unsigned int dimension>
 void displacement_to_mapping(image<vtor_type,dimension>& s)
 {
     for (tipl::pixel_index<dimension> index(s.shape()); index < s.size();++index)
         s[index.index()] += index;
 }
 //---------------------------------------------------------------------------
-template<class vtor_type,unsigned int dimension>
+template<typename vtor_type,unsigned int dimension>
 void mapping_to_displacement(image<vtor_type,dimension>& s)
 {
     for (tipl::pixel_index<dimension> index(s.shape()); index < s.size();++index)
@@ -56,7 +56,7 @@ void inv_displacement_to_mapping(const DisType& inv_dis,MappingType& inv_mapping
 }
 
 //---------------------------------------------------------------------------
-template<class ImageType,class MappingType,class OutImageType>
+template<typename ImageType,typename MappingType,typename OutImageType>
 void compose_mapping(const ImageType& src,const MappingType& mapping,OutImageType& dest,
                      interpolation_type type = interpolation_type::linear)
 {
@@ -68,7 +68,7 @@ void compose_mapping(const ImageType& src,const MappingType& mapping,OutImageTyp
     });
 }
 //---------------------------------------------------------------------------
-template<class ImageType,class ComposeImageType,class OutImageType>
+template<typename ImageType,typename ComposeImageType,typename OutImageType>
 void compose_displacement(const ImageType& src,const ComposeImageType& displace,OutImageType& dest,
                           interpolation_type type = interpolation_type::linear)
 {
@@ -87,7 +87,7 @@ void compose_displacement(const ImageType& src,const ComposeImageType& displace,
     });
 }
 //---------------------------------------------------------------------------
-template<class ImageType,class ComposeImageType,class OutImageType,class transform_type>
+template<typename ImageType,typename ComposeImageType,typename OutImageType,typename transform_type>
 void compose_displacement_with_affine(const ImageType& src,OutImageType& dest,
                           const transform_type& transform,
                           const ComposeImageType& displace,
@@ -105,7 +105,7 @@ void compose_displacement_with_affine(const ImageType& src,OutImageType& dest,
 }
 
 //---------------------------------------------------------------------------
-template<class ComposeImageType>
+template<typename ComposeImageType>
 void invert_displacement(const ComposeImageType& v0,ComposeImageType& v1,uint8_t iterations = 16)
 {
     ComposeImageType vv;
@@ -120,7 +120,7 @@ void invert_displacement(const ComposeImageType& v0,ComposeImageType& v1,uint8_t
     }
 }
 //---------------------------------------------------------------------------
-template<class ComposeImageType>
+template<typename ComposeImageType>
 void invert_displacement(ComposeImageType& v,uint8_t iterations = 16)
 {
     ComposeImageType v0;
@@ -129,7 +129,7 @@ void invert_displacement(ComposeImageType& v,uint8_t iterations = 16)
 }
 
 //---------------------------------------------------------------------------
-template<class ComposeImageType>
+template<typename ComposeImageType>
 void invert_mapping(const ComposeImageType& s0,ComposeImageType& s1,uint8_t iterations)
 {
     ComposeImageType v0(s0);
@@ -138,7 +138,7 @@ void invert_mapping(const ComposeImageType& s0,ComposeImageType& s1,uint8_t iter
     displacement_to_mapping(s1);
 }
 //---------------------------------------------------------------------------
-template<class ComposeImageType>
+template<typename ComposeImageType>
 void accumulate_displacement(const ComposeImageType& vin,
                              const ComposeImageType& vv,
                              ComposeImageType& vout)
@@ -147,7 +147,7 @@ void accumulate_displacement(const ComposeImageType& vin,
     vout += vv;
 }
 //---------------------------------------------------------------------------
-template<class ComposeImageType>
+template<typename ComposeImageType>
 void accumulate_displacement(ComposeImageType& v0,const ComposeImageType& vv)
 {
     ComposeImageType nv;
@@ -158,7 +158,7 @@ void accumulate_displacement(ComposeImageType& v0,const ComposeImageType& vv)
 //---------------------------------------------------------------------------
 // v = vx compose vy
 // use vy(x) = v(x)-vx(x+vy(x))
-template<class ComposeImageType>
+template<typename ComposeImageType>
 void decompose_displacement(const ComposeImageType& v,const ComposeImageType& vx,
                             ComposeImageType& vy)
 {
@@ -174,7 +174,7 @@ void decompose_displacement(const ComposeImageType& v,const ComposeImageType& vx
     }
 }
 //---------------------------------------------------------------------------
-template<class VectorType,class DetType>
+template<typename VectorType,typename DetType>
 void jacobian_determinant(const image<VectorType,3>& src,DetType& dest)
 {
     typedef typename DetType::value_type value_type;
@@ -209,7 +209,7 @@ void jacobian_determinant(const image<VectorType,3>& src,DetType& dest)
                                        (v1_0[2] - v1_1[2])*(d2_0*d3_1-d2_1*d3_0);
     }
 }
-template<class VectorType>
+template<typename VectorType>
 double jacobian_determinant_dis_at(const image<VectorType,3>& src,const tipl::pixel_index<3>& index)
 {
     unsigned int w = src.width();
@@ -234,7 +234,7 @@ double jacobian_determinant_dis_at(const image<VectorType,3>& src,const tipl::pi
                                    (v1_0[1] - v1_1[1])*(d2_2*d3_0-d2_0*d3_2)+
                                    (v1_0[2] - v1_1[2])*(d2_0*d3_1-d2_1*d3_0);
 }
-template<class VectorType,class out_type>
+template<typename VectorType,typename out_type>
 void jacobian_dis_at(const image<VectorType,3>& src,const tipl::pixel_index<3>& index,out_type* J)
 {
     unsigned int w = src.width();
@@ -259,7 +259,7 @@ void jacobian_dis_at(const image<VectorType,3>& src,const tipl::pixel_index<3>& 
     J[7] = vz[1]*0.5;
     J[8] = vz[2]*0.5+1.0;
 }
-template<class VectorType,class DetType>
+template<typename VectorType,typename DetType>
 void jacobian_determinant_dis(const image<VectorType,3>& src,DetType& dest)
 {
     shape<3> geo(src.shape());
@@ -276,7 +276,7 @@ void jacobian_determinant_dis(const image<VectorType,3>& src,DetType& dest)
 }
 
 //---------------------------------------------------------------------------
-template<class VectorType,class PixelType>
+template<typename VectorType,typename PixelType>
 void jacobian_determinant(const image<VectorType,2>& src,image<PixelType,2>& dest)
 {
     shape<2> geo(src.shape());
@@ -297,7 +297,7 @@ void jacobian_determinant(const image<VectorType,2>& src,image<PixelType,2>& des
     }
 }
 
-template<class VectorType>
+template<typename VectorType>
 double jacobian_determinant_dis_at(const image<VectorType,2>& src,const tipl::pixel_index<2>& index)
 {
     unsigned int w = src.width();
@@ -308,7 +308,7 @@ double jacobian_determinant_dis_at(const image<VectorType,2>& src,const tipl::pi
     return (v1_0[0] - v1_1[0]+1.0)*(v2_0[1] - v2_1[1]+1.0)-(v1_0[1] - v1_1[1])*(v2_0[0] - v2_1[0]);
 }
 
-template<class VectorType,class PixelType>
+template<typename VectorType,typename PixelType>
 void jacobian_determinant_dis(const image<VectorType,2>& src,image<PixelType,2>& dest)
 {
     shape<2> geo(src.shape());

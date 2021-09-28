@@ -218,7 +218,7 @@ void stochastic_competition_3region(LabelImageType& label,double inner_region_ra
 
 #ifdef TIPL_DEBUG
 #include <sstream>
-template<class ImageType,class PitvotList,class LabelImageType>
+template<typename ImageType,typename PitvotList,typename LabelImageType>
 void stochastic_competition_debug(const ImageType& data,
                                   const PitvotList& pivot_list,
                                   const LabelImageType& label)

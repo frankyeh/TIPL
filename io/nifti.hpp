@@ -117,7 +117,7 @@ struct dsr
 
 
 
-template<class fun_type>
+template<typename fun_type>
 struct nifti_type_info;
 
 template<>
@@ -317,7 +317,7 @@ struct nifti_2_header {  /* NIFTI-2 usage           */ /* NIFTI-1 usage      */ 
 /*
 
 */
-template<class input_interface = std_istream,class output_interface = std_ostream>
+template<typename input_interface = std_istream,typename output_interface = std_ostream>
 class nifti_base
 {
 
@@ -475,7 +475,7 @@ public:
     {
         return load_from_file(file_name.c_str());
     }
-    template<class char_type>
+    template<typename char_type>
     bool load_from_file(const char_type* pfile_name)
     {
         if (!input_stream->open(pfile_name))
@@ -637,7 +637,7 @@ public:
         input_stream->seek(size_t(nif_header.vox_offset)+i*volume_size);
         return (*input_stream);
     }
-    template<class shape_type>
+    template<typename shape_type>
     void set_dim(const shape_type& geo)
     {
         std::fill(nif_header.dim,nif_header.dim+8,1);
@@ -669,7 +669,7 @@ public:
         }
     }
 
-    template<class matrix_type>
+    template<typename matrix_type>
     void set_image_transformation(matrix_type& R)
     {
         nif_header.sform_code = 1.0;
@@ -709,7 +709,7 @@ public:
         std::copy(nif_header2.pixdim+1,nif_header2.pixdim+1+dim,pixel_size_from.begin());
     }
 
-    template<class float_type>
+    template<typename float_type>
     void get_image_orientation(float_type R)
     {
         handle_qform();
@@ -717,7 +717,7 @@ public:
         std::copy(nif_header2.srow_y,nif_header2.srow_y+3,R+3);
         std::copy(nif_header2.srow_z,nif_header2.srow_z+3,R+6);
     }
-    template<class matrix_type>
+    template<typename matrix_type>
     void get_image_transformation(matrix_type& R)
     {
         handle_qform();
@@ -790,7 +790,7 @@ public:
             return nif_header.datatype != 16 && nif_header.datatype != 64;
         return nif_header2.datatype != 16 && nif_header2.datatype != 64;
     }
-    template<class image_type>
+    template<typename image_type>
     void load_from_image(const image_type& source)
     {
         nif_header2.datatype = nifti_type_info<typename image_type::value_type>::data_type;
@@ -817,7 +817,7 @@ public:
         is_nii = true;
     }
 
-    template<class char_type,class image_type,class vs_type>
+    template<typename char_type,typename image_type,typename vs_type>
     static bool load_from_file(const char_type* pfile_name,image_type& I,vs_type& vs)
     {
         nifti_base nii;
@@ -827,7 +827,7 @@ public:
         nii.get_voxel_size(vs);
         return true;
     }
-    template<class char_type,class image_type,class vs_type,class srow_type>
+    template<typename char_type,typename image_type,typename vs_type,typename srow_type>
     static bool load_from_file(const char_type* pfile_name,image_type& I,vs_type& vs,srow_type& T)
     {
         nifti_base nii;
@@ -839,7 +839,7 @@ public:
         return true;
     }
 
-    template<class char_type,class image_type,class vs_type,class srow_type>
+    template<typename char_type,typename image_type,typename vs_type,typename srow_type>
     static bool save_to_file(const char_type* pfile_name,image_type& I,const vs_type& vs,const srow_type& T,const char* descript = nullptr)
     {
         nifti_base nii;
@@ -850,7 +850,7 @@ public:
             nii.set_descrip(descript);
         return nii.save_to_file(pfile_name);
     }
-    template<class char_type>
+    template<typename char_type>
     bool save_to_file(const char_type* pfile_name)
     {
         if(!write_buf)
@@ -876,7 +876,7 @@ public:
         write_buf = 0;
         return out;
     }
-    template<class pointer_type>
+    template<typename pointer_type>
     bool save_to_buffer(pointer_type ptr,size_t pixel_count) const
     {
         const size_t byte_per_pixel = nif_header2.bitpix/8;
@@ -960,7 +960,7 @@ public:
         return true;
     }
 
-    template<class image_type>
+    template<typename image_type>
     bool get_untouched_image(image_type& out) const
     {
         if(!has_data())
@@ -976,19 +976,19 @@ public:
         return true;
     }
 
-    template<class image_type>
+    template<typename image_type>
     bool save_to_image(image_type& out)
     {
         return toLPS(out);
     }
 
-    template<class image_type>
+    template<typename image_type>
     const nifti_base& operator>>(image_type& source)
     {
         toLPS(source);
         return *this;
     }
-    template<class image_type>
+    template<typename image_type>
     nifti_base& operator<<(const image_type& source)
     {
         load_from_image(source);
@@ -1035,7 +1035,7 @@ public:
     }
 
     //from RAS to LPS
-    template<class image_type>
+    template<typename image_type>
     bool toLPS(image_type& out,bool change_header = true,bool load_image = true)
     {
         if(!write_buf)

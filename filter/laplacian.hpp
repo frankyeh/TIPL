@@ -10,7 +10,7 @@ namespace filter{
 
 
 
-template<class value_type,size_t dimension>
+template<typename value_type,size_t dimension>
 class laplacian_filter_imp;
 
 /**
@@ -18,12 +18,12 @@ kernel
 1 -2 1
 */
 
-template<class value_type>
+template<typename value_type>
 struct laplacian_filter_imp<value_type,1>
 {
     typedef typename pixel_manip<value_type>::type manip_type;
 public:
-    template<class image_type>
+    template<typename image_type>
     void operator()(image_type& src)
     {
         std::vector<manip_type> dest(src.size());
@@ -42,12 +42,12 @@ kernel
 */
 
 
-template<class value_type>
+template<typename value_type>
 class laplacian_filter_imp<value_type,2>
 {
     typedef typename pixel_manip<value_type>::type manip_type;
 public:
-    template<class image_type>
+    template<typename image_type>
     void operator()(image_type& src)
     {
         std::vector<manip_type> dest(src.size());
@@ -68,12 +68,12 @@ kernel
 0 0 0	0 1 0	0 0 0
 */
 
-template<class value_type>
+template<typename value_type>
 class laplacian_filter_imp<value_type,3>
 {
     typedef typename pixel_manip<value_type>::type manip_type;
 public:
-    template<class image_type>
+    template<typename image_type>
     void operator()(image_type& src)
     {
         std::vector<manip_type> dest(src.size());
@@ -91,10 +91,11 @@ public:
     }
 };
 
-template<class pixel_type,size_t dimension>
-void laplacian(image<pixel_type,dimension>& src)
+template<typename pixel_type,size_t dimension>
+image<pixel_type,dimension>& laplacian(image<pixel_type,dimension>& src)
 {
     laplacian_filter_imp<pixel_type,dimension>()(src);
+    return src;
 }
 
 

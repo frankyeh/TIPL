@@ -106,7 +106,7 @@ public:
 };
 
 
-template<class PixelType>    struct pixel_manip {typedef PixelType type;};
+template<typename PixelType>    struct pixel_manip {typedef PixelType type;};
 template<>  struct pixel_manip<unsigned char>   {typedef short type;};
 template<>  struct pixel_manip<char>            {typedef short type;};
 template<>  struct pixel_manip<short>           {typedef int type;};
@@ -114,9 +114,9 @@ template<>  struct pixel_manip<unsigned short>  {typedef int type;};
 template<>  struct pixel_manip<tipl::rgb>{typedef rgb_manip type;};
 
 
-template<class value_type,size_t w>  struct weight               {value_type operator()(value_type value)    {return value*w;}};
-template<class value_type>           struct weight<value_type,1> {value_type operator()(value_type value)    {return value;}};
-template<class value_type>           struct weight<value_type,2> {value_type operator()(value_type value)    {return value+value;}};
+template<typename value_type,size_t w>  struct weight               {value_type operator()(value_type value)    {return value*w;}};
+template<typename value_type>           struct weight<value_type,1> {value_type operator()(value_type value)    {return value;}};
+template<typename value_type>           struct weight<value_type,2> {value_type operator()(value_type value)    {return value+value;}};
 
 template<>  struct weight<unsigned int,3> {unsigned int operator()(unsigned int value){return (value << 1) + value;}};
 template<>  struct weight<unsigned int,4> {unsigned int operator()(unsigned int value){return value << 2;}};
@@ -148,7 +148,7 @@ template<>  struct weight<char,4> {char operator()(char value){return value << 2
 template<>  struct weight<char,5> {char operator()(char value){return (value << 2) + value;}};
 template<>  struct weight<char,6> {char operator()(int value){return (value << 2) + (value << 1);}};
 
-template<size_t weight_value,class dest_type,class src_type>
+template<size_t weight_value,typename dest_type,typename src_type>
 void add_weight(dest_type& dest,const src_type& src,int shift)
 {
     weight<typename dest_type::value_type,weight_value> w;
@@ -171,7 +171,7 @@ void add_weight(dest_type& dest,const src_type& src,int shift)
 }
 
 
-template<size_t weight_value,class dest_type,class src_type>
+template<size_t weight_value,typename dest_type,typename src_type>
 void minus_weight(dest_type& dest,const src_type& src,int shift)
 {
     weight<typename dest_type::value_type,weight_value> w;

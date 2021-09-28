@@ -10,7 +10,7 @@ namespace tipl {
 
 namespace reg {
 
-template<class ImageType,class value_type>
+template<typename ImageType,typename value_type>
 value_type resample_d(const ImageType& vol,value_type& gradx,value_type& grady,value_type& gradz,value_type x,value_type y,value_type z)
 {
     const value_type TINY = 5e-2f;
@@ -92,7 +92,7 @@ value_type resample_d(const ImageType& vol,value_type& gradx,value_type& grady,v
 }
 
 
-template<class value_type,int dim = 3>
+template<typename value_type,int dim = 3>
 class bfnorm_mapping {
 public:
     tipl::shape<dim> VGgeo;
@@ -128,18 +128,18 @@ public:
         T[3*k_base.size()] = 1;
     }
 
-    template<class rhs_type>
+    template<typename rhs_type>
     void get_displacement(const tipl::pixel_index<3>& from,rhs_type& to) const
     {
         return get_displacement(tipl::vector<3,int>(from[0],from[1],from[2]),to);
     }
-    template<class rhs_type>
+    template<typename rhs_type>
     void operator()(const tipl::pixel_index<3>& from,rhs_type& to) const
     {
         return (*this)(tipl::vector<3,int>(from[0],from[1],from[2]),to);
     }
 
-    template<class rhs_type>
+    template<typename rhs_type>
     void get_displacement(const tipl::vector<3,int>& from,rhs_type& to) const
     {
         if(!VGgeo.is_valid(from))
@@ -182,7 +182,7 @@ public:
         tipl::mat::product(temp,by,temp2,dz_y,dy_1);
         to[2] = tipl::vec::dot(bz,bz+nz,temp2);
     }
-    template<class rhs_type>
+    template<typename rhs_type>
     void operator()(const tipl::vector<3,int>& from,rhs_type& to) const
     {
         get_displacement(from,to);
@@ -190,14 +190,14 @@ public:
     }
 };
 
-template<class value_type>
+template<typename value_type>
 void fill_values(std::vector<value_type>& values,value_type step)
 {
     value_type value = 0;
     for(unsigned int index = 0; index < values.size(); ++index,value += step)
         values[index] = value;
 }
-template<class parameter_type>
+template<typename parameter_type>
 void bfnorm_mrqcof_zero_half(std::vector<parameter_type>& alpha,int m1)
 {
     for (int x1=0; x1<m1; x1++)
@@ -207,7 +207,7 @@ void bfnorm_mrqcof_zero_half(std::vector<parameter_type>& alpha,int m1)
     }
 }
 
-template<class image_type,class value_type>
+template<typename image_type,typename value_type>
 class bfnorm_mrqcof {
 private:
     const image_type& VG;
@@ -353,7 +353,7 @@ public:
     }
 
 public:
-    template<class terminated_type>
+    template<typename terminated_type>
     void optimize(const terminated_type& terminated,unsigned int thread_count)
     {
         value_type prev_ss = std::numeric_limits<value_type>::max();
@@ -779,7 +779,7 @@ public:
     }
 };
 
-template<class ImageType,class value_type,class terminator_type>
+template<typename ImageType,typename value_type,typename terminator_type>
 void bfnorm(bfnorm_mapping<value_type>& mapping,
             const ImageType& VG,
             const ImageType& VFF,terminator_type& terminated,unsigned int thread_count)
@@ -791,7 +791,7 @@ void bfnorm(bfnorm_mapping<value_type>& mapping,
 
 
 
-template<class value_type,class from_type,class matrix_type>
+template<typename value_type,typename from_type,typename matrix_type>
 void bfnorm_get_jacobian(const bfnorm_mapping<value_type>& mapping,const from_type& from,matrix_type Jbet)
 {
     int nx = mapping.k_base[0];

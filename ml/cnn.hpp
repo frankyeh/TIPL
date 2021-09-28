@@ -132,7 +132,7 @@ public:
     }
     virtual void forward_propagation(const float* x,float* y) = 0;
 
-    template<class io_stream>
+    template<typename io_stream>
     void read(io_stream& in)
     {
         if(!weight.empty())
@@ -141,7 +141,7 @@ public:
             in.read((char*)&bias[0],bias.size()*4);
         }
     }
-    template<class io_stream>
+    template<typename io_stream>
     void write(io_stream& out)
     {
         if(!weight.empty())

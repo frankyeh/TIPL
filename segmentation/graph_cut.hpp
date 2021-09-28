@@ -28,7 +28,7 @@ International Journal of Computer Vision, Volume 59, Number 2, September 2004
 
 c uses relative scale from 0~1.0
 */
-template<class value_type>
+template<typename value_type>
 struct graph_cut_dis{
 
     float operator()(value_type lhs,value_type rhs)
@@ -45,7 +45,7 @@ struct graph_cut_dis<tipl::rgb>{
     }
 };
 
-template<class image_type,class label_type>
+template<typename image_type,typename label_type>
 void graph_cut(const image_type& I,label_type& out,float c,unsigned int min_size)
 {
     typedef tipl::pixel_index<image_type::dimension> index_type;
@@ -123,7 +123,7 @@ void graph_cut(const image_type& I,label_type& out,float c,unsigned int min_size
     }
 }
 
-template<class label_type1,class label_type2>
+template<typename label_type1,typename label_type2>
 void refine_contour(const label_type1& I,label_type2& out)
 {
     std::vector<unsigned int> region_list_yes((*std::max_element(I.begin(),I.end()))+1);

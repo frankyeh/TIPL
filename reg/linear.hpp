@@ -24,7 +24,7 @@ namespace reg
 struct square_error
 {
     typedef double value_type;
-    template<class ImageType,class TransformType>
+    template<typename ImageType,typename TransformType>
     double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
     {
         const unsigned int dim = ImageType::dimension;
@@ -48,7 +48,7 @@ struct square_error
 struct negative_product
 {
     typedef double value_type;
-    template<class ImageType,class TransformType>
+    template<typename ImageType,typename TransformType>
     double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
     {
         const unsigned int dim = ImageType::dimension;
@@ -69,7 +69,7 @@ struct negative_product
 struct correlation
 {
     typedef double value_type;
-    template<class ImageType,class TransformType>
+    template<typename ImageType,typename TransformType>
     double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
     {
         tipl::shape<ImageType::dimension> geo(Ifrom.shape());
@@ -80,7 +80,7 @@ struct correlation
     }
 };
 
-template<class image_type,class transform_type>
+template<typename image_type,typename transform_type>
 struct mt_correlation
 {
     typedef double value_type;
@@ -173,7 +173,7 @@ struct mutual_information
 public:
     mutual_information(unsigned int band_width_ = 6):band_width(band_width_),his_bandwidth(1 << band_width_) {}
 public:
-    template<class ImageType,class TransformType>
+    template<typename ImageType,typename TransformType>
     double operator()(const ImageType& from_,const ImageType& to_,const TransformType& transform)
     {
         if (from_hist.empty() || to_.size() != to.size() || from_.size() != from.size())
@@ -247,7 +247,7 @@ struct faster
 {
     typedef typename fun_type::value_type value_type;
     fun_type fun;
-    template<class ImageType,class TransformType>
+    template<typename ImageType,typename TransformType>
     double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& T)
     {
         if(Ifrom.size() < Ito.size())
@@ -262,7 +262,7 @@ struct faster
 };
 
 
-template<class image_type,
+template<typename image_type,
          typename vs_type,
          typename param_type,
          typename transform_type,
@@ -316,7 +316,7 @@ enum cost_type{corr,mutual_info};
 const float narrow_bound[8] = {0.2f,-0.2f,0.1f, -0.1f, 1.5f,0.9f,0.1f,-0.1f};
 const float reg_bound[8] =    {1.0f,-1.0f,0.25f,-0.25f,2.0f,0.5f,0.2f,-0.2f};
 const float large_bound[8] =  {1.0f,-1.0f,1.2f, -1.2f, 4.0f,0.2f,0.5f,-0.5f};
-template<class image_type1,class image_type2,class transform_type>
+template<typename image_type1,typename image_type2,typename transform_type>
 void get_bound(const image_type1& from,const image_type2& to,
                const transform_type& trans,
                transform_type& upper_trans,
@@ -367,7 +367,7 @@ void get_bound(const image_type1& from,const image_type2& to,
 
 
 
-template<class image_type,class vs_type,class transform_type,class CostFunctionType,class teminated_class>
+template<typename image_type,typename vs_type,typename transform_type,typename CostFunctionType,typename teminated_class>
 float linear(const image_type& from,const vs_type& from_vs,
              const image_type& to  ,const vs_type& to_vs,
              transform_type& arg_min,
@@ -400,7 +400,7 @@ float linear(const image_type& from,const vs_type& from_vs,
  *  This linear version use only gradient descent
  *
  */
-template<class image_type,class vs_type,class transform_type,class CostFunctionType,class teminated_class>
+template<typename image_type,typename vs_type,typename transform_type,typename CostFunctionType,typename teminated_class>
 double linear2(const image_type& from,const vs_type& from_vs,
              const image_type& to  ,const vs_type& to_vs,
              transform_type& arg_min,
@@ -419,7 +419,7 @@ double linear2(const image_type& from,const vs_type& from_vs,
     return optimal_value;
 }
 
-template<class image_type,class vs_type,class transform_type,class CostFunctionType,class teminated_class>
+template<typename image_type,typename vs_type,typename transform_type,typename CostFunctionType,typename teminated_class>
 float linear_mr(const image_type& from,const vs_type& from_vs,
                 const image_type& to  ,const vs_type& to_vs,
                 transform_type& arg_min,
@@ -454,7 +454,7 @@ float linear_mr(const image_type& from,const vs_type& from_vs,
     return linear(from,from_vs,to,to_vs,arg_min,base_type,cost_type,terminated,precision,random_search,bound);
 }
 
-template<class image_type,class vs_type,class TransType,class CostFunctionType,class teminated_class>
+template<typename image_type,typename vs_type,typename TransType,typename CostFunctionType,typename teminated_class>
 float two_way_linear_mr(const image_type& from,const vs_type& from_vs,
                             const image_type& to,const vs_type& to_vs,
                             TransType& T,

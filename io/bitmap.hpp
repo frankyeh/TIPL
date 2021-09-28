@@ -65,13 +65,13 @@ public:
         std::fill(reinterpret_cast<char*>(&bmih),reinterpret_cast<char*>(&bmih)+sizeof(bmih),0);
         bmih.biSize = sizeof(bitmap_info_header);
     }
-    template<class char_type>
+    template<typename char_type>
     bitmap(const char_type* file_name)
     {
         if (!load_from_file(file_name))
             throw std::runtime_error("failed to open bitmap file");
     }
-    template<class char_type>
+    template<typename char_type>
     bool save_to_file(const char_type* file_name) const
     {
         std::ofstream out(file_name,std::ios::binary);
@@ -86,7 +86,7 @@ public:
         out.write(reinterpret_cast<const char*>(&*data.begin()),int64_t(data.size()));
         return true;
     }
-    template<class char_type>
+    template<typename char_type>
     bool load_from_file(const char_type* file_name)
     {
         std::ifstream in(file_name,std::ios::binary);
@@ -109,7 +109,7 @@ public:
             return false;
         return true;
     }
-    template<class image_type>
+    template<typename image_type>
     void load_from_image(const image_type& image)
     {
         bmih.biBitCount = 32;
@@ -129,7 +129,7 @@ public:
             std::copy(iter,iter+line_width,out_line);
     }
 
-    template<class image_type>
+    template<typename image_type>
     void save_to_image(image_type& image) const
     {
         typedef typename image_type::value_type pixel_type;
@@ -185,13 +185,13 @@ public:
         }
     }
 
-    template<class image_type>
+    template<typename image_type>
     const bitmap& operator>>(image_type& source) const
     {
         save_to_image(source);
         return *this;
     }
-    template<class image_type>
+    template<typename image_type>
     bitmap& operator<<(const image_type& source)
     {
         load_from_image(source);

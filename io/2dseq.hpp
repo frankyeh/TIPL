@@ -61,7 +61,7 @@ private:
         }
     }
 public:
-    template<class char_type>
+    template<typename char_type>
     bool load_from_file(const char_type* file_name)
 
     {
@@ -188,7 +188,7 @@ private:
 public:
     std::vector<float> slopes;
 
-    template<class char_type>
+    template<typename char_type>
     bool load_from_file(const char_type* file_name)
     {
         if(!check_name(file_name))
@@ -322,14 +322,14 @@ public:
         vs_ = vs;
     }
 
-    template<class image_type>
+    template<typename image_type>
     void save_to_image(image_type& out) const
     {
         out.resize(data.shape());
         std::copy(data.begin(),data.end(),out.begin());
     }
 
-    template<class image_type>
+    template<typename image_type>
     const bruker_2dseq& operator>>(image_type& source) const
     {
         save_to_image(source);

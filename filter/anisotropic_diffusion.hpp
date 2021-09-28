@@ -20,7 +20,7 @@ namespace filter
     iteration: diffusion iteration
 */
 
-template<class image_type>
+template<typename image_type>
 void anisotropic_diffusion(image_type& src,float conductance_parameter = 1.0,int iteration = 5)
 {
 
@@ -72,7 +72,7 @@ void anisotropic_diffusion(image_type& src,float conductance_parameter = 1.0,int
 }
 
 
-template<class pixel_type,size_t dimension>
+template<typename pixel_type,size_t dimension>
 void anisotropic_diffusion_inv(tipl::image<pixel_type,dimension>& src,
                            float conductance_parameter = 1.0,
                            size_t iteration = 5)

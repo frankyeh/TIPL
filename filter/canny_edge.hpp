@@ -10,15 +10,15 @@ namespace tipl
 namespace filter
 {
 
-template<class value_type,size_t dimension>
+template<typename value_type,size_t dimension>
 class canny_edge_filter_imp;
 
-template<class value_type>
+template<typename value_type>
 class canny_edge_filter_imp<value_type,2>
 {
     typedef typename pixel_manip<value_type>::type manip_type;
 public:
-    template<class image_type>
+    template<typename image_type>
     void operator()(image_type& src)
     {
         std::vector<manip_type> gx(src.size());
@@ -92,12 +92,12 @@ public:
     }
 };
 
-template<class value_type>
+template<typename value_type>
 class canny_edge_filter_imp<value_type,3>
 {
     typedef typename pixel_manip<value_type>::type manip_type;
 public:
-    template<class image_type>
+    template<typename image_type>
     void operator()(image_type& src)
     {
         int w = src.width();
@@ -195,10 +195,11 @@ public:
 };
 
 
-template<class image_type>
-void canny_edge(image_type& src)
+template<typename image_type>
+image_type& canny_edge(image_type& src)
 {
     canny_edge_filter_imp<typename image_type::value_type,image_type::dimension>()(src);
+    return src;
 }
 
 

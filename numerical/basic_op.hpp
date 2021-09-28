@@ -151,7 +151,7 @@ ImageType& threshold(ImageType& I,typename ImageType::value_type threshold_value
 }
 
 
-template<class ImageType3D,class ImageType2D,typename dim_type,typename slice_pos_type>
+template<typename ImageType3D,typename ImageType2D,typename dim_type,typename slice_pos_type>
 ImageType2D& volume2slice(const ImageType3D& slice,ImageType2D& I,dim_type dim,slice_pos_type slice_index)
 {
     I.clear();

@@ -12,7 +12,7 @@ namespace tipl
 namespace optimization
 {
 
-template<class image_type,class iter_type1,class function_type>
+template<typename image_type,typename iter_type1,typename function_type>
 void plot_fun_2d(
                 image_type& I,
                 iter_type1 x_beg,iter_type1 x_end,
@@ -32,7 +32,7 @@ void plot_fun_2d(
 }
 
 // calculate fun(x+ei)
-template<class iter_type1,class tol_type,class iter_type2,class function_type>
+template<typename iter_type1,typename tol_type,typename iter_type2,typename function_type>
 void estimate_change(iter_type1 x_beg,iter_type1 x_end,tol_type tol,iter_type2 fun_ei,function_type& fun)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
@@ -49,13 +49,13 @@ void estimate_change(iter_type1 x_beg,iter_type1 x_end,tol_type tol,iter_type2 f
     }
 }
 // calculate fun(x+ei)
-template<class storage_type,class tol_storage_type,class fun_type,class function_type>
+template<typename storage_type,typename tol_storage_type,typename fun_type,typename function_type>
 void estimate_change(const storage_type& x,const tol_storage_type& tol,fun_type& fun_ei,function_type& fun)
 {
     estimate_change(x.begin(),x.end(),tol.begin(),fun_ei.begin(),fun);
 }
 
-template<class iter_type1,class tol_type,class value_type,class iter_type2,class iter_type3>
+template<typename iter_type1,typename tol_type,typename value_type,typename iter_type2,typename iter_type3>
 void gradient(iter_type1 x_beg,iter_type1 x_end,
               tol_type tol,
               value_type fun_x,
@@ -71,13 +71,13 @@ void gradient(iter_type1 x_beg,iter_type1 x_end,
         else
             g_beg[i] /= tol[i];
 }
-template<class storage_type,class tol_storage_type,class value_type,class storage_type2,class storage_type3>
+template<typename storage_type,typename tol_storage_type,typename value_type,typename storage_type2,typename storage_type3>
 void gradient(const storage_type& x,const tol_storage_type& tol,value_type fun_x,const storage_type2& fun_x_ei,storage_type3& g)
 {
     gradient(x.begin(),x.end(),tol.begin(),fun_x,fun_x_ei.begin(),g.begin());
 }
 
-template<class iter_type1,class tol_type,class value_type,class iter_type2,class iter_type3,class function_type>
+template<typename iter_type1,typename tol_type,typename value_type,typename iter_type2,typename iter_type3,typename function_type>
 void hessian(iter_type1 x_beg,iter_type1 x_end,
              tol_type tol,
              value_type fun_x,
@@ -110,14 +110,14 @@ void hessian(iter_type1 x_beg,iter_type1 x_end,
     }
 }
 
-template<class storage_type,class tol_storage_type,class value_type,class storage_type2,class storage_type3,class function_type>
+template<typename storage_type,typename tol_storage_type,typename value_type,typename storage_type2,typename storage_type3,typename function_type>
 void hessian(const storage_type& x,const tol_storage_type& tol,value_type fun_x,const storage_type2& fun_x_ei,storage_type3& h,function_type& fun)
 {
     hessian(x.begin(),x.end(),tol.begin(),fun_x,fun_x_ei.begin(),h.begin(),fun);
 }
 
 
-template<class param_type,class g_type,class value_type,class function_type>
+template<typename param_type,typename g_type,typename value_type,typename function_type>
 bool armijo_line_search_1d(param_type& x,
                         param_type upper,param_type lower,
                         g_type g,
@@ -144,7 +144,7 @@ bool armijo_line_search_1d(param_type& x,
     return has_new_x;
 }
 
-template<class iter_type1,class iter_type2,class g_type,class value_type,class function_type>
+template<typename iter_type1,typename iter_type2,typename g_type,typename value_type,typename function_type>
 bool armijo_line_search(iter_type1 x_beg,iter_type1 x_end,
                         iter_type2 x_upper,iter_type2 x_lower,
                         g_type g_beg,
@@ -174,7 +174,7 @@ bool armijo_line_search(iter_type1 x_beg,iter_type1 x_end,
     return has_new_x;
 }
 
-template<class tol_type,class iter_type>
+template<typename tol_type,typename iter_type>
 double calculate_resolution(tol_type& tols,iter_type x_upper,iter_type x_lower,double precision = 0.001)
 {
     for(unsigned int i = 0;i < tols.size();++i)
@@ -182,7 +182,7 @@ double calculate_resolution(tol_type& tols,iter_type x_upper,iter_type x_lower,d
     return tipl::norm2(tols.begin(),tols.end());
 }
 
-template<class iter_type1,class function_type,class terminated_class>
+template<typename iter_type1,typename function_type,typename terminated_class>
 void quasi_newtons_minimize(
                 iter_type1 x_beg,iter_type1 x_end,
                 iter_type1 x_upper,iter_type1 x_lower,
@@ -220,7 +220,7 @@ void quasi_newtons_minimize(
     }
 }
 
-template<class param_type,class function_type,class value_type,class terminated_class>
+template<typename param_type,typename function_type,typename value_type,typename terminated_class>
 void graient_descent_1d(param_type& x,param_type upper,param_type lower,
                      function_type& fun,value_type& fun_x,terminated_class& terminated,double precision = 0.001)
 {
@@ -238,7 +238,7 @@ void graient_descent_1d(param_type& x,param_type upper,param_type lower,
     }
 }
 
-template<class iter_type1,class iter_type2,class function_type,class teminated_class>
+template<typename iter_type1,typename iter_type2,typename function_type,typename teminated_class>
 double random_search(iter_type1 x_beg,iter_type1 x_end,
                      iter_type2 x_upper,iter_type2 x_lower,
                      function_type& fun,
@@ -271,7 +271,7 @@ double random_search(iter_type1 x_beg,iter_type1 x_end,
     return optimal_value;
 }
 
-template<class iter_type1,class iter_type2,class function_type,class terminated_class>
+template<typename iter_type1,typename iter_type2,typename function_type,typename terminated_class>
 void gradient_descent(
                 iter_type1 x_beg,iter_type1 x_end,
                 iter_type2 x_upper,iter_type2 x_lower,
@@ -302,7 +302,7 @@ void gradient_descent(
 }
 
 
-template<class iter_type1,class iter_type2,class function_type,class terminated_class>
+template<typename iter_type1,typename iter_type2,typename function_type,typename terminated_class>
 void conjugate_descent(
                 iter_type1 x_beg,iter_type1 x_end,
                 iter_type2 x_upper,iter_type2 x_lower,
@@ -346,7 +346,7 @@ void conjugate_descent(
 }
 
 
-template<class value_type,class value_type2,class value_type3,class function_type>
+template<typename value_type,typename value_type2,typename value_type3,typename function_type>
 bool rand_search(value_type& x,value_type2 x_upper,value_type2 x_lower,
                  value_type3& fun_x,function_type& fun,double variance)
 {
@@ -372,7 +372,7 @@ bool rand_search(value_type& x,value_type2 x_upper,value_type2 x_lower,
     return false;
 }
 
-template<class value_type,class value_type2,class value_type3,class function_type>
+template<typename value_type,typename value_type2,typename value_type3,typename function_type>
 bool rand_search2(value_type& x,value_type2 x_upper,value_type2 x_lower,
                          value_type3& fun_x,function_type& fun)
 {
@@ -387,7 +387,7 @@ bool rand_search2(value_type& x,value_type2 x_upper,value_type2 x_lower,
     return false;
 }
 
-template<class value_type,class value_type2,class value_type3,class function_type>
+template<typename value_type,typename value_type2,typename value_type3,typename function_type>
 void linear_search2(value_type& x,value_type2& x_upper,value_type2& x_lower,
                          value_type3& fun_x,function_type& fun,int count)
 {
@@ -420,7 +420,7 @@ void linear_search2(value_type& x,value_type2& x_upper,value_type2& x_lower,
 
 
 
-template<class value_type,class value_type2,class value_type3,class function_type>
+template<typename value_type,typename value_type2,typename value_type3,typename function_type>
 bool simulated_annealing(value_type& x,value_type2 x_upper,value_type2 x_lower,
                          value_type3& fun_x,function_type& fun,double T)
 {
@@ -436,7 +436,7 @@ bool simulated_annealing(value_type& x,value_type2 x_upper,value_type2 x_lower,
 }
 
 
-template<class eval_fun_type,class value_type,class termination_type,class tol_type>
+template<typename eval_fun_type,typename value_type,typename termination_type,typename tol_type>
 void brent_method(eval_fun_type& f,value_type b/*max*/,value_type a/*min*/,value_type& arg_min,
                         termination_type& terminated,tol_type tol)
 {
@@ -524,7 +524,7 @@ void brent_method(eval_fun_type& f,value_type b/*max*/,value_type a/*min*/,value
 }
 
 struct brent_method_object{
-    template<class eval_fun_type,class value_type,class termination_type>
+    template<typename eval_fun_type,typename value_type,typename termination_type>
     void operator()(eval_fun_type& f,value_type b/*max*/,value_type a/*min*/,value_type& arg_min,
                             termination_type& terminated,value_type tol)
     {
@@ -535,7 +535,7 @@ struct brent_method_object{
 
 
 
-template<class value_type,class eval_fun_type,class termination_type>
+template<typename value_type,typename eval_fun_type,typename termination_type>
 value_type enhanced_brent(eval_fun_type& f,value_type cur_max,value_type cur_min,value_type& out_arg_min,
                           termination_type& terminated,value_type tol)
 {
@@ -583,7 +583,7 @@ value_type enhanced_brent(eval_fun_type& f,value_type cur_max,value_type cur_min
     out_arg_min = arg_min;
 }
 struct enhanced_brent_object{
-    template<class value_type,class eval_fun_type,class termination_type>
+    template<typename value_type,typename eval_fun_type,typename termination_type>
     void operator()(eval_fun_type& f,value_type cur_max,value_type cur_min,value_type& out_arg_min,
                               termination_type& terminated,value_type tol)
     {
@@ -592,7 +592,7 @@ struct enhanced_brent_object{
 };
 
 
-template<class eval_fun_type,class param_type>
+template<typename eval_fun_type,typename param_type>
 struct powell_fasade
 {
     eval_fun_type& eval_fun;
@@ -602,7 +602,7 @@ public:
     powell_fasade(eval_fun_type& eval_fun_,param_type& param_,unsigned int current_dim_):
             eval_fun(eval_fun_),param(param_),current_dim(current_dim_) {}
 
-    template<class input_param_type>
+    template<typename input_param_type>
     float operator()(input_param_type next_param)
     {
         param_type temp(param);
@@ -611,7 +611,7 @@ public:
     }
 };
 
-template<class optimization_method,class eval_fun_type,class param_type,class teminated_class>
+template<typename optimization_method,typename eval_fun_type,typename param_type,typename teminated_class>
 void powell_method(optimization_method optimize,
                          eval_fun_type& fun,
                          param_type& upper,param_type& lower,param_type& arg_min,
@@ -641,13 +641,13 @@ void powell_method(optimization_method optimize,
 }
 
 /*
-template<class param_type,class value_type>
+template<typename param_type,typename value_type>
 struct BFGS
 {
     unsigned int dimension;
 	unsigned int dim2;
     BFGS(unsigned int dim):dimension(dim),dim2(dim*dim) {}
-    template<class function_type,class gradient_function_type>
+    template<typename function_type,typename gradient_function_type>
     value_type minimize(const function_type& f,
 						const gradient_function_type& g,
 						param_type& xk,

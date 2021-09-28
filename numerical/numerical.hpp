@@ -10,7 +10,7 @@
 namespace tipl
 {
 
-template<class T>
+template<typename T>
 struct normal_dist{
     std::mt19937 gen;
     std::normal_distribution<T> dst;
@@ -20,7 +20,7 @@ struct normal_dist{
     }
 };
 
-template<class T>
+template<typename T>
 struct uniform_dist{
     std::mt19937 gen;
     std::uniform_real_distribution<T> dst;
@@ -60,7 +60,7 @@ struct bernoulli{
 };
 
 //---------------------------------------------------------------------------
-template<class input_iterator,class output_iterator>
+template<typename input_iterator,typename output_iterator>
 inline void gradient(input_iterator src_from,input_iterator src_to,
                      output_iterator dest_from,unsigned int src_shift,unsigned int dest_shift)
 {
@@ -78,7 +78,7 @@ inline void gradient(input_iterator src_from,input_iterator src_to,
         std::fill(dest_from,dest_from+(src_shift-dest_shift),0);
 }
 //---------------------------------------------------------------------------
-template<class PixelImageType,class VectorImageType>
+template<typename PixelImageType,typename VectorImageType>
 inline void gradient(const PixelImageType& src,VectorImageType& dest_,unsigned int src_shift,unsigned int dest_shift)
 {
     VectorImageType dest(src.shape());
@@ -86,7 +86,7 @@ inline void gradient(const PixelImageType& src,VectorImageType& dest_,unsigned i
     dest.swap(dest_);
 }
 //---------------------------------------------------------------------------
-template<class PixelImageType,class VectorImageType>
+template<typename PixelImageType,typename VectorImageType>
 void gradient(const PixelImageType& src,VectorImageType& dest)
 {
     dest.clear();
@@ -104,7 +104,7 @@ void gradient(const PixelImageType& src,VectorImageType& dest)
     }
 }
 //---------------------------------------------------------------------------
-template<class PixelImageType,class VectorImageType>
+template<typename PixelImageType,typename VectorImageType>
 void gradient_sobel(const PixelImageType& src,VectorImageType& dest)
 {
     dest.clear();
@@ -122,7 +122,7 @@ void gradient_sobel(const PixelImageType& src,VectorImageType& dest)
     }
 }
 //---------------------------------------------------------------------------
-template<class pixel_type,class container_type,class VectorImageType>
+template<typename pixel_type,typename container_type,typename VectorImageType>
 void gradient_multiple_sampling(const tipl::image<pixel_type,3,container_type>& src,
                                 VectorImageType& dest,
                                 double line_interval = 1.0,
@@ -131,7 +131,7 @@ void gradient_multiple_sampling(const tipl::image<pixel_type,3,container_type>& 
 {
     gradient(src,dest);
 }
-template<class pixel_type,class container_type,class VectorImageType>
+template<typename pixel_type,typename container_type,typename VectorImageType>
 void gradient_multiple_sampling(const tipl::image<pixel_type,2,container_type>& src,
                                 VectorImageType& dest,
                                 double line_interval = 1.0,
@@ -205,7 +205,7 @@ void gradient_multiple_sampling(const tipl::image<pixel_type,2,container_type>& 
     }
 }
 //---------------------------------------------------------------------------
-template<class PixelImageType,class GradientImageType>
+template<typename PixelImageType,typename GradientImageType>
 void gradient(const PixelImageType& src,std::vector<GradientImageType>& dest)
 {
     dest.resize(PixelImageType::dimension);
@@ -221,7 +221,7 @@ void gradient(const PixelImageType& src,std::vector<GradientImageType>& dest)
 
 //---------------------------------------------------------------------------
 // implement -1 0 1
-template<class InputImageType,class OutputImageType>
+template<typename InputImageType,typename OutputImageType>
 void gradient_2x(const InputImageType& in,OutputImageType& out)
 {
     gradient(in,out,2,1);
@@ -230,19 +230,19 @@ void gradient_2x(const InputImageType& in,OutputImageType& out)
 // implement -1
 //            0
 //            1
-template<class InputImageType,class OutputImageType>
+template<typename InputImageType,typename OutputImageType>
 void gradient_2y(const InputImageType& in,OutputImageType& out)
 {
     gradient(in,out,in.width() << 1,in.width());
 }
 //---------------------------------------------------------------------------
-template<class InputImageType,class OutputImageType>
+template<typename InputImageType,typename OutputImageType>
 void gradient_2z(const InputImageType& in,OutputImageType& out)
 {
     gradient(in,out,in.shape().plane_size() << 1,in.shape().plane_size());
 }
 //---------------------------------------------------------------------------
-template<class iterator1,class iterator2>
+template<typename iterator1,typename iterator2>
 void pdf2cdf(iterator1 lhs_from,iterator1 lhs_to,iterator2 out)
 {
     iterator2 prev_out = out;
@@ -255,7 +255,7 @@ void pdf2cdf(iterator1 lhs_from,iterator1 lhs_to,iterator2 out)
     }
 }
 //---------------------------------------------------------------------------
-template<class iterator1,class iterator2>
+template<typename iterator1,typename iterator2>
 void cdf2pdf(iterator1 lhs_from,iterator1 lhs_to,iterator2 out)
 {
     iterator2 prev_out = out;
@@ -269,7 +269,7 @@ void cdf2pdf(iterator1 lhs_from,iterator1 lhs_to,iterator2 out)
 }
 
 
-template<class LHType,class RHType>
+template<typename LHType,typename RHType>
 void assign_negate(LHType& lhs,const RHType& rhs)
 {
     unsigned int total_size;
@@ -281,14 +281,14 @@ void assign_negate(LHType& lhs,const RHType& rhs)
         *lhs_from = -(*rhs_from);
 }
 //---------------------------------------------------------------------------
-template<class iterator,class fun_type>
+template<typename iterator,typename fun_type>
 void apply_fun(iterator lhs_from,iterator lhs_to,fun_type fun)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from = fun(*lhs_from);
 }
 //---------------------------------------------------------------------------
-template<class iterator>
+template<typename iterator>
 typename std::iterator_traits<iterator>::value_type norm2(iterator lhs_from,iterator lhs_to)
 {
     typename std::iterator_traits<iterator>::value_type result(0);
@@ -297,13 +297,13 @@ typename std::iterator_traits<iterator>::value_type norm2(iterator lhs_from,iter
     return std::sqrt(result);
 }
 //---------------------------------------------------------------------------
-template<class image_type>
+template<typename image_type>
 typename image_type::value_type norm2(const image_type& I)
 {
     return norm2(I.begin(),I.end());
 }
 //---------------------------------------------------------------------------
-template<class iterator>
+template<typename iterator>
 void square(iterator lhs_from,iterator lhs_to)
 {
     typename std::iterator_traits<iterator>::value_type tmp;
@@ -314,91 +314,91 @@ void square(iterator lhs_from,iterator lhs_to)
     }
 }
 //---------------------------------------------------------------------------
-template<class image_type>
+template<typename image_type>
 void square(image_type& I)
 {
     square(I.begin(),I.end());
 }
 //---------------------------------------------------------------------------
-template<class iterator>
+template<typename iterator>
 void square_root(iterator lhs_from,iterator lhs_to)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from = std::sqrt(*lhs_from);
 }
 //---------------------------------------------------------------------------
-template<class image_type>
+template<typename image_type>
 void square_root(image_type& I)
 {
     square_root(I.begin(),I.end());
 }
 //---------------------------------------------------------------------------
-template<class iterator>
+template<typename iterator>
 void zeros(iterator lhs_from,iterator lhs_to)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from = std::iterator_traits<iterator>::value_type(0);
 }
 //---------------------------------------------------------------------------
-template<class image_type>
+template<typename image_type>
 void zeros(image_type& I)
 {
     zeros(I.begin(),I.end());
 }
 //---------------------------------------------------------------------------
-template<class iterator>
+template<typename iterator>
 void log(iterator lhs_from,iterator lhs_to)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from = std::log(*lhs_from);
 }
 //---------------------------------------------------------------------------
-template<class image_type>
+template<typename image_type>
 void log(image_type& I)
 {
     log(I.begin(),I.end());
 }
 //---------------------------------------------------------------------------
-template<class iterator>
+template<typename iterator>
 void exp(iterator lhs_from,iterator lhs_to)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from = std::exp(*lhs_from);
 }
 //---------------------------------------------------------------------------
-template<class image_type>
+template<typename image_type>
 void exp(image_type& I)
 {
     exp(I.begin(),I.end());
 }
 //---------------------------------------------------------------------------
-template<class iterator>
+template<typename iterator>
 void absolute_value(iterator lhs_from,iterator lhs_to)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from = std::abs(*lhs_from);
 }
 //---------------------------------------------------------------------------
-template<class image_type>
+template<typename image_type>
 void abs(image_type& I)
 {
     abs(I.begin(),I.end());
 }
 //---------------------------------------------------------------------------
-template<class iterator1,class iterator2>
+template<typename iterator1,typename iterator2>
 void add(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
     for (; lhs_from != lhs_to; ++lhs_from,++rhs_from)
         *lhs_from += *rhs_from;
 }
 //---------------------------------------------------------------------------
-template<class image_type1,class image_type2>
+template<typename image_type1,typename image_type2>
 void add(image_type1& I,const image_type2& I2)
 {
     add(I.begin(),I.end(),I2.begin());
 }
 //---------------------------------------------------------------------------
-template<class image_type1,class image_type2>
+template<typename image_type1,typename image_type2>
 void add_mt(image_type1& I,const image_type2& I2)
 {
     tipl::par_for(I.size(),[&I,&I2](int index){
@@ -406,20 +406,20 @@ void add_mt(image_type1& I,const image_type2& I2)
     });
 }
 //---------------------------------------------------------------------------
-template<class iterator1,class iterator2>
+template<typename iterator1,typename iterator2>
 void minus(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
     for (; lhs_from != lhs_to; ++lhs_from,++rhs_from)
         *lhs_from -= *rhs_from;
 }
 //---------------------------------------------------------------------------
-template<class image_type1,class image_type2>
+template<typename image_type1,typename image_type2>
 void minus(image_type1& I,const image_type2& I2)
 {
     minus(I.begin(),I.end(),I2.begin());
 }
 //---------------------------------------------------------------------------
-template<class image_type1,class image_type2>
+template<typename image_type1,typename image_type2>
 void minus_mt(image_type1& I,const image_type2& I2)
 {
     tipl::par_for(I.size(),[&I,&I2](int index){
@@ -427,19 +427,19 @@ void minus_mt(image_type1& I,const image_type2& I2)
     });
 }
 //---------------------------------------------------------------------------
-template<class iterator1,class iterator2>
+template<typename iterator1,typename iterator2>
 void multiply(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
     for (; lhs_from != lhs_to; ++lhs_from,++rhs_from)
         *lhs_from = typename std::iterator_traits<iterator1>::value_type((*lhs_from)*(*rhs_from));
 }
 //---------------------------------------------------------------------------
-template<class image_type1,class image_type2>
+template<typename image_type1,typename image_type2>
 void multiply(image_type1& I,const image_type2& I2)
 {
     multiply(I.begin(),I.end(),I2.begin());
 }
-template<class image_type1,class image_type2>
+template<typename image_type1,typename image_type2>
 void multiply_mt(image_type1& I,const image_type2& I2)
 {
     tipl::par_for(I.size(),[&I,&I2](int index){
@@ -447,59 +447,59 @@ void multiply_mt(image_type1& I,const image_type2& I2)
     });
 }
 //---------------------------------------------------------------------------
-template<class iterator1,class iterator2>
+template<typename iterator1,typename iterator2>
 void divide(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
     for (; lhs_from != lhs_to; ++lhs_from,++rhs_from)
         *lhs_from /= *rhs_from;
 }
 //---------------------------------------------------------------------------
-template<class image_type1,class image_type2>
+template<typename image_type1,typename image_type2>
 void divide(image_type1& I,const image_type2& I2)
 {
     divide(I.begin(),I.end(),I2.begin());
 }
 //---------------------------------------------------------------------------
-template<class iterator1,class value_type>
+template<typename iterator1,typename value_type>
 void add_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from += value;
 }
 //---------------------------------------------------------------------------
-template<class image_type,class value_type>
+template<typename image_type,typename value_type>
 void add_constant(image_type& I,value_type value)
 {
     add_constant(I.begin(),I.end(),value);
 }
 //---------------------------------------------------------------------------
-template<class iterator1,class value_type>
+template<typename iterator1,typename value_type>
 void mod_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from %= value;
 }
 //---------------------------------------------------------------------------
-template<class image_type,class value_type>
+template<typename image_type,typename value_type>
 void mod_constant(image_type& I,value_type value)
 {
     mod_constant(I.begin(),I.end(),value);
 }
 //---------------------------------------------------------------------------
-template<class iterator1,class value_type>
+template<typename iterator1,typename value_type>
 void minus_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from -= value;
 }
 //---------------------------------------------------------------------------
-template<class image_type,class value_type>
+template<typename image_type,typename value_type>
 void minus_constant(image_type& I,value_type value)
 {
     minus_constant(I.begin(),I.end(),value);
 }
 //---------------------------------------------------------------------------
-template<class image_type,class value_type>
+template<typename image_type,typename value_type>
 void minus_constant_mt(image_type& I,value_type value)
 {
     tipl::par_for(I.size(),[&I,value](int index)
@@ -508,19 +508,19 @@ void minus_constant_mt(image_type& I,value_type value)
     });
 }
 //---------------------------------------------------------------------------
-template<class iterator1,class value_type>
+template<typename iterator1,typename value_type>
 void multiply_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from *= value;
 }
 //---------------------------------------------------------------------------
-template<class image_type,class value_type>
+template<typename image_type,typename value_type>
 void multiply_constant(image_type& I,value_type value)
 {
     multiply_constant(I.begin(),I.end(),value);
 }
-template<class image_type,class value_type>
+template<typename image_type,typename value_type>
 void multiply_constant_mt(image_type& I,value_type value)
 {
     tipl::par_for(I.size(),[&I,value](int index){
@@ -528,20 +528,20 @@ void multiply_constant_mt(image_type& I,value_type value)
     });
 }
 //---------------------------------------------------------------------------
-template<class iterator1,class value_type>
+template<typename iterator1,typename value_type>
 void divide_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from /= value;
 }
 //---------------------------------------------------------------------------
-template<class image_type,class value_type>
+template<typename image_type,typename value_type>
 void divide_constant(image_type& I,value_type value)
 {
     divide_constant(I.begin(),I.end(),value);
 }
 //---------------------------------------------------------------------------
-template<class image_type,class value_type>
+template<typename image_type,typename value_type>
 void divide_constant_mt(image_type& I,value_type value)
 {
     tipl::par_for(I.size(),[&I,value](int index){
@@ -550,7 +550,7 @@ void divide_constant_mt(image_type& I,value_type value)
 }
 //---------------------------------------------------------------------------
 // perform x <- x*pow(2,y)
-template<class iterator1,class iterator2>
+template<typename iterator1,typename iterator2>
 void multiply_pow(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
     typename std::iterator_traits<iterator1>::value_type value;
@@ -585,14 +585,14 @@ void multiply_pow(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
     }
 }
 //---------------------------------------------------------------------------
-template<class image_type1,class image_type2>
+template<typename image_type1,typename image_type2>
 void multiply_pow(image_type1& I,const image_type2& I2)
 {
     multiply_pow(I.begin(),I.end(),I2.begin());
 }
 //---------------------------------------------------------------------------
 // perform x <- x*2^pow
-template<class iterator1,class value_type>
+template<typename iterator1,typename value_type>
 void multiply_pow_constant(iterator1 lhs_from,iterator1 lhs_to,value_type pow)
 {
     typename std::iterator_traits<iterator1>::value_type value;
@@ -629,14 +629,14 @@ void multiply_pow_constant(iterator1 lhs_from,iterator1 lhs_to,value_type pow)
     }
 }
 //---------------------------------------------------------------------------
-template<class image_type,class value_type>
+template<typename image_type,typename value_type>
 void multiply_pow_constant(image_type& I,value_type value)
 {
     multiply_pow_constant(I.begin(),I.end(),value);
 }
 //---------------------------------------------------------------------------
 // perform x <- x/pow(2,y)
-template<class iterator1,class iterator2>
+template<typename iterator1,typename iterator2>
 void divide_pow(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
     typename std::iterator_traits<iterator1>::value_type value;
@@ -671,14 +671,14 @@ void divide_pow(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
     }
 }
 //---------------------------------------------------------------------------
-template<class image_type1,class image_type2>
+template<typename image_type1,typename image_type2>
 void divide_pow(image_type1& I,const image_type2& I2)
 {
     divide_pow(I.begin(),I.end(),I2.begin());
 }
 //---------------------------------------------------------------------------
 // perform x <- x/2^pow
-template<class iterator1,class value_type>
+template<typename iterator1,typename value_type>
 void divide_pow_constant(iterator1 lhs_from,iterator1 lhs_to,value_type pow)
 {
     typename std::iterator_traits<iterator1>::value_type value;
@@ -715,13 +715,13 @@ void divide_pow_constant(iterator1 lhs_from,iterator1 lhs_to,value_type pow)
     }
 }
 //---------------------------------------------------------------------------
-template<class image_type,class value_type>
+template<typename image_type,typename value_type>
 void divide_pow_constant(image_type& I,value_type value)
 {
     divide_pow_constant(I.begin(),I.end(),value);
 }
 //---------------------------------------------------------------------------
-template<class container_type>
+template<typename container_type>
 typename container_type::value_type max_abs_value(const container_type& image)
 {
     typename container_type::value_type max_value = 0;
@@ -739,7 +739,7 @@ typename container_type::value_type max_abs_value(const container_type& image)
 }
 
 
-template<class iterator_type>
+template<typename iterator_type>
 std::pair<typename std::iterator_traits<iterator_type>::value_type,typename std::iterator_traits<iterator_type>::value_type>
 min_max_value(iterator_type iter,iterator_type end)
 {
@@ -760,7 +760,7 @@ min_max_value(iterator_type iter,iterator_type end)
 }
 
 //---------------------------------------------------------------------------
-template<class iterator_type>
+template<typename iterator_type>
 std::pair<typename std::iterator_traits<iterator_type>::value_type,typename std::iterator_traits<iterator_type>::value_type>
 min_max_value_mt(iterator_type iter,iterator_type end)
 {
@@ -788,7 +788,7 @@ min_max_value_mt(iterator_type iter,iterator_type end)
 }
 
 
-template<class InputIter,class OutputIter>
+template<typename InputIter,typename OutputIter>
 void normalize(InputIter from,InputIter to,OutputIter out,float upper_limit = 255.0)
 {
     typedef typename std::iterator_traits<InputIter>::value_type value_type;
@@ -801,54 +801,54 @@ void normalize(InputIter from,InputIter to,OutputIter out,float upper_limit = 25
         *out = (*from-min_max.first)*upper_limit;
 }
 //---------------------------------------------------------------------------
-template<class InputIter,class OutputIter,class value_type>
+template<typename InputIter,typename OutputIter,typename value_type>
 void upper_threshold(InputIter from,InputIter to,OutputIter out,value_type upper)
 {
     for(;from != to;++from,++out)
         *out = std::min<value_type>(*from,upper);
 }
 //---------------------------------------------------------------------------
-template<class InputIter,class value_type>
+template<typename InputIter,typename value_type>
 void upper_threshold(InputIter from,InputIter to,value_type upper)
 {
     for(;from != to;++from)
         *from = std::min<value_type>(*from,upper);
 }
 //---------------------------------------------------------------------------
-template<class image_type,class value_type>
+template<typename image_type,typename value_type>
 void upper_threshold(image_type& I,value_type value)
 {
     upper_threshold(I.begin(),I.end(),value);
 }
 //---------------------------------------------------------------------------
-template<class InputIter,class OutputIter,class value_type>
+template<typename InputIter,typename OutputIter,typename value_type>
 void lower_threshold(InputIter from,InputIter to,OutputIter out,value_type lower)
 {
     for(;from != to;++from,++out)
         *out = std::max<value_type>(*from,lower);
 }
 //---------------------------------------------------------------------------
-template<class InputIter,class value_type>
+template<typename InputIter,typename value_type>
 void lower_threshold(InputIter from,InputIter to,value_type lower)
 {
     for(;from != to;++from)
         *from = std::max<value_type>(*from,lower);
 }
 //---------------------------------------------------------------------------
-template<class image_type,class value_type>
+template<typename image_type,typename value_type>
 void lower_threshold(image_type& I,value_type value)
 {
     lower_threshold(I.begin(),I.end(),value);
 }
 //---------------------------------------------------------------------------
-template<class InputIter,class OutputIter,class value_type>
+template<typename InputIter,typename OutputIter,typename value_type>
 void upper_lower_threshold(InputIter from,InputIter to,OutputIter out,value_type lower,value_type upper)
 {
     for(;from != to;++from,++out)
         *out = std::min<value_type>(std::max<value_type>(*from,lower),upper);
 }
 
-template<class ImageType,class value_type>
+template<typename ImageType,typename value_type>
 void upper_lower_threshold(ImageType& data,value_type lower,value_type upper)
 {
     typename ImageType::iterator from = data.begin();
@@ -857,7 +857,7 @@ void upper_lower_threshold(ImageType& data,value_type lower,value_type upper)
         *from = std::min<value_type>(std::max<value_type>(*from,lower),upper);
 }
 
-template<class ImageType>
+template<typename ImageType>
 void normalize(ImageType& image,float upper_limit = 255)
 {
     if(image.empty())
@@ -866,7 +866,7 @@ void normalize(ImageType& image,float upper_limit = 255)
     if( m != 0)
         multiply_constant(image.begin(),image.end(),upper_limit/m);
 }
-template<class ImageType>
+template<typename ImageType>
 void normalize_abs(ImageType& image,float upper_limit = 1.0f)
 {
     if(image.empty())
@@ -877,14 +877,14 @@ void normalize_abs(ImageType& image,float upper_limit = 1.0f)
     multiply_constant(image.begin(),image.end(),upper_limit/scale);
 }
 
-template<class ImageType1,class ImageType2>
+template<typename ImageType1,typename ImageType2>
 void normalize(const ImageType1& image1,ImageType2& image2,float upper_limit = 255.0)
 {
     image2.resize(image1.shape());
     normalize(image1.begin(),image1.end(),image2.begin(),upper_limit);
 }
 
-template<class container_type,class index_type>
+template<typename container_type,typename index_type>
 void get_sort_index(const container_type& c,std::vector<index_type>& idx)
 {
     idx.resize(c.size());
@@ -892,7 +892,7 @@ void get_sort_index(const container_type& c,std::vector<index_type>& idx)
     std::sort(idx.begin(), idx.end(),[&c](size_t i, size_t j){return c[i] < c[j];});
 }
 
-template<class container_type,class index_type>
+template<typename container_type,typename index_type>
 void apply_sort_index(container_type& c,const std::vector<index_type>& idx)
 {
     container_type new_c(c.size());
@@ -901,7 +901,7 @@ void apply_sort_index(container_type& c,const std::vector<index_type>& idx)
     c.swap(new_c);
 }
 
-template<class I_type>
+template<typename I_type>
 tipl::vector<I_type::dimension,float> center_of_mass(const I_type& Im)
 {
     tipl::vector<I_type::dimension,float> sum_mass;

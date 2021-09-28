@@ -49,7 +49,7 @@ private:
 public:
     multivariate_gaussian(void) {}
 
-    template<class attributes_iterator_type>
+    template<typename attributes_iterator_type>
     void estimate(attributes_iterator_type attributes_from,
                   attributes_iterator_type attributes_to,
                   unsigned int attribute_dimension)
@@ -81,7 +81,7 @@ public:
         precompute_parameters();
     }
 
-    template<class attributes_iterator_type,class weighting_iterator_type>
+    template<typename attributes_iterator_type,typename weighting_iterator_type>
     void estimate(attributes_iterator_type attributes_from,
                   attributes_iterator_type attributes_to,
                   unsigned int attribute_dimension,
@@ -115,7 +115,7 @@ public:
         mean.swap(new_mean);
         precompute_parameters();
     }
-    template<class attributes_iterator_type>
+    template<typename attributes_iterator_type>
     double operator()(attributes_iterator_type attributes)
     {
         std::vector<double> dx(mean);
@@ -139,7 +139,7 @@ public:
 };
 
 
-template<class attribute_type,class classification_type>
+template<typename attribute_type,typename classification_type>
 struct expectation_maximization
 {
     unsigned int k;
@@ -160,7 +160,7 @@ public:
     }
 
 
-    template<class attributes_iterator_type,class classifications_iterator_type>
+    template<typename attributes_iterator_type,typename classifications_iterator_type>
     void operator()(attributes_iterator_type attributes,
                     attributes_iterator_type attributes_to,
                     unsigned int attribute_dimension,
