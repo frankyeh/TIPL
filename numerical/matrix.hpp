@@ -3043,7 +3043,7 @@ void pseudo_inverse(input_iterator A_,output_iterator A,dim_type dim)
     typedef typename std::iterator_traits<output_iterator>::value_type value_type;
     unsigned int n = row_count(dim);
     unsigned int m = col_count(dim);
-    unsigned int s = size(dim);
+    unsigned int l = size(dim);
 	if(n > m)
 		return;
     //A: n singular vector having m dimensions (right side matrix)
@@ -3052,12 +3052,12 @@ void pseudo_inverse(input_iterator A_,output_iterator A,dim_type dim)
 	std::vector<value_type> U_buffer(n*n);
 	value_type* U = &*U_buffer.begin();
 	std::vector<value_type> s(n);
-        std::copy(A_,A_+s,A);
+        std::copy(A_,A_+l,A);
     svd(A,U,&*s.begin(),dim);
 
 	value_type threshold = std::numeric_limits<value_type>::epsilon()*(value_type)m*s[0];
     
-        std::vector<value_type> At_buffer(s),tmp_buffer(s);
+        std::vector<value_type> At_buffer(l),tmp_buffer(l);
 	value_type* At = &*At_buffer.begin();
 	value_type* tmp = &*tmp_buffer.begin();
 	
@@ -3066,12 +3066,12 @@ void pseudo_inverse(input_iterator A_,output_iterator A,dim_type dim)
 		if(s[index] > threshold)
 		{
             tipl::vec::gen(A,A+m,U,U+n,tmp);
-            tipl::vec::axpy(At,At+s,value_type(1.0)/s[index],tmp);
+            tipl::vec::axpy(At,At+l,value_type(1.0)/s[index],tmp);
 			A += m;
 			U += n;
 		}
 
-        std::copy(At,At+s,out);
+        std::copy(At,At+l,out);
 }
 
 
@@ -3088,6 +3088,11 @@ struct inverse_delegate{
     {
         iter = rhs.iter;
         return *this;
+    }
+    template<int row,int col,typename iterator>
+    void solve(iterator value) const
+    {
+        tipl::mat::inverse(iter,value,dim<row,col>());
     }
 };
 
@@ -3114,6 +3119,11 @@ struct product_delegate{
         rhs = rhs.rhs;
         return *this;
     }
+    template<int row,int col,typename iterator>
+    void solve(iterator value) const
+    {
+        tipl::mat::product(lhs,rhs,value,dim<row,c>(),dim<c,col>());
+    }
 };
 
 
@@ -3129,17 +3139,12 @@ struct matrix{
 public:
     matrix(void){}
     matrix(const matrix& rhs){std::copy(rhs.begin(),rhs.end(),value);}
-    template<typename iterator_type>
-    matrix(iterator_type iter){std::copy(iter,iter+mat_size,value);}
-    template<int c,typename lhs_type,typename rhs_type>
-    matrix(const product_delegate<c,lhs_type,rhs_type>& prod)
+    template<typename vtype>
+    matrix(const vtype* ptr){std::copy(ptr,ptr+mat_size,value);}
+    template<typename delegate>
+    matrix(const delegate& d)
     {
-        tipl::mat::product(prod.lhs,prod.rhs,value,dim<row_count,c>(),dim<c,col_count>());
-    }
-    template<typename rhs_type>
-    matrix(const inverse_delegate<rhs_type>& inv)
-    {
-        tipl::mat::inverse(inv.iter,value,dim_type());
+        d.solve<row_count,col_count>(value);
     }
 public:
     value_type& operator[](unsigned int index){return value[index];}
