@@ -3152,14 +3152,14 @@ public:
 };
 
 
-template<int row_count,int col_count,typename value_type_>
+template<int r,int c,typename value_type_>
 struct matrix{
     using value_type = value_type_;
     using iterator = value_type*;
     using const_iterator = const value_type*;
-    using type = matrix<row_count,col_count,value_type>;
-    using dim_type = dim<row_count,col_count>;
-    static const unsigned int mat_size = row_count*col_count;
+    using type = matrix<r,c,value_type>;
+    using dim_type = dim<r,c>;
+    static constexpr unsigned int mat_size = r*c;
     value_type value[mat_size];
 public:
     matrix(void){}
@@ -3187,19 +3187,19 @@ public:
     template<typename rhs_type>
     const matrix& operator=(const rhs_type* rhs)
     {
-        std::copy(rhs,rhs+row_count*col_count,value);
+        std::copy(rhs,rhs+mat_size,value);
         return *this;
     }
-    template<int c,typename lhs_type,typename rhs_type>
-    const matrix& operator=(const product_delegate<c,lhs_type,rhs_type>& prod)
+    template<int cc,typename lhs_type,typename rhs_type>
+    const matrix& operator=(const product_delegate<cc,lhs_type,rhs_type>& prod)
     {
-        prod.solve<row_count,col_count>(value);
+        prod.solve<r,c>(value);
         return *this;
     }
     template<typename rhs_type>
     const matrix& operator=(const inverse_delegate<rhs_type>& inv)
     {
-        inv.solve<row_count,col_count>(value);
+        inv.solve<r,c>(value);
         return *this;
     }
 public:
@@ -3212,19 +3212,19 @@ public:
         return *this;
     }
     template<typename rhs_type>
-    product_delegate<col_count,const_iterator,inverse_delegate<rhs_type> > operator*(const inverse_delegate<rhs_type>& inv)
+    product_delegate<c,const_iterator,inverse_delegate<rhs_type> > operator*(const inverse_delegate<rhs_type>& inv)
     {
-        return product_delegate<col_count,const_iterator,inverse_delegate<rhs_type> >(value,inv);
+        return product_delegate<c,const_iterator,inverse_delegate<rhs_type> >(value,inv);
     }
     template<typename rhs_type>
-    product_delegate<col_count,const_iterator,typename rhs_type::const_iterator> operator*(const rhs_type& rhs)
+    product_delegate<c,const_iterator,typename rhs_type::const_iterator> operator*(const rhs_type& rhs)
     {
-        return product_delegate<col_count,const_iterator,typename rhs_type::const_iterator>(value,rhs.begin());
+        return product_delegate<c,const_iterator,typename rhs_type::const_iterator>(value,rhs.begin());
     }
     template<typename pointer_type>
-    product_delegate<col_count,const_iterator,const pointer_type*> operator*(const pointer_type* rhs)
+    product_delegate<c,const_iterator,const pointer_type*> operator*(const pointer_type* rhs)
     {
-        return product_delegate<col_count,const_iterator,const pointer_type*>(value,rhs);
+        return product_delegate<c,const_iterator,const pointer_type*>(value,rhs);
     }
 public:
     bool operator!=(const matrix& rhs) const
@@ -3260,11 +3260,11 @@ public:
         for(int i = 0;i < mat_size;++i)
             std::swap(value[i],rhs.value[i]);
     }
-    friend std::ostream & operator<<(std::ostream& out, const matrix<row_count,col_count,value_type>& T)
+    friend std::ostream & operator<<(std::ostream& out, const matrix<r,c,value_type>& T)
     {
-        for(int row = 0,index = 0;row < row_count;++row)
+        for(int row = 0,index = 0;row < r;++row)
         {
-            for(int col = 0;col < col_count;++col,++index)
+            for(int col = 0;col < c;++col,++index)
             {
                 if(col)
                     out << " ";
@@ -3279,14 +3279,14 @@ public:
 };
 
 
-template<int row_count,int col_count,typename iterator_type>
+template<int r,int c,typename iterator_type>
 struct matrix_buf{
-    static const unsigned int mat_size = row_count*col_count;
+    static constexpr unsigned int mat_size = r*c;
     typedef iterator_type iterator;
     typedef const iterator_type const_iterator;
     typedef typename std::iterator_traits<iterator_type>::value_type value_type;
-    typedef matrix_buf<row_count,col_count,iterator_type> type;
-    typedef dim<row_count,col_count> dim_type;
+    typedef matrix_buf<r,c,iterator_type> type;
+    typedef dim<r,c> dim_type;
 public:
     iterator_type iter;
 public:
@@ -3316,24 +3316,24 @@ public:
     template<typename rhs_type>
     const matrix_buf& operator=(const rhs_type* rhs)
     {
-        std::copy(rhs,rhs+row_count*col_count,iter);
+        std::copy(rhs,rhs+mat_size,iter);
         return *this;
     }
 
     template<typename rhs_type>
-    product_delegate<col_count,const_iterator,typename rhs_type::const_iterator> operator*(const rhs_type& rhs)
+    product_delegate<c,const_iterator,typename rhs_type::const_iterator> operator*(const rhs_type& rhs)
     {
-        return product_delegate<col_count,const_iterator,typename rhs_type::const_iterator>(iter,rhs.begin());
+        return product_delegate<c,const_iterator,typename rhs_type::const_iterator>(iter,rhs.begin());
     }
     template<typename pointer_type>
-    product_delegate<col_count,const_iterator,const pointer_type*> operator*(const pointer_type* rhs)
+    product_delegate<c,const_iterator,const pointer_type*> operator*(const pointer_type* rhs)
     {
-        return product_delegate<col_count,const_iterator,const pointer_type*>(iter,rhs);
+        return product_delegate<c,const_iterator,const pointer_type*>(iter,rhs);
     }
-    template<int c,typename lhs_type,typename rhs_type>
-    const matrix_buf& operator=(const product_delegate<c,lhs_type,rhs_type>& prod)
+    template<int cc,typename lhs_type,typename rhs_type>
+    const matrix_buf& operator=(const product_delegate<cc,lhs_type,rhs_type>& prod)
     {
-        tipl::mat::product(prod.lhs,prod.rhs,iter,dim<row_count,c>(),dim<c,col_count>());
+        tipl::mat::product(prod.lhs,prod.rhs,iter,dim<r,cc>(),dim<cc,c>());
         return *this;
     }
     template<typename rhs_type>
@@ -3356,10 +3356,10 @@ public:
     }
 };
 
-template<int row_count,int col_count,typename iterator_type>
-matrix_buf<row_count,col_count,iterator_type> make_matrix(iterator_type iterator,dim<row_count,col_count>)
+template<int r,int c,typename iterator_type>
+matrix_buf<r,c,iterator_type> make_matrix(iterator_type iterator,dim<r,c>)
 {
-    return matrix_buf<row_count,col_count,iterator_type>(iterator);
+    return matrix_buf<r,c,iterator_type>(iterator);
 }
 
 }
