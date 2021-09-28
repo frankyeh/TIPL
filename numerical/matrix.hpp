@@ -3095,6 +3095,11 @@ struct inverse_delegate{
     {
         tipl::mat::inverse(iter,value,dim<row,col>());
     }
+    template<int row,int col,typename value_type>
+    void solve(value_type* value,dim<row,col>) const
+    {
+        tipl::mat::inverse(iter,value,dim<row,col>());
+    }
 };
 
 template<typename right_type>
@@ -3149,6 +3154,11 @@ public:
     {
         solve(lhs,rhs,value,dim<row,col>());
     }
+    template<int row,int col,typename value_type>
+    void solve(value_type* value,dim<row,col>) const
+    {
+        solve(lhs,rhs,value,dim<row,col>());
+    }
 };
 
 
@@ -3196,13 +3206,13 @@ public:
     template<int cc,typename lhs_type,typename rhs_type>
     const matrix& operator=(const product_delegate<cc,lhs_type,rhs_type>& prod)
     {
-        prod.solve(value,dim<r,c>());
+        prod.solve(begin(),dim<r,c>());
         return *this;
     }
     template<typename rhs_type>
     const matrix& operator=(const inverse_delegate<rhs_type>& inv)
     {
-        inv.solve(value,dim<r,c>());
+        inv.solve(begin(),dim<r,c>());
         return *this;
     }
 public:
