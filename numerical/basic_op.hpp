@@ -121,7 +121,7 @@ ImageType& binary(ImageType& I,fun_type fun)
 
 //---------------------------------------------------------------------------
 template<typename ImageType,typename LabelImageType>
-void threshold(const ImageType& I,LabelImageType& out,typename ImageType::value_type threshold_value,
+LabelImageType& threshold(const ImageType& I,LabelImageType& out,typename ImageType::value_type threshold_value,
                typename LabelImageType::value_type foreground = 255,typename LabelImageType::value_type background = 0)
 {
     out.resize(I.shape());
@@ -133,6 +133,7 @@ void threshold(const ImageType& I,LabelImageType& out,typename ImageType::value_
             *out_iter = foreground;
         else
             *out_iter = background;
+    return out;
 }
 
 //---------------------------------------------------------------------------
