@@ -150,6 +150,48 @@ ImageType& threshold(ImageType& I,typename ImageType::value_type threshold_value
     return I;
 }
 
+
+template<class ImageType3D,class ImageType2D,typename dim_type,typename slice_pos_type>
+ImageType2D& volume2slice(const ImageType3D& slice,ImageType2D& I,dim_type dim,slice_pos_type slice_index)
+{
+    const shape<3>& geo = slice.shape();
+    if (dim == 2)   //XY
+    {
+        if(slice_index >= slice.depth())
+            return;
+        I.resize(shape<2>(geo[0],geo[1]));
+        std::copy(slice.begin() + slice_index*I.size(),
+                  slice.begin() + (slice_index+1)*I.size(),
+                  I.begin());
+
+    }
+    else
+        if (dim == 1)   //XZ
+        {
+            if(slice_index >= slice.height())
+                return;
+            I.resize(shape<2>(geo[0],geo[2]));
+            size_t wh = geo.plane_size();
+            size_t sindex = size_t(slice_index)*size_t(geo[0]);
+            for (size_t index = 0;index < I.size();index += geo[0],sindex += wh)
+                std::copy(slice.begin() + sindex,
+                          slice.begin() + sindex+geo[0],
+                          I.begin() + index);
+        }
+        else
+            if (dim == 0)    //YZ
+            {
+                if(slice_index >= slice.width())
+                    return;
+                I.resize(shape<2>(geo[1],geo[2]));
+                size_t sindex = slice_index;
+                size_t w = geo[0];
+                for (size_t index = 0;index < I.size();++index,sindex += w)
+                    I[index] = slice[sindex];
+            }
+    return I;
+}
+
 //--------------------------------------------------------------------------
 template<typename PixelType,typename PosType,typename storage_type>
 void crop(const image<PixelType,2,storage_type>& from_image,

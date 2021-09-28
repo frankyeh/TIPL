@@ -175,47 +175,6 @@ void thumb(const image<PixelType,2>& from,image<PixelType,2>& to)
 
 }
 
-template<class ImageType3D,class ImageType2D,typename dim_type,typename slice_pos_type>
-void volume2slice(const ImageType3D& slice,ImageType2D& image,dim_type dim,slice_pos_type slice_index)
-{
-    const shape<3>& geo = slice.shape();
-    if (dim == 2)   //XY
-    {
-        if(slice_index >= slice.depth())
-            return;
-        image.resize(shape<2>(geo[0],geo[1]));
-        std::copy(slice.begin() + slice_index*image.size(),
-                  slice.begin() + (slice_index+1)*image.size(),
-                  image.begin());
-
-    }
-    else
-        if (dim == 1)   //XZ
-        {
-            if(slice_index >= slice.height())
-                return;
-            image.resize(shape<2>(geo[0],geo[2]));
-            size_t wh = geo.plane_size();
-            size_t sindex = size_t(slice_index)*size_t(geo[0]);
-            for (size_t index = 0;index < image.size();index += geo[0],sindex += wh)
-                std::copy(slice.begin() + sindex,
-                          slice.begin() + sindex+geo[0],
-                          image.begin() + index);
-        }
-        else
-            if (dim == 0)    //YZ
-            {
-                if(slice_index >= slice.width())
-                    return;
-                image.resize(shape<2>(geo[1],geo[2]));
-                size_t sindex = slice_index;
-                size_t w = geo[0];
-                for (size_t index = 0;index < image.size();++index,sindex += w)
-                    image[index] = slice[sindex];
-            }
-
-}
-
 template<typename value_type>
 struct pixel_average{
     value_type operator()(value_type l,value_type r) const
