@@ -3174,6 +3174,11 @@ struct matrix{
 public:
     matrix(void){}
     template<typename rhs_type>
+    matrix(const std::initializer_list<rhs_type>& rhs)
+    {
+        (*this) = rhs;
+    }
+    template<typename rhs_type>
     matrix(const rhs_type& rhs)
     {
         (*this) = rhs;
@@ -3193,6 +3198,12 @@ public:
     }
     template<typename rhs_type>
     const matrix& operator=(const rhs_type& rhs)
+    {
+        std::copy(rhs.begin(),rhs.end(),value);
+        return *this;
+    }
+    template<typename rhs_type>
+    const matrix& operator=(const std::initializer_list<rhs_type>& rhs)
     {
         std::copy(rhs.begin(),rhs.end(),value);
         return *this;
