@@ -109,37 +109,20 @@ struct zero{
     value_type operator*(void){return value_type(0);}
 };
 
-// data type for specifying the matrix dimension in runtime
-struct shape
+template<typename other_type>
+inline int col_count(const other_type& d)
 {
-    int row,col;
-    shape(void) {}
-    shape(int row_):row(row_),col(1) {}
-    template<typename T1,typename T2>
-    shape(T1 row_,T2 col_):row(uint32_t(row_)),col(uint32_t(col_)) {}
-    int row_count(void)const
-    {
-        return row;
-    }
-    int col_count(void)const
-    {
-        return col;
-    }
-    int size(void)const
-    {
-        return row*col;
-    }
-};
+    return d[1];
+}
 
-inline int col_count(const shape& d)
+template<typename other_type>
+inline int row_count(const other_type& d)
 {
-    return d.col_count();
+    return d[0];
 }
-inline int row_count(const shape& d)
-{
-    return d.row_count();
-}
-inline int size(const shape& d)
+
+template<typename other_type>
+inline int size(const other_type& d)
 {
     return d.size();
 }
@@ -697,14 +680,15 @@ void transpose(io_iterator io,const dim_type& dim)
 }
 
 template<int row,int col>
-dim<col,row> transpose(dim<row,col>)
+inline dim<col,row> transpose(dim<row,col>)
 {
     return dim<col,row>();
 }
 
-inline shape transpose(const shape& d)
+template<typename other_type>
+inline other_type transpose(const other_type& d)
 {
-    return shape(col_count(d),row_count(d));
+    return other_type(d[1],d[0]);
 }
 
 template<typename input_iterator,typename dim_type>
@@ -904,12 +888,12 @@ example:
     std::copy(std::istream_iterator<double>(in),
               std::istream_iterator<double>(),X.begin());
     tipl::matrix<4,1,double> c,d;
-    tipl::mat::qr_decomposition(&*X.begin(),&*c.begin(),&*d.begin(),tipl::shape(100,4));
+    tipl::mat::qr_decomposition(&*X.begin(),&*c.begin(),&*d.begin(),tipl::shape<2>(100,4));
 
 (2) to get R matrix
 
     tipl::matrix<4,4,double> R;
-    tipl::mat::qr_get_r(&*X.begin(),&*d.begin(),&*R.begin(),tipl::shape(100,4));
+    tipl::mat::qr_get_r(&*X.begin(),&*d.begin(),&*R.begin(),tipl::shape<2>(100,4));
 
 (3) to get Q matrix
 
@@ -1028,7 +1012,7 @@ example:
     std::ifstream in("d:/X.txt");
     std::copy(std::istream_iterator<double>(in),
               std::istream_iterator<double>(),X.begin());
-    tipl::mat::qr_decomposition(&*X.begin(),&*Q.begin(),tipl::shape(100,4));
+    tipl::mat::qr_decomposition(&*X.begin(),&*Q.begin(),tipl::shape<2>(100,4));
     std::cout << "X=" << X << std::endl;
     std::cout << "Q=" << Q << std::endl;
 
@@ -1622,7 +1606,7 @@ bool inverse(input_iterator A_,output_iterator A,dim_type dim)
                  0, 0, 12, -1, -4,
                  0, 0, 0,  11, -3,
                  0, 0, 0,   0,  3};
-    tipl::matrix::inverse_upper(A,tipl::shape(5,5));
+    tipl::matrix::inverse_upper(A,tipl::shape<2>(5,5));
  */
 template<typename input_iterator,typename dim_type>
 bool inverse_upper(input_iterator U,dim_type dim)
@@ -1665,7 +1649,7 @@ bool inverse_upper(input_iterator U,dim_type dim)
                  -5, 2, 4, 0, 0,
                  1,  -6, 2, 10, 0,
                  4, -10, 11, -30,22};
-    tipl::matrix::inverse_lower(A,tipl::shape(5,5));
+    tipl::matrix::inverse_lower(A,tipl::shape<2>(5,5));
  */
 template<typename input_iterator,typename dim_type>
 bool inverse_lower(input_iterator U,dim_type dim)
@@ -3032,8 +3016,8 @@ void pseudo_inverse_solve(input_iterator1 At,input_iterator2 y,output_iterator x
     std::vector<int> pv(n);
     vector_product(At,y,&*tmp.begin(),dim);
     product_transpose(At,At,&*AtA.begin(),dim,dim);
-    lu_decomposition(&*AtA.begin(),&*pv.begin(),shape(n,n));
-    lu_solve(&*AtA.begin(),&*pv.begin(),&*tmp.begin(),x,shape(n,n));
+    lu_decomposition(&*AtA.begin(),&*pv.begin(),dim_type(n,n));
+    lu_solve(&*AtA.begin(),&*pv.begin(),&*tmp.begin(),x,dim_type(n,n));
 }
 
 

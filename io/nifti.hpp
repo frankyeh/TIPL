@@ -631,22 +631,22 @@ public:
     bool select_volume(size_t i)
     {
         const size_t byte_per_pixel = nif_header2.bitpix/8;
-        tipl::geometry<3> geo(nif_header2.dim+1);
+        tipl::shape<3> geo(nif_header2.dim+1);
         size_t volume_size = byte_per_pixel*geo.size();
         input_stream->clear();
         input_stream->seek(size_t(nif_header.vox_offset)+i*volume_size);
         return (*input_stream);
     }
-    template<class geometry_type>
-    void set_dim(const geometry_type& geo)
+    template<class shape_type>
+    void set_dim(const shape_type& geo)
     {
         std::fill(nif_header.dim,nif_header.dim+8,1);
         std::copy(geo.begin(),geo.end(),nif_header.dim+1);
-        nif_header.dim[0] = geometry_type::dimension;
+        nif_header.dim[0] = shape_type::dimension;
 
         std::fill(nif_header2.dim,nif_header2.dim+8,1);
         std::copy(geo.begin(),geo.end(),nif_header2.dim+1);
-        nif_header2.dim[0] = geometry_type::dimension;
+        nif_header2.dim[0] = shape_type::dimension;
     }
 
     template<int dim>
@@ -780,7 +780,7 @@ public:
     }
 public:
     template<int dimension>
-    void get_image_dimension(geometry<dimension>& geo) const
+    void get_image_dimension(shape<dimension>& geo) const
     {
         std::copy(nif_header2.dim+1,nif_header2.dim+1+dimension,geo.begin());
     }
@@ -798,7 +798,7 @@ public:
         nif_header.datatype = nif_header2.datatype;
         nif_header.bitpix = nif_header2.bitpix;
 
-        set_dim(source.geometry());
+        set_dim(source.shape());
         write_size = source.size()*(size_t)(nif_header2.bitpix/8);
         if(nif_header2.datatype == 128 && nif_header2.bitpix == 24)
         {
@@ -965,7 +965,7 @@ public:
     {
         if(!has_data())
             return false;
-        out.resize(tipl::geometry<image_type::dimension>(nif_header2.dim+1));
+        out.resize(tipl::shape<image_type::dimension>(nif_header2.dim+1));
         if(!save_to_buffer(out.begin(),out.size()))
             return false;
         if(nif_header2.scl_slope != 0)

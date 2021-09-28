@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <iosfwd>
 #include <cmath>
-#include "geometry.hpp"
+#include "shape.hpp"
 
 namespace tipl
 {
@@ -31,22 +31,22 @@ protected:
     int index_;
     int w;
 public:
-    pixel_index(const geometry<2>& geo):x_(0),y_(0),index_(0),w(geo[0]){}
+    pixel_index(const shape<2>& geo):x_(0),y_(0),index_(0),w(geo[0]){}
     pixel_index(const pixel_index& rhs)
     {
         *this = rhs;
     }
     template<typename vtype>
-    pixel_index(vtype x,vtype y,vtype index,const geometry<2>& geo):
+    pixel_index(vtype x,vtype y,vtype index,const shape<2>& geo):
             x_(int(x)),y_(int(y)),index_(index),w(geo[0]){}
     template<typename vtype>
-    pixel_index(vtype x,vtype y,const geometry<2>& geo):
+    pixel_index(vtype x,vtype y,const shape<2>& geo):
             x_(int(x)),y_(int(y)),index_(int(y)*geo.width()+int(x)),w(geo[0]){}
     template<typename vtype>
-    pixel_index(vtype* offset,const geometry<2>& geo):
+    pixel_index(vtype* offset,const shape<2>& geo):
             x_(offset[0]),y_(offset[1]),index_(offset[1]*geo.width()+offset[0]),w(geo[0]){}
     template<typename vtype>
-    pixel_index(vtype y,const geometry<2>& geo):
+    pixel_index(vtype y,const shape<2>& geo):
             x_(y % geo.width()),y_(y / geo.width()),index_(y),w(geo[0]){}
 
     const pixel_index& operator=(const pixel_index<2>& rhs)
@@ -149,7 +149,7 @@ public:
         in >> rhs.x_ >> rhs.y_;
         return in;
     }
-    bool is_valid(const geometry<2>& geo) const
+    bool is_valid(const shape<2>& geo) const
     {
         return offset_[1] < geo[1];
     }
@@ -176,22 +176,22 @@ protected:
     int w,h;
 public:
     pixel_index(void):x_(0),y_(0),z_(0),index_(0),w(0),h(0){}
-    pixel_index(const geometry<3>& geo):x_(0),y_(0),z_(0),index_(0),w(int(geo[0])),h(int(geo[1])){}
+    pixel_index(const shape<3>& geo):x_(0),y_(0),z_(0),index_(0),w(int(geo[0])),h(int(geo[1])){}
     pixel_index(const pixel_index& rhs)
     {
         *this = rhs;
     }
     template<typename vtype>
-    pixel_index(vtype x,vtype y,vtype z,size_t i,const geometry<3>& geo):x_(int(x)),y_(int(y)),z_(int(z)),index_(i),w(int(geo[0])),h(int(geo[1])){}
+    pixel_index(vtype x,vtype y,vtype z,size_t i,const shape<3>& geo):x_(int(x)),y_(int(y)),z_(int(z)),index_(i),w(int(geo[0])),h(int(geo[1])){}
     template<typename vtype>
-    pixel_index(vtype x,vtype y,vtype z,const geometry<3>& geo):
+    pixel_index(vtype x,vtype y,vtype z,const shape<3>& geo):
             x_(int(x)),y_(int(y)),z_(int(z)),index_(voxel2index(x,y,z,geo)),w(int(geo[0])),h(int(geo[1])){}
     template<typename vtype>
-    pixel_index(const vtype* offset,const geometry<3>& geo):
+    pixel_index(const vtype* offset,const shape<3>& geo):
             x_(offset[0]),y_(offset[1]),z_(offset[2]),
             index_(voxel2index(offset,geo)),
             w(int(geo[0])),h(int(geo[1])){}
-    pixel_index(size_t index,const geometry<3>& geo):index_(index),w(int(geo[0])),h(int(geo[1]))
+    pixel_index(size_t index,const shape<3>& geo):index_(index),w(int(geo[0])),h(int(geo[1]))
     {
         x_ = int(index % geo.width());
         index /= geo.width();
@@ -200,12 +200,12 @@ public:
     }
 public:
     template<typename ptr_type>
-    static size_t voxel2index(const ptr_type* offset,const geometry<3>& geo)
+    static size_t voxel2index(const ptr_type* offset,const shape<3>& geo)
     {
         return (size_t(offset[2])*size_t(geo.height()) + size_t(offset[1]))*size_t(geo.width())+size_t(offset[0]);
     }
     template<typename vtype>
-    static size_t voxel2index(vtype x,vtype y,vtype z,const geometry<3>& geo)
+    static size_t voxel2index(vtype x,vtype y,vtype z,const shape<3>& geo)
     {
         return (size_t(z)*size_t(geo.height()) + size_t(y))*size_t(geo.width())+size_t(x);
     }
@@ -314,7 +314,7 @@ public:
         ++offset_[2];
         return *this;
     }
-    bool is_valid(const geometry<3>& geo) const
+    bool is_valid(const shape<3>& geo) const
     {
         return offset_[2] < int(geo[2]);
     }

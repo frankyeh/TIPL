@@ -8,21 +8,21 @@ namespace tipl
 template<class vtor_type,unsigned int dimension>
 void make_identity(image<vtor_type,dimension>& s)
 {
-    for (tipl::pixel_index<dimension> index(s.geometry()); index < s.size();++index)
+    for (tipl::pixel_index<dimension> index(s.shape()); index < s.size();++index)
         s[index.index()] = index;
 }
 //---------------------------------------------------------------------------
 template<class vtor_type,unsigned int dimension>
 void displacement_to_mapping(image<vtor_type,dimension>& s)
 {
-    for (tipl::pixel_index<dimension> index(s.geometry()); index < s.size();++index)
+    for (tipl::pixel_index<dimension> index(s.shape()); index < s.size();++index)
         s[index.index()] += index;
 }
 //---------------------------------------------------------------------------
 template<class vtor_type,unsigned int dimension>
 void mapping_to_displacement(image<vtor_type,dimension>& s)
 {
-    for (tipl::pixel_index<dimension> index(s.geometry()); index < s.size();++index)
+    for (tipl::pixel_index<dimension> index(s.shape()); index < s.size();++index)
         s[index.index()] -= index;
 }
 //---------------------------------------------------------------------------
@@ -61,7 +61,7 @@ void compose_mapping(const ImageType& src,const MappingType& mapping,OutImageTyp
                      interpolation_type type = interpolation_type::linear)
 {
     dest.clear();
-    dest.resize(mapping.geometry());
+    dest.resize(mapping.shape());
     tipl::par_for(dest.size(),[&](unsigned int index)
     {
         estimate(src,mapping[index],dest[index],type);
@@ -72,7 +72,7 @@ template<class ImageType,class ComposeImageType,class OutImageType>
 void compose_displacement(const ImageType& src,const ComposeImageType& displace,OutImageType& dest,
                           interpolation_type type = interpolation_type::linear)
 {
-    dest.resize(src.geometry());
+    dest.resize(src.shape());
     dest.for_each_mt([&](typename OutImageType::value_type& value,
                          tipl::pixel_index<ComposeImageType::dimension> index)
     {
@@ -93,7 +93,7 @@ void compose_displacement_with_affine(const ImageType& src,OutImageType& dest,
                           const ComposeImageType& displace,
                           interpolation_type type = interpolation_type::linear)
 {
-    dest.resize(displace.geometry());
+    dest.resize(displace.shape());
     dest.for_each_mt([&](typename OutImageType::value_type& value,tipl::pixel_index<OutImageType::dimension> index)
     {
         typename ComposeImageType::value_type vtor(index);
@@ -109,7 +109,7 @@ template<class ComposeImageType>
 void invert_displacement(const ComposeImageType& v0,ComposeImageType& v1,uint8_t iterations = 16)
 {
     ComposeImageType vv;
-    v1.resize(v0.geometry());
+    v1.resize(v0.shape());
     for(size_t index = 0;index < v1.size();++index)
         v1[index] = -v0[index];
     for(uint8_t i = 0;i < iterations;++i)
@@ -163,7 +163,7 @@ void decompose_displacement(const ComposeImageType& v,const ComposeImageType& vx
                             ComposeImageType& vy)
 {
     ComposeImageType vtemp(vx);
-    vy.resize(v.geometry());
+    vy.resize(v.shape());
     for (int index = 0;index < vy.size();++index)
         vy[index] = v[index]-vtemp[index];
     for(int i = 0;i < 15;++i)
@@ -178,7 +178,7 @@ template<class VectorType,class DetType>
 void jacobian_determinant(const image<VectorType,3>& src,DetType& dest)
 {
     typedef typename DetType::value_type value_type;
-    geometry<3> geo(src.geometry());
+    shape<3> geo(src.shape());
     dest.resize(geo);
     int w = src.width();
     int wh = src.plane_size();
@@ -262,7 +262,7 @@ void jacobian_dis_at(const image<VectorType,3>& src,const tipl::pixel_index<3>& 
 template<class VectorType,class DetType>
 void jacobian_determinant_dis(const image<VectorType,3>& src,DetType& dest)
 {
-    geometry<3> geo(src.geometry());
+    shape<3> geo(src.shape());
     dest.resize(geo);
     for (tipl::pixel_index<3> index(geo); index < geo.size();++index)
     {
@@ -279,7 +279,7 @@ void jacobian_determinant_dis(const image<VectorType,3>& src,DetType& dest)
 template<class VectorType,class PixelType>
 void jacobian_determinant(const image<VectorType,2>& src,image<PixelType,2>& dest)
 {
-    geometry<2> geo(src.geometry());
+    shape<2> geo(src.shape());
     dest.resize(geo);
     int w = src.width();
     for (tipl::pixel_index<2> index(geo); index < geo.size();++index)
@@ -311,7 +311,7 @@ double jacobian_determinant_dis_at(const image<VectorType,2>& src,const tipl::pi
 template<class VectorType,class PixelType>
 void jacobian_determinant_dis(const image<VectorType,2>& src,image<PixelType,2>& dest)
 {
-    geometry<2> geo(src.geometry());
+    shape<2> geo(src.shape());
     dest.resize(geo);
     for (tipl::pixel_index<2> index(geo); index < geo.size();++index)
     {

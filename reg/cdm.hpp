@@ -106,7 +106,7 @@ void cdm_trim_images(std::vector<image<pixel_type,dimension> >& I,
     max_to -= min_from;
     int safe_margin = std::accumulate(max_to.begin(),max_to.end(),0.0f)/float(dimension)/2.0f;
     max_to += safe_margin;
-    geometry<dimension> geo(max_to.begin());
+    shape<dimension> geo(max_to.begin());
     // align with respect to the min_from
     for(int index = 0;index < I.size();++index)
     {
@@ -134,7 +134,7 @@ public:
     template<class image_type>
     void operator()(image_type& src)
     {
-        image_type dest(src.geometry());
+        image_type dest(src.shape());
         int w = src.width();
         int shift[4];
         shift[0] = 1;
@@ -169,7 +169,7 @@ public:
     template<class image_type>
     void operator()(image_type& src)
     {
-        image_type dest(src.geometry());
+        image_type dest(src.shape());
         int w = src.width();
         int wh = src.width()*src.height();
         int shift[6];
@@ -208,7 +208,7 @@ void cdm_group(const std::vector<image<pixel_type,dimension> >& I,// original im
     if (I.empty())
         return;
     size_t n = I.size();
-    geometry<dimension> geo = I[0].geometry();
+    shape<dimension> geo = I[0].shape();
 
     d.resize(n);
     // preallocated memory so that there will be no memory re-allocation in upsampling
@@ -292,7 +292,7 @@ void cdm_group(const std::vector<image<pixel_type,dimension> >& I,// original im
 
             // solving the poisson equation using Jacobi method
             {
-                image<vtor_type,dimension> solve_d(new_d[index].geometry());
+                image<vtor_type,dimension> solve_d(new_d[index].shape());
                 for(int iter = 0;iter < 20;++iter)
                 {
                     poisson_equation_solver<vtor_type,dimension>()(solve_d);
@@ -329,7 +329,7 @@ float cdm_get_gradient(const image_type& Js,const image_type& It,dis_type& new_d
     gradient_sobel(Js,new_d);
     Js.for_each_mt([&](typename image_type::value_type,pixel_index<image_type::dimension>& index){
         if(It[index.index()] == 0.0 || Js[index.index()] == 0.0 ||
-           It.geometry().is_edge(index))
+           It.shape().is_edge(index))
         {
             new_d[index.index()] = typename dis_type::value_type();
             return;
@@ -362,7 +362,7 @@ float cdm_get_gradient_abs_dif(const image_type& Js,const image_type& It,dis_typ
     Js.for_each_mt([&](typename image_type::value_type,pixel_index<image_type::dimension>& index){
         if(It[index.index()] == 0.0 ||
            Js[index.index()] == 0.0 ||
-           It.geometry().is_edge(index))
+           It.shape().is_edge(index))
         {
             new_d[index.index()] = typename dis_type::value_type();
             return;
@@ -388,11 +388,11 @@ void cdm_solve_poisson(dis_type& new_d,terminated_type& terminated)
     int shift[dis_type::dimension]={0};
     shift[0] = 1;
     for(int i = 1;i < dis_type::dimension;++i)
-        shift[i] = shift[i-1]*new_d.geometry()[i-1];
+        shift[i] = shift[i-1]*new_d.shape()[i-1];
 
     for(int iter = 0;iter < window_size*2 && !terminated;++iter)
     {
-        dis_type new_solve_d(new_d.geometry());
+        dis_type new_solve_d(new_d.shape());
         par_for(solve_d.size(),[&](int pos)
         {
             for(int d = 0;d < dis_type::dimension;++d)
@@ -425,7 +425,7 @@ void cdm_solve_poisson(tipl::image<dis_type,3>& new_d,terminated_type& terminate
     int wh = new_d.plane_size();
     for(int iter = 0;iter < 6 && !terminated;++iter)
     {
-        tipl::image<dis_type,3> new_solve_d(new_d.geometry());
+        tipl::image<dis_type,3> new_solve_d(new_d.shape());
         tipl::par_for(solve_d.size(),[&](int pos)
         {
             auto v = new_solve_d[pos];
@@ -492,7 +492,7 @@ void cdm_accumulate_dis(dist_type& d,dist_type& new_d,value_type& theta,float cd
     unsigned int shift = 1;
     for(unsigned char dim = 0;dim < dist_type::dimension;++dim)
     {
-        auto dim_length = d.geometry()[dim];
+        auto dim_length = d.shape()[dim];
         d.for_each_mt([&](tipl::vector<3>& p1,const tipl::pixel_index<3>& pos)
         {
             if(p1[dim] > 0.0f && pos[dim] + 1 < int(dim_length))
@@ -550,10 +550,10 @@ float cdm(const image_type& It,
             terminate_type& terminated,
             cdm_param param = cdm_param())
 {
-    if(It.geometry() != Is.geometry())
+    if(It.shape() != Is.shape())
         throw "Inconsistent image dimension";
-    auto geo = It.geometry();
-    d.resize(It.geometry());
+    auto geo = It.shape();
+    d.resize(It.shape());
 
     // multi resolution
     if (*std::min_element(geo.begin(),geo.end()) > param.min_dimension && param.multi_resolution)
@@ -572,7 +572,7 @@ float cdm(const image_type& It,
             return r;
     }
     image_type Js;// transformed I
-    dist_type new_d(d.geometry());// new displacements
+    dist_type new_d(d.shape());// new displacements
     float theta = 0.0;
 
     std::deque<float> r,iter;
@@ -620,12 +620,12 @@ float cdm2(const image_type& It,const image_type& It2,
            terminate_type& terminated,
            cdm_param param = cdm_param())
 {
-    if(It.geometry() != It2.geometry() ||
-       It.geometry() != Is.geometry() ||
-       It.geometry() != Is2.geometry())
+    if(It.shape() != It2.shape() ||
+       It.shape() != Is.shape() ||
+       It.shape() != Is2.shape())
         throw "Inconsistent image dimension";
-    auto geo = It.geometry();
-    d.resize(It.geometry());
+    auto geo = It.shape();
+    d.resize(It.shape());
     // multi resolution
     if (*std::min_element(geo.begin(),geo.end()) > param.min_dimension)
     {
@@ -646,7 +646,7 @@ float cdm2(const image_type& It,const image_type& It2,
             return r;
     }
     image_type Js,Js2;// transformed I
-    dist_type new_d(d.geometry()),new_d2(d.geometry());// new displacements
+    dist_type new_d(d.shape()),new_d2(d.shape());// new displacements
     float theta = 0.0;
 
     std::deque<float> r,iter;

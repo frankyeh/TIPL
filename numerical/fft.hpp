@@ -1,7 +1,7 @@
 #ifndef FFT_HPP_INCLUDED
 #define FFT_HPP_INCLUDED
 #include "../utility/basic_image.hpp"
-#include "../utility/geometry.hpp"
+#include "../utility/shape.hpp"
 #include <cmath>
 #include <vector>
 #include <stdexcept>
@@ -101,7 +101,7 @@ value_type fft_round_up_size(value_type num_)
     return need_padding ? 1 << result : num_;
 }
 template<class geo_type>
-geo_type fft_round_up_geometry(const geo_type& geo)
+geo_type fft_round_up_shape(const geo_type& geo)
 {
     geo_type geo2;
     for(int dim = 0;dim < geo_type::dimension;++dim)
@@ -111,11 +111,11 @@ geo_type fft_round_up_geometry(const geo_type& geo)
 template<class image_type,class pos_type>
 void fft_round_up(image_type& I,pos_type& from,pos_type& to)
 {
-    image_type newI(fft_round_up_geometry(I.geometry()));
+    image_type newI(fft_round_up_shape(I.shape()));
     for(int dim = 0;dim < image_type::dimension;++dim)
     {
-        from[dim] = (newI.geometry()[dim]-I.geometry()[dim]) >> 1;
-        to[dim] = from[dim] + I.geometry()[dim];
+        from[dim] = (newI.shape()[dim]-I.shape()[dim]) >> 1;
+        to[dim] = from[dim] + I.shape()[dim];
     }
     tipl::draw(I,newI,from);
     I.swap(newI);
@@ -130,7 +130,7 @@ template<unsigned int dimension,class float_type = float>
 class fftn
 {
 protected:
-    geometry<dimension> geo;
+    shape<dimension> geo;
     std::vector<std::vector<size_t> > swap_pair1,swap_pair2;
     std::vector<std::vector<float_type> > wr,wi;
     std::vector<std::vector<float_type> > iwr,iwi;
@@ -184,8 +184,8 @@ protected:
         }
     }
 public:
-    // the geometry has to power 2
-    fftn(const geometry<dimension>& geo_):geo(geo_),
+    // the shape has to power 2
+    fftn(const shape<dimension>& geo_):geo(geo_),
         swap_pair1(dimension),swap_pair2(dimension),wr(dimension),wi(dimension),iwr(dimension),iwi(dimension)
     {
         unsigned int ntot = geo.size(),nprev = 1,nrem,ip1,ip2,i2rev,i3rev,ibit,ip3 = ntot << 1;
@@ -309,7 +309,7 @@ void realfftn_rotate_real_pair(value_type& real_from,value_type& real_to,
 }
 
 template<class ImageType>
-void realfftn_rotate_real(ImageType& real,ImageType& img,geometry<2>& geo,
+void realfftn_rotate_real(ImageType& real,ImageType& img,shape<2>& geo,
                  bool invert_fft)
 {
     float c2= -0.5*(invert_fft ? -1.0 : 1.0);
@@ -338,7 +338,7 @@ void realfftn_rotate_real(ImageType& real,ImageType& img,geometry<2>& geo,
 }
 
 template<class ImageType>
-void realfftn_rotate_real(ImageType& real,ImageType& img,geometry<3>& geo,
+void realfftn_rotate_real(ImageType& real,ImageType& img,shape<3>& geo,
                  bool invert_fft)
 {
     float c2= -0.5*(invert_fft ? -1.0 : 1.0);
@@ -374,25 +374,25 @@ template<unsigned int dimension,class float_type = float>
 class realfftn : public fftn<dimension,float_type> {
 
 public:
-    geometry<dimension> ext_geo; // the frequency geometry + fy = -n
-    geometry<dimension> image_geo;
-    geometry<dimension> half_size(geometry<dimension> geo_)
+    shape<dimension> ext_geo; // the frequency shape + fy = -n
+    shape<dimension> image_geo;
+    shape<dimension> half_size(shape<dimension> geo_)
     {
         geo_[dimension-1] >>= 1;
         return geo_;
     }
 
 public:
-    realfftn(const geometry<dimension>& geo_):fftn<dimension,float_type>(half_size(geo_)),ext_geo(half_size(geo_)),image_geo(geo_)
+    realfftn(const shape<dimension>& geo_):fftn<dimension,float_type>(half_size(geo_)),ext_geo(half_size(geo_)),image_geo(geo_)
     {
         ++ext_geo[dimension-1];
     }
     template<class ImageType>
     void apply(ImageType& real,ImageType& img)
     {
-        if(real.geometry() != image_geo)
+        if(real.shape() != image_geo)
             throw std::runtime_error("Inconsistent image size");
-        tipl::geometry<dimension> geo(fftn<dimension,float_type>::geo);
+        tipl::shape<dimension> geo(fftn<dimension,float_type>::geo);
         img.resize(geo);
         int block_size = image_geo.size()/image_geo[dimension-1];
         // dispatch data to real and img
@@ -419,8 +419,8 @@ public:
     template<class ImageType>
     void apply_inverse(ImageType& real,ImageType& img)
     {
-        tipl::geometry<dimension> geo(fftn<dimension,float_type>::geo);
-        if(real.geometry() != ext_geo || img.geometry() != ext_geo)
+        tipl::shape<dimension> geo(fftn<dimension,float_type>::geo);
+        if(real.shape() != ext_geo || img.shape() != ext_geo)
             throw std::runtime_error("Inconsistent image size");
 
         realfftn_rotate_real(real,img,fftn<dimension,float_type>::geo,true);

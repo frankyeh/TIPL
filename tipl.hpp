@@ -115,7 +115,7 @@ namespace tipl
         return mime_bundle_repr(I.slice_at(I.depth()/2));
     }
     template <int dim>
-    nl::json mime_bundle_repr(const tipl::geometry<dim>& d)
+    nl::json mime_bundle_repr(const tipl::shape<dim>& d)
     {
         std::stringstream out;
         out << d;

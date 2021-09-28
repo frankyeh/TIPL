@@ -61,7 +61,7 @@ void anisotropic_diffusion(image_type& src,float conductance_parameter = 1.0,int
             tipl::add(total_gx.begin(),total_gx.end(),gx2.begin());
 
             // proceed to next dimensiom
-            shift *= src.geometry()[index];
+            shift *= src.shape()[index];
         }
         // perform I <= I + total_gx * delta_t
         // delta_t = 1.0/(1 << dimension);
@@ -109,7 +109,7 @@ void anisotropic_diffusion_inv(tipl::image<pixel_type,dimension>& src,
             tipl::add(total_gx.begin(),total_gx.end(),gx2.begin());
 
             // proceed to next dimensiom
-            shift *= src.geometry()[index];
+            shift *= src.shape()[index];
         }
         // perform I <= I + total_gx * delta_t
         // delta_t = 1.0/(1 << dimension);

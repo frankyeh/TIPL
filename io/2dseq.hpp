@@ -204,7 +204,7 @@ public:
             no_visu = true;
         if(!method.load_from_file(load_method(file_name)))
             no_method = true;
-        tipl::geometry<3> dim;
+        tipl::shape<3> dim;
         // get image dimension
         if(!no_visu)
         {
@@ -325,7 +325,7 @@ public:
     template<class image_type>
     void save_to_image(image_type& out) const
     {
-        out.resize(data.geometry());
+        out.resize(data.shape());
         std::copy(data.begin(),data.end(),out.begin());
     }
 

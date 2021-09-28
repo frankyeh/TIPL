@@ -441,8 +441,8 @@ public:
     }
     template<typename ImageType>
     march_cube(ImageType& source_image,typename ImageType::value_type isolevel):
-        w(source_image.geometry()[0]),
-        wh(uint32_t(source_image.geometry().plane_size()))
+        w(source_image.shape()[0]),
+        wh(uint32_t(source_image.shape().plane_size()))
     {
         offset[0] = 1;
         offset[1] = 1+w;
@@ -460,7 +460,7 @@ public:
             for (auto shift : offset)
                 if(greater ^ (source_image[index+shift] <= isolevel))
                 {
-                    addCube(source_image,tipl::pixel_index<3>(index,source_image.geometry()),isolevel);
+                    addCube(source_image,tipl::pixel_index<3>(index,source_image.shape()),isolevel);
                     break;
                 }
         }

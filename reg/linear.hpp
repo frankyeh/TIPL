@@ -28,7 +28,7 @@ struct square_error
     double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
     {
         const unsigned int dim = ImageType::dimension;
-        tipl::geometry<dim> geo(Ifrom.geometry());
+        tipl::shape<dim> geo(Ifrom.shape());
         double error = 0.0;
         tipl::vector<dim,double> pos;
         for (tipl::pixel_index<dim> index(geo);index < geo.size();++index)
@@ -52,7 +52,7 @@ struct negative_product
     double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
     {
         const unsigned int dim = ImageType::dimension;
-        tipl::geometry<dim> geo(Ifrom.geometry());
+        tipl::shape<dim> geo(Ifrom.shape());
         double error = 0.0;
         tipl::vector<dim,double> pos;
         for (tipl::pixel_index<dim> index(geo);index < geo.size();++index)
@@ -72,7 +72,7 @@ struct correlation
     template<class ImageType,class TransformType>
     double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
     {
-        tipl::geometry<ImageType::dimension> geo(Ifrom.geometry());
+        tipl::shape<ImageType::dimension> geo(Ifrom.shape());
         tipl::image<typename ImageType::value_type,ImageType::dimension> y(geo);
         tipl::resample(Ito,y,transform,tipl::linear);
         float c = tipl::correlation(Ifrom.begin(),Ifrom.end(),y.begin());
@@ -114,7 +114,7 @@ struct mt_correlation
                 unsigned int thread_size = (size/status.size())+1;
                 unsigned int from_size = id*thread_size;
                 unsigned int to_size = std::min<unsigned int>(size,(id+1)*thread_size);
-                tipl::geometry<image_type::dimension> geo(I1->geometry());
+                tipl::shape<image_type::dimension> geo(I1->shape());
                 for (tipl::pixel_index<image_type::dimension> index(from_size,geo);
                      index < to_size;++index)
                 {
@@ -138,10 +138,10 @@ struct mt_correlation
             I2 = &Ito;
             mean_from = tipl::mean(Ifrom.begin(),Ifrom.end());
             sd_from = tipl::standard_deviation(Ifrom.begin(),Ifrom.end(),mean_from);
-            Y.resize(Ifrom.geometry());
+            Y.resize(Ifrom.shape());
         }
         T = transform;
-        image_type y(Ifrom.geometry());
+        image_type y(Ifrom.shape());
         Y.swap(y);
         std::fill(status.begin(),status.end(),1);
         if(threads.empty())
@@ -187,7 +187,7 @@ public:
 
 
         // obtain the histogram
-        tipl::geometry<ImageType::dimension> geo(from_.geometry());
+        tipl::shape<ImageType::dimension> geo(from_.shape());
         unsigned int thread_count = std::thread::hardware_concurrency();
 
 
@@ -195,7 +195,7 @@ public:
         std::vector<std::vector<double> > to_hist(thread_count);
         for(int i = 0;i < thread_count;++i)
         {
-            mutual_hist[i].resize(tipl::geometry<2>(his_bandwidth,his_bandwidth));
+            mutual_hist[i].resize(tipl::shape<2>(his_bandwidth,his_bandwidth));
             to_hist[i].resize(his_bandwidth);
         }
 
@@ -205,7 +205,7 @@ public:
             unsigned int from_index = ((unsigned int)value) << band_width;
             tipl::vector<ImageType::dimension,float> pos;
             transform(index,pos);
-            if (!interp.get_location(to_.geometry(),pos))
+            if (!interp.get_location(to_.shape(),pos))
             {
                 to_hist[id][0] += 1.0;
                 mutual_hist[id][from_index] += 1.0;
@@ -229,7 +229,7 @@ public:
         // calculate the cost
         {
             float sum = 0.0;
-            tipl::geometry<2> geo(mutual_hist[0].geometry());
+            tipl::shape<2> geo(mutual_hist[0].shape());
             for (tipl::pixel_index<2> index(geo);index < geo.size();++index)
             {
                 float mu = mutual_hist[0][index.index()];
@@ -288,7 +288,7 @@ public:
     float operator()(const param_type& new_param)
     {
         transform_type affine(new_param);
-        tipl::transformation_matrix<typename transform_type::value_type> T(affine,from.geometry(),from_vs,to.geometry(),to_vs);
+        tipl::transformation_matrix<typename transform_type::value_type> T(affine,from.shape(),from_vs,to.shape(),to_vs);
         ++count;
         return fun(from,to,T);
     }
@@ -297,14 +297,14 @@ public:
     {
         transform_type affine(param);
         affine[cur_dim] = param_value;
-        tipl::transformation_matrix<typename transform_type::value_type> T(affine,from.geometry(),from_vs,to.geometry(),to_vs);
+        tipl::transformation_matrix<typename transform_type::value_type> T(affine,from.shape(),from_vs,to.shape(),to_vs);
         ++count;
         return fun(from,to,T);
     }
     float operator()(const param_value_type* param)
     {
         transform_type affine(&*param);
-        tipl::transformation_matrix<typename transform_type::value_type> T(affine,from.geometry(),from_vs,to.geometry(),to_vs);
+        tipl::transformation_matrix<typename transform_type::value_type> T(affine,from.shape(),from_vs,to.shape(),to_vs);
         ++count;
         return fun(from,to,T);
     }
@@ -330,8 +330,8 @@ void get_bound(const image_type1& from,const image_type2& to,
     {
         for (unsigned int index = 0; index < dimension; ++index)
         {
-            float range = std::max<float>(std::max<float>(from.geometry()[index],to.geometry()[index])*0.5f,
-                                          std::fabs((float)from.geometry()[index]-(float)to.geometry()[index]));
+            float range = std::max<float>(std::max<float>(from.shape()[index],to.shape()[index])*0.5f,
+                                          std::fabs((float)from.shape()[index]-(float)to.shape()[index]));
             upper_trans[index] = range*bound[0];
             lower_trans[index] = range*bound[1];
         }
@@ -431,8 +431,8 @@ float linear_mr(const image_type& from,const vs_type& from_vs,
 {
     // multi resolution
     int random_search = 0;
-    if (*std::max_element(from.geometry().begin(),from.geometry().end()) > 32 &&
-        *std::max_element(to.geometry().begin(),to.geometry().end()) > 32)
+    if (*std::max_element(from.shape().begin(),from.shape().end()) > 32 &&
+        *std::max_element(to.shape().begin(),to.shape().end()) > 32)
     {
         //downsampling
         image<typename image_type::value_type,image_type::dimension> from_r,to_r;
@@ -450,7 +450,7 @@ float linear_mr(const image_type& from,const vs_type& from_vs,
             return 0.0;
     }
     else
-        random_search = 800/(*std::max_element(from.geometry().begin(),from.geometry().end())+1);
+        random_search = 800/(*std::max_element(from.shape().begin(),from.shape().end())+1);
     return linear(from,from_vs,to,to_vs,arg_min,base_type,cost_type,terminated,precision,random_search,bound);
 }
 
@@ -482,14 +482,14 @@ float two_way_linear_mr(const image_type& from,const vs_type& from_vs,
     },thread_count);
 
 
-    TransType T1(arg == 0 ? arg1:*arg,from.geometry(),from_vs,to.geometry(),to_vs);
-    TransType T2(arg2,to.geometry(),to_vs,from.geometry(),from_vs);
+    TransType T1(arg == 0 ? arg1:*arg,from.shape(),from_vs,to.shape(),to_vs);
+    TransType T2(arg2,to.shape(),to_vs,from.shape(),from_vs);
     T2.inverse();
     float cost = 0.0f;
     if(CostFunctionType()(from,to,T2) < CostFunctionType()(from,to,T1))
     {
         cost = tipl::reg::linear(to,to_vs,from,from_vs,arg2,base_type,cost_type,terminated,0.001f,0,bound);
-        TransType T22(arg2,to.geometry(),to_vs,from.geometry(),from_vs);
+        TransType T22(arg2,to.shape(),to_vs,from.shape(),from_vs);
         T22.inverse();
         T = T22;
     }
@@ -499,7 +499,7 @@ float two_way_linear_mr(const image_type& from,const vs_type& from_vs,
             cost = tipl::reg::linear(from,from_vs,to,to_vs,*arg,base_type,cost_type,terminated,0.001f,0,bound);
         else
             cost = tipl::reg::linear(from,from_vs,to,to_vs,arg1,base_type,cost_type,terminated,0.001f,0,bound);
-        T = TransType(arg == 0 ? arg1:*arg,from.geometry(),from_vs,to.geometry(),to_vs);
+        T = TransType(arg == 0 ? arg1:*arg,from.shape(),from_vs,to.shape(),to_vs);
     }
     return cost;
 }

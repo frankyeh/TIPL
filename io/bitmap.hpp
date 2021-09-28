@@ -133,7 +133,7 @@ public:
     void save_to_image(image_type& image) const
     {
         typedef typename image_type::value_type pixel_type;
-        tipl::geometry<image_type::dimension> geo;
+        tipl::shape<image_type::dimension> geo;
         std::fill(geo.begin(),geo.end(),1);
         geo[0] = bmih.biWidth;
         geo[1] = bmih.biHeight;

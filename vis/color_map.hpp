@@ -22,11 +22,11 @@ struct color_bar : public tipl::color_image{
 public:
     color_bar(unsigned int width,unsigned int height)
     {
-        resize(tipl::geometry<2>(width,height));
+        resize(tipl::shape<2>(width,height));
     }
     void two_color(tipl::rgb from_color,tipl::rgb to_color)
     {
-        resize(tipl::geometry<2>(20,256));
+        resize(tipl::shape<2>(20,256));
         for(int index = 1;index < height();++index)
         {
             float findex = float(index)/float(height());
@@ -202,7 +202,7 @@ public:
     template<class value_image_type,class color_image_type>
     void convert(const value_image_type& I1,color_image_type& I2) const
     {
-        I2.resize(I1.geometry());
+        I2.resize(I1.shape());
         for(unsigned int i = 0;i < I1.size();++i)
             I2[i] = (*this)[I1[i]];
     }

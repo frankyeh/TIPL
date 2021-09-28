@@ -15,7 +15,7 @@ namespace tipl
     1 x 1
     0 1 0
 */
-inline void get_connected_neighbors(const pixel_index<2>& index,const geometry<2>& geo,
+inline void get_connected_neighbors(const pixel_index<2>& index,const shape<2>& geo,
                                         std::vector<pixel_index<2> >& iterations)
 {
     iterations.clear();
@@ -39,7 +39,7 @@ inline void get_connected_neighbors(const pixel_index<2>& index,const geometry<2
     1 x 1
     0 1 0
 */
-inline void get_connected_neighbors(const pixel_index<3>& index,const geometry<3>& geo,
+inline void get_connected_neighbors(const pixel_index<3>& index,const shape<3>& geo,
                                         std::vector<pixel_index<3> >& iterations)
 {
     iterations.clear();
@@ -69,7 +69,7 @@ inline void get_connected_neighbors(const pixel_index<3>& index,const geometry<3
     1 x 1
     1 1 1
 */
-inline void get_neighbors(const pixel_index<2>& index,const geometry<2>& geo,
+inline void get_neighbors(const pixel_index<2>& index,const shape<2>& geo,
                                         std::vector<pixel_index<2> >& iterations)
 {
     iterations.clear();
@@ -115,7 +115,7 @@ inline void get_neighbors(const pixel_index<2>& index,const geometry<2>& geo,
 }
 
 
-inline void get_neighbors(const pixel_index<3>& index,const geometry<3>& geo,
+inline void get_neighbors(const pixel_index<3>& index,const shape<3>& geo,
                                         std::vector<pixel_index<3> >& iterations)
 {
     iterations.clear();
@@ -247,14 +247,14 @@ inline void get_neighbors(const pixel_index<3>& index,const geometry<3>& geo,
 
 
 template<int Dim>
-inline void get_neighbors(const pixel_index<Dim>&,const geometry<Dim>&,int,std::vector<pixel_index<Dim> >& iterations)
+inline void get_neighbors(const pixel_index<Dim>&,const shape<Dim>&,int,std::vector<pixel_index<Dim> >& iterations)
 {
     iterations.clear();
     iterations.reserve(9);
     throw;
 }
 
-inline void get_neighbors(const pixel_index<2>& index,const geometry<2>& geo,int range,std::vector<pixel_index<2> >& iterations)
+inline void get_neighbors(const pixel_index<2>& index,const shape<2>& geo,int range,std::vector<pixel_index<2> >& iterations)
 {
     iterations.clear();
     iterations.reserve(9);
@@ -279,7 +279,7 @@ inline void get_neighbors(const pixel_index<2>& index,const geometry<2>& geo,int
     }
 }
 
-inline void get_neighbors(const pixel_index<3>& index,const geometry<3>& geo,int range,std::vector<pixel_index<3> >& iterations)
+inline void get_neighbors(const pixel_index<3>& index,const shape<3>& geo,int range,std::vector<pixel_index<3> >& iterations)
 {
     iterations.clear();
     iterations.reserve(26);
@@ -322,7 +322,7 @@ class neighbor_index_shift<2>
 public:
     std::vector<int> index_shift;
 public:
-    neighbor_index_shift(const geometry<2>& geo)
+    neighbor_index_shift(const shape<2>& geo)
     {
         int w = int(geo.width());
             for (int y = -1;y <= 1; ++y)
@@ -332,7 +332,7 @@ public:
                     index_shift.push_back(x + yw);
             }
     }
-    neighbor_index_shift(const geometry<2>& geo,int radius)
+    neighbor_index_shift(const shape<2>& geo,int radius)
     {
         int w = int(geo.width());
             for (int y = -radius;y <= radius; ++y)
@@ -352,7 +352,7 @@ class neighbor_index_shift<3>
 public:
     std::vector<int> index_shift;
 public:
-    neighbor_index_shift(const geometry<3>& geo)
+    neighbor_index_shift(const shape<3>& geo)
     {
         int wh = int(geo.plane_size());
         int w = int(geo.width());
@@ -367,7 +367,7 @@ public:
             }
         }
     }
-    neighbor_index_shift(const geometry<3>& geo,int radius)
+    neighbor_index_shift(const shape<3>& geo,int radius)
     {
         int wh = int(geo.plane_size());
         int w = int(geo.width());
@@ -395,7 +395,7 @@ class neighbor_index_shift_narrow<2>
 public:
     std::vector<int> index_shift;
 public:
-    neighbor_index_shift_narrow(const geometry<2>& geo)
+    neighbor_index_shift_narrow(const shape<2>& geo)
     {
         index_shift.push_back(-int(geo.width()));
         index_shift.push_back(-1);
@@ -412,7 +412,7 @@ class neighbor_index_shift_narrow<3>
 public:
     std::vector<int> index_shift;
 public:
-    neighbor_index_shift_narrow(const geometry<3>& geo)
+    neighbor_index_shift_narrow(const shape<3>& geo)
     {
         index_shift.push_back(-int(geo.plane_size()));
         index_shift.push_back(-int(geo.width()));

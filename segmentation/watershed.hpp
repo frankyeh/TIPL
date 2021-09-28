@@ -21,12 +21,12 @@ template<class ImageType,class LabelImageType>
 void watershed(const ImageType& input_image,LabelImageType& label)
 {
     label.clear();
-    label.resize(input_image.geometry());
-    tipl::image<unsigned char,ImageType::dimension> I(input_image.geometry());
+    label.resize(input_image.shape());
+    tipl::image<unsigned char,ImageType::dimension> I(input_image.shape());
     tipl::normalize(input_image,I);
 
     std::vector<std::list<pixel_index<ImageType::dimension> > > presort_table(256);
-    for (pixel_index<ImageType::dimension> index(I.geometry());
+    for (pixel_index<ImageType::dimension> index(I.shape());
          index < I.size();++index)
         presort_table[I[index.index()]].push_back(index);
 
@@ -70,14 +70,14 @@ void watershed(const ImageType& input_image,LabelImageType& label)
                     cur_basin = iter->second;
                 label[iter->first.index()] = cur_basin;
 
-                pixel_index<ImageType::dimension> active_point(I.geometry());
+                pixel_index<ImageType::dimension> active_point(I.shape());
                 std::vector<pixel_index<ImageType::dimension> > front,neighbor_points;
                 front.push_back(iter->first);
                 while(!front.empty())
                 {
                     active_point = front.back();
                     front.pop_back();
-                    get_connected_neighbors(active_point,I.geometry(),neighbor_points);
+                    get_connected_neighbors(active_point,I.shape(),neighbor_points);
                     for(size_t index = 0; index < neighbor_points.size(); ++index)
                     {
                         size_t cur_index = neighbor_points[index].index();
@@ -105,7 +105,7 @@ void watershed2(const ImageType& input_image,LabelImageType& label,unsigned int 
 {
     typedef tipl::pixel_index<ImageType::dimension> pixel_type;
     label.clear();
-    label.resize(input_image.geometry());
+    label.resize(input_image.shape());
     ImageType I(input_image);
 
     float level = *std::max_element(input_image.begin(),input_image.end());
@@ -125,11 +125,11 @@ void watershed2(const ImageType& input_image,LabelImageType& label,unsigned int 
         {
             std::vector<unsigned int> grow_pos;
             std::vector<unsigned int> grow_index;
-            for(pixel_type pos(label.geometry()); pos < label.size();++pos)
+            for(pixel_type pos(label.shape()); pos < label.size();++pos)
                 if(cur_label[pos.index()])
                 {
                     std::vector<pixel_type> neighbor_points;
-                    get_connected_neighbors(pos,label.geometry(),neighbor_points);
+                    get_connected_neighbors(pos,label.shape(),neighbor_points);
                     for(unsigned int index = 0;index < neighbor_points.size();++index)
                         if(label[neighbor_points[index].index()])
                         {

@@ -27,11 +27,11 @@ void fast_lddmm(const image<pixel_type,dimension>& I0,
                 image<vtor_type,dimension>& fs1,
                 float dt = 0.2,float alpha = 0.02)
 {
-    geometry<dimension> geo = I0.geometry();
-    if(I0.geometry() != I1.geometry())
+    shape<dimension> geo = I0.shape();
+    if(I0.shape() != I1.shape())
         throw std::runtime_error("The image size of I0 and I1 is not consistent.");
-    if(tipl::fft_round_up_geometry(geo) != geo)
-        throw std::runtime_error("The geometry must be rounded up to 2 to the power of n");
+    if(tipl::fft_round_up_shape(geo) != geo)
+        throw std::runtime_error("The shape must be rounded up to 2 to the power of n");
     J0 = I0;
     J1 = I1;
     float sigma = *std::max_element(I0.begin(),I0.end())/10.0;
@@ -60,8 +60,8 @@ void fast_lddmm(const image<pixel_type,dimension>& I0,
     {
         if(update_K)
         {
-            vector<dimension,float> bandwidth = K.geometry();
-            for(pixel_index<dimension> index(K.geometry());index < K.size();++index)
+            vector<dimension,float> bandwidth = K.shape();
+            for(pixel_index<dimension> index(K.shape());index < K.size();++index)
             {
                 float Ak = 0;
                 for(unsigned int dim = 0; dim < dimension; ++dim)
@@ -144,7 +144,7 @@ void fast_lddmm(const image<pixel_type,dimension>& I0,
         swi = !swi;
 
         /*
-        tipl::geometry<dimension> geo_(geo);
+        tipl::shape<dimension> geo_(geo);
         geo_[0] *= 2;
         tipl::image<pixel_type,dimension> JOut(geo_);
         tipl::draw(J0,JOut,tipl::pixel_index<dimension>());
@@ -182,11 +182,11 @@ void lddmm(const image<pixel_type,dimension>& I0,
            unsigned int T = 20,float dt = 0.2,float gamma = 1.0)
 {
 
-    geometry<dimension> geo = I0.geometry();
-    if(I0.geometry() != I1.geometry())
+    shape<dimension> geo = I0.shape();
+    if(I0.shape() != I1.shape())
         throw std::runtime_error("The image size of I0 and I1 is not consistent.");
-    if(tipl::fft_round_up_geometry(geo) != geo)
-        throw std::runtime_error("The geometry must be rounded up to 2 to the power of n");
+    if(tipl::fft_round_up_shape(geo) != geo)
+        throw std::runtime_error("The shape must be rounded up to 2 to the power of n");
     J0.resize(T);
     J1.resize(T);
     s0.resize(T);
@@ -223,8 +223,8 @@ void lddmm(const image<pixel_type,dimension>& I0,
     float alpha = 0.02;
     //float gamma = 1.0;
     {
-        vector<dimension,float> bandwidth = K.geometry();
-        for(pixel_index<dimension> index(K.geometry());index < K.size();++index)
+        vector<dimension,float> bandwidth = K.shape();
+        for(pixel_index<dimension> index(K.shape());index < K.size();++index)
         {
             float Ak = 0;
             for(unsigned int dim = 0; dim < dimension; ++dim)

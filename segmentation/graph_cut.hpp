@@ -53,10 +53,10 @@ void graph_cut(const image_type& I,label_type& out,float c,unsigned int min_size
     std::vector<graph_edge> edges;
     edges.reserve(I.size() * 2* image_type::dimension);
     float max_w = 0.0;
-    for(index_type index(I.geometry());index < I.size();++index)
+    for(index_type index(I.shape());index < I.size();++index)
     {
         std::vector<index_type> neighbor;
-        tipl::get_neighbors(index,I.geometry(),neighbor);
+        tipl::get_neighbors(index,I.shape(),neighbor);
         for(int i = 0; i < neighbor.size(); ++i)
             if(index.index() > neighbor[i].index())
             {
@@ -109,7 +109,7 @@ void graph_cut(const image_type& I,label_type& out,float c,unsigned int min_size
     }
     // re-labeling
     out.clear();
-    out.resize(I.geometry());
+    out.resize(I.shape());
     unsigned int num_region = 0;
     for(unsigned int index = 0; index < out.size(); ++index)
     {

@@ -23,7 +23,7 @@
 #include "../numerical/numerical.hpp"
 #include "../numerical/basic_op.hpp"
 #include "../numerical/resampling.hpp"
-#include "../utility/geometry.hpp"
+#include "../utility/shape.hpp"
 #include "../utility/basic_image.hpp"
 #include "../utility/multi_thread.hpp"
 
@@ -40,7 +40,7 @@ class basic_activation_layer{
 protected:
     int output_size = 0;
 public:
-    virtual void init(const tipl::geometry<3>& out_dim){output_size = out_dim.size();}
+    virtual void init(const tipl::shape<3>& out_dim){output_size = out_dim.size();}
     virtual void forward_af(float*){;}
     virtual void back_af(float*,const float*){;}
 };
@@ -115,7 +115,7 @@ public:
 
     virtual ~basic_layer() {}
     basic_layer(void):status(testing),weight_base(1){}
-    virtual bool init(const tipl::geometry<3>& in_dim_,const tipl::geometry<3>& out_dim)
+    virtual bool init(const tipl::shape<3>& in_dim_,const tipl::shape<3>& out_dim)
     {
         input_size = in_dim_.size();
         output_size = out_dim.size();
@@ -180,9 +180,9 @@ private:
     float weight_scale = 0.0f;
     unsigned int count = 0;
 public:
-    tipl::geometry<3> in_dim;
+    tipl::shape<3> in_dim;
     fully_connected_layer(void){}
-    bool init(const tipl::geometry<3>& in_dim_,const tipl::geometry<3>& out_dim) override
+    bool init(const tipl::shape<3>& in_dim_,const tipl::shape<3>& out_dim) override
     {
         in_dim = in_dim_;
         basic_layer::init(in_dim_,out_dim);
@@ -226,7 +226,7 @@ public:
                           float* dX,// input_size
                           const float*) override
     {
-        tipl::mat::left_vector_product(&weight[0],dOut,dX,tipl::shape(output_size,input_size));
+        tipl::mat::left_vector_product(&weight[0],dOut,dX,tipl::shape<2>(output_size,input_size));
     }
 
     void update(float rw,const std::vector<float>& dw,
@@ -248,19 +248,19 @@ class max_pooling_layer : public basic_layer
 {
     std::vector<std::vector<int> > o2i;
     std::vector<int> i2o;
-    geometry<3> in_dim;
-    geometry<3> out_dim;
+    shape<3> in_dim;
+    shape<3> out_dim;
 
 public:
     int pool_size;
 public:
     max_pooling_layer(int pool_size_):pool_size(pool_size_){}
-    bool init(const tipl::geometry<3>& in_dim_,const tipl::geometry<3>& out_dim_) override
+    bool init(const tipl::shape<3>& in_dim_,const tipl::shape<3>& out_dim_) override
     {
         basic_layer::init(in_dim_,out_dim_);
         in_dim = in_dim_;
         out_dim = out_dim_;
-        if(out_dim != tipl::geometry<3>(in_dim.width()/ pool_size, in_dim.height() / pool_size, in_dim.depth()))
+        if(out_dim != tipl::shape<3>(in_dim.width()/ pool_size, in_dim.height() / pool_size, in_dim.depth()))
             return false;
         init_connection();
         weight_base = (float)std::sqrt(6.0f / (float)(o2i[0].size()+1));
@@ -340,7 +340,7 @@ private:
     int strip,strip_2,shift,max_x,max_y;
     std::vector<int> kernel_index;
 public:
-    geometry<3> in_dim,out_dim;
+    shape<3> in_dim,out_dim;
     int kernel_size,kernel_size2;
     // check if any kernel is zero and re-initialize it
 
@@ -348,7 +348,7 @@ public:
     convolutional_layer(int kernel_size_) : kernel_size(kernel_size_),kernel_size2(kernel_size_*kernel_size_)
     {
     }
-    bool init(const tipl::geometry<3>& in_dim_,const tipl::geometry<3>& out_dim_) override
+    bool init(const tipl::shape<3>& in_dim_,const tipl::shape<3>& out_dim_) override
     {
         basic_layer::init(in_dim_, out_dim_);
         in_dim = in_dim_;
@@ -471,7 +471,7 @@ public:
 class soft_max_layer : public basic_layer{
 public:
     soft_max_layer(void){}
-    bool init(const tipl::geometry<3>& in_dim,const tipl::geometry<3>& out_dim) override
+    bool init(const tipl::shape<3>& in_dim,const tipl::shape<3>& out_dim) override
     {
         if(in_dim.size() != out_dim.size())
             return false;
@@ -500,7 +500,7 @@ public:
 class max_layer : public basic_layer{
 public:
     max_layer(void){}
-    bool init(const tipl::geometry<3>& in_dim,const tipl::geometry<3>& out_dim) override
+    bool init(const tipl::shape<3>& in_dim,const tipl::shape<3>& out_dim) override
     {
         if(in_dim.size() != out_dim.size())
             return false;
@@ -526,7 +526,7 @@ template<typename label_type>
 class network_data
 {
 public:
-    tipl::geometry<3> input,output;
+    tipl::shape<3> input,output;
     std::vector<std::vector<float> > data;
     std::vector<label_type> data_label;
 public:
@@ -760,7 +760,7 @@ class network
 {
 public:
     std::vector<std::shared_ptr<basic_layer> > layers;
-    std::vector<tipl::geometry<3> > geo;
+    std::vector<tipl::shape<3> > geo;
     unsigned int data_size = 0;
     unsigned int output_size = 0;
     bool initialized = false;
@@ -843,9 +843,9 @@ public:
     bool empty(void) const{return layers.empty();}
     unsigned int get_output_size(void) const{return output_size;}
     unsigned int get_input_size(void) const{return geo.empty() ? 0: geo[0].size();}
-    tipl::geometry<3> get_input_dim(void) const{return geo.empty() ? tipl::geometry<3>(): geo.front();}
-    tipl::geometry<3> get_output_dim(void) const{return geo.empty() ? tipl::geometry<3>(): geo.back();}
-    bool add(const tipl::geometry<3>& dim)
+    tipl::shape<3> get_input_dim(void) const{return geo.empty() ? tipl::shape<3>(): geo.front();}
+    tipl::shape<3> get_output_dim(void) const{return geo.empty() ? tipl::shape<3>(): geo.back();}
+    bool add(const tipl::shape<3>& dim)
     {
         if(!layers.empty())
         {
@@ -923,7 +923,7 @@ public:
                 std::istringstream(list[0]) >> x;
                 std::istringstream(list[1]) >> y;
                 std::istringstream(list[2]) >> z;
-                return add(tipl::geometry<3>(x,y,z));
+                return add(tipl::shape<3>(x,y,z));
             }
         }
 
@@ -970,7 +970,7 @@ public:
         return true;
     }
     std::shared_ptr<basic_layer> get_layer(int i) const{return layers[i];}
-    const tipl::geometry<3>& get_geo(int i) const{return geo[i];}
+    const tipl::shape<3>& get_geo(int i) const{return geo[i];}
     std::string get_layer_text(void) const
     {
         std::ostringstream out;
@@ -1179,7 +1179,7 @@ public:
     }
 };
 
-inline bool operator << (network& n, const tipl::geometry<3>& dim)
+inline bool operator << (network& n, const tipl::shape<3>& dim)
 {
     return n.add(dim);
 }
@@ -1422,7 +1422,7 @@ void to_image(std::shared_ptr<layer_type> l,color_image& Is,int max_width)
         if(in_dim[1] == 1 || in_dim[0] == 1)
         {
             int width = in_dim.size()+3;
-            I.resize(geometry<2>(width,b.size()));
+            I.resize(shape<2>(width,b.size()));
             for(int row = 0,row_pos = 0,w_pos = 0;row < b.size();++row,row_pos += width,w_pos += in_dim.size())
             {
                 std::copy(&w[w_pos],&w[w_pos]+in_dim.size(),&I[row_pos]);
@@ -1440,14 +1440,14 @@ void to_image(std::shared_ptr<layer_type> l,color_image& Is,int max_width)
                 pad += 3;
             }
             int row = n/col;
-            I.resize(geometry<2>(col* (in_dim.width()+1)+pad,row * (in_dim.height() +1) + 1));
+            I.resize(shape<2>(col* (in_dim.width()+1)+pad,row * (in_dim.height() +1) + 1));
             int b_pos = 0;
             for(int y = 0,index = 0;y < row;++y)
                 for(int x = 0;x < col;++x,++index)
                 {
                     tipl::draw(tipl::make_image(&w[0] + index*in_dim.plane_size(),
-                               tipl::geometry<2>(in_dim[0],in_dim[1])),
-                                I,tipl::geometry<2>(x*(in_dim.width()+1)+x/in_dim[2],y*(in_dim.height()+1)+1));
+                               tipl::shape<2>(in_dim[0],in_dim[1])),
+                                I,tipl::shape<2>(x*(in_dim.width()+1)+x/in_dim[2],y*(in_dim.height()+1)+1));
                     if((x+1)%in_dim[2] == 0)
                         I.at(x*(in_dim.width()+1)+x/in_dim[2]+in_dim.width(),y*(in_dim.height()+1)+1 + in_dim.height()/2) = b[b_pos++];
                 }
@@ -1461,13 +1461,13 @@ void to_image(std::shared_ptr<layer_type> l,color_image& Is,int max_width)
         tipl::normalize_abs(b);
         auto kernel_size = layer->kernel_size;
         auto kernel_size2 = layer->kernel_size2;
-        I.resize(geometry<2>(layer->out_dim.depth()* (kernel_size+1)+1,
+        I.resize(shape<2>(layer->out_dim.depth()* (kernel_size+1)+1,
                              layer->in_dim.depth() * (kernel_size+1) + 3));
         for(int x = 0,index = 0;x < layer->out_dim.depth();++x)
             for(int y = 0;y < layer->in_dim.depth();++y,++index)
             {
-                tipl::draw(tipl::make_image(&w[0] + index*kernel_size2,tipl::geometry<2>(kernel_size,kernel_size)),
-                            I,tipl::geometry<2>(x*(kernel_size+1),y*(kernel_size+1)+1));
+                tipl::draw(tipl::make_image(&w[0] + index*kernel_size2,tipl::shape<2>(kernel_size,kernel_size)),
+                            I,tipl::shape<2>(x*(kernel_size+1),y*(kernel_size+1)+1));
             }
 
         for(int i = 0,pos = I.size()-I.width()*2+kernel_size/2;i < b.size();++i,pos += kernel_size+1)
@@ -1479,7 +1479,7 @@ void to_image(std::shared_ptr<layer_type> l,color_image& Is,int max_width)
         tipl::downsampling(I);
     for(int j = 0;j < 2 && I.width() < max_width*0.5f;++j)
         tipl::upsampling_nearest(I);
-    Is.resize(I.geometry());
+    Is.resize(I.shape());
     std::fill(Is.begin(),Is.end(),tipl::rgb(0xFFFFFFFF));
     for(int j = 0;j < I.size();++j)
     {
@@ -1528,19 +1528,19 @@ void to_image(network& nn,color_image& I,std::vector<float> in,label_type label,
             int col = std::max<int>(1,(max_width-1)/(geo[i].width()+1));
             int row = std::max<int>(1,geo[i][2]/col+1);
             if(i == 0)
-                values[i].resize(tipl::geometry<2>(col*(geo[i].width()+1)+1,row*(geo[i].height()+1)+1));
+                values[i].resize(tipl::shape<2>(col*(geo[i].width()+1)+1,row*(geo[i].height()+1)+1));
             else
-                values[i].resize(tipl::geometry<2>(col*(geo[i].width()+1)+1,int(2.0f*row*(geo[i].height()+1)+2)));
+                values[i].resize(tipl::shape<2>(col*(geo[i].width()+1)+1,int(2.0f*row*(geo[i].height()+1)+2)));
             std::fill(values[i].begin(),values[i].end(),tipl::rgb(255,255,255));
             int draw_width = 0;
             for(int y = 0,j = 0;y < row;++y)
                 for(int x = 0;j < geo[i][2] && x < col;++x,++j)
                 {
-                    auto v1 = tipl::make_image((i == 0 ? in_buf : out_buf)+geo[i].plane_size()*j,tipl::geometry<2>(geo[i][0],geo[i][1]));
-                    auto v2 = tipl::make_image((i == 0 ? in_buf : back_buf)+geo[i].plane_size()*j,tipl::geometry<2>(geo[i][0],geo[i][1]));
+                    auto v1 = tipl::make_image((i == 0 ? in_buf : out_buf)+geo[i].plane_size()*j,tipl::shape<2>(geo[i][0],geo[i][1]));
+                    auto v2 = tipl::make_image((i == 0 ? in_buf : back_buf)+geo[i].plane_size()*j,tipl::shape<2>(geo[i][0],geo[i][1]));
                     tipl::normalize_abs(v1);
                     tipl::normalize_abs(v2);
-                    tipl::color_image Iv1(v1.geometry()),Iv2(v2.geometry());
+                    tipl::color_image Iv1(v1.shape()),Iv2(v2.shape());
                     for(int j = 0;j < Iv1.size();++j)
                     {
                         unsigned char s1(std::min<int>(255,int(255.0f*std::fabs(v1[j]))));
@@ -1554,9 +1554,9 @@ void to_image(network& nn,color_image& I,std::vector<float> in,label_type label,
                         if(v2[j] >= 0) // blue
                             Iv2[j] = tipl::rgb(uint8_t(0),uint8_t(0),s2);
                     }
-                    tipl::draw(Iv1,values[i],tipl::geometry<2>(x*(geo[i].width()+1)+1,y*(geo[i].height()+1)+1));
+                    tipl::draw(Iv1,values[i],tipl::shape<2>(x*(geo[i].width()+1)+1,y*(geo[i].height()+1)+1));
                     if(i)
-                        tipl::draw(Iv2,values[i],tipl::geometry<2>(x*(geo[i].width()+1)+1,row*(geo[i].height()+1)+1+y*(geo[i].height()+1)+1));
+                        tipl::draw(Iv2,values[i],tipl::shape<2>(x*(geo[i].width()+1)+1,row*(geo[i].height()+1)+1+y*(geo[i].height()+1)+1));
                     draw_width = std::max<int>(draw_width,Iv1.width() + x*(geo[i].width()+1)+1);
                 }
             while((draw_width << 1) < max_width && values[i].height() < 50)
@@ -1579,13 +1579,13 @@ void to_image(network& nn,color_image& I,std::vector<float> in,label_type label,
     }
 
 
-    I.resize(tipl::geometry<2>(max_width,total_height));
+    I.resize(tipl::shape<2>(max_width,total_height));
     std::fill(I.begin(),I.end(),tipl::rgb(255,255,255));
     int cur_height = 0;
     for(int i = 0;i < geo.size();++i)
     {
         // input image
-        tipl::draw(values[i],I,tipl::geometry<2>(0,cur_height));
+        tipl::draw(values[i],I,tipl::shape<2>(0,cur_height));
         cur_height += values[i].height();
 
         // network wieghts
@@ -1596,9 +1596,9 @@ void to_image(network& nn,color_image& I,std::vector<float> in,label_type label,
                 b.from_hsl(0.5,0.5,0.85);
             else
                 b = Is[i][0];
-            tipl::fill_rect(I,tipl::geometry<2>(0,cur_height),
-                               tipl::geometry<2>(max_width,cur_height+std::max<int>(Is[i].height(),layer_height)),b);
-            tipl::draw(Is[i],I,tipl::geometry<2>(1,cur_height +
+            tipl::fill_rect(I,tipl::shape<2>(0,cur_height),
+                               tipl::shape<2>(max_width,cur_height+std::max<int>(Is[i].height(),layer_height)),b);
+            tipl::draw(Is[i],I,tipl::shape<2>(1,cur_height +
                                                    (Is[i].height() < layer_height ? (layer_height- Is[i].height())/2: 0)));
             cur_height += std::max<int>(Is[i].height(),layer_height);
         }
@@ -1606,7 +1606,7 @@ void to_image(network& nn,color_image& I,std::vector<float> in,label_type label,
 }
 
 struct iterate_cnn_data{
-    tipl::geometry<3> dim;
+    tipl::shape<3> dim;
     std::string str;
     int num_conv = 0;
     int depth = 0;
@@ -1616,8 +1616,8 @@ struct iterate_cnn_data{
 
 template<typename str_list_type>
 void iterate_cnn(
-             const tipl::geometry<3>& in_dim,
-             const tipl::geometry<3>& out_dim,
+             const tipl::shape<3>& in_dim,
+             const tipl::shape<3>& out_dim,
              str_list_type& list,
              int max_conv = 4,
              int max_depth = 12,

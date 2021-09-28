@@ -13,7 +13,7 @@ namespace imp
 
 // The subrutine for fast marching
 template<class pass_time_type>
-float fast_marching_estimateT(const pass_time_type& T,float g,const geometry<2>& geo,const pixel_index<2>& index)
+float fast_marching_estimateT(const pass_time_type& T,float g,const shape<2>& geo,const pixel_index<2>& index)
 {
     float Tx,Ty;
     {
@@ -40,7 +40,7 @@ float fast_marching_estimateT(const pass_time_type& T,float g,const geometry<2>&
 
 // The subrutine for fast marching
 template<class pass_time_type>
-float fast_marching_estimateT(const pass_time_type& T,float g,const geometry<3>& geo,const pixel_index<3>& index)
+float fast_marching_estimateT(const pass_time_type& T,float g,const shape<3>& geo,const pixel_index<3>& index)
 {
     float Tx,Ty,Tz;
     {
@@ -99,7 +99,7 @@ void fast_marching(const ImageType& gradient_image,TimeType& pass_time,IndexType
     narrow_band.push_back(new narrow_band_point(0.001,seed));
 
     float infinity_time = std::numeric_limits<float>::max();
-    pass_time.resize(gradient_image.geometry());
+    pass_time.resize(gradient_image.shape());
     std::fill(pass_time.begin(),pass_time.end(),infinity_time);
     pass_time[seed.index()] = 0;
 
@@ -111,13 +111,13 @@ void fast_marching(const ImageType& gradient_image,TimeType& pass_time,IndexType
             return p1->first > p2->first;
         });
         narrow_band.pop_back();
-        get_connected_neighbors(active_point->second,gradient_image.geometry(),neighbor_points);
+        get_connected_neighbors(active_point->second,gradient_image.shape(),neighbor_points);
         for(size_t index = 0; index < neighbor_points.size(); ++index)
         {
             size_t cur_index = neighbor_points[index].index();
             if(pass_time[cur_index] != infinity_time)
                 continue;
-            float cur_T = imp::fast_marching_estimateT(pass_time,gradient_image[cur_index],gradient_image.geometry(),neighbor_points[index]);
+            float cur_T = imp::fast_marching_estimateT(pass_time,gradient_image[cur_index],gradient_image.shape(),neighbor_points[index]);
             pass_time[cur_index] = cur_T;
             narrow_band.push_back(new narrow_band_point(cur_T,neighbor_points[index]));
             std::push_heap(narrow_band.begin(),narrow_band.end(),[&](const narrow_band_point* p1,const narrow_band_point* p2)

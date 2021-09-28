@@ -465,7 +465,7 @@ public:
         read("dimension",r,c,m);
         if(!m || r*c != image_type::dimension)
             return false;
-        image_data.resize(typename image_type::geometry_type(m));
+        image_data.resize(typename image_type::shape_type(m));
         const typename image_type::value_type* buf = 0;
         read(image_name,r,c,buf);
         if(!buf || size_t(r)*size_t(c) != image_data.size())
@@ -567,7 +567,7 @@ public:
     void load_from_image(const image_type& image_data)
     {
         unsigned short dim[image_type::dimension];
-        std::copy(image_data.geometry().begin(),image_data.geometry().end(),dim);
+        std::copy(image_data.shape().begin(),image_data.shape().end(),dim);
         write("dimension",dim,1,image_type::dimension);
         write("image",&*image_data.begin(),1,image_data.size());
     }

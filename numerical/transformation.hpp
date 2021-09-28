@@ -684,9 +684,9 @@ public:
 
     // (Affine*Scaling*R1*R2*R3*vs*Translocation*shift_center)*from = (vs*shift_center)*to;
     transformation_matrix_2d(const affine_transform_2d<value_type>& rb,
-                          const tipl::geometry<2>& from,
+                          const tipl::shape<2>& from,
                           const tipl::vector<2>& from_vs,
-                          const tipl::geometry<2>& to,
+                          const tipl::shape<2>& to,
                           const tipl::vector<2>& to_vs)
     {
         //now sr = Scaling*R1*R2*R3

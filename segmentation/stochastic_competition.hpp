@@ -190,9 +190,9 @@ void stochastic_competition_3region(LabelImageType& label,double inner_region_ra
     typedef tipl::pixel_index<LabelImageType::dimension> index_type;
     std::vector<double> fdim(LabelImageType::dimension);
     for(unsigned int index = 0; index < fdim.size(); ++index)
-        fdim[index] = ((double)label.geometry()[index])/2.0;
+        fdim[index] = ((double)label.shape()[index])/2.0;
     std::fill(label.begin(),label.end(),0);
-    for(index_type iter(label.geometry()); iter.is_valid(label.geometry()); ++iter)
+    for(index_type iter(label.shape()); iter.is_valid(label.shape()); ++iter)
     {
         double ratio = 0;
         for(unsigned int index = 0; index < fdim.size(); ++index)
@@ -295,7 +295,7 @@ void stochastic_competition_with_lostinfo(const ImageType& src,
         // E-step
         // 1: randomly select a pivot
         unsigned int pivot_index = imp::stochastic_competition_select_pivot(pivot_list);
-        index_type pivot_full_index = index_type(pivot_index,label.geometry());
+        index_type pivot_full_index = index_type(pivot_index,label.shape());
         pixel_type pivot_intensity = src[pivot_index];
         label_type cur_label = label[pivot_index];
 
@@ -308,7 +308,7 @@ void stochastic_competition_with_lostinfo(const ImageType& src,
 
         // 2: select an expected labeling
         {
-            tipl::get_neighbors(pivot_full_index,label.geometry(),2,neighbor_list);
+            tipl::get_neighbors(pivot_full_index,label.shape(),2,neighbor_list);
 
             std::vector<label_type> other_label;
             for(unsigned int j = 0; j < neighbor_list.size(); ++j)
@@ -436,7 +436,7 @@ void stochastic_competition(const ImageType& src,
                             bool consider_region_intensity = true)
 {
     tipl::image<unsigned char,LabelImageType::dimension> outter_contour(initial_contour);
-    tipl::geometry<ImageType::dimension> range_max,range_min,new_geo;
+    tipl::shape<ImageType::dimension> range_max,range_min,new_geo;
 
     tipl::bounding_box(initial_contour,range_min,range_max,0);
 
@@ -448,7 +448,7 @@ void stochastic_competition(const ImageType& src,
     for(int dim = 0;dim < ImageType::dimension;++dim)
     {
         int min_value  = std::max((int)0,(int)range_min[dim]*5/4-(int)range_max[dim]/4);
-        range_max[dim] = std::min((int)src.geometry()[dim],(int)range_max[dim]*5/4-(int)range_min[dim]/4);
+        range_max[dim] = std::min((int)src.shape()[dim],(int)range_max[dim]*5/4-(int)range_min[dim]/4);
         range_min[dim] = min_value;
         new_geo[dim] = range_max[dim]-range_min[dim];
     }

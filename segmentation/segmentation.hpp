@@ -14,7 +14,7 @@ namespace tipl{
         template<class ImageType1,class ImageType2,class LabelType>
         void resample(const ImageType1& data,const LabelType& label,ImageType2& out)
         {
-            out.resize(data.geometry());
+            out.resize(data.shape());
             std::vector<float> sum_intensity;
             std::vector<unsigned int> num;
             for(unsigned int index = 0;index < label.size();++index)

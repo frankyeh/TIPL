@@ -206,7 +206,7 @@ struct nearest_value<1>
 {
     int64_t x;
     template<class VTorType>
-    bool get_location(const geometry<1>& geo,const VTorType& location)
+    bool get_location(const shape<1>& geo,const VTorType& location)
     {
         x = std::round(location);
         if (x < 0 || x >= geo[0])
@@ -218,7 +218,7 @@ struct nearest_value<1>
     template<class ImageType,class VTorType,class PixelType>
     bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel)
     {
-        if (get_location(source.geometry(),location))
+        if (get_location(source.shape(),location))
         {
             pixel = source[x];
             return true;
@@ -241,7 +241,7 @@ struct nearest_value<2>
     int64_t x,y;
     int64_t index = 0;
     template<class VTorType>
-    bool get_location(const geometry<2>& geo,const VTorType& location)
+    bool get_location(const shape<2>& geo,const VTorType& location)
     {
         x = std::round(location[0]);
         y = std::round(location[1]);
@@ -255,7 +255,7 @@ struct nearest_value<2>
     template<class ImageType,class VTorType,class PixelType>
     bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel)
     {
-        if (get_location(source.geometry(),location))
+        if (get_location(source.shape(),location))
         {
             pixel = source[index];
             return true;
@@ -278,7 +278,7 @@ struct nearest_value<3>
     int64_t x,y,z;
     int64_t index = 0;
     template<class VTorType>
-    bool get_location(const geometry<3>& geo,const VTorType& location)
+    bool get_location(const shape<3>& geo,const VTorType& location)
     {
         x = std::round(location[0]);
         y = std::round(location[1]);
@@ -293,7 +293,7 @@ struct nearest_value<3>
     template<class ImageType,class VTorType,class PixelType>
     bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel)
     {
-        if (get_location(source.geometry(),location))
+        if (get_location(source.shape(),location))
         {
             pixel = source[index];
             return true;
@@ -321,7 +321,7 @@ struct interpolation<weighting_function,1>
     weighting_function weighting;
 
     template<class VTorType>
-    bool get_location(const geometry<1>& geo,const VTorType& location)
+    bool get_location(const shape<1>& geo,const VTorType& location)
     {
         float p,n;
         float x = location;
@@ -349,7 +349,7 @@ struct interpolation<weighting_function,1>
     template<class ImageType,class VTorType,class PixelType>
     bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel)
     {
-        if (get_location(source.geometry(),location))
+        if (get_location(source.shape(),location))
         {
             weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int64_t*>(source,dindex),
                 const_reference_iterator<ImageType,int64_t*>(source,dindex+ref_count),ratio,pixel);
@@ -376,7 +376,7 @@ struct interpolation<weighting_function,2>
     weighting_function weighting;
 
     template<class VTorType>
-    bool get_location(const geometry<2>& geo,const VTorType& location)
+    bool get_location(const shape<2>& geo,const VTorType& location)
     {
         float p[2],n[2];
         float x = location[0];
@@ -415,7 +415,7 @@ struct interpolation<weighting_function,2>
     template<class ImageType,class VTorType,class PixelType>
     bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel)
     {
-        if (get_location(source.geometry(),location))
+        if (get_location(source.shape(),location))
         {
             weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int64_t*>(source,dindex),
                 const_reference_iterator<ImageType,int64_t*>(source,dindex+ref_count),ratio,pixel);
@@ -442,7 +442,7 @@ struct interpolation<weighting_function,3>
     weighting_function weighting;
 
     template<class VTorType>
-    bool get_location(const geometry<3>& geo,const VTorType& location)
+    bool get_location(const shape<3>& geo,const VTorType& location)
     {
         float x = location[0];
         float y = location[1];
@@ -504,7 +504,7 @@ struct interpolation<weighting_function,3>
     template<class ImageType,class VTorType,class PixelType>
     bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel)
     {
-        if (get_location(source.geometry(),location))
+        if (get_location(source.shape(),location))
         {
             weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int64_t*>(source,dindex),
                 const_reference_iterator<ImageType,int64_t*>(source,dindex+ref_count),ratio,pixel);
@@ -520,7 +520,7 @@ struct interpolation<weighting_function,3>
                            double ref_value,
                            const VTorType& location,PixelType& pixel,double var)
     {
-        if (get_location(source.geometry(),location))
+        if (get_location(source.shape(),location))
         {
             double sum_ratio = 0.0;
             for(int i = 0;i < ref_count;++i)
@@ -617,7 +617,7 @@ struct cubic_interpolation<1>{
     int64_t dindex[4];
 
     template<class VTorType>
-    bool get_location(const geometry<1>& geo,const VTorType& location)
+    bool get_location(const shape<1>& geo,const VTorType& location)
     {
         float x = location;
         if (x < 0 || x > geo[0])
@@ -641,7 +641,7 @@ struct cubic_interpolation<1>{
     template<class ImageType,class VTorType,class PixelType>
     bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel)
     {
-        if (get_location(source.geometry(),location))
+        if (get_location(source.shape(),location))
         {
             estimate(source,pixel);
             return true;
@@ -677,7 +677,7 @@ struct cubic_interpolation<2>{
     int64_t dindex[16];
 
     template<class VTorType>
-    bool get_location(const geometry<2>& geo,const VTorType& location)
+    bool get_location(const shape<2>& geo,const VTorType& location)
     {
         float x = location[0];
         float y = location[1];
@@ -715,7 +715,7 @@ struct cubic_interpolation<2>{
     template<class ImageType,class VTorType,class PixelType>
     bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel)
     {
-        if (get_location(source.geometry(),location))
+        if (get_location(source.shape(),location))
         {
             estimate(source,pixel);
             return true;
@@ -751,7 +751,7 @@ struct cubic_interpolation<3>{
     int64_t dindex[64];
 
     template<class VTorType>
-    bool get_location(const geometry<3>& geo,const VTorType& location)
+    bool get_location(const shape<3>& geo,const VTorType& location)
     {
         float x = location[0];
         float y = location[1];
@@ -802,7 +802,7 @@ struct cubic_interpolation<3>{
     template<class ImageType,class VTorType,class PixelType>
     bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel)
     {
-        if (get_location(source.geometry(),location))
+        if (get_location(source.shape(),location))
         {
             estimate(source,pixel);
             return true;

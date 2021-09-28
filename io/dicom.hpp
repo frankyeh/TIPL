@@ -1439,13 +1439,13 @@ public:
         return get_int(0x0028,0x0103);
     }
 
-    void get_image_dimension(tipl::geometry<2>& geo) const
+    void get_image_dimension(tipl::shape<2>& geo) const
     {
         geo[0] = width();
         geo[1] = height();
     }
 
-    void get_image_dimension(tipl::geometry<3>& geo) const
+    void get_image_dimension(tipl::shape<3>& geo) const
     {
         geo[0] = width();
         geo[1] = height();
@@ -1536,7 +1536,7 @@ public:
     {
         if(!input_io.get() || !(*input_io))
             return;
-        tipl::geometry<image_type::dimension> geo;
+        tipl::shape<image_type::dimension> geo;
         get_image_dimension(geo);
         if(is_mosaic)
         {

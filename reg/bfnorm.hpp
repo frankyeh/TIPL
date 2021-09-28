@@ -95,12 +95,12 @@ value_type resample_d(const ImageType& vol,value_type& gradx,value_type& grady,v
 template<class value_type,int dim = 3>
 class bfnorm_mapping {
 public:
-    tipl::geometry<dim> VGgeo;
-    tipl::geometry<dim> k_base;
+    tipl::shape<dim> VGgeo;
+    tipl::shape<dim> k_base;
     std::vector<value_type> T;
     std::vector<std::vector<value_type> > bas,dbas;
 public:
-    bfnorm_mapping(const tipl::geometry<3>& geo_,const tipl::geometry<dim>& k_base_):VGgeo(geo_),k_base(k_base_)
+    bfnorm_mapping(const tipl::shape<3>& geo_,const tipl::shape<dim>& k_base_):VGgeo(geo_),k_base(k_base_)
     {
         //void initialize_basis_function(value_type stabilise) // bounding offset
         value_type stabilise = 8;
@@ -219,7 +219,7 @@ private:
     int nxy,nxyz,nx3,nxy3,nxyz3;
     std::vector<int> nxy_values,dim1_2_values,nx_values,ny_values,nz_values,dim1_1_values,dim1_0_values;
     int edgeskip[3];
-    tipl::geometry<3> dim1;
+    tipl::shape<3> dim1;
 private:
     const std::vector<value_type>& B0;
     const std::vector<value_type>& B1;
@@ -244,7 +244,7 @@ public:
                   bfnorm_mapping<value_type,3>& mapping):
         VG(VG_),VF(VF_),
         base(mapping.bas),dbase(mapping.dbas),T(mapping.T),
-        dim1(VG_.geometry()),
+        dim1(VG_.shape()),
         B0(mapping.bas[0]),B1(mapping.bas[1]),B2(mapping.bas[2]),
         dB0(mapping.dbas[0]),dB1(mapping.dbas[1]),dB2(mapping.dbas[2])
 

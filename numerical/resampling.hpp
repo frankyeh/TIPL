@@ -178,12 +178,12 @@ void thumb(const image<PixelType,2>& from,image<PixelType,2>& to)
 template<class ImageType3D,class ImageType2D,typename dim_type,typename slice_pos_type>
 void volume2slice(const ImageType3D& slice,ImageType2D& image,dim_type dim,slice_pos_type slice_index)
 {
-    const geometry<3>& geo = slice.geometry();
+    const shape<3>& geo = slice.shape();
     if (dim == 2)   //XY
     {
         if(slice_index >= slice.depth())
             return;
-        image.resize(geometry<2>(geo[0],geo[1]));
+        image.resize(shape<2>(geo[0],geo[1]));
         std::copy(slice.begin() + slice_index*image.size(),
                   slice.begin() + (slice_index+1)*image.size(),
                   image.begin());
@@ -194,7 +194,7 @@ void volume2slice(const ImageType3D& slice,ImageType2D& image,dim_type dim,slice
         {
             if(slice_index >= slice.height())
                 return;
-            image.resize(geometry<2>(geo[0],geo[2]));
+            image.resize(shape<2>(geo[0],geo[2]));
             size_t wh = geo.plane_size();
             size_t sindex = size_t(slice_index)*size_t(geo[0]);
             for (size_t index = 0;index < image.size();index += geo[0],sindex += wh)
@@ -207,7 +207,7 @@ void volume2slice(const ImageType3D& slice,ImageType2D& image,dim_type dim,slice
             {
                 if(slice_index >= slice.width())
                     return;
-                image.resize(geometry<2>(geo[1],geo[2]));
+                image.resize(shape<2>(geo[1],geo[2]));
                 size_t sindex = slice_index;
                 size_t w = geo[0];
                 for (size_t index = 0;index < image.size();++index,sindex += w)
@@ -422,8 +422,8 @@ IteratorType upsampling_z_nearest(IteratorType from,IteratorType to,OutputIterat
 template<class ImageType1,class ImageType2>
 void upsampling(const ImageType1& in,ImageType2& out)
 {
-    geometry<ImageType1::dimension> geo(in.geometry());
-    geometry<ImageType1::dimension> new_geo(in.geometry());
+    shape<ImageType1::dimension> geo(in.shape());
+    shape<ImageType1::dimension> new_geo(in.shape());
     for(int dim = 0;dim < ImageType1::dimension;++dim)
         new_geo[dim] <<= 1;
     out.resize(new_geo);
@@ -442,8 +442,8 @@ void upsampling(const ImageType1& in,ImageType2& out)
 template<class ImageType1,class ImageType2>
 void upsampling_nearest(const ImageType1& in,ImageType2& out)
 {
-    geometry<ImageType1::dimension> geo(in.geometry());
-    geometry<ImageType1::dimension> new_geo(in.geometry());
+    shape<ImageType1::dimension> geo(in.shape());
+    shape<ImageType1::dimension> new_geo(in.shape());
     for(int dim = 0;dim < ImageType1::dimension;++dim)
         new_geo[dim] <<= 1;
     out.resize(new_geo);
@@ -639,15 +639,15 @@ IteratorType downsampling_z_with_padding(IteratorType from,IteratorType to,Outpu
 template<class ImageType1,class ImageType2>
 void downsampling(const ImageType1& in,ImageType2& out)
 {
-    out.resize(in.geometry());
-    geometry<ImageType1::dimension> new_geo(in.geometry());
+    out.resize(in.shape());
+    shape<ImageType1::dimension> new_geo(in.shape());
     typename ImageType2::iterator end_iter = downsampling_x(in.begin(),in.end(),out.begin(),in.width());
     new_geo[0] >>= 1;
     unsigned int plane_size = new_geo[0];
     for(int dim = 1;dim < ImageType1::dimension;++dim)
     {
-        end_iter = downsampling_y(out.begin(),end_iter,out.begin(),plane_size,in.geometry()[dim]);
-        new_geo[dim] = (in.geometry()[dim] >> 1);
+        end_iter = downsampling_y(out.begin(),end_iter,out.begin(),plane_size,in.shape()[dim]);
+        new_geo[dim] = (in.shape()[dim] >> 1);
         plane_size *= new_geo[dim];
     }
     out.resize(new_geo);
@@ -656,15 +656,15 @@ void downsampling(const ImageType1& in,ImageType2& out)
 template<class ImageType1,class ImageType2>
 void downsample_with_padding2(const ImageType1& in,ImageType2& out)
 {
-    out.resize(in.geometry());
-    geometry<ImageType1::dimension> new_geo(in.geometry());
+    out.resize(in.shape());
+    shape<ImageType1::dimension> new_geo(in.shape());
     typename ImageType2::iterator end_iter = downsampling_x_with_padding(in.begin(),in.end(),out.begin(),in.width());
     new_geo[0] = ((new_geo[0]+1) >> 1);
     unsigned int plane_size = new_geo[0];
     for(int dim = 1;dim < ImageType1::dimension;++dim)
     {
-        end_iter = downsampling_y_with_padding(out.begin(),end_iter,out.begin(),plane_size,in.geometry()[dim]);
-        new_geo[dim] = ((in.geometry()[dim]+1) >> 1);
+        end_iter = downsampling_y_with_padding(out.begin(),end_iter,out.begin(),plane_size,in.shape()[dim]);
+        new_geo[dim] = ((in.shape()[dim]+1) >> 1);
         plane_size *= new_geo[dim];
     }
     out.resize(new_geo);
@@ -687,11 +687,11 @@ void downsample_with_padding2(ImageType& in)
 template<typename image_type1,typename image_type2>
 void downsample_with_padding(const image_type1& I,image_type2& rI)
 {
-    geometry<image_type1::dimension> pad_geo(I.geometry());
+    shape<image_type1::dimension> pad_geo(I.shape());
     for(unsigned int dim = 0;dim < image_type1::dimension;++dim)
         ++pad_geo[dim];
     image<typename image_type1::value_type,image_type1::dimension> pad_I(pad_geo);
-    tipl::draw(I,pad_I,pixel_index<image_type1::dimension>(I.geometry()));
+    tipl::draw(I,pad_I,pixel_index<image_type1::dimension>(I.shape()));
     tipl::downsampling(pad_I,rI);
 }
 
@@ -701,7 +701,7 @@ void upsample_with_padding(const image_type1& I,image_type2& uI,const geo_type& 
     image<typename image_type1::value_type,image_type1::dimension> new_I;
     tipl::upsampling(I,new_I);
     uI.resize(geo);
-    tipl::draw(new_I,uI,pixel_index<image_type1::dimension>(I.geometry()));
+    tipl::draw(new_I,uI,pixel_index<image_type1::dimension>(I.shape()));
 }
 
 
@@ -712,7 +712,7 @@ void shrink(const tipl::image<PixelType,3>& image,
 {
     unsigned int slice_size = image.width()*image.height();
     const PixelType* slice = image.begin();
-    buffer.resize(tipl::geometry<3>(
+    buffer.resize(tipl::shape<3>(
                       image.width()/scale,
                       image.height()/scale,
                       image.depth()/scale));
@@ -721,7 +721,7 @@ void shrink(const tipl::image<PixelType,3>& image,
     {
         PixelType* buffer_iter = buffer.begin() + index*buffer.width()*buffer.height();
         tipl::image<PixelType,2> buffer_slice(
-            tipl::geometry<2>(image.width() /scale,
+            tipl::shape<2>(image.width() /scale,
                                image.height() /scale));
         for (unsigned int j = 0;j < scale;++j,slice += slice_size)
         {
@@ -895,7 +895,7 @@ void scale_nearest(const tipl::image<PixelType,2>& source_image,
                 coord[0] = maxx;
             int ix = std::floor(coord[0]+0.5);
             int iy = std::floor(coord[1]+0.5);
-            if(source_image.geometry().is_valid(ix,iy))
+            if(source_image.shape().is_valid(ix,iy))
                 des_image[index] = source_image.at(ix,iy);
         }
     }
@@ -905,7 +905,7 @@ void scale_nearest(const tipl::image<PixelType,2>& source_image,
 template<typename pixel_type>
 void homogenize(tipl::image<pixel_type,3>& I,tipl::image<pixel_type,3>& J,int block_size = 20)
 {
-    if(I.geometry() != J.geometry())
+    if(I.shape() != J.shape())
         return;
     double r = tipl::correlation(I.begin(),I.end(),J.begin());
     if(r < 0.80)
@@ -914,13 +914,13 @@ void homogenize(tipl::image<pixel_type,3>& I,tipl::image<pixel_type,3>& J,int bl
         return;
     }
     float distance_scale = 1.0/(float)block_size/(float)block_size;
-    tipl::image<float,3> v_map(I.geometry()),w_map(I.geometry());
+    tipl::image<float,3> v_map(I.shape()),w_map(I.shape());
     for(int z = block_size;z < J.depth()-block_size;z += block_size)
         for(int y = block_size;y < J.height()-block_size;y += block_size)
             for(int x = block_size;x < J.width()-block_size;x += block_size)
             {
                 std::vector<tipl::pixel_index<3> > neighbors;
-                tipl::get_neighbors(tipl::pixel_index<3>(x,y,z,I.geometry()),I.geometry(),block_size,neighbors);
+                tipl::get_neighbors(tipl::pixel_index<3>(x,y,z,I.shape()),I.shape(),block_size,neighbors);
                 std::vector<float> Iv(neighbors.size()),Jv(neighbors.size()),dis2(neighbors.size());
                 for(int i = 0; i < neighbors.size();++i)
                 {
@@ -996,7 +996,7 @@ void match_signal_kernel(const T& VG,T& VFF)
             sum[index] = sum[index-1];
     }
     // smoothing
-    tipl::image<float,1> value(tipl::geometry<1>(256));
+    tipl::image<float,1> value(tipl::shape<1>(256));
     value[0] = sum[0];
     value[255] = sum[255];
     for(unsigned int index = 1;index+1 < sum.size();++index)
@@ -1070,8 +1070,8 @@ void resample(const ImageType1& from,ImageType2& to,interpolation_type type = in
 {
     tipl::vector<ImageType1::dimension> r;
     for(int i =0;i < ImageType1::dimension;++i)
-        r[i] = ((float)from.geometry()[i]-1.0f)/((float)to.geometry()[i]-1.0f);
-    for (tipl::pixel_index<ImageType1::dimension> index(to.geometry());index < to.size();++index)
+        r[i] = ((float)from.shape()[i]-1.0f)/((float)to.shape()[i]-1.0f);
+    for (tipl::pixel_index<ImageType1::dimension> index(to.shape());index < to.size();++index)
     {
         tipl::vector<ImageType1::dimension> pos(index);
         tipl::multiply(pos,r);
@@ -1084,7 +1084,7 @@ void resample(const ImageType1& from,ImageType2& to,interpolation_type type = in
 template<class ImageType1,class ImageType2,class value_type>
 void resample(const ImageType1& from,ImageType2& to,const tipl::transformation_matrix<value_type>& transform,interpolation_type type)
 {
-    tipl::geometry<ImageType1::dimension> geo(to.geometry());
+    tipl::shape<ImageType1::dimension> geo(to.shape());
     for (tipl::pixel_index<ImageType1::dimension> index(geo);index < geo.size();++index)
     {
         tipl::vector<ImageType1::dimension,value_type> pos;
@@ -1096,7 +1096,7 @@ void resample(const ImageType1& from,ImageType2& to,const tipl::transformation_m
 template<class ImageType1,class ImageType2,class transform_type>
 void resample_dis(const ImageType1& from,ImageType2& to,const transform_type& transform,const tipl::image<tipl::vector<3>,3>& dis,interpolation_type type)
 {
-    tipl::geometry<ImageType1::dimension> geo(to.geometry());
+    tipl::shape<ImageType1::dimension> geo(to.shape());
     for (tipl::pixel_index<ImageType1::dimension> index(geo);index < geo.size();++index)
     {
         tipl::vector<ImageType1::dimension,double> pos;
@@ -1112,14 +1112,14 @@ void resample_dis(const ImageType1& from,ImageType2& to,const transform_type& tr
  */
 template<class ImageType1,class RefType,class ImageType2,class transform_type>
 void resample_with_ref(const ImageType1& from,
-                       const RefType& ref, // has the geometry the same as to.geometry()
+                       const RefType& ref, // has the shape the same as to.shape()
                        ImageType2& to,const transform_type& transform,double var)
 {
     transform_type iT(transform);
     iT.inverse();
-    RefType ref_in_from(from.geometry());
+    RefType ref_in_from(from.shape());
     resample(ref,ref_in_from,iT,tipl::linear);
-    tipl::geometry<ImageType1::dimension> geo(to.geometry());
+    tipl::shape<ImageType1::dimension> geo(to.shape());
     for (tipl::pixel_index<ImageType1::dimension> index(geo);index < geo.size();++index)
     {
         tipl::vector<ImageType1::dimension,double> pos;
@@ -1132,8 +1132,8 @@ void resample_with_ref(const ImageType1& from,
 template<class ImageType,class value_type>
 void resample(ImageType& from,const tipl::transformation_matrix<value_type>& transform,interpolation_type type)
 {
-    tipl::image<class ImageType::value_type,ImageType::dimension> I(from.geometry());
-    for (tipl::pixel_index<ImageType::dimension> index(from.geometry());index < from.size();++index)
+    tipl::image<class ImageType::value_type,ImageType::dimension> I(from.shape());
+    for (tipl::pixel_index<ImageType::dimension> index(from.shape());index < from.size();++index)
     {
         tipl::vector<ImageType::dimension,value_type> pos;
         transform(index,pos);

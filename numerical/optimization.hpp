@@ -21,8 +21,8 @@ void plot_fun_2d(
                 unsigned int dim1,unsigned int dim2,unsigned int sample_frequency = 100)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
-    I.resize(tipl::geometry<2>(sample_frequency,sample_frequency));
-    for(tipl::pixel_index<2> index(I.geometry());index < I.size();++index)
+    I.resize(tipl::shape<2>(sample_frequency,sample_frequency));
+    for(tipl::pixel_index<2> index(I.shape());index < I.size();++index)
     {
         std::vector<param_type> x(x_beg,x_end);
         x[dim1] = (x_upper[dim1]-x_lower[dim1])*index[0]/(float)sample_frequency+x_lower[dim1];
@@ -204,9 +204,9 @@ void quasi_newtons_minimize(
         hessian(x_beg,x_end,tols.begin(),fun_x,fun_x_ei.begin(),h.begin(),fun);
 
         std::vector<unsigned int> pivot(size);
-        if(!tipl::mat::lu_decomposition(h.begin(),pivot.begin(),tipl::shape(size,size)))
+        if(!tipl::mat::lu_decomposition(h.begin(),pivot.begin(),tipl::shape<2>(size,size)))
             return;
-        if(!tipl::mat::lu_solve(h.begin(),pivot.begin(),g.begin(),p.begin(),tipl::shape(size,size)))
+        if(!tipl::mat::lu_solve(h.begin(),pivot.begin(),g.begin(),p.begin(),tipl::shape<2>(size,size)))
             return;
         std::vector<param_type> new_x(x_beg,x_end);
         tipl::vec::aypx(p.begin(),p.end(),-0.25,new_x.begin());

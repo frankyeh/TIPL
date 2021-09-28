@@ -81,7 +81,7 @@ inline void gradient(input_iterator src_from,input_iterator src_to,
 template<class PixelImageType,class VectorImageType>
 inline void gradient(const PixelImageType& src,VectorImageType& dest_,unsigned int src_shift,unsigned int dest_shift)
 {
-    VectorImageType dest(src.geometry());
+    VectorImageType dest(src.shape());
     gradient(src.begin(),src.end(),dest.begin(),src_shift,dest_shift);
     dest.swap(dest_);
 }
@@ -90,7 +90,7 @@ template<class PixelImageType,class VectorImageType>
 void gradient(const PixelImageType& src,VectorImageType& dest)
 {
     dest.clear();
-    dest.resize(src.geometry());
+    dest.resize(src.shape());
     int shift = 1;
     for (unsigned int index = 0; index < PixelImageType::dimension; ++index)
     {
@@ -100,7 +100,7 @@ void gradient(const PixelImageType& src,VectorImageType& dest)
         typename PixelImageType::const_iterator in_to = src.end();
         for (; in_from2 != in_to; ++in_from1,++in_from2,++out_from)
             (*out_from)[index] = (*in_from2 - *in_from1);
-        shift *= src.geometry()[index];
+        shift *= src.shape()[index];
     }
 }
 //---------------------------------------------------------------------------
@@ -108,7 +108,7 @@ template<class PixelImageType,class VectorImageType>
 void gradient_sobel(const PixelImageType& src,VectorImageType& dest)
 {
     dest.clear();
-    dest.resize(src.geometry());
+    dest.resize(src.shape());
     int shift = 1;
     for (unsigned int index = 0; index < PixelImageType::dimension; ++index)
     {
@@ -118,7 +118,7 @@ void gradient_sobel(const PixelImageType& src,VectorImageType& dest)
         typename PixelImageType::const_iterator in_to = src.end();
         for (; in_from2 != in_to; ++in_from1,++in_from2,++out_from)
             (*out_from)[index] = (*in_from2 - *in_from1);
-        shift *= src.geometry()[index];
+        shift *= src.shape()[index];
     }
 }
 //---------------------------------------------------------------------------
@@ -157,8 +157,8 @@ void gradient_multiple_sampling(const tipl::image<pixel_type,2,container_type>& 
                 vector_type r = dist;
                 r *= line_interval;
                 r *= j;
-                interpo1[index].get_location(src.geometry(),center+r);
-                interpo2[index].get_location(src.geometry(),center-r);
+                interpo1[index].get_location(src.shape(),center+r);
+                interpo2[index].get_location(src.shape(),center-r);
                 offset_vector[index] = dist;
                 offset_length[index] = 2*line_interval*(double)j;
             }
@@ -171,8 +171,8 @@ void gradient_multiple_sampling(const tipl::image<pixel_type,2,container_type>& 
             }
     }
 
-    dest.resize(src.geometry());
-    for (tipl::pixel_index<2> iter(src.geometry()); iter < src.size(); ++iter)
+    dest.resize(src.shape());
+    for (tipl::pixel_index<2> iter(src.shape()); iter < src.size(); ++iter)
     {
         vector_type dist;
         unsigned int total_dir = 0;
@@ -212,9 +212,9 @@ void gradient(const PixelImageType& src,std::vector<GradientImageType>& dest)
     unsigned int shift = 1;
     for (unsigned int index = 0; index < PixelImageType::dimension; ++index)
     {
-        dest[index].resize(src.geometry());
+        dest[index].resize(src.shape());
         gradient(src,dest[index],shift,0);
-        shift *= src.geometry()[index];
+        shift *= src.shape()[index];
     }
 }
 
@@ -239,7 +239,7 @@ void gradient_2y(const InputImageType& in,OutputImageType& out)
 template<class InputImageType,class OutputImageType>
 void gradient_2z(const InputImageType& in,OutputImageType& out)
 {
-    gradient(in,out,in.geometry().plane_size() << 1,in.geometry().plane_size());
+    gradient(in,out,in.shape().plane_size() << 1,in.shape().plane_size());
 }
 //---------------------------------------------------------------------------
 template<class iterator1,class iterator2>
@@ -880,7 +880,7 @@ void normalize_abs(ImageType& image,float upper_limit = 1.0f)
 template<class ImageType1,class ImageType2>
 void normalize(const ImageType1& image1,ImageType2& image2,float upper_limit = 255.0)
 {
-    image2.resize(image1.geometry());
+    image2.resize(image1.shape());
     normalize(image1.begin(),image1.end(),image2.begin(),upper_limit);
 }
 

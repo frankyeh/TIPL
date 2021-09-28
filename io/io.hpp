@@ -21,7 +21,7 @@ public:
     std::vector<std::shared_ptr<dicom> > dicom_reader;
     std::vector<std::shared_ptr<nifti> > nifti_reader;
     float orientation_matrix[9];
-    tipl::geometry<3> dim;
+    tipl::shape<3> dim;
     tipl::vector<3,float> vs;
     uint8_t dim_order[3]; // used to rotate the volume to axial view
     uint8_t flip[3];        // used to rotate the volume to axial view
@@ -48,7 +48,7 @@ public:
     ~volume(void){free_all();}
     const std::shared_ptr<dicom> get_dicom(unsigned int index) const{return dicom_reader[index];}
     const std::shared_ptr<nifti> get_nifti(unsigned int index) const{return nifti_reader[index];}
-    const geometry<3>& geo(void) const{return dim;}
+    const shape<3>& geo(void) const{return dim;}
     void get_voxel_size(tipl::vector<3,float>& voxel_size) const
     {
         voxel_size = vs;
@@ -127,7 +127,7 @@ public:
             }
             if(dicom_reader.size() < 2)
                 return false;
-            dim = tipl::geometry<3>(dicom_reader.front()->width(),
+            dim = tipl::shape<3>(dicom_reader.front()->width(),
                                     dicom_reader.front()->height(),
                                     dicom_reader.size());
             dicom_reader.front()->get_voxel_size(vs);
@@ -151,7 +151,7 @@ public:
         else
             if(!nifti_reader.empty())
             {
-                dim = tipl::geometry<3>(nifti_reader.front()->width(),
+                dim = tipl::shape<3>(nifti_reader.front()->width(),
                                         nifti_reader.front()->height(),
                                         nifti_reader.size());
                 nifti_reader.front()->get_voxel_size(vs);

@@ -52,14 +52,14 @@ void erosion(ImageType& I,const std::vector<int>& index_shift)
 template<typename ImageType>
 void erosion(ImageType& I)
 {
-    neighbor_index_shift_narrow<ImageType::dimension> neighborhood(I.geometry());
+    neighbor_index_shift_narrow<ImageType::dimension> neighborhood(I.shape());
     erosion(I,neighborhood.index_shift);
 }
 
 template<typename ImageType>
 void erosion2(ImageType& I,int radius)
 {
-    neighbor_index_shift<ImageType::dimension> neighborhood(I.geometry(),radius);
+    neighbor_index_shift<ImageType::dimension> neighborhood(I.shape(),radius);
     erosion(I,neighborhood.index_shift);
 }
 
@@ -123,14 +123,14 @@ void dilation_mt(ImageType& I,const std::vector<int>& index_shift)
 template<typename ImageType>
 void dilation(ImageType& I)
 {
-    neighbor_index_shift_narrow<ImageType::dimension> neighborhood(I.geometry());
+    neighbor_index_shift_narrow<ImageType::dimension> neighborhood(I.shape());
     dilation(I,neighborhood.index_shift);
 }
 
 template<typename ImageType>
 void dilation2(ImageType& I,int radius)
 {
-    neighbor_index_shift<ImageType::dimension> neighborhood(I.geometry(),radius);
+    neighbor_index_shift<ImageType::dimension> neighborhood(I.shape(),radius);
     dilation_mt(I,neighborhood.index_shift);
 }
 
@@ -153,7 +153,7 @@ void closing(ImageType& I)
 template<typename ImageType,typename LabelType,typename ShiftType>
 void edge(const ImageType& I,LabelType& act,const ShiftType& shift_list)
 {
-    act.resize(I.geometry());
+    act.resize(I.shape());
     for (unsigned int index = 0;index < shift_list.size();++index)
     {
         int shift = shift_list[index];
@@ -182,7 +182,7 @@ void edge(const ImageType& I,LabelType& act,const ShiftType& shift_list)
 template<typename ImageType,typename LabelType>
 void edge(const ImageType& I,LabelType& act)
 {
-    neighbor_index_shift<ImageType::dimension> neighborhood(I.geometry());
+    neighbor_index_shift<ImageType::dimension> neighborhood(I.shape());
     edge(I,act,neighborhood.index_shift);
 }
 template<typename ImageType>
@@ -197,7 +197,7 @@ template<typename ImageType>
 void edge_thin(ImageType& I)
 {
     ImageType out;
-    neighbor_index_shift_narrow<ImageType::dimension> neighborhood(I.geometry());
+    neighbor_index_shift_narrow<ImageType::dimension> neighborhood(I.shape());
     neighborhood.index_shift.resize(neighborhood.index_shift.size()/2);
     edge(I,out,neighborhood.index_shift);
     I = out;
@@ -238,8 +238,8 @@ void edge_xz(ImageType& I)
 template<typename ImageType,typename LabelType>
 void inner_edge(const ImageType& I,LabelType& act)
 {
-    act.resize(I.geometry());
-    neighbor_index_shift<ImageType::dimension> neighborhood(I.geometry());
+    act.resize(I.shape());
+    neighbor_index_shift<ImageType::dimension> neighborhood(I.shape());
     for (unsigned int index = 0;index < neighborhood.index_shift.size();++index)
     {
         int shift = neighborhood.index_shift[index];
@@ -310,7 +310,7 @@ template<typename ImageType>
 bool is_edge(ImageType& I,tipl::pixel_index<3> index)
 {
     typename ImageType::value_type center = I[index.index()];
-    unsigned int z_offset = I.geometry().plane_size();
+    unsigned int z_offset = I.shape().plane_size();
     unsigned int y_offset = I.width();
     bool have_left = index.x() >= 1;
     bool have_right = index.x()+1 < I.width();
@@ -392,7 +392,7 @@ template<typename ImageType>
 unsigned char get_neighbor_count(ImageType& I,std::vector<unsigned char>& act)
 {
     act.resize(I.size());
-    neighbor_index_shift<ImageType::dimension> neighborhood(I.geometry());
+    neighbor_index_shift<ImageType::dimension> neighborhood(I.shape());
     tipl::par_for(neighborhood.index_shift.size(),[&](int index)
     {
         int shift = neighborhood.index_shift[index];
@@ -579,7 +579,7 @@ void region_growing(const ImageType& I,const IndexType& seed_point,
     for (unsigned int index = 0;index < seeds.size();++index)
     {
         IndexType active_point = seeds[index];
-        get_neighbors(active_point,I.geometry(),neighbor);
+        get_neighbors(active_point,I.shape(),neighbor);
         for (unsigned int index = 0;index < neighbor.size();++index)
         {
             unsigned int cur_neighbor_index = neighbor[index].index();
@@ -598,7 +598,7 @@ void region_growing(const ImageType& I,const IndexType& seed_point,
 template<typename ImageType>
 void convex_xy(ImageType& I)
 {
-    tipl::geometry<ImageType::dimension> range_min,range_max;
+    tipl::shape<ImageType::dimension> range_min,range_max;
     bounding_box(I,range_min,range_max);
     // get the bounding box first
     int dirs[8][2] = {{1,0},{2,1},{1,1},{1,2},{0,1},{-1,2},{-1,1},{-2,1}};
@@ -610,8 +610,8 @@ void convex_xy(ImageType& I)
             continue;
         std::vector<unsigned char> label(I.size());
         for(pixel_index<ImageType::dimension> index;
-            index.is_valid(I.geometry());
-            index.next(I.geometry()))
+            index.is_valid(I.shape());
+            index.next(I.shape()))
         {
             if(index[0] < range_min[0] || index[0] >= range_max[0] ||
                index[1] < range_min[1] || index[1] >= range_max[1] ||
@@ -620,7 +620,7 @@ void convex_xy(ImageType& I)
             bool has_first = false;
             fill_buf.clear();
             for(pixel_index<ImageType::dimension> index2(index);
-                index.is_valid(I.geometry());)
+                index.is_valid(I.shape());)
             {
                 if(I[index2.index()])
                 {
@@ -724,7 +724,7 @@ void connected_component_labeling_pass(const ImageType& I,
     if (shift == 1) // growing in one dimension
     {
         regions.clear();
-        labels.resize(I.geometry());
+        labels.resize(I.shape());
         std::mutex add_lock;
 
         unsigned int width = I.width();
@@ -815,7 +815,7 @@ void connected_component_labeling(const tipl::image<PixelType,3,StorageType>& I,
 {
     connected_component_labeling_pass(I,labels,regions,1);
     connected_component_labeling_pass(I,labels,regions,I.width());
-    connected_component_labeling_pass(I,labels,regions,I.geometry().plane_size());
+    connected_component_labeling_pass(I,labels,regions,I.shape().plane_size());
 }
 
 template<typename LabelImageType>
@@ -828,8 +828,8 @@ void get_region_bounding_box(const LabelImageType& labels,
     min_pos.resize(regions.size());
     max_pos.clear();
     max_pos.resize(regions.size());
-    std::fill(min_pos.begin(),min_pos.end(),tipl::vector<2,float>(labels.geometry()[0],labels.geometry()[1]));
-    for(tipl::pixel_index<2> index(labels.geometry());index < labels.size();++index)
+    std::fill(min_pos.begin(),min_pos.end(),tipl::vector<2,float>(labels.shape()[0],labels.shape()[1]));
+    for(tipl::pixel_index<2> index(labels.shape());index < labels.size();++index)
     if (labels[index.index()])
     {
         size_t region_id = labels[index.index()]-1;
@@ -870,7 +870,7 @@ void get_region_center(const LabelImageType& labels,
 {
     center_of_mass.clear();
     center_of_mass.resize(regions.size());
-    for(tipl::pixel_index<2> index(labels.geometry());index < labels.size();++index)
+    for(tipl::pixel_index<2> index(labels.shape());index < labels.size();++index)
         if (labels[index.index()])
         {
             size_t region_id = labels[index.index()]-1;
@@ -887,7 +887,7 @@ void get_region_center(const LabelImageType& labels,
 template<typename ImageType>
 void defragment(ImageType& I)
 {
-    tipl::image<unsigned int,ImageType::dimension> labels(I.geometry());
+    tipl::image<unsigned int,ImageType::dimension> labels(I.shape());
     std::vector<std::vector<unsigned int> > regions;
 
     connected_component_labeling(I,labels,regions);
@@ -912,7 +912,7 @@ void defragment(ImageType& I)
 template<typename ImageType>
 void defragment_by_size(ImageType& I,unsigned int area_threshold)
 {
-    tipl::image<unsigned int,ImageType::dimension> labels(I.geometry());
+    tipl::image<unsigned int,ImageType::dimension> labels(I.shape());
     std::vector<std::vector<unsigned int> > regions;
 
     connected_component_labeling(I,labels,regions);
@@ -939,7 +939,7 @@ void fill(ImageType& I,PixelIndexType seed_point,ValueType new_value)
         PixelIndexType active_point = seeds.front();
         seeds.pop_front();
         std::vector<PixelIndexType> neighbor;
-        get_neighbors(active_point,I.geometry(),neighbor);
+        get_neighbors(active_point,I.shape(),neighbor);
         for (unsigned int index = 0;index < neighbor.size();++index)
         {
             if (I[neighbor[index].index()] != old_value)

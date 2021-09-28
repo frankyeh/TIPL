@@ -93,7 +93,7 @@ void get_window(const pixel_index<3>& index,const ImageType& image,std::vector<P
 {
     pixels.clear();
     pixels.reserve(27);
-    unsigned int z_offset = image.geometry().plane_size();
+    unsigned int z_offset = image.shape().plane_size();
     unsigned int y_offset = image.width();
     bool have_left = index.x() >= 1;
     bool have_right = index.x()+1 < image.width();
