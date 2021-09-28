@@ -26,6 +26,10 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#ifdef INCLUDE_NLOHMANN_JSON_HPP_
+#define USING_XEUS_CLING
+#endif
+
 #include "utility/basic_image.hpp"
 
 
@@ -86,7 +90,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "vis/color_map.hpp"
 
 
-#ifdef INCLUDE_NLOHMANN_JSON_HPP_
+#ifdef USING_XEUS_CLING
 // XEUS interface
 #include "xtl/xbase64.hpp"
 #include "nlohmann/json.hpp"
