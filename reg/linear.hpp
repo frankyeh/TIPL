@@ -73,7 +73,7 @@ struct correlation
     double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
     {
         tipl::shape<ImageType::dimension> geo(Ifrom.shape());
-        tipl::image<typename ImageType::value_type,ImageType::dimension> y(geo);
+        tipl::image<ImageType::dimension,typename ImageType::value_type> y(geo);
         tipl::resample(Ito,y,transform,tipl::linear);
         float c = tipl::correlation(Ifrom.begin(),Ifrom.end(),y.begin());
         return -c*c;
@@ -191,7 +191,7 @@ public:
         unsigned int thread_count = std::thread::hardware_concurrency();
 
 
-        std::vector<tipl::image<double,2> > mutual_hist(thread_count);
+        std::vector<tipl::image<2,double> > mutual_hist(thread_count);
         std::vector<std::vector<double> > to_hist(thread_count);
         for(int i = 0;i < thread_count;++i)
         {
@@ -435,7 +435,7 @@ float linear_mr(const image_type& from,const vs_type& from_vs,
         *std::max_element(to.shape().begin(),to.shape().end()) > 32)
     {
         //downsampling
-        image<typename image_type::value_type,image_type::dimension> from_r,to_r;
+        image<image_type::dimension,typename image_type::value_type> from_r,to_r;
         tipl::vector<image_type::dimension> from_vs_r(from_vs),to_vs_r(to_vs);
         downsample_with_padding(from,from_r);
         downsample_with_padding(to,to_r);

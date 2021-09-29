@@ -98,7 +98,7 @@ namespace nl = nlohmann;
 namespace tipl
 {
     template <typename pixel_type,typename storage_type>
-    nl::json mime_bundle_repr(const tipl::image<pixel_type,2,storage_type>& I)
+    nl::json mime_bundle_repr(const tipl::image<2,pixel_type,storage_type>& I)
     {
         tipl::io::bitmap bmp;
         bmp << I;
@@ -109,7 +109,7 @@ namespace tipl
         return bundle;
     }
     template <typename pixel_type,typename storage_type>
-    nl::json mime_bundle_repr(const tipl::image<pixel_type,3,storage_type>& I)
+    nl::json mime_bundle_repr(const tipl::image<3,pixel_type,storage_type>& I)
     {
         return mime_bundle_repr(I.slice_at(I.depth()/2));
     }

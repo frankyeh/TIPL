@@ -58,7 +58,7 @@ public:
 };
 //---------------------------------------------------------------------------
 template<typename PixelType>
-void thumb(const image<PixelType,2>& from,image<PixelType,2>& to)
+void thumb(const image<2,PixelType>& from,image<2,PixelType>& to)
 {
     std::vector<PixelAdapter<PixelType> > to_buffer(to.width());
     enum MoveType {MoveFrom,MoveTo};
@@ -649,7 +649,7 @@ void downsample_with_padding(const image_type1& I,image_type2& rI)
     shape<image_type1::dimension> pad_geo(I.shape());
     for(unsigned int dim = 0;dim < image_type1::dimension;++dim)
         ++pad_geo[dim];
-    image<typename image_type1::value_type,image_type1::dimension> pad_I(pad_geo);
+    image<image_type1::dimension,typename image_type1::value_type> pad_I(pad_geo);
     tipl::draw(I,pad_I,pixel_index<image_type1::dimension>(I.shape()));
     tipl::downsampling(pad_I,rI);
 }
@@ -657,7 +657,7 @@ void downsample_with_padding(const image_type1& I,image_type2& rI)
 template<typename image_type1,typename image_type2,typename geo_type>
 void upsample_with_padding(const image_type1& I,image_type2& uI,const geo_type& geo)
 {
-    image<typename image_type1::value_type,image_type1::dimension> new_I;
+    image<image_type1::dimension,typename image_type1::value_type> new_I;
     tipl::upsampling(I,new_I);
     uI.resize(geo);
     tipl::draw(new_I,uI,pixel_index<image_type1::dimension>(I.shape()));
@@ -665,8 +665,8 @@ void upsample_with_padding(const image_type1& I,image_type2& uI,const geo_type& 
 
 
 template<typename PixelType>
-void shrink(const tipl::image<PixelType,3>& image,
-            tipl::image<PixelType,3>& buffer,
+void shrink(const tipl::image<3,PixelType>& image,
+            tipl::image<3,PixelType>& buffer,
             unsigned int scale)
 {
     unsigned int slice_size = image.width()*image.height();
@@ -679,7 +679,7 @@ void shrink(const tipl::image<PixelType,3>& image,
     for (unsigned int index = 0;index < buffer.depth();++index)
     {
         PixelType* buffer_iter = buffer.begin() + index*buffer.width()*buffer.height();
-        tipl::image<PixelType,2> buffer_slice(
+        tipl::image<2,PixelType> buffer_slice(
             tipl::shape<2>(image.width() /scale,
                                image.height() /scale));
         for (unsigned int j = 0;j < scale;++j,slice += slice_size)
@@ -714,8 +714,8 @@ void shrink(const tipl::image<PixelType,3>& image,
 }
 
 template<typename PixelType>
-void fast_resample(const tipl::image<PixelType,3>& source_image,
-                   tipl::image<PixelType,3>& des_image)
+void fast_resample(const tipl::image<3,PixelType>& source_image,
+                   tipl::image<3,PixelType>& des_image)
 {
     double dx = (double)(source_image.width()-1)/(double)(des_image.width()-1);
     double dy = (double)(source_image.height()-1)/(double)(des_image.height()-1);
@@ -751,8 +751,8 @@ void fast_resample(const tipl::image<PixelType,3>& source_image,
 }
 
 template<typename PixelType>
-void fast_resample(const tipl::image<PixelType,2>& source_image,
-                   tipl::image<PixelType,2>& des_image)
+void fast_resample(const tipl::image<2,PixelType>& source_image,
+                   tipl::image<2,PixelType>& des_image)
 {
     double dx = (double)(source_image.width()-1)/(double)(des_image.width()-1);
     double dy = (double)(source_image.height()-1)/(double)(des_image.height()-1);
@@ -778,8 +778,8 @@ void fast_resample(const tipl::image<PixelType,2>& source_image,
 }
 
 template<typename PixelType>
-void scale(const tipl::image<PixelType,3>& source_image,
-              tipl::image<PixelType,3>& des_image)
+void scale(const tipl::image<3,PixelType>& source_image,
+              tipl::image<3,PixelType>& des_image)
 {
     double dx = (double)(source_image.width()-1)/(double)(des_image.width()-1);
     double dy = (double)(source_image.height()-1)/(double)(des_image.height()-1);
@@ -810,8 +810,8 @@ void scale(const tipl::image<PixelType,3>& source_image,
 }
 
 template<typename PixelType>
-void scale(const tipl::image<PixelType,2>& source_image,
-              tipl::image<PixelType,2>& des_image)
+void scale(const tipl::image<2,PixelType>& source_image,
+              tipl::image<2,PixelType>& des_image)
 {
     double dx = (double)(source_image.width()-1)/(double)(des_image.width()-1);
     double dy = (double)(source_image.height()-1)/(double)(des_image.height()-1);
@@ -834,8 +834,8 @@ void scale(const tipl::image<PixelType,2>& source_image,
 }
 
 template<typename PixelType>
-void scale_nearest(const tipl::image<PixelType,2>& source_image,
-              tipl::image<PixelType,2>& des_image)
+void scale_nearest(const tipl::image<2,PixelType>& source_image,
+              tipl::image<2,PixelType>& des_image)
 {
     double dx = (double)(source_image.width()-1)/(double)(des_image.width()-1);
     double dy = (double)(source_image.height()-1)/(double)(des_image.height()-1);
@@ -862,7 +862,7 @@ void scale_nearest(const tipl::image<PixelType,2>& source_image,
 
 
 template<typename pixel_type>
-void homogenize(tipl::image<pixel_type,3>& I,tipl::image<pixel_type,3>& J,int block_size = 20)
+void homogenize(tipl::image<3,pixel_type>& I,tipl::image<3,pixel_type>& J,int block_size = 20)
 {
     if(I.shape() != J.shape())
         return;
@@ -873,7 +873,7 @@ void homogenize(tipl::image<pixel_type,3>& I,tipl::image<pixel_type,3>& J,int bl
         return;
     }
     float distance_scale = 1.0/(float)block_size/(float)block_size;
-    tipl::image<float,3> v_map(I.shape()),w_map(I.shape());
+    tipl::image<3,float> v_map(I.shape()),w_map(I.shape());
     for(int z = block_size;z < J.depth()-block_size;z += block_size)
         for(int y = block_size;y < J.height()-block_size;y += block_size)
             for(int x = block_size;x < J.width()-block_size;x += block_size)
@@ -979,8 +979,8 @@ void match_signal_kernel(const T& VG,T& VFF)
 }
 
 template<typename PixelType,typename CoordinateType,typename ScaleVecType>
-void resample(const tipl::image<PixelType,3>& source_image,
-              tipl::image<PixelType,3>& des_image,
+void resample(const tipl::image<3,PixelType>& source_image,
+              tipl::image<3,PixelType>& des_image,
               const CoordinateType& from_position,
               const ScaleVecType& scales,
               interpolation_type type)
@@ -1053,7 +1053,7 @@ void resample(const ImageType1& from,ImageType2& to,const tipl::transformation_m
 }
 
 template<typename ImageType1,typename ImageType2,typename transform_type>
-void resample_dis(const ImageType1& from,ImageType2& to,const transform_type& transform,const tipl::image<tipl::vector<3>,3>& dis,interpolation_type type)
+void resample_dis(const ImageType1& from,ImageType2& to,const transform_type& transform,const tipl::image<3,tipl::vector<3> >& dis,interpolation_type type)
 {
     tipl::shape<ImageType1::dimension> geo(to.shape());
     for (tipl::pixel_index<ImageType1::dimension> index(geo);index < geo.size();++index)
@@ -1091,7 +1091,7 @@ void resample_with_ref(const ImageType1& from,
 template<typename ImageType,typename value_type>
 void resample(ImageType& from,const tipl::transformation_matrix<value_type>& transform,interpolation_type type)
 {
-    tipl::image<class ImageType::value_type,ImageType::dimension> I(from.shape());
+    tipl::image<ImageType::dimension,typename ImageType::value_type> I(from.shape());
     for (tipl::pixel_index<ImageType::dimension> index(from.shape());index < from.size();++index)
     {
         tipl::vector<ImageType::dimension,value_type> pos;

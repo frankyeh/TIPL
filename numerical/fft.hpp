@@ -72,14 +72,14 @@ void fft_shift_z(image_type& I)
 }
 
 template<typename value_type>
-void fft_shift(image<value_type,2>& I)
+void fft_shift(image<2,value_type>& I)
 {
     fft_shift_x(I);
     fft_shift_y(I);
 }
 
 template<typename value_type>
-void fft_shift(image<value_type,3>& I)
+void fft_shift(image<3,value_type>& I)
 {
     fft_shift_x(I);
     fft_shift_y(I);

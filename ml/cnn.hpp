@@ -1406,7 +1406,7 @@ template<typename layer_type>
 void to_image(std::shared_ptr<layer_type> l,color_image& Is,int max_width)
 {
     Is.clear();
-    image<float,2> I;
+    image<2,float> I;
     if(dynamic_cast<fully_connected_layer*>(l.get()))
     {
         fully_connected_layer* layer = dynamic_cast<fully_connected_layer*>(l.get());

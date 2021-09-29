@@ -791,7 +791,7 @@ void connected_component_labeling_pass(const ImageType& I,
 }
 
 template<typename PixelType,typename StorageType,typename LabelImageType>
-void connected_component_labeling(const tipl::image<PixelType,1,StorageType>& I,
+void connected_component_labeling(const tipl::image<1,PixelType,StorageType>& I,
                                   LabelImageType& labels,
                                   std::vector<std::vector<unsigned int> >& regions)
 {
@@ -799,7 +799,7 @@ void connected_component_labeling(const tipl::image<PixelType,1,StorageType>& I,
 }
 
 template<typename PixelType,typename StorageType,typename LabelImageType>
-void connected_component_labeling(const tipl::image<PixelType,2,StorageType>& I,
+void connected_component_labeling(const tipl::image<2,PixelType,StorageType>& I,
                                   LabelImageType& labels,
                                   std::vector<std::vector<unsigned int> >& regions)
 {
@@ -809,7 +809,7 @@ void connected_component_labeling(const tipl::image<PixelType,2,StorageType>& I,
 
 
 template<typename PixelType,typename StorageType,typename LabelImageType>
-void connected_component_labeling(const tipl::image<PixelType,3,StorageType>& I,
+void connected_component_labeling(const tipl::image<3,PixelType,StorageType>& I,
                                   LabelImageType& labels,
                                   std::vector<std::vector<unsigned int> >& regions)
 {
@@ -887,7 +887,7 @@ void get_region_center(const LabelImageType& labels,
 template<typename ImageType>
 void defragment(ImageType& I)
 {
-    tipl::image<unsigned int,ImageType::dimension> labels(I.shape());
+    tipl::image<ImageType::dimension,unsigned int> labels(I.shape());
     std::vector<std::vector<unsigned int> > regions;
 
     connected_component_labeling(I,labels,regions);
@@ -912,7 +912,7 @@ void defragment(ImageType& I)
 template<typename ImageType>
 void defragment_by_size(ImageType& I,unsigned int area_threshold)
 {
-    tipl::image<unsigned int,ImageType::dimension> labels(I.shape());
+    tipl::image<ImageType::dimension,unsigned int> labels(I.shape());
     std::vector<std::vector<unsigned int> > regions;
 
     connected_component_labeling(I,labels,regions);

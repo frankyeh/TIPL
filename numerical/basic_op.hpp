@@ -196,8 +196,8 @@ ImageType2D& volume2slice(const ImageType3D& slice,ImageType2D& I,dim_type dim,s
 
 //--------------------------------------------------------------------------
 template<typename PixelType,typename PosType,typename storage_type>
-void crop(const image<PixelType,2,storage_type>& from_image,
-          image<PixelType,2,storage_type>& to_image,PosType from,PosType to)
+void crop(const image<2,PixelType,storage_type>& from_image,
+          image<2,PixelType,storage_type>& to_image,PosType from,PosType to)
 {
     if (to[0] <= from[0] || to[1] <= from[1])
         return;
@@ -214,8 +214,8 @@ void crop(const image<PixelType,2,storage_type>& from_image,
 }
 //--------------------------------------------------------------------------
 template<typename PixelType,typename PosType,typename storage_type>
-void crop(const image<PixelType,3,storage_type>& from_image,
-          image<PixelType,3,storage_type>& to_image,PosType from,PosType to)
+void crop(const image<3,PixelType,storage_type>& from_image,
+          image<3,PixelType,storage_type>& to_image,PosType from,PosType to)
 {
     if (to[0] <= from[0] || to[1] <= from[1] ||
             to[2] <= from[2])
@@ -257,12 +257,12 @@ void fill_rect(image_type& I,PosType from,PosType to,pixel_type value)
 //--------------------------------------------------------------------------
 template<typename pixel_type1,typename storage_type1,
          typename pixel_type2,typename storage_type2,typename PosType>
-void draw(const image<pixel_type1,2,storage_type1>& from_image,
-          image<pixel_type2,2,storage_type2>& to_image,
+void draw(const image<2,pixel_type1,storage_type1>& from_image,
+          image<2,pixel_type2,storage_type2>& to_image,
           PosType pos)
 {
-    typedef image<pixel_type1,2,storage_type1> from_image_type;
-    typedef image<pixel_type2,2,storage_type2> to_image_type;
+    typedef image<2,pixel_type1,storage_type1> from_image_type;
+    typedef image<2,pixel_type2,storage_type2> to_image_type;
     int x_shift,y_shift;
     if (pos[0] < 0)
     {
@@ -296,12 +296,12 @@ void draw(const image<pixel_type1,2,storage_type1>& from_image,
 //--------------------------------------------------------------------------
 template<typename pixel_type1,typename storage_type1,
          typename pixel_type2,typename storage_type2,typename PosType>
-void draw(const image<pixel_type1,3,storage_type1>& from_image,
-          image<pixel_type2,3,storage_type2>& to_image,
+void draw(const image<3,pixel_type1,storage_type1>& from_image,
+          image<3,pixel_type2,storage_type2>& to_image,
           PosType pos)
 {
-    typedef image<pixel_type1,3,storage_type1> from_image_type;
-    typedef image<pixel_type2,3,storage_type2> to_image_type;
+    typedef image<3,pixel_type1,storage_type1> from_image_type;
+    typedef image<3,pixel_type2,storage_type2> to_image_type;
     int64_t x_shift,y_shift,z_shift;
     if (pos[0] < 0)
     {
@@ -417,11 +417,11 @@ ImageType& move(ImageType& I,PosType pos)
 }
 
 //---------------------------------------------------------------------------
-template<typename ImageType,typename DimensionType>
+template<typename ImageType,typename DimensionType,typename ValueType>
 void bounding_box(const ImageType& I,
           DimensionType& range_min,
           DimensionType& range_max,
-          typename ImageType::value_type background = 0)
+          ValueType background = 0)
 {
     //get_border(image,range_min,range_max);
     for (unsigned int di = 0; di < ImageType::dimension; ++di)
@@ -762,7 +762,7 @@ ImageType& swap_xy(ImageType& I)
         }
         return I;
     }
-    tipl::image<typename ImageType::value_type,2> plane(tipl::shape<2>(I.width(),I.height()));
+    tipl::image<2,typename ImageType::value_type> plane(tipl::shape<2>(I.width(),I.height()));
     for(size_t i = 0;i < I.size();i += plane.size())
     {
         auto plane_ptr = &I[i];
@@ -780,10 +780,9 @@ ImageType& swap_xy(ImageType& I)
 template<typename ImageType>
 ImageType& swap_xz(ImageType& I)
 {
-    typedef typename ImageType::value_type value_type;
     tipl::shape<ImageType::dimension> new_geo(I.shape());
     std::swap(new_geo[0],new_geo[2]);
-    tipl::image<value_type,ImageType::dimension> new_volume(new_geo);
+    tipl::image<ImageType::dimension,ImageType::value_type> new_volume(new_geo);
 
     int64_t origin[3] = {0,0,0};
     int64_t shift[3];
@@ -826,7 +825,7 @@ ImageType& swap_yz(ImageType& I)
         }
         else
         {
-            tipl::image<typename ImageType::value_type,2> plane(tipl::shape<2>(I.height(),I.depth()));
+            tipl::image<2,typename ImageType::value_type> plane(tipl::shape<2>(I.height(),I.depth()));
             {
                 size_t index = 0;
                 size_t pos = start_pos;
@@ -909,8 +908,8 @@ void paint(const ImageType1& image1,ImageType2& image2,PixelType2 paint_value)
 }
 
 template<typename PixelType1,typename PixelType2,typename LocationType,typename DetermineType>
-void draw_if(const tipl::image<PixelType1,2>& src,
-             tipl::image<PixelType2,2>& des,LocationType place,DetermineType pred_background)
+void draw_if(const tipl::image<2,PixelType1>& src,
+             tipl::image<2,PixelType2>& des,LocationType place,DetermineType pred_background)
 {
     int x_src = 0;
     int x_des = place[0];
@@ -948,7 +947,7 @@ void draw_if(const tipl::image<PixelType1,2>& src,
 }
 
 template<typename PixelType1,typename OutImageType>
-void project(const tipl::image<PixelType1,2>& src,OutImageType& result,unsigned int dim)
+void project(const tipl::image<2,PixelType1>& src,OutImageType& result,unsigned int dim)
 {
     if(dim == 0) // project x
     {

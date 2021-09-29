@@ -73,7 +73,7 @@ void anisotropic_diffusion(image_type& src,float conductance_parameter = 1.0,int
 
 
 template<typename pixel_type,size_t dimension>
-void anisotropic_diffusion_inv(tipl::image<pixel_type,dimension>& src,
+void anisotropic_diffusion_inv(tipl::image<dimension,pixel_type>& src,
                            float conductance_parameter = 1.0,
                            size_t iteration = 5)
 {

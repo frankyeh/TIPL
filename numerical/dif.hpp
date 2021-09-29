@@ -6,21 +6,21 @@ namespace tipl
 {
 
 template<typename vtor_type,unsigned int dimension>
-void make_identity(image<vtor_type,dimension>& s)
+void make_identity(image<dimension,vtor_type>& s)
 {
     for (tipl::pixel_index<dimension> index(s.shape()); index < s.size();++index)
         s[index.index()] = index;
 }
 //---------------------------------------------------------------------------
 template<typename vtor_type,unsigned int dimension>
-void displacement_to_mapping(image<vtor_type,dimension>& s)
+void displacement_to_mapping(image<dimension,vtor_type>& s)
 {
     for (tipl::pixel_index<dimension> index(s.shape()); index < s.size();++index)
         s[index.index()] += index;
 }
 //---------------------------------------------------------------------------
 template<typename vtor_type,unsigned int dimension>
-void mapping_to_displacement(image<vtor_type,dimension>& s)
+void mapping_to_displacement(image<dimension,vtor_type>& s)
 {
     for (tipl::pixel_index<dimension> index(s.shape()); index < s.size();++index)
         s[index.index()] -= index;
@@ -175,7 +175,7 @@ void decompose_displacement(const ComposeImageType& v,const ComposeImageType& vx
 }
 //---------------------------------------------------------------------------
 template<typename VectorType,typename DetType>
-void jacobian_determinant(const image<VectorType,3>& src,DetType& dest)
+void jacobian_determinant(const image<3,VectorType>& src,DetType& dest)
 {
     typedef typename DetType::value_type value_type;
     shape<3> geo(src.shape());
@@ -210,7 +210,7 @@ void jacobian_determinant(const image<VectorType,3>& src,DetType& dest)
     }
 }
 template<typename VectorType>
-double jacobian_determinant_dis_at(const image<VectorType,3>& src,const tipl::pixel_index<3>& index)
+double jacobian_determinant_dis_at(const image<3,VectorType>& src,const tipl::pixel_index<3>& index)
 {
     unsigned int w = src.width();
     unsigned int wh = src.plane_size();
@@ -235,7 +235,7 @@ double jacobian_determinant_dis_at(const image<VectorType,3>& src,const tipl::pi
                                    (v1_0[2] - v1_1[2])*(d2_0*d3_1-d2_1*d3_0);
 }
 template<typename VectorType,typename out_type>
-void jacobian_dis_at(const image<VectorType,3>& src,const tipl::pixel_index<3>& index,out_type* J)
+void jacobian_dis_at(const image<3,VectorType>& src,const tipl::pixel_index<3>& index,out_type* J)
 {
     unsigned int w = src.width();
     unsigned int wh = src.plane_size();
@@ -260,7 +260,7 @@ void jacobian_dis_at(const image<VectorType,3>& src,const tipl::pixel_index<3>& 
     J[8] = vz[2]*0.5+1.0;
 }
 template<typename VectorType,typename DetType>
-void jacobian_determinant_dis(const image<VectorType,3>& src,DetType& dest)
+void jacobian_determinant_dis(const image<3,VectorType>& src,DetType& dest)
 {
     shape<3> geo(src.shape());
     dest.resize(geo);
@@ -277,7 +277,7 @@ void jacobian_determinant_dis(const image<VectorType,3>& src,DetType& dest)
 
 //---------------------------------------------------------------------------
 template<typename VectorType,typename PixelType>
-void jacobian_determinant(const image<VectorType,2>& src,image<PixelType,2>& dest)
+void jacobian_determinant(const image<2,VectorType>& src,image<2,PixelType>& dest)
 {
     shape<2> geo(src.shape());
     dest.resize(geo);
@@ -298,7 +298,7 @@ void jacobian_determinant(const image<VectorType,2>& src,image<PixelType,2>& des
 }
 
 template<typename VectorType>
-double jacobian_determinant_dis_at(const image<VectorType,2>& src,const tipl::pixel_index<2>& index)
+double jacobian_determinant_dis_at(const image<2,VectorType>& src,const tipl::pixel_index<2>& index)
 {
     unsigned int w = src.width();
     const VectorType& v1_0 = src[index.index()+1];
@@ -309,7 +309,7 @@ double jacobian_determinant_dis_at(const image<VectorType,2>& src,const tipl::pi
 }
 
 template<typename VectorType,typename PixelType>
-void jacobian_determinant_dis(const image<VectorType,2>& src,image<PixelType,2>& dest)
+void jacobian_determinant_dis(const image<2,VectorType>& src,image<2,PixelType>& dest)
 {
     shape<2> geo(src.shape());
     dest.resize(geo);

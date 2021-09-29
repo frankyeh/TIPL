@@ -20,7 +20,7 @@ public:
     template<typename image_type>
     void operator()(image_type& src)
     {
-        typedef tipl::image<class image_type::value_type,image_type::dimension> image_buf_type;
+        typedef tipl::image<,image_type::dimension,typename image_type::value_type> image_buf_type;
         image_buf_type gx;
         gradient_2x(src,gx);
         absolute_value(gx.begin(),gx.end());
@@ -36,7 +36,7 @@ public:
     template<typename image_type>
     void operator()(image_type& src)
     {
-        typedef tipl::image<typename image_type::value_type,image_type::dimension> image_buf_type;
+        typedef tipl::image<image_type::dimension::typename image_type::value_type> image_buf_type;
         image_buf_type gx;
         gradient_2x(src,gx);
 
@@ -61,7 +61,7 @@ public:
     template<typename image_type>
     void operator()(image_type& src)
     {
-        typedef tipl::image<typename image_type::value_type,image_type::dimension> image_buf_type;
+        typedef tipl::image<image_type::dimension::typename image_type::value_type> image_buf_type;
         image_buf_type gx;
         gradient_2x(src,gx);
 
@@ -84,7 +84,7 @@ public:
 template<typename image_type>
 void gradient_magnitude(image_type& src)
 {
-    gradient_magnitude_filter_imp<typename image_type::value_type,image_type::dimension>()(src);
+    gradient_magnitude_filter_imp<image_type::dimension,typename image_type::value_type>()(src);
 }
 
 

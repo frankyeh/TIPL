@@ -226,7 +226,7 @@ void stochastic_competition_debug(const ImageType& data,
     static unsigned int total_loop = 0;
     {
         // for debug
-        tipl::image<unsigned char,ImageType::dimension> image_data;
+        tipl::image<ImageType::dimension,unsigned char> image_data;
         tipl::normalize(data,image_data);
         for(unsigned int index = 0; index < pivot_list.size(); ++index)
             if(label[pivot_list[index]])
@@ -267,11 +267,11 @@ void stochastic_competition_with_lostinfo(const ImageType& src,
     std::vector<imp::intensity_likelihood<pixel_type> > intensity_model;
     imp::stochastic_competition_init_model_param(src,label,intensity_model);
     // initialize pivot pool
-    tipl::image<unsigned int,ImageType::dimension> pivot_map;
+    tipl::image<ImageType::dimension,unsigned int> pivot_map;
     std::vector<unsigned int> pivot_list;
     imp::stochastic_competition_init_pivots(label,pivot_map,pivot_list);
     // initialize gradient vector map
-    tipl::image<vector_type,ImageType::dimension> gre;
+    tipl::image<ImageType::dimension,vector_type> gre;
     tipl::gradient_multiple_sampling(src,gre);
     imp::stochastic_competition_init_gradient(gre);
 
@@ -435,7 +435,7 @@ void stochastic_competition(const ImageType& src,
                             double Zr = 5.0,
                             bool consider_region_intensity = true)
 {
-    tipl::image<unsigned char,LabelImageType::dimension> outter_contour(initial_contour);
+    tipl::image<LabelImageType::dimension,unsigned char> outter_contour(initial_contour);
     tipl::shape<ImageType::dimension> range_max,range_min,new_geo;
 
     tipl::bounding_box(initial_contour,range_min,range_max,0);
@@ -463,7 +463,7 @@ void stochastic_competition(const ImageType& src,
             else
                 outter_contour[index] = 2;
     }
-    tipl::image<typename ImageType::value_type,ImageType::dimension> crop_image(src);
+    tipl::image<ImageType::dimension,typename ImageType::value_type> crop_image(src);
 
     tipl::crop(outter_contour,range_min,range_max);
     tipl::crop(crop_image,range_min,range_max);
@@ -477,7 +477,6 @@ void stochastic_competition(const ImageType& src,
     std::replace(outter_contour.begin(),outter_contour.end(),2,0);
     std::fill(initial_contour.begin(),initial_contour.end(),0);
     tipl::draw(outter_contour,initial_contour,range_min);
-\
 }
 
 

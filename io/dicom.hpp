@@ -1840,7 +1840,7 @@ public:
     template<typename image_type>
     void save_to_image(image_type& I) const
     {
-        tipl::image<typename image_type::value_type,3> buffer;
+        tipl::image<3,typename image_type::value_type> buffer;
         get_untouched_image(buffer);
         tipl::reorder(buffer,I,dim_order,flip); // to LPS
     }

@@ -22,7 +22,7 @@ void watershed(const ImageType& input_image,LabelImageType& label)
 {
     label.clear();
     label.resize(input_image.shape());
-    tipl::image<unsigned char,ImageType::dimension> I(input_image.shape());
+    tipl::image<ImageType::dimension,unsigned char> I(input_image.shape());
     tipl::normalize(input_image,I);
 
     std::vector<std::list<pixel_index<ImageType::dimension> > > presort_table(256);
@@ -114,7 +114,7 @@ void watershed2(const ImageType& input_image,LabelImageType& label,unsigned int 
     for(double L = 0.9;level*L > otsu_level;L -= 0.05)
     {
         std::vector<std::vector<unsigned int> > regions;
-        tipl::image<unsigned char,ImageType::dimension> mask;
+        tipl::image<ImageType::dimension,unsigned char> mask;
         LabelImageType cur_label;
         tipl::threshold(I,mask,level*L);
         tipl::morphology::connected_component_labeling(mask,cur_label,regions);
@@ -165,7 +165,7 @@ void watershed2(const ImageType& input_image,LabelImageType& label,unsigned int 
         #ifdef DEBUG
         std::ostringstream name;
         name << L << ".bmp";
-        tipl::image<unsigned char,2> out;
+        tipl::image<2,unsigned char> out;
         tipl::normalize(label,out);
         tipl::io::bitmap bmp;
         bmp << out;

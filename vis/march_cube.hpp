@@ -383,7 +383,12 @@ private:
     {
         return std::fabs(v1-v2) < 1.0e-5f;
     }
-    static bool equal(unsigned char v1,unsigned char v2)
+    static bool equal(double v1,double v2)
+    {
+        return std::abs(v1-v2) < 1.0e-5;
+    }
+    template<typename T>
+    static bool equal(T v1,T v2)
     {
         return v1 == v2;
     }
@@ -439,8 +444,8 @@ public:
             tri_list(rhs.tri_list)
     {
     }
-    template<typename ImageType>
-    march_cube(ImageType& source_image,typename ImageType::value_type isolevel):
+    template<typename ImageType,typename ValueType>
+    march_cube(ImageType& source_image,ValueType isolevel):
         w(source_image.shape()[0]),
         wh(uint32_t(source_image.shape().plane_size()))
     {
@@ -467,10 +472,10 @@ public:
         get_normal();
     }
 
-    template<typename ImageType>
-    void addCube(const ImageType& source_image,const pixel_index<3>& point,typename ImageType::value_type isolevel)
+    template<typename ImageType,typename ValueType>
+    void addCube(const ImageType& source_image,const pixel_index<3>& point,ValueType isolevel)
     {
-        using value_type = typename ImageType::value_type;
+        using value_type = ImageType::value_type;
         GridCell<value_type> cell;
         cell.corner[0] = tipl::vector<3>(point[0],point[1],point[2]);
         cell.corner[1] = tipl::vector<3>(point[0]+1,point[1],point[2]);
@@ -516,8 +521,8 @@ public:
                     VertexInterp(index,isolevel,
                                  cell.corner[MarchCubeData::intersectTable[index][0]],
                                  cell.corner[MarchCubeData::intersectTable[index][1]],
-                                 cell.value[MarchCubeData::intersectTable[index][0]],
-                                 cell.value[MarchCubeData::intersectTable[index][1]]);
+                                 ValueType(cell.value[MarchCubeData::intersectTable[index][0]]),
+                                 ValueType(cell.value[MarchCubeData::intersectTable[index][1]]));
 
             /* Create the triangle */
             for (unsigned int i=0;MarchCubeData::triTable[cubeindex][i]!=-1;i+=3)

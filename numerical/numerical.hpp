@@ -123,7 +123,7 @@ void gradient_sobel(const PixelImageType& src,VectorImageType& dest)
 }
 //---------------------------------------------------------------------------
 template<typename pixel_type,typename container_type,typename VectorImageType>
-void gradient_multiple_sampling(const tipl::image<pixel_type,3,container_type>& src,
+void gradient_multiple_sampling(const tipl::image<3,pixel_type,container_type>& src,
                                 VectorImageType& dest,
                                 double line_interval = 1.0,
                                 unsigned int line_sampling_num = 3,
@@ -132,7 +132,7 @@ void gradient_multiple_sampling(const tipl::image<pixel_type,3,container_type>& 
     gradient(src,dest);
 }
 template<typename pixel_type,typename container_type,typename VectorImageType>
-void gradient_multiple_sampling(const tipl::image<pixel_type,2,container_type>& src,
+void gradient_multiple_sampling(const tipl::image<2,pixel_type,container_type>& src,
                                 VectorImageType& dest,
                                 double line_interval = 1.0,
                                 unsigned int line_sampling_num = 3,

@@ -19,12 +19,12 @@ namespace reg
 
 //------------------------------------------------------------------------------------
 template<typename pixel_type,typename vtor_type,unsigned int dimension>
-void fast_lddmm(const image<pixel_type,dimension>& I0,
-                const image<pixel_type,dimension>& I1,
-                image<pixel_type,dimension>& J0, // the deformed I0 images at different time frame
-                image<pixel_type,dimension>& J1, // the deformed I0 images at different time frame
-                image<vtor_type,dimension>& fs0,
-                image<vtor_type,dimension>& fs1,
+void fast_lddmm(const image<dimension,pixel_type>& I0,
+                const image<dimension,pixel_type>& I1,
+                image<dimension,pixel_type>& J0, // the deformed I0 images at different time frame
+                image<dimension,pixel_type>& J1, // the deformed I0 images at different time frame
+                image<dimension,vtor_type>& fs0,
+                image<dimension,vtor_type>& fs1,
                 float dt = 0.2,float alpha = 0.02)
 {
     shape<dimension> geo = I0.shape();
@@ -36,9 +36,9 @@ void fast_lddmm(const image<pixel_type,dimension>& I0,
     J1 = I1;
     float sigma = *std::max_element(I0.begin(),I0.end())/10.0;
     tipl::fftn<dimension> fft(geo);
-    image<pixel_type,dimension> K(geo);
-    tipl::image<float,dimension> jdet(geo),dJ(geo);
-    image<vtor_type,dimension> v(geo),v2(geo),dv(geo),dv2(geo),dvimg(geo),s0(geo),s1(geo);
+    image<dimension,pixel_type> K(geo);
+    tipl::image<dimension,float> jdet(geo),dJ(geo);
+    image<dimension,vtor_type> v(geo),v2(geo),dv(geo),dv2(geo),dvimg(geo),s0(geo),s1(geo);
     unsigned int res = 0;
     float total_I = std::accumulate(I0.begin(),I0.end(),0.0) + std::accumulate(I1.begin(),I1.end(),0.0);
     float last_total_e = std::numeric_limits<float>::max();
@@ -121,7 +121,7 @@ void fast_lddmm(const image<pixel_type,dimension>& I0,
             update_K = true;
         }
 
-        image<vtor_type,dimension> s0_next(s0),s1_next(s1);
+        image<dimension,vtor_type> s0_next(s0),s1_next(s1);
         /* Calculate for j = 0 to j = N ? 1 the mapping using Eq. (18).
         */
         if(swi)
@@ -146,7 +146,7 @@ void fast_lddmm(const image<pixel_type,dimension>& I0,
         /*
         tipl::shape<dimension> geo_(geo);
         geo_[0] *= 2;
-        tipl::image<pixel_type,dimension> JOut(geo_);
+        tipl::image<dimension,pixel_type> JOut(geo_);
         tipl::draw(J0,JOut,tipl::pixel_index<dimension>());
         tipl::pixel_index<dimension> shift;
         shift[0] = geo[0];
@@ -173,12 +173,12 @@ Volume 61, Issue 2; February 2005.
 
 */
 template<typename pixel_type,typename vtor_type,unsigned int dimension>
-void lddmm(const image<pixel_type,dimension>& I0,
-           const image<pixel_type,dimension>& I1,
-           std::vector<image<pixel_type,dimension> >& J0, // the deformed I0 images at different time frame
-           std::vector<image<pixel_type,dimension> >& J1, // the deformed I1 images at different time frame
-           std::vector<image<vtor_type,dimension> >& s0,// the deformation metric of I0 at different time frame
-           std::vector<image<vtor_type,dimension> >& s1,// the deformation metric of I1 at different time frame
+void lddmm(const image<dimension,pixel_type>& I0,
+           const image<dimension,pixel_type>& I1,
+           std::vector<image<dimension,pixel_type> >& J0, // the deformed I0 images at different time frame
+           std::vector<image<dimension,pixel_type> >& J1, // the deformed I1 images at different time frame
+           std::vector<image<dimension,vtor_type> >& s0,// the deformation metric of I0 at different time frame
+           std::vector<image<dimension,vtor_type> >& s1,// the deformation metric of I1 at different time frame
            unsigned int T = 20,float dt = 0.2,float gamma = 1.0)
 {
 
@@ -192,8 +192,8 @@ void lddmm(const image<pixel_type,dimension>& I0,
     s0.resize(T);
     s1.resize(T);
 
-    std::vector<image<vtor_type,dimension> > v(T);   // the velocity function
-    std::vector<image<vtor_type,dimension> > alpha_dis(T);   // the displacement
+    std::vector<image<dimension,vtor_type> > v(T);   // the velocity function
+    std::vector<image<dimension,vtor_type> > alpha_dis(T);   // the displacement
 
     // initialize mapping J0,J1, s0, s1
     for(unsigned int j = 0; j < T; ++j)
@@ -219,7 +219,7 @@ void lddmm(const image<pixel_type,dimension>& I0,
 
     // calculate the invert(LL*) operator
     tipl::fftn<dimension> fft(geo);
-    image<pixel_type,dimension> K(geo);
+    image<dimension,pixel_type> K(geo);
     float alpha = 0.02;
     //float gamma = 1.0;
     {
@@ -236,8 +236,8 @@ void lddmm(const image<pixel_type,dimension>& I0,
 
 
     float total_e = std::numeric_limits<float>::max();
-    tipl::image<float,dimension> jdet(geo),dJ(geo),dif(geo);
-    image<vtor_type,dimension> dv(geo),dvimg(geo);
+    tipl::image<dimension,float> jdet(geo),dJ(geo),dif(geo);
+    image<dimension,vtor_type> dv(geo),dvimg(geo);
 
     for(unsigned int k = 0; k < 200; ++k)
     {
@@ -304,8 +304,8 @@ void lddmm(const image<pixel_type,dimension>& I0,
         alpha_dis = v;
         for(unsigned int j = 0;j < alpha_dis.size();++j)
         {
-            image<vtor_type,dimension>& vj = v[j];
-            image<vtor_type,dimension>& alpha_j = alpha_dis[j];
+            image<dimension,vtor_type>& vj = v[j];
+            image<dimension,vtor_type>& alpha_j = alpha_dis[j];
             for (tipl::pixel_index<dimension> index(geo); index < geo.size(); ++index)
             {
                 for(unsigned char i = 0;i < 5;++i)
@@ -317,7 +317,7 @@ void lddmm(const image<pixel_type,dimension>& I0,
         //Calculate for j = N ? 1 to j = 0 the mapping £pk+1t j ,T (y) using Eq. (19).
         for(int j = T-2; j >= 0; --j)
         {
-            image<vtor_type,dimension>& alpha_j = alpha_dis[j];
+            image<dimension,vtor_type>& alpha_j = alpha_dis[j];
             // £pj(y) = £pj+1(y + α).
             for (tipl::pixel_index<dimension> index(geo); index < geo.size(); ++index)
                 tipl::estimate(s1[j+1],vtor_type(index)+alpha_j[index.index()],s1[j][index.index()]);
@@ -326,7 +326,7 @@ void lddmm(const image<pixel_type,dimension>& I0,
         // Calculate for j = 0 to j = N ? 1 the mapping £pk+1t j ,0 (y) using Eq. (18).
         for(int j = 1; j < T; ++j)
         {
-            image<vtor_type,dimension>& alpha_j = alpha_dis[j];
+            image<dimension,vtor_type>& alpha_j = alpha_dis[j];
             // £pj(y) = £pj-1(y - α).
             for (tipl::pixel_index<dimension> index(geo); index < geo.size(); ++index)
                 tipl::estimate(s0[j-1],vtor_type(index)-alpha_j[index.index()],s0[j][index.index()]);
@@ -352,15 +352,15 @@ void lddmm(const image<pixel_type,dimension>& I0,
 
 
 template<typename pixel_type,typename vtor_type,unsigned int dimension>
-void lddmm(const image<pixel_type,dimension>& I0,
-           const image<pixel_type,dimension>& I1,
-           image<vtor_type,dimension>& mapping,
+void lddmm(const image<dimension,pixel_type>& I0,
+           const image<dimension,pixel_type>& I1,
+           image<dimension,vtor_type>& mapping,
            unsigned int T = 20,float dt = 0.2,float gamma = 1.0)
 {
-    std::vector<image<pixel_type,dimension> > J0;// the deformed I0 images at different time frame
-    std::vector<image<pixel_type,dimension> > J1;// the deformed I1 images at different time frame
-    std::vector<image<vtor_type,dimension> > s0;// the deformation metric of I0 at different time frame
-    std::vector<image<vtor_type,dimension> > s1;// the deformation metric of I1 at different time frame
+    std::vector<image<dimension,pixel_type> > J0;// the deformed I0 images at different time frame
+    std::vector<image<dimension,pixel_type> > J1;// the deformed I1 images at different time frame
+    std::vector<image<dimension,vtor_type> > s0;// the deformation metric of I0 at different time frame
+    std::vector<image<dimension,vtor_type> > s1;// the deformation metric of I1 at different time frame
     lddmm(I0,I1,J0,J1,s0,s1,T,dt,gamma);
     mapping = s0.back();
 }

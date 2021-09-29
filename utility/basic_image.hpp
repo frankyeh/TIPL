@@ -12,14 +12,14 @@
 namespace tipl
 {
 
-template<typename pixel_type>
+template<typename value_type>
 class pointer_container
 {
 public:
-    typedef pixel_type value_type;
-    typedef pixel_type* iterator;
-    typedef pixel_type* const_iterator;
-    typedef pixel_type& reference;
+    typedef value_type value_type;
+    typedef value_type* iterator;
+    typedef value_type* const_iterator;
+    typedef value_type& reference;
 protected:
     iterator from,to;
     size_t size_;
@@ -31,7 +31,7 @@ public:
         from(&*from_),to(0),size_(to_-from_){to = from + size_;}
     template<typename any_container_type>
     pointer_container(const any_container_type& rhs){operator=(rhs);}
-    pointer_container(std::vector<pixel_type>& rhs)
+    pointer_container(std::vector<value_type>& rhs)
     {
         if((size_ = rhs.size()))
         {
@@ -52,13 +52,13 @@ public:
         size_ = rhs.size_;
     }
 public:
-    template<typename value_type>
-    reference operator[](value_type index) const
+    template<typename index_type>
+    reference operator[](index_type index) const
     {
         return from[index];
     }
-    template<typename value_type>
-    reference operator[](value_type index)
+    template<typename index_type>
+    reference operator[](index_type index)
     {
         return from[index];
     }
@@ -108,14 +108,14 @@ public:
     }
 };
 
-template<typename pixel_type>
+template<typename value_type>
 class const_pointer_container
 {
 public:
-    typedef pixel_type value_type;
-    typedef const pixel_type* iterator;
-    typedef const pixel_type* const_iterator;
-    typedef const pixel_type& reference;
+    typedef value_type value_type;
+    typedef const value_type* iterator;
+    typedef const value_type* const_iterator;
+    typedef const value_type& reference;
 protected:
     const_iterator from,to;
     size_t size_;
@@ -127,7 +127,7 @@ public:
         from(&*from_),to(0),size_(to_-from_){to = from + size_;}
     template<typename any_container_type>
     const_pointer_container(const any_container_type& rhs){operator=(rhs);}
-    const_pointer_container(const std::vector<pixel_type>& rhs)
+    const_pointer_container(const std::vector<value_type>& rhs)
     {
         if((size_ = rhs.size()))
         {
@@ -149,13 +149,13 @@ public:
         return *this;
     }
 public:
-    template<typename value_type>
-    reference operator[](value_type index) const
+    template<typename index_type>
+    reference operator[](index_type index) const
     {
         return from[index];
     }
-    template<typename value_type>
-    reference operator[](value_type index)
+    template<typename index_type>
+    reference operator[](index_type index)
     {
         return from[index];
     }
@@ -186,7 +186,7 @@ public:
         return size_ == 0;
     }
 public:
-    void swap(const_pointer_container<pixel_type>& rhs)
+    void swap(const_pointer_container<value_type>& rhs)
     {
         std::swap(from,rhs.from);
         std::swap(to,rhs.to);
@@ -200,18 +200,18 @@ public:
 };
 
 
-template <typename pixel_type,unsigned int dim,typename storage_type = std::vector<pixel_type> >
+template <int dim,typename vtype = float,typename storage_type = std::vector<vtype> >
 class image
 {
 public:
-    using value_type        = pixel_type ;
+    using value_type        = vtype;
     using iterator          = typename storage_type::iterator;
     using const_iterator    = typename storage_type::const_iterator ;
     using reference         = typename storage_type::reference ;
-    using slice_type        = tipl::image<pixel_type,dim-1,pointer_container<pixel_type> > ;
-    using const_slice_type  = tipl::image<pixel_type,dim-1,const_pointer_container<pixel_type> >;
+    using slice_type        = tipl::image<dim-1,value_type,pointer_container<value_type> > ;
+    using const_slice_type  = tipl::image<dim-1,value_type,const_pointer_container<value_type> >;
     using shape_type        = tipl::shape<dim>;
-    static const unsigned int dimension = dim;
+    static const int dimension = dim;
 protected:
     storage_type data;
     shape_type geo;
@@ -237,7 +237,7 @@ public:
         return geo.plane_size();
     }
 public:
-    pixel_type at(unsigned int x,unsigned int y) const
+    value_type at(unsigned int x,unsigned int y) const
     {
         return data[y*geo[0]+x];
     }
@@ -246,7 +246,7 @@ public:
         return data[y*geo[0]+x];
     }
 
-    pixel_type at(unsigned int x,unsigned int y,unsigned int z) const
+    value_type at(unsigned int x,unsigned int y,unsigned int z) const
     {
         return data[size_t(z*geo[1]+y)*geo[0]+x];
     }
@@ -260,16 +260,16 @@ public:
     image(image&& rhs){operator=(rhs);}
     template<typename T>
     image(const std::initializer_list<T>& rhs):geo(rhs){data.resize(geo.size());}
-    template<typename rhs_pixel_type,typename rhs_storage_type>
-    image(const image<rhs_pixel_type,dim,rhs_storage_type>& rhs){operator=(rhs);}
+    template<typename rhs_value_type,typename rhs_storage_type>
+    image(const image<dim,rhs_value_type,rhs_storage_type>& rhs){operator=(rhs);}
     image(const shape_type& geo_):data(geo_.size()),geo(geo_) {}
-    template <typename any_pixel_type>
-    image(any_pixel_type* pointer,const shape_type& geo_):data(pointer,pointer+geo_.size()),geo(geo_) {}
-    template <typename any_pixel_type>
-    image(const any_pixel_type* pointer,const shape_type& geo_):data(pointer,pointer+geo_.size()),geo(geo_) {}
+    template <typename any_value_type>
+    image(any_value_type* pointer,const shape_type& geo_):data(pointer,pointer+geo_.size()),geo(geo_) {}
+    template <typename any_value_type>
+    image(const any_value_type* pointer,const shape_type& geo_):data(pointer,pointer+geo_.size()),geo(geo_) {}
 public:
-    template<typename rhs_pixel_type,typename rhs_storage_type>
-    const image& operator=(const image<rhs_pixel_type,dim,rhs_storage_type>& rhs)
+    template<typename rhs_value_type,typename rhs_storage_type>
+    const image& operator=(const image<dim,rhs_value_type,rhs_storage_type>& rhs)
     {
         storage_type new_data(rhs.begin(),rhs.end());
         data.swap(new_data);
@@ -313,21 +313,21 @@ public:
     {
         return data.empty();
     }
-    pixel_type front(void) const
+    value_type front(void) const
     {
         return data.front();
     }
-    pixel_type back(void) const
+    value_type back(void) const
     {
         return data.back();
     }
-    template<typename value_type>
-    const pixel_type& operator[](value_type index) const
+    template<typename index_type>
+    const value_type& operator[](index_type index) const
     {
         return data[index];
     }
-    template<typename value_type>
-    reference operator[](value_type index)
+    template<typename index_type>
+    reference operator[](index_type index)
     {
         return data[index];
     }
@@ -391,38 +391,38 @@ public:
             *iter /= value;
         return *this;
     }
-    template<typename rhs_pixel_type,typename rhs_storage_type>
-    const image& operator+=(const image<rhs_pixel_type,dim,rhs_storage_type>& rhs)
+    template<typename rhs_value_type,typename rhs_storage_type>
+    const image& operator+=(const image<dim,rhs_value_type,rhs_storage_type>& rhs)
     {
         iterator end_iter = data.end();
-        typename image<rhs_pixel_type,dim,rhs_storage_type>::const_iterator iter2 = rhs.begin();
+        typename image<dim,rhs_value_type,rhs_storage_type>::const_iterator iter2 = rhs.begin();
         for(iterator iter = data.begin();iter != end_iter;++iter,++iter2)
             *iter += *iter2;
         return *this;
     }
-    template<typename rhs_pixel_type,typename rhs_storage_type>
-    const image& operator-=(const image<rhs_pixel_type,dim,rhs_storage_type>& rhs)
+    template<typename rhs_value_type,typename rhs_storage_type>
+    const image& operator-=(const image<dim,rhs_value_type,rhs_storage_type>& rhs)
     {
         iterator end_iter = data.end();
-        typename image<rhs_pixel_type,dim,rhs_storage_type>::const_iterator iter2 = rhs.begin();
+        typename image<dim,rhs_value_type,rhs_storage_type>::const_iterator iter2 = rhs.begin();
         for(iterator iter = data.begin();iter != end_iter;++iter,++iter2)
             *iter -= *iter2;
         return *this;
     }
-    template<typename rhs_pixel_type,typename rhs_storage_type>
-    const image& operator*=(const image<rhs_pixel_type,dim,rhs_storage_type>& rhs)
+    template<typename rhs_value_type,typename rhs_storage_type>
+    const image& operator*=(const image<dim,rhs_value_type,rhs_storage_type>& rhs)
     {
         iterator end_iter = data.end();
-        typename image<rhs_pixel_type,dim,rhs_storage_type>::const_iterator iter2 = rhs.begin();
+        typename image<dim,rhs_value_type,rhs_storage_type>::const_iterator iter2 = rhs.begin();
         for(iterator iter = data.begin();iter != end_iter;++iter,++iter2)
             *iter *= *iter2;
         return *this;
     }
-    template<typename rhs_pixel_type,typename rhs_storage_type>
-    const image& operator/=(const image<rhs_pixel_type,dim,rhs_storage_type>& rhs)
+    template<typename rhs_value_type,typename rhs_storage_type>
+    const image& operator/=(const image<dim,rhs_value_type,rhs_storage_type>& rhs)
     {
         iterator end_iter = data.end();
-        typename image<rhs_pixel_type,dim,rhs_storage_type>::const_iterator iter2 = rhs.begin();
+        typename image<dim,rhs_value_type,rhs_storage_type>::const_iterator iter2 = rhs.begin();
         for(iterator iter = data.begin();iter != end_iter;++iter,++iter2)
             *iter /= *iter2;
         return *this;
@@ -539,24 +539,23 @@ public:
 };
 
 
-typedef image<rgb,2> color_image;
-typedef image<unsigned char,2> grayscale_image;
+typedef image<2,rgb> color_image;
+typedef image<2,unsigned char> grayscale_image;
 
-template<typename pixel_type,unsigned int dim>
-class pointer_image : public image<pixel_type,dim,pointer_container<pixel_type> >
+template<int dim,typename vtype = float>
+class pointer_image : public image<dim,vtype,pointer_container<vtype> >
 {
 public:
-    typedef pixel_type value_type;
-    typedef image<pixel_type,dim,pointer_container<pixel_type> > base_type;
-    typedef typename base_type::iterator iterator;
-    typedef typename base_type::iterator const_iterator;
-    static const unsigned int dimension = dim;
+    using base_type         =   image<dim,vtype,pointer_container<vtype> >;
+    using iterator          =   typename base_type::iterator;
+    using const_iterator    = typename base_type::iterator;
+    static const int dimension = dim;
 public:
     pointer_image(void) {}
     pointer_image(const pointer_image& rhs):base_type(){operator=(rhs);}
     template<typename rhs_storage_type>
-    pointer_image(image<pixel_type,dim,rhs_storage_type>& rhs):base_type(&*rhs.begin(),rhs.shape()) {}
-    pointer_image(pixel_type* pointer,const tipl::shape<dim>& geo_):base_type(pointer,geo_) {}
+    pointer_image(image<dim,vtype,rhs_storage_type>& rhs):base_type(&*rhs.begin(),rhs.shape()) {}
+    pointer_image(vtype* pointer,const tipl::shape<dim>& geo_):base_type(pointer,geo_) {}
 public:
     pointer_image& operator=(const pointer_image& rhs)
     {
@@ -566,21 +565,21 @@ public:
     }
 };
 
-template<typename pixel_type,unsigned int dim>
-class const_pointer_image : public image<pixel_type,dim,const_pointer_container<pixel_type> >
+template<int dim,typename vtype = float>
+class const_pointer_image : public image<dim,vtype,const_pointer_container<vtype> >
 {
 public:
-    typedef pixel_type value_type;
-    typedef image<pixel_type,dim,const_pointer_container<pixel_type> > base_type;
-    typedef typename base_type::iterator iterator;
-    typedef typename base_type::const_iterator const_iterator;
-    static const unsigned int dimension = dim;
+    using value_type        =   vtype;
+    using base_type         =   image<dim,value_type,const_pointer_container<value_type> >;
+    using iterator          =   typename base_type::iterator;
+    using const_iterator    =   typename base_type::const_iterator;
+    static const int dimension = dim;
 public:
     const_pointer_image(void) {}
     const_pointer_image(const const_pointer_image& rhs):base_type(){operator=(rhs);}
     template<typename rhs_storage_type>
-    const_pointer_image(const image<pixel_type,dim,rhs_storage_type>& rhs):base_type(&*rhs.begin(),rhs.shape()) {}
-    const_pointer_image(const pixel_type* pointer,const tipl::shape<dim>& geo_):base_type(pointer,geo_){}
+    const_pointer_image(const image<dim,vtype,rhs_storage_type>& rhs):base_type(&*rhs.begin(),rhs.shape()) {}
+    const_pointer_image(const vtype* pointer,const tipl::shape<dim>& geo_):base_type(pointer,geo_){}
 public:
     const_pointer_image& operator=(const const_pointer_image& rhs)
     {
@@ -593,17 +592,17 @@ public:
 
 
 template<typename value_type,typename shape_type>
-pointer_image<value_type,shape_type::dimension>
+pointer_image<shape_type::dimension,value_type>
     make_image(value_type* pointer,const shape_type& geo)
 {
-    return pointer_image<value_type,shape_type::dimension>(pointer,geo);
+    return pointer_image<shape_type::dimension,value_type>(pointer,geo);
 }
 
 template<typename value_type,typename shape_type>
-const_pointer_image<value_type,shape_type::dimension>
+const_pointer_image<shape_type::dimension,value_type>
     make_image(const value_type* pointer,const shape_type& geo)
 {
-    return const_pointer_image<value_type,shape_type::dimension>(pointer,geo);
+    return const_pointer_image<shape_type::dimension,value_type>(pointer,geo);
 }
 
 }

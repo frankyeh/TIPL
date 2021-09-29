@@ -121,7 +121,7 @@ public:
 class bruker_2dseq
 {
     // the 2dseq data
-    tipl::image<float,3> data;
+    tipl::image<3,float> data;
     tipl::vector<3> vs;
     float orientation[9];
     bool slice_2d = true;
@@ -309,8 +309,8 @@ public:
         slice_2d = (dim[2] == 0);
         return true;
     }
-    const tipl::image<float,3>& get_image(void) const{return data;}
-    tipl::image<float,3>& get_image(void){return data;}
+    const tipl::image<3,float>& get_image(void) const{return data;}
+    tipl::image<3,float>& get_image(void){return data;}
 
     bool is_2d(void) const
     {

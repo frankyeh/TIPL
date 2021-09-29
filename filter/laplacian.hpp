@@ -92,7 +92,7 @@ public:
 };
 
 template<typename pixel_type,size_t dimension>
-image<pixel_type,dimension>& laplacian(image<pixel_type,dimension>& src)
+image<dimension,pixel_type>& laplacian(image<dimension,pixel_type>& src)
 {
     laplacian_filter_imp<pixel_type,dimension>()(src);
     return src;
