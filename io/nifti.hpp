@@ -982,16 +982,16 @@ public:
     }
 
     template<typename image_type>
-    const nifti_base& operator>>(image_type& source)
+    image_type& operator>>(image_type& source)
     {
         toLPS(source);
-        return *this;
+        return source;
     }
     template<typename image_type>
-    nifti_base& operator<<(const image_type& source)
+    const image_type& operator<<(const image_type& source)
     {
         load_from_image(source);
-        return *this;
+        return source;
     }
 
     void handle_qform(void)
