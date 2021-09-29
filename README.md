@@ -35,8 +35,6 @@ Now you can use TIPL
 
 TIPL can be used in Jupyter notebook with xeus-cling kernel to provide interactive processing. No additional installation is required.
 
-![TIPL on JupyterLab](https://pbs.twimg.com/media/E-s4kj0XsAASRX9?format=jpg&name=small)
-
 ## Design paradigm
 
 A lot of the image processing libraries are designed for experimental/research purpose and do not meet the industrial standard. Consequently, the performance of the codes is not optimal, and the library can be hard to read and use. The design of TIPL follows the several coding guidelines and principles [1-5] that makes it highly efficient and reusable. The following is the main paradigm behind TIPL.
