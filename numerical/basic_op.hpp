@@ -782,7 +782,7 @@ ImageType& swap_xz(ImageType& I)
 {
     tipl::shape<ImageType::dimension> new_geo(I.shape());
     std::swap(new_geo[0],new_geo[2]);
-    tipl::image<ImageType::dimension,ImageType::value_type> new_volume(new_geo);
+    tipl::image<ImageType::dimension,typename ImageType::value_type> new_volume(new_geo);
 
     int64_t origin[3] = {0,0,0};
     int64_t shift[3];

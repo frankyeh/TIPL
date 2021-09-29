@@ -84,7 +84,7 @@ public:
 template<typename image_type>
 void gradient_magnitude(image_type& src)
 {
-    gradient_magnitude_filter_imp<image_type::dimension,typename image_type::value_type>()(src);
+    gradient_magnitude_filter_imp<typename image_type::value_type,image_type::dimension>()(src);
 }
 
 
