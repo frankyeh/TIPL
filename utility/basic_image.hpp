@@ -12,14 +12,14 @@
 namespace tipl
 {
 
-template<typename value_type>
+template<typename vtype>
 class pointer_container
 {
 public:
-    typedef value_type value_type;
-    typedef value_type* iterator;
-    typedef value_type* const_iterator;
-    typedef value_type& reference;
+    using value_type        = vtype;
+    using iterator          = vtype*;
+    using const_iterator    = vtype*;
+    using reference         = vtype&;
 protected:
     iterator from,to;
     size_t size_;
@@ -108,14 +108,14 @@ public:
     }
 };
 
-template<typename value_type>
+template<typename vtype>
 class const_pointer_container
 {
 public:
-    typedef value_type value_type;
-    typedef const value_type* iterator;
-    typedef const value_type* const_iterator;
-    typedef const value_type& reference;
+    using value_type        = vtype;
+    using iterator          = const vtype*;
+    using const_iterator    = const vtype*;
+    using reference         = const vtype&;
 protected:
     const_iterator from,to;
     size_t size_;
