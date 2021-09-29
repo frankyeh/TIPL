@@ -45,7 +45,8 @@ template <class T,typename Func>
 void par_for(T size, Func f, int thread_count = std::thread::hardware_concurrency())
 {
 #ifdef USING_XEUS_CLING
-// xeus-cling still has an issue using std::future
+// cling still has an issue using std::future
+// https://github.com/root-project/cling/issues/387
     for(T i = 0; i < size;++i)
         f(i);
 #else
@@ -110,7 +111,8 @@ template <class T,typename Func>
 void par_for2(T size, Func f, uint16_t thread_count = std::thread::hardware_concurrency())
 {
 #ifdef USING_XEUS_CLING
-// xeus-cling still has an issue using std::future
+// cling still has an issue using std::future
+// https://github.com/root-project/cling/issues/387
     for(T i = 0; i < size;++i)
         f(i,i%thread_count);
 #else
