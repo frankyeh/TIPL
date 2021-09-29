@@ -1741,7 +1741,7 @@ public:
 public:
     ~dicom_volume(void){free_all();}
     const std::shared_ptr<dicom> get_dicom(unsigned int index) const{return dicom_reader[index];}
-    const shape<3>& shape(void) const{return dim;}
+    const tipl::shape<3>& shape(void) const{return dim;}
     void get_voxel_size(tipl::vector<3,float>& voxel_size) const
     {
         voxel_size = vs;
