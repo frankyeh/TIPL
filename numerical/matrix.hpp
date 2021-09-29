@@ -3135,7 +3135,7 @@ public:
 };
 
 
-template<int r,int c,typename value_type_,typename storage_type = value_type_ [r*c] >
+template<int r,int c,typename value_type_ = float,typename storage_type = value_type_ [r*c] >
 struct matrix{
     using value_type = value_type_;
     using iterator = value_type*;
