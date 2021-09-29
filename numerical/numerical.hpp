@@ -858,30 +858,33 @@ void upper_lower_threshold(ImageType& data,value_type lower,value_type upper)
 }
 
 template<typename ImageType>
-void normalize(ImageType& image,float upper_limit = 255)
+ImageType& normalize(ImageType& I,float upper_limit = 255)
 {
-    if(image.empty())
-        return;
-    auto m = (*std::max_element(image.begin(),image.end()));
+    if(I.empty())
+        return I;
+    auto m = (*std::max_element(I.begin(),I.end()));
     if( m != 0)
-        multiply_constant(image.begin(),image.end(),upper_limit/m);
+        multiply_constant(I.begin(),I.end(),upper_limit/m);
+    return I;
 }
 template<typename ImageType>
-void normalize_abs(ImageType& image,float upper_limit = 1.0f)
+ImageType& normalize_abs(ImageType& I,float upper_limit = 1.0f)
 {
-    if(image.empty())
-        return;
-    auto minmax = std::minmax_element(image.begin(),image.end());
+    if(I.empty())
+        return I;
+    auto minmax = std::minmax_element(I.begin(),I.end());
     auto scale = std::max(-*minmax.first,*minmax.second);
     if(scale != 0)
-    multiply_constant(image.begin(),image.end(),upper_limit/scale);
+    multiply_constant(I.begin(),I.end(),upper_limit/scale);
+    return I;
 }
 
 template<typename ImageType1,typename ImageType2>
-void normalize(const ImageType1& image1,ImageType2& image2,float upper_limit = 255.0)
+ImageType2& normalize(const ImageType1& image1,ImageType2& image2,float upper_limit = 255.0)
 {
     image2.resize(image1.shape());
     normalize(image1.begin(),image1.end(),image2.begin(),upper_limit);
+    return image2;
 }
 
 template<typename container_type,typename index_type>
