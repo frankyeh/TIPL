@@ -475,7 +475,7 @@ public:
     template<typename ImageType,typename ValueType>
     void addCube(const ImageType& source_image,const pixel_index<3>& point,ValueType isolevel)
     {
-        using value_type = ImageType::value_type;
+        using value_type = typename ImageType::value_type;
         GridCell<value_type> cell;
         cell.corner[0] = tipl::vector<3>(point[0],point[1],point[2]);
         cell.corner[1] = tipl::vector<3>(point[0]+1,point[1],point[2]);

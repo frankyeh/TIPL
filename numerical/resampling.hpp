@@ -955,7 +955,7 @@ void match_signal_kernel(const T& VG,T& VFF)
             sum[index] = sum[index-1];
     }
     // smoothing
-    tipl::image<float,1> value(tipl::shape<1>(256));
+    tipl::image<1,float> value(tipl::shape<1>(256));
     value[0] = sum[0];
     value[255] = sum[255];
     for(unsigned int index = 1;index+1 < sum.size();++index)
