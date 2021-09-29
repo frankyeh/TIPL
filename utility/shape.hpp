@@ -427,7 +427,7 @@ public:
     template<typename T>
     shape(const std::initializer_list<T>& arg):w(*arg.begin()),h(*(arg.begin()+1)),d(*(arg.begin()+2)){}
     shape(unsigned int w_,unsigned int h_,unsigned int d_):w(w_),h(h_),d(d_){}
-    shape(const shape<3>& rhs)
+    shape(const shape& rhs)
     {
         *this = rhs;
     }
@@ -436,7 +436,7 @@ public:
     {
         *this = rhs;
     }
-    const shape<3>& operator=(const shape<3>& rhs)
+    const shape& operator=(const shape& rhs)
     {
         w = rhs.w;
         h = rhs.h;
@@ -446,7 +446,7 @@ public:
         return *this;
     }
     template<typename pointer_type>
-    const shape<3>& operator=(const pointer_type* rhs)
+    const shape& operator=(const pointer_type* rhs)
     {
         w = rhs[0];
         h = rhs[1];
@@ -548,15 +548,15 @@ public:
         return wh;
     }
 public:
-    bool operator==(const shape<3>& rhs) const
+    bool operator==(const shape& rhs) const
     {
         return dim[0] == rhs.dim[0] && dim[1] == rhs.dim[1] && dim[2] == rhs.dim[2];
     }
-    bool operator!=(const shape<3>& rhs) const
+    bool operator!=(const shape& rhs) const
     {
         return !(*this == rhs);
     }
-    friend std::ostream& operator<<(std::ostream& out,const shape<3>& dim)
+    friend std::ostream& operator<<(std::ostream& out,const shape& dim)
     {
         out << "(" << dim[0] << "," << dim[1] << "," << dim[2] << ")";
         return out;
