@@ -2,21 +2,14 @@
 
 ## Introduction
 
-Template Image Processing Library (TIPL) is a lightweight C++ template library designed mainly for medical imaging processing. The design paradigm is to provide an "easy-to-use" and also "ready-to-use" library. You need only to include the header files to use it. 
+Template Image Processing Library (TIPL) is a header only c++ library for medical imaging processing. 
 
-First, get header files from Github
-
-```
-!git clone http://github.com/frankyeh/TIPL/
-```
-
-Then 
-
+To use it, include the root header tipl.hpp
 ```
 #include "TIPL/tipl.hpp"  
 ```
 
-Now you can use TIPL
+The library supports Linux, MacOS, Windows, and Jupyter Notebook
 
 ## Example
 
@@ -31,9 +24,6 @@ Now you can use TIPL
   - Load NIFTI file [![Colab](https://colab.research.google.com/assets/colab-badge.svg)]("https://colab.research.google.com/github/frankyeh/TIPL-example/blob/main/colab/load_nii.ipynb)
   - Image registration [![Colab](https://colab.research.google.com/assets/colab-badge.svg)]("https://colab.research.google.com/github/frankyeh/TIPL-example/blob/main/colab/spatial_normalization.ipynb)
 
-## Support Jupyter notebook
-
-TIPL can be used in Jupyter notebook with xeus-cling kernel to provide interactive processing. No additional installation is required.
 
 ## Design paradigm
 
@@ -43,7 +33,7 @@ A lot of the image processing libraries are designed for experimental/research p
 
 - Not limited to RGB pixel type. In medical imaging, the most common pixel type is "short" or "float", not the RGB value. TIPL makes no assumption on the pixel type to achieve the best applicability..
 
-- No class inheritance, no hidden functions or interfaces. Class inheritance is known to cause programs in code maintenance  and it is not friendly for library users to customize the library [4]. TIPL combines template-based interfaces with C-style interface to provide a "flat" library structures that is easy to maintain and modify. The connections between header files are thereby minimized. 
+- No class inheritance, no hidden functions or interfaces. Class inheritance is known to cause programs in code maintenance  and it is not friendly for library users to customize the library. TIPL combines template-based interfaces with C-style interface to provide a "flat" library structures that is easy to maintain and modify. The connections between header files are thereby minimized. 
 
 ## Features
 
