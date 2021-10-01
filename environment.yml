@@ -1,5 +1,0 @@
-name: tipl
-channels:
-  - conda-forge
-dependencies:
-  - xeus-cling=0.12.1

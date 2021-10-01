@@ -82,7 +82,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "ml/k_means.hpp"
 #include "ml/em.hpp"
 #include "ml/hmc.hpp"
-#include "ml/svm.hpp"
 #include "ml/cnn.hpp"
 
 #include "vis/march_cube.hpp"
