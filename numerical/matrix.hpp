@@ -3151,6 +3151,10 @@ public:
     {
         (*this) = rhs;
     }
+    matrix(const matrix& rhs)
+    {
+        (*this) = rhs;
+    }
     template<typename rhs_type>
     matrix(const rhs_type& rhs)
     {
