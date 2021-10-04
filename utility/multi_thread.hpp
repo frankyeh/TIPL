@@ -41,8 +41,8 @@ public:
     }
 };
 
-template <class T,typename Func>
-void par_for(T size, Func f, int thread_count = std::thread::hardware_concurrency())
+template <typename T,typename Func>
+void par_for(T size, Func&& f, int thread_count = std::thread::hardware_concurrency())
 {
 #ifdef USING_XEUS_CLING
 // cling still has an issue using std::future
@@ -68,8 +68,8 @@ void par_for(T size, Func f, int thread_count = std::thread::hardware_concurrenc
 #endif
 }
 
-template <class T,typename Func>
-void par_for_asyn(T size, Func f, int thread_count = std::thread::hardware_concurrency())
+template <typename T,typename Func>
+void par_for_asyn(T size,Func&& f, int thread_count = std::thread::hardware_concurrency())
 {
     std::vector<std::future<void> > futures;
     if(thread_count > size)
@@ -107,8 +107,8 @@ void par_for_asyn(T size, Func f, int thread_count = std::thread::hardware_concu
 }
 
 
-template <class T,typename Func>
-void par_for2(T size, Func f, uint16_t thread_count = std::thread::hardware_concurrency())
+template <typename T,typename Func>
+void par_for2(T size,Func&& f, uint16_t thread_count = std::thread::hardware_concurrency())
 {
 #ifdef USING_XEUS_CLING
 // cling still has an issue using std::future
@@ -134,8 +134,8 @@ void par_for2(T size, Func f, uint16_t thread_count = std::thread::hardware_conc
 #endif
 }
 
-template <class T,typename Func>
-void par_for_asyn2(T size, Func f, int thread_count = std::thread::hardware_concurrency())
+template <typename T,typename Func>
+void par_for_asyn2(T size,Func&& f, int thread_count = std::thread::hardware_concurrency())
 {
     std::vector<std::future<void> > futures;
     if(thread_count > size)
@@ -171,8 +171,8 @@ void par_for_asyn2(T size, Func f, int thread_count = std::thread::hardware_conc
     for(auto &future : futures)
         future.wait();
 }
-template <class T,typename Func>
-void par_for_block(T size, Func f, int thread_count = std::thread::hardware_concurrency())
+template <typename T,typename Func>
+void par_for_block(T size,Func&& f, int thread_count = std::thread::hardware_concurrency())
 {
     if(!size)
         return;
@@ -198,8 +198,8 @@ void par_for_block(T size, Func f, int thread_count = std::thread::hardware_conc
         future.wait();
 }
 
-template <class T,typename Func>
-void par_for_block2(T size, Func f, int thread_count = std::thread::hardware_concurrency())
+template <typename T,typename Func>
+void par_for_block2(T size,Func&& f, int thread_count = std::thread::hardware_concurrency())
 {
     if(!size)
         return;

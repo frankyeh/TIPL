@@ -453,19 +453,19 @@ public:
         return true;
     }
     template<typename Func>
-    void for_each(Func f)
+    void for_each(Func&& f)
     {
         for(pixel_index<dim> index(shape());index.index() < data.size();++index)
             f(data[index.index()],index);
     }
     template<typename Func>
-    void for_each(Func f) const
+    void for_each(Func&& f) const
     {
         for(pixel_index<dim> index(shape());index.index() < data.size();++index)
             f(data[index.index()],index);
     }
     template<typename Func>
-    void for_each_mt(Func f, unsigned int thread_count = std::thread::hardware_concurrency())
+    void for_each_mt(Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
     {
         if(thread_count < 1)
             thread_count = 1;
@@ -489,7 +489,7 @@ public:
             future.wait();
     }
     template<typename Func>
-    void for_each_mt(Func f, int thread_count = std::thread::hardware_concurrency()) const
+    void for_each_mt(Func&& f, int thread_count = std::thread::hardware_concurrency()) const
     {
         if(thread_count < 1)
             thread_count = 1;
@@ -513,7 +513,7 @@ public:
             future.wait();
     }
     template<typename Func>
-    void for_each_mt2(Func f,unsigned int thread_count = std::thread::hardware_concurrency())
+    void for_each_mt2(Func&& f,unsigned int thread_count = std::thread::hardware_concurrency())
     {
         if(thread_count < 1)
             thread_count = 1;
