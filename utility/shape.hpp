@@ -84,6 +84,14 @@ public:
     {
         return dim[index];
     }
+    template<typename rhs_type>
+    shape operator*(rhs_type value) const
+    {
+        shape new_shape = *this;
+        for(unsigned int i = 0;i < dimension;++i)
+            new_shape.dim[i] *= value;
+        return new_shape;
+    }
     unsigned int* begin(void)
     {
         return dim;
@@ -487,6 +495,11 @@ public:
     const unsigned int& operator[](index_type index) const
     {
         return dim[index];
+    }
+    template<typename rhs_type>
+    shape operator*(rhs_type value) const
+    {
+        return shape(uint32_t(w*value),uint32_t(h*value),uint32_t(d*value));
     }
     unsigned int* begin(void)
     {
