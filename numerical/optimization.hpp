@@ -38,15 +38,15 @@ void estimate_change(iter_type1 x_beg,iter_type1 x_end,tol_type tol,iter_type2 f
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
     unsigned int size = x_end-x_beg;
     std::vector<param_type> x(x_beg,x_end);
-    for(unsigned int i = 0;i < size;++i)
+    par_for(size,[&](unsigned int i)
     {
         if(tol[i] == 0)
-            continue;
+            return;
         param_type old_x = x[i];
         x[i] += tol[i];
         fun_ei[i] = fun(&x[0]);
         x[i] = old_x;
-    }
+    });
 }
 // calculate fun(x+ei)
 template<typename storage_type,typename tol_storage_type,typename fun_type,typename function_type>
