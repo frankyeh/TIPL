@@ -151,27 +151,42 @@ bool armijo_line_search(iter_type1 x_beg,iter_type1 x_end,
                         value_type& fun_x,
                         function_type& fun)
 {
-    typedef typename std::iterator_traits<iter_type1>::value_type param_type;
+    using param_type = typename std::iterator_traits<iter_type1>::value_type;
     unsigned int size = x_end-x_beg;
-    bool has_new_x = false;
-    std::vector<param_type> old_x(x_beg,x_end);
+    std::vector<std::vector<param_type> > new_x_list;
+    std::vector<value_type> cost;
+    cost.push_back(fun_x);
+    new_x_list.push_back(std::vector<param_type>(x_beg,x_end));
     for(double step = 0.1;step <= 100.0;step *= 2)
     {
-        std::vector<param_type> new_x(old_x);
+        cost.push_back(std::numeric_limits<value_type>::max());
+        std::vector<param_type> new_x(new_x_list[0]);
         tipl::vec::aypx(g_beg,g_beg+size,-step,new_x.begin());
         for(unsigned int j = 0;j < size;++j)
             new_x[j] = std::min<double>(std::max<double>(new_x[j],x_lower[j]),x_upper[j]);
-        value_type new_fun_x(fun(&*new_x.begin()));
-        if(fun_x-new_fun_x > 0)
-        {
-            fun_x = new_fun_x;
-            std::copy(new_x.begin(),new_x.end(),x_beg);
-            has_new_x = true;
-        }
-        else
-            break;
+        new_x_list.push_back(std::move(new_x));
     }
-    return has_new_x;
+
+    par_for(cost.size(),[&](unsigned int index)
+    {
+        if(index == 0)
+            return;
+        // check if reaching a minimum, if yes, terminate
+        for(unsigned int i = 0;i+1 < index;++i)
+            if(cost[i] != std::numeric_limits<value_type>::max() &&
+               cost[i+1] != std::numeric_limits<value_type>::max() &&
+               cost[i] < cost[i+1])
+                return;
+        cost[index] = fun(&*new_x_list[index].begin());
+    });
+
+    // find the step that has lowest cost
+    unsigned int final = uint32_t(std::min_element(cost.begin(),cost.end())-cost.begin());
+    if(final == 0)
+        return false; // no new value
+    fun_x = cost[final];
+    std::copy(new_x_list[final].begin(),new_x_list[final].end(),x_beg);
+    return true;
 }
 
 template<typename tol_type,typename iter_type>
@@ -239,23 +254,24 @@ void graient_descent_1d(param_type& x,param_type upper,param_type lower,
 }
 
 template<typename iter_type1,typename iter_type2,typename function_type,typename teminated_class>
-double random_search(iter_type1 x_beg,iter_type1 x_end,
+void random_search(iter_type1 x_beg,iter_type1 x_end,
                      iter_type2 x_upper,iter_type2 x_lower,
                      function_type& fun,
+                     double& optimal_value,
                      teminated_class& terminated,
                      int random_search_count)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
-    double optimal_value = fun(x_beg);
     std::default_random_engine gen;
-    std::uniform_int_distribution<int> un(0,2);
+    std::uniform_int_distribution<int> un(0,x_end-x_beg-1);
     tipl::par_for(std::thread::hardware_concurrency(),[&](int)
     {
-        for(int j = 0;j < random_search_count && !terminated;++j)
+        for(int j = 0;j < random_search_count && !terminated;)
         {
             int cur_dim = un(gen);
             if(x_upper[cur_dim] == x_lower[cur_dim])
                 continue;
+            ++j;
             float sd = std::max<float>(std::fabs(x_upper[cur_dim]-x_beg[cur_dim]),std::fabs(x_lower[cur_dim]-x_beg[cur_dim]))/2.0f;
             std::normal_distribution<double> distribution(x_beg[cur_dim],sd);
             std::vector<param_type> param(x_beg,x_end);
@@ -263,12 +279,11 @@ double random_search(iter_type1 x_beg,iter_type1 x_end,
             double current_value = fun(&*param.begin());
             if(current_value < optimal_value)
             {
-                x_beg[cur_dim] = param[cur_dim];
                 optimal_value = current_value;
+                x_beg[cur_dim] = param[cur_dim];
             }
         }
     });
-    return optimal_value;
 }
 
 template<typename iter_type1,typename iter_type2,typename function_type,typename terminated_class>
