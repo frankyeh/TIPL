@@ -379,14 +379,14 @@ float linear(const image_type& from,const vs_type& from_vs,
     tipl::reg::fun_adoptor<image_type,vs_type,transform_type,transform_type,CostFunctionType> fun(from,from_vs,to,to_vs,arg_min);
     transform_type upper,lower;
     tipl::reg::get_bound(from,to,arg_min,upper,lower,base_type,bound);
-    double optimal_value = tipl::optimization::random_search(arg_min.begin(),arg_min.end(),
-                                         upper.begin(),lower.begin(),fun,terminated,random_search_count);
-
     reg_type reg_list[4] = {translocation,rigid_body,rigid_scaling,affine};
-
+    double optimal_value = fun(arg_min);
     for(int type = 0;type < 4 && reg_list[type] <= base_type && !terminated;++type)
     {
         tipl::reg::get_bound(from,to,arg_min,upper,lower,reg_list[type],bound);
+        if(random_search_count)
+            tipl::optimization::random_search(arg_min.begin(),arg_min.end(),
+                                             upper.begin(),lower.begin(),fun,optimal_value,terminated,random_search_count);
         tipl::optimization::gradient_descent(arg_min.begin(),arg_min.end(),
                                                  upper.begin(),lower.begin(),fun,optimal_value,terminated,precision);
     }
@@ -412,8 +412,9 @@ double linear2(const image_type& from,const vs_type& from_vs,
     tipl::reg::fun_adoptor<image_type,vs_type,transform_type,transform_type,CostFunctionType> fun(from,from_vs,to,to_vs,arg_min);
     transform_type upper,lower;
     tipl::reg::get_bound(from,to,arg_min,upper,lower,base_type,bound);
-    double optimal_value = tipl::optimization::random_search(arg_min.begin(),arg_min.end(),
-                                         upper.begin(),lower.begin(),fun,terminated,random_search_count);
+    double optimal_value = fun(arg_min);
+    tipl::optimization::random_search(arg_min.begin(),arg_min.end(),
+                                         upper.begin(),lower.begin(),fun,optimal_value,terminated,random_search_count);
     tipl::optimization::gradient_descent(arg_min.begin(),arg_min.end(),
                                          upper.begin(),lower.begin(),fun,optimal_value,terminated,precision);
     return optimal_value;
@@ -431,8 +432,8 @@ float linear_mr(const image_type& from,const vs_type& from_vs,
 {
     // multi resolution
     int random_search = 0;
-    if (*std::max_element(from.shape().begin(),from.shape().end()) > 32 &&
-        *std::max_element(to.shape().begin(),to.shape().end()) > 32)
+    if (*std::max_element(from.shape().begin(),from.shape().end()) > 64 &&
+        *std::max_element(to.shape().begin(),to.shape().end()) > 64)
     {
         //downsampling
         image<image_type::dimension,typename image_type::value_type> from_r,to_r;
@@ -450,7 +451,7 @@ float linear_mr(const image_type& from,const vs_type& from_vs,
             return 0.0;
     }
     else
-        random_search = 800/(*std::max_element(from.shape().begin(),from.shape().end())+1);
+        random_search = 20;
     return linear(from,from_vs,to,to_vs,arg_min,base_type,cost_type,terminated,precision,random_search,bound);
 }
 
