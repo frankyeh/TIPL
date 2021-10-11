@@ -1,12 +1,13 @@
 #ifndef MULTI_THREAD_HPP
 #define MULTI_THREAD_HPP
 #include <future>
+#include <iostream>
 namespace tipl{
 
 class time
 {
  public:
-    time():  t1(std::chrono::high_resolution_clock::now()){};
+    time():  t1(std::chrono::high_resolution_clock::now()){}
     template<typename T> // T: std::chrono::milliseconds
     double elapsed(){return std::chrono::duration_cast<T>(std::chrono::high_resolution_clock::now() - t1).count();}
     void restart(){t1 = std::chrono::high_resolution_clock::now();}
@@ -42,7 +43,7 @@ public:
 };
 
 template <typename T,typename Func>
-void par_for(T size, Func&& f, int thread_count = std::thread::hardware_concurrency())
+void par_for(T size, Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
 {
 #ifdef USING_XEUS_CLING
 // cling still has an issue using std::future
@@ -53,7 +54,7 @@ void par_for(T size, Func&& f, int thread_count = std::thread::hardware_concurre
     std::vector<std::future<void> > futures;
     if(thread_count > size)
         thread_count = int(size);
-    for(int id = 1; id < thread_count; id++)
+    for(unsigned int id = 1; id < thread_count; id++)
     {
         futures.push_back(std::move(std::async(std::launch::async, [id,size,thread_count,&f]
         {
@@ -69,14 +70,14 @@ void par_for(T size, Func&& f, int thread_count = std::thread::hardware_concurre
 }
 
 template <typename T,typename Func>
-void par_for_asyn(T size,Func&& f, int thread_count = std::thread::hardware_concurrency())
+void par_for_asyn(T size,Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
 {
     std::vector<std::future<void> > futures;
     if(thread_count > size)
         thread_count = int(size);
     T now = 0;
     std::mutex read_now;
-    for(int id = 1; id < thread_count; id++)
+    for(unsigned int id = 1; id < thread_count; id++)
     {
         futures.push_back(std::move(std::async(std::launch::async, [id,size,thread_count,&f,&now,&read_now]
         {
@@ -108,7 +109,7 @@ void par_for_asyn(T size,Func&& f, int thread_count = std::thread::hardware_conc
 
 
 template <typename T,typename Func>
-void par_for2(T size,Func&& f, uint16_t thread_count = std::thread::hardware_concurrency())
+void par_for2(T size,Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
 {
 #ifdef USING_XEUS_CLING
 // cling still has an issue using std::future
@@ -135,14 +136,14 @@ void par_for2(T size,Func&& f, uint16_t thread_count = std::thread::hardware_con
 }
 
 template <typename T,typename Func>
-void par_for_asyn2(T size,Func&& f, int thread_count = std::thread::hardware_concurrency())
+void par_for_asyn2(T size,Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
 {
     std::vector<std::future<void> > futures;
     if(thread_count > size)
         thread_count = int(size);
     T now = 0;
     std::mutex read_now;
-    for(int id = 1; id < thread_count; id++)
+    for(unsigned int id = 1; id < thread_count; id++)
     {
         futures.push_back(std::move(std::async(std::launch::async, [id,size,thread_count,&f,&now,&read_now]
         {
@@ -172,7 +173,7 @@ void par_for_asyn2(T size,Func&& f, int thread_count = std::thread::hardware_con
         future.wait();
 }
 template <typename T,typename Func>
-void par_for_block(T size,Func&& f, int thread_count = std::thread::hardware_concurrency())
+void par_for_block(T size,Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
 {
     if(!size)
         return;
@@ -182,7 +183,7 @@ void par_for_block(T size,Func&& f, int thread_count = std::thread::hardware_con
 
     size_t block_size = size/thread_count;
     size_t pos = 0;
-    for(int id = 1; id < thread_count; id++)
+    for(unsigned int id = 1; id < thread_count; id++)
     {
         size_t end = pos + block_size;
         futures.push_back(std::move(std::async(std::launch::async, [pos,end,&f]
@@ -199,7 +200,7 @@ void par_for_block(T size,Func&& f, int thread_count = std::thread::hardware_con
 }
 
 template <typename T,typename Func>
-void par_for_block2(T size,Func&& f, int thread_count = std::thread::hardware_concurrency())
+void par_for_block2(T size,Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
 {
     if(!size)
         return;
@@ -209,7 +210,7 @@ void par_for_block2(T size,Func&& f, int thread_count = std::thread::hardware_co
 
     size_t block_size = size/thread_count;
     size_t pos = 0;
-    for(int id = 1; id < thread_count; id++)
+    for(unsigned int id = 1; id < thread_count; id++)
     {
         size_t end = pos + block_size;
         futures.push_back(std::move(std::async(std::launch::async, [id,pos,end,&f]
