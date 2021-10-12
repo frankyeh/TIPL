@@ -831,7 +831,8 @@ public:
                 for(int i = 0,pos = 0;i < m;++i,pos += n)
                     if(idx[i] != i)
                     {
-                        tipl::copy_ptr(nw1.begin()+idx[i]*n,w1.begin()+pos,n);
+                        auto p = nw1.begin()+idx[i]*n;
+                        std::copy(p,p+n,w1.begin()+pos);
                         b1[i] = nb1[idx[i]];
                         for(int j = i,k = idx[i];j < nw2.size();j += m,k += m)
                             w2[j] = nw2[k];
@@ -1294,8 +1295,7 @@ public:
                 nn.forward_propagation(data.get_data(data_index),in_out_ptr[thread_id]);
                 const float* out_ptr2 = in_out_ptr[thread_id] + output_pos;
                 float* df_ptr = back_df_ptr[thread_id] + output_pos;
-
-                tipl::copy_ptr(out_ptr2,df_ptr,nn.output_size);
+                std::copy(out_ptr2,out_ptr2+nn.output_size,df_ptr);
                 accumulate_error_table(data.get_label(data_index),out_ptr2,nn.output_size);
                 training_error_value += nn.calculate_error(data.get_label(data_index),df_ptr);
                 nn.back_propagation(out_ptr2,df_ptr);
@@ -1517,7 +1517,7 @@ void to_image(network& nn,color_image& I,std::vector<float> in,label_type label,
     float* back_buf = &back[0];
     float* in_buf = &in[0];
     nn.forward_propagation(in_buf,out_buf);
-    tipl::copy_ptr(out_buf+end,back_buf+end,output_size);
+    std::copy(out_buf+end,out_buf+end+output_size,back_buf+end);
     nn.calculate_error(label,back_buf+end);
     nn.back_propagation(out_buf+end,back_buf+end);
 
