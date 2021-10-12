@@ -460,17 +460,28 @@ public:
     template<typename image_type>
     bool save_to_image(image_type& image_data,const char* image_name) const
     {
-        unsigned int r,c;
-        const unsigned short* m = nullptr;
-        read("dimension",r,c,m);
-        if(!m || r*c != image_type::dimension)
+        typename image_type::shape_type s;
+        if(!get_dimension(s))
             return false;
-        image_data.resize(typename image_type::shape_type(m));
+        image_data.resize(s);
+        unsigned int r,c;
         const typename image_type::value_type* buf = 0;
         read(image_name,r,c,buf);
         if(!buf || size_t(r)*size_t(c) != image_data.size())
             return false;
         std::copy(buf,buf+image_data.size(),image_data.begin());
+        return true;
+    }
+    template<typename dim_type>
+    bool get_dimension(dim_type& dim) const
+    {
+        const float* dim_ptr = nullptr;
+        unsigned int r,c;
+        read("dimension",r,c,dim_ptr);
+        if(!dim_ptr || r*c != 3)
+            return false;
+        for(unsigned int i = 0;i < 3;++i)
+            dim[i] = dim_ptr[i];
         return true;
     }
     template<typename vec_type>
