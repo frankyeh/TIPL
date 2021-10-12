@@ -263,13 +263,14 @@ public:
     template<typename rhs_value_type,typename rhs_storage_type>
     image(const image<dim,rhs_value_type,rhs_storage_type>& rhs){operator=(rhs);}
     image(const shape_type& geo_):data(geo_.size()),geo(geo_) {}
-    template <typename any_value_type>
-    image(any_value_type* pointer,const shape_type& geo_):data(pointer,pointer+geo_.size()),geo(geo_) {}
-    template <typename any_value_type>
-    image(const any_value_type* pointer,const shape_type& geo_):data(pointer,pointer+geo_.size()),geo(geo_) {}
 public:
-    template<typename rhs_value_type,typename rhs_storage_type>
-    const image& operator=(const image<dim,rhs_value_type,rhs_storage_type>& rhs)
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    image(T* pointer,const shape_type& geo_):data(pointer,pointer+geo_.size()),geo(geo_) {}
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    image(const T* pointer,const shape_type& geo_):data(pointer,pointer+geo_.size()),geo(geo_) {}
+public:
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    const image& operator=(const T& rhs)
     {
         storage_type new_data(rhs.begin(),rhs.end());
         data.swap(new_data);
@@ -359,70 +360,70 @@ public:
         return const_slice_type(&*data.begin()+pos*slice_geo.size(),slice_geo);
     }
 public:
-    template<typename value_type>
-    const image& operator+=(value_type value)
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    const image operator+=(T value)
     {
         iterator end_iter = data.end();
         for(iterator iter = data.begin();iter != end_iter;++iter)
             *iter += value;
         return *this;
     }
-    template<typename value_type>
-    const image& operator-=(value_type value)
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    const image operator-=(T value)
     {
         iterator end_iter = data.end();
         for(iterator iter = data.begin();iter != end_iter;++iter)
             *iter -= value;
         return *this;
     }
-    template<typename value_type>
-    const image& operator*=(value_type value)
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    const image operator*=(T value)
     {
         iterator end_iter = data.end();
         for(iterator iter = data.begin();iter != end_iter;++iter)
             *iter *= value;
         return *this;
     }
-    template<typename value_type>
-    const image& operator/=(value_type value)
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    const image operator/=(T value)
     {
         iterator end_iter = data.end();
         for(iterator iter = data.begin();iter != end_iter;++iter)
             *iter /= value;
         return *this;
     }
-    template<typename rhs_value_type,typename rhs_storage_type>
-    const image& operator+=(const image<dim,rhs_value_type,rhs_storage_type>& rhs)
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    const image& operator+=(const T& rhs)
     {
         iterator end_iter = data.end();
-        typename image<dim,rhs_value_type,rhs_storage_type>::const_iterator iter2 = rhs.begin();
+        auto iter2 = rhs.begin();
         for(iterator iter = data.begin();iter != end_iter;++iter,++iter2)
             *iter += *iter2;
         return *this;
     }
-    template<typename rhs_value_type,typename rhs_storage_type>
-    const image& operator-=(const image<dim,rhs_value_type,rhs_storage_type>& rhs)
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    const image& operator-=(const T& rhs)
     {
         iterator end_iter = data.end();
-        typename image<dim,rhs_value_type,rhs_storage_type>::const_iterator iter2 = rhs.begin();
+        auto iter2 = rhs.begin();
         for(iterator iter = data.begin();iter != end_iter;++iter,++iter2)
             *iter -= *iter2;
         return *this;
     }
-    template<typename rhs_value_type,typename rhs_storage_type>
-    const image& operator*=(const image<dim,rhs_value_type,rhs_storage_type>& rhs)
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    const image& operator*=(const T& rhs)
     {
         iterator end_iter = data.end();
-        typename image<dim,rhs_value_type,rhs_storage_type>::const_iterator iter2 = rhs.begin();
+        auto iter2 = rhs.begin();
         for(iterator iter = data.begin();iter != end_iter;++iter,++iter2)
             *iter *= *iter2;
         return *this;
     }
-    template<typename rhs_value_type,typename rhs_storage_type>
-    const image& operator/=(const image<dim,rhs_value_type,rhs_storage_type>& rhs)
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    const image& operator/=(const T& rhs)
     {
         iterator end_iter = data.end();
-        typename image<dim,rhs_value_type,rhs_storage_type>::const_iterator iter2 = rhs.begin();
+        auto iter2 = rhs.begin();
         for(iterator iter = data.begin();iter != end_iter;++iter,++iter2)
             *iter /= *iter2;
         return *this;
