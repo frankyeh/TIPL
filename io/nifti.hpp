@@ -875,6 +875,26 @@ public:
         write_buf = 0;
         return out;
     }
+    template<typename iterator_type1,typename iterator_type2,typename int_type>
+    static void copy_ptr(iterator_type1 iter1,iterator_type2 iter2,int_type size)
+    {
+        for(iterator_type1 end = iter1+size; iter1 != end; ++iter1,++iter2)
+            *iter2 = typename std::iterator_traits<iterator_type2>::value_type(*iter1);
+    }
+    template<typename lhs_type,typename rhs_type>
+    static void copy_data(const void* lhs,rhs_type rhs,size_t size)
+    {
+        copy_ptr(reinterpret_cast<const lhs_type*>(lhs),rhs,size);
+    }
+    static void copy_data(const float* lhs,unsigned char* rhs,size_t size)
+    {
+        tipl::normalize(lhs,lhs+size,rhs);
+    }
+    static void copy_data(const double* lhs,unsigned char* rhs,size_t size)
+    {
+        tipl::normalize(lhs,lhs+size,rhs);
+    }
+
     template<typename pointer_type>
     bool save_to_buffer(pointer_type ptr,size_t pixel_count) const
     {
@@ -901,51 +921,51 @@ public:
                 switch (byte_per_pixel)
                 {
                     case 2:
-                        change_endian((int16_t*)buf_ptr,buf.size()/2);
+                        change_endian<int16_t>(buf_ptr,buf.size()/2);
                         break;
                     case 4:
-                        change_endian((int32_t*)buf_ptr,buf.size()/4);
+                        change_endian<int32_t>(buf_ptr,buf.size()/4);
                         break;
                     case 8:
-                        change_endian((double*)buf_ptr,buf.size()/8);
+                        change_endian<double>(buf_ptr,buf.size()/8);
                         break;
                 }
             }
             switch (nif_header2.datatype)
             {
             case 2://DT_UNSIGNED_CHAR 2
-                tipl::copy_ptr((const unsigned char*)buf_ptr,ptr,pixel_count);
+                copy_data<unsigned char>(buf_ptr,ptr,pixel_count);
                 break;
             case 4://DT_SIGNED_SHORT 4
-                tipl::copy_ptr((const int16_t*)buf_ptr,ptr,pixel_count);
+                copy_data<int16_t>(buf_ptr,ptr,pixel_count);
                 break;
             case 8://DT_SIGNED_INT 8
-                tipl::copy_ptr((const int32_t*)buf_ptr,ptr,pixel_count);
+                copy_data<int32_t>(buf_ptr,ptr,pixel_count);
                 break;
             case 16://DT_FLOAT 16
-                tipl::copy_ptr((const float*)buf_ptr,ptr,pixel_count);
+                copy_data<float>(buf_ptr,ptr,pixel_count);
                 break;
             case 64://DT_DOUBLE 64
-                tipl::copy_ptr((const double*)buf_ptr,ptr,pixel_count);
+                copy_data<double>(buf_ptr,ptr,pixel_count);
                 break;
             case 128://DT_RGB
                 for(size_t index = 0;index < buf.size();index +=3,++ptr)
-                    *ptr = (short)tipl::rgb(buf[index],buf[index+1],buf[index+2]);
+                    *ptr = uint32_t(tipl::rgb(buf[index],buf[index+1],buf[index+2]));
                 break;
             case 256: // DT_INT8
-                tipl::copy_ptr((const char*)buf_ptr,ptr,pixel_count);
+                copy_data<char>(buf_ptr,ptr,pixel_count);
                 break;
             case 512: // DT_UINT16
-                tipl::copy_ptr((const uint16_t*)buf_ptr,ptr,pixel_count);
+                copy_data<uint16_t>(buf_ptr,ptr,pixel_count);
                 break;
             case 768: // DT_UINT32
-                tipl::copy_ptr((const uint32_t*)buf_ptr,ptr,pixel_count);
+                copy_data<uint32_t>(buf_ptr,ptr,pixel_count);
                 break;
             case 1024: // DT_UINT32
-                tipl::copy_ptr((const int64_t*)buf_ptr,ptr,pixel_count);
+                copy_data<int64_t>(buf_ptr,ptr,pixel_count);
                 break;
             case 1280: // DT_UINT32
-                tipl::copy_ptr((const uint64_t*)buf_ptr,ptr,pixel_count);
+                copy_data<uint64_t>(buf_ptr,ptr,pixel_count);
                 break;
             }
             return true;

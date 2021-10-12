@@ -8,13 +8,6 @@
 namespace tipl
 {
 
-template<typename iterator_type1,typename iterator_type2,typename int_type>
-inline void copy_ptr(iterator_type1 iter1,iterator_type2 iter2,int_type size)
-{
-    for(iterator_type1 end = iter1+size; iter1 != end; ++iter1,++iter2)
-        *iter2 = typename std::iterator_traits<iterator_type2>::value_type(*iter1);
-}
-
 template<typename iterator_type1,typename iterator_type2,typename fun_type>
 inline void for_each(iterator_type1 iter1,iterator_type1 end,iterator_type2 iter2,fun_type fun)
 {
@@ -1115,6 +1108,13 @@ inline void change_endian(float& data)
     change_endian(*reinterpret_cast<int*>(&data));
 }
 
+template<typename datatype>
+inline void change_endian(void* data_,size_t count)
+{
+    auto data = reinterpret_cast<datatype*>(data_);
+    for (size_t index = 0; index < count; ++index)
+        change_endian(data[index]);
+}
 template<typename datatype>
 inline void change_endian(datatype* data,size_t count)
 {

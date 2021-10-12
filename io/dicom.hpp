@@ -661,13 +661,13 @@ public:
             if(transfer_syntax == bee)
             {
                 if (is_float()) // float
-                    change_endian((float*)&*data.begin(),int(data.size()/sizeof(float)));
+                    change_endian<float>(&*data.begin(),data.size()/sizeof(float));
                 if (is_double()) // double
-                    change_endian((double*)&*data.begin(),int(data.size()/sizeof(double)));
+                    change_endian<double>(&*data.begin(),data.size()/sizeof(double));
                 if (is_int16()) // uint16type
-                    change_endian((short*)&*data.begin(),int(data.size()/sizeof(short)));
+                    change_endian<short>(&*data.begin(),data.size()/sizeof(short));
                 if (is_int32() && data.size() >= 4)
-                    change_endian((int*)&*data.begin(),int(data.size()/sizeof(int)));
+                    change_endian<int>(&*data.begin(),data.size()/sizeof(int));
             }
         }
         return !(!in);
