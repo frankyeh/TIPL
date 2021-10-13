@@ -120,15 +120,18 @@ public:
     {
         return index_ != rhs.index_;
     }
-    bool operator<(int rhs) const
+    template<typename T>
+    bool operator<(T rhs) const
     {
         return index_ < rhs;
     }
-    bool operator==(int rhs) const
+    template<typename T>
+    bool operator==(T rhs) const
     {
         return index_ == rhs;
     }
-    bool operator!=(int rhs) const
+    template<typename T>
+    bool operator!=(T rhs) const
     {
         return index_ != rhs;
     }
