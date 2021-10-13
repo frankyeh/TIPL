@@ -239,11 +239,11 @@ public:
 public:
     value_type at(unsigned int x,unsigned int y) const
     {
-        return data[y*geo[0]+x];
+        return data[size_t(y)*geo[0]+x];
     }
     reference at(unsigned int x,unsigned int y)
     {
-        return data[y*geo[0]+x];
+        return data[size_t(y)*geo[0]+x];
     }
 
     value_type at(unsigned int x,unsigned int y,unsigned int z) const
