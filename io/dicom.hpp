@@ -1811,6 +1811,11 @@ public:
                 tipl::vector<3> pos1,pos2;
                 dicom_reader[0]->get_left_upper_pos(pos1.begin());
                 dicom_reader[1]->get_left_upper_pos(pos2.begin());
+                if(pos1 == pos2)
+                {
+                    error_msg = "duplicated slices found.";
+                    return false;
+                }
                 orientation_matrix[6] = pos2[0]-pos1[0];
                 orientation_matrix[7] = pos2[1]-pos1[1];
                 orientation_matrix[8] = pos2[2]-pos1[2];
