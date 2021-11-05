@@ -424,7 +424,7 @@ void bounding_box(const ImageType& I,
     }
     for (pixel_index<ImageType::dimension> iter(I.shape());iter < I.size();++iter)
     {
-        if (I[iter.index()] < background)
+        if (I[iter.index()] <= background)
             continue;
         for (unsigned int di = 0; di < ImageType::dimension; ++di)
         {
