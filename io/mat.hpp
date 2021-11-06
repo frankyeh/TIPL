@@ -208,6 +208,11 @@ public:
     {
         return name;
     }
+    template<typename T>
+    bool is_type(void) const
+    {
+        return type == mat_type_info<T>::type;
+    }
     bool has_delay_read(void) const
     {
         return delay_read_pos;
@@ -439,6 +444,14 @@ public:
             name_table[dataset[index]->get_name()] = index;
         return !dataset.empty();
     }
+    void add(const char* name_,const mat_matrix& matrix)
+    {
+        std::shared_ptr<mat_matrix> new_matrix(new mat_matrix);
+        *(new_matrix.get()) = matrix;
+        dataset.push_back(new_matrix);
+        name_table[name_] = dataset.size()-1;
+    }
+
     template<typename container_type>
     void add(const char* name_,const container_type& container)
     {
