@@ -352,6 +352,13 @@ public:
         copy(rhs);
         return *this;
     }
+    void swap(mat_read_base& rhs)
+    {
+        dataset.swap(rhs.dataset);
+        name_table.swap(rhs.name_table);
+        in.swap(rhs.in);
+        std::swap(delay_read,rhs.delay_read);
+    }
     bool has(const char* name) const
     {
         return name_table.find(name) != name_table.end();
