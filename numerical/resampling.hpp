@@ -435,7 +435,9 @@ template<typename value_type>
 struct downsampling_facade{
     value_type operator()(value_type v1,value_type v2)
     {
-        return (v1+v2)/((value_type)2);
+        v1 += v2;
+        v1 /= 2;
+        return v1;
     }
 };
 template<>
@@ -654,6 +656,63 @@ void downsample_with_padding(const image_type1& I,image_type2& rI)
     tipl::downsampling(pad_I,rI);
 }
 
+template<typename IteratorType,typename OutputIterator>
+OutputIterator downsampling_no_average_x(IteratorType from,IteratorType to,OutputIterator out,int width)
+{
+    int half_width = width >> 1;
+    for(;from != to;from += width)
+    {
+        IteratorType read_end = from + (half_width << 1);
+        for(IteratorType read = from;read != read_end;++out,read += 2)
+            *out = *read;
+        if(width & 1) // the padding x dimension by 1
+        {
+            *out = *read_end;
+            ++out;
+        }
+    }
+    return out;
+}
+
+template<typename IteratorType,typename OutputIterator>
+OutputIterator downsampling_no_average_y(IteratorType from,IteratorType to,OutputIterator out,int width,int height)
+{
+    int half_height = height >> 1;
+    int plane_size = width*height;
+    int plane_size2 = (half_height << 1 )*width;
+    for(;from != to;from += plane_size)
+    {
+        IteratorType line_end = from+plane_size2;
+        for(IteratorType line = from;line != line_end;line += width)
+        {
+            for(IteratorType end_line = line + width;line != end_line;++line,++out)
+                *out = *line;
+        }
+        if(height & 1) // padding y dimension by 1
+        {
+            for(IteratorType plane_end = line_end + width;line_end != plane_end;++line_end,++out)
+                *out = *line_end;
+        }
+    }
+    return out;
+}
+
+template<typename ImageType1,typename ImageType2>
+void downsample_no_average(const ImageType1& in,ImageType2& out)
+{
+    out.resize(in.shape());
+    tipl::shape<ImageType1::dimension> new_geo(in.shape());
+    typename ImageType2::iterator end_iter = downsampling_no_average_x(in.begin(),in.end(),out.begin(),in.width());
+    new_geo[0] = ((new_geo[0]+1) >> 1);
+    unsigned int plane_size = new_geo[0];
+    for(int dim = 1;dim < ImageType1::dimension;++dim)
+    {
+        end_iter = downsampling_no_average_y(out.begin(),end_iter,out.begin(),plane_size,in.shape()[dim]);
+        new_geo[dim] = ((in.shape()[dim]+1) >> 1);
+        plane_size *= new_geo[dim];
+    }
+    out.resize(new_geo);
+}
 template<typename image_type1,typename image_type2,typename geo_type>
 void upsample_with_padding(const image_type1& I,image_type2& uI,const geo_type& geo)
 {
