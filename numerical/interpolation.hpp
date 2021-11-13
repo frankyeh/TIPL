@@ -239,7 +239,7 @@ template<>
 struct nearest_value<2>
 {
     int64_t x,y;
-    int64_t index = 0;
+    size_t index = 0;
     template<typename VTorType>
     bool get_location(const shape<2>& geo,const VTorType& location)
     {
@@ -276,7 +276,7 @@ template<>
 struct nearest_value<3>
 {
     int64_t x,y,z;
-    int64_t index = 0;
+    size_t index = 0;
     template<typename VTorType>
     bool get_location(const shape<3>& geo,const VTorType& location)
     {
@@ -317,7 +317,7 @@ struct interpolation<weighting_function,1>
 {
     static const unsigned int ref_count = 2;
     float ratio[ref_count];
-    int64_t dindex[ref_count];
+    size_t dindex[ref_count];
     weighting_function weighting;
 
     template<typename VTorType>
@@ -328,7 +328,7 @@ struct interpolation<weighting_function,1>
         if (x < 0)
             return false;
         float fx = std::floor(x);
-        int64_t ix = fx;
+        size_t ix = fx;
         if (ix + 1 >= geo[0])
             return false;
         p = x-fx;
@@ -351,8 +351,8 @@ struct interpolation<weighting_function,1>
     {
         if (get_location(source.shape(),location))
         {
-            weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int64_t*>(source,dindex),
-                const_reference_iterator<ImageType,int64_t*>(source,dindex+ref_count),ratio,pixel);
+            weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,size_t*>(source,dindex),
+                const_reference_iterator<ImageType,size_t*>(source,dindex+ref_count),ratio,pixel);
             return true;
         }
         return false;
@@ -362,8 +362,8 @@ struct interpolation<weighting_function,1>
     template<typename ImageType,typename PixelType>
     void estimate(const ImageType& source,PixelType& pixel)
     {
-        weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int64_t*>(source,dindex),
-                const_reference_iterator<ImageType,int64_t*>(source,dindex+ref_count),ratio,pixel);
+        weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,size_t*>(source,dindex),
+                const_reference_iterator<ImageType,size_t*>(source,dindex+ref_count),ratio,pixel);
     }
 };
 
@@ -372,7 +372,7 @@ struct interpolation<weighting_function,2>
 {
     static const unsigned int ref_count = 4;
     float ratio[ref_count];
-    int64_t dindex[ref_count];
+    size_t dindex[ref_count];
     weighting_function weighting;
 
     template<typename VTorType>
@@ -385,8 +385,8 @@ struct interpolation<weighting_function,2>
             return false;
         float fx = std::floor(x);
         float fy = std::floor(y);
-        int64_t ix = fx;
-        int64_t iy = fy;
+        size_t ix = fx;
+        size_t iy = fy;
         if (ix + 1 >= geo[0] || iy + 1>= geo[1])
             return false;
         p[1] = y-fy;
@@ -417,8 +417,8 @@ struct interpolation<weighting_function,2>
     {
         if (get_location(source.shape(),location))
         {
-            weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int64_t*>(source,dindex),
-                const_reference_iterator<ImageType,int64_t*>(source,dindex+ref_count),ratio,pixel);
+            weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,size_t*>(source,dindex),
+                const_reference_iterator<ImageType,size_t*>(source,dindex+ref_count),ratio,pixel);
             return true;
         }
         return false;
@@ -428,8 +428,8 @@ struct interpolation<weighting_function,2>
     template<typename ImageType,typename PixelType>
     void estimate(const ImageType& source,PixelType& pixel)
     {
-        weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int64_t*>(source,dindex),
-                const_reference_iterator<ImageType,int64_t*>(source,dindex+ref_count),ratio,pixel);
+        weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,size_t*>(source,dindex),
+                const_reference_iterator<ImageType,size_t*>(source,dindex+ref_count),ratio,pixel);
     }
 };
 
@@ -438,7 +438,7 @@ struct interpolation<weighting_function,3>
 {
     static const unsigned int ref_count = 8;
     float ratio[ref_count];
-    int64_t dindex[ref_count];
+    size_t dindex[ref_count];
     weighting_function weighting;
 
     template<typename VTorType>
@@ -452,9 +452,9 @@ struct interpolation<weighting_function,3>
         float fx = std::floor(x);
         float fy = std::floor(y);
         float fz = std::floor(z);
-        int64_t ix = int64_t(fx);
-        int64_t iy = int64_t(fy);
-        int64_t iz = int64_t(fz);
+        size_t ix = size_t(fx);
+        size_t iy = size_t(fy);
+        size_t iz = size_t(fz);
         if (ix + 1 >= geo[0] || iy + 1 >= geo[1] || iz + 1 >= geo[2])
             return false;
         float p0 = x-fx;
@@ -464,7 +464,7 @@ struct interpolation<weighting_function,3>
         float n1 = 1.0f-p1;
         float n2 = 1.0f-p2;
 
-        int64_t wh = int64_t(geo.plane_size());
+        size_t wh = size_t(geo.plane_size());
         dindex[0] = iz*wh + iy*geo[0] + ix;
         dindex[1] = dindex[0] + 1;
         dindex[2] = dindex[0] + geo[0];
@@ -506,8 +506,8 @@ struct interpolation<weighting_function,3>
     {
         if (get_location(source.shape(),location))
         {
-            weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int64_t*>(source,dindex),
-                const_reference_iterator<ImageType,int64_t*>(source,dindex+ref_count),ratio,pixel);
+            weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,size_t*>(source,dindex),
+                const_reference_iterator<ImageType,size_t*>(source,dindex+ref_count),ratio,pixel);
             return true;
         }
         return false;
@@ -533,8 +533,8 @@ struct interpolation<weighting_function,3>
                 sum_ratio = 1.0/sum_ratio;
             for(int i = 0;i < ref_count;++i)
                 ratio[i] *= sum_ratio;
-            weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int64_t*>(source,dindex),
-                const_reference_iterator<ImageType,int64_t*>(source,dindex+ref_count),ratio,pixel);
+            weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,size_t*>(source,dindex),
+                const_reference_iterator<ImageType,size_t*>(source,dindex+ref_count),ratio,pixel);
             return true;
         }
         return false;
@@ -544,8 +544,8 @@ struct interpolation<weighting_function,3>
     template<typename ImageType,typename PixelType>
     void estimate(const ImageType& source,PixelType& pixel)
     {
-        weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,int64_t*>(source,dindex),
-                const_reference_iterator<ImageType,int64_t*>(source,dindex+ref_count),ratio,pixel);
+        weighting_sum<typename interpolator<PixelType>::type>()(const_reference_iterator<ImageType,size_t*>(source,dindex),
+                const_reference_iterator<ImageType,size_t*>(source,dindex+ref_count),ratio,pixel);
     }
 };
 
