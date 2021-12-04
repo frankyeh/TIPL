@@ -839,7 +839,7 @@ public:
     }
 
     template<typename char_type,typename image_type,typename vs_type,typename srow_type>
-    static bool save_to_file(const char_type* pfile_name,image_type& I,const vs_type& vs,const srow_type& T,const char* descript = nullptr)
+    static bool save_to_file(const char_type* pfile_name,const image_type& I,const vs_type& vs,const srow_type& T,const char* descript = nullptr)
     {
         nifti_base nii;
         nii.set_voxel_size(vs);
