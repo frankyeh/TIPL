@@ -270,21 +270,21 @@ public:
     image(const T* pointer,const shape_type& geo_):data(pointer,pointer+geo_.size()),geo(geo_) {}
 public:
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    const image& operator=(const T& rhs)
+    image& operator=(const T& rhs)
     {
         storage_type new_data(rhs.begin(),rhs.end());
         data.swap(new_data);
         geo = rhs.shape();
         return *this;
     }
-    const image& operator=(const image& rhs)
+    image& operator=(const image& rhs)
     {
         storage_type new_data(rhs.begin(),rhs.end());
         data.swap(new_data);
         geo = rhs.shape();
         return *this;
     }
-    const image& operator=(image&& rhs)
+    image& operator=(image&& rhs)
     {
         data.swap(rhs.data);
         geo.swap(rhs.geo);
