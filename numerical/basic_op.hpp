@@ -188,9 +188,8 @@ ImageType2D& volume2slice(const ImageType3D& slice,ImageType2D& I,dim_type dim,s
 }
 
 //--------------------------------------------------------------------------
-template<typename PixelType,typename PosType,typename storage_type>
-void crop(const image<2,PixelType,storage_type>& from_image,
-          image<2,PixelType,storage_type>& to_image,PosType from,PosType to)
+template<typename T1,typename T2,typename T3,typename T4,typename PosType>
+void crop(const image<2,T1,T2>& from_image,image<2,T3,T4>& to_image,PosType from,PosType to)
 {
     if (to[0] <= from[0] || to[1] <= from[1])
         return;
@@ -206,9 +205,8 @@ void crop(const image<2,PixelType,storage_type>& from_image,
 
 }
 //--------------------------------------------------------------------------
-template<typename PixelType,typename PosType,typename storage_type>
-void crop(const image<3,PixelType,storage_type>& from_image,
-          image<3,PixelType,storage_type>& to_image,PosType from,PosType to)
+template<typename T1,typename T2,typename T3,typename T4,typename PosType>
+void crop(const image<3,T1,T2>& from_image,image<3,T3,T4>& to_image,PosType from,PosType to)
 {
     if (to[0] <= from[0] || to[1] <= from[1] ||
             to[2] <= from[2])
