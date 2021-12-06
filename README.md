@@ -11,6 +11,45 @@ To use it, include the root header tipl.hpp
 
 The library supports Linux, MacOS, Windows, and Jupyter Notebook
 
+## Installation with CMake
+
+While the library can be used as is, providing the install location is specified to using projects, we provide 
+a CMake system based installation. To install with CMake do the following:
+
+* Download the source to a directory called `./TIPL`
+* Configure the installation: 
+```bash$
+cd TIPL; mkdir build; cd build
+cmake .. 
+cmake --build . 
+cmake --install . --prefix <install_location>
+```
+or alternatively if using the `make` build system:
+```bash$
+cd TIPL; mkdir build ; cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=<install_location>
+make 
+make install
+```
+
+### Using the installed packge
+Afterwards client software building with `CMake` can use this package by specifying
+```
+find_package(TIPL)
+```
+in its CMakeLists.txt and linking the client application to the imported target `TIPL::tipl`
+
+A fly in the ointment is that I do not currently know how to make the TIPL libraries C++ standard (14) to 
+be propagated. Client applications should also set the `CXX_STANDARD` property of downstream libraries and executables
+to 14.
+
+When the client is configured with CMake, it is necessary for CMake to be able to find the installed TIPL
+this can be done by adding `<install_location>` for TIPL to the `CMAKE_PREFIX_PATH` or by explicitly specifying `TIPL_DIR`
+as
+```
+cmake -DTIPL_DIR=<install_dir>/lib/cmake/TIPL
+```
+
 ## Example
 
 - Notebooks examples:

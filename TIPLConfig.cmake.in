@@ -1,0 +1,8 @@
+@PACKAGE_INIT@
+include(CMakeFindDependencyMacro)
+
+set(Threads_USED @Threads_FOUND@)
+if( Threads_USED )
+  find_dependency(Threads)
+endif()
+include(${CMAKE_CURRENT_LIST_DIR}/TIPLTargets.cmake)
