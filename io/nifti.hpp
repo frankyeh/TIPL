@@ -673,11 +673,15 @@ public:
     {
         nif_header.sform_code = 1.0;
         nif_header.qform_code = 0.0;
-        std::copy(R.begin(),R.begin()+12,nif_header.srow_x);
+        std::copy(R.begin(),R.begin()+4,nif_header.srow_x);
+        std::copy(R.begin()+4,R.begin()+8,nif_header.srow_y);
+        std::copy(R.begin()+8,R.begin()+12,nif_header.srow_z);
 
         nif_header2.sform_code = 1.0;
         nif_header2.qform_code = 0.0;
-        std::copy(R.begin(),R.begin()+12,nif_header2.srow_x);
+        std::copy(R.begin(),R.begin()+4,nif_header2.srow_x);
+        std::copy(R.begin()+4,R.begin()+8,nif_header2.srow_y);
+        std::copy(R.begin()+8,R.begin()+12,nif_header2.srow_z);
     }
     template<typename matrix_type,typename geo_type>
     void set_LPS_transformation(matrix_type& R,const geo_type& out)
