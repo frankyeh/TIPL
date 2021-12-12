@@ -627,14 +627,30 @@ public:
     using value_type = data_type;
 public:
     vector(void):x_(0),y_(0),z_(0)				{}
-    template<typename value_type>
-    vector(value_type x,value_type y,value_type z):x_(data_type(x)),y_(data_type(y)),z_(data_type(z)){}
-    template<typename rhs_type>
-    vector(const rhs_type& rhs):x_(data_type(rhs[0])),y_(data_type(rhs[1])),z_(data_type(rhs[2])){}
-    template<typename rhs_type>
-    vector(const rhs_type* rhs):x_(data_type(rhs[0])),y_(data_type(rhs[1])),z_(data_type(rhs[2])){}
-    template<typename rhs_type>
-    vector& operator=(const rhs_type& rhs)
+    template<typename T>
+    vector(T x,T y,T z):x_(data_type(x)),y_(data_type(y)),z_(data_type(z)){}
+    template<typename T>
+    vector(const T& rhs):x_(data_type(rhs[0])),y_(data_type(rhs[1])),z_(data_type(rhs[2])){}
+    template<typename T>
+    vector(const T* rhs):x_(data_type(rhs[0])),y_(data_type(rhs[1])),z_(data_type(rhs[2])){}
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    vector& operator=(T rhs)
+    {
+        x_ = rhs;
+        y_ = rhs;
+        z_ = rhs;
+        return *this;
+    }
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    vector& operator=(const T* rhs)
+    {
+        x_ = rhs[0];
+        y_ = rhs[1];
+        z_ = rhs[2];
+        return *this;
+    }
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    vector& operator=(const T& rhs)
     {
         x_ = rhs[0];
         y_ = rhs[1];
