@@ -845,7 +845,7 @@ void scale(const tipl::image<3,T1,T2>& source_image,tipl::image<3,T3,T4>& des_im
     double maxx = source_image.width()-1;
     double maxy = source_image.height()-1;
     double maxz = source_image.depth()-1;
-    double coord[3]={0.0,0.0,0.0}
+    double coord[3]={0.0,0.0,0.0};
     for (unsigned int z = 0,index = 0;z < des_image.depth();++z,coord[2] += dz)
     {
         if (coord[2] > maxz)
