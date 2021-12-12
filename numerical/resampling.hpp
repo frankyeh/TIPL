@@ -836,18 +836,16 @@ void fast_resample(const tipl::image<2,PixelType>& source_image,
     }
 }
 
-template<typename PixelType>
-void scale(const tipl::image<3,PixelType>& source_image,
-              tipl::image<3,PixelType>& des_image)
+template<typename T1,typename T2,typename T3,typename T4>
+void scale(const tipl::image<3,T1,T2>& source_image,tipl::image<3,T3,T4>& des_image,interpolation_type interpo = linear)
 {
-    double dx = (double)(source_image.width()-1)/(double)(des_image.width()-1);
-    double dy = (double)(source_image.height()-1)/(double)(des_image.height()-1);
-    double dz = (double)(source_image.depth()-1)/(double)(des_image.depth()-1);
+    double dx = double(source_image.width()-1)/double(des_image.width()-1);
+    double dy = double(source_image.height()-1)/double(des_image.height()-1);
+    double dz = double(source_image.depth()-1)/double(des_image.depth()-1);
     double maxx = source_image.width()-1;
     double maxy = source_image.height()-1;
     double maxz = source_image.depth()-1;
-    double coord[3];
-    coord[2] = 0.0;
+    double coord[3]={0.0,0.0,0.0}
     for (unsigned int z = 0,index = 0;z < des_image.depth();++z,coord[2] += dz)
     {
         if (coord[2] > maxz)
@@ -862,22 +860,21 @@ void scale(const tipl::image<3,PixelType>& source_image,
             {
                 if (coord[0] > maxx)
                     coord[0] = maxx;
-                tipl::estimate(source_image,coord,des_image[index],linear);
+                tipl::estimate(source_image,coord,des_image[index],interpo);
             }
         }
     }
 }
 
-template<typename PixelType>
-void scale(const tipl::image<2,PixelType>& source_image,
-              tipl::image<2,PixelType>& des_image)
+template<typename T1,typename T2,typename T3,typename T4>
+void scale(const tipl::image<2,T1,T2>& source_image,tipl::image<2,T3,T4>& des_image,interpolation_type interpo = linear)
+
 {
-    double dx = (double)(source_image.width()-1)/(double)(des_image.width()-1);
-    double dy = (double)(source_image.height()-1)/(double)(des_image.height()-1);
+    double dx = double(source_image.width()-1)/double(des_image.width()-1);
+    double dy = double(source_image.height()-1)/double(des_image.height()-1);
     double maxx = source_image.width()-1;
     double maxy = source_image.height()-1;
-    double coord[2];
-    coord[1] = 0.0;
+    double coord[2] ={0.0,0.0};
     for (unsigned int y = 0,index = 0;y < des_image.height();++y,coord[1] += dy)
     {
         if (coord[1] > maxy)
@@ -1173,6 +1170,23 @@ void resample(ImageType& from,const ContainerType& trans,interpolation_type type
     tipl::transformation_matrix<typename ContainerType::value_type> transform(trans);
     resample(from,transform,type);
 }
+
+template<typename T1,typename T2,typename T3,typename T4,typename T5>
+void scale(const tipl::image<3,T1,T2>& source_image,tipl::image<3,T3,T4>& des_image,const T5& ratio,interpolation_type type)
+{
+    des_image.resize(tipl::shape<3>(uint32_t(std::ceil(float(source_image.width())*ratio[0])),
+                                    uint32_t(std::ceil(float(source_image.height())*ratio[1])),
+                                    uint32_t(std::ceil(float(source_image.depth())*ratio[2]))));
+    if(des_image.empty())
+        return;
+    tipl::transformation_matrix<double> T;
+    T.sr[0] = 1.0/double(ratio[0]);
+    T.sr[4] = 1.0/double(ratio[1]);
+    T.sr[8] = 1.0/double(ratio[2]);
+    resample(source_image,des_image,T,type);
+}
+
+
 
 }
 #endif
