@@ -1144,11 +1144,13 @@ void resample(ImageType& from,const ContainerType& trans,interpolation_type type
     resample(from,transform,type);
 }
 template<typename ImageType,typename ImageType2>
-void resample(const ImageType& I,ImageType2& It,tipl::matrix<4,4> IR,const tipl::matrix<4,4>& ItR,interpolation_type interpo)
+bool resample(const ImageType& I,ImageType2& It,tipl::matrix<4,4> IR,const tipl::matrix<4,4>& ItR,interpolation_type interpo)
 {
-    IR.inv();
+    if(!IR.inv())
+        return false;
     IR *= ItR;
     tipl::resample(I,It,IR,interpo);
+    return true;
 }
 
 template<typename T1,typename T2,typename T3,typename T4,typename T5>
