@@ -1034,33 +1034,6 @@ void match_signal_kernel(const T& VG,T& VFF)
     });
 }
 
-template<typename PixelType,typename CoordinateType,typename ScaleVecType>
-void resample(const tipl::image<3,PixelType>& source_image,
-              tipl::image<3,PixelType>& des_image,
-              const CoordinateType& from_position,
-              const ScaleVecType& scales,
-              interpolation_type type)
-{
-    CoordinateType z_base = from_position;
-    for (unsigned int z = 0,index = 0;z < des_image.depth();++z)
-    {
-        CoordinateType y_base = z_base;
-        for (unsigned int y = 0;y < des_image.height();++y)
-        {
-            CoordinateType position = y_base;
-            for (unsigned int x = 0;x < des_image.width();++x,++index)
-            {
-                estimate(source_image,position,des_image[index],type);
-                position += scales[0];
-            }
-            y_base += scales[1];
-        }
-        z_base += scales[2];
-    }
-}
-
-
-
 template<typename ImageType1,typename ImageType2,typename transform_type>
 void resample_mt(const ImageType1& from,ImageType2& to,const transform_type& transform,interpolation_type type = interpolation_type::linear)
 {
@@ -1169,6 +1142,13 @@ void resample(ImageType& from,const ContainerType& trans,interpolation_type type
 {
     tipl::transformation_matrix<typename ContainerType::value_type> transform(trans);
     resample(from,transform,type);
+}
+template<typename ImageType,typename ImageType2>
+void resample(const ImageType& I,ImageType2& It,tipl::matrix<4,4> IR,const tipl::matrix<4,4>& ItR,interpolation_type interpo)
+{
+    IR.inv();
+    IR *= ItR;
+    tipl::resample(I,It,IR,interpo);
 }
 
 template<typename T1,typename T2,typename T3,typename T4,typename T5>
