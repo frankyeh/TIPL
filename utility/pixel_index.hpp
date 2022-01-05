@@ -567,14 +567,14 @@ public:
 public:
     bool operator<(const vector<2,data_type>& rhs) const
     {
-        if (y_ != rhs.y)
-            return y_ < rhs.y;
+        if (y_ != rhs.y_)
+            return y_ < rhs.y_;
         return x_ < rhs.x_;
     }
     bool operator>(const vector<2,data_type>& rhs) const
     {
-        if (y_ != rhs.y)
-            return y_ > rhs.y;
+        if (y_ != rhs.y_)
+            return y_ > rhs.y_;
         return x_ > rhs.x_;
     }
     bool operator==(const vector<2,data_type>& rhs) const
