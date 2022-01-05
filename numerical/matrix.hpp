@@ -546,13 +546,13 @@ void square(input_iterator lhs,output_iterator out,const dim_type& dim)
                 *out = tipl::vec::dot(lhs,lhs+common_col_count,rhs_iter);
     }
 
-    int row_count = row_count(dim);
-    if (row_count > 1)
+    int count_row = row_count(dim);
+    if (count_row > 1)
     {
         input_iterator col_wise = iter + 1;
-        input_iterator row_wise = iter + row_count;
-        int shift = row_count + 1;
-        for (int length = row_count - 1;1;col_wise += shift,row_wise += shift)
+        input_iterator row_wise = iter + count_row;
+        int shift = count_row + 1;
+        for (int length = count_row - 1;1;col_wise += shift,row_wise += shift)
         {
             input_iterator col_from = col_wise;
             input_iterator col_to = col_wise + length;
@@ -562,7 +562,7 @@ void square(input_iterator lhs,output_iterator out,const dim_type& dim)
                 *row_from = *col_from;
                 if (++col_from == col_to)
                     break;
-                row_from += row_count;
+                row_from += count_row;
             }
             if (--length <= 0)
                 break;
@@ -591,7 +591,7 @@ bool is_symmetric(input_iterator iter,const dim_type& dim)
 {
     input_iterator col_wise = iter + 1;
     input_iterator row_wise = iter + col_count(dim);
-    int row_count = row_count(dim);
+    int count_row = row_count(dim);
     int shift = col_count(dim) + 1;
     for (int length = col_count(dim) - 1;length > 0;--length)
     {
@@ -605,7 +605,7 @@ bool is_symmetric(input_iterator iter,const dim_type& dim)
             ++col_from;
             if (col_from == col_to)
                 break;
-            row_from += row_count;
+            row_from += count_row;
         }
         col_wise += shift;
         row_wise += shift;
@@ -1944,9 +1944,9 @@ void eigen_decomposition_sym(input_iterator A,
 template<typename input_iterator,typename dim_type>
 void col_swap(input_iterator i1,input_iterator i2,const dim_type& dim)
 {
-    int col_count = col_count(dim);
+    int count_col = col_count(dim);
     // started from 1 for leap iterator problem
-    for (int i = 1;i < row_count(dim);++i,i1 += col_count, i2 += col_count)
+    for (int i = 1;i < row_count(dim);++i,i1 += count_col, i2 += count_col)
         std::swap(*i1,*i2);
     std::swap(*i1,*i2);
 }
@@ -1956,15 +1956,15 @@ void eigenvalue(input_iterator A,output_iterator d,const dym_type& dimension)
 {
     typedef typename std::iterator_traits<input_iterator>::value_type value_type;
     typedef value_type* iterator_type;
-    const int size = size(dimension);
+    const int size_dim = size(dimension);
     const int dim = col_count(dimension);
     const int shift = dim + 1;
-    std::vector<value_type> V_(size);
+    std::vector<value_type> V_(size_dim);
     std::vector<value_type> e_(dim);
     value_type* V = &*V_.begin();
     value_type* e = &*e_.begin();
 
-    std::copy(A,A+size,V);
+    std::copy(A,A+size_dim,V);
     std::fill(d,d+dim,value_type(0));
 
     //void tridiagonalize(void)
@@ -1975,7 +1975,7 @@ void eigenvalue(input_iterator A,output_iterator d,const dym_type& dimension)
         //  Fortran subroutine in EISPACK.
         // Householder reduction to tridiagonal form.
         {
-            iterator_type Vrowi = V+size-dim;//n-1 row
+            iterator_type Vrowi = V+size_dim-dim;//n-1 row
             for (int i = dim-1;i > 1;--i,Vrowi -= dim)
             {
                 value_type h(0),g,f;
@@ -2036,7 +2036,7 @@ void eigenvalue(input_iterator A,output_iterator d,const dym_type& dimension)
         }
 
         e[1] = V[dim];
-        iterator_type Vdia = V+size-1;
+        iterator_type Vdia = V+size_dim-1;
         output_iterator d_iter = d + dim -1;
         d[0] = V[0];
         while (Vdia != V)
