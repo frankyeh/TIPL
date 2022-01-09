@@ -286,6 +286,53 @@ void random_search(iter_type1 x_beg,iter_type1 x_end,
     });
 }
 
+template<typename iter_type1,typename iter_type2,typename function_type,typename teminated_class>
+void line_search(iter_type1 x_beg,iter_type1 x_end,
+                     iter_type2 x_upper,iter_type2 x_lower,
+                     function_type& fun,
+                     double& optimal_value,
+                     teminated_class& terminated)
+{
+    typedef typename std::iterator_traits<iter_type1>::value_type param_type;
+    float dis[16] = {0.0025f,0.005f,0.01f,0.02f,0.04f,0.08f,0.16f,0.32f,
+                     -0.0025f,-0.005f,-0.01f,-0.02f,-0.04f,-0.08f,-0.16f,-0.32f};
+    std::vector<param_type> range(x_end-x_beg);
+    for(size_t i = 0;i < range.size();++i)
+        range[i] = x_upper[i]-x_lower[i];
+    for(int iter = 0;iter < 5;++iter)
+    {
+        bool has_improved = false;
+        for(int cur_dim = 0;cur_dim < range.size() && !terminated;++cur_dim)
+        {
+            if(x_upper[cur_dim] == x_lower[cur_dim])
+                continue;
+            std::mutex m;
+            param_type best_x = x_beg[cur_dim];
+            tipl::par_for(16,[&](int seg)
+            {
+                auto new_x = x_beg[cur_dim]+range[cur_dim]*dis[seg];
+                if(new_x < x_lower[cur_dim] ||
+                   new_x > x_upper[cur_dim])
+                    return;
+                std::vector<param_type> param(x_beg,x_end);
+                param[cur_dim] = new_x;
+                double current_value = fun(&*param.begin());
+                if(current_value < optimal_value)
+                {
+                    std::lock_guard<std::mutex> lock(m);
+                    optimal_value = current_value;
+                    best_x = param[cur_dim];
+                    has_improved = true;
+                }
+            });
+            x_beg[cur_dim] = best_x;
+        }
+        if(!has_improved)
+            break;
+    }
+}
+
+
 template<typename iter_type1,typename iter_type2,typename function_type,typename terminated_class>
 void gradient_descent(
                 iter_type1 x_beg,iter_type1 x_end,
