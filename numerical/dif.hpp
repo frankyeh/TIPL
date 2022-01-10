@@ -72,6 +72,7 @@ template<typename ImageType,typename ComposeImageType,typename OutImageType>
 void compose_displacement(const ImageType& src,const ComposeImageType& displace,OutImageType& dest,
                           interpolation_type type = interpolation_type::linear)
 {
+    dest.clear();
     dest.resize(src.shape());
     dest.for_each_mt([&](typename OutImageType::value_type& value,
                          tipl::pixel_index<ComposeImageType::dimension> index)
@@ -93,6 +94,7 @@ void compose_displacement_with_affine(const ImageType& src,OutImageType& dest,
                           const ComposeImageType& displace,
                           interpolation_type type = interpolation_type::linear)
 {
+    dest.clear();
     dest.resize(displace.shape());
     dest.for_each_mt([&](typename OutImageType::value_type& value,tipl::pixel_index<OutImageType::dimension> index)
     {
