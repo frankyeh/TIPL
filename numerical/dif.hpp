@@ -31,9 +31,9 @@ void displacement_to_mapping(const DisType& dis,MappingType& mapping,const trans
 {
     mapping = dis;
     mapping.for_each_mt([&](typename MappingType::value_type& value,
-                             tipl::pixel_index<MappingType::dimension> index)
+                            const tipl::pixel_index<MappingType::dimension>& index)
     {
-        typename MappingType::value_type vtor(index),pos;
+        typename MappingType::value_type vtor(index);
         vtor += value;
         T(vtor,value);
     });
