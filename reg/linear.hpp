@@ -366,8 +366,10 @@ float linear(const image_type& from,const vs_type& from_vs,
         if(line_search)
             tipl::optimization::line_search(arg_min.begin(),arg_min.end(),
                                              upper.begin(),lower.begin(),fun,optimal_value,terminated);
-        tipl::optimization::gradient_descent(arg_min.begin(),arg_min.end(),
-                                                 upper.begin(),lower.begin(),fun,optimal_value,terminated,precision);
+
+        tipl::optimization::quasi_newtons_minimize(arg_min.begin(),arg_min.end(),
+                                                    upper.begin(),lower.begin(),fun,optimal_value,terminated,
+                                                    reg_list[type] == base_type ? precision/8.0f : precision);
     }
     return optimal_value;
 }
@@ -448,12 +450,12 @@ float two_way_linear_mr(const image_type& from,const vs_type& from_vs,
         {
             CostFunctionType cost2;
             if(arg)
-                tipl::reg::linear_mr(from,from_vs,to,to_vs,*arg,base_type,cost2,terminated,0.1,bound);
+                tipl::reg::linear_mr(from,from_vs,to,to_vs,*arg,base_type,cost2,terminated,0.01,bound);
             else
-                tipl::reg::linear_mr(from,from_vs,to,to_vs,arg1,base_type,cost2,terminated,0.1,bound);
+                tipl::reg::linear_mr(from,from_vs,to,to_vs,arg1,base_type,cost2,terminated,0.01,bound);
         }
         else
-            tipl::reg::linear_mr(to,to_vs,from,from_vs,arg2,base_type,cost1,terminated,0.1,bound);
+            tipl::reg::linear_mr(to,to_vs,from,from_vs,arg2,base_type,cost1,terminated,0.01,bound);
     },2);
 
 
@@ -463,7 +465,7 @@ float two_way_linear_mr(const image_type& from,const vs_type& from_vs,
     float cost = 0.0f;
     if(CostFunctionType()(from,to,T2) < CostFunctionType()(from,to,T1))
     {
-        cost = tipl::reg::linear(to,to_vs,from,from_vs,arg2,base_type,cost1,terminated,0.01f,false,bound);
+        cost = tipl::reg::linear(to,to_vs,from,from_vs,arg2,base_type,cost1,terminated,0.001f,false,bound);
         TransType T22(arg2,to.shape(),to_vs,from.shape(),from_vs);
         T22.inverse();
         T = T22;
@@ -471,9 +473,9 @@ float two_way_linear_mr(const image_type& from,const vs_type& from_vs,
     else
     {
         if(arg)
-            cost = tipl::reg::linear(from,from_vs,to,to_vs,*arg,base_type,cost1,terminated,0.01f,false,bound);
+            cost = tipl::reg::linear(from,from_vs,to,to_vs,*arg,base_type,cost1,terminated,0.001f,false,bound);
         else
-            cost = tipl::reg::linear(from,from_vs,to,to_vs,arg1,base_type,cost1,terminated,0.01f,false,bound);
+            cost = tipl::reg::linear(from,from_vs,to,to_vs,arg1,base_type,cost1,terminated,0.001f,false,bound);
         T = TransType(arg == 0 ? arg1:*arg,from.shape(),from_vs,to.shape(),to_vs);
     }
     return cost;
