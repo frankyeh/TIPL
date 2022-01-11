@@ -362,10 +362,10 @@ bool cdm_improved(r_type& r,r_type& iter)
 
 struct cdm_param{
     float resolution = 2.0f;
-    float speed = 0.2f;
-    float constraint = 1.0f;
+    float speed = 0.5f;
+    float constraint = 2.0f;
     unsigned int iterations = 200;
-    unsigned int min_dimension = 32;
+    unsigned int min_dimension = 16;
     bool multi_resolution = true;
 };
 
@@ -515,7 +515,7 @@ void cdm_solve_poisson(tipl::image<3,dis_type>& new_d,terminated_type& terminate
 }
 
 template<typename dist_type,typename value_type>
-void cdm_accumulate_dis(dist_type& acc_d,dist_type& new_d,value_type& theta,float speed)
+void cdm_accumulate_dis(dist_type& d,dist_type& new_d,value_type& theta,float speed)
 {
     if(theta == 0.0f)
         par_for(new_d.size(),[&](int i)
@@ -527,39 +527,41 @@ void cdm_accumulate_dis(dist_type& acc_d,dist_type& new_d,value_type& theta,floa
     if(theta == 0.0)
         return;
     new_d *= speed/theta;
-    acc_d *= 0.98f;
-    tipl::filter::gaussian2(new_d);
-    acc_d += new_d;
+    tipl::accumulate_displacement(d,new_d);
 }
 
 template<typename dist_type>
-void cdm_constraint(dist_type& prior,dist_type& acc_d,float constraint_length)
+void cdm_constraint(dist_type& d,float constraint_length)
 {
     unsigned int shift[dist_type::dimension];
     shift[0] = 1;
     for(int i = 1;i < dist_type::dimension;++i)
-        shift[i] = acc_d.shape()[i-1]*shift[i-1];
+        shift[i] = d.shape()[i-1]*shift[i-1];
 
     tipl::par_for(dist_type::dimension,[&](unsigned char dim)
     {
         auto cur_shift = shift[dim];
-        auto cur_width = acc_d.shape()[dim];
-        for(pixel_index<3> pos(acc_d.shape());pos < acc_d.shape().size();++pos)
+        auto cur_width = d.shape()[dim];
+        for(pixel_index<3> pos(d.shape());pos < d.shape().size();++pos)
         {
             if(pos[dim] + 1 >= int(cur_width))
                 continue;
             size_t cur_index = pos.index();
             size_t cur_index_with_shift = cur_index + cur_shift;
-            auto& v1 = acc_d[cur_index][dim];
-            auto& v2 = acc_d[cur_index_with_shift][dim];
-            auto dis = v2 - v1 + prior[cur_index_with_shift][dim]-prior[cur_index][dim];
-            auto abs_dis = std::fabs(dis);
-            if(abs_dis > constraint_length)
+            auto& v1 = d[cur_index][dim];
+            auto& v2 = d[cur_index_with_shift][dim];
+            auto dis = v2 - v1;
+            if(dis < 0)
+                dis *= 0.5f;
+            else
             {
-                dis *= 0.5f*(abs_dis-constraint_length)/abs_dis;
-                v1 += dis;
-                v2 -= dis;
+                if(dis > constraint_length)
+                    dis = 0.5f*(dis-constraint_length);
+                else
+                    continue;
             }
+            v1 += dis;
+            v2 -= dis;
         }
     });
 }
@@ -592,17 +594,12 @@ float cdm(const image_type& It,
             return r;
     }
     image_type Js;// transformed I
-    dist_type new_d(d.shape()),accumulated_new_d(d.shape()),prior_d(d);// new displacements
+    dist_type new_d(d.shape());
     float theta = 0.0;
 
     std::deque<float> r,iter;
     for (unsigned int index = 0;index < param.iterations && !terminated;++index)
     {
-        if(index)
-        {
-            d = prior_d;
-            d += accumulated_new_d;
-        }
         compose_displacement(Is,d,Js);
         // dJ(cJ-I)
         r.push_back(cdm_get_gradient(Js,It,new_d));
@@ -611,8 +608,8 @@ float cdm(const image_type& It,
             break;
         // solving the poisson equation using Jacobi method
         cdm_solve_poisson(new_d,terminated);
-        cdm_accumulate_dis(accumulated_new_d,new_d,theta,param.speed);
-        cdm_constraint(prior_d,accumulated_new_d,param.constraint);
+        cdm_accumulate_dis(d,new_d,theta,param.speed);
+        cdm_constraint(d,param.constraint);
     }
     return r.front();
 }
@@ -649,18 +646,13 @@ float cdm2(const image_type& It,const image_type& It2,
             return r;
     }
     image_type Js,Js2;// transformed I
-    dist_type new_d(d.shape()),new_d2(d.shape()),accumulated_new_d(d.shape()),prior_d(d);// new displacements
+    dist_type new_d(d.shape()),new_d2(d.shape());// new displacements
     float theta = 0.0;
 
 
     std::deque<float> r,iter;
     for (unsigned int index = 0;index < param.iterations && !terminated;++index)
     {
-        if(index)
-        {
-            d = prior_d;
-            d += accumulated_new_d;
-        }
         compose_displacement(Is,d,Js);
         compose_displacement(Is2,d,Js2);
         // dJ(cJ-I)
@@ -671,8 +663,8 @@ float cdm2(const image_type& It,const image_type& It2,
         new_d += new_d2;
         // solving the poisson equation using Jacobi method
         cdm_solve_poisson(new_d,terminated);
-        cdm_accumulate_dis(accumulated_new_d,new_d,theta,param.speed);
-        cdm_constraint(prior_d,accumulated_new_d,param.constraint);
+        cdm_accumulate_dis(d,new_d,theta,param.speed);
+        cdm_constraint(d,param.constraint);
     }
     return r.front();
 }
