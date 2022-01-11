@@ -154,7 +154,7 @@ void accumulate_displacement(ComposeImageType& v0,const ComposeImageType& vv)
 {
     ComposeImageType nv;
     compose_displacement(v0,vv,nv);
-    v0 = nv;
+    v0.swap(nv);
     v0 += vv;
 }
 //---------------------------------------------------------------------------
