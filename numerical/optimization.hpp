@@ -36,16 +36,13 @@ template<typename iter_type1,typename tol_type,typename iter_type2,typename func
 void estimate_change(iter_type1 x_beg,iter_type1 x_end,tol_type tol,iter_type2 fun_ei,function_type& fun)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
-    unsigned int size = x_end-x_beg;
-    std::vector<param_type> x(x_beg,x_end);
-    par_for(size,[&](unsigned int i)
+    par_for(x_end-x_beg,[&](unsigned int i)
     {
         if(tol[i] == 0)
             return;
-        param_type old_x = x[i];
+        std::vector<param_type> x(x_beg,x_end);
         x[i] += tol[i];
-        fun_ei[i] = fun(&x[0]);
-        x[i] = old_x;
+        fun_ei[i] = fun(x);
     });
 }
 // calculate fun(x+ei)
@@ -87,27 +84,26 @@ void hessian(iter_type1 x_beg,iter_type1 x_end,
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
     unsigned int size = x_end-x_beg;
-    std::vector<param_type> x(x_beg,x_end);
-    for(unsigned int i = 0,index = 0; i < size;++i)
-    for(unsigned int j = 0,sym_index = i; j < size;++j,++index,sym_index += size)
+    tipl::par_for(size*size,[&](size_t index)
     {
+        size_t i = index%size;
+        size_t j = index/size;
         if(j < i)
-            continue;
-        param_type tol2 =  tol[i]*tol[j];
+            return;
+        auto tol2 =  tol[i]*tol[j];
         if(tol2 == 0)
             h_iter[index] = (i == j ? 1.0:0.0);
         else
         {
-            x[i] += tol[i];
-            x[j] += tol[j];
+            std::vector<param_type> new_x(x_beg,x_end);
+            new_x[i] += tol[i];
+            new_x[j] += tol[j];
             // h = fun(x+ei+ej)+fun(x)-fun(ei)-fun(ej)/tol(i)/tol(j);
-            h_iter[index] = (fun(&x[0])-fun_x_ei[i]-fun_x_ei[j]+fun_x)/tol2;
-            x[i] = x_beg[i];
-            x[j] = x_beg[j];
+            h_iter[index] = (fun(new_x)-fun_x_ei[i]-fun_x_ei[j]+fun_x)/tol2;
         }
         if(j != i)
-            h_iter[sym_index] = h_iter[index];
-    }
+            h_iter[i*size+j] = h_iter[index];
+    });
 }
 
 template<typename storage_type,typename tol_storage_type,typename value_type,typename storage_type2,typename storage_type3,typename function_type>
@@ -157,7 +153,7 @@ bool armijo_line_search(iter_type1 x_beg,iter_type1 x_end,
     std::vector<value_type> cost;
     cost.push_back(fun_x);
     new_x_list.push_back(std::vector<param_type>(x_beg,x_end));
-    for(double step = 0.1;step <= 100.0;step *= 2)
+    for(double step = 0.01;step <= 10.0;step *= 2)
     {
         cost.push_back(std::numeric_limits<value_type>::max());
         std::vector<param_type> new_x(new_x_list[0]);
@@ -171,13 +167,7 @@ bool armijo_line_search(iter_type1 x_beg,iter_type1 x_end,
     {
         if(index == 0)
             return;
-        // check if reaching a minimum, if yes, terminate
-        for(unsigned int i = 0;i+1 < index;++i)
-            if(cost[i] != std::numeric_limits<value_type>::max() &&
-               cost[i+1] != std::numeric_limits<value_type>::max() &&
-               cost[i] < cost[i+1])
-                return;
-        cost[index] = fun(&*new_x_list[index].begin());
+        cost[index] = fun(new_x_list[index]);
     });
 
     // find the step that has lowest cost
@@ -225,7 +215,7 @@ void quasi_newtons_minimize(
             return;
         std::vector<param_type> new_x(x_beg,x_end);
         tipl::vec::aypx(p.begin(),p.end(),-0.25,new_x.begin());
-        typename function_type::value_type new_fun_x = fun(&new_x[0]);
+        typename function_type::value_type new_fun_x = fun(new_x);
         if(new_fun_x > fun_x)
             return;
         std::copy(new_x.begin(),new_x.end(),x_beg);
@@ -276,7 +266,7 @@ void random_search(iter_type1 x_beg,iter_type1 x_end,
             std::normal_distribution<double> distribution(x_beg[cur_dim],sd);
             std::vector<param_type> param(x_beg,x_end);
             param[cur_dim] = distribution(gen);
-            double current_value = fun(&*param.begin());
+            double current_value = fun(param);
             if(current_value < optimal_value)
             {
                 optimal_value = current_value;
@@ -316,7 +306,7 @@ void line_search(iter_type1 x_beg,iter_type1 x_end,
                     return;
                 std::vector<param_type> param(x_beg,x_end);
                 param[cur_dim] = new_x;
-                double current_value = fun(&*param.begin());
+                double current_value = fun(param);
                 if(current_value < optimal_value)
                 {
                     std::lock_guard<std::mutex> lock(m);
@@ -362,7 +352,6 @@ void gradient_descent(
             break;
     }
 }
-
 
 template<typename iter_type1,typename iter_type2,typename function_type,typename terminated_class>
 void conjugate_descent(
