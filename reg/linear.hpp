@@ -264,7 +264,6 @@ struct faster
 
 template<typename image_type,
          typename vs_type,
-         typename param_type,
          typename transform_type,
          typename fun_type>
 class fun_adoptor{
@@ -273,37 +272,17 @@ public:
     const image_type& to;
     const vs_type& from_vs;
     const vs_type& to_vs;
-    param_type& param;
     fun_type fun;
-    unsigned int cur_dim = 0;
     unsigned int count = 0;
-public:
     typedef typename fun_type::value_type value_type;
-    typedef typename param_type::value_type param_value_type;
 public:
     fun_adoptor(const image_type& from_,const vs_type& from_vs_,
-                const image_type& to_,const vs_type& to_vs_,param_type& param_):
-        from(from_),to(to_),from_vs(from_vs_),to_vs(to_vs_),
-        param(param_){}
-    float operator()(const param_type& new_param)
+                const image_type& to_,const vs_type& to_vs_):
+        from(from_),to(to_),from_vs(from_vs_),to_vs(to_vs_){}
+    template<typename T>
+    float operator()(const T& new_param)
     {
         transform_type affine(new_param);
-        tipl::transformation_matrix<typename transform_type::value_type> T(affine,from.shape(),from_vs,to.shape(),to_vs);
-        ++count;
-        return fun(from,to,T);
-    }
-
-    float operator()(param_value_type param_value)
-    {
-        transform_type affine(param);
-        affine[cur_dim] = param_value;
-        tipl::transformation_matrix<typename transform_type::value_type> T(affine,from.shape(),from_vs,to.shape(),to_vs);
-        ++count;
-        return fun(from,to,T);
-    }
-    float operator()(const param_value_type* param)
-    {
-        transform_type affine(&*param);
         tipl::transformation_matrix<typename transform_type::value_type> T(affine,from.shape(),from_vs,to.shape(),to_vs);
         ++count;
         return fun(from,to,T);
@@ -374,9 +353,9 @@ float linear(const image_type& from,const vs_type& from_vs,
              reg_type base_type,
              CostFunctionType,
              teminated_class& terminated,
-             double precision,bool line_search,const float* bound = reg_bound)
+             double precision = 0.01,bool line_search = true,const float* bound = reg_bound)
 {
-    tipl::reg::fun_adoptor<image_type,vs_type,transform_type,transform_type,CostFunctionType> fun(from,from_vs,to,to_vs,arg_min);
+    tipl::reg::fun_adoptor<image_type,vs_type,transform_type,CostFunctionType> fun(from,from_vs,to,to_vs);
     transform_type upper,lower;
     tipl::reg::get_bound(from,to,arg_min,upper,lower,base_type,bound);
     reg_type reg_list[4] = {translocation,rigid_body,rigid_scaling,affine};
@@ -390,10 +369,6 @@ float linear(const image_type& from,const vs_type& from_vs,
         tipl::optimization::gradient_descent(arg_min.begin(),arg_min.end(),
                                                  upper.begin(),lower.begin(),fun,optimal_value,terminated,precision);
     }
-
-    if(!terminated)
-        tipl::optimization::gradient_descent(arg_min.begin(),arg_min.end(),
-                                         upper.begin(),lower.begin(),fun,optimal_value,terminated,precision*0.1f);
     return optimal_value;
 }
 /*
@@ -409,7 +384,7 @@ double linear2(const image_type& from,const vs_type& from_vs,
              teminated_class& terminated,
              double precision = 0.001,const float* bound = tipl::reg::reg_bound)
 {
-    tipl::reg::fun_adoptor<image_type,vs_type,transform_type,transform_type,CostFunctionType> fun(from,from_vs,to,to_vs,arg_min);
+    tipl::reg::fun_adoptor<image_type,vs_type,transform_type,CostFunctionType> fun(from,from_vs,to,to_vs);
     transform_type upper,lower;
     tipl::reg::get_bound(from,to,arg_min,upper,lower,base_type,bound);
     double optimal_value = fun(arg_min);
