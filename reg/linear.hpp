@@ -279,8 +279,8 @@ public:
     fun_adoptor(const image_type& from_,const vs_type& from_vs_,
                 const image_type& to_,const vs_type& to_vs_):
         from(from_),to(to_),from_vs(from_vs_),to_vs(to_vs_){}
-    template<typename T>
-    float operator()(const T& new_param)
+    template<typename param_type>
+    float operator()(const param_type& new_param)
     {
         transform_type affine(new_param);
         tipl::transformation_matrix<typename transform_type::value_type> T(affine,from.shape(),from_vs,to.shape(),to_vs);
