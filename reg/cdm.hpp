@@ -362,10 +362,10 @@ bool cdm_improved(r_type& r,r_type& iter)
 
 struct cdm_param{
     float resolution = 2.0f;
-    float speed = 0.5f;
+    float speed = 0.2f;
     float constraint = 1.0f;
     unsigned int iterations = 200;
-    unsigned int min_dimension = 8;
+    unsigned int min_dimension = 32;
     bool multi_resolution = true;
 };
 
