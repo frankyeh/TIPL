@@ -114,7 +114,6 @@ public:
                 for (size_t index = 0;index < sample_size;++index)
                     correct_predict[index] = (ht->predict(&(attributes_from[index][0])) == classifications_from[index]) ? 1:0;
             }
-            //calculate £`t
             double et;
             {
                 double wrong = 0.0;
