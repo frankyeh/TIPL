@@ -69,7 +69,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "filter/laplacian.hpp"
 
 #include "reg/linear.hpp"
-#include "reg/lddmm.hpp"
 #include "reg/cdm.hpp"
 #include "reg/bfnorm.hpp"
 
