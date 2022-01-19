@@ -7,7 +7,6 @@
 #include "watershed.hpp"
 #include "graph_cut.hpp"
 #include "fast_marching.hpp"
-#include "stochastic_competition.hpp"
 
 namespace tipl{
     namespace segmentation{
