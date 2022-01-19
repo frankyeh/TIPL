@@ -790,28 +790,22 @@ void connected_component_labeling_pass(const ImageType& I,
     }
 }
 
-template<typename PixelType,typename StorageType,typename LabelImageType>
-void connected_component_labeling(const tipl::image<1,PixelType,StorageType>& I,
-                                  LabelImageType& labels,
-                                  std::vector<std::vector<unsigned int> >& regions)
+template<typename T1,typename T2,typename std::enable_if<T1::dimension==1,bool>::type = true>
+void connected_component_labeling(const T1& I,T2& labels,std::vector<std::vector<unsigned int> >& regions)
 {
     connected_component_labeling_pass(I,labels,regions,1);
 }
 
-template<typename PixelType,typename StorageType,typename LabelImageType>
-void connected_component_labeling(const tipl::image<2,PixelType,StorageType>& I,
-                                  LabelImageType& labels,
-                                  std::vector<std::vector<unsigned int> >& regions)
+template<typename T1,typename T2,typename std::enable_if<T1::dimension==2,bool>::type = true>
+void connected_component_labeling(const T1& I,T2& labels,std::vector<std::vector<unsigned int> >& regions)
 {
     connected_component_labeling_pass(I,labels,regions,1);
     connected_component_labeling_pass(I,labels,regions,I.width());
 }
 
 
-template<typename PixelType,typename StorageType,typename LabelImageType>
-void connected_component_labeling(const tipl::image<3,PixelType,StorageType>& I,
-                                  LabelImageType& labels,
-                                  std::vector<std::vector<unsigned int> >& regions)
+template<typename T1,typename T2,typename std::enable_if<T1::dimension==3,bool>::type = true>
+void connected_component_labeling(const T1& I,T2& labels,std::vector<std::vector<unsigned int> >& regions)
 {
     connected_component_labeling_pass(I,labels,regions,1);
     connected_component_labeling_pass(I,labels,regions,I.width());

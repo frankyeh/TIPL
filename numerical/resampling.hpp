@@ -836,8 +836,8 @@ void fast_resample(const tipl::image<2,PixelType>& source_image,
     }
 }
 
-template<typename T1,typename T2,typename T3,typename T4>
-void scale(const tipl::image<3,T1,T2>& source_image,tipl::image<3,T3,T4>& des_image,interpolation_type interpo = linear)
+template<typename T1,typename T2,typename std::enable_if<T1::dimension==3,bool>::type = true>
+void scale(const T1& source_image,T2& des_image,interpolation_type interpo = linear)
 {
     double dx = double(source_image.width()-1)/double(des_image.width()-1);
     double dy = double(source_image.height()-1)/double(des_image.height()-1);
@@ -866,9 +866,8 @@ void scale(const tipl::image<3,T1,T2>& source_image,tipl::image<3,T3,T4>& des_im
     }
 }
 
-template<typename T1,typename T2,typename T3,typename T4>
-void scale(const tipl::image<2,T1,T2>& source_image,tipl::image<2,T3,T4>& des_image,interpolation_type interpo = linear)
-
+template<typename T1,typename T2,typename std::enable_if<T1::dimension==2,bool>::type = true>
+void scale(const T1& source_image,T2& des_image,interpolation_type interpo = linear)
 {
     double dx = double(source_image.width()-1)/double(des_image.width()-1);
     double dy = double(source_image.height()-1)/double(des_image.height()-1);
@@ -1153,8 +1152,8 @@ bool resample(const ImageType& I,ImageType2& It,tipl::matrix<4,4> IR,const tipl:
     return true;
 }
 
-template<typename T1,typename T2,typename T3,typename T4,typename T5>
-void scale(const tipl::image<3,T1,T2>& source_image,tipl::image<3,T3,T4>& des_image,const T5& ratio,interpolation_type type)
+template<typename T1,typename T2,typename T3,typename std::enable_if<T1::dimension==3,bool>::type = true>
+void scale(const T1& source_image,T2& des_image,const T3& ratio,interpolation_type type)
 {
     des_image.resize(tipl::shape<3>(uint32_t(std::ceil(float(source_image.width())*ratio[0])),
                                     uint32_t(std::ceil(float(source_image.height())*ratio[1])),

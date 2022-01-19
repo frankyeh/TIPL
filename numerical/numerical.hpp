@@ -122,23 +122,23 @@ void gradient_sobel(const PixelImageType& src,VectorImageType& dest)
     }
 }
 //---------------------------------------------------------------------------
-template<typename pixel_type,typename container_type,typename VectorImageType>
-void gradient_multiple_sampling(const tipl::image<3,pixel_type,container_type>& src,
-                                VectorImageType& dest,
+template<typename T1,typename T2,typename std::enable_if<T1::dimension==3,bool>::type = true>
+void gradient_multiple_sampling(const T1& src,
+                                T2& dest,
                                 double line_interval = 1.0,
                                 unsigned int line_sampling_num = 3,
                                 unsigned int sampling_dir_num = 8)
 {
     gradient(src,dest);
 }
-template<typename pixel_type,typename container_type,typename VectorImageType>
-void gradient_multiple_sampling(const tipl::image<2,pixel_type,container_type>& src,
-                                VectorImageType& dest,
+template<typename T1,typename T2,typename std::enable_if<T1::dimension==2,bool>::type = true>
+void gradient_multiple_sampling(const T1& src,
+                                T2& dest,
                                 double line_interval = 1.0,
                                 unsigned int line_sampling_num = 3,
                                 unsigned int sampling_dir_num = 8)
 {
-    typedef typename VectorImageType::value_type vector_type;
+    using vector_type = typename T2::value_type;
     std::vector<tipl::interpolation<tipl::linear_weighting,2> >
     interpo1(sampling_dir_num*line_sampling_num),interpo2(sampling_dir_num*line_sampling_num);
     std::vector<vector_type> offset_vector(sampling_dir_num*line_sampling_num);
@@ -527,6 +527,7 @@ void multiply_constant_mt(image_type& I,value_type value)
        I[index] *= value;
     });
 }
+
 //---------------------------------------------------------------------------
 template<typename iterator1,typename value_type>
 void divide_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)

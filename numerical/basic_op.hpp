@@ -188,8 +188,8 @@ ImageType2D& volume2slice(const ImageType3D& slice,ImageType2D& I,dim_type dim,s
 }
 
 //--------------------------------------------------------------------------
-template<typename T1,typename T2,typename T3,typename T4,typename PosType>
-void crop(const image<2,T1,T2>& from_image,image<2,T3,T4>& to_image,PosType from,PosType to)
+template<typename T1,typename T2,typename PosType,typename std::enable_if<T1::dimension==2,bool>::type = true>
+void crop(const T1& from_image,T2& to_image,PosType from,PosType to)
 {
     if (to[0] <= from[0] || to[1] <= from[1])
         return;
@@ -205,8 +205,8 @@ void crop(const image<2,T1,T2>& from_image,image<2,T3,T4>& to_image,PosType from
 
 }
 //--------------------------------------------------------------------------
-template<typename T1,typename T2,typename T3,typename T4,typename PosType>
-void crop(const image<3,T1,T2>& from_image,image<3,T3,T4>& to_image,PosType from,PosType to)
+template<typename T1,typename T2,typename PosType,typename std::enable_if<T1::dimension==3,bool>::type = true>
+void crop(const T1& from_image,T2& to_image,PosType from,PosType to)
 {
     if (to[0] <= from[0] || to[1] <= from[1] ||
             to[2] <= from[2])
@@ -246,14 +246,9 @@ void fill_rect(image_type& I,PosType from,PosType to,pixel_type value)
 }
 
 //--------------------------------------------------------------------------
-template<typename pixel_type1,typename storage_type1,
-         typename pixel_type2,typename storage_type2,typename PosType>
-void draw(const image<2,pixel_type1,storage_type1>& from_image,
-          image<2,pixel_type2,storage_type2>& to_image,
-          PosType pos)
+template<typename T1,typename T2,typename PosType,typename std::enable_if<T1::dimension==2,bool>::type = true>
+void draw(const T1& from_image,T2& to_image,PosType pos)
 {
-    typedef image<2,pixel_type1,storage_type1> from_image_type;
-    typedef image<2,pixel_type2,storage_type2> to_image_type;
     int x_shift,y_shift;
     if (pos[0] < 0)
     {
@@ -276,23 +271,18 @@ void draw(const image<2,pixel_type1,storage_type1>& from_image,
     int y_height = std::min(int(to_image.height()) - int(pos[1]),int(from_image.height())-y_shift);
     if (y_height <= 0)
         return;
-    typename from_image_type::const_iterator iter = from_image.begin() + y_shift*from_image.width()+x_shift;
-    typename from_image_type::const_iterator end = iter + (y_height-1)*from_image.width();
-    typename to_image_type::iterator out = to_image.begin() + pos[1]*to_image.width()+pos[0];
+    typename T1::const_iterator iter = from_image.begin() + y_shift*from_image.width()+x_shift;
+    typename T1::const_iterator end = iter + (y_height-1)*from_image.width();
+    typename T2::iterator out = to_image.begin() + pos[1]*to_image.width()+pos[0];
     for (; iter != end; iter += from_image.width(),out += to_image.width())
         std::copy(iter,iter+x_width,out);
     std::copy(iter,iter+x_width,out);
 
 }
 //--------------------------------------------------------------------------
-template<typename pixel_type1,typename storage_type1,
-         typename pixel_type2,typename storage_type2,typename PosType>
-void draw(const image<3,pixel_type1,storage_type1>& from_image,
-          image<3,pixel_type2,storage_type2>& to_image,
-          PosType pos)
+template<typename T1,typename T2,typename PosType,typename std::enable_if<T1::dimension==3,bool>::type = true>
+void draw(const T1& from_image,T2& to_image,PosType pos)
 {
-    typedef image<3,pixel_type1,storage_type1> from_image_type;
-    typedef image<3,pixel_type2,storage_type2> to_image_type;
     int64_t x_shift,y_shift,z_shift;
     if (pos[0] < 0)
     {
@@ -327,10 +317,10 @@ void draw(const image<3,pixel_type1,storage_type1>& from_image,
         return;
     for (int64_t z = 0; z < z_depth; ++z)
     {
-        typename from_image_type::const_iterator iter = from_image.begin() +
+        typename T1::const_iterator iter = from_image.begin() +
                 ((z_shift+z)*int64_t(from_image.height()) + y_shift)*int64_t(from_image.width())+x_shift;
-        typename from_image_type::const_iterator end = iter + int64_t(y_height-1)*int64_t(from_image.width());
-        typename to_image_type::iterator out = to_image.begin() +
+        typename T1::const_iterator end = iter + int64_t(y_height-1)*int64_t(from_image.width());
+        typename T2::iterator out = to_image.begin() +
                 ((int64_t(pos[2])+z)*int64_t(to_image.height()) + int64_t(pos[1]))*int64_t(to_image.width())+int64_t(pos[0]);
         for (; iter < end; iter += from_image.width(),out += to_image.width())
             std::copy(iter,iter+x_width,out);

@@ -200,18 +200,19 @@ public:
 };
 
 
-template <int dim,typename vtype = float,typename storage_type = std::vector<vtype> >
+template <int dim,typename vtype = float,template <typename...> typename stype = std::vector>
 class image
 {
 public:
     using value_type        = vtype;
+    using storage_type      = stype<vtype>;
     using iterator          = typename storage_type::iterator;
     using const_iterator    = typename storage_type::const_iterator ;
     using reference         = typename storage_type::reference ;
-    using slice_type        = tipl::image<dim-1,value_type,pointer_container<value_type> > ;
-    using const_slice_type  = tipl::image<dim-1,value_type,const_pointer_container<value_type> >;
+    using slice_type        = tipl::image<dim-1,value_type,pointer_container> ;
+    using const_slice_type  = tipl::image<dim-1,value_type,const_pointer_container>;
     using shape_type        = tipl::shape<dim>;
-    static const int dimension = dim;
+    static constexpr int dimension = dim;
 protected:
     storage_type data;
     shape_type geo;
@@ -256,12 +257,13 @@ public:
     }
 public:
     image(void) {}
+    template<typename T,typename std::enable_if<T::dimension==dimension && !std::is_same<storage_type,typename T::storage_type>::value,bool>::type = true>
+    image(const T& rhs){operator=(rhs);}
     image(const image& rhs){operator=(rhs);}
     image(image&& rhs){operator=(rhs);}
+public:
     template<typename T>
     image(const std::initializer_list<T>& rhs):geo(rhs){data.resize(geo.size());}
-    template<typename rhs_value_type,typename rhs_storage_type>
-    image(const image<dim,rhs_value_type,rhs_storage_type>& rhs){operator=(rhs);}
     image(const shape_type& geo_):data(geo_.size()),geo(geo_) {}
 public:
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
@@ -269,7 +271,7 @@ public:
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
     image(const T* pointer,const shape_type& geo_):data(pointer,pointer+geo_.size()),geo(geo_) {}
 public:
-    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    template<typename T,typename std::enable_if<T::dimension==dimension && !std::is_same<storage_type,typename T::storage_type>::value,bool>::type = true>
     image& operator=(const T& rhs)
     {
         storage_type new_data(rhs.begin(),rhs.end());
@@ -544,18 +546,19 @@ typedef image<2,rgb> color_image;
 typedef image<2,unsigned char> grayscale_image;
 
 template<int dim,typename vtype = float>
-class pointer_image : public image<dim,vtype,pointer_container<vtype> >
+class pointer_image : public image<dim,vtype,pointer_container>
 {
 public:
-    using base_type         =   image<dim,vtype,pointer_container<vtype> >;
-    using iterator          =   typename base_type::iterator;
+    using base_type         = image<dim,vtype,pointer_container>;
+    using iterator          = typename base_type::iterator;
     using const_iterator    = typename base_type::iterator;
+    using storage_type      = typename image<dim,vtype,pointer_container>::storage_type;
     static const int dimension = dim;
 public:
     pointer_image(void) {}
     pointer_image(const pointer_image& rhs):base_type(){operator=(rhs);}
-    template<typename rhs_storage_type>
-    pointer_image(image<dim,vtype,rhs_storage_type>& rhs):base_type(&*rhs.begin(),rhs.shape()) {}
+    template<typename T,typename std::enable_if<T::dimension==dimension && !std::is_same<storage_type,typename T::storage_type>::value,bool>::type = true>
+    pointer_image(const T& rhs):base_type(&*rhs.begin(),rhs.shape()) {}
     pointer_image(vtype* pointer,const tipl::shape<dim>& geo_):base_type(pointer,geo_) {}
 public:
     pointer_image& operator=(const pointer_image& rhs)
@@ -567,19 +570,20 @@ public:
 };
 
 template<int dim,typename vtype = float>
-class const_pointer_image : public image<dim,vtype,const_pointer_container<vtype> >
+class const_pointer_image : public image<dim,vtype,const_pointer_container>
 {
 public:
     using value_type        =   vtype;
-    using base_type         =   image<dim,value_type,const_pointer_container<value_type> >;
+    using base_type         =   image<dim,value_type,const_pointer_container>;
     using iterator          =   typename base_type::iterator;
     using const_iterator    =   typename base_type::const_iterator;
+    using storage_type      =   typename image<dim,vtype,const_pointer_container>::storage_type;
     static const int dimension = dim;
 public:
     const_pointer_image(void) {}
     const_pointer_image(const const_pointer_image& rhs):base_type(){operator=(rhs);}
-    template<typename rhs_storage_type>
-    const_pointer_image(const image<dim,vtype,rhs_storage_type>& rhs):base_type(&*rhs.begin(),rhs.shape()) {}
+    template<typename T,typename std::enable_if<T::dimension==dimension && !std::is_same<storage_type,typename T::storage_type>::value,bool>::type = true>
+    const_pointer_image(const T& rhs):base_type(&*rhs.begin(),rhs.shape()) {}
     const_pointer_image(const vtype* pointer,const tipl::shape<dim>& geo_):base_type(pointer,geo_){}
 public:
     const_pointer_image& operator=(const const_pointer_image& rhs)
