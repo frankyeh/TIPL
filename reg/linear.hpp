@@ -35,7 +35,7 @@ struct square_error
         {
             transform(index,pos);
             double to_pixel = 0;
-            if (estimate(Ito,pos,to_pixel,tipl::linear) && to_pixel != 0)
+            if (estimate(Ito,pos,to_pixel) && to_pixel != 0)
                 to_pixel -= Ifrom[index.index()];
             else
                 to_pixel = Ifrom[index.index()];
@@ -60,7 +60,7 @@ struct negative_product
         {
             transform(index,pos);
             double to_pixel = 0;
-            if (estimate(Ito,pos,to_pixel,tipl::linear) && to_pixel != 0)
+            if (estimate(Ito,pos,to_pixel) && to_pixel != 0)
                 error -= to_pixel*Ifrom[index.index()];
         }
         return error;
@@ -74,7 +74,7 @@ struct correlation
     {
         tipl::shape<ImageType::dimension> geo(Ifrom.shape());
         tipl::image<ImageType::dimension,typename ImageType::value_type> y(geo);
-        tipl::resample_mt(Ito,y,transform,tipl::linear);
+        tipl::resample_mt(Ito,y,transform);
         float c = tipl::correlation(Ifrom.begin(),Ifrom.end(),y.begin());
         return -c*c;
     }
@@ -120,7 +120,7 @@ struct mt_correlation
                 {
                     tipl::vector<image_type::dimension,double> pos;
                     T(index,pos);
-                    tipl::estimate(*I2,pos,Y[index.index()],tipl::linear);
+                    tipl::estimate(*I2,pos,Y[index.index()]);
                 }
                 status[id] = 2;
             }
@@ -201,7 +201,7 @@ public:
 
         tipl::make_image(&from[0],geo).for_each_mt2([&](unsigned char value,pixel_index<ImageType::dimension> index,int id)
         {
-            tipl::interpolation<tipl::linear_weighting,ImageType::dimension> interp;
+            tipl::interpolation::linear<ImageType::dimension> interp;
             unsigned int from_index = ((unsigned int)value) << band_width;
             tipl::vector<ImageType::dimension,float> pos;
             transform(index,pos);
@@ -211,7 +211,7 @@ public:
                 mutual_hist[id][from_index] += 1.0;
             }
             else
-                for (unsigned int i = 0; i < tipl::interpolation<tipl::linear_weighting,ImageType::dimension>::ref_count; ++i)
+                for (unsigned int i = 0; i < tipl::interpolation::linear<ImageType::dimension>::ref_count; ++i)
                 {
                     double weighting = double(interp.ratio[i]);
                     unsigned int to_index = to[interp.dindex[i]];

@@ -122,89 +122,6 @@ void gradient_sobel(const PixelImageType& src,VectorImageType& dest)
     }
 }
 //---------------------------------------------------------------------------
-template<typename T1,typename T2,typename std::enable_if<T1::dimension==3,bool>::type = true>
-void gradient_multiple_sampling(const T1& src,
-                                T2& dest,
-                                double line_interval = 1.0,
-                                unsigned int line_sampling_num = 3,
-                                unsigned int sampling_dir_num = 8)
-{
-    gradient(src,dest);
-}
-template<typename T1,typename T2,typename std::enable_if<T1::dimension==2,bool>::type = true>
-void gradient_multiple_sampling(const T1& src,
-                                T2& dest,
-                                double line_interval = 1.0,
-                                unsigned int line_sampling_num = 3,
-                                unsigned int sampling_dir_num = 8)
-{
-    using vector_type = typename T2::value_type;
-    std::vector<tipl::interpolation<tipl::linear_weighting,2> >
-    interpo1(sampling_dir_num*line_sampling_num),interpo2(sampling_dir_num*line_sampling_num);
-    std::vector<vector_type> offset_vector(sampling_dir_num*line_sampling_num);
-    std::vector<double> offset_length(sampling_dir_num*line_sampling_num);
-
-    {
-        vector_type center(src.width() >> 1,src.height() >> 1);
-        int center_index = (src.width() >> 1) + src.width()*(src.height() >> 1);
-        for(unsigned int i = 0,index = 0; i < sampling_dir_num; ++i)
-        {
-            vector_type dist;
-            dist[0] = std::cos(3.1415926*(double)i/(double)sampling_dir_num);
-            dist[1] = std::sin(3.1415926*(double)i/(double)sampling_dir_num);
-            for(unsigned int j = 1; j <= line_sampling_num; ++j,++index)
-            {
-                vector_type r = dist;
-                r *= line_interval;
-                r *= j;
-                interpo1[index].get_location(src.shape(),center+r);
-                interpo2[index].get_location(src.shape(),center-r);
-                offset_vector[index] = dist;
-                offset_length[index] = 2*line_interval*(double)j;
-            }
-        }
-        for(unsigned int index = 0; index < interpo1.size(); ++index)
-            for(unsigned int i = 0; i < 4; ++i)
-            {
-                interpo1[index].dindex[i] -= center_index;
-                interpo2[index].dindex[i] -= center_index;
-            }
-    }
-
-    dest.resize(src.shape());
-    for (tipl::pixel_index<2> iter(src.shape()); iter < src.size(); ++iter)
-    {
-        vector_type dist;
-        unsigned int total_dir = 0;
-        for(unsigned int index = 0; index < interpo1.size(); ++index)
-        {
-            if(interpo1[index].dindex[0] >= 0 &&
-               interpo1[index].dindex[3] < src.size() &&
-               interpo2[index].dindex[0] >= 0 &&
-               interpo2[index].dindex[3] < src.size())
-            {
-                double value1,value2;
-                interpo1[index].estimate(src,value1);
-                interpo2[index].estimate(src,value2);
-                value1 -= value2;
-                value1 /= offset_length[index];
-                dist += offset_vector[index]*value1;
-                ++total_dir;
-            }
-            for(unsigned int i = 0; i < 4; ++i)
-            {
-                ++(interpo1[index].dindex[i]);
-                ++(interpo2[index].dindex[i]);
-            }
-
-        }
-        if(total_dir)
-            dest[iter.index()] = dist/(double)total_dir;
-        else
-            dest[iter.index()] = vector_type();
-    }
-}
-//---------------------------------------------------------------------------
 template<typename PixelImageType,typename GradientImageType>
 void gradient(const PixelImageType& src,std::vector<GradientImageType>& dest)
 {
@@ -282,7 +199,7 @@ void assign_negate(LHType& lhs,const RHType& rhs)
 }
 //---------------------------------------------------------------------------
 template<typename iterator,typename fun_type>
-void apply_fun(iterator lhs_from,iterator lhs_to,fun_type fun)
+void apply(iterator lhs_from,iterator lhs_to,fun_type fun)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from = fun(*lhs_from);
@@ -401,6 +318,16 @@ void add(image_type1& I,const image_type2& I2)
 template<typename image_type1,typename image_type2>
 void add_mt(image_type1& I,const image_type2& I2)
 {
+    #ifdef __NVCC__
+    if constexpr (std::is_same<typename image_type1::storage_type,thrust::device_vector<typename image_type1::value_type> >::value &&
+                  std::is_same<typename image_type2::storage_type,thrust::device_vector<typename image_type2::value_type> >::value)
+    {
+        using namespace thrust::placeholders;
+        thrust::transform(I2.begin(), I2.end(), I.begin(), _1 + _2);
+        return;
+    }
+    #endif
+
     tipl::par_for(I.size(),[&I,&I2](int index){
        I[index] += I2[index];
     });
@@ -422,6 +349,16 @@ void minus(image_type1& I,const image_type2& I2)
 template<typename image_type1,typename image_type2>
 void minus_mt(image_type1& I,const image_type2& I2)
 {
+    #ifdef __NVCC__
+    if constexpr (std::is_same<typename image_type1::storage_type,thrust::device_vector<typename image_type1::value_type> >::value &&
+                  std::is_same<typename image_type2::storage_type,thrust::device_vector<typename image_type2::value_type> >::value)
+    {
+        using namespace thrust::placeholders;
+        thrust::transform(I2.begin(), I2.end(), I.begin(), _2 - _1);
+        return;
+    }
+    #endif
+
     tipl::par_for(I.size(),[&I,&I2](int index){
        I[index] -= I2[index];
     });
@@ -442,6 +379,16 @@ void multiply(image_type1& I,const image_type2& I2)
 template<typename image_type1,typename image_type2>
 void multiply_mt(image_type1& I,const image_type2& I2)
 {
+    #ifdef __NVCC__
+    if constexpr (std::is_same<typename image_type1::storage_type,thrust::device_vector<typename image_type1::value_type> >::value &&
+                  std::is_same<typename image_type2::storage_type,thrust::device_vector<typename image_type2::value_type> >::value)
+    {
+        using namespace thrust::placeholders;
+        thrust::transform(I2.begin(), I2.end(), I.begin(), _2 * _1);
+        return;
+    }
+    #endif
+
     tipl::par_for(I.size(),[&I,&I2](int index){
        I[index] *= I2[index];
     });
@@ -473,6 +420,23 @@ void add_constant(image_type& I,value_type value)
     add_constant(I.begin(),I.end(),value);
 }
 //---------------------------------------------------------------------------
+template<typename image_type,typename value_type>
+void add_constant_mt(image_type& I,value_type value)
+{
+    #ifdef __NVCC__
+    if constexpr (std::is_same<typename image_type::storage_type,thrust::device_vector<typename image_type::value_type> >::value)
+    {
+        using namespace thrust::placeholders;
+        thrust::transform(I.begin(), I.end(), I.begin(), _1 + value);
+        return;
+    }
+    #endif
+    tipl::par_for(I.size(),[&I,value](int index)
+    {
+       I[index] += value;
+    });
+}
+//---------------------------------------------------------------------------
 template<typename iterator1,typename value_type>
 void mod_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
@@ -502,6 +466,14 @@ void minus_constant(image_type& I,value_type value)
 template<typename image_type,typename value_type>
 void minus_constant_mt(image_type& I,value_type value)
 {
+    #ifdef __NVCC__
+    if constexpr (std::is_same<typename image_type::storage_type,thrust::device_vector<typename image_type::value_type> >::value)
+    {
+        using namespace thrust::placeholders;
+        thrust::transform(I.begin(), I.end(), I.begin(), _1 - value);
+        return;
+    }
+    #endif
     tipl::par_for(I.size(),[&I,value](int index)
     {
        I[index] -= value;
@@ -523,6 +495,14 @@ void multiply_constant(image_type& I,value_type value)
 template<typename image_type,typename value_type>
 void multiply_constant_mt(image_type& I,value_type value)
 {
+    #ifdef __NVCC__
+    if constexpr (std::is_same<typename image_type::storage_type,thrust::device_vector<typename image_type::value_type> >::value)
+    {
+        using namespace thrust::placeholders;
+        thrust::transform(I.begin(), I.end(), I.begin(), _1 * value);
+        return;
+    }
+    #endif
     tipl::par_for(I.size(),[&I,value](int index){
        I[index] *= value;
     });
@@ -545,6 +525,15 @@ void divide_constant(image_type& I,value_type value)
 template<typename image_type,typename value_type>
 void divide_constant_mt(image_type& I,value_type value)
 {
+    #ifdef __NVCC__
+    if constexpr (std::is_same<typename image_type::storage_type,thrust::device_vector<typename image_type::value_type> >::value)
+    {
+        using namespace thrust::placeholders;
+        thrust::transform(I.begin(), I.end(), I.begin(), _1 / value);
+        return;
+    }
+    #endif
+
     tipl::par_for(I.size(),[&I,value](int index){
        I[index] /= value;
     });
