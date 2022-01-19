@@ -262,7 +262,7 @@ struct nearest<3>
     }
 };
 
-template<unsigned int dimension>
+template<int dimension>
 struct linear{};
 
 template<>
