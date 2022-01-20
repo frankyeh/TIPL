@@ -318,7 +318,7 @@ void add(image_type1& I,const image_type2& I2)
 template<typename image_type1,typename image_type2>
 void add_mt(image_type1& I,const image_type2& I2)
 {
-    #ifdef __NVCC__
+    #ifdef __CUDACC__
     if constexpr (std::is_same<typename image_type1::storage_type,thrust::device_vector<typename image_type1::value_type> >::value &&
                   std::is_same<typename image_type2::storage_type,thrust::device_vector<typename image_type2::value_type> >::value)
     {
@@ -349,7 +349,7 @@ void minus(image_type1& I,const image_type2& I2)
 template<typename image_type1,typename image_type2>
 void minus_mt(image_type1& I,const image_type2& I2)
 {
-    #ifdef __NVCC__
+    #ifdef __CUDACC__
     if constexpr (std::is_same<typename image_type1::storage_type,thrust::device_vector<typename image_type1::value_type> >::value &&
                   std::is_same<typename image_type2::storage_type,thrust::device_vector<typename image_type2::value_type> >::value)
     {
@@ -379,7 +379,7 @@ void multiply(image_type1& I,const image_type2& I2)
 template<typename image_type1,typename image_type2>
 void multiply_mt(image_type1& I,const image_type2& I2)
 {
-    #ifdef __NVCC__
+    #ifdef __CUDACC__
     if constexpr (std::is_same<typename image_type1::storage_type,thrust::device_vector<typename image_type1::value_type> >::value &&
                   std::is_same<typename image_type2::storage_type,thrust::device_vector<typename image_type2::value_type> >::value)
     {
@@ -423,7 +423,7 @@ void add_constant(image_type& I,value_type value)
 template<typename image_type,typename value_type>
 void add_constant_mt(image_type& I,value_type value)
 {
-    #ifdef __NVCC__
+    #ifdef __CUDACC__
     if constexpr (std::is_same<typename image_type::storage_type,thrust::device_vector<typename image_type::value_type> >::value)
     {
         using namespace thrust::placeholders;
@@ -466,7 +466,7 @@ void minus_constant(image_type& I,value_type value)
 template<typename image_type,typename value_type>
 void minus_constant_mt(image_type& I,value_type value)
 {
-    #ifdef __NVCC__
+    #ifdef __CUDACC__
     if constexpr (std::is_same<typename image_type::storage_type,thrust::device_vector<typename image_type::value_type> >::value)
     {
         using namespace thrust::placeholders;
@@ -495,7 +495,7 @@ void multiply_constant(image_type& I,value_type value)
 template<typename image_type,typename value_type>
 void multiply_constant_mt(image_type& I,value_type value)
 {
-    #ifdef __NVCC__
+    #ifdef __CUDACC__
     if constexpr (std::is_same<typename image_type::storage_type,thrust::device_vector<typename image_type::value_type> >::value)
     {
         using namespace thrust::placeholders;
@@ -525,7 +525,7 @@ void divide_constant(image_type& I,value_type value)
 template<typename image_type,typename value_type>
 void divide_constant_mt(image_type& I,value_type value)
 {
-    #ifdef __NVCC__
+    #ifdef __CUDACC__
     if constexpr (std::is_same<typename image_type::storage_type,thrust::device_vector<typename image_type::value_type> >::value)
     {
         using namespace thrust::placeholders;
