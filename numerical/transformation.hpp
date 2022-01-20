@@ -11,42 +11,42 @@ template<typename input_iter1,typename input_iter2,typename output_iter>
 __DEVICE_HOST__ void vector_transformation(input_iter1 vec_in,output_iter vec_out,input_iter2 trans,vdim<2>)
 {
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
-    vec_out[0] = ((value_type)vec_in[0])*trans[0] +
-                 ((value_type)vec_in[1])*trans[1] +
-                 ((value_type)trans[2]);
-    vec_out[1] = ((value_type)vec_in[0])*trans[3] +
-                 ((value_type)vec_in[1])*trans[4] +
-                 ((value_type)trans[5]);
+    vec_out[0] = value_type(vec_in[0])*trans[0] +
+                 value_type(vec_in[1])*trans[1] +
+                 value_type(trans[2]);
+    vec_out[1] = value_type(vec_in[0])*trans[3] +
+                 value_type(vec_in[1])*trans[4] +
+                 value_type(trans[5]);
 }
 
 template<typename input_iter1,typename input_iter2,typename output_iter>
 __DEVICE_HOST__  void vector_transformation(input_iter1 vec_in,output_iter vec_out,input_iter2 trans,vdim<3>)
 {
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
-    vec_out[0] = ((value_type)vec_in[0])*trans[0] +
-                 ((value_type)vec_in[1])*trans[1] +
-                 ((value_type)vec_in[2])*trans[2] +
-                 ((value_type)trans[3]);
-    vec_out[1] = ((value_type)vec_in[0])*trans[4] +
-                 ((value_type)vec_in[1])*trans[5] +
-                 ((value_type)vec_in[2])*trans[6] +
-                 ((value_type)trans[7]);
-    vec_out[2] = ((value_type)vec_in[0])*trans[8] +
-                 ((value_type)vec_in[1])*trans[9] +
-                 ((value_type)vec_in[2])*trans[10] +
-                 ((value_type)trans[11]);
+    vec_out[0] = value_type(vec_in[0])*trans[0] +
+                 value_type(vec_in[1])*trans[1] +
+                 value_type(vec_in[2])*trans[2] +
+                 value_type(trans[3]);
+    vec_out[1] = value_type(vec_in[0])*trans[4] +
+                 value_type(vec_in[1])*trans[5] +
+                 value_type(vec_in[2])*trans[6] +
+                 value_type(trans[7]);
+    vec_out[2] = value_type(vec_in[0])*trans[8] +
+                 value_type(vec_in[1])*trans[9] +
+                 value_type(vec_in[2])*trans[10] +
+                 value_type(trans[11]);
 }
 
 template<typename input_iter1,typename input_iter2,typename input_iter3,typename output_iter>
 __DEVICE_HOST__ void vector_transformation(input_iter1 vec_in,output_iter vec_out,input_iter2 rotation,input_iter3 shift,vdim<2>)
 {
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
-    vec_out[0] = ((value_type)vec_in[0])*rotation[0] +
-                 ((value_type)vec_in[1])*rotation[1] +
-                 ((value_type)shift[0]);
-    vec_out[1] = ((value_type)vec_in[0])*rotation[2] +
-                 ((value_type)vec_in[1])*rotation[3] +
-                 ((value_type)shift[1]);
+    vec_out[0] = value_type(vec_in[0])*rotation[0] +
+                 value_type(vec_in[1])*rotation[1] +
+                 value_type(shift[0]);
+    vec_out[1] = value_type(vec_in[0])*rotation[2] +
+                 value_type(vec_in[1])*rotation[3] +
+                 value_type(shift[1]);
 }
 
 
@@ -55,43 +55,43 @@ __DEVICE_HOST__ void vector_transformation(input_iter1 vec_in,output_iter vec_ou
 {
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
 
-    vec_out[0] = ((value_type)vec_in[0])*rotation[0] +
-                 ((value_type)vec_in[1])*rotation[1] +
-                 ((value_type)vec_in[2])*rotation[2] +
-                 ((value_type)shift[0]);
-    vec_out[1] = ((value_type)vec_in[0])*rotation[3] +
-                 ((value_type)vec_in[1])*rotation[4] +
-                 ((value_type)vec_in[2])*rotation[5] +
-                 ((value_type)shift[1]);
-    vec_out[2] = ((value_type)vec_in[0])*rotation[6] +
-                 ((value_type)vec_in[1])*rotation[7] +
-                 ((value_type)vec_in[2])*rotation[8] +
-                 ((value_type)shift[2]);
+    vec_out[0] = value_type(vec_in[0])*rotation[0] +
+                 value_type(vec_in[1])*rotation[1] +
+                 value_type(vec_in[2])*rotation[2] +
+                 value_type(shift[0]);
+    vec_out[1] = value_type(vec_in[0])*rotation[3] +
+                 value_type(vec_in[1])*rotation[4] +
+                 value_type(vec_in[2])*rotation[5] +
+                 value_type(shift[1]);
+    vec_out[2] = value_type(vec_in[0])*rotation[6] +
+                 value_type(vec_in[1])*rotation[7] +
+                 value_type(vec_in[2])*rotation[8] +
+                 value_type(shift[2]);
 }
 
 template<typename input_iter1,typename input_iter2,typename output_iter>
 __DEVICE_HOST__ void vector_rotation(input_iter1 vec_in,output_iter vec_out,input_iter2 rotation,vdim<2>)
 {
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
-    vec_out[0] = ((value_type)vec_in[0])*rotation[0] +
-                 ((value_type)vec_in[1])*rotation[1];
-    vec_out[1] = ((value_type)vec_in[0])*rotation[2] +
-                 ((value_type)vec_in[1])*rotation[3];
+    vec_out[0] = value_type(vec_in[0])*rotation[0] +
+                 value_type(vec_in[1])*rotation[1];
+    vec_out[1] = value_type(vec_in[0])*rotation[2] +
+                 value_type(vec_in[1])*rotation[3];
 }
 
 template<typename input_iter1,typename input_iter2,typename output_iter>
 __DEVICE_HOST__ void vector_rotation(input_iter1 vec_in,output_iter vec_out,input_iter2 rotation,vdim<3>)
 {
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
-    vec_out[0] = ((value_type)vec_in[0])*rotation[0] +
-                 ((value_type)vec_in[1])*rotation[1] +
-                 ((value_type)vec_in[2])*rotation[2];
-    vec_out[1] = ((value_type)vec_in[0])*rotation[3] +
-                 ((value_type)vec_in[1])*rotation[4] +
-                 ((value_type)vec_in[2])*rotation[5];
-    vec_out[2] = ((value_type)vec_in[0])*rotation[6] +
-                 ((value_type)vec_in[1])*rotation[7] +
-                 ((value_type)vec_in[2])*rotation[8];
+    vec_out[0] = value_type(vec_in[0])*rotation[0] +
+                 value_type(vec_in[1])*rotation[1] +
+                 value_type(vec_in[2])*rotation[2];
+    vec_out[1] = value_type(vec_in[0])*rotation[3] +
+                 value_type(vec_in[1])*rotation[4] +
+                 value_type(vec_in[2])*rotation[5];
+    vec_out[2] = value_type(vec_in[0])*rotation[6] +
+                 value_type(vec_in[1])*rotation[7] +
+                 value_type(vec_in[2])*rotation[8];
 }
 
 
@@ -944,7 +944,7 @@ public:
     template<typename rhs_value_type>
     __INLINE__ transformation_matrix& operator=(const transformation_matrix<rhs_value_type>& M)
     {
-        std::copy(M.begin(),M.end(),data);
+        std::copy(M.begin(),M.begin()+total_size,data);
         return *this;
     }
     template<typename rhs_value_type>
