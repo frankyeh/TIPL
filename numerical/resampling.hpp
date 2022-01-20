@@ -954,6 +954,22 @@ void match_signal_kernel(const T& VG,T& VFF)
     });
 }
 
+#ifdef __CUDACC__
+template<template<int> typename InterpolateType = tipl::interpolation::linear,typename ImageType1,typename ImageType2,typename value_type>
+void resample_cuda(const ImageType1& from,ImageType2& to,const tipl::transformation_matrix<value_type>& transform)
+{
+    thrust::device_vector<uint64_t> index(to.size());
+    thrust::sequence(thrust::device,index.begin(),index.end(),0);
+    auto dim = to.shape();
+    thrust::transform(thrust::device, index.begin(),index.end(),to.begin(),[=] __device__ (uint64_t index)
+    {
+        tipl::vector<3> v(tipl::pixel_index<3>(index,dim));
+        transform(v);
+        return tipl::estimate<tipl::interpolation::linear>(from,v);
+    });
+
+}
+#endif
 template<template<int> typename InterpolateType = tipl::interpolation::linear,typename ImageType1,typename ImageType2,typename value_type>
 void resample_mt(const ImageType1& from,ImageType2& to,const tipl::transformation_matrix<value_type>& transform)
 {
@@ -965,6 +981,8 @@ void resample_mt(const ImageType1& from,ImageType2& to,const tipl::transformatio
         estimate<InterpolateType>(from,pos,value);
     });
 }
+
+
 
 template<template<int> typename InterpolateType = tipl::interpolation::linear,typename ImageType1,typename ImageType2,int r,int c,typename value_type>
 void resample_mt(const ImageType1& from,ImageType2& to,const tipl::matrix<r,c,value_type>& trans)

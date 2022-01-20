@@ -1,13 +1,14 @@
 #ifndef TRANSFORMATION_HPP_INCLUDED
 #define TRANSFORMATION_HPP_INCLUDED
 #include "../numerical/matrix.hpp"
+#include "../utility/def.hpp"
 namespace tipl{
 
 template<unsigned int dim>
 struct vdim {};
 
 template<typename input_iter1,typename input_iter2,typename output_iter>
-void vector_transformation(input_iter1 vec_in,output_iter vec_out,input_iter2 trans,vdim<2>)
+__DEVICE_HOST__ void vector_transformation(input_iter1 vec_in,output_iter vec_out,input_iter2 trans,vdim<2>)
 {
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
     vec_out[0] = ((value_type)vec_in[0])*trans[0] +
@@ -19,7 +20,7 @@ void vector_transformation(input_iter1 vec_in,output_iter vec_out,input_iter2 tr
 }
 
 template<typename input_iter1,typename input_iter2,typename output_iter>
-void vector_transformation(input_iter1 vec_in,output_iter vec_out,input_iter2 trans,vdim<3>)
+__DEVICE_HOST__  void vector_transformation(input_iter1 vec_in,output_iter vec_out,input_iter2 trans,vdim<3>)
 {
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
     vec_out[0] = ((value_type)vec_in[0])*trans[0] +
@@ -37,7 +38,7 @@ void vector_transformation(input_iter1 vec_in,output_iter vec_out,input_iter2 tr
 }
 
 template<typename input_iter1,typename input_iter2,typename input_iter3,typename output_iter>
-void vector_transformation(input_iter1 vec_in,output_iter vec_out,input_iter2 rotation,input_iter3 shift,vdim<2>)
+__DEVICE_HOST__ void vector_transformation(input_iter1 vec_in,output_iter vec_out,input_iter2 rotation,input_iter3 shift,vdim<2>)
 {
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
     vec_out[0] = ((value_type)vec_in[0])*rotation[0] +
@@ -50,7 +51,7 @@ void vector_transformation(input_iter1 vec_in,output_iter vec_out,input_iter2 ro
 
 
 template<typename input_iter1,typename input_iter2,typename input_iter3,typename output_iter>
-void vector_transformation(input_iter1 vec_in,output_iter vec_out,input_iter2 rotation,input_iter3 shift,vdim<3>)
+__DEVICE_HOST__ void vector_transformation(input_iter1 vec_in,output_iter vec_out,input_iter2 rotation,input_iter3 shift,vdim<3>)
 {
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
 
@@ -69,7 +70,7 @@ void vector_transformation(input_iter1 vec_in,output_iter vec_out,input_iter2 ro
 }
 
 template<typename input_iter1,typename input_iter2,typename output_iter>
-void vector_rotation(input_iter1 vec_in,output_iter vec_out,input_iter2 rotation,vdim<2>)
+__DEVICE_HOST__ void vector_rotation(input_iter1 vec_in,output_iter vec_out,input_iter2 rotation,vdim<2>)
 {
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
     vec_out[0] = ((value_type)vec_in[0])*rotation[0] +
@@ -79,7 +80,7 @@ void vector_rotation(input_iter1 vec_in,output_iter vec_out,input_iter2 rotation
 }
 
 template<typename input_iter1,typename input_iter2,typename output_iter>
-void vector_rotation(input_iter1 vec_in,output_iter vec_out,input_iter2 rotation,vdim<3>)
+__DEVICE_HOST__ void vector_rotation(input_iter1 vec_in,output_iter vec_out,input_iter2 rotation,vdim<3>)
 {
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
     vec_out[0] = ((value_type)vec_in[0])*rotation[0] +
@@ -98,7 +99,7 @@ void vector_rotation(input_iter1 vec_in,output_iter vec_out,input_iter2 rotation
     A,B,C are 2-by-2 matrices
 */
 template<typename input_iterator1,typename input_iterator2,typename output_iterator>
-void matrix_product(input_iterator1 A,input_iterator2 B,output_iterator C,vdim<2>)
+__DEVICE_HOST__ void matrix_product(input_iterator1 A,input_iterator2 B,output_iterator C,vdim<2>)
 {
     C[0] = A[0] * B[0] + A[1] * B[2];
     C[1] = A[0] * B[1] + A[1] * B[3];
@@ -112,7 +113,7 @@ void matrix_product(input_iterator1 A,input_iterator2 B,output_iterator C,vdim<2
     A,B,C are 3-by-3 matrices
 */
 template<typename input_iterator1,typename input_iterator2,typename output_iterator>
-void matrix_product(input_iterator1 A,input_iterator2 B,output_iterator C,vdim<3>)
+__DEVICE_HOST__ void matrix_product(input_iterator1 A,input_iterator2 B,output_iterator C,vdim<3>)
 {
     C[0] = A[0] * B[0] + A[1] * B[3] + A[2] * B[6];
     C[1] = A[0] * B[1] + A[1] * B[4] + A[2] * B[7];
@@ -128,7 +129,7 @@ void matrix_product(input_iterator1 A,input_iterator2 B,output_iterator C,vdim<3
 }
 
 template<typename angle_type,typename output_iter>
-void rotation_matrix(angle_type theta,output_iter m,vdim<2>)
+__DEVICE_HOST__ void rotation_matrix(angle_type theta,output_iter m,vdim<2>)
 {
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
     value_type cos_theta = std::cos(theta);
@@ -151,7 +152,7 @@ void rotation_matrix(angle_type theta,output_iter m,vdim<2>)
  */
 //a clockwise/left-handed rotation with Euler angles
 template<typename angle_type,typename output_type>
-void rotation_matrix(angle_type theta,output_type m,vdim<3>)
+__DEVICE_HOST__ void rotation_matrix(angle_type theta,output_type m,vdim<3>)
 {
     typedef typename std::iterator_traits<angle_type>::value_type value_type;
     value_type sin_x = std::sin(theta[0]);
@@ -187,7 +188,7 @@ void rotation_matrix(angle_type theta,output_type m,vdim<3>)
 }
 
 template<typename iterator_type1,typename iterator_type2>
-void rotation_matrix_to_angles(iterator_type1 m,iterator_type2 theta,vdim<3>)
+__DEVICE_HOST__ void rotation_matrix_to_angles(iterator_type1 m,iterator_type2 theta,vdim<3>)
 {
     float sy = std::sqrt(m[0]*m[0]+m[1]*m[1]);
     if (sy > 1.0e-6f)
@@ -206,7 +207,7 @@ void rotation_matrix_to_angles(iterator_type1 m,iterator_type2 theta,vdim<3>)
  Scaling*Rotate
  */
 template<typename angle_type,typename scale_type,typename output_type>
-void rotation_scaling_matrix(angle_type theta,scale_type s,output_type m,vdim<2>)
+__DEVICE_HOST__ void rotation_scaling_matrix(angle_type theta,scale_type s,output_type m,vdim<2>)
 {
     rotation_matrix(theta,m,vdim<2>());
     m[0] *= s[0];
@@ -218,7 +219,7 @@ void rotation_scaling_matrix(angle_type theta,scale_type s,output_type m,vdim<2>
  Scaling*Rx*Ry*Rz
  */
 template<typename angle_type,typename scale_type,typename output_type>
-void rotation_scaling_matrix(angle_type theta,scale_type s,output_type m,vdim<3>)
+__DEVICE_HOST__ void rotation_scaling_matrix(angle_type theta,scale_type s,output_type m,vdim<3>)
 {
     rotation_matrix(theta,m,vdim<3>());
     m[0] *= s[0];
@@ -240,7 +241,7 @@ Affine   = [1   	a[0]    0;
             0   	0   	1];
  */
 template<typename angle_type,typename scale_type,typename affine_type,typename output_type>
-void rotation_scaling_affine_matrix(angle_type theta,scale_type s,affine_type a,output_type m,vdim<2>)
+__DEVICE_HOST__ void rotation_scaling_affine_matrix(angle_type theta,scale_type s,affine_type a,output_type m,vdim<2>)
 {
     rotation_scaling_matrix(theta,s,m,vdim<2>());
     m[0] += m[2]*a;
@@ -256,7 +257,7 @@ Affine   = [1   	a[0]    a[1]   0;
             0    	0    	0      1];
  */
 template<typename angle_type,typename scale_type,typename affine_type,typename output_type>
-void rotation_scaling_affine_matrix(angle_type theta,scale_type s,affine_type a,output_type m,vdim<3>)
+__DEVICE_HOST__ void rotation_scaling_affine_matrix(angle_type theta,scale_type s,affine_type a,output_type m,vdim<3>)
 {
     rotation_scaling_matrix(theta,s,m,vdim<3>());
     m[0] += m[3]*a[0]+m[6]*a[1];
@@ -269,7 +270,7 @@ void rotation_scaling_affine_matrix(angle_type theta,scale_type s,affine_type a,
 }
 
 template<typename intput_type,typename angle_type,typename scale_type,typename affine_type>
-void matrix_to_rotation_scaling_affine(intput_type m,angle_type theta,scale_type s,affine_type a,vdim<3>)
+__DEVICE_HOST__ void matrix_to_rotation_scaling_affine(intput_type m,angle_type theta,scale_type s,affine_type a,vdim<3>)
 {
     typedef typename std::iterator_traits<intput_type>::value_type value_type;
     value_type Q[9];
@@ -311,7 +312,7 @@ void matrix_to_rotation_scaling_affine(intput_type m,angle_type theta,scale_type
 }
 
 template<typename output_iter>
-void rotation_x_matrix(typename std::iterator_traits<output_iter>::value_type theta,output_iter m/*a 3x3 matrix*/)
+__DEVICE_HOST__ void rotation_x_matrix(typename std::iterator_traits<output_iter>::value_type theta,output_iter m/*a 3x3 matrix*/)
 {
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
     value_type cos_theta = std::cos(theta);
@@ -328,7 +329,7 @@ void rotation_x_matrix(typename std::iterator_traits<output_iter>::value_type th
 }
 
 template<typename output_iter>
-void rotation_y_matrix(typename std::iterator_traits<output_iter>::value_type theta,output_iter m/*a 3x3 matrix*/)
+__DEVICE_HOST__ void rotation_y_matrix(typename std::iterator_traits<output_iter>::value_type theta,output_iter m/*a 3x3 matrix*/)
 {
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
     value_type cos_theta = std::cos(theta);
@@ -345,7 +346,7 @@ void rotation_y_matrix(typename std::iterator_traits<output_iter>::value_type th
 }
 
 template<typename output_iter>
-void rotation_z_matrix(typename std::iterator_traits<output_iter>::value_type theta,output_iter m/*a 3x3 matrix*/)
+__DEVICE_HOST__ void rotation_z_matrix(typename std::iterator_traits<output_iter>::value_type theta,output_iter m/*a 3x3 matrix*/)
 {
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
     value_type cos_theta = std::cos(theta);
@@ -367,7 +368,7 @@ void rotation_z_matrix(typename std::iterator_traits<output_iter>::value_type th
 */
 
 template<typename input_iter1,typename input_iter2,typename output_iter>
-void rotation_vector_matrix(output_iter r,input_iter1 u,input_iter2 v)
+__DEVICE_HOST__ void rotation_vector_matrix(output_iter r,input_iter1 u,input_iter2 v)
 {
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
 
@@ -396,7 +397,7 @@ void rotation_vector_matrix(output_iter r,input_iter1 u,input_iter2 v)
 
 
 template<typename input_iter,typename output_iter>
-void rotation_matrix(input_iter uv/*a 3d unit vector as the axis*/,
+__DEVICE_HOST__ void rotation_matrix(input_iter uv/*a 3d unit vector as the axis*/,
                      typename std::iterator_traits<input_iter>::value_type theta,output_iter m/*a 3x3 matrix*/,vdim<3>)
 {
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
@@ -418,7 +419,7 @@ void rotation_matrix(input_iter uv/*a 3d unit vector as the axis*/,
 }
 
 template<typename input_iter,typename output_iter>
-void scaling_matrix(input_iter scaling,output_iter m,vdim<2>)
+__DEVICE_HOST__ void scaling_matrix(input_iter scaling,output_iter m,vdim<2>)
 {
     m[0] = scaling[0];
     m[1] = 0.0;
@@ -427,7 +428,7 @@ void scaling_matrix(input_iter scaling,output_iter m,vdim<2>)
 }
 
 template<typename input_iter,typename output_iter>
-void scaling_matrix(input_iter scaling,output_iter m,vdim<3>)
+__DEVICE_HOST__ void scaling_matrix(input_iter scaling,output_iter m,vdim<3>)
 {
     m[0] = scaling[0];
     m[1] = 0.0;
@@ -443,7 +444,7 @@ void scaling_matrix(input_iter scaling,output_iter m,vdim<3>)
 
 
 template<typename input_scaling_iter,typename angle_type,typename output_iter>
-void rotation_angle_to_rotation_matrix(input_scaling_iter scaling,angle_type rotation,output_iter m,vdim<2>)
+__DEVICE_HOST__ void rotation_angle_to_rotation_matrix(input_scaling_iter scaling,angle_type rotation,output_iter m,vdim<2>)
 {
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
     value_type S[4],R[4];
@@ -454,7 +455,7 @@ void rotation_angle_to_rotation_matrix(input_scaling_iter scaling,angle_type rot
 
 // the rotation is the Euler angles, which has Z-X-Z configuration
 template<typename input_scaling_iter,typename input_rotation_iter,typename output_iter>
-void rotation_angle_to_rotation_matrix(input_scaling_iter scaling,input_rotation_iter rotation,output_iter m,vdim<3>)
+__DEVICE_HOST__ void rotation_angle_to_rotation_matrix(input_scaling_iter scaling,input_rotation_iter rotation,output_iter m,vdim<3>)
 {
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
     value_type S[9],R[9],M[9];
@@ -484,7 +485,7 @@ void rotation_angle_to_rotation_matrix(input_rotation_iter rotation,output_iter 
 
 // Output Euler angle from rotation matrix
 template<typename input_rotation_iter,typename output_iter>
-void rotation_matrix_to_rotation_angle(input_rotation_iter rotation_matrix,output_iter rotation_angle,vdim<3>)
+__DEVICE_HOST__ void rotation_matrix_to_rotation_angle(input_rotation_iter rotation_matrix,output_iter rotation_angle,vdim<3>)
 {
     rotation_angle[0] = std::atan2(rotation_matrix[6],rotation_matrix[7]); //Z
     rotation_angle[1] = std::acos(rotation_matrix[8]);//X
@@ -493,7 +494,7 @@ void rotation_matrix_to_rotation_angle(input_rotation_iter rotation_matrix,outpu
 
 
 template<typename input_rotation_iter,typename input_shift_iter,typename output_iter>
-void create_affine_transformation_matrix(input_rotation_iter rotation_scaling,input_shift_iter shift,output_iter m,vdim<3>)
+__DEVICE_HOST__ void create_affine_transformation_matrix(input_rotation_iter rotation_scaling,input_shift_iter shift,output_iter m,vdim<3>)
 {
     std::copy(rotation_scaling,rotation_scaling+3,m);
     std::copy(rotation_scaling+3,rotation_scaling+6,m+4);
@@ -507,7 +508,7 @@ void create_affine_transformation_matrix(input_rotation_iter rotation_scaling,in
 }
 
 template<typename input_scaling_iter,typename input_rotation_iter,typename input_shift_iter,typename output_iter>
-void create_affine_transformation_matrix(input_scaling_iter scaling,input_rotation_iter rotation,input_shift_iter shift,output_iter m,vdim<3>)
+__DEVICE_HOST__ void create_affine_transformation_matrix(input_scaling_iter scaling,input_rotation_iter rotation,input_shift_iter shift,output_iter m,vdim<3>)
 {
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
     value_type M[9];
@@ -537,41 +538,41 @@ public:
         value_type data[6];
     };
 public:
-    affine_transform_2d(void)
+    __INLINE__ affine_transform_2d(void)
     {
         clear();
     }
-    affine_transform_2d(const value_type* data_)
+    __INLINE__ affine_transform_2d(const value_type* data_)
     {
         std::copy(data_,data_+total_size,data);
     }
     template<typename rhs_type>
-    affine_transform_2d(const rhs_type& rhs){operator=(rhs);}
+    __INLINE__ affine_transform_2d(const rhs_type& rhs){operator=(rhs);}
     template<typename rhs_type>
-    affine_transform_2d& operator=(const rhs_type& rhs)
+    __INLINE__ affine_transform_2d& operator=(const rhs_type& rhs)
     {
         std::copy(rhs.begin(),rhs.end(),data);
         return *this;
     }
 public:
-    void clear(void)
+    __INLINE__ void clear(void)
     {
         std::fill(data,data+total_size,0);
         std::fill(scaling,scaling+dimension,1);
     }
-    value_type operator[](unsigned int i) const{return data[i];}
-    value_type& operator[](unsigned int i) {return data[i];}
-    const value_type* begin(void) const{return data;}
-    const value_type* end(void) const{return data+total_size;}
-    value_type* begin(void) {return data;}
-    value_type* end(void) {return data+total_size;}
-    unsigned int size(void) const{return total_size;}
-    void downsampling(void)
+    __INLINE__ value_type operator[](unsigned int i) const{return data[i];}
+    __INLINE__ value_type& operator[](unsigned int i) {return data[i];}
+    __INLINE__ const value_type* begin(void) const{return data;}
+    __INLINE__ const value_type* end(void) const{return data+total_size;}
+    __INLINE__ value_type* begin(void) {return data;}
+    __INLINE__ value_type* end(void) {return data+total_size;}
+    __INLINE__ unsigned int size(void) const{return total_size;}
+    __INLINE__ void downsampling(void)
     {
         translocation[0] *= 0.5;
         translocation[1] *= 0.5;
     }
-    void upsampling(void)
+    __INLINE__ void upsampling(void)
     {
         translocation[0] *= 2;
         translocation[1] *= 2;
@@ -606,42 +607,42 @@ public:
         value_type data[12];
     };
 public:
-    affine_transform(void)
+    __INLINE__ affine_transform(void)
     {
         clear();
     }
-    affine_transform(const value_type* data_)
+    __INLINE__ affine_transform(const value_type* data_)
     {
         std::copy(data_,data_+total_size,data);
     }
     template<typename rhs_type>
-    affine_transform(const rhs_type& rhs){operator=(rhs);}
+    __INLINE__ affine_transform(const rhs_type& rhs){operator=(rhs);}
     template<typename rhs_type>
-    affine_transform& operator=(const rhs_type& rhs)
+    __INLINE__ affine_transform& operator=(const rhs_type& rhs)
     {
         std::copy(rhs.begin(),rhs.end(),data);
         return *this;
     }
 public:
-    void clear(void)
+    __INLINE__ void clear(void)
     {
         std::fill(data,data+total_size,0);
         std::fill(scaling,scaling+dimension,1);
     }
-    value_type operator[](unsigned int i) const{return data[i];}
-    value_type& operator[](unsigned int i) {return data[i];}
-    const value_type* begin(void) const{return data;}
-    const value_type* end(void) const{return data+total_size;}
-    value_type* begin(void) {return data;}
-    value_type* end(void) {return data+total_size;}
-    unsigned int size(void) const{return total_size;}
-    void downsampling(void)
+    __INLINE__ value_type operator[](unsigned int i) const{return data[i];}
+    __INLINE__ value_type& operator[](unsigned int i) {return data[i];}
+    __INLINE__ const value_type* begin(void) const{return data;}
+    __INLINE__ const value_type* end(void) const{return data+total_size;}
+    __INLINE__ value_type* begin(void) {return data;}
+    __INLINE__ value_type* end(void) {return data+total_size;}
+    __INLINE__ unsigned int size(void) const{return total_size;}
+    __INLINE__ void downsampling(void)
     {
         translocation[0] *= 0.5;
         translocation[1] *= 0.5;
         translocation[2] *= 0.5;
     }
-    void upsampling(void)
+    __INLINE__ void upsampling(void)
     {
         translocation[0] *= 2;
         translocation[1] *= 2;
@@ -677,13 +678,13 @@ public:
     };
 
 public:
-    transformation_matrix_2d(void)
+    __INLINE__ transformation_matrix_2d(void)
     {
         std::fill((value_type*)data,(value_type*)data+total_size,0);
     }
 
     // (Affine*Scaling*R1*R2*R3*vs*Translocation*shift_center)*from = (vs*shift_center)*to;
-    transformation_matrix_2d(const affine_transform_2d<value_type>& rb,
+    __DEVICE_HOST__ transformation_matrix_2d(const affine_transform_2d<value_type>& rb,
                           const tipl::shape<2>& from,
                           const tipl::vector<2>& from_vs,
                           const tipl::shape<2>& to,
@@ -726,12 +727,12 @@ public:
     }
 
     template<typename other_value_type>
-    const transformation_matrix_2d<value_type>& operator=(const transformation_matrix_2d<other_value_type>& rhs)
+    __INLINE__ const transformation_matrix_2d<value_type>& operator=(const transformation_matrix_2d<other_value_type>& rhs)
     {
         std::copy(rhs.data,rhs.data+total_size,data);
         return *this;
     }
-    void operator*=(const transformation_matrix_2d& rhs)
+    __DEVICE_HOST__ void operator*=(const transformation_matrix_2d& rhs)
     {
         tipl::matrix<2,2,value_type> sr_tmp(sr);
         tipl::mat::product(rhs.sr,sr_tmp.begin(),sr,tipl::dim<3,3>(),tipl::dim<2,2>());
@@ -739,12 +740,12 @@ public:
         vector_transformation(shift_t.begin(),shift,rhs.sr,rhs.shift,tipl::dim<2,2>());
     }
 
-    value_type* get(void){return data;}
-    const value_type* get(void) const{return data;}
-    value_type operator[](unsigned int i) const{return data[i];}
-    value_type& operator[](unsigned int i) {return data[i];}
+    __INLINE__ value_type* get(void){return data;}
+    __INLINE__ const value_type* get(void) const{return data;}
+    __INLINE__ value_type operator[](unsigned int i) const{return data[i];}
+    __INLINE__ value_type& operator[](unsigned int i) {return data[i];}
 
-    bool inverse(void)
+    __DEVICE_HOST__ bool inverse(void)
     {
         tipl::matrix<2,2,value_type> iT(sr);
         if(!iT.inv())
@@ -758,12 +759,12 @@ public:
     }
 
     template<typename vtype1,typename vtype2>
-    void operator()(const vtype1& from,vtype2& to) const
+    __INLINE__ void operator()(const vtype1& from,vtype2& to) const
     {
         vector_transformation(from.begin(),to.begin(),sr,shift,tipl::vdim<2>());
     }
     template<typename vtype>
-    void operator()(vtype& pos) const
+    __INLINE__ void operator()(vtype& pos) const
     {
         vtype result;
         vector_transformation(pos.begin(),result.begin(),sr,shift,tipl::vdim<2>());
@@ -797,41 +798,41 @@ public:
         value_type data[12];
     };
 public:
-    const value_type& operator[](unsigned int index) const
+    __INLINE__ const value_type& operator[](unsigned int index) const
     {
         return data[index];
     }
-    value_type& operator[](unsigned int index)
+    __INLINE__ value_type& operator[](unsigned int index)
     {
         return data[index];
     }
-    value_type* begin(void)
+    __INLINE__ value_type* begin(void)
     {
         return data;
     }
-    value_type* end(void)
+    __INLINE__ value_type* end(void)
     {
         return data+12;
     }
-    const value_type* begin(void)const
+    __INLINE__ const value_type* begin(void)const
     {
         return data;
     }
-    const value_type* end(void)	const
+    __INLINE__ const value_type* end(void)	const
     {
         return data+12;
     }
-    size_t size(void) const{return 12;}
+    __INLINE__ size_t size(void) const{return 12;}
 public:
-    transformation_matrix(void)
+    __INLINE__ transformation_matrix(void)
     {
         std::fill(data,data+total_size,0);
     }
     template<typename rhs_value_type>
-    transformation_matrix(const rhs_value_type& M){operator=(M);}
+    __INLINE__ transformation_matrix(const rhs_value_type& M){operator=(M);}
     // (Affine*Scaling*R1*R2*R3*vs*Translocation*shift_center)*from = (vs*shift_center)*to;
     template<typename geo_type,typename vs_type>
-    transformation_matrix(const affine_transform<value_type>& rb,
+    __DEVICE_HOST__ transformation_matrix(const affine_transform<value_type>& rb,
                           const geo_type& from,
                           const vs_type& from_vs,
                           const geo_type& to,
@@ -887,7 +888,7 @@ public:
         shift[2] += to[2]*value_type(0.5);
     }
     template<typename geo_type,typename vs_type>
-    void to_affine_transform(affine_transform<value_type>& rb,
+    __DEVICE_HOST__ void to_affine_transform(affine_transform<value_type>& rb,
                           const geo_type& from,
                           const vs_type& from_vs,
                           const geo_type& to,
@@ -941,13 +942,13 @@ public:
     }
 public:
     template<typename rhs_value_type>
-    transformation_matrix& operator=(const transformation_matrix<rhs_value_type>& M)
+    __INLINE__ transformation_matrix& operator=(const transformation_matrix<rhs_value_type>& M)
     {
         std::copy(M.begin(),M.end(),data);
         return *this;
     }
     template<typename rhs_value_type>
-    transformation_matrix& operator=(const tipl::matrix<4,4,rhs_value_type>& M)
+    __INLINE__ transformation_matrix& operator=(const tipl::matrix<4,4,rhs_value_type>& M)
     {
         data[0] = M[0];
         data[1] = M[1];
@@ -969,7 +970,7 @@ public:
 
 public:
 
-    const transformation_matrix<value_type>& operator*=(const transformation_matrix& rhs)
+    __DEVICE_HOST__  const transformation_matrix<value_type>& operator*=(const transformation_matrix& rhs)
     {
         tipl::matrix<3,3,value_type> sr_tmp(sr);
         tipl::mat::product(rhs.sr,sr_tmp.begin(),sr,tipl::dim<3,3>(),tipl::dim<3,3>());
@@ -979,7 +980,7 @@ public:
     }
 
     template<typename InputIterType>
-    void save_to_transform(InputIterType M)
+    __DEVICE_HOST__  void save_to_transform(InputIterType M)
     {
         std::copy(data,data+3,M);
         std::copy(data+3,data+6,M+4);
@@ -989,7 +990,7 @@ public:
         M[11] = data[11];
     }
 
-    bool inverse(void)
+    __DEVICE_HOST__ bool inverse(void)
     {
         tipl::matrix<3,3,value_type> iT(sr);
         if(!iT.inv())
@@ -1003,12 +1004,12 @@ public:
     }
 
     template<typename vtype1,typename vtype2>
-    void operator()(const vtype1& from,vtype2& to) const
+    __INLINE__ void operator()(const vtype1& from,vtype2& to) const
     {
         vector_transformation(from.begin(),to.begin(),sr,shift,vdim<3>());
     }
     template<typename vtype>
-    void operator()(vtype& pos) const
+    __INLINE__ void operator()(vtype& pos) const
     {
         vtype result;
         vector_transformation(pos.begin(),result.begin(),sr,shift,vdim<3>());
@@ -1030,8 +1031,8 @@ class from_space : public tipl::matrix<4,4,value_type>{
 private:
     const tipl::matrix<4,4,value_type>& origin;
 public:
-    from_space(const tipl::matrix<4,4,value_type>& space_):tipl::matrix<4,4,value_type>(),origin(space_){}
-    from_space& to(const tipl::matrix<4,4,value_type>& target)
+    __INLINE__ from_space(const tipl::matrix<4,4,value_type>& space_):tipl::matrix<4,4,value_type>(),origin(space_){}
+    __INLINE__ from_space& to(const tipl::matrix<4,4,value_type>& target)
     {
         std::copy(target.begin(),target.end(),tipl::matrix<4,4,value_type>::begin());
         tipl::matrix<4,4,value_type>::inv();

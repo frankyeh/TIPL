@@ -10,6 +10,71 @@
 namespace tipl
 {
 
+
+#ifdef __CUDACC__
+template<typename image_type1,typename image_type2>
+void add_cuda(image_type1& I,const image_type2& I2)
+{
+    static_assert(std::is_same<typename image_type1::storage_type,thrust::device_vector<typename image_type1::value_type> >::value &&
+                  std::is_same<typename image_type2::storage_type,thrust::device_vector<typename image_type2::value_type> >::value,"not device data");
+    using namespace thrust::placeholders;
+    thrust::transform(I2.begin(), I2.end(), I.begin(), I.begin(), _1 + _2);
+}
+
+template<typename image_type1,typename image_type2>
+void minus_cuda(image_type1& I,const image_type2& I2)
+{
+    static_assert(std::is_same<typename image_type1::storage_type,thrust::device_vector<typename image_type1::value_type> >::value &&
+                  std::is_same<typename image_type2::storage_type,thrust::device_vector<typename image_type2::value_type> >::value,"not device data");
+    using namespace thrust::placeholders;
+    thrust::transform(I2.begin(), I2.end(), I.begin(), I.begin(), _2 - _1);
+}
+
+template<typename image_type1,typename image_type2>
+void multiply_cuda(image_type1& I,const image_type2& I2)
+{
+    static_assert(std::is_same<typename image_type1::storage_type,thrust::device_vector<typename image_type1::value_type> >::value &&
+                  std::is_same<typename image_type2::storage_type,thrust::device_vector<typename image_type2::value_type> >::value,"not device data");
+    using namespace thrust::placeholders;
+    thrust::transform(I2.begin(), I2.end(), I.begin(), I.begin(), _2 * _1);
+}
+
+
+template<typename image_type,typename value_type>
+void divide_constant_cuda(image_type& I,value_type value)
+{
+    static_assert(std::is_same<typename image_type::storage_type,thrust::device_vector<typename image_type::value_type> >::value,"not device data");
+    using namespace thrust::placeholders;
+    thrust::transform(I.begin(), I.end(), I.begin(), _1 / value);
+}
+
+template<typename image_type,typename value_type>
+void multiply_constant_cuda(image_type& I,value_type value)
+{
+    static_assert(std::is_same<typename image_type::storage_type,thrust::device_vector<typename image_type::value_type> >::value,"not device data");
+    using namespace thrust::placeholders;
+    thrust::transform(I.begin(), I.end(), I.begin(), _1 * value);
+}
+
+template<typename image_type,typename value_type>
+void add_constant_cuda(image_type& I,value_type value)
+{
+    static_assert(std::is_same<typename image_type::storage_type,thrust::device_vector<typename image_type::value_type> >::value,"not device data");
+    using namespace thrust::placeholders;
+    thrust::transform(I.begin(), I.end(), I.begin(), _1 + value);
+}
+
+template<typename image_type,typename value_type>
+void minus_constant_cuda(image_type& I,value_type value)
+{
+    static_assert(std::is_same<typename image_type::storage_type,thrust::device_vector<typename image_type::value_type> >::value,"not device data");
+    using namespace thrust::placeholders;
+    thrust::transform(I.begin(), I.end(), I.begin(), _1 - value);
+}
+
+#endif
+
+
 template<typename T>
 struct normal_dist{
     std::mt19937 gen;
@@ -318,20 +383,12 @@ void add(image_type1& I,const image_type2& I2)
 template<typename image_type1,typename image_type2>
 void add_mt(image_type1& I,const image_type2& I2)
 {
-    #ifdef __CUDACC__
-    if constexpr (std::is_same<typename image_type1::storage_type,thrust::device_vector<typename image_type1::value_type> >::value &&
-                  std::is_same<typename image_type2::storage_type,thrust::device_vector<typename image_type2::value_type> >::value)
-    {
-        using namespace thrust::placeholders;
-        thrust::transform(I2.begin(), I2.end(), I.begin(), I.begin(), _1 + _2);
-        return;
-    }
-    #endif
-
     tipl::par_for(I.size(),[&I,&I2](int index){
        I[index] += I2[index];
     });
 }
+
+
 //---------------------------------------------------------------------------
 template<typename iterator1,typename iterator2>
 void minus(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
@@ -349,28 +406,20 @@ void minus(image_type1& I,const image_type2& I2)
 template<typename image_type1,typename image_type2>
 void minus_mt(image_type1& I,const image_type2& I2)
 {
-    #ifdef __CUDACC__
-    if constexpr (std::is_same<typename image_type1::storage_type,thrust::device_vector<typename image_type1::value_type> >::value &&
-                  std::is_same<typename image_type2::storage_type,thrust::device_vector<typename image_type2::value_type> >::value)
-    {
-        using namespace thrust::placeholders;
-        thrust::transform(I2.begin(), I2.end(), I.begin(), I.begin(), _2 - _1);
-        return;
-    }
-    #endif
-
     tipl::par_for(I.size(),[&I,&I2](int index){
        I[index] -= I2[index];
     });
 }
-//---------------------------------------------------------------------------
+
+
+
 template<typename iterator1,typename iterator2>
 void multiply(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
     for (; lhs_from != lhs_to; ++lhs_from,++rhs_from)
         *lhs_from = typename std::iterator_traits<iterator1>::value_type((*lhs_from)*(*rhs_from));
 }
-//---------------------------------------------------------------------------
+
 template<typename image_type1,typename image_type2>
 void multiply(image_type1& I,const image_type2& I2)
 {
@@ -380,21 +429,13 @@ void multiply(image_type1& I,const image_type2& I2)
 template<typename image_type1,typename image_type2>
 void multiply_mt(image_type1& I,const image_type2& I2)
 {
-    #ifdef __CUDACC__
-    if constexpr (std::is_same<typename image_type1::storage_type,thrust::device_vector<typename image_type1::value_type> >::value &&
-                  std::is_same<typename image_type2::storage_type,thrust::device_vector<typename image_type2::value_type> >::value)
-    {
-        using namespace thrust::placeholders;
-        thrust::transform(I2.begin(), I2.end(), I.begin(), I.begin(), _2 * _1);
-        return;
-    }
-    #endif
-
     tipl::par_for(I.size(),[&I,&I2](int index){
        I[index] *= I2[index];
     });
 }
-//---------------------------------------------------------------------------
+
+
+
 template<typename iterator1,typename iterator2>
 void divide(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
@@ -424,14 +465,6 @@ void add_constant(image_type& I,value_type value)
 template<typename image_type,typename value_type>
 void add_constant_mt(image_type& I,value_type value)
 {
-    #ifdef __CUDACC__
-    if constexpr (std::is_same<typename image_type::storage_type,thrust::device_vector<typename image_type::value_type> >::value)
-    {
-        using namespace thrust::placeholders;
-        thrust::transform(I.begin(), I.end(), I.begin(), _1 + value);
-        return;
-    }
-    #endif
     tipl::par_for(I.size(),[&I,value](int index)
     {
        I[index] += value;
@@ -467,19 +500,12 @@ void minus_constant(image_type& I,value_type value)
 template<typename image_type,typename value_type>
 void minus_constant_mt(image_type& I,value_type value)
 {
-    #ifdef __CUDACC__
-    if constexpr (std::is_same<typename image_type::storage_type,thrust::device_vector<typename image_type::value_type> >::value)
-    {
-        using namespace thrust::placeholders;
-        thrust::transform(I.begin(), I.end(), I.begin(), _1 - value);
-        return;
-    }
-    #endif
     tipl::par_for(I.size(),[&I,value](int index)
     {
        I[index] -= value;
     });
 }
+
 //---------------------------------------------------------------------------
 template<typename iterator1,typename value_type>
 void multiply_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
@@ -493,53 +519,36 @@ void multiply_constant(image_type& I,value_type value)
 {
     multiply_constant(I.begin(),I.end(),value);
 }
+
 template<typename image_type,typename value_type>
 void multiply_constant_mt(image_type& I,value_type value)
 {
-    #ifdef __CUDACC__
-    if constexpr (std::is_same<typename image_type::storage_type,thrust::device_vector<typename image_type::value_type> >::value)
-    {
-        using namespace thrust::placeholders;
-        thrust::transform(I.begin(), I.end(), I.begin(), _1 * value);
-        return;
-    }
-    #endif
     tipl::par_for(I.size(),[&I,value](int index){
        I[index] *= value;
     });
 }
 
-//---------------------------------------------------------------------------
 template<typename iterator1,typename value_type>
 void divide_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from /= value;
 }
-//---------------------------------------------------------------------------
+
 template<typename image_type,typename value_type>
 void divide_constant(image_type& I,value_type value)
 {
     divide_constant(I.begin(),I.end(),value);
 }
-//---------------------------------------------------------------------------
+
 template<typename image_type,typename value_type>
 void divide_constant_mt(image_type& I,value_type value)
 {
-    #ifdef __CUDACC__
-    if constexpr (std::is_same<typename image_type::storage_type,thrust::device_vector<typename image_type::value_type> >::value)
-    {
-        using namespace thrust::placeholders;
-        thrust::transform(I.begin(), I.end(), I.begin(), _1 / value);
-        return;
-    }
-    #endif
-
     tipl::par_for(I.size(),[&I,value](int index){
        I[index] /= value;
     });
 }
-//---------------------------------------------------------------------------
+
 // perform x <- x*pow(2,y)
 template<typename iterator1,typename iterator2>
 void multiply_pow(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
