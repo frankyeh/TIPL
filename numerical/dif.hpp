@@ -40,7 +40,7 @@ void displacement_to_mapping(const DisType& dis,MappingType& mapping,const trans
 }
 
 //---------------------------------------------------------------------------
-template<template<int> typename InterpoType = tipl::interpolation::linear,typename DisType,typename MappingType,typename transform_type>
+template<tipl::interpolation Type = linear,typename DisType,typename MappingType,typename transform_type>
 void inv_displacement_to_mapping(const DisType& inv_dis,MappingType& inv_mapping,const transform_type& T)
 {
     auto iT = T;
@@ -50,24 +50,24 @@ void inv_displacement_to_mapping(const DisType& inv_dis,MappingType& inv_mapping
         tipl::vector<3> p(pos),d;
         iT(p);
         v = p;
-        tipl::estimate<InterpoType>(inv_dis,v,d);
+        tipl::estimate<Type>(inv_dis,v,d);
         v += d;
     });
 }
 
 //---------------------------------------------------------------------------
-template<template<int> typename InterpoType = tipl::interpolation::linear,typename ImageType,typename MappingType,typename OutImageType>
+template<tipl::interpolation Type = linear,typename ImageType,typename MappingType,typename OutImageType>
 void compose_mapping(const ImageType& src,const MappingType& mapping,OutImageType& dest)
 {
     dest.clear();
     dest.resize(mapping.shape());
     tipl::par_for(dest.size(),[&](unsigned int index)
     {
-        estimate<InterpoType>(src,mapping[index],dest[index]);
+        estimate<Type>(src,mapping[index],dest[index]);
     });
 }
 //---------------------------------------------------------------------------
-template<template<int> typename InterpoType = tipl::interpolation::linear,typename ImageType,typename ComposeImageType,typename OutImageType>
+template<tipl::interpolation Type = linear,typename ImageType,typename ComposeImageType,typename OutImageType>
 void compose_displacement(const ImageType& src,const ComposeImageType& displace,OutImageType& dest)
 {
     dest.clear();
@@ -82,11 +82,11 @@ void compose_displacement(const ImageType& src,const ComposeImageType& displace,
         }
         typename ComposeImageType::value_type vtor(index);
         vtor += displace[index.index()];
-        tipl::estimate<InterpoType>(src,vtor,value);
+        tipl::estimate<Type>(src,vtor,value);
     });
 }
 //---------------------------------------------------------------------------
-template<template<int> typename InterpoType = tipl::interpolation::linear,typename ImageType,typename ComposeImageType,typename OutImageType,typename transform_type>
+template<tipl::interpolation Type = linear,typename ImageType,typename ComposeImageType,typename OutImageType,typename transform_type>
 void compose_displacement_with_affine(const ImageType& src,OutImageType& dest,
                           const transform_type& transform,
                           const ComposeImageType& displace)
@@ -99,7 +99,7 @@ void compose_displacement_with_affine(const ImageType& src,OutImageType& dest,
         vtor += displace[index.index()];
         tipl::vector<OutImageType::dimension> pos;
         transform(vtor,pos);
-        tipl::estimate<InterpoType>(src,pos,value);
+        tipl::estimate<Type>(src,pos,value);
     });
 }
 

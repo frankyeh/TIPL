@@ -201,7 +201,7 @@ public:
 
         tipl::make_image(&from[0],geo).for_each_mt2([&](unsigned char value,pixel_index<ImageType::dimension> index,int id)
         {
-            tipl::interpolation::linear<ImageType::dimension> interp;
+            tipl::interpolator::linear<ImageType::dimension> interp;
             unsigned int from_index = ((unsigned int)value) << band_width;
             tipl::vector<ImageType::dimension,float> pos;
             transform(index,pos);
@@ -211,7 +211,7 @@ public:
                 mutual_hist[id][from_index] += 1.0;
             }
             else
-                for (unsigned int i = 0; i < tipl::interpolation::linear<ImageType::dimension>::ref_count; ++i)
+                for (unsigned int i = 0; i < tipl::interpolator::linear<ImageType::dimension>::ref_count; ++i)
                 {
                     double weighting = double(interp.ratio[i]);
                     unsigned int to_index = to[interp.dindex[i]];

@@ -955,7 +955,7 @@ void match_signal_kernel(const T& VG,T& VFF)
 }
 
 #ifdef __CUDACC__
-template<template<int> typename InterpolateType = tipl::interpolation::linear,typename ImageType1,typename ImageType2,typename value_type>
+template<tipl::interpolation Type = linear,typename ImageType1,typename ImageType2,typename value_type>
 void resample_cuda(const ImageType1& from,ImageType2& to,const tipl::transformation_matrix<value_type>& transform)
 {
     thrust::device_vector<uint64_t> index(to.size());
@@ -970,7 +970,7 @@ void resample_cuda(const ImageType1& from,ImageType2& to,const tipl::transformat
 
 }
 #endif
-template<template<int> typename InterpolateType = tipl::interpolation::linear,typename ImageType1,typename ImageType2,typename value_type>
+template<tipl::interpolation Type = linear,typename ImageType1,typename ImageType2,typename value_type>
 void resample_mt(const ImageType1& from,ImageType2& to,const tipl::transformation_matrix<value_type>& transform)
 {
     to.for_each_mt([&transform,&from](typename ImageType2::value_type& value,
@@ -978,21 +978,21 @@ void resample_mt(const ImageType1& from,ImageType2& to,const tipl::transformatio
     {
         tipl::vector<ImageType1::dimension,double> pos;
         transform(index,pos);
-        estimate<InterpolateType>(from,pos,value);
+        estimate<Type>(from,pos,value);
     });
 }
 
 
 
-template<template<int> typename InterpolateType = tipl::interpolation::linear,typename ImageType1,typename ImageType2,int r,int c,typename value_type>
+template<tipl::interpolation Type = linear,typename ImageType1,typename ImageType2,int r,int c,typename value_type>
 void resample_mt(const ImageType1& from,ImageType2& to,const tipl::matrix<r,c,value_type>& trans)
 {
     tipl::transformation_matrix<value_type> transform(trans);
-    resample_mt<InterpolateType>(from,to,transform);
+    resample_mt<Type>(from,to,transform);
 }
 
 
-template<template<int> typename InterpolateType = tipl::interpolation::linear,typename ImageType1,typename ImageType2,typename value_type>
+template<tipl::interpolation Type = linear,typename ImageType1,typename ImageType2,typename value_type>
 void resample(const ImageType1& from,ImageType2& to,const tipl::transformation_matrix<value_type>& transform)
 {
     tipl::shape<ImageType1::dimension> geo(to.shape());
@@ -1000,11 +1000,11 @@ void resample(const ImageType1& from,ImageType2& to,const tipl::transformation_m
     {
         tipl::vector<ImageType1::dimension,value_type> pos;
         transform(index,pos);
-        estimate<InterpolateType>(from,pos,to[index.index()]);
+        estimate<Type>(from,pos,to[index.index()]);
     }
 }
 
-template<template<int> typename InterpolateType = tipl::interpolation::linear,typename ImageType1,typename ImageType2,typename transform_type>
+template<tipl::interpolation Type = linear,typename ImageType1,typename ImageType2,typename transform_type>
 void resample_dis(const ImageType1& from,ImageType2& to,const transform_type& transform,const tipl::image<3,tipl::vector<3> >& dis)
 {
     tipl::shape<ImageType1::dimension> geo(to.shape());
@@ -1013,11 +1013,11 @@ void resample_dis(const ImageType1& from,ImageType2& to,const transform_type& tr
         tipl::vector<ImageType1::dimension,double> pos;
         transform(index,pos);
         pos += dis[index.index()];
-        estimate<InterpolateType>(from,pos,to[index.index()]);
+        estimate<Type>(from,pos,to[index.index()]);
     }
 }
 
-template<template<int> typename InterpolateType = tipl::interpolation::linear,typename ImageType,typename value_type>
+template<tipl::interpolation Type = linear,typename ImageType,typename value_type>
 void resample(ImageType& from,const tipl::transformation_matrix<value_type>& transform)
 {
     tipl::image<ImageType::dimension,typename ImageType::value_type> I(from.shape());
@@ -1025,27 +1025,27 @@ void resample(ImageType& from,const tipl::transformation_matrix<value_type>& tra
     {
         tipl::vector<ImageType::dimension,value_type> pos;
         transform(index,pos);
-        estimate<InterpolateType>(from,pos,I[index.index()]);
+        estimate<Type>(from,pos,I[index.index()]);
     }
 }
 
 
-template<template<int> typename InterpolateType = tipl::interpolation::linear,typename ImageType1,typename ImageType2,typename ContainerType>
+template<tipl::interpolation Type = linear,typename ImageType1,typename ImageType2,typename ContainerType>
 void resample(const ImageType1& from,ImageType2& to,const ContainerType& trans)
 {
     tipl::transformation_matrix<typename ContainerType::value_type> transform(trans);
-    resample<InterpolateType>(from,to,transform);
+    resample<Type>(from,to,transform);
 }
 
-template<template<int> typename InterpolateType = tipl::interpolation::linear,typename ImageType,typename ContainerType>
+template<tipl::interpolation Type = linear,typename ImageType,typename ContainerType>
 void resample(ImageType& from,const ContainerType& trans)
 {
     tipl::transformation_matrix<typename ContainerType::value_type> transform(trans);
-    resample<InterpolateType>(from,transform);
+    resample<Type>(from,transform);
 }
 
 
-template<template<int> typename InterpolateType = tipl::interpolation::linear,typename T1,typename T2,typename std::enable_if<T1::dimension==3,bool>::type = true>
+template<tipl::interpolation Type = linear,typename T1,typename T2,typename std::enable_if<T1::dimension==3,bool>::type = true>
 void scale(const T1& source_image,T2& des_image)
 {
     double dx = double(source_image.width()-1)/double(des_image.width()-1);
@@ -1069,13 +1069,13 @@ void scale(const T1& source_image,T2& des_image)
             {
                 if (coord[0] > maxx)
                     coord[0] = maxx;
-                tipl::estimate<InterpolateType>(source_image,coord,des_image[index]);
+                tipl::estimate<Type>(source_image,coord,des_image[index]);
             }
         }
     }
 }
 
-template<template<int> typename InterpolateType = tipl::interpolation::linear,typename T1,typename T2,typename std::enable_if<T1::dimension==2,bool>::type = true>
+template<tipl::interpolation Type = linear,typename T1,typename T2,typename std::enable_if<T1::dimension==2,bool>::type = true>
 void scale(const T1& source_image,T2& des_image)
 {
     double dx = double(source_image.width()-1)/double(des_image.width()-1);
@@ -1092,12 +1092,12 @@ void scale(const T1& source_image,T2& des_image)
         {
             if (coord[0] > maxx)
                 coord[0] = maxx;
-            tipl::estimate<InterpolateType>(source_image,coord,des_image[index]);
+            tipl::estimate<Type>(source_image,coord,des_image[index]);
         }
     }
 }
 
-template<template<int> typename InterpolateType = tipl::interpolation::linear,typename T1,typename T2,typename T3,typename std::enable_if<T1::dimension==3,bool>::type = true>
+template<tipl::interpolation Type = linear,typename T1,typename T2,typename T3,typename std::enable_if<T1::dimension==3,bool>::type = true>
 void scale(const T1& source_image,T2& des_image,const T3& ratio)
 {
     des_image.resize(tipl::shape<3>(uint32_t(std::ceil(float(source_image.width())*ratio[0])),
@@ -1109,7 +1109,7 @@ void scale(const T1& source_image,T2& des_image,const T3& ratio)
     T.sr[0] = 1.0/double(ratio[0]);
     T.sr[4] = 1.0/double(ratio[1]);
     T.sr[8] = 1.0/double(ratio[2]);
-    resample<InterpolateType>(source_image,des_image,T);
+    resample<Type>(source_image,des_image,T);
 }
 
 

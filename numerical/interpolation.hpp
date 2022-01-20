@@ -12,7 +12,7 @@
 namespace tipl
 {
 //---------------------------------------------------------------------------
-namespace interpolation{
+namespace interpolator{
 template<typename value_type>
 struct interpo_type{
     using type = float;
@@ -680,23 +680,40 @@ struct cubic<3>{
     }
 };
 
-}
 
-template<template<int> typename Interpolate_Type = tipl::interpolation::linear,typename ImageType,typename VTorType,typename PixelType>
-__DEVICE_HOST__ bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel)
+
+}//interpolation
+
+enum interpolation{nearest,linear,cubic};
+
+template<interpolation type = linear,typename ImageType,typename VTorType,typename PixelType>
+__INLINE__ bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel)
 {
-    return Interpolate_Type<ImageType::dimension>().estimate(source,location,pixel);
+    if constexpr(type == nearest)
+        return tipl::interpolator::nearest<ImageType::dimension>().estimate(source,location,pixel);
+    if constexpr(type == linear)
+        return tipl::interpolator::linear<ImageType::dimension>().estimate(source,location,pixel);
+    if constexpr(type == cubic)
+        return tipl::interpolator::cubic<ImageType::dimension>().estimate(source,location,pixel);
+    return false;
 }
 
-template<template<int> typename Interpolate_Type = tipl::interpolation::linear,typename ImageType,typename VTorType>
-__DEVICE_HOST__ typename ImageType::value_type estimate(const ImageType& source,const VTorType& location)
+template<interpolation type = linear,typename ImageType,typename VTorType>
+__INLINE__ typename ImageType::value_type estimate(const ImageType& source,const VTorType& location)
 {
     typename ImageType::value_type result(0);
-    Interpolate_Type<ImageType::dimension>().estimate(source,location,result);
+    if constexpr(type == nearest)
+        tipl::interpolator::nearest<ImageType::dimension>().estimate(source,location,result);
+    if constexpr(type == linear)
+        tipl::interpolator::linear<ImageType::dimension>().estimate(source,location,result);
+    if constexpr(type == cubic)
+        tipl::interpolator::cubic<ImageType::dimension>().estimate(source,location,result);
     return result;
 }
 
 
 
-}
+
+
+}//tipl
 #endif
