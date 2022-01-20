@@ -378,7 +378,7 @@ float cdm_get_gradient(const image_type& Js,const image_type& It,dis_type& new_d
     unsigned int r_num = 0;
     const unsigned int window_size = 2;
     gradient_sobel(Js,new_d);
-    Js.for_each_mt([&](typename image_type::value_type,pixel_index<image_type::dimension>& index){
+    Js.for_each<tipl::backend::mt>([&](typename image_type::value_type,pixel_index<image_type::dimension>& index){
         if(It[index.index()] == 0.0 || Js[index.index()] == 0.0 ||
            It.shape().is_edge(index))
         {
@@ -410,7 +410,7 @@ float cdm_get_gradient_abs_dif(const image_type& Js,const image_type& It,dis_typ
     float accumulated_r2 = 0.0f;
     unsigned int r_num = 0;
     gradient_sobel(Js,new_d);
-    Js.for_each_mt([&](typename image_type::value_type,pixel_index<image_type::dimension>& index){
+    Js.for_each<tipl::backend::mt>([&](typename image_type::value_type,pixel_index<image_type::dimension>& index){
         if(It[index.index()] == 0.0 ||
            Js[index.index()] == 0.0 ||
            It.shape().is_edge(index))

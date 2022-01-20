@@ -30,7 +30,7 @@ template<typename DisType,typename MappingType,typename transform_type>
 void displacement_to_mapping(const DisType& dis,MappingType& mapping,const transform_type& T)
 {
     mapping = dis;
-    mapping.for_each_mt([&](typename MappingType::value_type& value,
+    mapping.for_each<tipl::backend::mt>([&](typename MappingType::value_type& value,
                             const tipl::pixel_index<MappingType::dimension>& index)
     {
         typename MappingType::value_type vtor(index);
@@ -45,7 +45,7 @@ void inv_displacement_to_mapping(const DisType& inv_dis,MappingType& inv_mapping
 {
     auto iT = T;
     iT.inverse();
-    inv_mapping.for_each_mt([&](tipl::vector<3,float>& v,const tipl::pixel_index<3>& pos)
+    inv_mapping.for_each<tipl::backend::mt>([&](tipl::vector<3,float>& v,const tipl::pixel_index<3>& pos)
     {
         tipl::vector<3> p(pos),d;
         iT(p);
@@ -72,7 +72,7 @@ void compose_displacement(const ImageType& src,const ComposeImageType& displace,
 {
     dest.clear();
     dest.resize(src.shape());
-    dest.for_each_mt([&](typename OutImageType::value_type& value,
+    dest.for_each<tipl::backend::mt>([&](typename OutImageType::value_type& value,
                          tipl::pixel_index<ComposeImageType::dimension> index)
     {
         if(displace[index.index()] == typename ComposeImageType::value_type())
@@ -93,7 +93,7 @@ void compose_displacement_with_affine(const ImageType& src,OutImageType& dest,
 {
     dest.clear();
     dest.resize(displace.shape());
-    dest.for_each_mt([&](typename OutImageType::value_type& value,tipl::pixel_index<OutImageType::dimension> index)
+    dest.for_each<tipl::backend::mt>([&](typename OutImageType::value_type& value,tipl::pixel_index<OutImageType::dimension> index)
     {
         typename ComposeImageType::value_type vtor(index);
         vtor += displace[index.index()];

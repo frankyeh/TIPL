@@ -4,6 +4,7 @@
 #include <vector>
 #include <thread>
 #include <future>
+#include "def.hpp"
 #include "shape.hpp"
 #include "pixel_value.hpp"
 #include "pixel_index.hpp"
@@ -455,66 +456,67 @@ public:
         out.save_to_image(*this);
         return true;
     }
-    template<typename Func>
-    void for_each(Func&& f)
+    template<tipl::backend btype = seq,typename Func>
+    void for_each(Func&& f,unsigned int thread_count = std::thread::hardware_concurrency())
     {
-        for(pixel_index<dim> index(shape());index.index() < data.size();++index)
-            f(data[index.index()],index);
-    }
-    template<typename Func>
-    void for_each(Func&& f) const
-    {
-        for(pixel_index<dim> index(shape());index.index() < data.size();++index)
-            f(data[index.index()],index);
-    }
-    template<typename Func>
-    void for_each_mt(Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
-    {
-        if(thread_count < 1)
-            thread_count = 1;
-        size_t block_size = data.size()/thread_count;
-
-        std::vector<std::future<void> > futures;
-        size_t pos = 0;
-        for(int id = 1; id < thread_count; id++)
+        if constexpr(btype  == seq)
+            for(pixel_index<dim> index(shape());index.index() < data.size();++index)
+                f(data[index.index()],index);
+        if constexpr(btype  == mt)
         {
-            size_t end = pos + block_size;
-            auto s = shape();
-            futures.push_back(std::move(std::async(std::launch::async, [&f,this,s,pos,end]
-            {
-                for(pixel_index<dim> index(pos,s);index.index() < end;++index)
-                    f(data[index.index()],index);
-            })));
-            pos = end;
-        }
-        for(pixel_index<dim> index(pos,shape());index.index() < data.size();++index)
-            f(data[index.index()],index);
-        for(auto &future : futures)
-            future.wait();
-    }
-    template<typename Func>
-    void for_each_mt(Func&& f, int thread_count = std::thread::hardware_concurrency()) const
-    {
-        if(thread_count < 1)
-            thread_count = 1;
-        size_t block_size = data.size()/thread_count;
+            if(thread_count < 1)
+                thread_count = 1;
+            size_t block_size = data.size()/thread_count;
 
-        std::vector<std::future<void> > futures;
-        size_t pos = 0;
-        for(int id = 1; id < thread_count; id++)
-        {
-            size_t end = pos + block_size;
-            futures.push_back(std::move(std::async(std::launch::async, [this,f,pos,end]
+            std::vector<std::future<void> > futures;
+            size_t pos = 0;
+            for(int id = 1; id < thread_count; id++)
             {
-                for(pixel_index<dim> index(pos,shape());index.index() < end;++index)
-                    f(data[index.index()],index);
-            })));
-            pos = end;
+                size_t end = pos + block_size;
+                auto s = shape();
+                futures.push_back(std::move(std::async(std::launch::async, [&f,this,s,pos,end]
+                {
+                    for(pixel_index<dim> index(pos,s);index.index() < end;++index)
+                        f(data[index.index()],index);
+                })));
+                pos = end;
+            }
+            for(pixel_index<dim> index(pos,shape());index.index() < data.size();++index)
+                f(data[index.index()],index);
+            for(auto &future : futures)
+                future.wait();
         }
-        for(pixel_index<dim> index(pos,shape());index.index() < data.size();++index)
-            f(data[index.index()],index);
-        for(auto &future : futures)
-            future.wait();
+    }
+    template<tipl::backend btype = seq,typename Func>
+    void for_each(Func&& f,unsigned int thread_count = std::thread::hardware_concurrency()) const
+    {
+        if constexpr(btype  == seq)
+            for(pixel_index<dim> index(shape());index.index() < data.size();++index)
+                f(data[index.index()],index);
+        if constexpr(btype  == mt)
+        {
+            if(thread_count < 1)
+                thread_count = 1;
+            size_t block_size = data.size()/thread_count;
+
+            std::vector<std::future<void> > futures;
+            size_t pos = 0;
+            for(int id = 1; id < thread_count; id++)
+            {
+                size_t end = pos + block_size;
+                auto s = shape();
+                futures.push_back(std::move(std::async(std::launch::async, [&f,this,s,pos,end]
+                {
+                    for(pixel_index<dim> index(pos,s);index.index() < end;++index)
+                        f(data[index.index()],index);
+                })));
+                pos = end;
+            }
+            for(pixel_index<dim> index(pos,shape());index.index() < data.size();++index)
+                f(data[index.index()],index);
+            for(auto &future : futures)
+                future.wait();
+        }
     }
     template<typename Func>
     void for_each_mt2(Func&& f,unsigned int thread_count = std::thread::hardware_concurrency())
@@ -528,7 +530,7 @@ public:
         for(int id = 1; id < thread_count; id++)
         {
             size_t end = pos + block_size;
-            futures.push_back(std::move(std::async(std::launch::async, [this,id,f,pos,end]
+            futures.push_back(std::move(std::async(std::launch::async, [this,id,&f,pos,end]
             {
                 for(pixel_index<dim> index(pos,shape());index.index() < end;++index)
                     f(data[index.index()],index,id);
