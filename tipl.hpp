@@ -1,9 +1,7 @@
 #ifndef IMAGE_HPP
 #define IMAGE_HPP
-// Copyright Fang-Cheng Yeh 2010
-//
 /*
-Copyright (c) 2010, Fang-Cheng Yeh
+Copyright (c) 2010-2022 Fang-Cheng Yeh
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -25,11 +23,7 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-
-#ifdef INCLUDE_NLOHMANN_JSON_HPP_
-#define USING_XEUS_CLING
-#endif
-
+#include "utility/def.hpp"
 #include "utility/basic_image.hpp"
 
 
