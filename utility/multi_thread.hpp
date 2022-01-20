@@ -42,7 +42,7 @@ public:
     }
 };
 
-template <typename T,typename Func>
+template <typename T,typename Func,typename std::enable_if<std::is_integral<T>::value,bool>::type = true>
 void par_for(T size, Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
 {
 #ifdef USING_XEUS_CLING
@@ -69,46 +69,8 @@ void par_for(T size, Func&& f, unsigned int thread_count = std::thread::hardware
 #endif
 }
 
-template <typename T,typename Func>
-void par_for_asyn(T size,Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
-{
-    std::vector<std::future<void> > futures;
-    if(thread_count > size)
-        thread_count = int(size);
-    T now = 0;
-    std::mutex read_now;
-    for(unsigned int id = 1; id < thread_count; id++)
-    {
-        futures.push_back(std::move(std::async(std::launch::async, [id,size,thread_count,&f,&now,&read_now]
-        {
-            while(now < size)
-            {
-                T i;
-                {
-                    std::lock_guard<std::mutex> lock(read_now);
-                    i = now;
-                    ++now;
-                }
-                f(i);
-            }
-        })));
-    }
-    while(now < size)
-    {
-        T i;
-        {
-            std::lock_guard<std::mutex> lock(read_now);
-            i = now;
-            ++now;
-        }
-        f(i);
-    }
-    for(auto &future : futures)
-        future.wait();
-}
 
-
-template <typename T,typename Func>
+template <typename T,typename Func,typename std::enable_if<std::is_integral<T>::value,bool>::type = true>
 void par_for2(T size,Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
 {
 #ifdef USING_XEUS_CLING
@@ -133,97 +95,6 @@ void par_for2(T size,Func&& f, unsigned int thread_count = std::thread::hardware
     for(auto &future : futures)
         future.wait();
 #endif
-}
-
-template <typename T,typename Func>
-void par_for_asyn2(T size,Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
-{
-    std::vector<std::future<void> > futures;
-    if(thread_count > size)
-        thread_count = int(size);
-    T now = 0;
-    std::mutex read_now;
-    for(unsigned int id = 1; id < thread_count; id++)
-    {
-        futures.push_back(std::move(std::async(std::launch::async, [id,size,thread_count,&f,&now,&read_now]
-        {
-            while(now < size)
-            {
-                T i;
-                {
-                    std::lock_guard<std::mutex> lock(read_now);
-                    i = now;
-                    ++now;
-                }
-                f(i,id);
-            }
-        })));
-    }
-    while(now < size)
-    {
-        T i;
-        {
-            std::lock_guard<std::mutex> lock(read_now);
-            i = now;
-            ++now;
-        }
-        f(i,0);
-    }
-    for(auto &future : futures)
-        future.wait();
-}
-template <typename T,typename Func>
-void par_for_block(T size,Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
-{
-    if(!size)
-        return;
-    std::vector<std::future<void> > futures;
-    if(thread_count > size)
-        thread_count = size;
-
-    size_t block_size = size/thread_count;
-    size_t pos = 0;
-    for(unsigned int id = 1; id < thread_count; id++)
-    {
-        size_t end = pos + block_size;
-        futures.push_back(std::move(std::async(std::launch::async, [pos,end,&f]
-        {
-            for(size_t i = pos; i < end;++i)
-                f(i);
-        })));
-        pos = end;
-    }
-    for(size_t i = pos; i < size;++i)
-        f(i);
-    for(auto &future : futures)
-        future.wait();
-}
-
-template <typename T,typename Func>
-void par_for_block2(T size,Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
-{
-    if(!size)
-        return;
-    std::vector<std::future<void> > futures;
-    if(thread_count > size)
-        thread_count = size;
-
-    size_t block_size = size/thread_count;
-    size_t pos = 0;
-    for(unsigned int id = 1; id < thread_count; id++)
-    {
-        size_t end = pos + block_size;
-        futures.push_back(std::move(std::async(std::launch::async, [id,pos,end,&f]
-        {
-            for(size_t i = pos; i < end;++i)
-                f(i,id);
-        })));
-        pos = end;
-    }
-    for(size_t i = pos; i < size;++i)
-        f(i,0);
-    for(auto &future : futures)
-        future.wait();
 }
 
 
