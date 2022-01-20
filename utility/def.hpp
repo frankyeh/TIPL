@@ -1,6 +1,9 @@
 #ifndef TIPL_DEF
 #define TIPL_DEF
 
+namespace tipl{
+enum backend{seq,mt,cuda};
+}
 #ifdef INCLUDE_NLOHMANN_JSON_HPP_
 #define USING_XEUS_CLING
 #endif
