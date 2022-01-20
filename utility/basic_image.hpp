@@ -479,9 +479,10 @@ public:
         for(int id = 1; id < thread_count; id++)
         {
             size_t end = pos + block_size;
-            futures.push_back(std::move(std::async(std::launch::async, [this,f,pos,end]
+            auto s = shape();
+            futures.push_back(std::move(std::async(std::launch::async, [&f,this,s,pos,end]
             {
-                for(pixel_index<dim> index(pos,shape());index.index() < end;++index)
+                for(pixel_index<dim> index(pos,s);index.index() < end;++index)
                     f(data[index.index()],index);
             })));
             pos = end;
