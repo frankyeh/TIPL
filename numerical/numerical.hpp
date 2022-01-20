@@ -323,7 +323,7 @@ void add_mt(image_type1& I,const image_type2& I2)
                   std::is_same<typename image_type2::storage_type,thrust::device_vector<typename image_type2::value_type> >::value)
     {
         using namespace thrust::placeholders;
-        thrust::transform(I2.begin(), I2.end(), I.begin(), _1 + _2);
+        thrust::transform(I2.begin(), I2.end(), I.begin(), I.begin(), _1 + _2);
         return;
     }
     #endif
@@ -354,7 +354,7 @@ void minus_mt(image_type1& I,const image_type2& I2)
                   std::is_same<typename image_type2::storage_type,thrust::device_vector<typename image_type2::value_type> >::value)
     {
         using namespace thrust::placeholders;
-        thrust::transform(I2.begin(), I2.end(), I.begin(), _2 - _1);
+        thrust::transform(I2.begin(), I2.end(), I.begin(), I.begin(), _2 - _1);
         return;
     }
     #endif
@@ -376,6 +376,7 @@ void multiply(image_type1& I,const image_type2& I2)
 {
     multiply(I.begin(),I.end(),I2.begin());
 }
+
 template<typename image_type1,typename image_type2>
 void multiply_mt(image_type1& I,const image_type2& I2)
 {
@@ -384,7 +385,7 @@ void multiply_mt(image_type1& I,const image_type2& I2)
                   std::is_same<typename image_type2::storage_type,thrust::device_vector<typename image_type2::value_type> >::value)
     {
         using namespace thrust::placeholders;
-        thrust::transform(I2.begin(), I2.end(), I.begin(), _2 * _1);
+        thrust::transform(I2.begin(), I2.end(), I.begin(), I.begin(), _2 * _1);
         return;
     }
     #endif
