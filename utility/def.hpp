@@ -3,6 +3,13 @@
 
 namespace tipl{
 enum backend{seq,mt,cuda};
+
+#ifdef TIPL_USE_CUDA
+static constexpr bool use_cuda = true;
+#else
+static constexpr bool use_cuda = false;
+#endif
+
 }
 #ifdef INCLUDE_NLOHMANN_JSON_HPP_
 #define USING_XEUS_CLING
