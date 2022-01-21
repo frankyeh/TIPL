@@ -975,11 +975,12 @@ void resample_cuda(const ImageType1& from,ImageType2& to,const tipl::transformat
 template<tipl::interpolation Type = linear,typename ImageType1,typename ImageType2,typename T>
 void resample_mt(const ImageType1& from,ImageType2& to,const T& trans)
 {
-    to.for_each<tipl::backend::mt>([&trans,&from](typename ImageType2::value_type& value,tipl::pixel_index<ImageType1::dimension> index)
+    tipl::par_for(tipl::begin_index(to.shape()),tipl::end_index(to.shape()),
+                [&](const tipl::pixel_index<ImageType1::dimension>& index)
     {
         tipl::vector<ImageType1::dimension> pos;
         trans(index,pos);
-        estimate<Type>(from,pos,value);
+        estimate<Type>(from,pos,to[index.index()]);
     });
 }
 
