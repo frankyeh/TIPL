@@ -199,10 +199,11 @@ public:
             to_hist[i].resize(his_bandwidth);
         }
 
-        tipl::make_image(&from[0],geo).for_each_mt2([&](unsigned char value,pixel_index<ImageType::dimension> index,int id)
+        tipl::par_for2(tipl::begin_index(geo),tipl::end_index(geo),
+                       [&](const pixel_index<ImageType::dimension>& index,int id)
         {
             tipl::interpolator::linear<ImageType::dimension> interp;
-            unsigned int from_index = ((unsigned int)value) << band_width;
+            unsigned int from_index = ((unsigned int)from[index.index()]) << band_width;
             tipl::vector<ImageType::dimension,float> pos;
             transform(index,pos);
             if (!interp.get_location(to_.shape(),pos))
