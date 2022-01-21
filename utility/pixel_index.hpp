@@ -31,6 +31,7 @@ protected:
     int index_;
     int w;
 public:
+    __INLINE__ pixel_index(void):x_(0),y_(0),index_(0),w(0){}
     template<typename stype,typename std::enable_if<stype::dimension==2,bool>::type = true>
     __INLINE__ pixel_index(const stype& geo):x_(0),y_(0),index_(0),w(geo[0]){}
     __INLINE__ pixel_index(const pixel_index& rhs)
@@ -137,6 +138,24 @@ public:
         return index_ != rhs;
     }
 public:
+    template<typename T>
+    __INLINE__ pixel_index<2> operator+(T value) const
+    {
+        pixel_index<2> result;
+        int new_index = index_ + value;
+        result.index_ = size_t(new_index);
+        result.x_ = new_index % w;
+        result.y_ = new_index /w;
+        result.w = w;
+        return result;
+    }
+
+
+    __INLINE__ int64_t operator-(const pixel_index& rhs) const
+    {
+        return int64_t(index_)-int64_t(rhs.index_);
+    }
+
     __INLINE__ pixel_index<2>& operator++(void)
     {
         ++offset_[0];
