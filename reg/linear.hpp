@@ -199,7 +199,7 @@ public:
             to_hist[i].resize(his_bandwidth);
         }
 
-        tipl::par_for2(tipl::begin_index(geo),tipl::end_index(geo),
+        tipl::par_for(tipl::begin_index(geo),tipl::end_index(geo),
                        [&](const pixel_index<ImageType::dimension>& index,int id)
         {
             tipl::interpolator::linear<ImageType::dimension> interp;

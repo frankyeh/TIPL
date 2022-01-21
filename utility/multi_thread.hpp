@@ -42,6 +42,17 @@ public:
     }
 };
 
+
+template <typename T>
+struct function_traits
+    : public function_traits<decltype(&T::operator())>
+{};
+template <typename ClassType, typename ReturnType, typename... Args>
+struct function_traits<ReturnType(ClassType::*)(Args...) const>
+{
+    static constexpr int arg_num = sizeof...(Args);
+};
+
 template <typename T,typename Func,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
 void par_for(T from,T to, Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
 {
@@ -50,42 +61,34 @@ void par_for(T from,T to, Func&& f, unsigned int thread_count = std::thread::har
     for(unsigned int id = 1; id < thread_count; id++)
     {
         auto block_end = from + block_size;
-        futures.push_back(std::move(std::async(std::launch::async, [&f,from,block_end]
+        if constexpr(function_traits<Func>::arg_num == 2)
         {
-            auto pos = from;
-            for(;pos != block_end;++pos)
-                f(pos);
-        })));
+            futures.push_back(std::move(std::async(std::launch::async, [=,&f]
+            {
+                auto pos = from;
+                for(;pos != block_end;++pos)
+                    f(pos,id);
+            })));
+        }
+        else
+        {
+            futures.push_back(std::move(std::async(std::launch::async, [=,&f]
+            {
+                auto pos = from;
+                for(;pos != block_end;++pos)
+                    f(pos);
+            })));
+        }
         from = block_end;
     }
     for(;from != to;++from)
-        f(from);
+        if constexpr(function_traits<Func>::arg_num == 2)
+            f(from,0);
+        else
+            f(from);
     for(auto &future : futures)
         future.wait();
 }
-
-template <typename T,typename Func,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-void par_for2(T from,T to, Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
-{
-    size_t block_size = size_t(to-from)/thread_count;
-    std::vector<std::future<void> > futures;
-    for(unsigned int id = 1; id < thread_count; id++)
-    {
-        auto block_end = from + block_size;
-        futures.push_back(std::move(std::async(std::launch::async, [&f,from,block_end,id]
-        {
-            auto pos = from;
-            for(;pos != block_end;++pos)
-                f(pos,id);
-        })));
-        from = block_end;
-    }
-    for(;from != to;++from)
-        f(from,0);
-    for(auto &future : futures)
-        future.wait();
-}
-
 
 template <typename T,typename Func,typename std::enable_if<std::is_integral<T>::value,bool>::type = true>
 void par_for(T size, Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
@@ -101,47 +104,32 @@ void par_for(T size, Func&& f, unsigned int thread_count = std::thread::hardware
         thread_count = int(size);
     for(unsigned int id = 1; id < thread_count; id++)
     {
-        futures.push_back(std::move(std::async(std::launch::async, [id,size,thread_count,&f]
+        if constexpr(function_traits<Func>::arg_num == 2)
         {
-            for(T i = id; i < size; i += thread_count)
-                f(i);
-        })));
+            futures.push_back(std::move(std::async(std::launch::async, [=,&f]
+            {
+                for(T i = id; i < size; i += thread_count)
+                    f(i,id);
+            })));
+        }
+        else
+        {
+            futures.push_back(std::move(std::async(std::launch::async, [=,&f]
+            {
+                for(T i = id; i < size; i += thread_count)
+                    f(i);
+            })));
+        }
     }
     for(T i = 0; i < size; i += thread_count)
-        f(i);
+        if constexpr(function_traits<Func>::arg_num == 2)
+            f(i,0);
+        else
+            f(i);
     for(auto &future : futures)
         future.wait();
 #endif
 }
-
-
-template <typename T,typename Func,typename std::enable_if<std::is_integral<T>::value,bool>::type = true>
-void par_for2(T size,Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
-{
-#ifdef USING_XEUS_CLING
-// cling still has an issue using std::future
-// https://github.com/root-project/cling/issues/387
-    for(T i = 0; i < size;++i)
-        f(i,i%thread_count);
-#else
-    std::vector<std::future<void> > futures;
-    if(thread_count > size)
-        thread_count = size;
-    for(uint16_t id = 1; id < thread_count; id++)
-    {
-        futures.push_back(std::move(std::async(std::launch::async, [id,size,thread_count,&f]
-        {
-            for(T i = id; i < size; i += thread_count)
-                f(i,id);
-        })));
-    }
-    for(T i = 0; i < size; i += thread_count)
-        f(i,0);
-    for(auto &future : futures)
-        future.wait();
-#endif
-}
-
 
 class thread{
 private:

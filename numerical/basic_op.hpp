@@ -443,7 +443,7 @@ void bounding_box_mt(const std::vector<point_type>& points,point_type& max_value
         min_values[i] = points[0];
     }
     unsigned char dim = points[0].size();
-    tipl::par_for2(points.size(),[&](unsigned int index,unsigned int id)
+    tipl::par_for(points.size(),[&](unsigned int index,unsigned int id)
     {
         for (unsigned char d = 0; d < dim; ++d)
             if (points[index][d] > max_values[id][d])
