@@ -2,6 +2,7 @@
 #define MULTI_THREAD_HPP
 #include <future>
 #include <iostream>
+#include "../utility/def.hpp"
 namespace tipl{
 
 class time
@@ -56,6 +57,15 @@ struct function_traits<ReturnType(ClassType::*)(Args...) const>
 template <typename T,typename Func,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
 void par_for(T from,T to, Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
 {
+    if constexpr(tipl::use_xeus_cling)
+    {
+        for(;from != to;++from)
+            if constexpr(function_traits<Func>::arg_num == 2)
+                f(from,0);
+            else
+                f(from);
+        return;
+    }
     size_t block_size = size_t(to-from)/thread_count;
     std::vector<std::future<void> > futures;
     for(unsigned int id = 1; id < thread_count; id++)
@@ -93,12 +103,16 @@ void par_for(T from,T to, Func&& f, unsigned int thread_count = std::thread::har
 template <typename T,typename Func,typename std::enable_if<std::is_integral<T>::value,bool>::type = true>
 void par_for(T size, Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
 {
-#ifdef USING_XEUS_CLING
-// cling still has an issue using std::future
-// https://github.com/root-project/cling/issues/387
-    for(T i = 0; i < size;++i)
-        f(i);
-#else
+    if constexpr(tipl::use_xeus_cling)
+    {
+        for(T i = 0; i < size;++i)
+            if constexpr(function_traits<Func>::arg_num == 2)
+                f(i,0);
+            else
+                f(i);
+        return;
+    }
+
     std::vector<std::future<void> > futures;
     if(thread_count > size)
         thread_count = int(size);
@@ -128,7 +142,6 @@ void par_for(T size, Func&& f, unsigned int thread_count = std::thread::hardware
             f(i);
     for(auto &future : futures)
         future.wait();
-#endif
 }
 
 class thread{

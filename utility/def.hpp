@@ -5,15 +5,18 @@ namespace tipl{
 enum backend{seq,mt,cuda};
 
 #ifdef TIPL_USE_CUDA
-static constexpr bool use_cuda = true;
+constexpr bool use_cuda = true;
 #else
-static constexpr bool use_cuda = false;
+constexpr bool use_cuda = false;
+#endif
+
+#ifdef INCLUDE_NLOHMANN_JSON_HPP_
+constexpr bool use_xeus_cling = true;
+#else
+constexpr bool use_xeus_cling = false;
 #endif
 
 }
-#ifdef INCLUDE_NLOHMANN_JSON_HPP_
-#define USING_XEUS_CLING
-#endif
 
 #ifdef __CUDACC__
 #define __DEVICE_HOST__ __device__ __host__
