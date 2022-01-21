@@ -307,7 +307,7 @@ public:
     void clear(void)
     {
         data.clear();
-        std::fill(geo.begin(),geo.end(),0);
+        geo.clear();
     }
     size_t size(void) const
     {
