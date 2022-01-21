@@ -909,9 +909,10 @@ tipl::vector<I_type::dimension,float> center_of_mass(const I_type& Im)
 {
     tipl::vector<I_type::dimension,float> sum_mass;
     double total_w = 0.0;
-    Im.for_each([&](typename I_type::value_type v,
-                    tipl::pixel_index<I_type::dimension> index)
+    tipl::par_for(tipl::begin_index(Im.shape()),tipl::end_index(Im.shape()),
+                        [&](const tipl::pixel_index<I_type::dimension>& index)
     {
+        auto v = Im[index.index()];
         total_w += v;
         tipl::vector<I_type::dimension,float> pos(index);
         pos *= v;
