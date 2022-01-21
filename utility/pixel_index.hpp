@@ -334,7 +334,7 @@ public:
         result.y_ = new_index % h;
         result.z_ = new_index / h;
         result.w = w;
-        result.w = h;
+        result.h = h;
         return result;
     }
     __INLINE__ int64_t operator-(const pixel_index& rhs) const
