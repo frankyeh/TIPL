@@ -42,6 +42,51 @@ public:
     }
 };
 
+template <typename T,typename Func,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+void par_for(T from,T to, Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
+{
+    size_t block_size = size_t(to-from)/thread_count;
+    std::vector<std::future<void> > futures;
+    for(unsigned int id = 1; id < thread_count; id++)
+    {
+        auto block_end = from + block_size;
+        futures.push_back(std::move(std::async(std::launch::async, [&f,from,block_end]
+        {
+            auto pos = from;
+            for(;pos != block_end;++pos)
+                f(pos);
+        })));
+        from = block_end;
+    }
+    for(;from != to;++from)
+        f(from);
+    for(auto &future : futures)
+        future.wait();
+}
+
+template <typename T,typename Func,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+void par_for2(T from,T to, Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
+{
+    size_t block_size = size_t(to-from)/thread_count;
+    std::vector<std::future<void> > futures;
+    for(unsigned int id = 1; id < thread_count; id++)
+    {
+        auto block_end = from + block_size;
+        futures.push_back(std::move(std::async(std::launch::async, [&f,from,block_end,id]
+        {
+            auto pos = from;
+            for(;pos != block_end;++pos)
+                f(pos,id);
+        })));
+        from = block_end;
+    }
+    for(;from != to;++from)
+        f(from,0);
+    for(auto &future : futures)
+        future.wait();
+}
+
+
 template <typename T,typename Func,typename std::enable_if<std::is_integral<T>::value,bool>::type = true>
 void par_for(T size, Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
 {
