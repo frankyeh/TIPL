@@ -296,10 +296,7 @@ public:
     __INLINE__ shape(unsigned int w_,unsigned int h_):w(w_),h(h_) {}
     template<typename T>
     __INLINE__ shape(const std::initializer_list<T>& arg):w(*arg.begin()),h(*(arg.begin()+1)){}
-    __INLINE__ shape(const shape<2>& rhs)
-    {
-        *this = rhs;
-    }
+    __INLINE__ shape(const shape<2>& rhs):w(rhs.w),h(rhs.h){}
     template<typename pointer_type>
     __INLINE__ explicit shape(const pointer_type* rhs)
     {
@@ -359,7 +356,6 @@ public:
     {
         return dim[index];
     }
-
 public:
     template<typename T>
     __INLINE__ bool is_valid(T x,T y) const
@@ -577,6 +573,18 @@ public:
     }
 
 };
+
+template<typename value_type>
+__INLINE__ tipl::shape<3> s(value_type x,value_type y,value_type z)
+{
+    return tipl::shape<3>(x,y,z);
+}
+template<typename value_type>
+__INLINE__ tipl::shape<2> s(value_type x,value_type y)
+{
+    return tipl::shape<2>(x,y);
+}
+
 
 }
 #endif
