@@ -701,7 +701,9 @@ __INLINE__ bool estimate(const ImageType& source,const VTorType& location,PixelT
 template<interpolation type = linear,typename ImageType,typename VTorType>
 __INLINE__ typename ImageType::value_type estimate(const ImageType& source,const VTorType& location)
 {
-    typename ImageType::value_type result(0);
+    typename ImageType::value_type result;
+    if constexpr(std::is_fundamental<ImageType>::value)
+        result = ImageType::value_type(0);
     if constexpr(type == nearest)
         tipl::interpolator::nearest<ImageType::dimension>().estimate(source,location,result);
     if constexpr(type == linear)
