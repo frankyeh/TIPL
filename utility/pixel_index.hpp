@@ -34,10 +34,7 @@ public:
     __INLINE__ pixel_index(void):x_(0),y_(0),index_(0),w(0){}
     template<typename stype,typename std::enable_if<stype::dimension==2,bool>::type = true>
     __INLINE__ pixel_index(const stype& geo):x_(0),y_(0),index_(0),w(geo[0]){}
-    __INLINE__ pixel_index(const pixel_index& rhs)
-    {
-        *this = rhs;
-    }
+    __INLINE__ pixel_index(const pixel_index& rhs):x_(rhs.x_),y_(rhs.y_),index_(rhs.index_),w(rhs.w){}
     template<typename vtype,typename stype,typename std::enable_if<stype::dimension==2,bool>::type = true>
     __INLINE__ pixel_index(vtype x,vtype y,vtype index,const stype& geo):
             x_(int(x)),y_(int(y)),index_(index),w(geo[0]){}
@@ -50,11 +47,12 @@ public:
     template<typename vtype,typename stype,typename std::enable_if<stype::dimension==2,bool>::type = true>
     __INLINE__ pixel_index(vtype y,const stype& geo):
             x_(y % geo.width()),y_(y / geo.width()),index_(y),w(geo[0]){}
-
+public:
     __INLINE__ const pixel_index& operator=(const pixel_index<2>& rhs)
     {
         x_ = rhs.x_;
         y_ = rhs.y_;
+        w = rhs.w;
         index_ = rhs.index_;
         return *this;
     }
@@ -198,10 +196,7 @@ public:
     __INLINE__ pixel_index(void):x_(0),y_(0),z_(0),index_(0),w(0),h(0){}
     template<typename stype,typename std::enable_if<stype::dimension==3,bool>::type = true>
     __INLINE__ pixel_index(const stype& geo):x_(0),y_(0),z_(0),index_(0),w(int(geo[0])),h(int(geo[1])){}
-    __INLINE__ pixel_index(const pixel_index& rhs)
-    {
-        *this = rhs;
-    }
+    __INLINE__ pixel_index(const pixel_index& rhs):x_(rhs.x_),y_(rhs.y_),z_(rhs.z_),index_(rhs.index_),w(rhs.w),h(rhs.h){}
     template<typename vtype,typename stype,typename std::enable_if<stype::dimension==3,bool>::type = true>
     __INLINE__ pixel_index(vtype x,vtype y,vtype z,size_t i,const stype& geo):x_(int(x)),y_(int(y)),z_(int(z)),index_(i),w(int(geo[0])),h(int(geo[1])){}
     template<typename vtype,typename stype,typename std::enable_if<stype::dimension==3,bool>::type = true>
@@ -237,6 +232,8 @@ public:
         x_ = rhs.x_;
         y_ = rhs.y_;
         z_ = rhs.z_;
+        w = rhs.w;
+        h = rhs.h;
         index_ = rhs.index_;
         return *this;
     }
