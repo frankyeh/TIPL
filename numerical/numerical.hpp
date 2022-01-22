@@ -2,8 +2,7 @@
 #ifndef NUMERICAL_HPP
 #define NUMERICAL_HPP
 #include <random>
-#include "../utility/basic_image.hpp"
-#include "../utility/multi_thread.hpp"
+#include "../mt.hpp"
 #include "interpolation.hpp"
 
 

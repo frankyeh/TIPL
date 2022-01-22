@@ -1,6 +1,6 @@
 #ifndef DIF_HPP
 #define DIF_HPP
-#include "../utility/multi_thread.hpp"
+#include "../mt.hpp"
 #include "../utility/pixel_index.hpp"
 #include "interpolation.hpp"
 namespace tipl

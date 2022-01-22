@@ -4,7 +4,7 @@
 #include "../numerical/dif.hpp"
 #include "../filter/gaussian.hpp"
 #include "../filter/filter_model.hpp"
-#include "../utility/multi_thread.hpp"
+#include "../mt.hpp"
 #include "../numerical/resampling.hpp"
 #include "../numerical/statistics.hpp"
 #include "../numerical/window.hpp"
