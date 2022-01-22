@@ -1,7 +1,7 @@
 //---------------------------------------------------------------------------
 #ifndef RESAMPLING_HPP
 #define RESAMPLING_HPP
-#include "../utility/def.hpp"
+#include "def.hpp"
 #include "../utility/basic_image.hpp"
 #include "transformation.hpp"
 #include "numerical.hpp"
@@ -984,24 +984,15 @@ void resample_mt(const ImageType1& from,ImageType2& to,const T& trans)
     });
 }
 
-template<tipl::interpolation itype = linear,tipl::backend btype = mt,typename ImageType1,typename ImageType2,typename value_type>
+template<tipl::interpolation itype = linear,typename ImageType1,typename ImageType2,typename value_type>
 void resample(const ImageType1& from,ImageType2& to,const tipl::transformation_matrix<value_type>& transform)
 {
-    if constexpr(btype == mt)
-        resample_mt(from,to,transform);
-    #ifdef __CUDACC__
-    if constexpr(btype == cuda)
-        resample_cuda(from,to,transform);
-    #endif
-    if constexpr(btype == seq)
+    tipl::shape<ImageType1::dimension> geo(to.shape());
+    for (tipl::pixel_index<ImageType1::dimension> index(geo);index < geo.size();++index)
     {
-        tipl::shape<ImageType1::dimension> geo(to.shape());
-        for (tipl::pixel_index<ImageType1::dimension> index(geo);index < geo.size();++index)
-        {
-            tipl::vector<ImageType1::dimension,value_type> pos;
-            transform(index,pos);
-            estimate<itype>(from,pos,to[index.index()]);
-        }
+        tipl::vector<ImageType1::dimension,value_type> pos;
+        transform(index,pos);
+        estimate<itype>(from,pos,to[index.index()]);
     }
 }
 

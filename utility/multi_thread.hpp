@@ -2,7 +2,7 @@
 #define MULTI_THREAD_HPP
 #include <future>
 #include <iostream>
-#include "../utility/def.hpp"
+#include "def.hpp"
 namespace tipl{
 
 class time

@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <iosfwd>
 #include <cmath>
-#include "../utility/def.hpp"
+#include "def.hpp"
 
 namespace tipl
 {

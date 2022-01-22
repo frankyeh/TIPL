@@ -2,7 +2,6 @@
 #define TIPL_DEF
 
 namespace tipl{
-enum backend{seq,mt,cuda};
 
 #ifdef TIPL_USE_CUDA
 constexpr bool use_cuda = true;
