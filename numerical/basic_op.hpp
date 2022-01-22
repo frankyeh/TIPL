@@ -1,10 +1,11 @@
 //---------------------------------------------------------------------------
 #ifndef BASIC_OP_HPP
 #define BASIC_OP_HPP
+
+#include "../def.hpp"
 #include "../utility/pixel_index.hpp"
 #include "../utility/basic_image.hpp"
 #include "../mt.hpp"
-
 namespace tipl
 {
 
@@ -246,86 +247,63 @@ void fill_rect(image_type& I,PosType from,PosType to,pixel_type value)
 }
 
 //--------------------------------------------------------------------------
+template<typename T,typename U>
+__INLINE__ bool draw_range(T from_w,T to_w,U pos,int64_t& shift,int64_t& draw_range)
+{
+    if (pos < 0)
+    {
+        shift = -int64_t(pos);
+        pos = 0;
+    }
+    else
+        shift = 0;
+    draw_range = std::min(int64_t(to_w) - int64_t(pos),int64_t(from_w)-shift);
+    return draw_range;
+}
 template<typename T1,typename T2,typename PosType,typename std::enable_if<T1::dimension==2,bool>::type = true>
 void draw(const T1& from_image,T2& to_image,PosType pos)
 {
-    int x_shift,y_shift;
-    if (pos[0] < 0)
-    {
-        x_shift = -int(pos[0]);
-        pos[0] = 0;
-    }
-    else
-        x_shift = 0;
-    if (pos[1] < 0)
-    {
-        y_shift = -int(pos[1]);
-        pos[1] = 0;
-    }
-    else
-        y_shift = 0;
-
-    int x_width = std::min(int(to_image.width()) - int(pos[0]),int(from_image.width())-x_shift);
-    if (x_width <= 0)
+    int64_t x_shift,y_shift;
+    int64_t x_width,y_height;
+    if(!draw_range(from_image.width(),to_image.width(),pos[0],x_shift,x_width) ||
+       !draw_range(from_image.height(),to_image.height(),pos[1],y_shift,y_height))
         return;
-    int y_height = std::min(int(to_image.height()) - int(pos[1]),int(from_image.height())-y_shift);
-    if (y_height <= 0)
-        return;
-    typename T1::const_iterator iter = from_image.begin() + y_shift*from_image.width()+x_shift;
-    typename T1::const_iterator end = iter + (y_height-1)*from_image.width();
-    typename T2::iterator out = to_image.begin() + pos[1]*to_image.width()+pos[0];
-    for (; iter != end; iter += from_image.width(),out += to_image.width())
+    auto iter = from_image.begin() + y_shift*from_image.width()+x_shift;
+    auto end = iter + (y_height-1)*from_image.width();
+    auto out = to_image.begin() + pos[1]*to_image.width()+pos[0];
+    do{
         std::copy(iter,iter+x_width,out);
-    std::copy(iter,iter+x_width,out);
-
+        if(iter == end)
+            return;
+        iter += from_image.width();
+        out += to_image.width();
+    }while(1);
 }
 //--------------------------------------------------------------------------
 template<typename T1,typename T2,typename PosType,typename std::enable_if<T1::dimension==3,bool>::type = true>
 void draw(const T1& from_image,T2& to_image,PosType pos)
 {
     int64_t x_shift,y_shift,z_shift;
-    if (pos[0] < 0)
-    {
-        x_shift = -pos[0];
-        pos[0] = 0;
-    }
-    else
-        x_shift = 0;
-    if (pos[1] < 0)
-    {
-        y_shift = -pos[1];
-        pos[1] = 0;
-    }
-    else
-        y_shift = 0;
-    if (pos[2] < 0)
-    {
-        z_shift = -pos[2];
-        pos[2] = 0;
-    }
-    else
-        z_shift = 0;
-
-    int64_t x_width = std::min(int64_t(to_image.width()) - int64_t(pos[0]),int64_t(from_image.width())-x_shift);
-    if (x_width <= 0)
+    int64_t x_width,y_height,z_depth;
+    if(!draw_range(from_image.width(),to_image.width(),pos[0],x_shift,x_width) ||
+       !draw_range(from_image.height(),to_image.height(),pos[1],y_shift,y_height) ||
+       !draw_range(from_image.depth(),to_image.depth(),pos[2],z_shift,z_depth))
         return;
-    int64_t y_height = std::min(int64_t(to_image.height()) - int64_t(pos[1]),int64_t(from_image.height())-y_shift);
-    if (y_height <= 0)
-        return;
-    int64_t z_depth = std::min(int64_t(to_image.depth()) - int64_t(pos[2]),int64_t(from_image.depth())-z_shift);
-    if (z_depth <= 0)
-        return;
-    for (int64_t z = 0; z < z_depth; ++z)
+    tipl::par_for (z_depth,[&](int64_t z)
     {
-        typename T1::const_iterator iter = from_image.begin() +
+        auto iter = from_image.begin() +
                 ((z_shift+z)*int64_t(from_image.height()) + y_shift)*int64_t(from_image.width())+x_shift;
-        typename T1::const_iterator end = iter + int64_t(y_height-1)*int64_t(from_image.width());
-        typename T2::iterator out = to_image.begin() +
+        auto end = iter + int64_t(y_height-1)*int64_t(from_image.width());
+        auto out = to_image.begin() +
                 ((int64_t(pos[2])+z)*int64_t(to_image.height()) + int64_t(pos[1]))*int64_t(to_image.width())+int64_t(pos[0]);
-        for (; iter < end; iter += from_image.width(),out += to_image.width())
+        do{
             std::copy(iter,iter+x_width,out);
-        std::copy(iter,iter+x_width,out);
-    }
+            if(iter == end)
+                break;
+            iter += from_image.width();
+            out += to_image.width();
+        }while(1);
+    });
 }
 //---------------------------------------------------------------------------
 template<typename fun_type>
