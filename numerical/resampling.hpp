@@ -957,16 +957,11 @@ void match_signal_kernel(const T& VG,T& VFF)
 }
 
 #ifdef __CUDACC__
-__INLINE__ tipl::pixel_index<3> get_pixel_index(void)
-{
-    return tipl::pixel_index<3>(blockIdx.x,blockIdx.y,threadIdx.x,tipl::shape<3>(gridDim.x,gridDim.y,blockDim.x));
-}
-
 template<tipl::interpolation itype,typename T,typename U>
 __global__ void resample_cuda_kernel(const T* from,T* to,const U* trans_,tipl::shape<3> from_shape)
 {
-    const tipl::transformation_matrix<float>& trans = *reinterpret_cast<const tipl::transformation_matrix<U>* >(trans_);
-    auto index = get_pixel_index();
+    const tipl::transformation_matrix<U>& trans = *reinterpret_cast<const tipl::transformation_matrix<U>* >(trans_);
+    tipl::pixel_index<3> index(blockIdx.x,blockIdx.y,threadIdx.x,tipl::shape<3>(gridDim.x,gridDim.y,blockDim.x));
     tipl::vector<3> v;
     trans(index,v);
     tipl::estimate<itype>(tipl::make_image(from,from_shape),v,to[index.index()]);
