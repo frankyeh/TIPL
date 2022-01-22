@@ -1,7 +1,7 @@
 //---------------------------------------------------------------------------
 #ifndef RESAMPLING_HPP
 #define RESAMPLING_HPP
-#include "def.hpp"
+#include "../def.hpp"
 #include "../utility/basic_image.hpp"
 #include "transformation.hpp"
 #include "numerical.hpp"

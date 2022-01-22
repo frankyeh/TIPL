@@ -5,7 +5,7 @@
 #include <numeric>
 #include <algorithm>
 #include <iostream>
-#include "def.hpp"
+#include "../def.hpp"
 //---------------------------------------------------------------------------
 namespace tipl
 {
