@@ -2,6 +2,7 @@
 #ifndef RESAMPLING_HPP
 #define RESAMPLING_HPP
 #include "../def.hpp"
+#include "../cuda/mem.hpp"
 #include "../utility/basic_image.hpp"
 #include "transformation.hpp"
 #include "numerical.hpp"
@@ -956,19 +957,28 @@ void match_signal_kernel(const T& VG,T& VFF)
 }
 
 #ifdef __CUDACC__
-template<tipl::interpolation Type = linear,typename ImageType1,typename ImageType2,typename value_type>
-void resample_cuda(const ImageType1& from,ImageType2& to,const tipl::transformation_matrix<value_type>& transform)
+__INLINE__ tipl::pixel_index<3> get_pixel_index(void)
 {
-    thrust::device_vector<uint64_t> index(to.size());
-    thrust::sequence(thrust::device,index.begin(),index.end(),0);
-    auto dim = to.shape();
-    thrust::transform(thrust::device, index.begin(),index.end(),to.begin(),[=] __device__ (uint64_t index)
-    {
-        tipl::vector<3> v(tipl::pixel_index<3>(index,dim));
-        transform(v);
-        return tipl::estimate<tipl::interpolation::linear>(from,v);
-    });
+    return tipl::pixel_index<3>(blockIdx.x,blockIdx.y,threadIdx.x,tipl::shape<3>(gridDim.x,gridDim.y,blockDim.x));
+}
 
+template<tipl::interpolation itype,typename T,typename U>
+__global__ void resample_cuda_kernel(const T* from,T* to,const U* trans_,tipl::shape<3> from_shape)
+{
+    const tipl::transformation_matrix<float>& trans = *reinterpret_cast<const tipl::transformation_matrix<U>* >(trans_);
+    auto index = get_pixel_index();
+    tipl::vector<3> v;
+    trans(index,v);
+    tipl::estimate<itype>(tipl::make_image(from,from_shape),v,to[index.index()]);
+}
+
+template<tipl::interpolation itype = linear,typename T,typename U>
+void resample_cuda(const T& dfrom,T& dto,const U& trans,bool sync = true)
+{
+    resample_cuda_kernel<itype><<<dim3(dto.width(),dto.height()),dto.depth()>>>
+        (dfrom.get().get(),dto.get().get(),cuda_memory<typename U::value_type>(trans).get(),dfrom.shape());
+    if(sync)
+        cudaDeviceSynchronize();
 }
 #endif
 
