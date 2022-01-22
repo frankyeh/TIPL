@@ -19,9 +19,9 @@ struct interpo_type{
     __INLINE__ static void assign(value_type& result,float v)
     {
         if constexpr(std::is_signed<value_type>::value)
-            result = static_cast<value_type>(v);
+            result = value_type(v);
         else
-            result = (v <= 0.0f ? value_type(0):static_cast<value_type>(v));
+            result = (v <= 0.0f ? value_type(0):value_type(v));
     }
 };
 
@@ -47,58 +47,15 @@ struct interpo_type<tipl::vector<dim,vtype> >{
 };
 
 
-template<typename storage_type,typename iterator_type>
-class const_reference_iterator
-{
-private:
-    const storage_type* storage;
-    iterator_type iter;
-public:
-    typedef typename storage_type::value_type value_type;
-    __INLINE__ const_reference_iterator(const storage_type& storage_,iterator_type iter_):storage(&storage_),iter(iter_) {}
-public:
-    __INLINE__ value_type operator*(void) const
-    {
-        return (*storage)[*iter];
-    }
-    template<typename value_type>
-    __INLINE__ value_type operator[](value_type index) const
-    {
-        return (*storage)[iter[index]];
-    }
-public:
-    __INLINE__ bool operator==(const const_reference_iterator& rhs)
-    {
-        return iter == rhs.iter;
-    }
-    __INLINE__ bool operator!=(const const_reference_iterator& rhs)
-    {
-        return iter != rhs.iter;
-    }
-    __INLINE__ bool operator<(const const_reference_iterator& rhs)
-    {
-        return iter < rhs.iter;
-    }
-    __INLINE__ void operator++(void)
-    {
-        ++iter;
-    }
-    __INLINE__ void operator--(void)
-    {
-        --iter;
-    }
-};
-
-
-template<typename data_iterator_type,typename weighting_iterator,typename output_type>
-__DEVICE_HOST__ void weighted_sum(data_iterator_type from,data_iterator_type to,weighting_iterator w,output_type& result_)
+template<typename image_type,typename data_iterator_type,typename weighting_iterator,typename output_type>
+__DEVICE_HOST__ void weighted_sum(const image_type& I,data_iterator_type from,data_iterator_type to,weighting_iterator w,output_type& result_)
 {
     using value_type = typename interpo_type<output_type>::type;
-    value_type result(*from);
+    value_type result(I[*from]);
     result *= (*w);
     for (++from,++w;from != to;++from,++w)
     {
-        value_type v(*from);
+        value_type v(I[*from]);
         v *= (*w);
         result += v;
     }
@@ -254,8 +211,7 @@ struct linear<1>
     {
         if (get_location(source.shape(),location))
         {
-            weighted_sum(const_reference_iterator<ImageType,size_t*>(source,dindex),
-                         const_reference_iterator<ImageType,size_t*>(source,dindex+ref_count),ratio,pixel);
+            weighted_sum(source,dindex,dindex+ref_count,ratio,pixel);
             return true;
         }
         return false;
@@ -265,8 +221,7 @@ struct linear<1>
     template<typename ImageType,typename PixelType>
     __INLINE__ void estimate(const ImageType& source,PixelType& pixel)
     {
-        weighted_sum(const_reference_iterator<ImageType,size_t*>(source,dindex),
-                     const_reference_iterator<ImageType,size_t*>(source,dindex+ref_count),ratio,pixel);
+        weighted_sum(source,dindex,dindex+ref_count,ratio,pixel);
     }
 };
 
@@ -314,8 +269,7 @@ struct linear<2>
     {
         if (get_location(source.shape(),location))
         {
-            weighted_sum(const_reference_iterator<ImageType,size_t*>(source,dindex),
-                         const_reference_iterator<ImageType,size_t*>(source,dindex+ref_count),ratio,pixel);
+            weighted_sum(source,dindex,dindex+ref_count,ratio,pixel);
             return true;
         }
         return false;
@@ -325,8 +279,8 @@ struct linear<2>
     template<typename ImageType,typename PixelType>
     __INLINE__ void estimate(const ImageType& source,PixelType& pixel)
     {
-        weighted_sum(const_reference_iterator<ImageType,size_t*>(source,dindex),
-                     const_reference_iterator<ImageType,size_t*>(source,dindex+ref_count),ratio,pixel);
+        weighted_sum(source,dindex,dindex+ref_count,ratio,pixel);
+
     }
 };
 
@@ -395,8 +349,8 @@ struct linear<3>
     {
         if (get_location(source.shape(),location))
         {
-            weighted_sum(const_reference_iterator<ImageType,size_t*>(source,dindex),
-                         const_reference_iterator<ImageType,size_t*>(source,dindex+ref_count),ratio,pixel);
+            weighted_sum(source,dindex,dindex+ref_count,ratio,pixel);
+
             return true;
         }
         return false;
@@ -405,8 +359,7 @@ struct linear<3>
     template<typename ImageType,typename PixelType>
     __INLINE__ void estimate(const ImageType& source,PixelType& pixel)
     {
-        weighted_sum(const_reference_iterator<ImageType,size_t*>(source,dindex),
-                     const_reference_iterator<ImageType,size_t*>(source,dindex+ref_count),ratio,pixel);
+        weighted_sum(source,dindex,dindex+ref_count,ratio,pixel);
     }
 };
 
