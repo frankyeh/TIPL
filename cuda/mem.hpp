@@ -2,6 +2,10 @@
 #define MEM_HPP
 
 #ifdef __CUDACC__
+
+namespace tipl {
+
+
 template<typename vtype>
 class cuda_memory{
     public:
@@ -73,5 +77,7 @@ class cuda_memory{
 
 };
 
+
+}//namespace tipl
 #endif//__CUDACC__
 #endif//MEM_HPP
