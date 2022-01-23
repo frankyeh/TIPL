@@ -110,6 +110,7 @@ class host_memory{
             resize(to-from);
             cudaMemcpy(buf, &*from, s*sizeof(value_type),cudaMemcpyHostToHost);
         }
+    public: // from device
         host_memory(const void* from,const void* to)
         {
             size_t size_in_byte = reinterpret_cast<const char*>(to)-reinterpret_cast<const char*>(from);
@@ -119,7 +120,7 @@ class host_memory{
         ~host_memory(void){clear();}
     public:
         template<typename T>
-        host_memory& operator=(const T& rhs)  {copy_from(rhs);}
+        host_memory& operator=(const T& rhs)  {copy_from(rhs);return *this;}
         void clear(void)
         {
             if(buf)
@@ -129,13 +130,18 @@ class host_memory{
                 s = 0;
             }
         }
-        template<typename T>
+        template<typename T,typename std::enable_if<std::is_class<T>::value && !std::is_same<T,device_memory<value_type> >::value,bool>::type = true>
         void copy_from(const T& rhs)
         {
             resize(rhs.size());
             if(s)
                 cudaMemcpy(buf, &rhs[0], s*sizeof(value_type),cudaMemcpyHostToHost);
-
+        }
+        void copy_from(const device_memory<value_type>& rhs)
+        {
+            resize(rhs.size());
+            if(s)
+                cudaMemcpy(buf, rhs.begin(), s*sizeof(value_type),cudaMemcpyDeviceToHost);
         }
         template<typename T>
         void copy_to(T& rhs)
