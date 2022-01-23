@@ -968,8 +968,8 @@ float variance(const ImageType& I)
     return sum_square-sum*sum;
 }
 
-template<typename ImageType>
-void histogram(const ImageType& src,std::vector<unsigned int>& hist,
+template<typename ImageType,typename HisType>
+void histogram(const ImageType& src,HisType& hist,
                typename ImageType::value_type min_value,
                typename ImageType::value_type max_value,unsigned int resolution_count = 256)
 {
