@@ -20,10 +20,6 @@ constexpr bool use_xeus_cling = false;
 #ifdef __CUDACC__
 #define __DEVICE_HOST__ __device__ __host__
 #define __INLINE__ __forceinline__ __device__ __host__
-#include <thrust/sequence.h>
-#include <thrust/device_vector.h>
-#include <thrust/execution_policy.h>
-#include <thrust/transform.h>
 #else
 #define __DEVICE_HOST__
 #define __INLINE__ inline
