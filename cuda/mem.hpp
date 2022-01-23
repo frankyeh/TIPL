@@ -125,7 +125,7 @@ class host_memory{
         {
             if(buf)
             {
-                cudaFree(buf);
+                cudaFreeHost(buf);
                 buf = nullptr;
                 s = 0;
             }
