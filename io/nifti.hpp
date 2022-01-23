@@ -892,11 +892,11 @@ public:
     }
     static void copy_data(const float* lhs,unsigned char* rhs,size_t size)
     {
-        tipl::normalize(lhs,lhs+size,rhs);
+        tipl::normalize_upper_lower(lhs,lhs+size,rhs);
     }
     static void copy_data(const double* lhs,unsigned char* rhs,size_t size)
     {
-        tipl::normalize(lhs,lhs+size,rhs);
+        tipl::normalize_upper_lower(lhs,lhs+size,rhs);
     }
 
     template<typename pointer_type>
