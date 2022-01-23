@@ -11,8 +11,7 @@ namespace segmentation{
 template<typename ImageType>
 float otsu_threshold(const ImageType& src)
 {
-    std::pair<typename ImageType::value_type,typename ImageType::value_type>
-    min_max = min_max_value(src.begin(),src.end());
+    auto min_max = minmax_value(src.begin(),src.end());
     std::vector<unsigned int> hist;
     histogram(src,hist,min_max.first,min_max.second);
     if(hist.empty())
