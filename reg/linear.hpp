@@ -229,7 +229,7 @@ public:
 
         // calculate the cost
         {
-            float sum = 0.0;
+            double sum = 0.0;
             tipl::shape<2> geo(mutual_hist[0].shape());
             for (tipl::pixel_index<2> index(geo);index < geo.size();++index)
             {
