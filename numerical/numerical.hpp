@@ -675,7 +675,7 @@ typename container_type::value_type max_abs_value(const container_type& image)
 
 template<typename iterator_type>
 std::pair<typename std::iterator_traits<iterator_type>::value_type,typename std::iterator_traits<iterator_type>::value_type>
-min_max_value(iterator_type iter,iterator_type end)
+minmax_value(iterator_type iter,iterator_type end)
 {
     if(iter == end)
         return std::make_pair(0,0);
@@ -692,6 +692,7 @@ min_max_value(iterator_type iter,iterator_type end)
     }
     return std::make_pair(min_value,max_value);
 }
+
 
 //---------------------------------------------------------------------------
 template<typename iterator_type>
@@ -778,16 +779,29 @@ void upper_lower_threshold(ImageType& data,value_type lower,value_type upper)
         *from = std::min<value_type>(std::max<value_type>(*from,lower),upper);
 }
 template<typename InputIter,typename OutputIter>
-void normalize(InputIter from,InputIter to,OutputIter out,float upper_limit = 255.0)
+void normalize_upper_lower(InputIter from,InputIter to,OutputIter out,float upper_limit = 255.0)
 {
     typedef typename std::iterator_traits<InputIter>::value_type value_type;
-    std::pair<value_type,value_type> min_max(min_max_value(from,to));
+    std::pair<value_type,value_type> min_max(minmax_value(from,to));
     value_type range = min_max.second-min_max.first;
     if(range == 0)
         return;
     upper_limit /= range;
     for(;from != to;++from,++out)
         *out = (*from-min_max.first)*upper_limit;
+}
+
+template<typename ImageType1,typename ImageType2>
+void normalize_upper_lower(const ImageType1& image1,ImageType2& image2,float upper_limit = 255.0)
+{
+    image2.resize(image1.shape());
+    normalize_upper_lower(image1.begin(),image1.end(),image2.begin(),upper_limit);
+}
+
+template<typename ImageType>
+void normalize_upper_lower(ImageType& I,float upper_limit = 255.0)
+{
+    normalize_upper_lower(I.begin(),I.end(),I.begin(),upper_limit);
 }
 
 template<typename ImageType>
@@ -800,6 +814,8 @@ ImageType& normalize(ImageType& I,float upper_limit = 255)
         multiply_constant(I.begin(),I.end(),upper_limit/m);
     return I;
 }
+
+
 template<typename ImageType>
 ImageType& normalize_abs(ImageType& I,float upper_limit = 1.0f)
 {
@@ -812,13 +828,6 @@ ImageType& normalize_abs(ImageType& I,float upper_limit = 1.0f)
     return I;
 }
 
-template<typename ImageType1,typename ImageType2>
-ImageType2& normalize(const ImageType1& image1,ImageType2& image2,float upper_limit = 255.0)
-{
-    image2.resize(image1.shape());
-    normalize(image1.begin(),image1.end(),image2.begin(),upper_limit);
-    return image2;
-}
 
 template<typename container_type,typename index_type>
 void get_sort_index(const container_type& c,std::vector<index_type>& idx)
