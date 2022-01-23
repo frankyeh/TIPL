@@ -7,7 +7,7 @@ namespace tipl {
 
 
 template<typename vtype>
-class cuda_memory{
+class device_memory{
     public:
         using value_type = vtype;
         using iterator          = value_type*;
@@ -17,20 +17,21 @@ class cuda_memory{
         value_type* buf = nullptr;
         size_t s = 0;
     public:
-        template<typename T>
-        cuda_memory(const T& rhs)                                    {copy_from(rhs);}
-        cuda_memory(cuda_memory&& rhs)                               {swap(rhs);}
-        cuda_memory(void){}
+        template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+        device_memory(const T& rhs)                                    {copy_from(rhs);}
+        device_memory(size_t new_size)                                 {resize(new_size);}
+        device_memory(device_memory&& rhs)                               {swap(rhs);}
+        device_memory(void){}
         template<typename iter_type,typename std::enable_if<std::is_same<value_type,std::iterator_traits<iter_type>::value_type>::value,bool>::type = true>
-        cuda_memory(iter_type from,iter_type to)
+        device_memory(iter_type from,iter_type to)
         {
             resize(to-from);
             cudaMemcpy(buf, &*from, s*sizeof(value_type), cudaMemcpyHostToDevice);
         }
-        ~cuda_memory(void){clear();}
+        ~device_memory(void){clear();}
     public:
         template<typename T>
-        cuda_memory& operator=(const T& rhs)  {copy_from(rhs);}
+        device_memory& operator=(const T& rhs)  {copy_from(rhs);}
         void clear(void)
         {
             if(buf)
@@ -53,15 +54,23 @@ class cuda_memory{
             if(s)
                 cudaMemcpy(&rhs[0], buf, s*sizeof(value_type), cudaMemcpyDeviceToHost);
         }
-        void resize(size_t s_)
+        void resize(size_t new_s)
         {
-            clear();
-            if(cudaMalloc(&buf,sizeof(value_type)*s_) != cudaSuccess)
+            iterator new_buf;
+            if(cudaMalloc(&new_buf,sizeof(value_type)*new_s) != cudaSuccess)
                 throw std::bad_alloc();
-            s = s_;
+            if(s)
+            {
+                cudaMemcpy(new_buf, buf, std::min(new_s,s)*sizeof(value_type), cudaMemcpyDeviceToDevice);
+                cudaFree(buf);
+            }
+            if(new_s > s)
+                cudaMemset(new_buf+s,0,(new_s-s)*sizeof(value_type));
+            buf = new_buf;
+            s = new_s;
         }
     public:
-        __INLINE__ void swap(cuda_memory& rhs)
+        __INLINE__ void swap(device_memory& rhs)
         {
             std::swap(buf,rhs.buf);
             std::swap(s,rhs.s);
