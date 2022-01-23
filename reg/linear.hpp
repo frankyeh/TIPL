@@ -15,6 +15,7 @@
 #include "../numerical/resampling.hpp"
 #include "../segmentation/otsu.hpp"
 #include "../morphology/morphology.hpp"
+#include "../filter/sobel.hpp"
 
 namespace tipl
 {
@@ -69,11 +70,11 @@ struct negative_product
 struct correlation
 {
     typedef double value_type;
-    template<typename ImageType,typename TransformType>
-    double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
+    template<typename ImageType1,typename ImageType2,typename TransformType>
+    double operator()(const ImageType1& Ifrom,const ImageType2& Ito,const TransformType& transform)
     {
-        tipl::shape<ImageType::dimension> geo(Ifrom.shape());
-        tipl::image<ImageType::dimension,typename ImageType::value_type> y(geo);
+        tipl::shape<ImageType1::dimension> geo(Ifrom.shape());
+        tipl::image<ImageType1::dimension,typename ImageType1::value_type> y(geo);
         tipl::resample_mt(Ito,y,transform);
         float c = tipl::correlation(Ifrom.begin(),Ifrom.end(),y.begin());
         return -c*c;
@@ -173,21 +174,21 @@ struct mutual_information
 public:
     mutual_information(unsigned int band_width_ = 6):band_width(band_width_),his_bandwidth(1 << band_width_) {}
 public:
-    template<typename ImageType,typename TransformType>
-    double operator()(const ImageType& from_,const ImageType& to_,const TransformType& transform)
+    template<typename ImageType1,typename ImageType2,typename TransformType>
+    double operator()(const ImageType1& from_,const ImageType2& to_,const TransformType& transform)
     {
         if (from_hist.empty() || to_.size() != to.size() || from_.size() != from.size())
         {
             to.resize(to_.size());
             from.resize(from_.size());
-            tipl::normalize(to_.begin(),to_.end(),to.begin(),his_bandwidth-1);
-            tipl::normalize(from_.begin(),from_.end(),from.begin(),his_bandwidth-1);
+            tipl::normalize_upper_lower(to_.begin(),to_.end(),to.begin(),his_bandwidth-1);
+            tipl::normalize_upper_lower(from_.begin(),from_.end(),from.begin(),his_bandwidth-1);
             tipl::histogram(from,from_hist,0,his_bandwidth-1,his_bandwidth);
         }
 
 
         // obtain the histogram
-        tipl::shape<ImageType::dimension> geo(from_.shape());
+        auto geo = from_.shape();
         unsigned int thread_count = std::thread::hardware_concurrency();
 
 
@@ -200,11 +201,11 @@ public:
         }
 
         tipl::par_for(tipl::begin_index(geo),tipl::end_index(geo),
-                       [&](const pixel_index<ImageType::dimension>& index,int id)
+                       [&](const pixel_index<ImageType1::dimension>& index,int id)
         {
-            tipl::interpolator::linear<ImageType::dimension> interp;
+            tipl::interpolator::linear<ImageType1::dimension> interp;
             unsigned int from_index = ((unsigned int)from[index.index()]) << band_width;
-            tipl::vector<ImageType::dimension,float> pos;
+            tipl::vector<ImageType1::dimension,float> pos;
             transform(index,pos);
             if (!interp.get_location(to_.shape(),pos))
             {
@@ -212,7 +213,7 @@ public:
                 mutual_hist[id][from_index] += 1.0;
             }
             else
-                for (unsigned int i = 0; i < tipl::interpolator::linear<ImageType::dimension>::ref_count; ++i)
+                for (unsigned int i = 0; i < tipl::interpolator::linear<ImageType1::dimension>::ref_count; ++i)
                 {
                     double weighting = double(interp.ratio[i]);
                     unsigned int to_index = to[interp.dindex[i]];
@@ -240,53 +241,6 @@ public:
             }
             return -sum;
         }
-    }
-};
-
-template<typename fun_type>
-struct faster
-{
-    typedef typename fun_type::value_type value_type;
-    fun_type fun;
-    template<typename ImageType,typename TransformType>
-    double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& T)
-    {
-        if(Ifrom.size() < Ito.size())
-            return fun(Ifrom,Ito,T);
-        else
-        {
-            TransformType iT = T;
-            iT.inverse();
-            return fun(Ito,Ifrom,iT);
-        }
-    }
-};
-
-
-template<typename image_type,
-         typename vs_type,
-         typename transform_type,
-         typename fun_type>
-class fun_adoptor{
-public:
-    const image_type& from;
-    const image_type& to;
-    const vs_type& from_vs;
-    const vs_type& to_vs;
-    fun_type fun;
-    unsigned int count = 0;
-    typedef typename fun_type::value_type value_type;
-public:
-    fun_adoptor(const image_type& from_,const vs_type& from_vs_,
-                const image_type& to_,const vs_type& to_vs_):
-        from(from_),to(to_),from_vs(from_vs_),to_vs(to_vs_){}
-    template<typename param_type>
-    float operator()(const param_type& new_param)
-    {
-        transform_type affine(new_param);
-        tipl::transformation_matrix<typename transform_type::value_type> T(affine,from.shape(),from_vs,to.shape(),to_vs);
-        ++count;
-        return fun(from,to,T);
     }
 };
 
@@ -346,21 +300,54 @@ void get_bound(const image_type1& from,const image_type2& to,
 }
 
 
+template<typename image_type1,typename vs_type1,
+         typename image_type2,typename vs_type2,
+         typename cost_type>
+class fun_adoptor{
+public:
+    const image_type1& from;
+    const image_type2& to;
+    const vs_type1& from_vs;
+    const vs_type2& to_vs;
+    cost_type fun;
+    unsigned int count = 0;
+    using value_type = float;
+public:
+    fun_adoptor(const image_type1& from_,const vs_type1& from_vs_,
+                const image_type2& to_,const vs_type2& to_vs_):
+                from(from_),to(to_),from_vs(from_vs_),to_vs(to_vs_){}
+    template<typename param_type>
+    value_type operator()(const param_type& new_param)
+    {
+        ++count;
+        return fun(from,to,tipl::transformation_matrix<typename param_type::value_type>(new_param,from.shape(),from_vs,to.shape(),to_vs));
+    }
+};
 
-template<typename image_type,typename vs_type,typename transform_type,typename CostFunctionType,typename teminated_class>
-float linear(const image_type& from,const vs_type& from_vs,
-             const image_type& to  ,const vs_type& to_vs,
+template<typename cost_type,
+         typename image_type1,typename vs_type1,
+         typename image_type2,typename vs_type2>
+__INLINE__ fun_adoptor<image_type1,vs_type1,image_type2,vs_type2,cost_type>
+make_functor(const image_type1& from,const vs_type1& from_vs,const image_type2& to,const vs_type2& to_vs)
+{
+    return fun_adoptor<image_type1,vs_type1,image_type2,vs_type2,cost_type>(from,from_vs,to,to_vs);
+}
+
+template<typename CostFunctionType,typename image_type1,typename vs_type1,
+         typename image_type2,typename vs_type2,
+         typename transform_type,typename teminated_class>
+float linear(const image_type1& from,const vs_type1& from_vs,
+             const image_type2& to  ,const vs_type2& to_vs,
              transform_type& arg_min,
              reg_type base_type,
-             CostFunctionType,
              teminated_class& terminated,
              double precision = 0.01,bool line_search = true,const float* bound = reg_bound)
 {
-    tipl::reg::fun_adoptor<image_type,vs_type,transform_type,CostFunctionType> fun(from,from_vs,to,to_vs);
     transform_type upper,lower;
     tipl::reg::get_bound(from,to,arg_min,upper,lower,base_type,bound);
     reg_type reg_list[4] = {translocation,rigid_body,rigid_scaling,affine};
-    double optimal_value = fun(arg_min);
+    auto fun = make_functor<CostFunctionType>(from,from_vs,to,to_vs);
+    auto optimal_value = fun(arg_min);
     for(int type = 0;type < 4 && reg_list[type] <= base_type && !terminated;++type)
     {
         tipl::reg::get_bound(from,to,arg_min,upper,lower,reg_list[type],bound);
@@ -374,36 +361,14 @@ float linear(const image_type& from,const vs_type& from_vs,
     }
     return optimal_value;
 }
-/*
- *  This linear version use only gradient descent
- *
- */
-template<typename image_type,typename vs_type,typename transform_type,typename CostFunctionType,typename teminated_class>
-double linear2(const image_type& from,const vs_type& from_vs,
-             const image_type& to  ,const vs_type& to_vs,
-             transform_type& arg_min,
-             tipl::reg::reg_type base_type,
-             CostFunctionType,
-             teminated_class& terminated,
-             double precision = 0.001,const float* bound = tipl::reg::reg_bound)
-{
-    tipl::reg::fun_adoptor<image_type,vs_type,transform_type,CostFunctionType> fun(from,from_vs,to,to_vs);
-    transform_type upper,lower;
-    tipl::reg::get_bound(from,to,arg_min,upper,lower,base_type,bound);
-    double optimal_value = fun(arg_min);
-    tipl::optimization::line_search(arg_min.begin(),arg_min.end(),
-                                         upper.begin(),lower.begin(),fun,optimal_value,terminated);
-    tipl::optimization::gradient_descent(arg_min.begin(),arg_min.end(),
-                                         upper.begin(),lower.begin(),fun,optimal_value,terminated,precision);
-    return optimal_value;
-}
 
-template<typename image_type,typename vs_type,typename transform_type,typename CostFunctionType,typename teminated_class>
-float linear_mr(const image_type& from,const vs_type& from_vs,
-                const image_type& to  ,const vs_type& to_vs,
+template<typename CostFunctionType,typename image_type1,typename vs_type1,
+         typename image_type2,typename vs_type2,
+         typename transform_type,typename teminated_class>
+float linear_mr(const image_type1& from,const vs_type1& from_vs,
+                const image_type2& to  ,const vs_type2& to_vs,
                 transform_type& arg_min,
                 reg_type base_type,
-                CostFunctionType cost_type,
                 teminated_class& terminated,
                 double precision = 0.01,
                 const float* bound = reg_bound)
@@ -414,30 +379,30 @@ float linear_mr(const image_type& from,const vs_type& from_vs,
         *std::max_element(to.shape().begin(),to.shape().end()) > 64)
     {
         //downsampling
-        image<image_type::dimension,typename image_type::value_type> from_r,to_r;
-        tipl::vector<image_type::dimension> from_vs_r(from_vs),to_vs_r(to_vs);
+        image<image_type1::dimension,typename image_type1::value_type> from_r;
+        image<image_type2::dimension,typename image_type2::value_type> to_r;
+        tipl::vector<image_type1::dimension> from_vs_r(from_vs),to_vs_r(to_vs);
         downsample_with_padding(from,from_r);
         downsample_with_padding(to,to_r);
         from_vs_r *= 2.0;
         to_vs_r *= 2.0;
         transform_type arg_min_r(arg_min);
         arg_min_r.downsampling();
-        linear_mr(from_r,from_vs_r,to_r,to_vs_r,arg_min_r,base_type,cost_type,terminated,precision,bound);
+        linear_mr<CostFunctionType>(from_r,from_vs_r,to_r,to_vs_r,arg_min_r,base_type,terminated,precision,bound);
         arg_min_r.upsampling();
         arg_min = arg_min_r;
         if(terminated)
             return 0.0;
         line_search = false;
     }
-    return linear(from,from_vs,to,to_vs,arg_min,base_type,cost_type,terminated,precision,line_search,bound);
+    return linear<CostFunctionType>(from,from_vs,to,to_vs,arg_min,base_type,terminated,precision,line_search,bound);
 }
 
-template<typename image_type,typename vs_type,typename TransType,typename CostFunctionType,typename teminated_class>
+template<typename CostFunctionType,typename image_type,typename vs_type,typename TransType,typename teminated_class>
 float two_way_linear_mr(const image_type& from,const vs_type& from_vs,
                             const image_type& to,const vs_type& to_vs,
                             TransType& T,
                             reg_type base_type,
-                            CostFunctionType cost1,
                             teminated_class& terminated,
                             tipl::affine_transform<typename TransType::value_type>* arg = nullptr,
                             const float* bound = reg_bound)
@@ -449,14 +414,13 @@ float two_way_linear_mr(const image_type& from,const vs_type& from_vs,
     tipl::par_for(2,[&](int i){
         if(i)
         {
-            CostFunctionType cost2;
             if(arg)
-                tipl::reg::linear_mr(from,from_vs,to,to_vs,*arg,base_type,cost2,terminated,0.01,bound);
+                linear_mr<CostFunctionType>(from,from_vs,to,to_vs,*arg,base_type,terminated,0.01,bound);
             else
-                tipl::reg::linear_mr(from,from_vs,to,to_vs,arg1,base_type,cost2,terminated,0.01,bound);
+                linear_mr<CostFunctionType>(from,from_vs,to,to_vs,arg1,base_type,terminated,0.01,bound);
         }
         else
-            tipl::reg::linear_mr(to,to_vs,from,from_vs,arg2,base_type,cost1,terminated,0.01,bound);
+            linear_mr<CostFunctionType>(to,to_vs,from,from_vs,arg2,base_type,terminated,0.01,bound);
     },2);
 
 
@@ -466,7 +430,7 @@ float two_way_linear_mr(const image_type& from,const vs_type& from_vs,
     float cost = 0.0f;
     if(CostFunctionType()(from,to,T2) < CostFunctionType()(from,to,T1))
     {
-        cost = tipl::reg::linear(to,to_vs,from,from_vs,arg2,base_type,cost1,terminated,0.001f,false,bound);
+        cost = linear<CostFunctionType>(to,to_vs,from,from_vs,arg2,base_type,terminated,0.001f,false,bound);
         TransType T22(arg2,to.shape(),to_vs,from.shape(),from_vs);
         T22.inverse();
         T = T22;
@@ -474,9 +438,9 @@ float two_way_linear_mr(const image_type& from,const vs_type& from_vs,
     else
     {
         if(arg)
-            cost = tipl::reg::linear(from,from_vs,to,to_vs,*arg,base_type,cost1,terminated,0.001f,false,bound);
+            cost = linear<CostFunctionType>(from,from_vs,to,to_vs,*arg,base_type,terminated,0.001f,false,bound);
         else
-            cost = tipl::reg::linear(from,from_vs,to,to_vs,arg1,base_type,cost1,terminated,0.001f,false,bound);
+            cost = linear<CostFunctionType>(from,from_vs,to,to_vs,arg1,base_type,terminated,0.001f,false,bound);
         T = TransType(arg == 0 ? arg1:*arg,from.shape(),from_vs,to.shape(),to_vs);
     }
     return cost;
