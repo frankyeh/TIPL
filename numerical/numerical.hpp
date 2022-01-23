@@ -9,71 +9,6 @@
 namespace tipl
 {
 
-
-#ifdef __CUDACC__
-template<typename image_type1,typename image_type2>
-void add_cuda(image_type1& I,const image_type2& I2)
-{
-    static_assert(std::is_same<typename image_type1::storage_type,thrust::device_vector<typename image_type1::value_type> >::value &&
-                  std::is_same<typename image_type2::storage_type,thrust::device_vector<typename image_type2::value_type> >::value,"not device data");
-    using namespace thrust::placeholders;
-    thrust::transform(I2.begin(), I2.end(), I.begin(), I.begin(), _1 + _2);
-}
-
-template<typename image_type1,typename image_type2>
-void minus_cuda(image_type1& I,const image_type2& I2)
-{
-    static_assert(std::is_same<typename image_type1::storage_type,thrust::device_vector<typename image_type1::value_type> >::value &&
-                  std::is_same<typename image_type2::storage_type,thrust::device_vector<typename image_type2::value_type> >::value,"not device data");
-    using namespace thrust::placeholders;
-    thrust::transform(I2.begin(), I2.end(), I.begin(), I.begin(), _2 - _1);
-}
-
-template<typename image_type1,typename image_type2>
-void multiply_cuda(image_type1& I,const image_type2& I2)
-{
-    static_assert(std::is_same<typename image_type1::storage_type,thrust::device_vector<typename image_type1::value_type> >::value &&
-                  std::is_same<typename image_type2::storage_type,thrust::device_vector<typename image_type2::value_type> >::value,"not device data");
-    using namespace thrust::placeholders;
-    thrust::transform(I2.begin(), I2.end(), I.begin(), I.begin(), _2 * _1);
-}
-
-
-template<typename image_type,typename value_type>
-void divide_constant_cuda(image_type& I,value_type value)
-{
-    static_assert(std::is_same<typename image_type::storage_type,thrust::device_vector<typename image_type::value_type> >::value,"not device data");
-    using namespace thrust::placeholders;
-    thrust::transform(I.begin(), I.end(), I.begin(), _1 / value);
-}
-
-template<typename image_type,typename value_type>
-void multiply_constant_cuda(image_type& I,value_type value)
-{
-    static_assert(std::is_same<typename image_type::storage_type,thrust::device_vector<typename image_type::value_type> >::value,"not device data");
-    using namespace thrust::placeholders;
-    thrust::transform(I.begin(), I.end(), I.begin(), _1 * value);
-}
-
-template<typename image_type,typename value_type>
-void add_constant_cuda(image_type& I,value_type value)
-{
-    static_assert(std::is_same<typename image_type::storage_type,thrust::device_vector<typename image_type::value_type> >::value,"not device data");
-    using namespace thrust::placeholders;
-    thrust::transform(I.begin(), I.end(), I.begin(), _1 + value);
-}
-
-template<typename image_type,typename value_type>
-void minus_constant_cuda(image_type& I,value_type value)
-{
-    static_assert(std::is_same<typename image_type::storage_type,thrust::device_vector<typename image_type::value_type> >::value,"not device data");
-    using namespace thrust::placeholders;
-    thrust::transform(I.begin(), I.end(), I.begin(), _1 - value);
-}
-
-#endif
-
-
 template<typename T>
 struct normal_dist{
     std::mt19937 gen;
@@ -786,19 +721,6 @@ min_max_value_mt(iterator_type iter,iterator_type end)
                           *std::max_element(max_v.begin(),max_v.end()));
 }
 
-
-template<typename InputIter,typename OutputIter>
-void normalize(InputIter from,InputIter to,OutputIter out,float upper_limit = 255.0)
-{
-    typedef typename std::iterator_traits<InputIter>::value_type value_type;
-    std::pair<value_type,value_type> min_max(min_max_value(from,to));
-    value_type range = min_max.second-min_max.first;
-    if(range == 0)
-        return;
-    upper_limit /= range;
-    for(;from != to;++from,++out)
-        *out = (*from-min_max.first)*upper_limit;
-}
 //---------------------------------------------------------------------------
 template<typename InputIter,typename OutputIter,typename value_type>
 void upper_threshold(InputIter from,InputIter to,OutputIter out,value_type upper)
@@ -854,6 +776,18 @@ void upper_lower_threshold(ImageType& data,value_type lower,value_type upper)
     typename ImageType::iterator to = data.end();
     for(;from != to;++from)
         *from = std::min<value_type>(std::max<value_type>(*from,lower),upper);
+}
+template<typename InputIter,typename OutputIter>
+void normalize(InputIter from,InputIter to,OutputIter out,float upper_limit = 255.0)
+{
+    typedef typename std::iterator_traits<InputIter>::value_type value_type;
+    std::pair<value_type,value_type> min_max(min_max_value(from,to));
+    value_type range = min_max.second-min_max.first;
+    if(range == 0)
+        return;
+    upper_limit /= range;
+    for(;from != to;++from,++out)
+        *out = (*from-min_max.first)*upper_limit;
 }
 
 template<typename ImageType>
