@@ -971,7 +971,7 @@ template<tipl::interpolation itype = linear,typename T,typename U>
 void resample_cuda(const T& dfrom,T& dto,const U& trans,bool sync = true)
 {
     resample_cuda_kernel<itype><<<dim3(dto.width(),dto.height()),dto.depth()>>>
-        (dfrom.get().get(),dto.get().get(),device_memory<typename U::value_type>(trans).get(),dfrom.shape());
+        (dfrom.get().get(),dto.get().get(),tipl::device_memory<typename U::value_type>(trans).get(),dfrom.shape());
     if(sync)
         cudaDeviceSynchronize();
 }
