@@ -280,7 +280,7 @@ template<typename iter_type1,typename iter_type2,typename function_type,typename
 void line_search(iter_type1 x_beg,iter_type1 x_end,
                      iter_type2 x_upper,iter_type2 x_lower,
                      function_type& fun,
-                     double& optimal_value,
+                     typename function_type::value_type& optimal_value,
                      teminated_class& terminated)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
