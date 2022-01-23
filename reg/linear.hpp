@@ -233,10 +233,10 @@ public:
             tipl::shape<2> geo(mutual_hist[0].shape());
             for (tipl::pixel_index<2> index(geo);index < geo.size();++index)
             {
-                float mu = mutual_hist[0][index.index()];
-                if (mu == 0.0f)
+                double mu = mutual_hist[0][index.index()];
+                if (mu == 0.0)
                     continue;
-                sum += mu*std::log(mu/((float)from_hist[index.y()])/to_hist[0][index.x()]);
+                sum += mu*std::log(mu/double(from_hist[index.y()])/to_hist[0][index.x()]);
             }
             return -sum;
         }
