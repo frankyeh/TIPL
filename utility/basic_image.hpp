@@ -107,6 +107,14 @@ public:
         size_ = new_size;
         to = from + size_;
     }
+    __INLINE__ iterator get(void) const
+    {
+        return from;
+    }
+    __INLINE__ iterator get(void)
+    {
+        return from;
+    }
 };
 
 template<typename vtype>
@@ -198,6 +206,14 @@ public:
         size_ = new_size;
         to = from + size_;
     }
+    __INLINE__ iterator get(void) const
+    {
+        return from;
+    }
+    __INLINE__ iterator get(void)
+    {
+        return from;
+    }
 };
 
 
@@ -266,8 +282,8 @@ public:
         return *this;
     }
 public:
-    __INLINE__ storage_type& get(void){return data;}
-    __INLINE__ const storage_type& get(void)const{return data;}
+    __INLINE__ typename storage_type::iterator get(void){return data.get();}
+    __INLINE__ typename storage_type::const_iterator get(void)const{return data.get();}
     __INLINE__ void swap(image& rhs)
     {
         data.swap(rhs.data);
@@ -290,15 +306,15 @@ public:
     __INLINE__ const value_type& operator[](index_type index)   const   {return data[index];}
     __INLINE__ value_type front(void)                           const   {return data.front();}
     __INLINE__ value_type back(void)                            const   {return data.back();}
-    __INLINE__ const_iterator begin(void)                       const   {return data.begin();}
-    __INLINE__ const_iterator end(void)                         const   {return data.end();}
+    __INLINE__ auto begin(void)                                 const   {return data.begin();}
+    __INLINE__ auto end(void)                                   const   {return data.end();}
 
     template<typename index_type>
     __INLINE__ reference operator[](index_type index)                   {return data[index];}
     __INLINE__ reference front(void)                                    {return data.front();}
     __INLINE__ reference back(void)                                     {return data.back();}
-    __INLINE__ iterator begin(void)                                     {return data.begin();}
-    __INLINE__ iterator end(void)                                       {return data.end();}
+    __INLINE__ auto begin(void)                                         {return data.begin();}
+    __INLINE__ auto end(void)                                           {return data.end();}
 public:
     __INLINE__ slice_type slice_at(unsigned int pos)
     {
