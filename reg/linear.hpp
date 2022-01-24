@@ -229,7 +229,7 @@ public:
     const vs_type2& to_vs;
     cost_type fun;
     unsigned int count = 0;
-    using value_type = float;
+    using value_type = double;
 public:
     fun_adoptor(const image_type1& from_,const vs_type1& from_vs_,
                 const image_type2& to_,const vs_type2& to_vs_):
