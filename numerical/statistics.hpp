@@ -230,7 +230,8 @@ double root_mean_suqare_error(input_iterator from,input_iterator to,input_iterat
     unsigned int size = to-from;
     while (from != to)
     {
-        double t = *from-*from2;
+        double t = *from;
+        t -= double(*from2);
         rmse += t*t;
         ++from;
         ++from2;
@@ -295,7 +296,7 @@ double covariance(input_iterator1 x_from,input_iterator1 x_to,
     size_t size = x_to-x_from;
     while (x_from != x_to)
     {
-        co += *x_from*(*y_from);
+        co += double(*x_from)*double(*y_from);
         ++x_from;
         ++y_from;
     }
