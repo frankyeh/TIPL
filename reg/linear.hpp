@@ -73,8 +73,7 @@ struct correlation
     template<typename ImageType1,typename ImageType2,typename TransformType>
     double operator()(const ImageType1& Ifrom,const ImageType2& Ito,const TransformType& transform)
     {
-        tipl::shape<ImageType1::dimension> geo(Ifrom.shape());
-        tipl::image<ImageType1::dimension,typename ImageType1::value_type> y(geo);
+        tipl::image<ImageType1::dimension,typename ImageType1::value_type> y(Ifrom.shape());
         tipl::resample_mt(Ito,y,transform);
         float c = tipl::correlation(Ifrom.begin(),Ifrom.end(),y.begin());
         return -c*c;
@@ -161,6 +160,7 @@ public:
         }
     }
 };
+
 
 enum reg_type {none = 0,translocation = 1,rotation = 2,rigid_body = 3,scaling = 4,rigid_scaling = 7,tilt = 8,affine = 15};
 enum cost_type{corr,mutual_info};
