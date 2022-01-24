@@ -281,6 +281,14 @@ public:
         geo.swap(rhs.geo);
         return *this;
     }
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    __INLINE__ image& operator=(T value)
+    {
+        iterator end_iter = data.end();
+        for(iterator iter = data.begin();iter != end_iter;++iter)
+            *iter = value;
+        return *this;
+    }
 public:
     __INLINE__ typename storage_type::iterator get(void){return data.get();}
     __INLINE__ typename storage_type::const_iterator get(void)const{return data.get();}
@@ -304,17 +312,13 @@ public:
 
     template<typename index_type>
     __INLINE__ const value_type& operator[](index_type index)   const   {return data[index];}
-    __INLINE__ value_type front(void)                           const   {return data.front();}
-    __INLINE__ value_type back(void)                            const   {return data.back();}
-    __INLINE__ auto begin(void)                                 const   {return data.begin();}
-    __INLINE__ auto end(void)                                   const   {return data.end();}
+    __INLINE__ auto begin(void)                    const   {return data.begin();}
+    __INLINE__ auto end(void)                      const   {return data.end();}
 
     template<typename index_type>
-    __INLINE__ reference operator[](index_type index)                   {return data[index];}
-    __INLINE__ reference front(void)                                    {return data.front();}
-    __INLINE__ reference back(void)                                     {return data.back();}
-    __INLINE__ auto begin(void)                                         {return data.begin();}
-    __INLINE__ auto end(void)                                           {return data.end();}
+    __INLINE__ reference operator[](index_type index)           {return data[index];}
+    __INLINE__ auto begin(void)                            {return data.begin();}
+    __INLINE__ auto end(void)                              {return data.end();}
 public:
     __INLINE__ slice_type slice_at(unsigned int pos)
     {
@@ -328,7 +332,7 @@ public:
     }
 public:
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    __INLINE__ const image operator+=(T value)
+    __INLINE__ image& operator+=(T value)
     {
         iterator end_iter = data.end();
         for(iterator iter = data.begin();iter != end_iter;++iter)
@@ -336,7 +340,7 @@ public:
         return *this;
     }
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    __INLINE__ const image operator-=(T value)
+    __INLINE__ image& operator-=(T value)
     {
         iterator end_iter = data.end();
         for(iterator iter = data.begin();iter != end_iter;++iter)
@@ -344,7 +348,7 @@ public:
         return *this;
     }
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    __INLINE__ const image operator*=(T value)
+    __INLINE__ image& operator*=(T value)
     {
         iterator end_iter = data.end();
         for(iterator iter = data.begin();iter != end_iter;++iter)
@@ -352,7 +356,7 @@ public:
         return *this;
     }
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    __INLINE__ const image operator/=(T value)
+    __INLINE__ image& operator/=(T value)
     {
         iterator end_iter = data.end();
         for(iterator iter = data.begin();iter != end_iter;++iter)
@@ -369,7 +373,7 @@ public:
         return *this;
     }
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    __INLINE__ const image& operator-=(const T& rhs)
+    __INLINE__ image& operator-=(const T& rhs)
     {
         iterator end_iter = data.end();
         auto iter2 = rhs.begin();
@@ -378,7 +382,7 @@ public:
         return *this;
     }
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    __INLINE__ const image& operator*=(const T& rhs)
+    __INLINE__ image& operator*=(const T& rhs)
     {
         iterator end_iter = data.end();
         auto iter2 = rhs.begin();
@@ -387,7 +391,7 @@ public:
         return *this;
     }
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    __INLINE__ const image& operator/=(const T& rhs)
+    __INLINE__ image& operator/=(const T& rhs)
     {
         iterator end_iter = data.end();
         auto iter2 = rhs.begin();
