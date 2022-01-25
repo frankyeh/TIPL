@@ -49,28 +49,29 @@ struct mutual_information_cuda
     device_memory<int32_t> from_hist;
     device_memory<unsigned char> from;
     device_memory<unsigned char> to;
+    std::mutex init_mutex;
 public:
     mutual_information_cuda(unsigned int band_width_ = 6):band_width(band_width_),his_bandwidth(1 << band_width_) {}
 public:
     template<typename ImageType,typename TransformType>
     double operator()(const ImageType& from_,const ImageType& to_,const TransformType& trans)
     {
-        if (from_hist.empty() || to_.size() != to.size() || from_.size() != from.size())
         {
-            host_memory<unsigned int> host_from_hist;
-            host_memory<unsigned char> host_from;
-            host_memory<unsigned char> host_to;
-            host_to.resize(to_.size());
-            host_from.resize(from_.size());
-            normalize_upper_lower(to_.begin(),to_.end(),host_to.begin(),his_bandwidth-1);
-            normalize_upper_lower(from_.begin(),from_.end(),host_from.begin(),his_bandwidth-1);
-            histogram(host_from,host_from_hist,0,his_bandwidth-1,his_bandwidth);
+            std::scoped_lock<std::mutex> lock(init_mutex);
+            if (from_hist.empty() || to_.size() != to.size() || from_.size() != from.size())
+            {
+                host_memory<unsigned char> host_from(from_.size());
+                host_memory<unsigned char> host_to(to_.size());
+                host_memory<int32_t> host_from_hist;
+                normalize_upper_lower(to_.begin(),to_.end(),host_to.begin(),his_bandwidth-1);
+                normalize_upper_lower(from_.begin(),from_.end(),host_from.begin(),his_bandwidth-1);
+                histogram(host_from,host_from_hist,0,his_bandwidth-1,his_bandwidth);
 
-            from_hist = host_from_hist;
-            from = host_from;
-            to = host_to;
+                from_hist = host_from_hist;
+                from = host_from;
+                to = host_to;
+            }
         }
-
         image<ImageType::dimension,unsigned char,device_memory> from2(from_.shape());
         resample_cuda(tipl::make_image(to.get(),to_.shape()),from2,trans);
 
