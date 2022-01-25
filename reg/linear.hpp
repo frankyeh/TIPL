@@ -88,21 +88,24 @@ struct mutual_information
     std::vector<unsigned int> from_hist;
     std::vector<unsigned char> from;
     std::vector<unsigned char> to;
+    std::mutex init_mutex;
 public:
     mutual_information(unsigned int band_width_ = 6):band_width(band_width_),his_bandwidth(1 << band_width_) {}
 public:
     template<typename ImageType1,typename ImageType2,typename TransformType>
     double operator()(const ImageType1& from_,const ImageType2& to_,const TransformType& transform)
     {
-        if (from_hist.empty() || to_.size() != to.size() || from_.size() != from.size())
         {
-            to.resize(to_.size());
-            from.resize(from_.size());
-            tipl::normalize_upper_lower(to_.begin(),to_.end(),to.begin(),his_bandwidth-1);
-            tipl::normalize_upper_lower(from_.begin(),from_.end(),from.begin(),his_bandwidth-1);
-            tipl::histogram(from,from_hist,0,his_bandwidth-1,his_bandwidth);
+            std::scoped_lock<std::mutex> lock(init_mutex);
+            if (from_hist.empty() || to_.size() != to.size() || from_.size() != from.size())
+            {
+                to.resize(to_.size());
+                from.resize(from_.size());
+                tipl::normalize_upper_lower(to_.begin(),to_.end(),to.begin(),his_bandwidth-1);
+                tipl::normalize_upper_lower(from_.begin(),from_.end(),from.begin(),his_bandwidth-1);
+                tipl::histogram(from,from_hist,0,his_bandwidth-1,his_bandwidth);
+            }
         }
-
 
         // obtain the histogram
         auto geo = from_.shape();
@@ -124,15 +127,10 @@ public:
             unsigned int from_index = ((unsigned int)from[index.index()]) << band_width;
             tipl::vector<ImageType1::dimension,float> pos;
             transform(index,pos);
-            if (!interp.get_location(to_.shape(),pos))
-            {
-                to_hist[id][0] += 1.0;
-                mutual_hist[id][from_index] += 1.0;
-            }
-            else
+            if (interp.get_location(to_.shape(),pos))
                 for (unsigned int i = 0; i < tipl::interpolator::linear<ImageType1::dimension>::ref_count; ++i)
                 {
-                    double weighting = double(interp.ratio[i]);
+                    auto weighting = interp.ratio[i];
                     unsigned int to_index = to[interp.dindex[i]];
                     to_hist[id][to_index] += weighting;
                     mutual_hist[id][from_index+ to_index] += weighting;
@@ -227,18 +225,18 @@ public:
     const image_type2& to;
     const vs_type1& from_vs;
     const vs_type2& to_vs;
-    cost_type fun;
+    std::shared_ptr<cost_type> fun;
     unsigned int count = 0;
     using value_type = double;
 public:
     fun_adoptor(const image_type1& from_,const vs_type1& from_vs_,
                 const image_type2& to_,const vs_type2& to_vs_):
-                from(from_),to(to_),from_vs(from_vs_),to_vs(to_vs_){}
+                from(from_),to(to_),from_vs(from_vs_),to_vs(to_vs_),fun(new cost_type){}
     template<typename param_type>
     value_type operator()(const param_type& new_param)
     {
         ++count;
-        return fun(from,to,tipl::transformation_matrix<typename param_type::value_type>(new_param,from.shape(),from_vs,to.shape(),to_vs));
+        return (*fun.get())(from,to,tipl::transformation_matrix<typename param_type::value_type>(new_param,from.shape(),from_vs,to.shape(),to_vs));
     }
 };
 
