@@ -68,7 +68,7 @@ class device_memory{
             }
             if(new_s > s)
             {
-                if constexpr(std::is_integer<value_type>::value || std::is_pointer<value_type>::value)
+                if constexpr(std::is_integral<value_type>::value || std::is_pointer<value_type>::value)
                     cudaMemset(new_buf+s,0,(new_s-s)*sizeof(value_type));
                 else {
                     if constexpr(std::is_class<value_type>::value)
