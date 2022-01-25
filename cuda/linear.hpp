@@ -64,7 +64,7 @@ public:
             host_from.resize(from_.size());
             normalize_upper_lower(to_.begin(),to_.end(),host_to.begin(),his_bandwidth-1);
             normalize_upper_lower(from_.begin(),from_.end(),host_from.begin(),his_bandwidth-1);
-            histogram(from_,host_from_hist,0,his_bandwidth-1,his_bandwidth);
+            histogram(host_from,host_from_hist,0,his_bandwidth-1,his_bandwidth);
 
             from_hist = host_from_hist;
             from = host_from;
