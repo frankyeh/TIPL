@@ -2,8 +2,9 @@
 #define MEM_HPP
 #ifdef __CUDACC__
 #include <thrust/fill.h>
-
 #include <type_traits>
+
+
 namespace tipl {
 
 
@@ -70,11 +71,12 @@ class device_memory{
             {
                 if constexpr(std::is_integral<value_type>::value || std::is_pointer<value_type>::value)
                     cudaMemset(new_buf+s,0,(new_s-s)*sizeof(value_type));
-                else {
+                else
+                {
                     if constexpr(std::is_class<value_type>::value)
-                        thrust::fill(new_buf+s,new_buf+new_size,value_type())
+                        thrust::fill(new_buf+s,new_buf+new_size,value_type());
                     if constexpr(std::is_floating_point<value_type>::value)
-                        thrust::fill(new_buf+s,new_buf+new_size,value_type(0))
+                        thrust::fill(new_buf+s,new_buf+new_size,value_type(0));
                 }
             }
             buf = new_buf;
