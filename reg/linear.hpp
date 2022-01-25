@@ -127,7 +127,12 @@ public:
             unsigned int from_index = ((unsigned int)from[index.index()]) << band_width;
             tipl::vector<ImageType1::dimension,float> pos;
             transform(index,pos);
-            if (interp.get_location(to_.shape(),pos))
+            if (!interp.get_location(to_.shape(),pos))
+            {
+                to_hist[id][0] += 1.0;
+                mutual_hist[id][from_index] += 1.0;
+            }
+            else
                 for (unsigned int i = 0; i < tipl::interpolator::linear<ImageType1::dimension>::ref_count; ++i)
                 {
                     auto weighting = interp.ratio[i];
