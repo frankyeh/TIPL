@@ -74,9 +74,9 @@ class device_memory{
                 else
                 {
                     if constexpr(std::is_class<value_type>::value)
-                        thrust::fill(new_buf+s,new_buf+new_size,value_type());
+                        thrust::fill(new_buf+s,new_buf+new_s,value_type());
                     if constexpr(std::is_floating_point<value_type>::value)
-                        thrust::fill(new_buf+s,new_buf+new_size,value_type(0));
+                        thrust::fill(new_buf+s,new_buf+new_s,value_type(0));
                 }
             }
             buf = new_buf;
