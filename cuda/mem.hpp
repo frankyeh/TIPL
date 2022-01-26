@@ -10,7 +10,7 @@ namespace tipl {
 
 
 template<typename vtype>
-class device_memory{
+class device_vector{
     public:
         using value_type = vtype;
         using iterator          = value_type*;
@@ -22,17 +22,17 @@ class device_memory{
         size_t s = 0;
     public:
         template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-        device_memory(const T& rhs)                                    {copy_from(rhs);}
-        device_memory(size_t new_size,bool init = true)                {resize(new_size,init);}
-        device_memory(device_memory&& rhs)                             {swap(rhs);}
-        device_memory(void){}
+        device_vector(const T& rhs)                                    {copy_from(rhs);}
+        device_vector(size_t new_size,bool init = true)                {resize(new_size,init);}
+        device_vector(device_vector&& rhs)                             {swap(rhs);}
+        device_vector(void){}
         template<typename iter_type,typename std::enable_if<std::is_same<value_type,std::iterator_traits<iter_type>::value_type>::value,bool>::type = true>
-        device_memory(iter_type from,iter_type to)
+        device_vector(iter_type from,iter_type to)
         {
             resize(to-from,false);
             cudaMemcpy(buf, &*from, s*sizeof(value_type),cudaMemcpyHostToDevice);
         }
-        ~device_memory(void)
+        ~device_vector(void)
         {
             if(buf)
             {
@@ -44,7 +44,7 @@ class device_memory{
         }
     public:
         template<typename T>
-        device_memory& operator=(const T& rhs)  {copy_from(rhs);return *this;}
+        device_vector& operator=(const T& rhs)  {copy_from(rhs);return *this;}
         void clear(void)
         {
             s = 0;
@@ -62,7 +62,7 @@ class device_memory{
             if(s)
                 cudaMemcpy(&rhs[0], buf, s*sizeof(value_type), cudaMemcpyDeviceToHost);
         }
-        void resize(size_t new_s,bool init)
+        void resize(size_t new_s,bool init = true)
         {
             if(s == new_s)
                 return;
@@ -96,7 +96,7 @@ class device_memory{
             s = new_s;
         }
     public:
-        __INLINE__ void swap(device_memory& rhs)
+        __INLINE__ void swap(device_vector& rhs)
         {
             std::swap(buf,rhs.buf);
             std::swap(s,rhs.s);
@@ -130,7 +130,7 @@ private:
     size_t s = 0;
 public:
     __INLINE__ device_pointer(void){}
-    __INLINE__ device_pointer(device_memory<value_type>& rhs):buf(rhs.get()),s(rhs.size())   {}
+    __INLINE__ device_pointer(device_vector<value_type>& rhs):buf(rhs.get()),s(rhs.size())   {}
     __INLINE__ device_pointer(const device_pointer<value_type>& rhs):buf(rhs.buf),s(rhs.s)         {}
     __INLINE__ device_pointer(iterator buf_,size_t s_):buf(buf_),s(s_)                          {}
 public:
@@ -167,12 +167,12 @@ private:
     size_t s = 0;
 public:
     __INLINE__ device_const_pointer(void){}
-    __INLINE__ device_const_pointer(const device_memory<value_type>& rhs):buf(rhs.get()),s(rhs.size())      {}
+    __INLINE__ device_const_pointer(const device_vector<value_type>& rhs):buf(rhs.get()),s(rhs.size())      {}
     __INLINE__ device_const_pointer(const device_pointer<value_type>& rhs):buf(rhs.begin()),s(rhs.size())   {}
     __INLINE__ device_const_pointer(const device_const_pointer<value_type>& rhs):buf(rhs.buf),s(rhs.s)      {}
     __INLINE__ device_const_pointer(const_iterator buf_,size_t s_):buf(buf_),s(s_)                             {}
 public:
-    __INLINE__ device_const_pointer& operator=(const device_memory<value_type>& rhs)        {buf = rhs.get();s=rhs.size();return *this;}
+    __INLINE__ device_const_pointer& operator=(const device_vector<value_type>& rhs)        {buf = rhs.get();s=rhs.size();return *this;}
     __INLINE__ device_const_pointer& operator=(const device_pointer<value_type>& rhs)       {buf = rhs.begin();s=rhs.size();return *this;}
     __INLINE__ device_const_pointer& operator=(const device_const_pointer<value_type>& rhs) {buf = rhs.buf;s=rhs.s;return *this;}
 public:
@@ -194,7 +194,7 @@ public:
 };
 
 template<typename vtype>
-class host_memory{
+class host_vector{
     public:
         using value_type = vtype;
         using iterator          = value_type*;
@@ -223,13 +223,13 @@ class host_memory{
     public:
         template<typename T,typename std::enable_if<std::is_class<T>::value &&
                                                     std::is_same<T::value_type,value_type>::value,bool>::type = true>
-        host_memory(const T& rhs)                                    {copy_from(rhs.begin(),rhs.end());}
-        host_memory(size_t new_size,bool init = true)                {resize(new_size,init);}
-        host_memory(host_memory&& rhs)                               {swap(rhs);}
-        host_memory(void){}
+        host_vector(const T& rhs)                                    {copy_from(rhs.begin(),rhs.end());}
+        host_vector(size_t new_size,bool init = true)                {resize(new_size,init);}
+        host_vector(host_vector&& rhs)                               {swap(rhs);}
+        host_vector(void){}
         template<typename iter_type>
-        host_memory(iter_type from,iter_type to)                     {copy_from(from,to);}
-        ~host_memory(void)
+        host_vector(iter_type from,iter_type to)                     {copy_from(from,to);}
+        ~host_vector(void)
         {
             if(buf)
             {
@@ -241,18 +241,18 @@ class host_memory{
         }
     public:
         template<typename T>
-        host_memory& operator=(const T& rhs)  {copy_from(rhs);return *this;}
+        host_vector& operator=(const T& rhs)  {copy_from(rhs);return *this;}
         void clear(void)
         {
             s = 0;
         }
         template<typename T,typename std::enable_if<
-                     std::is_class<T>::value && !std::is_same<T,device_memory<value_type> >::value,bool>::type = true>
+                     std::is_class<T>::value && !std::is_same<T,device_vector<value_type> >::value,bool>::type = true>
         void copy_from(const T& rhs)
         {
             copy_from(rhs.begin(),rhs.end());
         }
-        void copy_from(const device_memory<value_type>& rhs)
+        void copy_from(const device_vector<value_type>& rhs)
         {
             resize(rhs.size(),false);
             if(s)
@@ -277,7 +277,7 @@ class host_memory{
             s = new_s;
         }
     public:
-        __INLINE__ void swap(host_memory& rhs)
+        __INLINE__ void swap(host_vector& rhs)
         {
             std::swap(buf,rhs.buf);
             std::swap(s,rhs.s);
