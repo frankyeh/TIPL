@@ -22,57 +22,19 @@ namespace tipl
 
 namespace reg
 {
-struct square_error
-{
-    typedef double value_type;
-    template<typename ImageType,typename TransformType>
-    double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
-    {
-        const unsigned int dim = ImageType::dimension;
-        tipl::shape<dim> geo(Ifrom.shape());
-        double error = 0.0;
-        tipl::vector<dim,double> pos;
-        for (tipl::pixel_index<dim> index(geo);index < geo.size();++index)
-        {
-            transform(index,pos);
-            double to_pixel = 0;
-            if (estimate(Ito,pos,to_pixel) && to_pixel != 0)
-                to_pixel -= Ifrom[index.index()];
-            else
-                to_pixel = Ifrom[index.index()];
-            error += to_pixel*to_pixel;
 
-        }
-        return error;
-    }
-};
-struct negative_product
-{
-    typedef double value_type;
-    template<typename ImageType,typename TransformType>
-    double operator()(const ImageType& Ifrom,const ImageType& Ito,const TransformType& transform)
-    {
-        const unsigned int dim = ImageType::dimension;
-        tipl::shape<dim> geo(Ifrom.shape());
-        double error = 0.0;
-        tipl::vector<dim,double> pos;
-        for (tipl::pixel_index<dim> index(geo);index < geo.size();++index)
-        if(Ifrom[index.index()])
-        {
-            transform(index,pos);
-            double to_pixel = 0;
-            if (estimate(Ito,pos,to_pixel) && to_pixel != 0)
-                error -= to_pixel*Ifrom[index.index()];
-        }
-        return error;
-    }
-};
 struct correlation
 {
     typedef double value_type;
     template<typename ImageType1,typename ImageType2,typename TransformType>
     double operator()(const ImageType1& Ifrom,const ImageType2& Ito,const TransformType& transform)
     {
+        if(Ifrom.size() > Ito.size())
+        {
+            auto trans(transform);
+            trans.inverse();
+            return (*this)(Ito,Ifrom,trans);
+        }
         tipl::image<ImageType1::dimension,typename ImageType1::value_type> y(Ifrom.shape());
         tipl::resample_mt(Ito,y,transform);
         float c = tipl::correlation(Ifrom.begin(),Ifrom.end(),y.begin());
@@ -95,6 +57,12 @@ public:
     template<typename ImageType1,typename ImageType2,typename TransformType>
     double operator()(const ImageType1& from_,const ImageType2& to_,const TransformType& transform)
     {
+        if(from_.size() > to_.size())
+        {
+            auto trans(transform);
+            trans.inverse();
+            return (*this)(to_,from_,trans);
+        }
         {
             std::scoped_lock<std::mutex> lock(init_mutex);
             if (from_hist.empty() || to_.size() != to.size() || from_.size() != from.size())
