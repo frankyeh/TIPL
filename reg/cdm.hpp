@@ -374,12 +374,11 @@ struct cdm_param{
 template<typename image_type,typename dis_type>
 float cdm_get_gradient(const image_type& Js,const image_type& It,dis_type& new_d)
 {
-    float accumulated_r2 = 0.0f;
-    unsigned int r_num = 0;
+    std::vector<float> accumulated_r2(std::thread::hardware_concurrency());
     const unsigned int window_size = 2;
     gradient_sobel(Js,new_d);
     tipl::par_for(tipl::begin_index(Js.shape()),tipl::end_index(Js.shape()),
-                        [&](const pixel_index<image_type::dimension>& index)
+                        [&](const pixel_index<image_type::dimension>& index,int id)
     {
         if(It[index.index()] == 0.0 || Js[index.index()] == 0.0 ||
            It.shape().is_edge(index))
@@ -387,21 +386,21 @@ float cdm_get_gradient(const image_type& Js,const image_type& It,dis_type& new_d
             new_d[index.index()] = typename dis_type::value_type();
             return;
         }
-        std::vector<typename image_type::value_type> Itv,Jv;
-        get_window(index,It,window_size,Itv);
-        get_window(index,Js,window_size,Jv);
+        typename image_type::value_type Itv[get_window_size<2,image_type::dimension>::value];
+        typename image_type::value_type Jsv[get_window_size<2,image_type::dimension>::value];
+        get_window_at_width<2>(index,It,Itv);
+        auto size = get_window_at_width<2>(index,Js,Jsv);
         float a,b,r2;
-        linear_regression(Jv.begin(),Jv.end(),Itv.begin(),a,b,r2);
+        linear_regression(Jsv,Jsv+size,Itv,a,b,r2);
         if(a <= 0.0f)
             new_d[index.index()] = typename dis_type::value_type();
         else
         {
             new_d[index.index()] *= r2*(Js[index.index()]*a+b-It[index.index()]);
-            accumulated_r2 += r2;
-            ++r_num;
+            accumulated_r2[id] += r2;
         }
     });
-    return accumulated_r2/float(r_num);
+    return std::accumulate(accumulated_r2.begin(),accumulated_r2.end(),0.0)/float(accumulated_r2.size());
 }
 
 
