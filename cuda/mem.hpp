@@ -1,6 +1,7 @@
 #ifndef MEM_HPP
 #define MEM_HPP
 #ifdef __CUDACC__
+#include <thrust/device_vector.h>
 #include <thrust/fill.h>
 #include <type_traits>
 
@@ -73,10 +74,12 @@ class device_memory{
                     cudaMemset(new_buf+s,0,(new_s-s)*sizeof(value_type));
                 else
                 {
+                    auto dp = thrust::device_pointer_cast(new_buf);
                     if constexpr(std::is_class<value_type>::value)
-                        thrust::fill(new_buf+s,new_buf+new_s,value_type());
+                        thrust::fill(dp+s,dp+new_s,value_type());
+                    else
                     if constexpr(std::is_floating_point<value_type>::value)
-                        thrust::fill(new_buf+s,new_buf+new_s,value_type(0));
+                        thrust::fill(dp+s,dp+new_s,value_type(0));
                 }
             }
             buf = new_buf;
