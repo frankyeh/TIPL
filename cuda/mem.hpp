@@ -23,7 +23,7 @@ class device_memory{
         template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
         device_memory(const T& rhs)                                    {copy_from(rhs);}
         device_memory(size_t new_size)                                 {resize(new_size);}
-        device_memory(device_memory&& rhs)                               {swap(rhs);}
+        device_memory(device_memory&& rhs)                             {swap(rhs);}
         device_memory(void){}
         template<typename iter_type,typename std::enable_if<std::is_same<value_type,std::iterator_traits<iter_type>::value_type>::value,bool>::type = true>
         device_memory(iter_type from,iter_type to)
@@ -50,7 +50,6 @@ class device_memory{
             resize(rhs.size());
             if(s)
                 cudaMemcpy(buf, &rhs[0], s*sizeof(value_type), cudaMemcpyHostToDevice);
-
         }
         template<typename T>
         void copy_to(T& rhs)
@@ -94,6 +93,10 @@ class device_memory{
         __INLINE__ size_t size(void)    const       {return s;}
         __INLINE__ bool empty(void)     const       {return s==0;}
     public: // only in device memory
+        __INLINE__ auto begin_thrust(void)                              {return thrust::device_pointer_cast(buf);}
+        __INLINE__ auto begin_thrust(void)                      const   {return thrust::device_pointer_cast(buf);}
+        __INLINE__ auto end_thrust(void)                                {return thrust::device_pointer_cast(buf)+s;}
+        __INLINE__ auto end_thrust(void)                        const   {return thrust::device_pointer_cast(buf)+s;}
         __INLINE__ iterator get(void)                                       {return buf;}
         __INLINE__ const_iterator get(void) const                           {return buf;}
         __INLINE__ const void* begin(void)                          const   {return buf;}
@@ -102,6 +105,82 @@ class device_memory{
         __INLINE__ void* end(void)                                          {return buf+s;}
 };
 
+template<typename vtype>
+struct device_pointer{
+
+public:
+    using value_type = vtype;
+    using iterator          = value_type*;
+    using const_iterator    = const value_type*;
+    using reference         = value_type&;
+    using const_reference   = const value_type&;
+private:
+    iterator buf = nullptr;
+    size_t s = 0;
+public:
+    __INLINE__ device_pointer(void){}
+    __INLINE__ device_pointer(device_memory<value_type>& rhs):buf(rhs.get()),s(rhs.size())   {}
+    __INLINE__ device_pointer(const device_pointer<value_type>& rhs):buf(rhs.buf),s(rhs.s)         {}
+    __INLINE__ device_pointer(iterator buf_,size_t s_):buf(buf_),s(s_)                          {}
+public:
+    __INLINE__ device_pointer& operator=(const device_pointer<value_type>& rhs) {buf = rhs.buf;s=rhs.s;return *this;}
+public:
+    __INLINE__ size_t size(void)    const       {return s;}
+    __INLINE__ bool empty(void)     const       {return s==0;}
+public:
+    __INLINE__ auto begin_thrust(void)                      const   {return thrust::device_pointer_cast(buf);}
+    __INLINE__ auto end_thrust(void)                        const   {return thrust::device_pointer_cast(buf)+s;}
+public:
+    __INLINE__ iterator begin(void)                                const   {return buf;}
+    __INLINE__ iterator end(void)                                  const   {return buf+s;}
+    template<typename index_type>
+    __INLINE__ reference operator[](index_type index)              const   {return buf[index];}
+
+    __INLINE__ iterator begin(void)                                        {return buf;}
+    __INLINE__ iterator end(void)                                          {return buf+s;}
+    template<typename index_type>
+    __INLINE__ reference operator[](index_type index)                      {return buf[index];}
+};
+
+template<typename vtype>
+struct device_const_pointer{
+
+public:
+    using value_type = vtype;
+    using iterator          = const value_type*;
+    using const_iterator    = const value_type*;
+    using reference         = const value_type&;
+    using const_reference   = const value_type&;
+private:
+    const_iterator buf = nullptr;
+    size_t s = 0;
+public:
+    __INLINE__ device_const_pointer(void){}
+    __INLINE__ device_const_pointer(const device_memory<value_type>& rhs):buf(rhs.get()),s(rhs.size())      {}
+    __INLINE__ device_const_pointer(const device_pointer<value_type>& rhs):buf(rhs.begin()),s(rhs.size())   {}
+    __INLINE__ device_const_pointer(const device_const_pointer<value_type>& rhs):buf(rhs.buf),s(rhs.s)      {}
+    __INLINE__ device_const_pointer(const_iterator buf_,size_t s_):buf(buf_),s(s_)                             {}
+public:
+    __INLINE__ device_const_pointer& operator=(const device_memory<value_type>& rhs)        {buf = rhs.get();s=rhs.size();return *this;}
+    __INLINE__ device_const_pointer& operator=(const device_pointer<value_type>& rhs)       {buf = rhs.begin();s=rhs.size();return *this;}
+    __INLINE__ device_const_pointer& operator=(const device_const_pointer<value_type>& rhs) {buf = rhs.buf;s=rhs.s;return *this;}
+public:
+    __INLINE__ size_t size(void)    const       {return s;}
+    __INLINE__ bool empty(void)     const       {return s==0;}
+public:
+    __INLINE__ auto begin_thrust(void)                      const   {return thrust::device_pointer_cast(buf);}
+    __INLINE__ auto end_thrust(void)                        const   {return thrust::device_pointer_cast(buf)+s;}
+public:
+    __INLINE__ const_iterator begin(void)                          const   {return buf;}
+    __INLINE__ const_iterator end(void)                            const   {return buf+s;}
+    __INLINE__ iterator begin(void)                                        {return buf;}
+    __INLINE__ iterator end(void)                                          {return buf+s;}
+
+    template<typename index_type>
+    __INLINE__ const_reference operator[](index_type index)              const   {return buf[index];}
+    template<typename index_type>
+    __INLINE__ reference operator[](index_type index)                            {return buf[index];}
+};
 
 template<typename vtype>
 class host_memory{
