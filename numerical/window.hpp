@@ -92,12 +92,12 @@ __DEVICE_HOST__ IteratorType get_window_at_width(const pixel_index<2>& index,con
 template<int width,typename ImageType,typename IteratorType>
 __DEVICE_HOST__ IteratorType get_window_at_width(const pixel_index<3>& index,const ImageType& I,IteratorType iter)
 {
-    unsigned int x_upper = std::min<size_t>(I.width()-index.x()-1,width);
-    unsigned int y_upper = std::min<size_t>(I.height()-index.y()-1,width);
-    unsigned int z_upper = std::min<size_t>(I.depth()-index.z()-1,width);
-    unsigned int x_lower = std::min<size_t>(index.x(),width);
-    unsigned int y_lower = std::min<size_t>(index.y(),width);
-    unsigned int z_lower = std::min<size_t>(index.z(),width);
+    int x_upper = std::min<int>(I.width()-index.x()-1,width);
+    int y_upper = std::min<int>(I.height()-index.y()-1,width);
+    int z_upper = std::min<int>(I.depth()-index.z()-1,width);
+    int x_lower = std::min<int>(index.x(),width);
+    int y_lower = std::min<int>(index.y(),width);
+    int z_lower = std::min<int>(index.z(),width);
     iterate_xyz(I,index.index(),x_upper,x_lower,y_upper,y_lower,z_upper,z_lower,iter);
     return iter;
 }
