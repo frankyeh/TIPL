@@ -13,7 +13,7 @@ namespace  reg{
 
 __global__ void mutual_information_cuda_kernel(const_pointer_image<3,unsigned char> from,
                                                const_pointer_image<3,unsigned char> to,
-                                               device_pointer<int32_t> mutual_hist,
+                                               shared_device_vector<int32_t> mutual_hist,
                                                unsigned int band_width)
 {
     size_t index = (uint64_t(blockIdx.x) << 8) | threadIdx.x;
@@ -21,8 +21,8 @@ __global__ void mutual_information_cuda_kernel(const_pointer_image<3,unsigned ch
         atomicAdd(mutual_hist.begin() + ((uint32_t(from[index]) << band_width) | to[index]),1);
 }
 
-__global__ void mutual_information_cuda_kernel1(device_const_pointer<int32_t> mutual_hist,
-                                                device_pointer<int32_t> to8_hist)
+__global__ void mutual_information_cuda_kernel1(const shared_device_vector<int32_t> mutual_hist,
+                                                shared_device_vector<int32_t> to8_hist)
 {
     for(int i = 0,pos = 0;i < blockDim.x;++i,pos += blockDim.x)
         to8_hist[threadIdx.x] += mutual_hist[pos+threadIdx.x];
@@ -30,10 +30,10 @@ __global__ void mutual_information_cuda_kernel1(device_const_pointer<int32_t> mu
 
 
 __global__ void mutual_information_cuda_kernel2(
-                                          device_const_pointer<int32_t> from8_hist,
-                                          device_const_pointer<int32_t> to8_hist,
-                                          device_const_pointer<int32_t> mutual_hist,
-                                          device_pointer<double> mu_log_mu)
+                                          const shared_device_vector<int32_t> from8_hist,
+                                          const shared_device_vector<int32_t> to8_hist,
+                                          const shared_device_vector<int32_t> mutual_hist,
+                                          shared_device_vector<double> mu_log_mu)
 {
     size_t index = threadIdx.x + blockDim.x*blockIdx.x;
     if (mutual_hist[index])

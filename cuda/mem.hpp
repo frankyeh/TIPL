@@ -117,7 +117,7 @@ class device_vector{
 };
 
 template<typename vtype>
-struct device_pointer{
+struct shared_device_vector{
 
 public:
     using value_type = vtype;
@@ -126,72 +126,44 @@ public:
     using reference         = value_type&;
     using const_reference   = const value_type&;
 private:
-    iterator buf = nullptr;
+    union{
+        iterator buf;
+        const_iterator const_buf;
+    };
     size_t s = 0;
 public:
-    __INLINE__ device_pointer(void){}
-    __INLINE__ device_pointer(device_vector<value_type>& rhs):buf(rhs.get()),s(rhs.size())   {}
-    __INLINE__ device_pointer(const device_pointer<value_type>& rhs):buf(rhs.buf),s(rhs.s)         {}
-    __INLINE__ device_pointer(iterator buf_,size_t s_):buf(buf_),s(s_)                          {}
+    __INLINE__ shared_device_vector(void){}
+    __INLINE__ shared_device_vector(device_vector<value_type>& rhs):buf(rhs.get()),s(rhs.size())                    {}
+    __INLINE__ shared_device_vector(const device_vector<value_type>& rhs):const_buf(rhs.get()),s(rhs.size())        {}
+
+    __INLINE__ shared_device_vector(shared_device_vector<value_type>& rhs):buf(rhs.buf),s(rhs.s)                    {}
+    __INLINE__ shared_device_vector(const shared_device_vector<value_type>& rhs):const_buf(rhs.const_buf),s(rhs.s)  {}
+
+    __INLINE__ shared_device_vector(iterator buf_,size_t s_):buf(buf_),s(s_)                                        {}
+    __INLINE__ shared_device_vector(const_iterator buf_,size_t s_):const_buf(buf_),s(s_)                            {}
 public:
-    __INLINE__ device_pointer& operator=(const device_pointer<value_type>& rhs) {buf = rhs.buf;s=rhs.s;return *this;}
+    __INLINE__ const shared_device_vector& operator=(const shared_device_vector<value_type>& rhs) const{const_buf = rhs.const_buf;s=rhs.s;return *this;}
+    __INLINE__ shared_device_vector& operator=(shared_device_vector<value_type>& rhs) {buf = rhs.buf;s=rhs.s;return *this;}
 public:
     __INLINE__ size_t size(void)    const       {return s;}
     __INLINE__ bool empty(void)     const       {return s==0;}
 public:
-    __INLINE__ auto begin_thrust(void)                      const   {return thrust::device_pointer_cast(buf);}
-    __INLINE__ auto end_thrust(void)                        const   {return thrust::device_pointer_cast(buf)+s;}
-public:
-    __INLINE__ iterator begin(void)                                const   {return buf;}
-    __INLINE__ iterator end(void)                                  const   {return buf+s;}
+    __INLINE__ const_iterator begin(void)                          const   {return const_buf;}
+    __INLINE__ const_iterator end(void)                            const   {return const_buf+s;}
+    __INLINE__ auto begin_thrust(void)                             const   {return thrust::device_pointer_cast(const_buf);}
+    __INLINE__ auto end_thrust(void)                               const   {return thrust::device_pointer_cast(const_buf)+s;}
     template<typename index_type>
-    __INLINE__ reference operator[](index_type index)              const   {return buf[index];}
-
+    __INLINE__ const_reference operator[](index_type index)        const   {return const_buf[index];}
+public:
+    __INLINE__ auto begin_thrust(void)                                     {return thrust::device_pointer_cast(buf);}
+    __INLINE__ auto end_thrust(void)                                       {return thrust::device_pointer_cast(buf)+s;}
     __INLINE__ iterator begin(void)                                        {return buf;}
     __INLINE__ iterator end(void)                                          {return buf+s;}
     template<typename index_type>
     __INLINE__ reference operator[](index_type index)                      {return buf[index];}
+
 };
 
-template<typename vtype>
-struct device_const_pointer{
-
-public:
-    using value_type = vtype;
-    using iterator          = const value_type*;
-    using const_iterator    = const value_type*;
-    using reference         = const value_type&;
-    using const_reference   = const value_type&;
-private:
-    const_iterator buf = nullptr;
-    size_t s = 0;
-public:
-    __INLINE__ device_const_pointer(void){}
-    __INLINE__ device_const_pointer(const device_vector<value_type>& rhs):buf(rhs.get()),s(rhs.size())      {}
-    __INLINE__ device_const_pointer(const device_pointer<value_type>& rhs):buf(rhs.begin()),s(rhs.size())   {}
-    __INLINE__ device_const_pointer(const device_const_pointer<value_type>& rhs):buf(rhs.buf),s(rhs.s)      {}
-    __INLINE__ device_const_pointer(const_iterator buf_,size_t s_):buf(buf_),s(s_)                             {}
-public:
-    __INLINE__ device_const_pointer& operator=(const device_vector<value_type>& rhs)        {buf = rhs.get();s=rhs.size();return *this;}
-    __INLINE__ device_const_pointer& operator=(const device_pointer<value_type>& rhs)       {buf = rhs.begin();s=rhs.size();return *this;}
-    __INLINE__ device_const_pointer& operator=(const device_const_pointer<value_type>& rhs) {buf = rhs.buf;s=rhs.s;return *this;}
-public:
-    __INLINE__ size_t size(void)    const       {return s;}
-    __INLINE__ bool empty(void)     const       {return s==0;}
-public:
-    __INLINE__ auto begin_thrust(void)                      const   {return thrust::device_pointer_cast(buf);}
-    __INLINE__ auto end_thrust(void)                        const   {return thrust::device_pointer_cast(buf)+s;}
-public:
-    __INLINE__ const_iterator begin(void)                          const   {return buf;}
-    __INLINE__ const_iterator end(void)                            const   {return buf+s;}
-    __INLINE__ iterator begin(void)                                        {return buf;}
-    __INLINE__ iterator end(void)                                          {return buf+s;}
-
-    template<typename index_type>
-    __INLINE__ const_reference operator[](index_type index)              const   {return buf[index];}
-    template<typename index_type>
-    __INLINE__ reference operator[](index_type index)                            {return buf[index];}
-};
 
 template<typename vtype>
 class host_vector{
