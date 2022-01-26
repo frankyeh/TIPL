@@ -51,7 +51,7 @@ struct mutual_information_cuda
     typedef double value_type;
     unsigned int band_width;
     unsigned int his_bandwidth;
-    device_memory<int32_t> from8_hist;
+    device_vector<int32_t> from8_hist;
     device_image<3,unsigned char> from8;
     device_image<3,unsigned char> to8;
     std::mutex init_mutex;
@@ -73,7 +73,7 @@ public:
             {
                 host_image<3,unsigned char> host_from8(from_raw.shape());
                 host_image<3,unsigned char> host_to8(to_raw.shape());
-                host_memory<int32_t> host_from8_hist;
+                host_vector<int32_t> host_from8_hist;
 
                 normalize_upper_lower(to_raw.begin(),to_raw.end(),host_to8.begin(),his_bandwidth-1);
                 normalize_upper_lower(from_raw.begin(),from_raw.end(),host_from8.begin(),his_bandwidth-1);
@@ -88,19 +88,19 @@ public:
         device_image<3,unsigned char> to2from(from8.shape());
         resample_cuda(to8,to2from,trans);
 
-        device_memory<int32_t> mutual_hist(his_bandwidth*his_bandwidth);
+        device_vector<int32_t> mutual_hist(his_bandwidth*his_bandwidth);
 
         mutual_information_cuda_kernel<<<from_raw.size()/256,256>>>
                                 (from8,to2from,mutual_hist,band_width);
 
         cudaDeviceSynchronize();
 
-        device_memory<int32_t> to8_hist(his_bandwidth);
+        device_vector<int32_t> to8_hist(his_bandwidth);
         mutual_information_cuda_kernel1<<<1,his_bandwidth>>>(mutual_hist,to8_hist);
 
         cudaDeviceSynchronize();
 
-        device_memory<double> mu_log_mu(mutual_hist.size());
+        device_vector<double> mu_log_mu(mutual_hist.size());
         mutual_information_cuda_kernel2<<<his_bandwidth,his_bandwidth>>>
                 (from8_hist,to8_hist,mutual_hist,mu_log_mu);
 
