@@ -111,10 +111,10 @@ void gradient_sobel(const PixelImageType& src,VectorImageType& dest)
     int shift = 1;
     for (unsigned int index = 0; index < PixelImageType::dimension; ++index)
     {
-        typename PixelImageType::const_iterator in_from1 = src.begin();
-        typename PixelImageType::const_iterator in_from2 = src.begin()+shift+shift;
-        typename VectorImageType::iterator out_from = dest.begin()+shift;
-        typename PixelImageType::const_iterator in_to = src.end();
+        auto in_from1 = src.begin();
+        auto in_from2 = src.begin()+shift+shift;
+        auto out_from = dest.begin()+shift;
+        auto in_to = src.end();
         for (; in_from2 != in_to; ++in_from1,++in_from2,++out_from)
             (*out_from)[index] = (*in_from2 - *in_from1);
         shift *= src.shape()[index];
