@@ -1,10 +1,9 @@
 #ifndef CUDA_RESAMPLE_HPP
 #define CUDA_RESAMPLE_HPP
 
-#include "../utility/basic_image.hpp"
 
 #ifdef __CUDACC__
-
+#include "../utility/basic_image.hpp"
 #include "../numerical/interpolation.hpp"
 namespace tipl{
 
