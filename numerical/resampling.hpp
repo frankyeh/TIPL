@@ -615,7 +615,7 @@ void downsampling(const ImageType1& in,ImageType2& out)
 }
 
 template<typename ImageType1,typename ImageType2>
-void downsample_with_padding2(const ImageType1& in,ImageType2& out)
+void downsample_with_padding(const ImageType1& in,ImageType2& out)
 {
     out.resize(in.shape());
     shape<ImageType1::dimension> new_geo(in.shape());
@@ -639,22 +639,12 @@ void downsampling(ImageType& in)
 }
 
 template<typename ImageType>
-void downsample_with_padding2(ImageType& in)
+void downsample_with_padding(ImageType& in)
 {
-    downsample_with_padding2(in,in);
+    downsample_with_padding(in,in);
 }
 
 
-template<typename image_type1,typename image_type2>
-void downsample_with_padding(const image_type1& I,image_type2& rI)
-{
-    shape<image_type1::dimension> pad_geo(I.shape());
-    for(unsigned int dim = 0;dim < image_type1::dimension;++dim)
-        ++pad_geo[dim];
-    image<image_type1::dimension,typename image_type1::value_type> pad_I(pad_geo);
-    tipl::draw(I,pad_I,pixel_index<image_type1::dimension>(I.shape()));
-    tipl::downsampling(pad_I,rI);
-}
 
 template<typename IteratorType,typename OutputIterator>
 OutputIterator downsampling_no_average_x(IteratorType from,IteratorType to,OutputIterator out,int width)
