@@ -11,8 +11,8 @@ namespace tipl{
 namespace  reg{
 
 
-__global__ void mutual_information_cuda_kernel(device_const_pointer<unsigned char> from,
-                                               device_const_pointer<unsigned char> to,
+__global__ void mutual_information_cuda_kernel(const_pointer_image<3,unsigned char> from,
+                                               const_pointer_image<3,unsigned char> to,
                                                device_pointer<int32_t> mutual_hist,
                                                unsigned int band_width)
 {
@@ -52,8 +52,8 @@ struct mutual_information_cuda
     unsigned int band_width;
     unsigned int his_bandwidth;
     device_memory<int32_t> from8_hist;
-    device_memory<unsigned char> from8;
-    device_memory<unsigned char> to8;
+    device_image<3,unsigned char> from8;
+    device_image<3,unsigned char> to8;
     std::mutex init_mutex;
 public:
     mutual_information_cuda(unsigned int band_width_ = 6):band_width(band_width_),his_bandwidth(1 << band_width_) {}
@@ -71,8 +71,8 @@ public:
             std::scoped_lock<std::mutex> lock(init_mutex);
             if (from8_hist.empty() || to_raw.size() != to8.size() || from_raw.size() != from8.size())
             {
-                host_memory<unsigned char> host_from8(from_raw.size());
-                host_memory<unsigned char> host_to8(to_raw.size());
+                host_image<3,unsigned char> host_from8(from_raw.shape());
+                host_image<3,unsigned char> host_to8(to_raw.shape());
                 host_memory<int32_t> host_from8_hist;
 
                 normalize_upper_lower(to_raw.begin(),to_raw.end(),host_to8.begin(),his_bandwidth-1);
@@ -85,9 +85,8 @@ public:
             }
         }
 
-        device_memory<unsigned char> to2from(from8.size());
-        resample_cuda(tipl::make_image(to8.get(),to_raw.shape()),
-                      tipl::make_image(to2from.get(),from_raw.shape()),trans);
+        device_image<3,unsigned char> to2from(from8.shape());
+        resample_cuda(to8,to2from,trans);
 
         device_memory<int32_t> mutual_hist(his_bandwidth*his_bandwidth);
 
