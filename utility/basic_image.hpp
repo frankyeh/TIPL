@@ -13,109 +13,66 @@
 namespace tipl
 {
 
+
 template<typename vtype>
 class pointer_container
 {
 public:
     using value_type        = vtype;
     using iterator          = vtype*;
-    using const_iterator    = vtype*;
+    using const_iterator    = const vtype*;
     using reference         = vtype&;
+    using const_reference   = const vtype&;
 protected:
-    iterator from,to;
-    size_t size_;
+    iterator from = nullptr;
+    size_t size_ = 0;
 public:
-    __INLINE__ pointer_container(void):from(0),to(0),size_(0){}
-    __INLINE__ pointer_container(size_t size_):from(0),to(0),size_(size_){}
+    __INLINE__ pointer_container(void){}
     template<typename any_iterator_type>
     __INLINE__ pointer_container(any_iterator_type from_,any_iterator_type to_):
-        from(from_),to(0),size_(to_-from_){to = from + size_;}
+        from(from_),size_(to_-from_){}
     template<typename any_container_type>
-    __INLINE__ pointer_container(const any_container_type& rhs){operator=(rhs);}
-    __INLINE__ pointer_container(std::vector<value_type>& rhs)
+    __INLINE__ pointer_container(any_container_type& rhs){operator=(rhs);}
+    template<typename any_container_type>
+    __INLINE__ pointer_container& operator=(any_container_type& rhs)
     {
-        if((size_ = rhs.size()))
-        {
+        size_ = rhs.size();
+        if (size_)
             from = &rhs[0];
-            to = from + size_;
-        }
-        else
-            from = to = 0;
+        return *this;
     }
 public:
-    template<typename any_container_type>
-    __INLINE__ pointer_container& operator=(const any_container_type& rhs)
+    __INLINE__ pointer_container(const pointer_container& rhs):from(rhs.from),size_(rhs.size_){}
+    __INLINE__ pointer_container& operator=(const pointer_container& rhs)
     {
         if (this == &rhs)
             return *this;
         from = rhs.from;
-        to = rhs.to;
         size_ = rhs.size_;
+        return *this;
     }
 public:
     template<typename index_type>
-    __INLINE__ reference operator[](index_type index) const
-    {
-        return from[index];
-    }
-    template<typename index_type>
-    __INLINE__ reference operator[](index_type index)
-    {
-        return from[index];
-    }
-    __INLINE__ iterator begin(void) const
-    {
-        return from;
-    }
-    __INLINE__ iterator end(void) const
-    {
-        return to;
-    }
-    __INLINE__ iterator begin(void)
-    {
-        return from;
-    }
-    __INLINE__ iterator end(void)
-    {
-        return to;
-    }
-
-    __INLINE__ size_t size(void)            const
-    {
-        return size_;
-    }
-
-    __INLINE__ bool empty(void) const
-    {
-        return size_ == 0;
-    }
-    __INLINE__ void clear(void)
-    {
-        size_ = 0;
-        to = from;
-    }
-
+    __INLINE__ const_reference operator[](index_type index) const    {return from[index];}
+    __INLINE__ const_iterator begin(void)                   const    {return from;}
+    __INLINE__ const_iterator end(void)                     const    {return from+size_;}
+    __INLINE__ const_iterator get(void)                     const    {return from;}
 public:
-    __INLINE__ void swap(pointer_container& rhs)
-    {
-        std::swap(from,rhs.from);
-        std::swap(to,rhs.to);
-        std::swap(size_,rhs.size_);
-    }
-    __INLINE__ void resize(size_t new_size)
-    {
-        size_ = new_size;
-        to = from + size_;
-    }
-    __INLINE__ iterator get(void) const
-    {
-        return from;
-    }
-    __INLINE__ iterator get(void)
-    {
-        return from;
-    }
+    template<typename index_type>
+    __INLINE__ reference operator[](index_type index)                {return from[index];}
+    __INLINE__ iterator begin(void)                                  {return from;}
+    __INLINE__ iterator end(void)                                    {return from+size_;}
+    __INLINE__ iterator get(void)                                    {return from;}
+public:
+    __INLINE__ size_t size(void)                            const    {return size_;}
+    __INLINE__ bool empty(void)                             const    {return size_ == 0;}
+    __INLINE__ void clear(void)                                      {size_ = 0;}
+public:
+    __INLINE__ void swap(pointer_container& rhs)                     {std::swap(from,rhs.from);std::swap(size_,rhs.size_);}
+    __INLINE__ void resize(size_t new_size)                          {size_ = new_size;}
 };
+
+
 
 template<typename vtype>
 class const_pointer_container
@@ -125,96 +82,63 @@ public:
     using iterator          = const vtype*;
     using const_iterator    = const vtype*;
     using reference         = const vtype&;
+    using const_reference   = const vtype&;
 protected:
-    const_iterator from,to;
-    size_t size_;
+    iterator from = nullptr;
+    size_t size_ = 0;
 public:
-    __INLINE__ const_pointer_container(void):from(0),to(0),size_(0){}
-    __INLINE__ const_pointer_container(size_t size_):from(0),to(0),size_(size_){}
+    __INLINE__ const_pointer_container(void){}
     template<typename any_iterator_type>
     __INLINE__ const_pointer_container(any_iterator_type from_,any_iterator_type to_):
-        from(from_),to(0),size_(to_-from_){to = from + size_;}
+        from(from_),size_(to_-from_){}
+public:
     template<typename any_container_type>
     __INLINE__ const_pointer_container(const any_container_type& rhs){operator=(rhs);}
-    __INLINE__ const_pointer_container(const std::vector<value_type>& rhs)
-    {
-        if((size_ = rhs.size()))
-        {
-            from = &rhs[0];
-            to = from + size_;
-        }
-        else
-            from = to = 0;
-    }
-public:
     template<typename any_container_type>
     __INLINE__ const_pointer_container& operator=(const any_container_type& rhs)
     {
+        size_ = rhs.size();
+        if (size_)
+            from = &rhs[0];
+        return *this;
+    }
+public:
+    __INLINE__ const_pointer_container(const const_pointer_container& rhs):from(rhs.from),size_(rhs.size_){}
+    __INLINE__ const_pointer_container& operator=(const const_pointer_container& rhs)
+    {
         if (this == &rhs)
             return *this;
+        from = rhs.from;
+        size_ = rhs.size_;
+        return *this;
+    }
+public:
+    __INLINE__ const_pointer_container(const pointer_container<value_type>& rhs):from(rhs.begin()),size_(rhs.size_){}
+    __INLINE__ const_pointer_container& operator=(const pointer_container<value_type>& rhs)
+    {
         from = rhs.begin();
-        to = rhs.end();
-        size_ = rhs.size();
+        size_ = rhs.size_;
         return *this;
     }
 public:
     template<typename index_type>
-    __INLINE__ reference operator[](index_type index) const
-    {
-        return from[index];
-    }
-    template<typename index_type>
-    __INLINE__ reference operator[](index_type index)
-    {
-        return from[index];
-    }
-    __INLINE__ const_iterator begin(void) const
-    {
-        return from;
-    }
-    __INLINE__ const_iterator end(void) const
-    {
-        return to;
-    }
-    __INLINE__ const_iterator begin(void)
-    {
-        return from;
-    }
-    __INLINE__ const_iterator end(void)
-    {
-        return to;
-    }
-
-    __INLINE__ size_t size(void) const
-    {
-        return size_;
-    }
-
-    __INLINE__ bool empty(void) const
-    {
-        return size_ == 0;
-    }
+    __INLINE__ const_reference operator[](index_type index) const    {return from[index];}
+    __INLINE__ const_iterator begin(void)                   const    {return from;}
+    __INLINE__ const_iterator end(void)                     const    {return from+size_;}
+    __INLINE__ const_iterator get(void)                     const    {return from;}
 public:
-    __INLINE__ void swap(const_pointer_container<value_type>& rhs)
-    {
-        std::swap(from,rhs.from);
-        std::swap(to,rhs.to);
-        std::swap(size_,rhs.size_);
-    }
-    __INLINE__ void resize(size_t new_size)
-    {
-        size_ = new_size;
-        to = from + size_;
-    }
-    __INLINE__ iterator get(void) const
-    {
-        return from;
-    }
-    __INLINE__ iterator get(void)
-    {
-        return from;
-    }
+    template<typename index_type>
+    __INLINE__ reference operator[](index_type index)                {return from[index];}
+    __INLINE__ iterator begin(void)                                  {return from;}
+    __INLINE__ iterator end(void)                                    {return from+size_;}
+    __INLINE__ iterator get(void)                                    {return from;}
+public:
+    __INLINE__ size_t size(void)                            const    {return size_;}
+    __INLINE__ bool empty(void)                             const    {return size_ == 0;}
+public:
+    __INLINE__ void swap(const_pointer_container& rhs)               {std::swap(from,rhs.from);std::swap(size_,rhs.size_);}
 };
+
 
 
 template <int dim,typename vtype = float,template <typename...> typename stype = std::vector>
