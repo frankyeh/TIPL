@@ -18,36 +18,41 @@ class device_memory{
         using reference         = value_type&;
     private:
         value_type* buf = nullptr;
+        size_t buf_size = 0;
         size_t s = 0;
     public:
         template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
         device_memory(const T& rhs)                                    {copy_from(rhs);}
-        device_memory(size_t new_size)                                 {resize(new_size);}
+        device_memory(size_t new_size,bool init = true)                {resize(new_size,init);}
         device_memory(device_memory&& rhs)                             {swap(rhs);}
         device_memory(void){}
         template<typename iter_type,typename std::enable_if<std::is_same<value_type,std::iterator_traits<iter_type>::value_type>::value,bool>::type = true>
         device_memory(iter_type from,iter_type to)
         {
-            resize(to-from);
+            resize(to-from,false);
             cudaMemcpy(buf, &*from, s*sizeof(value_type),cudaMemcpyHostToDevice);
         }
-        ~device_memory(void){clear();}
-    public:
-        template<typename T>
-        device_memory& operator=(const T& rhs)  {copy_from(rhs);return *this;}
-        void clear(void)
+        ~device_memory(void)
         {
             if(buf)
             {
                 cudaFree(buf);
                 buf = nullptr;
+                buf_size = 0;
                 s = 0;
             }
+        }
+    public:
+        template<typename T>
+        device_memory& operator=(const T& rhs)  {copy_from(rhs);return *this;}
+        void clear(void)
+        {
+            s = 0;
         }
         template<typename T>
         void copy_from(const T& rhs)
         {
-            resize(rhs.size());
+            resize(rhs.size(),false);
             if(s)
                 cudaMemcpy(buf, &rhs[0], s*sizeof(value_type), cudaMemcpyHostToDevice);
         }
@@ -57,23 +62,30 @@ class device_memory{
             if(s)
                 cudaMemcpy(&rhs[0], buf, s*sizeof(value_type), cudaMemcpyDeviceToHost);
         }
-        void resize(size_t new_s)
+        void resize(size_t new_s,bool init)
         {
-            value_type* new_buf;
-            if(cudaMalloc(&new_buf,sizeof(value_type)*new_s) != cudaSuccess)
-                throw std::bad_alloc();
-            if(s)
+            if(s == new_s)
+                return;
+            if(new_s > buf_size) // need reallocation
             {
-                cudaMemcpy(new_buf, buf, std::min(new_s,s)*sizeof(value_type), cudaMemcpyDeviceToDevice);
-                cudaFree(buf);
+                value_type* new_buf;
+                if(cudaMalloc(&new_buf,sizeof(value_type)*new_s) != cudaSuccess)
+                    throw std::bad_alloc();
+                buf_size = new_s;
+                if(s)
+                {
+                    cudaMemcpy(new_buf,buf,s*sizeof(value_type),cudaMemcpyDeviceToDevice);
+                    cudaFree(buf);
+                }
+                buf = new_buf;
             }
-            if(new_s > s)
+            if(new_s > s && init)
             {
                 if constexpr(std::is_integral<value_type>::value || std::is_pointer<value_type>::value)
-                    cudaMemset(new_buf+s,0,(new_s-s)*sizeof(value_type));
+                    cudaMemset(buf+s,0,(new_s-s)*sizeof(value_type));
                 else
                 {
-                    auto dp = thrust::device_pointer_cast(new_buf);
+                    auto dp = thrust::device_pointer_cast(buf);
                     if constexpr(std::is_class<value_type>::value)
                         thrust::fill(dp+s,dp+new_s,value_type());
                     else
@@ -81,7 +93,6 @@ class device_memory{
                         thrust::fill(dp+s,dp+new_s,value_type(0));
                 }
             }
-            buf = new_buf;
             s = new_s;
         }
     public:
@@ -191,20 +202,21 @@ class host_memory{
         using reference         = value_type&;
     private:
         value_type* buf = nullptr;
+        size_t buf_size = 0;
         size_t s = 0;
     private:
         template<typename iter_type,typename std::enable_if<
                      std::is_same<value_type,std::iterator_traits<iter_type>::value_type>::value,bool>::type = true>
         void copy_from(iter_type from,iter_type to)
         {
-            resize(to-from);
+            resize(to-from,false);
             if(s)
                 cudaMemcpy(buf, &*from, s*sizeof(value_type),cudaMemcpyHostToHost);
         }
         void copy_from(const void* from,const void* to)
         {
             size_t size_in_byte = reinterpret_cast<const char*>(to)-reinterpret_cast<const char*>(from);
-            resize(size_in_byte/sizeof(value_type));
+            resize(size_in_byte/sizeof(value_type),false);
             if(s)
                 cudaMemcpy(buf, from, s*sizeof(value_type),cudaMemcpyDeviceToHost);
         }
@@ -212,23 +224,27 @@ class host_memory{
         template<typename T,typename std::enable_if<std::is_class<T>::value &&
                                                     std::is_same<T::value_type,value_type>::value,bool>::type = true>
         host_memory(const T& rhs)                                    {copy_from(rhs.begin(),rhs.end());}
-        host_memory(size_t new_size)                                 {resize(new_size);}
+        host_memory(size_t new_size,bool init = true)                {resize(new_size,init);}
         host_memory(host_memory&& rhs)                               {swap(rhs);}
         host_memory(void){}
         template<typename iter_type>
         host_memory(iter_type from,iter_type to)                     {copy_from(from,to);}
-        ~host_memory(void){clear();}
-    public:
-        template<typename T>
-        host_memory& operator=(const T& rhs)  {copy_from(rhs);return *this;}
-        void clear(void)
+        ~host_memory(void)
         {
             if(buf)
             {
                 cudaFreeHost(buf);
                 buf = nullptr;
+                buf_size = 0;
                 s = 0;
             }
+        }
+    public:
+        template<typename T>
+        host_memory& operator=(const T& rhs)  {copy_from(rhs);return *this;}
+        void clear(void)
+        {
+            s = 0;
         }
         template<typename T,typename std::enable_if<
                      std::is_class<T>::value && !std::is_same<T,device_memory<value_type> >::value,bool>::type = true>
@@ -238,23 +254,26 @@ class host_memory{
         }
         void copy_from(const device_memory<value_type>& rhs)
         {
-            resize(rhs.size());
+            resize(rhs.size(),false);
             if(s)
                 cudaMemcpy(buf, rhs.begin(), s*sizeof(value_type),cudaMemcpyDeviceToHost);
         }
-        void resize(size_t new_s)
+        void resize(size_t new_s, bool init = true)
         {
-            iterator new_buf;
-            if(cudaMallocHost(&new_buf,sizeof(value_type)*new_s) != cudaSuccess)
-                throw std::bad_alloc();
-            if(s)
+            if(new_s > buf_size) // need reallocation
             {
-                cudaMemcpy(new_buf, buf, std::min(new_s,s)*sizeof(value_type), cudaMemcpyHostToHost);
-                cudaFree(buf);
+                iterator new_buf;
+                if(cudaMallocHost(&new_buf,sizeof(value_type)*new_s) != cudaSuccess)
+                    throw std::bad_alloc();
+                if(s)
+                {
+                    cudaMemcpy(new_buf, buf, s*sizeof(value_type), cudaMemcpyHostToHost);
+                    cudaFree(buf);
+                }
+                buf = new_buf;
             }
-            if(new_s > s)
-                std::fill(new_buf+s,new_buf+new_s,0);
-            buf = new_buf;
+            if(new_s > s && init)
+                std::fill(buf+s,buf+new_s,0);
             s = new_s;
         }
     public:
