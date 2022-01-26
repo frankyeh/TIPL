@@ -56,6 +56,12 @@ public:
     template<typename ImageType,typename TransformType>
     double operator()(const ImageType& from_,const ImageType& to_,const TransformType& trans)
     {
+        if(from_.size() > to_.size())
+        {
+            auto trans(transform);
+            trans.inverse();
+            return (*this)(to_,from_,trans);
+        }
         {
             std::scoped_lock<std::mutex> lock(init_mutex);
             if (from_hist.empty() || to_.size() != to.size() || from_.size() != from.size())
