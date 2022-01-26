@@ -12,7 +12,6 @@ namespace  reg{
 
 __global__ void mutual_information_cuda_kernel(const unsigned char* from,
                                           const unsigned char* to,
-                                          int32_t* to_hist,
                                           int32_t* mutual_hist,
                                           unsigned int band_width)
 {
@@ -20,9 +19,17 @@ __global__ void mutual_information_cuda_kernel(const unsigned char* from,
                                       tipl::shape<3>(gridDim.x,gridDim.y,blockDim.x));
     unsigned int to_index = to[index];
     unsigned int from_index = uint32_t(from[index]) << band_width;
-    atomicAdd(to_hist+to_index,1);
-    atomicAdd(mutual_hist+from_index + to_index,1);
+    atomicAdd(mutual_hist + from_index + to_index,1);
 }
+
+__global__ void mutual_information_cuda_kernel1(const int32_t* mutual_hist,
+                                                int32_t* to_hist,
+                                                unsigned int his_bandwidth)
+{
+    for(int i = 0,pos = 0;i < his_bandwidth;++i,pos += his_bandwidth)
+        to_hist[threadIdx.x] += mutual_hist[pos+threadIdx.x];
+}
+
 
 __global__ void mutual_information_cuda_kernel2(
                                           const int32_t* from_hist,
@@ -82,10 +89,14 @@ public:
         resample_cuda(tipl::make_image(to.get(),to_.shape()),from2,trans);
 
         device_memory<int32_t> mutual_hist(his_bandwidth*his_bandwidth);
-        device_memory<int32_t> to_hist(his_bandwidth);
 
         mutual_information_cuda_kernel<<<dim3(from_.width(),from_.height()),from_.depth()>>>
-            (from.get(),from2.get(),to_hist.get(),mutual_hist.get(),band_width);
+            (from.get(),from2.get(),mutual_hist.get(),band_width);
+
+        cudaDeviceSynchronize();
+
+        device_memory<int32_t> to_hist(his_bandwidth);
+        mutual_information_cuda_kernel1<<<1,his_bandwidth>>>(mutual_hist.get(),to_hist.get(),his_bandwidth);
 
         cudaDeviceSynchronize();
 
