@@ -10,9 +10,9 @@
 namespace tipl{
 
 template<int dim,typename vtype = float>
-using device_image = tipl::image<dim,vtype,device_memory>;
+using device_image = tipl::image<dim,vtype,device_vector>;
 template<int dim,typename vtype = float>
-using host_image = tipl::image<dim,vtype,host_memory>;
+using host_image = tipl::image<dim,vtype,host_vector>;
 
 }
 
