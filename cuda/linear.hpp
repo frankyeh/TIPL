@@ -4,25 +4,25 @@
 #ifdef __CUDACC__
 
 #include "resampling.hpp"
+#include "numerical.hpp"
 
 namespace tipl{
 
 namespace  reg{
 
 
-__global__ void mutual_information_cuda_kernel(const unsigned char* from,
-                                               const unsigned char* to,
-                                               int32_t* mutual_hist,
-                                               unsigned int band_width,
-                                               size_t size)
+__global__ void mutual_information_cuda_kernel(device_const_pointer<unsigned char> from,
+                                               device_const_pointer<unsigned char> to,
+                                               device_pointer<int32_t> mutual_hist,
+                                               unsigned int band_width)
 {
     size_t index = (uint64_t(blockIdx.x) << 8) | threadIdx.x;
-    if(index < size)
-        atomicAdd(mutual_hist + ((uint32_t(from[index]) << band_width) | to[index]),1);
+    if(index < from.size())
+        atomicAdd(mutual_hist.begin() + ((uint32_t(from[index]) << band_width) | to[index]),1);
 }
 
-__global__ void mutual_information_cuda_kernel1(const int32_t* mutual_hist,
-                                                int32_t* to8_hist)
+__global__ void mutual_information_cuda_kernel1(device_const_pointer<int32_t> mutual_hist,
+                                                device_pointer<int32_t> to8_hist)
 {
     for(int i = 0,pos = 0;i < blockDim.x;++i,pos += blockDim.x)
         to8_hist[threadIdx.x] += mutual_hist[pos+threadIdx.x];
@@ -30,10 +30,10 @@ __global__ void mutual_information_cuda_kernel1(const int32_t* mutual_hist,
 
 
 __global__ void mutual_information_cuda_kernel2(
-                                          const int32_t* from8_hist,
-                                          const int32_t* to8_hist,
-                                          const int32_t* mutual_hist,
-                                          double* mu_log_mu)
+                                          device_const_pointer<int32_t> from8_hist,
+                                          device_const_pointer<int32_t> to8_hist,
+                                          device_const_pointer<int32_t> mutual_hist,
+                                          device_pointer<double> mu_log_mu)
 {
     size_t index = threadIdx.x + blockDim.x*blockIdx.x;
     if (mutual_hist[index])
@@ -84,28 +84,30 @@ public:
                 to8 = host_to8;
             }
         }
-        image<ImageType::dimension,unsigned char,device_memory> to2from(from_raw.shape());
-        resample_cuda(tipl::make_image(to8.get(),to_raw.shape()),to2from,trans);
+
+        device_memory<unsigned char> to2from(from8.size());
+        resample_cuda(tipl::make_image(to8.get(),to_raw.shape()),
+                      tipl::make_image(to2from.get(),from_raw.shape()),trans);
 
         device_memory<int32_t> mutual_hist(his_bandwidth*his_bandwidth);
 
         mutual_information_cuda_kernel<<<from_raw.size()/256,256>>>
-            (from8.get(),to2from.get(),mutual_hist.get(),band_width,from_raw.size());
+                                (from8,to2from,mutual_hist,band_width);
 
         cudaDeviceSynchronize();
 
         device_memory<int32_t> to8_hist(his_bandwidth);
-        mutual_information_cuda_kernel1<<<1,his_bandwidth>>>(mutual_hist.get(),to8_hist.get());
+        mutual_information_cuda_kernel1<<<1,his_bandwidth>>>(mutual_hist,to8_hist);
 
         cudaDeviceSynchronize();
 
         device_memory<double> mu_log_mu(mutual_hist.size());
         mutual_information_cuda_kernel2<<<his_bandwidth,his_bandwidth>>>
-            (from8_hist.get(),to8_hist.get(),mutual_hist.get(),mu_log_mu.get());
+                (from8_hist,to8_hist,mutual_hist,mu_log_mu);
 
         cudaDeviceSynchronize();
 
-        return -accumulate(mu_log_mu,0.0);
+        return -sum_cuda(mu_log_mu,0.0);
 
     }
 };
