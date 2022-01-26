@@ -2,10 +2,107 @@
 #ifndef WINDOW_HPP
 #define WINDOW_HPP
 #include <vector>
+#include "../def.hpp"
 #include "../utility/pixel_index.hpp"
 
 namespace tipl
 {
+
+template<int width,int dim>
+struct get_window_size;
+
+template<int width>
+struct get_window_size<width,2>{
+    static constexpr size_t value = (width+width+1)*(width+width+1);
+};
+
+template<int width>
+struct get_window_size<width,3>{
+    static constexpr size_t value = (width+width+1)*(width+width+1)*(width+width+1);
+};
+
+template<typename ImageType,typename IteratorType>
+__INLINE__ void iterate_x(const ImageType& I,int64_t index,int x_upper,int x_lower,IteratorType& iter)
+{
+    auto x_index = index;
+    for (int dx = 0;dx <= x_upper;++dx)
+    {
+        *iter = I[x_index];
+        ++iter;
+        ++x_index;
+    }
+    x_index = index-1;
+    for (int dx = 1;dx <= x_lower;++dx)
+    {
+        *iter = I[x_index];
+        ++iter;
+        --x_index;
+    }
+}
+
+template<typename ImageType,typename IteratorType>
+__INLINE__ void iterate_xy(const ImageType& I,int64_t index,int x_upper,int x_lower,int y_upper,int y_lower,IteratorType& iter)
+{
+    auto y_index = index;
+    for (int dy = 0;dy <= y_upper;++dy)
+    {
+        iterate_x(I,y_index,x_upper,x_lower,iter);
+        y_index += I.width();
+    }
+    y_index = index-I.width();
+    for (int dy = 1;dy <= y_lower;++dy)
+    {
+        iterate_x(I,y_index,x_upper,x_lower,iter);
+        y_index -= I.width();
+    }
+}
+
+template<typename ImageType,typename IteratorType>
+__INLINE__ void iterate_xyz(const ImageType& I,int64_t index,
+                     int x_upper,int x_lower,int y_upper,int y_lower,int z_upper,int z_lower,IteratorType& iter)
+{
+    auto z_index = index;
+    for (int dz = 0;dz <= z_upper;++dz)
+    {
+        iterate_xy(I,z_index,x_upper,x_lower,y_upper,y_lower,iter);
+        z_index += I.plane_size();
+    }
+
+    z_index = index-I.plane_size();
+    for (int dz = 1;dz <= z_lower;++dz)
+    {
+        iterate_xy(I,z_index,x_upper,x_lower,y_upper,y_lower,iter);
+        z_index -= I.plane_size();
+    }
+}
+
+
+template<int width,typename ImageType,typename IteratorType>
+__DEVICE_HOST__ IteratorType get_window_at_width(const pixel_index<2>& index,const ImageType& I,IteratorType iter)
+{
+    int x_upper = std::min<int>(I.width()-index.x()-1,width);
+    int y_upper = std::min<int>(I.height()-index.y()-1,width);
+    int x_lower = std::min<int>(index.x(),width);
+    int y_lower = std::min<int>(index.y(),width);
+    iterate_xy(I,index.index(),x_upper,x_lower,y_upper,y_lower,iter);
+    return iter;
+}
+
+//---------------------------------------------------------------------------
+template<int width,typename ImageType,typename IteratorType>
+__DEVICE_HOST__ IteratorType get_window_at_width(const pixel_index<3>& index,const ImageType& I,IteratorType iter)
+{
+    unsigned int x_upper = std::min<size_t>(I.width()-index.x()-1,width);
+    unsigned int y_upper = std::min<size_t>(I.height()-index.y()-1,width);
+    unsigned int z_upper = std::min<size_t>(I.depth()-index.z()-1,width);
+    unsigned int x_lower = std::min<size_t>(index.x(),width);
+    unsigned int y_lower = std::min<size_t>(index.y(),width);
+    unsigned int z_lower = std::min<size_t>(index.z(),width);
+    iterate_xyz(I,index.index(),x_upper,x_lower,y_upper,y_lower,z_upper,z_lower,iter);
+    return iter;
+}
+
+
 //---------------------------------------------------------------------------
 template<typename ImageType,typename PixelType>
 void get_window(const pixel_index<2>& index,const ImageType& image,unsigned int width,std::vector<PixelType>& pixels)
