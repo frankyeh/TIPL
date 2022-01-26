@@ -29,7 +29,7 @@ public:
     __INLINE__ pointer_container(size_t size_):from(0),to(0),size_(size_){}
     template<typename any_iterator_type>
     __INLINE__ pointer_container(any_iterator_type from_,any_iterator_type to_):
-        from(&*from_),to(0),size_(to_-from_){to = from + size_;}
+        from(from_),to(0),size_(to_-from_){to = from + size_;}
     template<typename any_container_type>
     __INLINE__ pointer_container(const any_container_type& rhs){operator=(rhs);}
     __INLINE__ pointer_container(std::vector<value_type>& rhs)
@@ -133,7 +133,7 @@ public:
     __INLINE__ const_pointer_container(size_t size_):from(0),to(0),size_(size_){}
     template<typename any_iterator_type>
     __INLINE__ const_pointer_container(any_iterator_type from_,any_iterator_type to_):
-        from(&*from_),to(0),size_(to_-from_){to = from + size_;}
+        from(from_),to(0),size_(to_-from_){to = from + size_;}
     template<typename any_container_type>
     __INLINE__ const_pointer_container(const any_container_type& rhs){operator=(rhs);}
     __INLINE__ const_pointer_container(const std::vector<value_type>& rhs)
@@ -430,6 +430,13 @@ public:
 typedef image<2,rgb> color_image;
 typedef image<2,unsigned char> grayscale_image;
 
+
+
+template<typename V,typename T>
+inline V extract_pointer(T* p){return V(p);}
+template<typename V,typename T>
+inline V extract_pointer(T p){return V(&*p);}
+
 template<int dim,typename vtype = float>
 class pointer_image : public image<dim,vtype,pointer_container>
 {
@@ -443,7 +450,7 @@ public:
     __INLINE__ pointer_image(void) {}
     __INLINE__ pointer_image(const pointer_image& rhs):base_type(){operator=(rhs);}
     template<typename T,typename std::enable_if<T::dimension==dimension && !std::is_same<storage_type,typename T::storage_type>::value,bool>::type = true>
-    __INLINE__ pointer_image(const T& rhs):base_type(&*rhs.begin(),rhs.shape()) {}
+    __INLINE__ pointer_image(const T& rhs):base_type(extract_pointer<vtype*>(rhs.begin()),rhs.shape()) {}
     __INLINE__ pointer_image(vtype* pointer,const tipl::shape<dim>& geo_):base_type(pointer,geo_) {}
 public:
     __INLINE__ pointer_image& operator=(const pointer_image& rhs)
@@ -453,6 +460,11 @@ public:
         return *this;
     }
 };
+
+template<typename V,typename T>
+inline V extract_const_pointer(const T* p){return V(p);}
+template<typename V,typename T>
+inline V extract_const_pointer(T p){return V(&*p);}
 
 template<int dim,typename vtype = float>
 class const_pointer_image : public image<dim,vtype,const_pointer_container>
@@ -468,7 +480,7 @@ public:
     __INLINE__ const_pointer_image(void) {}
     __INLINE__ const_pointer_image(const const_pointer_image& rhs):base_type(){operator=(rhs);}
     template<typename T,typename std::enable_if<T::dimension==dimension && !std::is_same<storage_type,typename T::storage_type>::value,bool>::type = true>
-    __INLINE__ const_pointer_image(const T& rhs):base_type(&*rhs.begin(),rhs.shape()) {}
+    __INLINE__ const_pointer_image(const T& rhs):base_type(extract_const_pointer<const vtype*>(rhs.begin()),rhs.shape()) {}
     __INLINE__ const_pointer_image(const vtype* pointer,const tipl::shape<dim>& geo_):base_type(pointer,geo_){}
 public:
     __INLINE__ const_pointer_image& operator=(const const_pointer_image& rhs)
