@@ -8,10 +8,13 @@ template <typename T>
 struct function_traits
     : public function_traits<decltype(&T::operator())>
 {};
-template <typename ClassType, typename ReturnType, typename... Args>
-struct function_traits<ReturnType(ClassType::*)(Args...) const>
+template <typename ClassType, typename ReturnType, typename Arg1,typename... Args>
+struct function_traits<ReturnType(ClassType::*)(Arg1,Args...) const>
 {
-    static constexpr int arg_num = sizeof...(Args);
+    using class_type = ClassType;
+    using return_type = ReturnType;
+    using arg_type = Arg1;
+    static constexpr int arg_num = sizeof...(Args)+1;
 };
 
 
