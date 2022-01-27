@@ -400,7 +400,7 @@ float cdm_get_gradient(const image_type& Js,const image_type& It,dis_type& new_d
             accumulated_r2[id] += r2;
         }
     });
-    return std::accumulate(accumulated_r2.begin(),accumulated_r2.end(),0.0)/float(accumulated_r2.size());
+    return std::accumulate(accumulated_r2.begin(),accumulated_r2.end(),0.0)/float(Js.size());
 }
 
 
