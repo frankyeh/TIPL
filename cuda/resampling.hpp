@@ -12,10 +12,15 @@ __global__ void resample_cuda_kernel(const_pointer_image<3,T1> from,
                                      pointer_image<3,T2> to,
                                       U trans)
 {
-    tipl::pixel_index<3> index(blockIdx.x,blockIdx.y,threadIdx.x,tipl::shape<3>(gridDim.x,gridDim.y,blockDim.x));
-    tipl::vector<3> v;
-    trans(index,v);
-    tipl::estimate<itype>(from,v,to[index.index()]);
+    size_t stride = blockDim.x*gridDim.x;
+    for(size_t index = threadIdx.x + blockIdx.x*blockDim.x;
+        index < to.size();index += stride)
+    {
+        tipl::pixel_index<3> pos(index,to.shape());
+        tipl::vector<3> v;
+        trans(pos,v);
+        tipl::estimate<itype>(from,v,to[index]);
+    }
 }
 
 
@@ -23,7 +28,7 @@ template<tipl::interpolation itype = linear,typename T,typename T2,typename U>
 inline void resample_cuda(const T& from,T2& to,const U& trans,bool sync = true)
 {
     resample_cuda_kernel<itype,typename T::value_type,typename T2::value_type>
-            <<<dim3(to.width(),to.height()),to.depth()>>>(from,to,trans);
+            <<<std::min<int>((to.size()+255)/256,256),256>>>(from,to,trans);
     if(sync)
         cudaDeviceSynchronize();
 }
