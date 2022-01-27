@@ -10,13 +10,14 @@
 namespace tipl
 {
 
-template<int Dim>
+template<int d_>
 class shape
 {
 public:
-    unsigned int dim[Dim];
+    static constexpr int dimension = d_;
+    unsigned int dim[dimension];
 public:
-    static const int dimension = Dim;
+
 public:
     __INLINE__ shape(void)
     {
@@ -29,7 +30,7 @@ public:
         dim[2] = z;
         dim[3] = t;
     }
-    __INLINE__ shape(const shape<Dim>& rhs)
+    __INLINE__ shape(const shape<dimension>& rhs)
     {
         *this = rhs;
     }
@@ -38,24 +39,24 @@ public:
     {
         *this = rhs;
     }
-    __INLINE__ const shape<Dim>& operator=(const shape<Dim>& rhs)
+    __INLINE__ const shape<dimension>& operator=(const shape<dimension>& rhs)
     {
 	if(this == &rhs)
             return *this;
-        std::copy(rhs.dim,rhs.dim+Dim,dim);
+        std::copy(rhs.dim,rhs.dim+dimension,dim);
         return *this;
     }
     template<typename pointer_type>
-    __INLINE__ const shape<Dim>& operator=(const pointer_type* rhs)
+    __INLINE__ const shape<dimension>& operator=(const pointer_type* rhs)
     {
-        std::copy(rhs,rhs+Dim,dim);
+        std::copy(rhs,rhs+dimension,dim);
         return *this;
     }
 public:
     __INLINE__ size_t size(void) const
     {
         size_t prod = dim[0];
-        for (int index = 1;index < Dim;++index)
+        for (int index = 1;index < dimension;++index)
             prod *= size_t(dim[index]);
         return prod;
     }
@@ -65,11 +66,11 @@ public:
     }
     __INLINE__ void clear(void)
     {
-        std::fill(dim,dim+Dim,0);
+        std::fill(dim,dim+dimension,0);
     }
-    __INLINE__ void swap(shape<Dim>& rhs)
+    __INLINE__ void swap(shape<dimension>& rhs)
     {
-        for (int index = 1;index < Dim;++index)
+        for (int index = 1;index < dimension;++index)
             std::swap(dim[index],rhs.dim[index]);
     }
 public:
@@ -79,7 +80,7 @@ public:
     }
     __INLINE__ const unsigned int* end(void) const
     {
-        return dim+Dim;
+        return dim+dimension;
     }
     __INLINE__ unsigned int operator[](int index) const
     {
@@ -99,7 +100,7 @@ public:
     }
     __INLINE__ unsigned int* end(void)
     {
-        return dim+Dim;
+        return dim+dimension;
     }
     template<typename index_type>
     __INLINE__ unsigned int& operator[](index_type index)
@@ -110,7 +111,7 @@ public:
     template<typename T>
     __INLINE__ bool is_valid(const T& pos) const
     {
-        for (int index = 0;index < Dim;++index)
+        for (int index = 0;index < dimension;++index)
             if (pos[index] >= 0 || pos[index] < dim[index])
                 return false;
         return true;
@@ -118,7 +119,7 @@ public:
     template<typename T>
     __INLINE__ bool is_edge(const T& pos) const
     {
-        for (int index = 0;index < Dim;++index)
+        for (int index = 0;index < dimension;++index)
             if (pos[index] == 0 || pos[index]+1 == dim[index])
                 return true;
         return false;
@@ -138,9 +139,9 @@ public:
     }
 
 public:
-    __INLINE__ bool operator==(const shape<Dim>& rhs) const
+    __INLINE__ bool operator==(const shape<dimension>& rhs) const
     {
-        for (int index = 0;index < Dim;++index)
+        for (int index = 0;index < dimension;++index)
             if (dim[index] != rhs.dim[index])
                 return false;
         return true;
