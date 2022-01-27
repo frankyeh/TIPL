@@ -374,9 +374,7 @@ struct cdm_param{
 template<typename image_type,typename dis_type>
 float cdm_get_gradient(const image_type& Js,const image_type& It,dis_type& new_d)
 {
-    std::vector<float> accumulated_r2(std::thread::hardware_concurrency());
-    const unsigned int window_size = 2;
-    gradient_sobel(Js,new_d);
+    std::vector<double> accumulated_r2(std::thread::hardware_concurrency());
     tipl::par_for(tipl::begin_index(Js.shape()),tipl::end_index(Js.shape()),
                         [&](const pixel_index<image_type::dimension>& index,int id)
     {
@@ -386,6 +384,11 @@ float cdm_get_gradient(const image_type& Js,const image_type& It,dis_type& new_d
             new_d[index.index()] = typename dis_type::value_type();
             return;
         }
+        // calculate gradient
+        new_d[index.index()][0] = Js[index.index()+1]-Js[index.index()-1];
+        new_d[index.index()][1] = Js[index.index()+Js.width()]-Js[index.index()-Js.width()];
+        new_d[index.index()][2] = Js[index.index()+Js.plane_size()]-Js[index.index()-Js.plane_size()];
+
         typename image_type::value_type Itv[get_window_size<2,image_type::dimension>::value];
         typename image_type::value_type Jsv[get_window_size<2,image_type::dimension>::value];
         get_window_at_width<2>(index,It,Itv);
