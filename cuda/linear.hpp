@@ -11,14 +11,17 @@ namespace tipl{
 namespace  reg{
 
 
+const int bandwidth = 6;
+const int his_bandwidth = 64;
+
 __global__ void mutual_information_cuda_kernel(const_pointer_image<3,unsigned char> from,
                                                const_pointer_image<3,unsigned char> to,
-                                               shared_device_vector<int32_t> mutual_hist,
-                                               unsigned int band_width)
+                                               shared_device_vector<int32_t> mutual_hist)
 {
-    size_t index = (uint64_t(blockIdx.x) << 8) | threadIdx.x;
-    if(index < from.size())
-        atomicAdd(mutual_hist.begin() + ((uint32_t(from[index]) << band_width) | to[index]),1);
+    size_t stride = blockDim.x*gridDim.x;
+    for(size_t index = threadIdx.x + blockIdx.x*blockDim.x;
+        index < from.size();index += stride)
+            atomicAdd(mutual_hist.begin() + ((uint32_t(from[index]) << bandwidth) + to[index]),1);
 }
 
 __global__ void mutual_information_cuda_kernel1(const shared_device_vector<int32_t> mutual_hist,
@@ -49,14 +52,10 @@ __global__ void mutual_information_cuda_kernel2(
 struct mutual_information_cuda
 {
     typedef double value_type;
-    unsigned int band_width;
-    unsigned int his_bandwidth;
     device_vector<int32_t> from8_hist;
     device_image<3,unsigned char> from8;
     device_image<3,unsigned char> to8;
     std::mutex init_mutex;
-public:
-    mutual_information_cuda(unsigned int band_width_ = 6):band_width(band_width_),his_bandwidth(1 << band_width_) {}
 public:
     template<typename ImageType,typename TransformType>
     double operator()(const ImageType& from_raw,const ImageType& to_raw,const TransformType& trans)
@@ -90,8 +89,8 @@ public:
 
         device_vector<int32_t> mutual_hist(his_bandwidth*his_bandwidth);
 
-        mutual_information_cuda_kernel<<<(from_raw.size()+255)/256,256>>>
-                                (from8,to2from,mutual_hist,band_width);
+        mutual_information_cuda_kernel<<<std::min<size_t>((from_raw.size()+255)/256,256),256>>>
+                                (from8,to2from,mutual_hist);
 
         cudaDeviceSynchronize();
 
