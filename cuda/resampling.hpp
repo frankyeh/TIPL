@@ -8,8 +8,8 @@
 namespace tipl{
 
 template<tipl::interpolation itype,typename T1,typename T2,typename U>
-__global__ void resample_cuda_kernel(tipl::const_pointer_image<3,T1> from,
-                                      tipl::pointer_image<3,T2> to,
+__global__ void resample_cuda_kernel(const_pointer_image<3,T1> from,
+                                     pointer_image<3,T2> to,
                                       U trans)
 {
     tipl::pixel_index<3> index(blockIdx.x,blockIdx.y,threadIdx.x,tipl::shape<3>(gridDim.x,gridDim.y,blockDim.x));
