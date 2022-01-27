@@ -284,8 +284,8 @@ void line_search(iter_type1 x_beg,iter_type1 x_end,
                      teminated_class& terminated)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
-    float dis[16] = {0.0025f,0.005f,0.01f,0.02f,0.04f,0.08f,0.16f,0.32f,
-                     -0.0025f,-0.005f,-0.01f,-0.02f,-0.04f,-0.08f,-0.16f,-0.32f};
+    float dis[16] = {0.05f,0.10f,0.15,0.20f,0.25f,0.30f,0.35f,0.40f,
+                     -0.05f,-0.10f,-0.15,-0.20f,-0.25f,-0.30f,-0.35f,-0.40f};
     std::vector<param_type> range(x_end-x_beg);
     for(size_t i = 0;i < range.size();++i)
         range[i] = x_upper[i]-x_lower[i];
