@@ -179,9 +179,9 @@ public:
     __INLINE__ image(const std::initializer_list<T>& rhs):geo(rhs)      {data.resize(geo.size());}
     __INLINE__ image(const shape_type& geo_):data(geo_.size()),geo(geo_){}
 public:
-    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    template<typename T>
     __INLINE__ image(T* pointer,const shape_type& geo_):data(pointer,pointer+geo_.size()),geo(geo_)         {}
-    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    template<typename T>
     __INLINE__ image(const T* pointer,const shape_type& geo_):data(pointer,pointer+geo_.size()),geo(geo_)   {}
 public:
     template<typename T,typename std::enable_if<T::dimension==dimension && !std::is_same<storage_type,typename T::storage_type>::value,bool>::type = true>
@@ -374,7 +374,7 @@ public:
     __INLINE__ pointer_image(void) {}
     __INLINE__ pointer_image(const pointer_image& rhs):base_type(){operator=(rhs);}
     template<typename T,typename std::enable_if<T::dimension==dimension && !std::is_same<storage_type,typename T::storage_type>::value,bool>::type = true>
-    __INLINE__ pointer_image(const T& rhs):base_type(extract_pointer<vtype*>(rhs.begin()),rhs.shape()) {}
+    __INLINE__ pointer_image(T& rhs):base_type(extract_pointer<vtype*>(rhs.begin()),rhs.shape()) {}
     __INLINE__ pointer_image(vtype* pointer,const tipl::shape<dim>& geo_):base_type(pointer,geo_) {}
 public:
     __INLINE__ pointer_image& operator=(const pointer_image& rhs)
