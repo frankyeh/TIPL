@@ -383,6 +383,12 @@ public:
         base_type::geo = rhs.shape();
         return *this;
     }
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    __INLINE__ pointer_image& operator=(T value)
+    {
+        base_type::operator=(value);
+        return *this;
+    }
 };
 
 template<typename V,typename T>
