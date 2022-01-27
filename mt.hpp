@@ -45,7 +45,9 @@ public:
     }
 };
 
-template <typename T,typename Func,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+template <typename T,typename Func,typename std::enable_if<
+              std::is_integral<T>::value ||
+              std::is_class<T>::value,bool>::type = true>
 void par_for(T from,T to, Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
 {
     if constexpr(tipl::use_xeus_cling)
