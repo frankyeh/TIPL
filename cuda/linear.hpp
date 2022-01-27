@@ -90,7 +90,7 @@ public:
 
         device_vector<int32_t> mutual_hist(his_bandwidth*his_bandwidth);
 
-        mutual_information_cuda_kernel<<<from_raw.size()/256,256>>>
+        mutual_information_cuda_kernel<<<(from_raw.size()+255)/256,256>>>
                                 (from8,to2from,mutual_hist,band_width);
 
         cudaDeviceSynchronize();
