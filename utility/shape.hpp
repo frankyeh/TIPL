@@ -137,7 +137,6 @@ public:
     {
         return dim[2];
     }
-
 public:
     __INLINE__ bool operator==(const shape<dimension>& rhs) const
     {
@@ -167,7 +166,7 @@ class shape<1>
         };
     };
 public:
-    static const int dimension = 1;
+    static constexpr int dimension = 1;
 public:
     __INLINE__ shape(void):w(0) {}
     __INLINE__ shape(unsigned int w_):w(w_) {}
@@ -291,7 +290,7 @@ class shape<2>
         };
     };
 public:
-    static const int dimension = 2;
+    static constexpr int dimension = 2;
 public:
     __INLINE__ shape(void):w(0),h(0) {}
     __INLINE__ shape(unsigned int w_,unsigned int h_):w(w_),h(h_) {}
@@ -427,7 +426,7 @@ public:
     mutable size_t wh = 0;
     mutable size_t size_ = 0;
 public:
-    static const int dimension = 3;
+    static constexpr int dimension = 3;
 public:
     __INLINE__ shape(void):w(0),h(0),d(0){}
     template<typename T>
@@ -557,6 +556,12 @@ public:
         if (w && !wh)
             wh = size_t(w)*size_t(h);
         return wh;
+    }
+public:
+    template<typename T>
+    __INLINE__ shape<3> operator*(T r)
+    {
+        return shape<3>(dim[0]*r,dim[1]*r,dim[2]*r);
     }
 public:
     __INLINE__ bool operator==(const shape& rhs) const
