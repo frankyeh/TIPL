@@ -45,17 +45,6 @@ public:
     }
 };
 
-
-template <typename T>
-struct function_traits
-    : public function_traits<decltype(&T::operator())>
-{};
-template <typename ClassType, typename ReturnType, typename... Args>
-struct function_traits<ReturnType(ClassType::*)(Args...) const>
-{
-    static constexpr int arg_num = sizeof...(Args);
-};
-
 template <typename T,typename Func,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
 void par_for(T from,T to, Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
 {

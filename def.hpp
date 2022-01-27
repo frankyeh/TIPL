@@ -3,6 +3,19 @@
 
 namespace tipl{
 
+
+template <typename T>
+struct function_traits
+    : public function_traits<decltype(&T::operator())>
+{};
+template <typename ClassType, typename ReturnType, typename... Args>
+struct function_traits<ReturnType(ClassType::*)(Args...) const>
+{
+    static constexpr int arg_num = sizeof...(Args);
+};
+
+
+
 #ifdef TIPL_USE_CUDA
 constexpr bool use_cuda = true;
 #else
