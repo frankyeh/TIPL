@@ -194,7 +194,7 @@ auto median(input_iterator begin, input_iterator end)
 }
 
 template<typename input_iterator>
-__INLINE__ std::pair<double,double> mean_variance(input_iterator from,input_iterator to)
+std::pair<double,double> mean_variance(input_iterator from,input_iterator to)
 {
     double sum = 0.0;
     double rms = 0.0;
@@ -211,7 +211,7 @@ __INLINE__ std::pair<double,double> mean_variance(input_iterator from,input_iter
         sum /= size;
         rms /= size;
     }
-    return std::make_pair(sum,rms-sum*sum);
+    return std::pair<double,double>(sum,rms-sum*sum);
 }
 
 template<typename input_iterator>
@@ -262,7 +262,8 @@ __INLINE__ double variance(input_iterator from,input_iterator to,double mean)
 template<typename input_iterator,typename value_type>
 __INLINE__ value_type standard_deviation(input_iterator from,input_iterator to,value_type mean)
 {
-    return std::sqrt(std::max<value_type>(0,variance(from,to,mean)));
+    auto var = variance(from,to,mean);
+    return var > 0.0 ? std::sqrt(var) : 0.0;
 }
 template<typename input_iterator>
 __INLINE__ double standard_deviation(input_iterator from,input_iterator to)
