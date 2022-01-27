@@ -2,12 +2,20 @@
 #define MEM_HPP
 #ifdef __CUDACC__
 #include <thrust/device_vector.h>
-#include <thrust/fill.h>
 #include <type_traits>
 
 
 namespace tipl {
 
+
+template<typename T>
+__global__ void device_vector_fill(T* buf,size_t size,T v)
+{
+    size_t stride = blockDim.x*gridDim.x;
+    for(size_t index = threadIdx.x + blockIdx.x*blockDim.x;
+        index < size;index += stride)
+            buf[index] = v;
+}
 
 template<typename vtype>
 class device_vector{
@@ -81,16 +89,17 @@ class device_vector{
             }
             if(new_s > s && init)
             {
-                if constexpr(std::is_integral<value_type>::value || std::is_pointer<value_type>::value)
-                    cudaMemset(buf+s,0,(new_s-s)*sizeof(value_type));
+                size_t added_s = new_s-s;
+                if constexpr(std::is_integral<value_type>::value ||
+                             std::is_pointer<value_type>::value)
+                    cudaMemset(buf+s,0,added_s*sizeof(value_type));
                 else
                 {
-                    auto dp = thrust::device_pointer_cast(buf);
                     if constexpr(std::is_class<value_type>::value)
-                        thrust::fill(dp+s,dp+new_s,value_type());
+                        device_vector_fill<<<std::min<size_t>((added_s+255)/256,256),256>>>(buf+s,added_s,value_type());
                     else
                     if constexpr(std::is_floating_point<value_type>::value)
-                        thrust::fill(dp+s,dp+new_s,value_type(0));
+                        device_vector_fill<<<std::min<size_t>((added_s+255)/256,256),256>>>(buf+s,added_s,value_type(0));
                 }
             }
             s = new_s;
