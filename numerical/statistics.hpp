@@ -4,8 +4,10 @@
 #include <algorithm>
 #include <numeric>
 #include <utility>
+#include "../def.hpp"
 #include "numerical.hpp"
 #include "matrix.hpp"
+
 
 namespace tipl
 {
@@ -128,19 +130,30 @@ double gaussian_distribution(value_type x,value_type mean,value_type variance,va
 }
 
 template<typename input_iterator>
-double mean(input_iterator from,input_iterator to)
+__INLINE__ double sum(input_iterator from,input_iterator to)
 {
-    return from == to ? 0.0 : std::accumulate(from,to,0.0)/((double)(to-from));
+    double sum(0.0);
+    for(;from != to;++from)
+        sum += *from;
+    return sum;
+}
+
+template<typename input_iterator>
+__INLINE__ double mean(input_iterator from,input_iterator to)
+{
+    if(from == to)
+        return 0.0;
+    return sum(from,to)/double(to-from);
 }
 
 template<typename image_type>
-double mean(const image_type& I)
+__INLINE__ double mean(const image_type& I)
 {
     return mean(I.begin(),I.end());
 }
 
 template<typename input_iterator>
-typename std::iterator_traits<input_iterator>::value_type minimum(input_iterator from,input_iterator to)
+__INLINE__ auto min_value(input_iterator from,input_iterator to)
 {
     auto m = *from;
     for(;from != to;++from)
@@ -150,13 +163,13 @@ typename std::iterator_traits<input_iterator>::value_type minimum(input_iterator
 }
 
 template<typename image_type>
-typename image_type::value_type minimum(const image_type& I)
+__INLINE__ auto min_value(const image_type& I)
 {
-    return minimum(I.begin(),I.end());
+    return min_value(I.begin(),I.end());
 }
 
 template<typename input_iterator>
-typename std::iterator_traits<input_iterator>::value_type maximum(input_iterator from,input_iterator to)
+__INLINE__ auto max_value(input_iterator from,input_iterator to)
 {
     auto m = *from;
     for(;from != to;++from)
@@ -166,13 +179,13 @@ typename std::iterator_traits<input_iterator>::value_type maximum(input_iterator
 }
 
 template<typename image_type>
-typename image_type::value_type maximum(const image_type& I)
+__INLINE__ auto max_value(const image_type& I)
 {
-    return maximum(I.begin(),I.end());
+    return max_value(I.begin(),I.end());
 }
 
 template <typename input_iterator>
-typename std::iterator_traits<input_iterator>::value_type median(input_iterator begin, input_iterator end)
+auto median(input_iterator begin, input_iterator end)
 {
     auto size = std::distance(begin, end);
     size /= 2;
@@ -181,7 +194,7 @@ typename std::iterator_traits<input_iterator>::value_type median(input_iterator 
 }
 
 template<typename input_iterator>
-std::pair<double,double> mean_variance(input_iterator from,input_iterator to)
+__INLINE__ std::pair<double,double> mean_variance(input_iterator from,input_iterator to)
 {
     double sum = 0.0;
     double rms = 0.0;
@@ -202,7 +215,7 @@ std::pair<double,double> mean_variance(input_iterator from,input_iterator to)
 }
 
 template<typename input_iterator>
-double mean_square(input_iterator from,input_iterator to)
+__INLINE__ double mean_square(input_iterator from,input_iterator to)
 {
     double ms = 0.0;
     size_t size = to-from;
@@ -218,13 +231,13 @@ double mean_square(input_iterator from,input_iterator to)
 }
 
 template<typename input_iterator>
-double root_mean_suqare(input_iterator from,input_iterator to)
+__INLINE__ double root_mean_suqare(input_iterator from,input_iterator to)
 {
     return std::sqrt(mean_square(from,to));
 }
 
 template<typename input_iterator,typename input_iterator2>
-double root_mean_suqare_error(input_iterator from,input_iterator to,input_iterator2 from2)
+__INLINE__ double root_mean_suqare_error(input_iterator from,input_iterator to,input_iterator2 from2)
 {
     double rmse = 0.0;
     unsigned int size = to-from;
@@ -242,17 +255,17 @@ double root_mean_suqare_error(input_iterator from,input_iterator to,input_iterat
 }
 
 template<typename input_iterator>
-double variance(input_iterator from,input_iterator to,double mean)
+__INLINE__ double variance(input_iterator from,input_iterator to,double mean)
 {
     return mean_square(from,to)-mean*mean;
 }
 template<typename input_iterator,typename value_type>
-value_type standard_deviation(input_iterator from,input_iterator to,value_type mean)
+__INLINE__ value_type standard_deviation(input_iterator from,input_iterator to,value_type mean)
 {
     return std::sqrt(std::max<value_type>(0,variance(from,to,mean)));
 }
 template<typename input_iterator>
-double standard_deviation(input_iterator from,input_iterator to)
+__INLINE__ double standard_deviation(input_iterator from,input_iterator to)
 {
     return standard_deviation(from,to,mean(from,to));
 }
@@ -289,7 +302,7 @@ double median_absolute_deviation(input_iterator from,input_iterator to,double me
 
 
 template<typename input_iterator1,typename input_iterator2>
-double covariance(input_iterator1 x_from,input_iterator1 x_to,
+__INLINE__ double covariance(input_iterator1 x_from,input_iterator1 x_to,
                   input_iterator2 y_from,double mean_x,double mean_y)
 {
     double co = 0.0;
@@ -306,14 +319,14 @@ double covariance(input_iterator1 x_from,input_iterator1 x_to,
 }
 
 template<typename input_iterator1,typename input_iterator2>
-double covariance(input_iterator1 x_from,input_iterator1 x_to,
+__INLINE__ double covariance(input_iterator1 x_from,input_iterator1 x_to,
                   input_iterator2 y_from)
 {
     return covariance(x_from,x_to,y_from,mean(x_from,x_to),mean(y_from,y_from+(x_to-x_from)));
 }
 
 template<typename input_iterator1,typename input_iterator2>
-double correlation(input_iterator1 x_from,input_iterator1 x_to,
+__INLINE__ double correlation(input_iterator1 x_from,input_iterator1 x_to,
                   input_iterator2 y_from,double mean_x,double mean_y)
 {
     double sd1 = standard_deviation(x_from,x_to,mean_x);
@@ -323,7 +336,7 @@ double correlation(input_iterator1 x_from,input_iterator1 x_to,
     return covariance(x_from,x_to,y_from,mean_x,mean_y)/sd1/sd2;
 }
 template<typename input_iterator1,typename input_iterator2>
-double correlation(input_iterator1 x_from,input_iterator1 x_to,
+__INLINE__ double correlation(input_iterator1 x_from,input_iterator1 x_to,
                   input_iterator2 y_from)
 {
     return correlation(x_from,x_to,y_from,mean(x_from,x_to),mean(y_from,y_from+(x_to-x_from)));
@@ -410,7 +423,7 @@ std::pair<double,double> linear_regression(input_iterator1 x_from,input_iterator
 }
 
 template<typename input_iterator1,typename input_iterator2,typename value_type>
-void linear_regression(input_iterator1 x_from,input_iterator1 x_to,input_iterator2 y_from,value_type& a,value_type& b,value_type& r2)
+__DEVICE_HOST__ void linear_regression(input_iterator1 x_from,input_iterator1 x_to,input_iterator2 y_from,value_type& a,value_type& b,value_type& r2)
 {
     value_type mean_x = mean(x_from,x_to);
     value_type mean_y = mean(y_from,y_from+(x_to-x_from));
