@@ -2,12 +2,8 @@
 #ifndef basic_imageH
 #define basic_imageH
 #include <vector>
-#include <thread>
-#include <future>
 #include "../def.hpp"
 #include "shape.hpp"
-#include "pixel_value.hpp"
-#include "pixel_index.hpp"
 
 //---------------------------------------------------------------------------
 namespace tipl
@@ -138,7 +134,6 @@ public:
 public:
     __INLINE__ void swap(const_pointer_container& rhs)               {std::swap(from,rhs.from);std::swap(size_,rhs.size_);}
 };
-
 
 
 template <int dim,typename vtype = float,template <typename...> typename stype = std::vector>
@@ -323,6 +318,7 @@ public:
             *iter /= *iter2;
         return *this;
     }
+
 public:
     template<typename format_type>
     bool save_to_file(const char* file_name) const
@@ -349,12 +345,6 @@ public:
         return true;
     }
 };
-
-
-typedef image<2,rgb> color_image;
-typedef image<2,unsigned char> grayscale_image;
-
-
 
 template<typename V,typename T>
 inline V extract_pointer(T* p){return V(p);}
@@ -424,15 +414,13 @@ public:
 
 
 template<typename value_type,typename shape_type>
-__INLINE__ pointer_image<shape_type::dimension,value_type>
-    make_image(value_type* pointer,const shape_type& geo)
+__INLINE__ auto make_image(value_type* pointer,const shape_type& geo)
 {
     return pointer_image<shape_type::dimension,value_type>(pointer,geo);
 }
 
 template<typename value_type,typename shape_type>
-__INLINE__ const_pointer_image<shape_type::dimension,value_type>
-    make_image(const value_type* pointer,const shape_type& geo)
+__INLINE__ auto make_image(const value_type* pointer,const shape_type& geo)
 {
     return const_pointer_image<shape_type::dimension,value_type>(pointer,geo);
 }
