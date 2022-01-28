@@ -59,7 +59,12 @@ void par_for(T from,T to, Func&& f, unsigned int thread_count = std::thread::har
                 f(from);
         return;
     }
-    size_t block_size = size_t(to-from)/thread_count;
+    if(to == from)
+        return;
+    size_t size = to-from;
+    if(thread_count > size)
+        thread_count = size;
+    size_t block_size = size/thread_count;
     std::vector<std::future<void> > futures;
     for(unsigned int id = 1; id < thread_count; id++)
     {
