@@ -26,7 +26,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "def.hpp"
 
 #include "utility/basic_image.hpp"
-
+#include "utility/pixel_index.hpp"
+#include "utility/rgb_image.hpp"
 
 #include "morphology/morphology.hpp"
 #include "segmentation/segmentation.hpp"
@@ -42,7 +43,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "numerical/fft.hpp"
 #include "numerical/optimization.hpp"
 #include "numerical/statistics.hpp"
-
 #include "numerical/dif.hpp"
 
 
