@@ -3,7 +3,7 @@
 #include <vector>
 #include <fstream>
 #include <iterator>
-#include "../utility/basic_image.hpp"
+#include "../utility/rgb_image.hpp"
 #include "../numerical/basic_op.hpp"
 namespace tipl{
 
