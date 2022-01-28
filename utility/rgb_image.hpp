@@ -2,6 +2,8 @@
 #define PIXEL_VALUE_HPP
 #include <cmath>
 #include <algorithm>
+#include "basic_image.hpp"
+
 namespace tipl
 {
 
@@ -230,6 +232,11 @@ struct rgb
     }
 
 };
+
+
+using color_image = image<2,rgb> ;
+using grayscale_image = image<2,unsigned char>;
+
 //---------------------------------------------------------------------------
 }
 #endif
