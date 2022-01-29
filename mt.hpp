@@ -99,13 +99,13 @@ void par_for(T from,T to,Func&& f, unsigned int thread_count = std::thread::hard
 }
 
 template <typename T,typename Func,typename std::enable_if<std::is_integral<T>::value,bool>::type = true>
-void par_for(T size, Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
+inline void par_for(T size, Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
 {
     par_for(T(0),size,std::move(f),thread_count);
 }
 
 template <typename T,typename Func,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-void par_for(T& c, Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
+inline void par_for(T& c, Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
 {
     par_for(c.begin(),c.end(),std::move(f),thread_count);
 }
