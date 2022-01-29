@@ -229,12 +229,12 @@ public:
     __INLINE__ size_t size(void)    const    {return data.size();}
     __INLINE__ bool empty(void)     const   {return data.empty();}
 
-    template<typename index_type>
+    template<typename index_type,typename std::enable_if<std::is_integral<index_type>::value,bool>::type = true>
     __INLINE__ const value_type& operator[](index_type index)   const   {return data[index];}
     __INLINE__ auto begin(void)                    const   {return data.begin();}
     __INLINE__ auto end(void)                      const   {return data.end();}
 
-    template<typename index_type>
+    template<typename index_type,typename std::enable_if<std::is_integral<index_type>::value,bool>::type = true>
     __INLINE__ reference operator[](index_type index)           {return data[index];}
     __INLINE__ auto begin(void)                            {return data.begin();}
     __INLINE__ auto end(void)                              {return data.end();}
@@ -318,7 +318,101 @@ public:
             *iter /= *iter2;
         return *this;
     }
+public:
+    template<typename SelType,typename Fun>
+    class operation{
+        SelType& s;
+        Fun f;
+        bool done = false;
+    public:
+        operation(SelType& s_,Fun&& f_):s(s_),f(std::move(f_)) {}
+    public:
+        ~operation(void)
+        {
+            if(!done)
+                for(size_t i = 0;i< s.size;++i)
+                    f(i);
+        }
+        template<typename T>
+        void operator>>(T&& backend)
+        {
+            if(!done)
+                backend(s.size,std::move(f));
+            done = true;
+        }
+    };
 
+    template<typename SelType,typename Fun>
+    __INLINE__ static auto make_operation(SelType& s,Fun&& f)
+    {
+        return operation<SelType,Fun>(s,std::move(f));
+    }
+    template<typename IteratorType,typename SelectionType>
+    struct selection{
+        size_t size;
+        IteratorType beg;
+        SelectionType f;
+        __INLINE__ selection(IteratorType beg_,size_t size_,SelectionType&& f_):
+            beg(beg_),size(size_),f(std::move(f_)){}
+    public:
+        template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+        __INLINE__ auto operator=(T v)
+        {return make_operation(*this,[this,v](size_t i){if(f(i))beg[i]=v;});}
+        template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+        __INLINE__ auto operator+=(T v)
+        {return make_operation(*this,[this,v](size_t i){if(f(i))beg[i]+=v;});}
+        template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+        __INLINE__ auto operator-=(T v)
+        {return make_operation(*this,[this,v](size_t i){if(f(i))beg[i]-=v;});}
+        template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+        __INLINE__ auto operator*=(T v)
+        {return make_operation(*this,[this,v](size_t i){if(f(i))beg[i]*=v;});}
+        template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+        __INLINE__ auto operator/=(T v)
+        {return make_operation(*this,[this,v](size_t i){if(f(i))beg[i]/=v;});}
+    };
+    template<typename IteratorType,typename Func>
+    __INLINE__ static auto make_selection(IteratorType from,size_t s,Func&& f)
+    {
+        return selection(from,s,std::move(f));
+    }
+    template<typename Func,typename std::enable_if<std::is_class<Func>::value,bool>::type = true>
+    __INLINE__ auto operator[](Func&& f)
+    {
+        return make_selection(begin(),size(),std::move(f));
+    }
+    template<typename IteratorType,typename SelectionType>
+    __INLINE__ auto operator=(const selection<IteratorType,SelectionType>& sel)
+    {
+        return make_operation(*this,[this,&sel](size_t i){if(sel.f(i))(*this)[i] = sel.beg[i];});
+    }
+
+public:
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    __INLINE__ auto  operator<(T rhs) const {return [this,rhs](size_t index){return data[index] < rhs;};}
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    __INLINE__ auto  operator>(T rhs) const {return [this,rhs](size_t index){return data[index] > rhs;};}
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    __INLINE__ auto operator<=(T rhs) const {return [this,rhs](size_t index){return data[index] <= rhs;};}
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    __INLINE__ auto operator>=(T rhs) const {return [this,rhs](size_t index){return data[index] >= rhs;};}
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    __INLINE__ auto operator==(T rhs) const {return [this,rhs](size_t index){return data[index] == rhs;};}
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    __INLINE__ auto operator!=(T rhs) const {return [this,rhs](size_t index){return data[index] != rhs;};}
+public:
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    __INLINE__ auto  operator<(const T& rhs) const {return [this,&rhs](size_t index){return data[index] < rhs[index];};}
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    __INLINE__ auto  operator>(const T& rhs) const {return [this,&rhs](size_t index){return data[index] > rhs[index];};}
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    __INLINE__ auto operator<=(const T& rhs) const {return [this,&rhs](size_t index){return data[index] <= rhs[index];};}
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    __INLINE__ auto operator>=(const T& rhs) const {return [this,&rhs](size_t index){return data[index] >= rhs[index];};}
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    __INLINE__ auto operator==(const T& rhs) const {return [this,&rhs](size_t index){return data[index] == rhs[index];};}
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    __INLINE__ auto operator!=(const T& rhs) const {return [this,&rhs](size_t index){return data[index] != rhs[index];};}
 public:
     template<typename format_type>
     bool save_to_file(const char* file_name) const
