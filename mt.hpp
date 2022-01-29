@@ -48,7 +48,7 @@ public:
 template <typename T,typename Func,typename std::enable_if<
               std::is_integral<T>::value ||
               std::is_class<T>::value,bool>::type = true>
-void par_for(T from,T to, Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
+void par_for(T from,T to,Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
 {
     if constexpr(tipl::use_xeus_cling)
     {
@@ -101,46 +101,33 @@ void par_for(T from,T to, Func&& f, unsigned int thread_count = std::thread::har
 template <typename T,typename Func,typename std::enable_if<std::is_integral<T>::value,bool>::type = true>
 void par_for(T size, Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
 {
-    if constexpr(tipl::use_xeus_cling)
-    {
-        for(T i = 0; i < size;++i)
-            if constexpr(function_traits<Func>::arg_num == 2)
-                f(i,0);
-            else
-                f(i);
-        return;
-    }
-
-    std::vector<std::future<void> > futures;
-    if(thread_count > size)
-        thread_count = int(size);
-    for(unsigned int id = 1; id < thread_count; id++)
-    {
-        if constexpr(function_traits<Func>::arg_num == 2)
-        {
-            futures.push_back(std::move(std::async(std::launch::async, [=,&f]
-            {
-                for(T i = id; i < size; i += thread_count)
-                    f(i,id);
-            })));
-        }
-        else
-        {
-            futures.push_back(std::move(std::async(std::launch::async, [=,&f]
-            {
-                for(T i = id; i < size; i += thread_count)
-                    f(i);
-            })));
-        }
-    }
-    for(T i = 0; i < size; i += thread_count)
-        if constexpr(function_traits<Func>::arg_num == 2)
-            f(i,0);
-        else
-            f(i);
-    for(auto &future : futures)
-        future.wait();
+    par_for(T(0),size,std::move(f),thread_count);
 }
+
+template <typename T,typename Func,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+void par_for(T& c, Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
+{
+    par_for(c.begin(),c.end(),std::move(f),thread_count);
+}
+
+namespace backend {
+    struct seq{
+        template<typename Fun>
+        inline void operator()(size_t n,Fun&& f)
+        {
+            for(size_t i = 0;i < n;++i)
+                f(i);
+        }
+    };
+    struct mt{
+        template<typename Fun>
+        inline void operator()(size_t n,Fun&& f)
+        {
+            par_for(n,std::move(f));
+        }
+    };
+}
+
 
 class thread{
 private:
