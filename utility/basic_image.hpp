@@ -250,169 +250,180 @@ public:
         return const_slice_type(&*data.begin()+pos*slice_geo.size(),slice_geo);
     }
 public:
-    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    __INLINE__ image& operator+=(T value)
-    {
-        iterator end_iter = data.end();
-        for(iterator iter = data.begin();iter != end_iter;++iter)
-            *iter += value;
-        return *this;
-    }
-    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    __INLINE__ image& operator-=(T value)
-    {
-        iterator end_iter = data.end();
-        for(iterator iter = data.begin();iter != end_iter;++iter)
-            *iter -= value;
-        return *this;
-    }
-    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    __INLINE__ image& operator*=(T value)
-    {
-        iterator end_iter = data.end();
-        for(iterator iter = data.begin();iter != end_iter;++iter)
-            *iter *= value;
-        return *this;
-    }
-    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    __INLINE__ image& operator/=(T value)
-    {
-        iterator end_iter = data.end();
-        for(iterator iter = data.begin();iter != end_iter;++iter)
-            *iter /= value;
-        return *this;
-    }
-    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    __INLINE__ const image& operator+=(const T& rhs)
-    {
-        iterator end_iter = data.end();
-        auto iter2 = rhs.begin();
-        for(iterator iter = data.begin();iter != end_iter;++iter,++iter2)
-            *iter += *iter2;
-        return *this;
-    }
-    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    __INLINE__ image& operator-=(const T& rhs)
-    {
-        iterator end_iter = data.end();
-        auto iter2 = rhs.begin();
-        for(iterator iter = data.begin();iter != end_iter;++iter,++iter2)
-            *iter -= *iter2;
-        return *this;
-    }
-    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    __INLINE__ image& operator*=(const T& rhs)
-    {
-        iterator end_iter = data.end();
-        auto iter2 = rhs.begin();
-        for(iterator iter = data.begin();iter != end_iter;++iter,++iter2)
-            *iter *= *iter2;
-        return *this;
-    }
-    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    __INLINE__ image& operator/=(const T& rhs)
-    {
-        iterator end_iter = data.end();
-        auto iter2 = rhs.begin();
-        for(iterator iter = data.begin();iter != end_iter;++iter,++iter2)
-            *iter /= *iter2;
-        return *this;
-    }
-public:
-    template<typename SelType,typename Fun>
+    template<typename Fun>
     class operation{
-        SelType& s;
+        size_t size;
         Fun f;
         bool done = false;
     public:
-        operation(SelType& s_,Fun&& f_):s(s_),f(std::move(f_)) {}
+        operation(size_t size_,Fun&& f_):size(size_),f(std::move(f_)) {}
+    public:
+        template<typename RhsFun>
+        __INLINE__ static auto make_operation(size_t size,RhsFun&& f)
+        {return operation<RhsFun>(size,std::move(f));}
     public:
         ~operation(void)
         {
-            if(!done)
-                for(size_t i = 0;i< s.size;++i)
-                    f(i);
+            if(done)return;
+            for(size_t i = 0;i < size;++i)
+                f(i);
+        }
+        template<typename RhsFun>
+        auto operator>>(operation<RhsFun>&& rhs)
+        {
+            done = true;
+            rhs.done = true;
+            return make_operation(size > rhs.size?size:rhs.size,
+                [this,&rhs](size_t i)
+                {
+                    if(i < size)f(i);
+                    if(i < rhs.size)rhs.f(i);
+                });
         }
         template<typename T>
         void operator>>(T&& backend)
         {
             if(!done)
-                backend(s.size,std::move(f));
+                backend(size,std::move(f));
             done = true;
         }
     };
-
-    template<typename SelType,typename Fun>
-    __INLINE__ static auto make_operation(SelType& s,Fun&& f)
-    {
-        return operation<SelType,Fun>(s,std::move(f));
-    }
-    template<typename IteratorType,typename SelectionType>
+    template<typename Fun>
+    __INLINE__ static auto make_operation(size_t size,Fun&& f)
+    {return operation<Fun>(size,std::move(f));}
+public:
+    template<typename EvaluationType,typename ConditionType>
     struct selection{
         size_t size;
-        IteratorType beg;
-        SelectionType f;
-        __INLINE__ selection(IteratorType beg_,size_t size_,SelectionType&& f_):
-            beg(beg_),size(size_),f(std::move(f_)){}
+        EvaluationType v;
+        ConditionType f;
+        __INLINE__ selection(size_t size_,EvaluationType&& v_,ConditionType&& f_):
+            size(size_),v(std::move(v_)),f(std::move(f_)){}
+    public:
+        template<typename T,typename U>
+        __INLINE__ static auto make_selection(size_t size,T&& v,U&& f)
+        {return selection<T,U>(size,std::move(v),std::move(f));}
+        template<typename RhsSelectionType,typename U>
+        __INLINE__ auto combine_evaluation(RhsSelectionType& sel,U&& new_v)
+        {return make_selection(size < sel.size? size:sel.size,std::move(new_v),
+                    [this,&sel](size_t i){return f(i) && sel.f(i);});}
     public:
         template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-        __INLINE__ auto operator=(T v)
-        {return make_operation(*this,[this,v](size_t i){if(f(i))beg[i]=v;});}
+        __INLINE__ auto operator=(T rhs)
+        {return make_operation(size,[this,rhs](size_t i){if(f(i))v(i)=rhs;});}
         template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-        __INLINE__ auto operator+=(T v)
-        {return make_operation(*this,[this,v](size_t i){if(f(i))beg[i]+=v;});}
+        __INLINE__ auto operator+=(T rhs)
+        {return make_operation(size,[this,rhs](size_t i){if(f(i))v(i)+=rhs;});}
         template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-        __INLINE__ auto operator-=(T v)
-        {return make_operation(*this,[this,v](size_t i){if(f(i))beg[i]-=v;});}
+        __INLINE__ auto operator-=(T rhs)
+        {return make_operation(size,[this,rhs](size_t i){if(f(i))v(i)-=rhs;});}
         template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-        __INLINE__ auto operator*=(T v)
-        {return make_operation(*this,[this,v](size_t i){if(f(i))beg[i]*=v;});}
+        __INLINE__ auto operator*=(T rhs)
+        {return make_operation(size,[this,rhs](size_t i){if(f(i))v(i)*=rhs;});}
         template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-        __INLINE__ auto operator/=(T v)
-        {return make_operation(*this,[this,v](size_t i){if(f(i))beg[i]/=v;});}
+        __INLINE__ auto operator/=(T rhs)
+        {return make_operation(size,[this,rhs](size_t i){if(f(i))v(i)/=rhs;});}
+    public:
+        template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+        __INLINE__ auto operator+(const T& sel)
+        {return combine_evaluation(sel,[this,&sel](size_t i){return v(i)+sel.v(i);});}
+        template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+        __INLINE__ auto operator-(const T& sel)
+        {return combine_evaluation(sel,[this,&sel](size_t i){return v(i)-sel.v(i);});}
+        template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+        __INLINE__ auto operator*(const T& sel)
+        {return combine_evaluation(sel,[this,&sel](size_t i){return v(i)*sel.v(i);});}
+        template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+        __INLINE__ auto operator/(const T& sel)
+        {return combine_evaluation(sel,[this,&sel](size_t i){return v(i)/sel.v(i);});}
     };
-    template<typename IteratorType,typename Func>
-    __INLINE__ static auto make_selection(IteratorType from,size_t s,Func&& f)
-    {
-        return selection<IteratorType,Func>(from,s,std::move(f));
-    }
-    template<typename Func,typename std::enable_if<std::is_class<Func>::value,bool>::type = true>
-    __INLINE__ auto operator[](Func&& f)
-    {
-        return make_selection(begin(),size(),std::move(f));
-    }
-    template<typename IteratorType,typename SelectionType>
-    __INLINE__ auto operator=(const selection<IteratorType,SelectionType>& sel)
-    {
-        return make_operation(*this,[this,&sel](size_t i){if(sel.f(i))(*this)[i] = sel.beg[i];});
-    }
+    template<typename EvaluationType,typename ConditionType>
+    __INLINE__ static auto make_selection(size_t s,EvaluationType&& v,ConditionType&& f)
+    {return selection<EvaluationType,ConditionType>(s,std::move(v),std::move(f));}
 
 public:
+    template<typename Func>
+        struct condition{
+            Func f;
+            __INLINE__ condition(Func&& f_):f(f_){}
+        public:
+            template<typename NewFunc>
+            __INLINE__ static auto make_condition(NewFunc&& f)
+            {return condition<NewFunc>(std::move(f));}
+        public:
+            __INLINE__ bool operator()(size_t i) const{return f(i);}
+        public:
+            template<typename T>
+            __INLINE__ bool operator&&(const T& rhs) const
+            {return make_condition([this,&rhs](size_t i){return f(i) && rhs(i);});}
+            template<typename T>
+            __INLINE__ bool operator||(const T& rhs) const
+            {return make_condition([this,&rhs](size_t i){return f(i) || rhs(i);});}
+        };
+    template<typename NewFunc>
+    __INLINE__ static auto make_condition(NewFunc&& f)
+    {return condition<NewFunc>(std::move(f));}
+public:
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    __INLINE__ auto  operator<(T rhs) const {return [this,rhs](size_t index){return data[index] < rhs;};}
+    __INLINE__ auto  operator<(T rhs) const {return make_condition([this,rhs](size_t i){return data[i] < rhs;});}
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    __INLINE__ auto  operator>(T rhs) const {return [this,rhs](size_t index){return data[index] > rhs;};}
+    __INLINE__ auto  operator>(T rhs) const {return make_condition([this,rhs](size_t i){return data[i] > rhs;});}
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    __INLINE__ auto operator<=(T rhs) const {return [this,rhs](size_t index){return data[index] <= rhs;};}
+    __INLINE__ auto operator<=(T rhs) const {return make_condition([this,rhs](size_t i){return data[i] <= rhs;});}
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    __INLINE__ auto operator>=(T rhs) const {return [this,rhs](size_t index){return data[index] >= rhs;};}
+    __INLINE__ auto operator>=(T rhs) const {return make_condition([this,rhs](size_t i){return data[i] >= rhs;});}
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    __INLINE__ auto operator==(T rhs) const {return [this,rhs](size_t index){return data[index] == rhs;};}
+    __INLINE__ auto operator==(T rhs) const {return make_condition([this,rhs](size_t i){return data[i] == rhs;});}
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    __INLINE__ auto operator!=(T rhs) const {return [this,rhs](size_t index){return data[index] != rhs;};}
+    __INLINE__ auto operator!=(T rhs) const {return make_condition([this,rhs](size_t i){return data[i] != rhs;});}
 public:
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    __INLINE__ auto  operator<(const T& rhs) const {return [this,&rhs](size_t index){return data[index] < rhs[index];};}
+    __INLINE__ auto  operator<(const T& rhs) const {return make_condition([this,&rhs](size_t i){return data[i] < rhs[i];});}
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    __INLINE__ auto  operator>(const T& rhs) const {return [this,&rhs](size_t index){return data[index] > rhs[index];};}
+    __INLINE__ auto  operator>(const T& rhs) const {return make_condition([this,&rhs](size_t i){return data[i] > rhs[i];});}
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    __INLINE__ auto operator<=(const T& rhs) const {return [this,&rhs](size_t index){return data[index] <= rhs[index];};}
+    __INLINE__ auto operator<=(const T& rhs) const {return make_condition([this,&rhs](size_t i){return data[i] <= rhs[i];});}
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    __INLINE__ auto operator>=(const T& rhs) const {return [this,&rhs](size_t index){return data[index] >= rhs[index];};}
+    __INLINE__ auto operator>=(const T& rhs) const {return make_condition([this,&rhs](size_t i){return data[i] >= rhs[i];});}
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    __INLINE__ auto operator==(const T& rhs) const {return [this,&rhs](size_t index){return data[index] == rhs[index];};}
+    __INLINE__ auto operator==(const T& rhs) const {return make_condition([this,&rhs](size_t i){return data[i] == rhs[i];});}
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    __INLINE__ auto operator!=(const T& rhs) const {return [this,&rhs](size_t index){return data[index] != rhs[index];};}
+    __INLINE__ auto operator!=(const T& rhs) const {return make_condition([this,&rhs](size_t i){return data[i] != rhs[i];});}
+public:
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    __INLINE__ auto operator+=(T value)
+    {return make_operation(size(),[this,value](size_t i){data[i] += value;});}
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    __INLINE__ auto operator-=(T value)
+    {return make_operation(size(),[this,value](size_t i){data[i] -= value;});}
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    __INLINE__ auto operator*=(T value)
+    {return make_operation(size(),[this,value](size_t i){data[i] *= value;});}
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    __INLINE__ auto operator/=(T value)
+    {return make_operation(size(),[this,value](size_t i){data[i] /= value;});}
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    __INLINE__ auto operator+=(const T& rhs)
+    {return make_operation(size(),[this,&rhs](size_t i){data[i] += rhs[i];});}
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    __INLINE__ auto operator-=(const T& rhs)
+    {return make_operation(size(),[this,&rhs](size_t i){data[i] -= rhs[i];});}
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    __INLINE__ auto operator*=(const T& rhs)
+    {return make_operation(size(),[this,&rhs](size_t i){data[i] *= rhs[i];});}
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    __INLINE__ auto operator/=(const T& rhs)
+    {return make_operation(size(),[this,&rhs](size_t i){data[i] /= rhs[i];});}
+public:
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    __INLINE__ auto operator[](condition<T>&& condition)
+    {return make_selection(size(),[this](size_t i)->reference{return data[i];},std::move(condition));}
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    __INLINE__ auto operator[](condition<T>&& condition) const
+    {return make_selection(size(),[this](size_t i){return data[i];},std::move(condition));}
+    template<typename EvaluationType,typename SelectionType>
+    __INLINE__ auto operator=(const selection<EvaluationType,SelectionType>& sel)
+    {return make_operation(size(),[this,&sel](size_t i){if(sel.f(i))(*this)[i] = sel.v(i);});}
 public:
     template<typename format_type>
     bool save_to_file(const char* file_name) const
