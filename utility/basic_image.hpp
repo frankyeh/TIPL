@@ -374,7 +374,7 @@ public:
     template<typename IteratorType,typename Func>
     __INLINE__ static auto make_selection(IteratorType from,size_t s,Func&& f)
     {
-        return selection(from,s,std::move(f));
+        return selection<IteratorType,Func>(from,s,std::move(f));
     }
     template<typename Func,typename std::enable_if<std::is_class<Func>::value,bool>::type = true>
     __INLINE__ auto operator[](Func&& f)
