@@ -523,6 +523,18 @@ public:
 };
 
 
+template<typename T>
+__INLINE__ auto make_alias(T& I)
+{
+    return pointer_image<T::dimension,typename T::value_type>(I.begin(),I.shape());
+}
+template<typename T>
+__INLINE__ auto make_alias(const T& I)
+{
+    return const_pointer_image<T::dimension,typename T::value_type>(I.begin(),I.shape());
+}
+
+
 template<typename value_type,typename shape_type>
 __INLINE__ auto make_image(value_type* pointer,const shape_type& geo)
 {
