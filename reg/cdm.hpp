@@ -483,40 +483,22 @@ void cdm_solve_poisson(tipl::image<3,dis_type>& new_d,terminated_type& terminate
     for(int iter = 0;iter < 12 && !terminated;++iter)
     {
         tipl::image<3,dis_type> new_solve_d(new_d.shape());
-        tipl::par_for(solve_d.size(),[&](int pos)
+        tipl::par_for(solve_d.size()-wh-wh,[&](int pos)
         {
-            auto v = new_solve_d[pos];
-            {
-                int p1 = pos-1;
-                int p2 = pos+1;
-                if(p1 >= 0)
-                   v += solve_d[p1];
-                if(p2 < solve_d.size())
-                   v += solve_d[p2];
-            }
-            {
-                int p1 = pos-w;
-                int p2 = pos+w;
-                if(p1 >= 0)
-                   v += solve_d[p1];
-                if(p2 < solve_d.size())
-                   v += solve_d[p2];
-            }
-            {
-                int p1 = pos-wh;
-                int p2 = pos+wh;
-                if(p1 >= 0)
-                   v += solve_d[p1];
-                if(p2 < solve_d.size())
-                   v += solve_d[p2];
-            }
+            pos += wh;
+            dis_type v;
+            v += solve_d[pos-1];
+            v += solve_d[pos+1];
+            v += solve_d[pos-w];
+            v += solve_d[pos+w];
+            v += solve_d[pos-wh];
+            v += solve_d[pos+wh];
             v -= new_d[pos];
             v *= inv_d2;
             new_solve_d[pos] = v;
         });
         solve_d.swap(new_solve_d);
     }
-    minus_constant_mt(solve_d,solve_d[0]);
     new_d.swap(solve_d);
 }
 
