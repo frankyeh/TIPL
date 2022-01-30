@@ -1025,17 +1025,15 @@ public:
     }
 };
 
-
-template<typename value_type>
-class from_space : public tipl::matrix<4,4,value_type>{
+class from_space : public tipl::matrix<4,4,float>{
 private:
-    const tipl::matrix<4,4,value_type>& origin;
+    const tipl::matrix<4,4,float>& origin;
 public:
-    __INLINE__ from_space(const tipl::matrix<4,4,value_type>& space_):tipl::matrix<4,4,value_type>(),origin(space_){}
-    __INLINE__ from_space& to(const tipl::matrix<4,4,value_type>& target)
+    __INLINE__ from_space(const tipl::matrix<4,4,float>& space_):tipl::matrix<4,4,float>(),origin(space_){}
+    __INLINE__ from_space& to(const tipl::matrix<4,4,float>& target)
     {
-        std::copy(target.begin(),target.end(),tipl::matrix<4,4,value_type>::begin());
-        tipl::matrix<4,4,value_type>::inv();
+        std::copy(target.begin(),target.end(),tipl::matrix<4,4,float>::begin());
+        tipl::matrix<4,4,float>::inv();
         (*this) *= origin;
         return *this;
     }
