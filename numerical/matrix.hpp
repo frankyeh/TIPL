@@ -78,17 +78,17 @@ constexpr int size(dim<row,col>)
 }
 
 template<typename T>
-constexpr T col_count(const std::initializer_list<T> d)
+constexpr T col_count(std::initializer_list<T> d)
 {
     return *(d.begin()+1);
 }
 template<typename T>
-constexpr T row_count(const std::initializer_list<T> d)
+constexpr T row_count(std::initializer_list<T> d)
 {
     return *d.begin();
 }
 template<typename T>
-constexpr T size(const std::initializer_list<T> d)
+constexpr T size(std::initializer_list<T> d)
 {
     return col_count(d)*row_count(d);
 }
@@ -3147,7 +3147,7 @@ struct matrix{
 public:
     matrix(void){}
     template<typename rhs_type>
-    matrix(const std::initializer_list<rhs_type>& rhs)
+    matrix(std::initializer_list<rhs_type> rhs)
     {
         (*this) = rhs;
     }
@@ -3180,7 +3180,7 @@ public:
         return *this;
     }
     template<typename rhs_type>
-    const matrix& operator=(const std::initializer_list<rhs_type>& rhs)
+    const matrix& operator=(std::initializer_list<rhs_type> rhs)
     {
         std::copy(rhs.begin(),rhs.end(),value);
         return *this;
