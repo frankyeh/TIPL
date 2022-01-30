@@ -158,18 +158,12 @@ public:
     {
         done = true;
         rhs.done = true;
-        return make_operation(size > rhs.size?size:rhs.size,
-            [this,&rhs](size_t i)
-            {
-                if(i < size)f(i);
-                if(i < rhs.size)rhs.f(i);
-            });
+        return make_operation(size,[this,&rhs](size_t i){f(i);rhs.f(i);});
     }
     template<typename T>
     void operator>>(T&& backend)
     {
-        if(!done)
-            backend(size,std::move(f));
+        backend(size,std::move(f));
         done = true;
     }
 };
