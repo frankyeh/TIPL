@@ -1026,7 +1026,7 @@ public:
 };
 
 
-template<typename value_type>
+template<typename value_type = float>
 class from_space : public tipl::matrix<4,4,value_type>{
 private:
     const tipl::matrix<4,4,value_type>& origin;
