@@ -529,8 +529,6 @@ public:
     __INLINE__ pointer_image(T& rhs):base_type(extract_pointer<vtype*>(rhs.begin()),rhs.shape()) {}
     __INLINE__ pointer_image(vtype* pointer,const tipl::shape<dim>& geo_):base_type(pointer,geo_) {}
 public:
-    template<typename index_type,typename std::enable_if<std::is_integral<index_type>::value,bool>::type = true>
-    __INLINE__ value_type& operator[](index_type index)   const   {return const_cast<value_type&>(data[index]);}
     __INLINE__ pointer_image& operator=(const pointer_image& rhs)
     {
         base_type::data = rhs.data;
