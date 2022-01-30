@@ -14,9 +14,8 @@ namespace  reg{
 const int bandwidth = 6;
 const int his_bandwidth = 64;
 
-__global__ void mutual_information_cuda_kernel(const_pointer_image<3,unsigned char> from,
-                                               const_pointer_image<3,unsigned char> to,
-                                               shared_device_vector<int32_t> mutual_hist)
+template<typename T,typename U>
+__global__ void mutual_information_cuda_kernel(T from,T to,U mutual_hist)
 {
     size_t stride = blockDim.x*gridDim.x;
     for(size_t index = threadIdx.x + blockIdx.x*blockDim.x;
@@ -24,19 +23,16 @@ __global__ void mutual_information_cuda_kernel(const_pointer_image<3,unsigned ch
             atomicAdd(mutual_hist.begin() + ((uint32_t(from[index]) << bandwidth) + to[index]),1);
 }
 
-__global__ void mutual_information_cuda_kernel1(const shared_device_vector<int32_t> mutual_hist,
-                                                shared_device_vector<int32_t> to8_hist)
+template<typename T,typename U>
+__global__ void mutual_information_cuda_kernel1(T mutual_hist,U to8_hist)
 {
     for(int i = 0,pos = 0;i < blockDim.x;++i,pos += blockDim.x)
         to8_hist[threadIdx.x] += mutual_hist[pos+threadIdx.x];
 }
 
 
-__global__ void mutual_information_cuda_kernel2(
-                                          const shared_device_vector<int32_t> from8_hist,
-                                          const shared_device_vector<int32_t> to8_hist,
-                                          const shared_device_vector<int32_t> mutual_hist,
-                                          shared_device_vector<double> mu_log_mu)
+template<typename T,typename U>
+__global__ void mutual_information_cuda_kernel2(T from8_hist,T to8_hist,T mutual_hist,U mu_log_mu)
 {
     size_t index = threadIdx.x + blockDim.x*blockIdx.x;
     if (mutual_hist[index])
@@ -90,18 +86,25 @@ public:
         device_vector<int32_t> mutual_hist(his_bandwidth*his_bandwidth);
 
         mutual_information_cuda_kernel<<<std::min<size_t>((from_raw.size()+255)/256,256),256>>>
-                                (from8,to2from,mutual_hist);
+                                (tipl::make_shared(from8),
+                                 tipl::make_shared(to2from),
+                                 tipl::make_shared(mutual_hist));
 
         cudaDeviceSynchronize();
 
         device_vector<int32_t> to8_hist(his_bandwidth);
-        mutual_information_cuda_kernel1<<<1,his_bandwidth>>>(mutual_hist,to8_hist);
+        mutual_information_cuda_kernel1<<<1,his_bandwidth>>>(
+                        tipl::make_shared(mutual_hist),
+                        tipl::make_shared(to8_hist));
 
         cudaDeviceSynchronize();
 
         device_vector<double> mu_log_mu(mutual_hist.size());
-        mutual_information_cuda_kernel2<<<his_bandwidth,his_bandwidth>>>
-                (from8_hist,to8_hist,mutual_hist,mu_log_mu);
+        mutual_information_cuda_kernel2<<<his_bandwidth,his_bandwidth>>>(
+                        tipl::make_shared(from8_hist),
+                        tipl::make_shared(to8_hist),
+                        tipl::make_shared(mutual_hist),
+                        tipl::make_shared(mu_log_mu));
 
         cudaDeviceSynchronize();
 
