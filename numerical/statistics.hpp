@@ -129,7 +129,9 @@ double gaussian_distribution(value_type x,value_type mean,value_type variance,va
     return x;
 }
 
-template<typename input_iterator>
+template<typename input_iterator,
+         typename std::enable_if<
+             std::is_fundamental<typename std::iterator_traits<input_iterator>::value_type>::value,bool>::type = true>
 __INLINE__ double sum(input_iterator from,input_iterator to)
 {
     double sum(0.0);
@@ -138,16 +140,28 @@ __INLINE__ double sum(input_iterator from,input_iterator to)
     return sum;
 }
 
-template<typename input_iterator>
-__INLINE__ double mean(input_iterator from,input_iterator to)
+template<typename input_iterator,
+         typename std::enable_if<
+             std::is_class<typename std::iterator_traits<input_iterator>::value_type>::value,bool>::type = true>
+__INLINE__ auto sum(input_iterator from,input_iterator to)
 {
-    if(from == to)
-        return 0.0;
-    return sum(from,to)/double(to-from);
+    typename std::iterator_traits<input_iterator>::value_type sum;
+    for(;from != to;++from)
+        sum += *from;
+    return sum;
+}
+
+template<typename input_iterator>
+__INLINE__ auto mean(input_iterator from,input_iterator to)
+{
+    auto s = sum(from,to);
+    if(from != to)
+        s /= to-from;
+    return s;
 }
 
 template<typename image_type>
-__INLINE__ double mean(const image_type& I)
+__INLINE__ auto mean(const image_type& I)
 {
     return mean(I.begin(),I.end());
 }
