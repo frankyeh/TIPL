@@ -310,7 +310,7 @@ public:
     __INLINE__ image(image&& rhs)       {operator=(rhs);}
 public:
     template<typename T>
-    __INLINE__ image(const std::initializer_list<T>& rhs):geo(rhs)      {data.resize(geo.size());}
+    __INLINE__ image(std::initializer_list<T> rhs):geo(rhs)      {data.resize(geo.size());}
     __INLINE__ image(const shape_type& geo_):data(geo_.size()),geo(geo_){}
 public:
     template<typename T>
@@ -508,9 +508,9 @@ public:
 };
 
 template<typename V,typename T>
-inline V extract_pointer(T* p){return V(p);}
+__INLINE__ V extract_pointer(T* p){return V(p);}
 template<typename V,typename T>
-inline V extract_pointer(T p){return V(&*p);}
+__INLINE__ V extract_pointer(T p){return V(&*p);}
 
 template<int dim,typename vtype = float>
 class pointer_image : public image<dim,vtype,pointer_container>
@@ -544,9 +544,9 @@ public:
 };
 
 template<typename V,typename T>
-inline V extract_const_pointer(const T* p){return V(p);}
+__INLINE__ V extract_const_pointer(const T* p){return V(p);}
 template<typename V,typename T>
-inline V extract_const_pointer(T p){return V(&*p);}
+__INLINE__ V extract_const_pointer(T p){return V(&*p);}
 
 template<int dim,typename vtype = float>
 class const_pointer_image : public image<dim,vtype,const_pointer_container>
@@ -575,13 +575,15 @@ public:
 };
 
 
-template<typename T>
-__INLINE__ auto make_alias(T& I)
+template<typename T,typename std::enable_if<
+             std::is_convertible<T,pointer_image<T::dimension,typename T::value_type> >::value,bool>::type = true>
+__INLINE__ auto make_shared(T& I)
 {
     return pointer_image<T::dimension,typename T::value_type>(I);
 }
-template<typename T>
-__INLINE__ auto make_alias(const T& I)
+template<typename T,typename std::enable_if<
+             std::is_convertible<T,const_pointer_image<T::dimension,typename T::value_type> >::value,bool>::type = true>
+__INLINE__ auto make_shared(const T& I)
 {
     return const_pointer_image<T::dimension,typename T::value_type>(I);
 }
