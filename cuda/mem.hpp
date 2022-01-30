@@ -173,6 +173,16 @@ public:
 
 };
 
+template<typename T>
+__INLINE__ auto make_shared(device_vector<T>& I)
+{
+    return shared_device_vector<T>(I);
+}
+template<typename T>
+__INLINE__ const auto make_shared(const device_vector<T>& I)
+{
+    return shared_device_vector<T>(I);
+}
 
 template<typename vtype>
 class host_vector{
