@@ -295,7 +295,7 @@ public:
     __INLINE__ shape(void):w(0),h(0) {}
     __INLINE__ shape(unsigned int w_,unsigned int h_):w(w_),h(h_) {}
     template<typename T>
-    __INLINE__ shape(const std::initializer_list<T>& arg):w(*arg.begin()),h(*(arg.begin()+1)){}
+    __INLINE__ shape(std::initializer_list<T> arg):w(*arg.begin()),h(*(arg.begin()+1)){}
     __INLINE__ shape(const shape<2>& rhs):w(rhs.w),h(rhs.h){}
     template<typename pointer_type>
     __INLINE__ explicit shape(const pointer_type* rhs)
@@ -430,7 +430,7 @@ public:
 public:
     __INLINE__ shape(void):w(0),h(0),d(0){}
     template<typename T>
-    __INLINE__ shape(const std::initializer_list<T>& arg):w(*arg.begin()),h(*(arg.begin()+1)),d(*(arg.begin()+2)){}
+    __INLINE__ shape(std::initializer_list<T> arg):w(*arg.begin()),h(*(arg.begin()+1)),d(*(arg.begin()+2)){}
     __INLINE__ shape(unsigned int w_,unsigned int h_,unsigned int d_):w(w_),h(h_),d(d_){}
     __INLINE__ shape(const shape& rhs)
     {
