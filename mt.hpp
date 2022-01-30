@@ -45,69 +45,73 @@ public:
     }
 };
 
-template <typename T,typename Func,typename std::enable_if<
+template <bool enabled_mt = true,typename T,typename Func,typename std::enable_if<
               std::is_integral<T>::value ||
               std::is_class<T>::value,bool>::type = true>
-void par_for(T from,T to,Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
+void par_for(T from,T to,Func&& f,unsigned int thread_count = std::thread::hardware_concurrency())
 {
-    if constexpr(tipl::use_xeus_cling)
+    if constexpr(tipl::use_xeus_cling || !enabled_mt)
     {
         for(;from != to;++from)
             if constexpr(function_traits<Func>::arg_num == 2)
                 f(from,0);
             else
                 f(from);
-        return;
     }
-    if(to == from)
-        return;
-    size_t size = to-from;
-    if(thread_count > size)
-        thread_count = size;
-    size_t block_size = size/thread_count;
-    std::vector<std::future<void> > futures;
-    for(unsigned int id = 1; id < thread_count; id++)
+    else
     {
-        auto block_end = from + block_size;
-        if constexpr(function_traits<Func>::arg_num == 2)
+        if(to == from)
+            return;
+        size_t size = to-from;
+        if(thread_count > size)
+            thread_count = size;
+        size_t block_size = size/thread_count;
+        std::vector<std::future<void> > futures;
+        for(unsigned int id = 1; id < thread_count; id++)
         {
-            futures.push_back(std::move(std::async(std::launch::async, [=,&f]
+            auto block_end = from + block_size;
+            if constexpr(function_traits<Func>::arg_num == 2)
             {
-                auto pos = from;
-                for(;pos != block_end;++pos)
-                    f(pos,id);
-            })));
-        }
-        else
-        {
-            futures.push_back(std::move(std::async(std::launch::async, [=,&f]
+                futures.push_back(std::move(std::async(std::launch::async, [=,&f]
+                {
+                    auto pos = from;
+                    for(;pos != block_end;++pos)
+                        f(pos,id);
+                })));
+            }
+            else
             {
-                auto pos = from;
-                for(;pos != block_end;++pos)
-                    f(pos);
-            })));
+                futures.push_back(std::move(std::async(std::launch::async, [=,&f]
+                {
+                    auto pos = from;
+                    for(;pos != block_end;++pos)
+                        f(pos);
+                })));
+            }
+            from = block_end;
         }
-        from = block_end;
+        for(;from != to;++from)
+            if constexpr(function_traits<Func>::arg_num == 2)
+                f(from,0);
+            else
+                f(from);
+        for(auto &future : futures)
+            future.wait();
     }
-    for(;from != to;++from)
-        if constexpr(function_traits<Func>::arg_num == 2)
-            f(from,0);
-        else
-            f(from);
-    for(auto &future : futures)
-        future.wait();
 }
 
-template <typename T,typename Func,typename std::enable_if<std::is_integral<T>::value,bool>::type = true>
-inline void par_for(T size, Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
+template <bool enabled_mt = true,typename T,typename Func,
+          typename std::enable_if<std::is_integral<T>::value,bool>::type = true>
+inline void par_for(T size, Func&& f,unsigned int thread_count = std::thread::hardware_concurrency())
 {
-    par_for(T(0),size,std::move(f),thread_count);
+    par_for<enabled_mt>(T(0),size,std::move(f),thread_count);
 }
 
-template <typename T,typename Func,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-inline void par_for(T& c, Func&& f, unsigned int thread_count = std::thread::hardware_concurrency())
+template <bool enabled_mt = true,typename T,typename Func,
+          typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+inline void par_for(T& c, Func&& f,unsigned int thread_count = std::thread::hardware_concurrency())
 {
-    par_for(c.begin(),c.end(),std::move(f),thread_count);
+    par_for<enabled_mt>(c.begin(),c.end(),std::move(f),thread_count);
 }
 
 namespace backend {
