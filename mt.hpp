@@ -5,20 +5,25 @@
 #include "def.hpp"
 namespace tipl{
 
+template<typename T = std::chrono::milliseconds>
 class time
 {
     public:
+        time(const char* msg_):msg(msg_),t1(std::chrono::high_resolution_clock::now()){}
         time():  t1(std::chrono::high_resolution_clock::now()){}
         void restart(){t1 = std::chrono::high_resolution_clock::now();}
         void start(){t1 = std::chrono::high_resolution_clock::now();}
         void stop(){t2 = std::chrono::high_resolution_clock::now();}
     public:
-        template<typename T = std::chrono::milliseconds>
-        double elapsed(){return std::chrono::duration_cast<T>(std::chrono::high_resolution_clock::now() - t1).count();}
-        template<typename T = std::chrono::milliseconds>
-        double total(){stop();return std::chrono::duration_cast<T>(t2 - t1).count();}
-        ~time(){}
+        auto elapsed(){return std::chrono::duration_cast<T>(std::chrono::high_resolution_clock::now() - t1).count();}
+        auto total(){stop();return std::chrono::duration_cast<T>(t2 - t1).count();}
+        ~time()
+        {
+            if(!msg.empty())
+                std::cout << msg << elapsed() << std::endl;
+        }
     private:
+        std::string msg;
         std::chrono::high_resolution_clock::time_point t1, t2;
 };
 
