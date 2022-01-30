@@ -36,9 +36,11 @@ constexpr bool use_xeus_cling = false;
 #ifdef __CUDACC__
 #define __DEVICE_HOST__ __device__ __host__
 #define __INLINE__ __forceinline__ __device__ __host__
+#define __DEVICE__ __device__
 #else
 #define __DEVICE_HOST__
 #define __INLINE__ inline
+#define __DEVICE__
 #endif
 
 #endif//TIPL_DEF
