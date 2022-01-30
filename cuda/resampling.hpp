@@ -8,9 +8,7 @@
 namespace tipl{
 
 template<tipl::interpolation itype,typename T1,typename T2,typename U>
-__global__ void resample_cuda_kernel(const_pointer_image<3,T1> from,
-                                     pointer_image<3,T2> to,
-                                      U trans)
+__global__ void resample_cuda_kernel(T1 from,T2 to,U trans)
 {
     size_t stride = blockDim.x*gridDim.x;
     for(size_t index = threadIdx.x + blockIdx.x*blockDim.x;
@@ -27,8 +25,10 @@ __global__ void resample_cuda_kernel(const_pointer_image<3,T1> from,
 template<tipl::interpolation itype = linear,typename T,typename T2,typename U>
 inline void resample_cuda(const T& from,T2& to,const U& trans,bool sync = true)
 {
-    resample_cuda_kernel<itype,typename T::value_type,typename T2::value_type>
-            <<<std::min<int>((to.size()+255)/256,256),256>>>(from,to,trans);
+    resample_cuda_kernel<itype>
+            <<<std::min<int>((to.size()+255)/256,256),256>>>(
+                tipl::make_shared(from),
+                tipl::make_shared(to),trans);
     if(sync)
         cudaDeviceSynchronize();
 }
