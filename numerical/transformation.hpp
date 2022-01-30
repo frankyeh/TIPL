@@ -535,7 +535,7 @@ public:
             value_type scaling[2];
             value_type affine;
         };
-        value_type data[6];
+        value_type data[total_size];
     };
 public:
     __INLINE__ affine_transform_2d(void)
@@ -544,21 +544,28 @@ public:
     }
     __INLINE__ affine_transform_2d(const value_type* data_)
     {
-        std::copy(data_,data_+total_size,data);
+        for(unsigned int i = 0;i < total_size;++i)
+            data[i] = data_[i];
     }
     template<typename rhs_type>
     __INLINE__ affine_transform_2d(const rhs_type& rhs){operator=(rhs);}
     template<typename rhs_type>
     __INLINE__ affine_transform_2d& operator=(const rhs_type& rhs)
     {
-        std::copy(rhs.begin(),rhs.end(),data);
+        size_t i = 0;
+        for(const auto& v : rhs)
+            data[i++] = v;
         return *this;
     }
 public:
     __INLINE__ void clear(void)
     {
-        std::fill(data,data+total_size,0);
-        std::fill(scaling,scaling+dimension,1);
+        translocation[0] = 0;
+        translocation[1] = 0;
+        rotation = 0;
+        scaling[0] = 1;
+        scaling[1] = 1;
+        affine = 0;
     }
     __INLINE__ value_type operator[](unsigned int i) const{return data[i];}
     __INLINE__ value_type& operator[](unsigned int i) {return data[i];}
@@ -604,30 +611,56 @@ public:
             value_type scaling[3];
             value_type affine[3];
         };
-        value_type data[12];
+        value_type data[total_size];
     };
 public:
     __INLINE__ affine_transform(void)
     {
         clear();
     }
+    __INLINE__ affine_transform(std::initializer_list<value_type> rhs)
+    {
+        size_t i = 0;
+        for(const auto& v : rhs)
+            data[i++] = v;
+    }
     __INLINE__ affine_transform(const value_type* data_)
     {
-        std::copy(data_,data_+total_size,data);
+        for(unsigned int i = 0;i < total_size;++i)
+            data[i] = data_[i];
     }
     template<typename rhs_type>
     __INLINE__ affine_transform(const rhs_type& rhs){operator=(rhs);}
     template<typename rhs_type>
     __INLINE__ affine_transform& operator=(const rhs_type& rhs)
     {
-        std::copy(rhs.begin(),rhs.end(),data);
+        size_t i = 0;
+        for(const auto& v : rhs)
+            data[i++] = v;
+        return *this;
+    }
+    affine_transform& operator=(std::initializer_list<value_type> rhs)
+    {
+        size_t i = 0;
+        for(const auto& v : rhs)
+            data[i++] = v;
         return *this;
     }
 public:
     __INLINE__ void clear(void)
     {
-        std::fill(data,data+total_size,0);
-        std::fill(scaling,scaling+dimension,1);
+        translocation[0] = 0;
+        translocation[1] = 0;
+        translocation[2] = 0;
+        rotation[0] = 0;
+        rotation[1] = 0;
+        rotation[2] = 0;
+        scaling[0] = 1;
+        scaling[1] = 1;
+        scaling[2] = 1;
+        affine[0] = 0;
+        affine[1] = 0;
+        affine[2] = 0;
     }
     __INLINE__ value_type operator[](unsigned int i) const{return data[i];}
     __INLINE__ value_type& operator[](unsigned int i) {return data[i];}
@@ -680,7 +713,12 @@ public:
 public:
     __INLINE__ transformation_matrix_2d(void)
     {
-        std::fill((value_type*)data,(value_type*)data+total_size,0);
+        data[0] = 0;
+        data[1] = 0;
+        data[2] = 0;
+        data[3] = 0;
+        data[4] = 0;
+        data[5] = 0;
     }
 
     // (Affine*Scaling*R1*R2*R3*vs*Translocation*shift_center)*from = (vs*shift_center)*to;
@@ -729,7 +767,8 @@ public:
     template<typename other_value_type>
     __INLINE__ const transformation_matrix_2d<value_type>& operator=(const transformation_matrix_2d<other_value_type>& rhs)
     {
-        std::copy(rhs.data,rhs.data+total_size,data);
+        for(unsigned int i = 0;i < total_size;++i)
+            data[i] = rhs.data[i];
         return *this;
     }
     __DEVICE_HOST__ void operator*=(const transformation_matrix_2d& rhs)
@@ -754,7 +793,8 @@ public:
         vector_rotation(shift,new_shift,iT.begin(),tipl::vdim<2>());
         for(unsigned int d = 0;d < 2;++d)
             shift[d] = -new_shift[d];
-        std::copy(iT.begin(),iT.end(),sr);
+        for(unsigned int i = 0;i < 4;++i)
+            sr[i] = iT[i];
         return true;
     }
 
@@ -826,7 +866,8 @@ public:
 public:
     __INLINE__ transformation_matrix(void)
     {
-        std::fill(data,data+total_size,0);
+        for(unsigned int i = 0;i < total_size;++i)
+            data[i] = 0;
     }
     template<typename rhs_value_type>
     __INLINE__ transformation_matrix(const rhs_value_type& M){operator=(M);}
@@ -944,7 +985,8 @@ public:
     template<typename rhs_value_type>
     __INLINE__ transformation_matrix& operator=(const transformation_matrix<rhs_value_type>& M)
     {
-        std::copy(M.begin(),M.begin()+total_size,data);
+        for(unsigned int i = 0;i < total_size;++i)
+            data[i] = M.data[i];
         return *this;
     }
     template<typename rhs_value_type>
@@ -982,9 +1024,18 @@ public:
     template<typename InputIterType>
     __DEVICE_HOST__  void save_to_transform(InputIterType M)
     {
-        std::copy(data,data+3,M);
-        std::copy(data+3,data+6,M+4);
-        std::copy(data+6,data+9,M+8);
+        M[0] = data[0];
+        M[1] = data[1];
+        M[2] = data[2];
+
+        M[4] = data[3];
+        M[5] = data[4];
+        M[6] = data[5];
+
+        M[8] = data[6];
+        M[9] = data[7];
+        M[10] = data[8];
+
         M[3] = data[9];
         M[7] = data[10];
         M[11] = data[11];
@@ -999,7 +1050,8 @@ public:
         vector_rotation(shift,new_shift,iT.begin(),vdim<3>());
         for(unsigned int d = 0;d < 3;++d)
             shift[d] = -new_shift[d];
-        std::copy(iT.begin(),iT.end(),sr);
+        for(unsigned int d = 0;d < 9;++d)
+            sr[d] = iT[d];
         return true;
     }
 
@@ -1032,7 +1084,8 @@ public:
     __INLINE__ from_space(const tipl::matrix<4,4,float>& space_):tipl::matrix<4,4,float>(),origin(space_){}
     __INLINE__ from_space& to(const tipl::matrix<4,4,float>& target)
     {
-        std::copy(target.begin(),target.end(),tipl::matrix<4,4,float>::begin());
+        for(unsigned int i = 0;i < 16;++i)
+            (*this)[i] = target[i];
         tipl::matrix<4,4,float>::inv();
         (*this) *= origin;
         return *this;
