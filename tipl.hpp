@@ -89,6 +89,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cuda/numerical.hpp"
 #include "cuda/resampling.hpp"
 #include "cuda/linear.hpp"
+#include "cuda/cdm.hpp"
 
 #endif
 
