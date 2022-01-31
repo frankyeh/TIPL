@@ -34,7 +34,7 @@ class device_vector{
         device_vector(size_t new_size,bool init = true)                {resize(new_size,init);}
         device_vector(device_vector&& rhs)noexcept                     {swap(rhs);}
         device_vector(void){}
-        template<typename iter_type,typename std::enable_if<std::is_same<value_type,std::iterator_traits<iter_type>::value_type>::value,bool>::type = true>
+        template<typename iter_type,typename std::enable_if<std::is_same<value_type,typename std::iterator_traits<iter_type>::value_type>::value,bool>::type = true>
         device_vector(iter_type from,iter_type to)
         {
             resize(to-from,false);
@@ -197,7 +197,7 @@ class host_vector{
         size_t s = 0;
     private:
         template<typename iter_type,typename std::enable_if<
-                     std::is_same<value_type,std::iterator_traits<iter_type>::value_type>::value,bool>::type = true>
+                     std::is_same<value_type, typename std::iterator_traits<iter_type>::value_type>::value,bool>::type = true>
         void copy_from(iter_type from,iter_type to)
         {
             resize(to-from,false);
@@ -213,7 +213,7 @@ class host_vector{
         }
     public:
         template<typename T,typename std::enable_if<std::is_class<T>::value &&
-                                                    std::is_same<T::value_type,value_type>::value,bool>::type = true>
+                                                    std::is_same<typename T::value_type,value_type>::value,bool>::type = true>
         host_vector(const T& rhs)                                    {copy_from(rhs.begin(),rhs.end());}
         host_vector(size_t new_size,bool init = true)                {resize(new_size,init);}
         host_vector(host_vector&& rhs)noexcept                       {swap(rhs);}
