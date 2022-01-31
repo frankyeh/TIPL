@@ -7,8 +7,9 @@ configure_file (tipl.pc.in tipl.pc @ONLY)
 install (FILES ${CMAKE_CURRENT_BINARY_DIR}/tipl.pc DESTINATION share/pkgconfig)
 
 # INSTALL header files
+install (FILES def.hpp mt.hpp DESTINATION include/ )
 install (FILES tipl.hpp DESTINATION include/TIPL)
-foreach(dir "filter" "io" "ml" "morphology" "numerical" "reg" "segmentation" "utility" "vis") 
+foreach(dir "cuda" "filter" "io" "ml" "morphology" "numerical" "reg" "segmentation" "utility" "vis") 
  file (GLOB_RECURSE headers ${dir}/*.hpp)
  install (FILES ${headers} DESTINATION include/${dir}/)
 endforeach()
@@ -29,7 +30,7 @@ endif()
 # we should switch off GNU targets, but for now let us
 # Leave them on for 'anonymous-structs`
 set_target_properties(tipl PROPERTIES 
-                      CXX_STANDARD `14)
+                      CXX_STANDARD 17)
 
 
 
