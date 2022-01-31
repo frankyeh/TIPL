@@ -485,6 +485,8 @@ void cdm_solve_poisson(tipl::image<3,dis_type>& new_d,terminated_type& terminate
         tipl::image<3,dis_type> new_solve_d(new_d.shape());
         tipl::par_for(solve_d.size(),[&](int pos)
         {
+            // boundary checking (p > 0 && p < width) is critical for
+            // getting correct results from low resolution
             auto v = new_solve_d[pos];
             {
                 int p1 = pos-1;
