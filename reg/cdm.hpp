@@ -540,37 +540,30 @@ void cdm_accumulate_dis(dist_type& d,dist_type& new_d,value_type& theta,float sp
 template<typename dist_type>
 void cdm_constraint(dist_type& d,float constraint_length)
 {
-    unsigned int shift[dist_type::dimension];
-    shift[0] = 1;
-    for(int i = 1;i < dist_type::dimension;++i)
-        shift[i] = d.shape()[i-1]*shift[i-1];
-
-    tipl::par_for(dist_type::dimension,[&](unsigned char dim)
+    size_t shift[dist_type::dimension] = {1,d.width(),d.plane_size()};
+    dist_type dd(d.shape());
+    tipl::par_for(d.size(),[&](size_t cur_index)
     {
-        auto cur_shift = shift[dim];
-        auto cur_width = d.shape()[dim];
-        for(pixel_index<3> pos(d.shape());pos < d.shape().size();++pos)
+        for(unsigned char dim = 0;dim < 3;++dim)
         {
-            if(pos[dim] + 1 >= int(cur_width))
-                continue;
-            size_t cur_index = pos.index();
-            size_t cur_index_with_shift = cur_index + cur_shift;
-            auto& v1 = d[cur_index][dim];
-            auto& v2 = d[cur_index_with_shift][dim];
-            auto dis = v2 - v1;
+            size_t cur_index_with_shift = cur_index + shift[dim];
+            if(cur_index_with_shift >= d.size())
+                break;
+            float dis = d[cur_index_with_shift][dim] - d[cur_index][dim];
             if(dis < 0)
-                dis *= 0.5f;
+                dis *= 0.25f;
             else
             {
                 if(dis > constraint_length)
-                    dis = 0.5f*(dis-constraint_length);
+                    dis = 0.25f*(dis-constraint_length);
                 else
                     continue;
             }
-            v1 += dis;
-            v2 -= dis;
+            dd[cur_index][dim] += dis;
+            dd[cur_index_with_shift][dim] -= dis;
         }
     });
+    d += dd;
 }
 
 template<typename image_type,typename dist_type,typename terminate_type>
