@@ -540,7 +540,10 @@ void cdm_accumulate_dis(dist_type& d,dist_type& new_d,value_type& theta,float sp
 template<typename dist_type>
 void cdm_constraint(dist_type& d,float constraint_length)
 {
-    size_t shift[dist_type::dimension] = {1,d.width(),d.plane_size()};
+    size_t shift[dist_type::dimension];
+    shift[0] = 1;
+    shift[1] = d.width();
+    shift[2] = d.plane_size();
     dist_type dd(d.shape());
     tipl::par_for(d.size(),[&](size_t cur_index)
     {
