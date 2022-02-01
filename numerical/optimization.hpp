@@ -197,6 +197,7 @@ void quasi_newtons_minimize(
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
     typedef typename function_type::value_type value_type;
+    const int line_search_count = 10;
     unsigned int size = x_end-x_beg;
     std::vector<param_type> tols(size);
     double tol_length = calculate_resolution(tols,x_upper,x_lower,precision);
@@ -209,17 +210,28 @@ void quasi_newtons_minimize(
         hessian(x_beg,x_end,tols.begin(),fun_x,fun_x_ei.begin(),h.begin(),fun);
 
         std::vector<unsigned int> pivot(size);
-        if(!tipl::mat::lu_decomposition(h.begin(),pivot.begin(),tipl::shape<2>(size,size)))
+        if(!tipl::mat::lu_decomposition(h.begin(),pivot.begin(),tipl::shape<2>(size,size)) ||
+           !tipl::mat::lu_solve(h.begin(),pivot.begin(),g.begin(),p.begin(),tipl::shape<2>(size,size)))
             return;
-        if(!tipl::mat::lu_solve(h.begin(),pivot.begin(),g.begin(),p.begin(),tipl::shape<2>(size,size)))
+
+        float L = -0.005f;
+        std::vector<param_type> best_x;
+        for(int i = 0;i < line_search_count;++i,L *= 2.0f)
+        {
+            std::vector<param_type> new_x(x_beg,x_end);
+            tipl::vec::aypx(p.begin(),p.end(),L,new_x.begin());
+            for(size_t i = 0;i < new_x.size();++i)
+                new_x[i] = std::min<param_type>(x_upper[i],std::max<param_type>(x_lower[i],new_x[i]));
+            auto cost = fun(new_x);
+            if(cost < fun_x)
+            {
+                best_x.swap(new_x);
+                fun_x = cost;
+            }
+        }
+        if(best_x.empty())
             return;
-        std::vector<param_type> new_x(x_beg,x_end);
-        tipl::vec::aypx(p.begin(),p.end(),-0.25,new_x.begin());
-        typename function_type::value_type new_fun_x = fun(new_x);
-        if(new_fun_x > fun_x)
-            return;
-        std::copy(new_x.begin(),new_x.end(),x_beg);
-        fun_x = new_fun_x;
+        std::copy(best_x.begin(),best_x.end(),x_beg);
         if(tipl::vec::norm2(p.begin(),p.end()) < tol_length)
             return;
     }
