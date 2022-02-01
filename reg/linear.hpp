@@ -232,21 +232,22 @@ float linear(const image_type1& from,const vs_type1& from_vs,
              teminated_class& terminated,
              double precision = 0.01,bool line_search = true,const float* bound = reg_bound)
 {
-    transform_type upper,lower;
-    tipl::reg::get_bound(from,to,arg_min,upper,lower,base_type,bound);
     reg_type reg_list[4] = {translocation,rigid_body,rigid_scaling,affine};
     auto fun = make_functor<CostFunctionType>(from,from_vs,to,to_vs);
     auto optimal_value = fun(arg_min);
     for(int type = 0;type < 4 && reg_list[type] <= base_type && !terminated;++type)
     {
-        tipl::reg::get_bound(from,to,arg_min,upper,lower,reg_list[type],bound);
+        if(!line_search && reg_list[type] != base_type)
+            continue;
+        transform_type upper,lower;
+        tipl::reg::get_bound(from,to,transform_type(),upper,lower,reg_list[type],bound);
         if(line_search)
             tipl::optimization::line_search(arg_min.begin(),arg_min.end(),
                                              upper.begin(),lower.begin(),fun,optimal_value,terminated);
 
         tipl::optimization::quasi_newtons_minimize(arg_min.begin(),arg_min.end(),
-                                                    upper.begin(),lower.begin(),fun,optimal_value,terminated,
-                                                    reg_list[type] == base_type ? precision/8.0f : precision);
+                                                   upper.begin(),lower.begin(),fun,optimal_value,terminated,
+                                                   precision);
     }
     return optimal_value;
 }
