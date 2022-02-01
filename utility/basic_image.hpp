@@ -417,28 +417,32 @@ public:
 public:
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
     __INLINE__ auto operator+=(T value)
-    {return make_operation(size(),[this,value](size_t i){data[i] += value;});}
+    {auto to = end();for(auto from = begin();from != to;++from)*from += value;}
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
     __INLINE__ auto operator-=(T value)
-    {return make_operation(size(),[this,value](size_t i){data[i] -= value;});}
+    {auto to = end();for(auto from = begin();from != to;++from)*from -= value;}
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
     __INLINE__ auto operator*=(T value)
-    {return make_operation(size(),[this,value](size_t i){data[i] *= value;});}
+    {auto to = end();for(auto from = begin();from != to;++from)*from *= value;}
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
     __INLINE__ auto operator/=(T value)
-    {return make_operation(size(),[this,value](size_t i){data[i] /= value;});}
+    {auto to = end();for(auto from = begin();from != to;++from)*from /= value;}
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
     __INLINE__ auto operator+=(const T& rhs)
-    {return make_operation(size(),[this,&rhs](size_t i){data[i] += rhs[i];});}
+    {auto to = end();auto from2 = rhs.begin();
+     for(auto from = begin();from != to;++from,++from2)*from += *from2;}
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
     __INLINE__ auto operator-=(const T& rhs)
-    {return make_operation(size(),[this,&rhs](size_t i){data[i] -= rhs[i];});}
+    {auto to = end();auto from2 = rhs.begin();
+     for(auto from = begin();from != to;++from,++from2)*from -= *from2;}
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
     __INLINE__ auto operator*=(const T& rhs)
-    {return make_operation(size(),[this,&rhs](size_t i){data[i] *= rhs[i];});}
+    {auto to = end();auto from2 = rhs.begin();
+     for(auto from = begin();from != to;++from,++from2)*from *= *from2;}
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
     __INLINE__ auto operator/=(const T& rhs)
-    {return make_operation(size(),[this,&rhs](size_t i){data[i] /= rhs[i];});}
+    {auto to = end();auto from2 = rhs.begin();
+     for(auto from = begin();from != to;++from,++from2)*from /= *from2;}
 public:
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
     __INLINE__ auto operator+(T value) const
