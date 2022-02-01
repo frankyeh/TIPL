@@ -74,9 +74,10 @@ struct rgb
         data[2] = std::max(U(0),std::min(U(255),v[2]));
         return *this;
     }
-    rgb& operator=(uint8_t gray)
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    rgb& operator=(T gray)
     {
-        r = g = b = gray;
+        r = g = b = uint8_t(std::max(T(0),std::min(T(255),gray)));
         return *this;
     }
     rgb& operator=(const rgb& rhs)
