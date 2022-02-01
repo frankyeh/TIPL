@@ -1,13 +1,14 @@
 #ifndef MEM_HPP
 #define MEM_HPP
-#ifdef __CUDACC__
-#include <thrust/device_vector.h>
+#include "../def.hpp"
+#include <iterator>
 #include <type_traits>
 
 
-namespace tipl {
-
-
+#ifdef __CUDACC__
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <thrust/device_vector.h>
 template<typename T>
 __global__ void device_vector_fill(T* buf,size_t size,T v)
 {
@@ -16,6 +17,9 @@ __global__ void device_vector_fill(T* buf,size_t size,T v)
         index < size;index += stride)
             buf[index] = v;
 }
+#endif//__CUDACC__
+
+namespace tipl {
 
 template<typename vtype>
 class device_vector{
@@ -289,5 +293,4 @@ class host_vector{
 
 
 }//namespace tipl
-#endif//__CUDACC__
 #endif//MEM_HPP
