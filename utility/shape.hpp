@@ -68,7 +68,7 @@ public:
     {
         std::fill(dim,dim+dimension,0);
     }
-    __INLINE__ void swap(shape<dimension>& rhs)
+    __INLINE__ void swap(shape<dimension>& rhs) noexcept
     {
         for (int index = 1;index < dimension;++index)
             std::swap(dim[index],rhs.dim[index]);
