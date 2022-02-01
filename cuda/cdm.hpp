@@ -250,64 +250,108 @@ void cdm_constraint_cuda(dist_type& d,float constraint_length,bool sync = true)
     add_cuda(d,dd,sync);
 }
 
-template<typename image_type_,typename dist_type_,typename terminate_type>
-float cdm_cuda(const image_type_& It_,
-            const image_type_& Is_,
-            dist_type_& d_,// displacement field
-            terminate_type& terminated,
-            cdm_param param = cdm_param())
+template<typename image_type,typename dist_type,typename terminate_type>
+float cdm_cuda(const image_type& It,
+               const image_type& Is,
+               dist_type& d,// displacement field
+               terminate_type& terminated,
+               cdm_param param = cdm_param())
 {
-    if(It_.shape() != Is_.shape())
+    if(It.shape() != Is.shape())
         throw "Inconsistent image dimension";
-    auto geo = It_.shape();
-    d_.resize(It_.shape());
+    auto geo = It.shape();
+    d.resize(It.shape());
 
     // multi resolution
-    if (*std::min_element(geo.begin(),geo.end()) > param.min_dimension && param.multi_resolution)
+    if (*std::min_element(geo.begin(),geo.end()) > param.min_dimension)
     {
         //downsampling
-        image_type_ rIs,rIt;
-        downsample_with_padding(It_,rIt);
-        downsample_with_padding(Is_,rIs);
+        image_type rIs,rIt;
+        downsample_with_padding_cuda(It,rIt);
+        downsample_with_padding_cuda(Is,rIs);
         cdm_param param2 = param;
         param2.resolution /= 2.0f;
-        float r = cdm_cuda(rIt,rIs,d_,terminated,param2);
-        d_ *= 2.0f;
-        upsample_with_padding(d_,geo);
+        float r = cdm_cuda(rIt,rIs,d,terminated,param2);
+        multiply_constant_cuda(d,2.0f);
+        upsample_with_padding_cuda(d,geo);
         if(param.resolution > 1.0f)
             return r;
     }
 
+    image_type Js;// transformed I
+    dist_type new_d(d.shape());
+    float theta = 0.0;
+
+    std::deque<float> r,iter;
+    for (unsigned int index = 0;index < param.iterations && !terminated;++index)
     {
-        using image_type = tipl::device_image<3,float>;
-        using dist_type = tipl::device_image<3,tipl::vector<3> >;
-
-        image_type It(It_);
-        image_type Is(Is_);
-        dist_type d(d_);
-
-        image_type Js;// transformed I
-        dist_type new_d(d.shape());
-        float theta = 0.0;
-
-        std::deque<float> r,iter;
-        for (unsigned int index = 0;index < param.iterations && !terminated;++index)
-        {
-            compose_displacement_cuda(Is,d,Js);
-            // dJ(cJ-I)
-            r.push_back(cdm_get_gradient_cuda(Js,It,new_d));
-            iter.push_back(index);
-            if(!cdm_improved(r,iter))
-                break;
-            // solving the poisson equation using Jacobi method
-            cdm_solve_poisson_cuda(new_d,terminated);
-            cdm_accumulate_dis_cuda(d,new_d,theta,param.speed);
-            cdm_constraint_cuda(d,param.constraint);
-
-        }
-        d_ = d;
-        return r.front();
+        compose_displacement_cuda(Is,d,Js);
+        // dJ(cJ-I)
+        r.push_back(cdm_get_gradient_cuda(Js,It,new_d));
+        iter.push_back(index);
+        if(!cdm_improved(r,iter))
+            break;
+        // solving the poisson equation using Jacobi method
+        cdm_solve_poisson_cuda(new_d,terminated);
+        cdm_accumulate_dis_cuda(d,new_d,theta,param.speed);
+        cdm_constraint_cuda(d,param.constraint);
     }
+    return r.front();
+}
+
+template<typename image_type,typename dist_type,typename terminate_type>
+float cdm2_cuda(const image_type& It,const image_type& It2,
+           const image_type& Is,const image_type& Is2,
+           dist_type& d,// displacement field
+           terminate_type& terminated,
+           cdm_param param = cdm_param())
+{
+    if(It.shape() != It2.shape() ||
+       It.shape() != Is.shape() ||
+       It.shape() != Is2.shape())
+        throw "Inconsistent image dimension";
+    auto geo = It.shape();
+    d.resize(It.shape());
+
+    // multi resolution
+    if (*std::min_element(geo.begin(),geo.end()) > param.min_dimension)
+    {
+        //downsampling
+        image_type rIs,rIt;
+        downsample_with_padding_cuda(It,rIt);
+        downsample_with_padding_cuda(Is,rIs);
+        downsample_with_padding_cuda(It2,rIt2);
+        downsample_with_padding_cuda(Is2,rIs2);
+        cdm_param param2 = param;
+        param2.resolution /= 2.0f;
+        float r = cdm2_cuda(rIt,rIt2,rIs,rIs2,d,terminated,param2);
+        multiply_constant_cuda(d,2.0f);
+        upsample_with_padding_cuda(d,geo);
+        if(param.resolution > 1.0f)
+            return r;
+    }
+
+    image_type Js,Js2;// transformed I
+    dist_type new_d(d.shape()),new_d2(d.shape());// new displacements
+    float theta = 0.0;
+
+    std::deque<float> r,iter;
+    for (unsigned int index = 0;index < param.iterations && !terminated;++index)
+    {
+        compose_displacement_cuda(Is,d,Js);
+        compose_displacement_cuda(Is2,d,Js2);
+        // dJ(cJ-I)
+        r.push_back((cdm_get_gradient_cuda(Js,It,new_d)+cdm_get_gradient_cuda(Js2,It2,new_d2))*0.5f);
+        iter.push_back(index);
+        if(!cdm_improved(r,iter))
+            break;
+        add_cuda(new_d,new_d2);
+        // solving the poisson equation using Jacobi method
+        cdm_solve_poisson_cuda(new_d,terminated);
+        cdm_accumulate_dis_cuda(d,new_d,theta,param.speed);
+        cdm_constraint_cuda(d,param.constraint);
+    }
+    return r.front();
 }
 
 }//reg
