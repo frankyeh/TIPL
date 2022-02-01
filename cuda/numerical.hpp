@@ -34,12 +34,19 @@ inline void normalize_upper_lower_cuda(const T& in,U& out,float upper_limit = 25
     thrust::transform(in.begin_thrust(),in.end_thrust(),out.begin_thrust(), (_1 -min_max.first)*upper_limit);
 }
 
-template<typename T>
+template<typename T,
+         typename std::enable_if<std::is_fundamental<typename T::value_type>::value,bool>::type = true>
 inline typename T::value_type sum_cuda(const T& data,typename T::value_type init = 0)
 {
-    return thrust::reduce(data.begin_thrust(),data.end_thrust(),init);
+    return thrust::reduce(thrust::device,data.get(),data.get()+data.size(),init);
 }
 
+template<typename T,
+         typename std::enable_if<std::is_class<typename T::value_type>::value,bool>::type = true>
+inline typename T::value_type sum_cuda(const T& data,typename T::value_type init = typename T::value_type())
+{
+    return thrust::reduce(thrust::device,data.get(),data.get()+data.size(),init);
+}
 
 template<typename T,typename U>
 __global__ void add_cuda_kernel(T I,U I2)
@@ -60,13 +67,11 @@ inline void add_cuda(T& I,const U& I2,bool sync = true)
 
 
 template<typename T,typename U>
-__global__ void add_constant_cuda_kernel(T I,U v,bool sync = true)
+__global__ void add_constant_cuda_kernel(T I,U v)
 {
     size_t stride = blockDim.x*gridDim.x;
     for(size_t index = threadIdx.x + blockIdx.x*blockDim.x;index < I.size();index += stride)
         I[index] += v;
-    if(sync)
-        cudaDeviceSynchronize();
 }
 
 template<typename T,typename U>
@@ -114,6 +119,25 @@ inline void multiply_constant_cuda(const T1& I,T2& out,U v,bool sync = true)
     multiply_constant_cuda_kernel<<<std::min<int>((I.size()+255)/256,256),256>>>
         (tipl::make_shared(I),
          tipl::make_shared(out),v);
+    if(sync)
+        cudaDeviceSynchronize();
+}
+
+template<typename T1,typename U>
+__global__ void multiply_constant_cuda_kernel(T1 I,U v)
+{
+    size_t stride = blockDim.x*gridDim.x;
+    for(size_t index = threadIdx.x + blockIdx.x*blockDim.x;
+        index < I.size();index += stride)
+        I[index] *= v;
+}
+
+
+template<typename T1,typename U>
+inline void multiply_constant_cuda(T1& I,U v,bool sync = true)
+{
+    multiply_constant_cuda_kernel<<<std::min<int>((I.size()+255)/256,256),256>>>
+        (tipl::make_shared(I),v);
     if(sync)
         cudaDeviceSynchronize();
 }
