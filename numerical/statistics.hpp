@@ -151,6 +151,13 @@ __INLINE__ auto sum(input_iterator from,input_iterator to)
     return sum;
 }
 
+template<typename image_type>
+__INLINE__ auto sum(const image_type& I)
+{
+    return sum(I.begin(),I.end());
+}
+
+
 template<typename input_iterator>
 __INLINE__ auto mean(input_iterator from,input_iterator to)
 {
