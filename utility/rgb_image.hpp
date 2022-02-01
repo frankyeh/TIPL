@@ -57,18 +57,26 @@ struct rgb
     {
         return color;
     }
-    template<typename value_type>
-    rgb& operator=(const value_type* v)
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    rgb& operator=(const T* v)
     {
-        data[0] = std::max<short>(0,std::min<short>(255,v[0]));
-        data[1] = std::max<short>(0,std::min<short>(255,v[1]));
-        data[2] = std::max<short>(0,std::min<short>(255,v[2]));
+        data[0] = std::max(T(0),std::min(T(255),v[0]));
+        data[1] = std::max(T(0),std::min(T(255),v[1]));
+        data[2] = std::max(T(0),std::min(T(255),v[2]));
         return *this;
     }
-    template<typename value_type>
-    rgb& operator=(value_type gray)
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    rgb& operator=(const T& v)
     {
-        r = g = b = uint8_t(gray);
+        using U = typename T::value_type;
+        data[0] = std::max(U(0),std::min(U(255),v[0]));
+        data[1] = std::max(U(0),std::min(U(255),v[1]));
+        data[2] = std::max(U(0),std::min(U(255),v[2]));
+        return *this;
+    }
+    rgb& operator=(uint8_t gray)
+    {
+        r = g = b = gray;
         return *this;
     }
     rgb& operator=(const rgb& rhs)
