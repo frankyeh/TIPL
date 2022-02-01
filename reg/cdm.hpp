@@ -366,7 +366,6 @@ struct cdm_param{
     float constraint = 2.0f;
     unsigned int iterations = 200;
     unsigned int min_dimension = 16;
-    bool multi_resolution = true;
 };
 
 
@@ -582,7 +581,7 @@ float cdm(const image_type& It,
     d.resize(It.shape());
 
     // multi resolution
-    if (*std::min_element(geo.begin(),geo.end()) > param.min_dimension && param.multi_resolution)
+    if (*std::min_element(geo.begin(),geo.end()) > param.min_dimension)
     {
         //downsampling
         image_type rIs,rIt;
