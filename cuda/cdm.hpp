@@ -272,8 +272,8 @@ float cdm_cuda(const image_type_& It_,
         cdm_param param2 = param;
         param2.resolution /= 2.0f;
         float r = cdm_cuda(rIt,rIs,d_,terminated,param2);
-        upsample_with_padding(d_,d_,geo);
         d_ *= 2.0f;
+        upsample_with_padding(d_,geo);
         if(param.resolution > 1.0f)
             return r;
     }
