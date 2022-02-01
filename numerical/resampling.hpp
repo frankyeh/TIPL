@@ -225,6 +225,7 @@ struct pixel_average<tipl::rgb>{
 template<typename IteratorType,typename OutputIterator>
 OutputIterator upsampling_x(IteratorType from,IteratorType to,OutputIterator out,int width)
 {
+    using value_type = typename std::iterator_traits<IteratorType>::value_type;
     IteratorType line_iter = to;
     out += (to-from) << 1;
     OutputIterator result = out;
@@ -238,7 +239,7 @@ OutputIterator upsampling_x(IteratorType from,IteratorType to,OutputIterator out
         do{
             --line_iter;
             --out;
-            *out = pixel_average<typename IteratorType::value_type>()(*line_iter,*(line_iter+1));
+            *out = pixel_average<value_type>()(*line_iter,*(line_iter+1));
             *(--out) = *line_iter;
         }
         while(line_iter != to);
