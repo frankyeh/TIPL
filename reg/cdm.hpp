@@ -471,18 +471,18 @@ void cdm_solve_poisson(dis_type& new_d,terminated_type& terminated)
 }
 */
 
-template<typename dis_type,typename terminated_type>
-void cdm_solve_poisson(tipl::image<3,dis_type>& new_d,terminated_type& terminated)
+template<typename T,typename terminated_type>
+void cdm_solve_poisson(T& new_d,terminated_type& terminated)
 {
     float inv_d2 = 0.5f/3.0f;
-    tipl::image<3,dis_type> solve_d(new_d);
+    T solve_d(new_d);
     multiply_constant_mt(solve_d,-inv_d2);
 
     int w = new_d.width();
     int wh = new_d.plane_size();
     for(int iter = 0;iter < 12 && !terminated;++iter)
     {
-        tipl::image<3,dis_type> new_solve_d(new_d.shape());
+        T new_solve_d(new_d.shape());
         tipl::par_for(solve_d.size(),[&](int pos)
         {
             // boundary checking (p > 0 && p < width) is critical for
