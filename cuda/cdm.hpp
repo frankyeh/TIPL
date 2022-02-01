@@ -3,13 +3,68 @@
 
 
 #ifdef __CUDACC__
+#include <functional>
+#include <thrust/transform_reduce.h>
+#include <thrust/functional.h>
 #include "../utility/basic_image.hpp"
 #include "../numerical/interpolation.hpp"
 #include "numerical.hpp"
 
+
 namespace tipl{
 
 namespace reg{
+
+
+
+template<tipl::interpolation itype,typename T1,typename T2,typename T3>
+__global__ void compose_displacement_cuda_kernel(T1 from,T2 dis,T3 to)
+{
+    size_t stride = blockDim.x*gridDim.x;
+    for(size_t index = threadIdx.x + blockIdx.x*blockDim.x;
+        index < to.size();index += stride)
+    {
+        if(dis[index] == typename T2::value_type())
+            to[index] = from[index];
+        else
+        {
+            typename T2::value_type v(tipl::pixel_index<3>(index,to.shape()));
+            v += dis[index];
+            tipl::estimate<itype>(from,v,to[index]);
+        }
+    }
+}
+
+
+template<tipl::interpolation itype = tipl::interpolation::linear,
+         typename T1,typename T2,typename T3>
+inline void compose_displacement_cuda(const T1& from,const T2& dis,T3& to,bool sync = true)
+{
+    to.clear();
+    to.resize(from.shape());
+    compose_displacement_cuda_kernel<itype>
+            <<<std::min<int>((to.size()+255)/256,256),256>>>(
+                tipl::make_shared(from),
+                tipl::make_shared(dis),
+                tipl::make_shared(to));
+    if(sync)
+        cudaDeviceSynchronize();
+}
+
+
+//---------------------------------------------------------------------------
+template<typename T>
+inline void accumulate_displacement_cuda(T& v0,const T& vv,bool sync = true)
+{
+    {
+        T nv;
+        compose_displacement_cuda(v0,vv,nv);
+        v0.swap(nv);
+    }
+    add_cuda(v0,vv,sync);
+}
+
+
 // calculate dJ(cJ-I)
 
 template<typename T1,typename T2,typename T3>
@@ -63,36 +118,6 @@ inline float cdm_get_gradient_cuda(const image_type& Js,const image_type& It,dis
 }
 
 
-template<tipl::interpolation itype,typename T1,typename T2,typename T3>
-__global__ void compose_displacement_cuda_kernel(T1 from,T2 dis,T3 to)
-{
-    size_t stride = blockDim.x*gridDim.x;
-    for(size_t index = threadIdx.x + blockIdx.x*blockDim.x;
-        index < to.size();index += stride)
-    {
-        if(dis[index] == typename T2::value_type())
-            to[index] = from[index];
-        else
-            tipl::estimate<itype>(from,
-               typename T2::value_type(tipl::pixel_index<3>(index,to.shape())) += dis[index],to[index]);
-    }
-}
-
-
-template<tipl::interpolation itype = tipl::interpolation::linear,
-         typename T1,typename T2,typename T3>
-inline void compose_displacement_cuda(const T1& from,const T2& dis,T3& to,bool sync = true)
-{
-    to.resize(from.shape());
-    compose_displacement_cuda_kernel<itype,typename T1::value_type,typename T2::value_type,typename T3::value_type>
-            <<<std::min<int>((to.size()+255)/256,256),256>>>(
-                tipl::make_shared(from),
-                tipl::make_shared(dis),
-                tipl::make_shared(to));
-    if(sync)
-        cudaDeviceSynchronize();
-}
-
 template<typename T>
 __global__ void cdm_solve_poisson_cuda_kernel2(T new_d,T solve_d,T new_solve_d)
 {
@@ -138,7 +163,7 @@ template<typename T,typename terminated_type>
 inline void cdm_solve_poisson_cuda(T& new_d,terminated_type& terminated)
 {
     T solve_d(new_d.shape()),new_solve_d(new_d.shape());
-    multiply_constant_cuda(new_d,solve_d,-0.5f/3.0f);
+    multiply_constant_cuda(new_d,solve_d,float(-0.5f/3.0f),true);
 
     size_t grid_dim = std::min<int>((new_d.size()+255)/256,256);
     for(int iter = 0;iter < 12 && !terminated;++iter)
@@ -153,6 +178,137 @@ inline void cdm_solve_poisson_cuda(T& new_d,terminated_type& terminated)
     new_d.swap(solve_d);
 }
 
+
+struct cdm_accumulate_dis_vector_length
+{
+    template<typename T>
+    __INLINE__ float operator()(const T &v) const
+    {
+        return v.length();
+    }
+};
+
+template<typename dist_type,typename value_type>
+void cdm_accumulate_dis_cuda(dist_type& d,dist_type& new_d,value_type& theta,float speed)
+{
+    if(theta == 0.0f)
+    {
+        theta = thrust::transform_reduce(thrust::device,
+                    new_d.get(),
+                    new_d.get()+d.size(),
+                    cdm_accumulate_dis_vector_length(),
+                        0.0f,thrust::maximum<float>());
+    }
+    if(theta == 0.0)
+        return;
+    multiply_constant_cuda(new_d,speed/theta);
+    accumulate_displacement_cuda(d,new_d);
+}
+
+
+template<typename T>
+__global__ void cdm_constraint_cuda_kernel(T d,T dd,float constraint_length)
+{
+    size_t shift[T::dimension];
+    shift[0] = 1;
+    shift[1] = d.width();
+    shift[2] = d.plane_size();
+    size_t stride = blockDim.x*gridDim.x;
+    for(size_t index = threadIdx.x + blockIdx.x*blockDim.x;
+        index < d.size();index += stride)
+    {
+        for(unsigned int dim = 0;dim < 3;++dim)
+        {
+            size_t index_with_shift = index + shift[dim];
+            if(index_with_shift >= d.size())
+                break;
+            float dis = d[index_with_shift][dim] - d[index][dim];
+            if(dis < 0)
+                dis *= 0.25f;
+            else
+            {
+                if(dis > constraint_length)
+                    dis = 0.25f*(dis-constraint_length);
+                else
+                    continue;
+            }
+            atomicAdd(&dd[index][dim],dis);
+            atomicAdd(&dd[index_with_shift][dim],-dis);
+        }
+    }
+}
+
+template<typename dist_type>
+void cdm_constraint_cuda(dist_type& d,float constraint_length,bool sync = true)
+{
+    dist_type dd(d.shape());
+    cdm_constraint_cuda_kernel<<<std::min<int>((d.size()+255)/256,256),256>>>(
+                    tipl::make_shared(d),
+                    tipl::make_shared(dd),
+                    constraint_length);
+    cudaDeviceSynchronize();
+    add_cuda(d,dd,sync);
+}
+
+template<typename image_type_,typename dist_type_,typename terminate_type>
+float cdm_cuda(const image_type_& It_,
+            const image_type_& Is_,
+            dist_type_& d_,// displacement field
+            terminate_type& terminated,
+            cdm_param param = cdm_param())
+{
+    if(It_.shape() != Is_.shape())
+        throw "Inconsistent image dimension";
+    auto geo = It_.shape();
+    d_.resize(It_.shape());
+
+    // multi resolution
+    if (*std::min_element(geo.begin(),geo.end()) > param.min_dimension && param.multi_resolution)
+    {
+        //downsampling
+        image_type_ rIs,rIt;
+        downsample_with_padding(It_,rIt);
+        downsample_with_padding(Is_,rIs);
+        cdm_param param2 = param;
+        param2.resolution /= 2.0f;
+        float r = cdm_cuda(rIt,rIs,d_,terminated,param2);
+        upsample_with_padding(d_,d_,geo);
+        d_ *= 2.0f;
+        if(param.resolution > 1.0f)
+            return r;
+    }
+
+    {
+        using image_type = tipl::device_image<3,float>;
+        using dist_type = tipl::device_image<3,tipl::vector<3> >;
+
+        image_type It(It_);
+        image_type Is(Is_);
+        dist_type d(d_);
+
+        image_type Js;// transformed I
+        dist_type new_d(d.shape());
+        float theta = 0.0;
+
+        std::deque<float> r,iter;
+        for (unsigned int index = 0;index < param.iterations && !terminated;++index)
+        {
+            compose_displacement_cuda(Is,d,Js);
+            // dJ(cJ-I)
+            r.push_back(cdm_get_gradient_cuda(Js,It,new_d));
+            iter.push_back(index);
+            if(!cdm_improved(r,iter))
+                break;
+            // solving the poisson equation using Jacobi method
+            cdm_solve_poisson_cuda(new_d,terminated);
+            cdm_accumulate_dis_cuda(d,new_d,theta,param.speed);
+            cdm_constraint_cuda(d,param.constraint);
+
+        }
+        d_ = d;
+        return r.front();
+    }
+}
 
 }//reg
 }//tipl
