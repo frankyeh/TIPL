@@ -11,8 +11,15 @@
 
 namespace tipl
 {
-//---------------------------------------------------------------------------
-namespace interpolator{
+template<typename value_type>   struct sum_type{using type = value_type;};
+template<> struct sum_type<char>            {using type = int16_t;};
+template<> struct sum_type<unsigned char>   {using type = uint16_t;};
+template<> struct sum_type<short>           {using type = int32_t;};
+template<> struct sum_type<unsigned short>  {using type = uint32_t;};
+template<> struct sum_type<int>             {using type = int64_t;};
+template<> struct sum_type<unsigned int>    {using type = uint64_t;};
+template<> struct sum_type<rgb>             {using type = vector<3,uint16_t>;};
+
 template<typename value_type>
 struct interpo_type{
     using type = float;
@@ -40,11 +47,15 @@ struct interpo_type<rgb>{
 template<int dim,typename vtype>
 struct interpo_type<tipl::vector<dim,vtype> >{
     using type = tipl::vector<dim,float>;
-    __INLINE__ static void assign(tipl::vector<dim,vtype>& result,const tipl::vector<dim,float>& v)
+    __INLINE__ static void assign(tipl::vector<dim,vtype>& result,const type& v)
     {
         result = v;
     }
 };
+
+//---------------------------------------------------------------------------
+namespace interpolator{
+
 
 
 template<typename image_type,typename data_iterator_type,typename weighting_iterator,typename output_type>
