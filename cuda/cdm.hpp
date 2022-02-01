@@ -317,7 +317,7 @@ float cdm2_cuda(const image_type& It,const image_type& It2,
     if (*std::min_element(geo.begin(),geo.end()) > param.min_dimension)
     {
         //downsampling
-        image_type rIs,rIt;
+        image_type rIs,rIt,rIs2,rIt2;
         downsample_with_padding_cuda(It,rIt);
         downsample_with_padding_cuda(Is,rIs);
         downsample_with_padding_cuda(It2,rIt2);
