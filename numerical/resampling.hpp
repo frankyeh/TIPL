@@ -522,26 +522,6 @@ OutputIterator downsampling_x(IteratorType from,IteratorType to,OutputIterator o
 }
 
 template<typename IteratorType,typename OutputIterator>
-OutputIterator downsampling_x_with_padding(IteratorType from,IteratorType to,OutputIterator out,int width)
-{
-    typedef typename std::iterator_traits<IteratorType>::value_type value_type;
-    downsampling_facade<value_type> average;
-    int half_width = width >> 1;
-    for(;from != to;from += width)
-    {
-        IteratorType read_end = from + (half_width << 1);
-        for(IteratorType read = from;read != read_end;++out,read += 2)
-            *out = average((*read),*(read+1));
-        if(width & 1) // the padding x dimension by 1
-        {
-            *out = *read_end;
-            ++out;
-        }
-    }
-    return out;
-}
-
-template<typename IteratorType,typename OutputIterator>
 OutputIterator downsampling_y(IteratorType from,IteratorType to,OutputIterator out,int width,int height)
 {
     typedef typename std::iterator_traits<IteratorType>::value_type value_type;
@@ -557,30 +537,6 @@ OutputIterator downsampling_y(IteratorType from,IteratorType to,OutputIterator o
         {
             for(IteratorType end_line = line + width;line != end_line;++line,++out)
                 *out = average(*line,line[width]);
-        }
-    }
-    return out;
-}
-template<typename IteratorType,typename OutputIterator>
-OutputIterator downsampling_y_with_padding(IteratorType from,IteratorType to,OutputIterator out,int width,int height)
-{
-    typedef typename std::iterator_traits<IteratorType>::value_type value_type;
-    downsampling_facade<value_type> average;
-    int half_height = height >> 1;
-    int plane_size = width*height;
-    int plane_size2 = (half_height << 1 )*width;
-    for(;from != to;from += plane_size)
-    {
-        IteratorType line_end = from+plane_size2;
-        for(IteratorType line = from;line != line_end;line += width)
-        {
-            for(IteratorType end_line = line + width;line != end_line;++line,++out)
-                *out = average(*line,line[width]);
-        }
-        if(height & 1) // padding y dimension by 1
-        {
-            for(IteratorType plane_end = line_end + width;line_end != plane_end;++line_end,++out)
-                *out = *line_end;
         }
     }
     return out;
@@ -615,23 +571,83 @@ void downsampling(const ImageType1& in,ImageType2& out)
     out.resize(new_geo);
 }
 
-template<typename ImageType1,typename ImageType2>
+
+template<typename ImageType1,typename ImageType2,
+         typename std::enable_if<ImageType1::dimension==2,bool>::type = true>
 void downsample_with_padding(const ImageType1& in,ImageType2& out)
 {
-    out.resize(in.shape());
-    shape<ImageType1::dimension> new_geo(in.shape());
-    typename ImageType2::iterator end_iter = downsampling_x_with_padding(in.begin(),in.end(),out.begin(),in.width());
-    new_geo[0] = ((new_geo[0]+1) >> 1);
-    unsigned int plane_size = new_geo[0];
-    for(int dim = 1;dim < ImageType1::dimension;++dim)
+    using value_type = typename ImageType1::value_type;
+    out.resize(shape<2>((in.width()+1)/2,(in.height()+1)/2));
+    size_t shift[4];
+    shift[0] = 0;
+    shift[1] = 1;
+    shift[2] = in.width();
+    shift[3] = 1+in.width();
+
+    par_for(tipl::begin_index(out.shape()),tipl::end_index(out.shape()),[&]
+            (const pixel_index<2>& pos1)
     {
-        end_iter = downsampling_y_with_padding(out.begin(),end_iter,out.begin(),plane_size,in.shape()[dim]);
-        new_geo[dim] = ((in.shape()[dim]+1) >> 1);
-        plane_size *= new_geo[dim];
-    }
-    out.resize(new_geo);
+        pixel_index<2> pos2(pos1[0]<<1,pos1[1]<<1,in.shape());
+        char has = 0;
+        if(pos2[0]+1 < in.width())
+            has += 1;
+        if(pos2[1]+1 < in.height())
+            has += 2;
+        value_type buf[4];
+        typename sum_type<value_type>::type out_value = buf[0] = in[pos2.index()];
+        for(int i = 1 ;i < 4;++i)
+        {
+            auto h = has & i;
+            out_value += (buf[i] = ((h == i) ? in[pos2.index()+shift[i]] : buf[h]));
+        }
+        if constexpr(std::is_integral<decltype(out_value)>::value)
+            out[pos1.index()] = out_value >> 2;
+        else
+            out[pos1.index()] = out_value/4;
+    });
 }
 
+
+template<typename ImageType1,typename ImageType2,
+         typename std::enable_if<ImageType1::dimension==3,bool>::type = true>
+void downsample_with_padding(const ImageType1& in,ImageType2& out)
+{
+    using value_type = typename ImageType1::value_type;
+    out.resize(shape<3>((in.width()+1)/2,(in.height()+1)/2,(in.depth()+1)/2));
+    size_t shift[8];
+    shift[0] = 0;
+    shift[1] = 1;
+    shift[2] = in.width();
+    shift[3] = 1+in.width();
+    shift[4] = in.plane_size();
+    shift[5] = in.plane_size()+1;
+    shift[6] = in.plane_size()+in.width();
+    shift[7] = in.plane_size()+1+in.width();
+
+    par_for(tipl::begin_index(out.shape()),tipl::end_index(out.shape()),[&]
+            (const pixel_index<3>& pos1)
+    {
+        pixel_index<3> pos2(pos1[0]<<1,pos1[1]<<1,pos1[2]<<1,in.shape());
+        char has = 0;
+        if(pos2[0]+1 < in.width())
+            has += 1;
+        if(pos2[1]+1 < in.height())
+            has += 2;
+        if(pos2[2]+1 < in.depth())
+            has += 4;
+        value_type buf[8];
+        typename sum_type<value_type>::type out_value = buf[0] = in[pos2.index()];
+        for(int i = 1 ;i < 8;++i)
+        {
+            auto h = has & i;
+            out_value += (buf[i] = ((h == i) ? in[pos2.index()+shift[i]] : buf[h]));
+        }
+        if constexpr(std::is_integral<decltype(out_value)>::value)
+            out[pos1.index()] = out_value >> 3;
+        else
+            out[pos1.index()] = out_value/8;
+    });
+}
 
 template<typename ImageType>
 void downsampling(ImageType& in)
@@ -704,13 +720,24 @@ void downsample_no_average(const ImageType1& in,ImageType2& out)
     }
     out.resize(new_geo);
 }
-template<typename image_type1,typename image_type2,typename geo_type>
-void upsample_with_padding(const image_type1& I,image_type2& uI,const geo_type& geo)
+template<typename image_type>
+void upsample_with_padding(const image_type& in,image_type& out)
 {
-    image<image_type1::dimension,typename image_type1::value_type> new_I;
-    tipl::upsampling(I,new_I);
-    uI.resize(geo);
-    tipl::draw(new_I,uI,pixel_index<image_type1::dimension>(I.shape()));
+    par_for(begin_index(out.shape()),end_index(out.shape()),[&]
+            (const pixel_index<3>& pos)
+    {
+        vector<3> v(pos);
+        v *= 0.5f;
+        estimate(in,v,out[pos.index()]);
+    });
+}
+
+template<typename image_type>
+void upsample_with_padding(image_type& in,const shape<image_type::dimension>& geo)
+{
+    image_type new_d(geo);
+    upsample_with_padding(in,new_d);
+    new_d.swap(in);
 }
 
 
