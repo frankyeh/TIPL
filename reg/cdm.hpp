@@ -591,8 +591,8 @@ float cdm(const image_type& It,
         cdm_param param2 = param;
         param2.resolution /= 2.0f;
         float r = cdm(rIt,rIs,d,terminated,param2);
-        upsample_with_padding(d,d,geo);
         d *= 2.0f;
+        upsample_with_padding(d,geo);
         if(param.resolution > 1.0f)
             return r;
     }
@@ -643,8 +643,8 @@ float cdm2(const image_type& It,const image_type& It2,
         cdm_param param2 = param;
         param2.resolution /= 2.0f;
         float r = cdm2(rIt,rIt2,rIs,rIs2,d,terminated,param2);
-        upsample_with_padding(d,d,geo);
         d *= 2.0f;
+        upsample_with_padding(d,geo);
         if(param.resolution > 1.0f)
             return r;
     }
