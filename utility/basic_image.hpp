@@ -208,8 +208,8 @@ public:
         return *this;
     }
 public:
-    __INLINE__ typename auto& vector(void){return alloc;}
-    __INLINE__ typename const auto& vector(void)const{return alloc;}
+    __INLINE__ storage_type& vector(void){return alloc;}
+    __INLINE__ const storage_type& vector(void)const{return alloc;}
     __INLINE__ typename storage_type::iterator get(void){return alloc.get();}
     __INLINE__ typename storage_type::const_iterator get(void)const{return alloc.get();}
     __INLINE__ void swap(image& rhs)
