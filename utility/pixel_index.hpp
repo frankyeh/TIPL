@@ -9,6 +9,20 @@
 
 namespace tipl
 {
+
+template<typename ptr_type,typename stype,
+         typename std::enable_if<stype::dimension==3,bool>::type = true>
+__INLINE__ size_t voxel2index(const ptr_type* offset,const stype& geo)
+{
+    return (size_t(offset[2])*size_t(geo.height()) + size_t(offset[1]))*size_t(geo.width())+size_t(offset[0]);
+}
+template<typename vtype,typename stype,
+         typename std::enable_if<stype::dimension==3,bool>::type = true>
+__INLINE__ size_t voxel2index(vtype x,vtype y,vtype z,const stype& geo)
+{
+    return (size_t(z)*size_t(geo.height()) + size_t(y))*size_t(geo.width())+size_t(x);
+}
+
 template<unsigned int dim>
 class pixel_index;
 
@@ -217,16 +231,6 @@ public:
         z_ = int(index / geo.height());
     }
 public:
-    template<typename ptr_type,typename stype>
-    __INLINE__ static size_t voxel2index(const ptr_type* offset,const stype& geo)
-    {
-        return (size_t(offset[2])*size_t(geo.height()) + size_t(offset[1]))*size_t(geo.width())+size_t(offset[0]);
-    }
-    template<typename vtype,typename stype>
-    __INLINE__ static size_t voxel2index(vtype x,vtype y,vtype z,const stype& geo)
-    {
-        return (size_t(z)*size_t(geo.height()) + size_t(y))*size_t(geo.width())+size_t(x);
-    }
     __INLINE__ const pixel_index<3>& operator=(const pixel_index<3>& rhs)
     {
         x_ = rhs.x_;
@@ -716,107 +720,55 @@ public:
     }
     __INLINE__ size_t size(void) const{return 3;}
 public:
-    template<typename rhs_type>
-    __INLINE__ vector<3,data_type>& operator+=(const rhs_type* rhs)
-    {
-        x_ += rhs[0];
-        y_ += rhs[1];
-        z_ += rhs[2];
-        return *this;
-    }
-    template<typename rhs_type>
-    __INLINE__ vector<3,data_type>& operator-=(const rhs_type* rhs)
-    {
-        x_ -= rhs[0];
-        y_ -= rhs[1];
-        z_ -= rhs[2];
-        return *this;
-    }
-    template<typename rhs_type>
-    __INLINE__ vector<3,data_type>& operator+=(const vector<3,rhs_type>& rhs)
-    {
-        x_ += rhs[0];
-        y_ += rhs[1];
-        z_ += rhs[2];
-        return *this;
-    }
-    template<typename rhs_type>
-    __INLINE__ vector<3,data_type>& operator-=(const vector<3,rhs_type>& rhs)
-    {
-        x_ -= rhs[0];
-        y_ -= rhs[1];
-        z_ -= rhs[2];
-        return *this;
-    }
-    __INLINE__ vector<3,data_type>& operator+=(data_type r)
-    {
-        x_ += r;
-        y_ += r;
-        z_ += r;
-        return *this;
-    }
-    __INLINE__ vector<3,data_type>& operator-=(data_type r)
-    {
-        x_ -= r;
-        y_ -= r;
-        z_ -= r;
-        return *this;
-    }
-    template<typename rhs_type>
-    __INLINE__ vector<3,data_type>& operator*=(rhs_type r)
-    {
-        x_ *= r;
-        y_ *= r;
-        z_ *= r;
-        return *this;
-    }
-    template<typename rhs_type>
-    __INLINE__ vector<3,data_type>& operator/=(rhs_type r)
-    {
-        x_ /= r;
-        y_ /= r;
-        z_ /= r;
-        return *this;
-    }
-    template<typename rhs_type>
-    __INLINE__ vector<3,data_type> operator+(const rhs_type& rhs) const
-    {
-        vector<3,data_type> result(*this);result += rhs;
-        return result;
-    }
-    template<typename rhs_type>
-    __INLINE__ vector<3,data_type> operator-(const rhs_type& rhs) const
-    {
-        vector<3,data_type> result(*this);result -= rhs;
-        return result;
-    }
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    __INLINE__ auto operator+=(const T* rhs)
+    {x_ += rhs[0];y_ += rhs[1];z_ += rhs[2];return *this;}
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    __INLINE__ auto operator-=(const T* rhs)
+    {x_ -= rhs[0];y_ -= rhs[1];z_ -= rhs[2];return *this;}
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    __INLINE__ auto operator+=(const T& rhs)
+    {x_ += rhs[0];y_ += rhs[1];z_ += rhs[2];return *this;}
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    __INLINE__ auto operator-=(const T& rhs)
+    {x_ -= rhs[0];y_ -= rhs[1];z_ -= rhs[2];return *this;}
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    __INLINE__ auto operator+=(T r)
+    {x_ += r;y_ += r;z_ += r;return *this;}
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    __INLINE__ auto operator-=(T r)
+    {x_ -= r;y_ -= r;z_ -= r;return *this;}
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    __INLINE__ auto operator*=(T r)
+    {x_ *= r;y_ *= r;z_ *= r;return *this;}
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    __INLINE__ auto operator/=(T r)
+    {x_ /= r;y_ /= r;z_ /= r;return *this;}
 
-    __INLINE__ vector<3,data_type> operator+(data_type rhs) const
-    {
-        vector<3,data_type> result(*this);result += rhs;
-        return result;
-    }
-    __INLINE__ vector<3,data_type> operator-(data_type rhs) const
-    {
-        vector<3,data_type> result(*this);result -= rhs;
-        return result;
-    }
-    template<typename rhs_type>
-    __INLINE__ vector<3,data_type> operator*(rhs_type rhs) const
-    {
-        vector<3,data_type> result(*this);result *= rhs;
-        return result;
-    }
-    template<typename rhs_type>
-    __INLINE__ vector<3,data_type> operator/(rhs_type rhs) const
-    {
-        vector<3,data_type> result(*this);result /= rhs;
-        return result;
-    }
-    __INLINE__ vector<3,data_type> operator-(void) const
-    {
-        return vector<3,data_type>(-x_,-y_,-z_);
-    }
+
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    __INLINE__ auto operator+(const T& rhs) const
+    {return vector<3,data_type>(*this)+=rhs;}
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    __INLINE__ auto operator-(const T& rhs) const
+    {return vector<3,data_type>(*this)-=rhs;}
+
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    __INLINE__ auto operator+(T rhs) const
+    {return vector<3,data_type>(*this)+=rhs;}
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    __INLINE__ auto operator-(T rhs) const
+    {return vector<3,data_type>(*this)-=rhs;}
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    __INLINE__ auto operator*(T rhs) const
+    {return vector<3,data_type>(*this)*=rhs;}
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    __INLINE__ auto operator/(T rhs) const
+    {return vector<3,data_type>(*this)/=rhs;}
+
+    __INLINE__ auto operator-(void) const
+    {return vector<3,data_type>(-x_,-y_,-z_);}
+
     __INLINE__ vector<3,data_type> cross_product(const vector<3,data_type>& rhs) const
     {
         return vector<3,data_type>(y_*rhs.z_-rhs.y_*z_,z_*rhs.x_-rhs.z_*x_,x_*rhs.y_-rhs.x_*y_);
