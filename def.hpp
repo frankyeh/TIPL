@@ -37,10 +37,12 @@ constexpr bool use_xeus_cling = false;
 #define __DEVICE_HOST__ __device__ __host__
 #define __INLINE__ __forceinline__ __device__ __host__
 #define __DEVICE__ __device__
+#define __HOST__ __host__
 #else
 #define __DEVICE_HOST__
 #define __INLINE__ inline
 #define __DEVICE__
+#define __HOST__
 #endif
 
 #endif//TIPL_DEF
