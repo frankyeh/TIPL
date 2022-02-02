@@ -89,7 +89,8 @@ public:
                                 (tipl::make_shared(from8),
                                  tipl::make_shared(to2from),
                                  tipl::make_shared(mutual_hist));
-
+        if(cudaPeekAtLastError() != cudaSuccess)
+            throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
         cudaDeviceSynchronize();
 
         device_vector<int32_t> to8_hist(his_bandwidth);
