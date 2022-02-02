@@ -25,6 +25,8 @@ inline void cuda_for(T from,T to,Func&& f, bool sync = true,unsigned int thread_
     size_t size = to-from;
     size_t grid_size = (size+thread_count-1)/thread_count;
     cuda_for_kernel<<<(grid_size > thread_count ? thread_count:grid_size),thread_count>>>(size,from,f);
+    if(cudaPeekAtLastError() != cudaSuccess)
+        throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
     if(sync)
         cudaDeviceSynchronize();
 }
