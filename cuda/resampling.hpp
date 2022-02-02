@@ -123,6 +123,8 @@ inline void resample_cuda(const T& from,T2& to,const U& trans,bool sync = true)
             <<<std::min<int>((to.size()+255)/256,256),256>>>(
                 tipl::make_shared(from),
                 tipl::make_shared(to),trans);
+    if(cudaPeekAtLastError() != cudaSuccess)
+        throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
     if(sync)
         cudaDeviceSynchronize();
 }
