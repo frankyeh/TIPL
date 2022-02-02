@@ -869,6 +869,7 @@ public:
         for(unsigned int i = 0;i < total_size;++i)
             data[i] = 0;
     }
+    __INLINE__ ~transformation_matrix(void){}
     template<typename rhs_value_type>
     __INLINE__ transformation_matrix(const rhs_value_type& M){operator=(M);}
     // (Affine*Scaling*R1*R2*R3*vs*Translocation*shift_center)*from = (vs*shift_center)*to;
