@@ -331,7 +331,7 @@ public:
     __INLINE__ pointer_image& operator=(const pointer_image& rhs)
     {
         base_type::alloc = rhs.alloc;
-        base_type::sp = rhs.shape();
+        base_type::sp = rhs.sp;
         return *this;
     }
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
@@ -367,21 +367,19 @@ public:
     __INLINE__ const_pointer_image& operator=(const const_pointer_image& rhs)
     {
         base_type::alloc = rhs.alloc;
-        base_type::sp = rhs.shape();
+        base_type::sp = rhs.sp;
         return *this;
     }
 
 };
 
 
-template<typename T,typename std::enable_if<
-             std::is_convertible<T,pointer_image<T::dimension,typename T::value_type> >::value,bool>::type = true>
+template<typename T>
 __INLINE__ auto make_shared(T& I)
 {
     return pointer_image<T::dimension,typename T::value_type>(I);
 }
-template<typename T,typename std::enable_if<
-             std::is_convertible<T,const_pointer_image<T::dimension,typename T::value_type> >::value,bool>::type = true>
+template<typename T>
 __INLINE__ auto make_shared(const T& I)
 {
     return const_pointer_image<T::dimension,typename T::value_type>(I);
