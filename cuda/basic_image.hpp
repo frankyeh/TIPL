@@ -2,8 +2,6 @@
 #define CUDA_BASIC_IMAGE_HPP
 
 
-#ifdef __CUDACC__
-
 #include "../utility/basic_image.hpp"
 #include "mem.hpp"
 
@@ -16,6 +14,5 @@ using host_image = tipl::image<dim,vtype,host_vector>;
 
 }
 
-#endif//__CUDACC__
 
 #endif//CUDA_BASIC_IMAGE_HPP
