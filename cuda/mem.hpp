@@ -3,7 +3,7 @@
 #include "../def.hpp"
 #include <iterator>
 #include <type_traits>
-
+#include <stdexcept>
 
 #ifdef __CUDACC__
 #include <cuda.h>
@@ -42,7 +42,8 @@ class device_vector{
         device_vector(iter_type from,iter_type to)
         {
             resize(to-from,false);
-            cudaMemcpy(buf, &*from, s*sizeof(value_type),cudaMemcpyHostToDevice);
+            if(cudaMemcpy(buf, &*from, s*sizeof(value_type),cudaMemcpyHostToDevice) != cudaSuccess)
+                throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
         }
         ~device_vector(void)
         {
@@ -66,13 +67,19 @@ class device_vector{
         {
             resize(rhs.size(),false);
             if(s)
-                cudaMemcpy(buf, &rhs[0], s*sizeof(value_type), cudaMemcpyHostToDevice);
+            {
+                if(cudaMemcpy(buf, &rhs[0], s*sizeof(value_type), cudaMemcpyHostToDevice) != cudaSuccess)
+                    throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+            }
         }
         template<typename T>
         void copy_to(T& rhs)
         {
             if(s)
-                cudaMemcpy(&rhs[0], buf, s*sizeof(value_type), cudaMemcpyDeviceToHost);
+            {
+                if(cudaMemcpy(&rhs[0], buf, s*sizeof(value_type), cudaMemcpyDeviceToHost) != cudaSuccess)
+                    throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+            }
         }
         void resize(size_t new_s,bool init = true)
         {
@@ -83,20 +90,27 @@ class device_vector{
                 value_type* new_buf;
                 if(cudaMalloc(&new_buf,sizeof(value_type)*new_s) != cudaSuccess)
                     throw std::bad_alloc();
-                buf_size = new_s;
                 if(s)
                 {
-                    cudaMemcpy(new_buf,buf,s*sizeof(value_type),cudaMemcpyDeviceToDevice);
+                    if(cudaMemcpy(new_buf,buf,s*sizeof(value_type),cudaMemcpyDeviceToDevice) != cudaSuccess)
+                    {
+                        cudaFree(new_buf);
+                        throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+                    }
                     cudaFree(buf);
                 }
                 buf = new_buf;
+                buf_size = new_s;
             }
             if(new_s > s && init)
             {
                 size_t added_s = new_s-s;
                 if constexpr(std::is_integral<value_type>::value ||
                              std::is_pointer<value_type>::value)
-                    cudaMemset(buf+s,0,added_s*sizeof(value_type));
+                {
+                    if(cudaMemset(buf+s,0,added_s*sizeof(value_type)) != cudaSuccess)
+                        throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+                }
                 else
                 {
                     if constexpr(std::is_class<value_type>::value)
@@ -206,14 +220,20 @@ class host_vector{
         {
             resize(to-from,false);
             if(s)
-                cudaMemcpy(buf, &*from, s*sizeof(value_type),cudaMemcpyHostToHost);
+            {
+                if(cudaMemcpy(buf, &*from, s*sizeof(value_type),cudaMemcpyHostToHost) != cudaSuccess)
+                    throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+            }
         }
         void copy_from(const void* from,const void* to)
         {
             size_t size_in_byte = reinterpret_cast<const char*>(to)-reinterpret_cast<const char*>(from);
             resize(size_in_byte/sizeof(value_type),false);
             if(s)
-                cudaMemcpy(buf, from, s*sizeof(value_type),cudaMemcpyDeviceToHost);
+            {
+                if(cudaMemcpy(buf, from, s*sizeof(value_type),cudaMemcpyDeviceToHost) != cudaSuccess)
+                    throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+            }
         }
     public:
         template<typename T,typename std::enable_if<std::is_class<T>::value &&
@@ -251,7 +271,10 @@ class host_vector{
         {
             resize(rhs.size(),false);
             if(s)
-                cudaMemcpy(buf, rhs.begin(), s*sizeof(value_type),cudaMemcpyDeviceToHost);
+            {
+                if(cudaMemcpy(buf, rhs.begin(), s*sizeof(value_type),cudaMemcpyDeviceToHost) != cudaSuccess)
+                    throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+            }
         }
         void resize(size_t new_s, bool init = true)
         {
@@ -262,8 +285,12 @@ class host_vector{
                     throw std::bad_alloc();
                 if(s)
                 {
-                    cudaMemcpy(new_buf, buf, s*sizeof(value_type), cudaMemcpyHostToHost);
-                    cudaFree(buf);
+                    if(cudaMemcpy(new_buf, buf, s*sizeof(value_type), cudaMemcpyHostToHost) != cudaSuccess)
+                    {
+                        cudaFreeHost(new_buf);
+                        throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+                    }
+                    cudaFreeHost(buf);
                 }
                 buf = new_buf;
             }
