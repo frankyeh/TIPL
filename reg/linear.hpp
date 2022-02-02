@@ -80,8 +80,8 @@ public:
         unsigned int thread_count = std::thread::hardware_concurrency();
 
 
-        std::vector<tipl::image<2,double> > mutual_hist(thread_count);
-        std::vector<std::vector<double> > to_hist(thread_count);
+        std::vector<tipl::image<2,float> > mutual_hist(thread_count);
+        std::vector<std::vector<float> > to_hist(thread_count);
         for(int i = 0;i < thread_count;++i)
         {
             mutual_hist[i].resize(tipl::shape<2>(his_bandwidth,his_bandwidth));
@@ -118,14 +118,14 @@ public:
 
         // calculate the cost
         {
-            double sum = 0.0;
-            tipl::shape<2> geo(mutual_hist[0].shape());
+            float sum = 0.0;
+            tipl::shape<2> geo(his_bandwidth,his_bandwidth);
             for (tipl::pixel_index<2> index(geo);index < geo.size();++index)
             {
-                double mu = mutual_hist[0][index.index()];
-                if (mu == 0.0)
+                float mu = mutual_hist[0][index.index()];
+                if (mu == 0.0f)
                     continue;
-                sum += mu*std::log(mu/double(from_hist[index.y()])/to_hist[0][index.x()]);
+                sum += mu*std::log(mu/float(from_hist[index.y()])/to_hist[0][index.x()]);
             }
             return -sum;
         }
