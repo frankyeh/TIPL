@@ -192,6 +192,14 @@ public:
 };
 
 template<typename T>
+__HOST__ auto device_eval(const T* p)
+{
+    T v;
+    cudaMemcpy(&v,p,sizeof(T),cudaMemcpyDeviceToHost);
+    return v;
+}
+
+template<typename T>
 __INLINE__ auto make_shared(device_vector<T>& I)
 {
     return shared_device_vector<T>(I);
