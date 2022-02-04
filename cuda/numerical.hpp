@@ -19,15 +19,14 @@ minmax_value_cuda(const T& data)
         return std::make_pair(0,0);
     auto result = thrust::minmax_element(thrust::device,
                                          data.get(),data.get()+data.size());
-    return std::make_pair(*result.first,*result.second);
+    return std::make_pair(device_eval(result.first),device_eval(result.second));
 }
 
 template<typename T,typename U>
 inline void normalize_upper_lower_cuda(const T& in,U& out,float upper_limit = 255.0f)
 {
-    using value_type = typename U::value_type;
-    std::pair<value_type,value_type> min_max(minmax_value_cuda(in));
-    value_type range = min_max.second-min_max.first;
+    auto min_max = minmax_value_cuda(in);
+    auto range = min_max.second-min_max.first;
     if(range == 0)
         return;
     using namespace thrust::placeholders;
