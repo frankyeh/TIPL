@@ -119,14 +119,8 @@ __global__ void resample_cuda_kernel(T1 from,T2 to,U trans)
 template<tipl::interpolation itype = linear,typename T,typename T2,typename U>
 inline void resample_cuda(const T& from,T2& to,const U& trans,bool sync = true,cudaStream_t stream = nullptr)
 {
-    if(stream)
-        resample_cuda_kernel<itype>
-                <<<std::min<int>((to.size()+255)/256,256),256,0,stream>>>(
-                    tipl::make_shared(from),
-                    tipl::make_shared(to),trans);
-    else
     resample_cuda_kernel<itype>
-            <<<std::min<int>((to.size()+255)/256,256),256>>>(
+            <<<std::min<int>((to.size()+255)/256,256),256,0,stream>>>(
                 tipl::make_shared(from),
                 tipl::make_shared(to),trans);
     if(cudaPeekAtLastError() != cudaSuccess)
