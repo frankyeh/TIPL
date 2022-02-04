@@ -27,7 +27,7 @@ struct correlation
 {
     typedef double value_type;
     template<typename ImageType1,typename ImageType2,typename TransformType>
-    double operator()(const ImageType1& Ifrom,const ImageType2& Ito,const TransformType& transform)
+    double operator()(const ImageType1& Ifrom,const ImageType2& Ito,const TransformType& transform,int thread = 0)
     {
         if(Ifrom.size() > Ito.size())
         {
@@ -55,7 +55,7 @@ public:
     mutual_information(unsigned int band_width_ = 6):band_width(band_width_),his_bandwidth(1 << band_width_) {}
 public:
     template<typename ImageType1,typename ImageType2,typename TransformType>
-    double operator()(const ImageType1& from_,const ImageType2& to_,const TransformType& transform)
+    double operator()(const ImageType1& from_,const ImageType2& to_,const TransformType& transform,int thread_id = 0)
     {
         if(from_.size() > to_.size())
         {
@@ -206,10 +206,11 @@ public:
                 const image_type2& to_,const vs_type2& to_vs_):
                 from(from_),to(to_),from_vs(from_vs_),to_vs(to_vs_),fun(new cost_type){}
     template<typename param_type>
-    value_type operator()(const param_type& new_param)
+    value_type operator()(const param_type& new_param,int thread_id = 0)
     {
         ++count;
-        return (*fun.get())(from,to,tipl::transformation_matrix<typename param_type::value_type>(new_param,from.shape(),from_vs,to.shape(),to_vs));
+        return (*fun.get())(from,to,
+        tipl::transformation_matrix<typename param_type::value_type>(new_param,from.shape(),from_vs,to.shape(),to_vs),thread_id);
     }
 };
 
@@ -242,10 +243,10 @@ float linear(const image_type1& from,const vs_type1& from_vs,
         transform_type upper,lower;
         tipl::reg::get_bound(from,to,transform_type(),upper,lower,reg_list[type],bound);
         if(line_search)
-            tipl::optimization::line_search(arg_min.begin(),arg_min.end(),
+            tipl::optimization::line_search_mt(arg_min.begin(),arg_min.end(),
                                              upper.begin(),lower.begin(),fun,optimal_value,terminated);
 
-        tipl::optimization::quasi_newtons_minimize(arg_min.begin(),arg_min.end(),
+        tipl::optimization::quasi_newtons_minimize_mt(arg_min.begin(),arg_min.end(),
                                                    upper.begin(),lower.begin(),fun,optimal_value,terminated,
                                                    precision);
     }

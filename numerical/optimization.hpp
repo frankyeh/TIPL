@@ -33,17 +33,38 @@ void plot_fun_2d(
 
 // calculate fun(x+ei)
 template<typename iter_type1,typename tol_type,typename iter_type2,typename function_type>
-void estimate_change(iter_type1 x_beg,iter_type1 x_end,tol_type tol,iter_type2 fun_ei,function_type& fun)
+void estimate_change_mt(iter_type1 x_beg,iter_type1 x_end,tol_type tol,iter_type2 fun_ei,function_type& fun)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
-    par_for(x_end-x_beg,[&](unsigned int i)
+    par_for(x_end-x_beg,[&](unsigned int i,int thread)
     {
         if(tol[i] == 0)
             return;
         std::vector<param_type> x(x_beg,x_end);
         x[i] += tol[i];
-        fun_ei[i] = fun(x);
+        fun_ei[i] = fun(x,thread);
     });
+}
+// calculate fun(x+ei)
+template<typename storage_type,typename tol_storage_type,typename fun_type,typename function_type>
+void estimate_change_mt(const storage_type& x,const tol_storage_type& tol,fun_type& fun_ei,function_type& fun)
+{
+    estimate_change_mt(x.begin(),x.end(),tol.begin(),fun_ei.begin(),fun);
+}
+
+template<typename iter_type1,typename tol_type,typename iter_type2,typename function_type>
+void estimate_change(iter_type1 x_beg,iter_type1 x_end,tol_type tol,iter_type2 fun_ei,function_type& fun)
+{
+    typedef typename std::iterator_traits<iter_type1>::value_type param_type;
+    size_t size = x_end-x_beg;
+    for(unsigned int i = 0; i < size;++i)
+    {
+        if(tol[i] == 0)
+            continue;
+        std::vector<param_type> x(x_beg,x_end);
+        x[i] += tol[i];
+        fun_ei[i] = fun(x);
+    }
 }
 // calculate fun(x+ei)
 template<typename storage_type,typename tol_storage_type,typename fun_type,typename function_type>
@@ -75,7 +96,7 @@ void gradient(const storage_type& x,const tol_storage_type& tol,value_type fun_x
 }
 
 template<typename iter_type1,typename tol_type,typename value_type,typename iter_type2,typename iter_type3,typename function_type>
-void hessian(iter_type1 x_beg,iter_type1 x_end,
+void hessian_mt(iter_type1 x_beg,iter_type1 x_end,
              tol_type tol,
              value_type fun_x,
              iter_type2 fun_x_ei,
@@ -107,9 +128,9 @@ void hessian(iter_type1 x_beg,iter_type1 x_end,
 }
 
 template<typename storage_type,typename tol_storage_type,typename value_type,typename storage_type2,typename storage_type3,typename function_type>
-void hessian(const storage_type& x,const tol_storage_type& tol,value_type fun_x,const storage_type2& fun_x_ei,storage_type3& h,function_type& fun)
+void hessian_mt(const storage_type& x,const tol_storage_type& tol,value_type fun_x,const storage_type2& fun_x_ei,storage_type3& h,function_type& fun)
 {
-    hessian(x.begin(),x.end(),tol.begin(),fun_x,fun_x_ei.begin(),h.begin(),fun);
+    hessian_mt(x.begin(),x.end(),tol.begin(),fun_x,fun_x_ei.begin(),h.begin(),fun);
 }
 
 
@@ -188,7 +209,7 @@ double calculate_resolution(tol_type& tols,iter_type x_upper,iter_type x_lower,d
 }
 
 template<typename iter_type1,typename function_type,typename terminated_class>
-void quasi_newtons_minimize(
+void quasi_newtons_minimize_mt(
                 iter_type1 x_beg,iter_type1 x_end,
                 iter_type1 x_upper,iter_type1 x_lower,
                 function_type& fun,
@@ -205,33 +226,39 @@ void quasi_newtons_minimize(
     {
         std::vector<value_type> fun_x_ei(size);
         std::vector<param_type> g(size),h(size*size),p(size);
-        estimate_change(x_beg,x_end,tols.begin(),fun_x_ei.begin(),fun);
+        estimate_change_mt(x_beg,x_end,tols.begin(),fun_x_ei.begin(),fun);
         gradient(x_beg,x_end,tols.begin(),fun_x,fun_x_ei.begin(),g.begin());
-        hessian(x_beg,x_end,tols.begin(),fun_x,fun_x_ei.begin(),h.begin(),fun);
+        hessian_mt(x_beg,x_end,tols.begin(),fun_x,fun_x_ei.begin(),h.begin(),fun);
 
         std::vector<unsigned int> pivot(size);
         if(!tipl::mat::lu_decomposition(h.begin(),pivot.begin(),tipl::shape<2>(size,size)) ||
            !tipl::mat::lu_solve(h.begin(),pivot.begin(),g.begin(),p.begin(),tipl::shape<2>(size,size)))
             return;
 
-        float L = -0.005f;
-        std::vector<param_type> best_x;
-        for(int i = 0;i < line_search_count;++i,L *= 2.0f)
+        std::vector<param_type> cost(line_search_count);
+        std::vector<std::vector<param_type> > new_xs(line_search_count);
         {
-            std::vector<param_type> new_x(x_beg,x_end);
-            tipl::vec::aypx(p.begin(),p.end(),L,new_x.begin());
-            for(size_t i = 0;i < new_x.size();++i)
-                new_x[i] = std::min<param_type>(x_upper[i],std::max<param_type>(x_lower[i],new_x[i]));
-            auto cost = fun(new_x);
-            if(cost < fun_x)
+            float L = -0.005f;
+            for(int i = 0;i < line_search_count;++i,L *= 2.0f)
             {
-                best_x.swap(new_x);
-                fun_x = cost;
+                std::vector<param_type> new_x(x_beg,x_end);
+                tipl::vec::aypx(p.begin(),p.end(),L,new_x.begin());
+                for(size_t i = 0;i < new_x.size();++i)
+                    new_x[i] = std::min<param_type>(x_upper[i],std::max<param_type>(x_lower[i],new_x[i]));
+                new_xs[i].swap(new_x);
             }
         }
-        if(best_x.empty())
+
+        par_for(line_search_count,[&](unsigned int i,int thread)
+        {
+            cost[i] = fun(new_xs[i],thread);
+        });
+
+        size_t min_index = size_t(std::min_element(cost.begin(),cost.end())-cost.begin());
+        if(cost[min_index] >= fun_x)
             return;
-        std::copy(best_x.begin(),best_x.end(),x_beg);
+        fun_x = cost[min_index];
+        std::copy(new_xs[min_index].begin(),new_xs[min_index].end(),x_beg);
         if(tipl::vec::norm2(p.begin(),p.end()) < tol_length)
             return;
     }
@@ -289,7 +316,7 @@ void random_search(iter_type1 x_beg,iter_type1 x_end,
 }
 
 template<typename iter_type1,typename iter_type2,typename function_type,typename teminated_class>
-void line_search(iter_type1 x_beg,iter_type1 x_end,
+void line_search_mt(iter_type1 x_beg,iter_type1 x_end,
                      iter_type2 x_upper,iter_type2 x_lower,
                      function_type& fun,
                      typename function_type::value_type& optimal_value,
@@ -310,7 +337,7 @@ void line_search(iter_type1 x_beg,iter_type1 x_end,
                 continue;
             std::mutex m;
             param_type best_x = x_beg[cur_dim];
-            tipl::par_for(16,[&](int seg)
+            tipl::par_for(16,[&](int seg,int id)
             {
                 auto new_x = x_beg[cur_dim]+range[cur_dim]*dis[seg];
                 if(new_x < x_lower[cur_dim] ||
@@ -318,7 +345,7 @@ void line_search(iter_type1 x_beg,iter_type1 x_end,
                     return;
                 std::vector<param_type> param(x_beg,x_end);
                 param[cur_dim] = new_x;
-                double current_value = fun(param);
+                double current_value = fun(param,id);
                 if(current_value < optimal_value)
                 {
                     std::lock_guard<std::mutex> lock(m);

@@ -2,7 +2,7 @@
 #define CUDA_LINEAR_HPP
 
 #ifdef __CUDACC__
-
+#include <cub/cub.cuh>
 #include "resampling.hpp"
 #include "numerical.hpp"
 
@@ -55,41 +55,9 @@ struct mutual_information_cuda
     device_image<3,unsigned char> from8;
     device_image<3,unsigned char> to8;
     std::mutex init_mutex;
-
-public:
-    std::mutex stream_mutex;
-    static constexpr int stream_count = 16;
-    cudaStream_t streams[stream_count] = {0};
-    size_t cur_stream_id = 0;
-
-    std::vector<device_vector<int32_t> > mutual_hist;
-    std::vector<device_vector<double> > mu_log_mu;
-    auto cur_id(void)
-    {
-        std::lock_guard<std::mutex> lock(stream_mutex);
-        ++cur_stream_id;
-        if(cur_stream_id == stream_count)
-            cur_stream_id = 0;
-        return cur_stream_id;
-    }
-public:
-    mutual_information_cuda(void):mutual_hist(stream_count),mu_log_mu(stream_count)
-    {
-        for(int i = 0;i < stream_count;++i)
-        {
-            mutual_hist[i].resize(his_bandwidth*his_bandwidth);
-            mu_log_mu[i].resize(his_bandwidth*his_bandwidth);
-            cudaStreamCreate(&streams[i]);
-        }
-    }
-    ~mutual_information_cuda(void)
-    {
-        for(int i = 0;i < stream_count;++i)
-            cudaStreamDestroy(streams[i]);
-    }
 public:
     template<typename ImageType,typename TransformType>
-    double operator()(const ImageType& from_raw,const ImageType& to_raw,const TransformType& trans)
+    double operator()(const ImageType& from_raw,const ImageType& to_raw,const TransformType& trans,int thread_id = 0)
     {
         using DeviceImageType = device_image<3,typename ImageType::value_type>;
         if(from_raw.size() > to_raw.size())
@@ -116,23 +84,20 @@ public:
             }
         }
 
-        auto id = cur_id();
-
-        thrust::fill(thrust::cuda::par.on(streams[id]),mutual_hist[id].get(),
-                     mutual_hist[id].get()+mutual_hist[id].size(),0);
-        mutual_information_cuda_kernel<<<std::min<size_t>((from_raw.size()+255)/256,256),256,0,streams[id]>>>
+        device_vector<int32_t> mutual_hist(his_bandwidth*his_bandwidth);
+        mutual_information_cuda_kernel<<<std::min<size_t>((from_raw.size()+255)/256,256),256>>>
                                 (tipl::make_shared(from8),
                                  tipl::make_shared(to8),
                                  trans,
-                                 tipl::make_shared(mutual_hist[id]));
+                                 tipl::make_shared(mutual_hist));
         if(cudaPeekAtLastError() != cudaSuccess)
             throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
-
-        mutual_information_cuda_kernel2<<<his_bandwidth,his_bandwidth,0,streams[id]>>>(
+        device_vector<double> mu_log_mu(his_bandwidth*his_bandwidth);
+        mutual_information_cuda_kernel2<<<his_bandwidth,his_bandwidth>>>(
                         tipl::make_shared(from8_hist),
-                        tipl::make_shared(mutual_hist[id]),
-                        tipl::make_shared(mu_log_mu[id]));
-        return -sum_cuda(mu_log_mu[id],0.0,streams[id]);
+                        tipl::make_shared(mutual_hist),
+                        tipl::make_shared(mu_log_mu));
+        return -sum_cuda(mu_log_mu,0.0);
 
     }
 };
