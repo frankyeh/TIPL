@@ -40,7 +40,7 @@ __global__ void downsample_with_padding_cuda_kernel(T in,U out,V shift)
 }
 
 template<typename T,typename U>
-void downsample_with_padding_cuda(const T& in,U& out,bool sync = true)
+void downsample_with_padding_cuda(const T& in,U& out)
 {
     if constexpr(T::dimension==3)
     {
@@ -62,8 +62,6 @@ void downsample_with_padding_cuda(const T& in,U& out,bool sync = true)
                         tipl::make_shared(shift_));
 
     }
-    if(sync)
-        cudaDeviceSynchronize();
 }
 
 
@@ -82,20 +80,18 @@ __global__ void upsample_with_padding_cuda_kernel(T1 from,T2 to)
 
 
 template<typename image_type>
-void upsample_with_padding_cuda(const image_type& in,image_type& out,bool sync = true)
+void upsample_with_padding_cuda(const image_type& in,image_type& out)
 {
     upsample_with_padding_cuda_kernel<linear>
             <<<std::min<int>((out.size()+255)/256,256),256>>>(
                 tipl::make_shared(in),tipl::make_shared(out));
-    if(sync)
-        cudaDeviceSynchronize();
 }
 
 template<typename image_type>
-void upsample_with_padding_cuda(image_type& in,const shape<image_type::dimension>& geo,bool sync = true)
+void upsample_with_padding_cuda(image_type& in,const shape<image_type::dimension>& geo)
 {
     image_type new_d(geo);
-    upsample_with_padding_cuda(in,new_d,sync);
+    upsample_with_padding_cuda(in,new_d);
     new_d.swap(in);
 }
 
@@ -117,7 +113,7 @@ __global__ void resample_cuda_kernel(T1 from,T2 to,U trans)
 
 
 template<tipl::interpolation itype = linear,typename T,typename T2,typename U>
-inline void resample_cuda(const T& from,T2& to,const U& trans,bool sync = true,cudaStream_t stream = nullptr)
+inline void resample_cuda(const T& from,T2& to,const U& trans,cudaStream_t stream = nullptr)
 {
     resample_cuda_kernel<itype>
             <<<std::min<int>((to.size()+255)/256,256),256,0,stream>>>(
@@ -125,8 +121,6 @@ inline void resample_cuda(const T& from,T2& to,const U& trans,bool sync = true,c
                 tipl::make_shared(to),trans);
     if(cudaPeekAtLastError() != cudaSuccess)
         throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
-    if(sync)
-        cudaDeviceSynchronize();
 }
 
 }

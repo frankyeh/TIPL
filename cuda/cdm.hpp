@@ -38,7 +38,7 @@ __global__ void compose_displacement_cuda_kernel(T1 from,T2 dis,T3 to)
 
 template<tipl::interpolation itype = tipl::interpolation::linear,
          typename T1,typename T2,typename T3>
-inline void compose_displacement_cuda(const T1& from,const T2& dis,T3& to,bool sync = true)
+inline void compose_displacement_cuda(const T1& from,const T2& dis,T3& to)
 {
     to.clear();
     to.resize(from.shape());
@@ -47,21 +47,19 @@ inline void compose_displacement_cuda(const T1& from,const T2& dis,T3& to,bool s
                 tipl::make_shared(from),
                 tipl::make_shared(dis),
                 tipl::make_shared(to));
-    if(sync)
-        cudaDeviceSynchronize();
 }
 
 
 //---------------------------------------------------------------------------
 template<typename T>
-inline void accumulate_displacement_cuda(T& v0,const T& vv,bool sync = true)
+inline void accumulate_displacement_cuda(T& v0,const T& vv)
 {
     {
         T nv;
         compose_displacement_cuda(v0,vv,nv);
         v0.swap(nv);
     }
-    add_cuda(v0,vv,sync);
+    add_cuda(v0,vv);
 }
 
 
@@ -113,7 +111,6 @@ inline float cdm_get_gradient_cuda(const image_type& Js,const image_type& It,dis
                 tipl::make_shared(It),
                 tipl::make_shared(new_d),
                 tipl::make_shared(r2_256));
-    cudaDeviceSynchronize();
     return thrust::reduce(r2_256.begin_thrust(),r2_256.end_thrust(),0.0)/float(Js.size());
 }
 
@@ -163,7 +160,7 @@ template<typename T,typename terminated_type>
 inline void cdm_solve_poisson_cuda(T& new_d,terminated_type& terminated)
 {
     T solve_d(new_d.shape()),new_solve_d(new_d.shape());
-    multiply_constant_cuda(new_d,solve_d,float(-0.5f/3.0f),true);
+    multiply_constant_cuda(new_d,solve_d,float(-0.5f/3.0f));
 
     size_t grid_dim = std::min<int>((new_d.size()+255)/256,256);
     for(int iter = 0;iter < 12 && !terminated;++iter)
@@ -172,7 +169,6 @@ inline void cdm_solve_poisson_cuda(T& new_d,terminated_type& terminated)
                     tipl::make_shared(new_d),
                     tipl::make_shared(solve_d),
                     tipl::make_shared(new_solve_d));
-        cudaDeviceSynchronize();
         solve_d.swap(new_solve_d);
     }
     new_d.swap(solve_d);
@@ -239,15 +235,14 @@ __global__ void cdm_constraint_cuda_kernel(T d,T dd,float constraint_length)
 }
 
 template<typename dist_type>
-void cdm_constraint_cuda(dist_type& d,float constraint_length,bool sync = true)
+void cdm_constraint_cuda(dist_type& d,float constraint_length)
 {
     dist_type dd(d.shape());
     cdm_constraint_cuda_kernel<<<std::min<int>((d.size()+255)/256,256),256>>>(
                     tipl::make_shared(d),
                     tipl::make_shared(dd),
                     constraint_length);
-    cudaDeviceSynchronize();
-    add_cuda(d,dd,sync);
+    add_cuda(d,dd);
 }
 
 template<typename image_type,typename dist_type,typename terminate_type>
