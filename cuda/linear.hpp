@@ -24,7 +24,7 @@ __global__ void mutual_information_cuda_kernel(T from,T to,U mutual_hist)
 }
 
 template<typename T,typename U>
-__global__ void mutual_information_cuda_kernel2(T from8_hist,T to8_hist,T mutual_hist,U mu_log_mu)
+__global__ void mutual_information_cuda_kernel2(T from8_hist,T mutual_hist,U mu_log_mu)
 {
     int32_t to8=0;
     for(int i=0; i < his_bandwidth; ++i)
@@ -73,7 +73,6 @@ public:
                 from8 = host_from8;
                 to8 = host_to8;
 
-
             }
         }
 
@@ -89,11 +88,9 @@ public:
         if(cudaPeekAtLastError() != cudaSuccess)
             throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
 
-        device_vector<int32_t> to8_hist(his_bandwidth);
         device_vector<double> mu_log_mu(mutual_hist.size());
         mutual_information_cuda_kernel2<<<his_bandwidth,his_bandwidth>>>(
                         tipl::make_shared(from8_hist),
-                        tipl::make_shared(to8_hist),
                         tipl::make_shared(mutual_hist),
                         tipl::make_shared(mu_log_mu));
         return -sum_cuda(mu_log_mu,0.0);
