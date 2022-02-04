@@ -126,6 +126,7 @@ class device_vector{
         __INLINE__ void swap(device_vector& rhs)
         {
             std::swap(buf,rhs.buf);
+            std::swap(buf_size,rhs.buf_size);
             std::swap(s,rhs.s);
         }
         __INLINE__ size_t size(void)    const       {return s;}
