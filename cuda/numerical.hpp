@@ -37,15 +37,19 @@ inline void normalize_upper_lower_cuda(const T& in,U& out,float upper_limit = 25
 
 template<typename T,
          typename std::enable_if<std::is_fundamental<typename T::value_type>::value,bool>::type = true>
-inline typename T::value_type sum_cuda(const T& data,typename T::value_type init = 0)
+inline typename T::value_type sum_cuda(const T& data,typename T::value_type init = 0,cudaStream_t stream = nullptr)
 {
+    if(stream)
+        return thrust::reduce(thrust::cuda::par.on(stream),data.get(),data.get()+data.size(),init);
     return thrust::reduce(thrust::device,data.get(),data.get()+data.size(),init);
 }
 
 template<typename T,
          typename std::enable_if<std::is_class<typename T::value_type>::value,bool>::type = true>
-inline typename T::value_type sum_cuda(const T& data,typename T::value_type init = typename T::value_type())
+inline typename T::value_type sum_cuda(const T& data,typename T::value_type init = typename T::value_type(),cudaStream_t stream = nullptr)
 {
+    if(stream)
+        return thrust::reduce(thrust::cuda::par.on(stream),data.get(),data.get()+data.size(),init);
     return thrust::reduce(thrust::device,data.get(),data.get()+data.size(),init);
 }
 
