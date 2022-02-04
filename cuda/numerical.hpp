@@ -17,7 +17,8 @@ minmax_value_cuda(const T& data)
 {
     if(data.empty())
         return std::make_pair(0,0);
-    auto result = thrust::minmax_element(data.begin_thrust(),data.end_thrust());
+    auto result = thrust::minmax_element(thrust::device,
+                                         data.get(),data.get()+data.size());
     return std::make_pair(*result.first,*result.second);
 }
 
@@ -31,7 +32,8 @@ inline void normalize_upper_lower_cuda(const T& in,U& out,float upper_limit = 25
         return;
     using namespace thrust::placeholders;
     upper_limit /= range;
-    thrust::transform(in.begin_thrust(),in.end_thrust(),out.begin_thrust(), (_1 -min_max.first)*upper_limit);
+    thrust::transform(thrust::device,
+                      in.get(),in.get()+in.size(),out.get(),(_1 - min_max.first)*upper_limit);
 }
 
 template<typename T,
