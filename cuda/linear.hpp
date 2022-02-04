@@ -2,7 +2,7 @@
 #define CUDA_LINEAR_HPP
 
 #ifdef __CUDACC__
-#include <cub/cub.cuh>
+
 #include "resampling.hpp"
 #include "numerical.hpp"
 
@@ -70,16 +70,17 @@ public:
             std::scoped_lock<std::mutex> lock(init_mutex);
             if (from8_hist.empty() || to_raw.size() != to8.size() || from_raw.size() != from8.size())
             {
+                to8.resize(to_raw.shape());
+                normalize_upper_lower_cuda(DeviceImageType(to_raw),to8,his_bandwidth-1);
+
                 host_image<3,unsigned char> host_from8,host_to8;
                 host_vector<int32_t> host_from8_hist;
 
-                normalize_upper_lower_mt(to_raw,host_to8,his_bandwidth-1);
-                normalize_upper_lower_mt(from_raw,host_from8,his_bandwidth-1);
+                normalize_upper_lower(from_raw,host_from8,his_bandwidth-1);
                 histogram(host_from8,host_from8_hist,0,his_bandwidth-1,his_bandwidth);
 
                 from8_hist = host_from8_hist;
                 from8 = host_from8;
-                to8 = host_to8;
 
             }
         }
