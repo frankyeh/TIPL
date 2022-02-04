@@ -11,8 +11,9 @@
 
 namespace tipl{
 
+
 template<typename T>
-inline std::pair<typename T::value_type,typename T::value_type>
+std::pair<typename T::value_type,typename T::value_type>
 minmax_value_cuda(const T& data)
 {
     if(data.empty())
@@ -22,17 +23,24 @@ minmax_value_cuda(const T& data)
     return std::make_pair(device_eval(result.first),device_eval(result.second));
 }
 
+template<typename T1, typename T2,typename value_type>
+__global__  void normalize_upper_lower_cuda_kernel(T1 in,T2 out,value_type min,value_type coef)
+{
+    size_t stride = blockDim.x*gridDim.x;
+    for(size_t index = threadIdx.x + blockIdx.x*blockDim.x;index < in.size();index += stride)
+        out[index] = value_type(in[index]-min)*coef;
+}
+
 template<typename T,typename U>
-inline void normalize_upper_lower_cuda(const T& in,U& out,float upper_limit = 255.0f)
+inline void normalize_upper_lower_cuda(const T& in,U& out,float upper_limit = 255.0f,bool sync = true)
 {
     auto min_max = minmax_value_cuda(in);
     auto range = min_max.second-min_max.first;
-    if(range == 0)
-        return;
-    using namespace thrust::placeholders;
-    upper_limit /= range;
-    thrust::transform(thrust::device,
-                      in.get(),in.get()+in.size(),out.get(),(_1 - min_max.first)*upper_limit);
+    float coef = range == 0 ? 0.0f:float(upper_limit/range);
+    normalize_upper_lower_cuda_kernel<<<std::min<int>((in.size()+255)/256,256),256>>>
+        (tipl::make_shared(in),tipl::make_shared(out),min_max.first,coef);
+    if(sync)
+        cudaDeviceSynchronize();
 }
 
 template<typename T,
