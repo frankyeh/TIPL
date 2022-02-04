@@ -14,13 +14,21 @@ namespace  reg{
 const int bandwidth = 6;
 const int his_bandwidth = 64;
 
-template<typename T,typename U>
-__global__ void mutual_information_cuda_kernel(T from,T to,U mutual_hist)
+template<typename T,typename V,typename U>
+__global__ void mutual_information_cuda_kernel(T from,T to,V trans,U mutual_hist)
 {
     size_t stride = blockDim.x*gridDim.x;
     for(size_t index = threadIdx.x + blockIdx.x*blockDim.x;
         index < from.size();index += stride)
-            atomicAdd(mutual_hist.begin() + ((uint32_t(from[index]) << bandwidth) + to[index]),1);
+    {
+        tipl::pixel_index<3> pos(index,from.shape());
+        tipl::vector<3> v;
+        trans(pos,v);
+        unsigned char to_index = 0;
+        tipl::estimate<tipl::interpolation::linear>(to,v,to_index);
+        atomicAdd(mutual_hist.begin() +
+                  (uint32_t(from[index]) << bandwidth) +to_index,1);
+    }
 }
 
 template<typename T,typename U>
@@ -76,14 +84,12 @@ public:
             }
         }
 
-        device_image<3,unsigned char> to2from(from8.shape());
-        resample_cuda(to8,to2from,trans);
 
         device_vector<int32_t> mutual_hist(his_bandwidth*his_bandwidth);
-
         mutual_information_cuda_kernel<<<std::min<size_t>((from_raw.size()+255)/256,256),256>>>
                                 (tipl::make_shared(from8),
-                                 tipl::make_shared(to2from),
+                                 tipl::make_shared(to8),
+                                 trans,
                                  tipl::make_shared(mutual_hist));
         if(cudaPeekAtLastError() != cudaSuccess)
             throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
