@@ -679,12 +679,11 @@ minmax_value(iterator_type iter,iterator_type end)
 {
     if(iter == end)
         return std::make_pair(0,0);
-    typename std::iterator_traits<iterator_type>::value_type min_value = *iter;
-    typename std::iterator_traits<iterator_type>::value_type max_value = *iter;
-    typename std::iterator_traits<iterator_type>::value_type value;
+    auto min_value = *iter;
+    auto max_value = *iter;
     for(++iter; iter != end; ++iter)
     {
-        value = *iter;
+        auto value = *iter;
         if(value > max_value)
             max_value = value;
         else if(value < min_value)
@@ -693,23 +692,21 @@ minmax_value(iterator_type iter,iterator_type end)
     return std::make_pair(min_value,max_value);
 }
 
-
 //---------------------------------------------------------------------------
 template<typename iterator_type>
-std::pair<typename std::iterator_traits<iterator_type>::value_type,typename std::iterator_traits<iterator_type>::value_type>
-min_max_value_mt(iterator_type iter,iterator_type end)
+auto minmax_value_mt(iterator_type iter,iterator_type end)
 {
+    using value_type = typename std::iterator_traits<iterator_type>::value_type;
     if(iter == end)
-        return std::make_pair(0,0);
+        return std::make_pair(value_type(0),value_type(0));
     auto n = std::thread::hardware_concurrency();
     size_t size = size_t(end-iter);
-    typedef typename std::iterator_traits<iterator_type>::value_type value_type;
     std::vector<value_type> max_v(n,*iter),min_v(n,*iter);
     tipl::par_for(n,[&](uint16_t thread)
     {
-        value_type& max_value = max_v[thread];
-        value_type& min_value = min_v[thread];
-        for(size_t i = 0;i < size;i += n)
+        auto& max_value = max_v[thread];
+        auto& min_value = min_v[thread];
+        for(size_t i = thread;i < size;i += n)
         {
             auto value = iter[i];
             if(value > max_value)
@@ -781,9 +778,8 @@ void upper_lower_threshold(ImageType& data,value_type lower,value_type upper)
 template<typename InputIter,typename OutputIter>
 void normalize_upper_lower(InputIter from,InputIter to,OutputIter out,float upper_limit = 255.0)
 {
-    typedef typename std::iterator_traits<InputIter>::value_type value_type;
-    std::pair<value_type,value_type> min_max(minmax_value(from,to));
-    value_type range = min_max.second-min_max.first;
+    auto min_max(minmax_value(from,to));
+    auto range = min_max.second-min_max.first;
     if(range == 0)
         return;
     upper_limit /= range;
@@ -803,6 +799,29 @@ void normalize_upper_lower(ImageType& I,float upper_limit = 255.0)
 {
     normalize_upper_lower(I.begin(),I.end(),I.begin(),upper_limit);
 }
+
+template<typename InputIter,typename OutputIter>
+void normalize_upper_lower_mt(InputIter from,InputIter to,OutputIter out,float upper_limit = 255.0)
+{
+    auto min_max(minmax_value_mt(from,to));
+    auto range = min_max.second-min_max.first;
+    if(range == 0)
+        return;
+    upper_limit /= range;
+    par_for(to-from,[=](size_t i)
+    {
+        out[i] = (from[i]-min_max.first)*upper_limit;
+    });
+}
+
+template<typename ImageType1,typename ImageType2>
+void normalize_upper_lower_mt(const ImageType1& image1,ImageType2& image2,float upper_limit = 255.0)
+{
+    image2.resize(image1.shape());
+    normalize_upper_lower_mt(image1.begin(),image1.end(),image2.begin(),upper_limit);
+}
+
+
 
 template<typename ImageType>
 ImageType& normalize(ImageType& I,float upper_limit = 255)
