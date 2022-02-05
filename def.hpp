@@ -19,7 +19,7 @@ struct function_traits<ReturnType(ClassType::*)(Arg1,Args...) const>
 
 
 
-#ifdef TIPL_USE_CUDA
+#if defined(TIPL_USE_CUDA) && defined(CUDA_ARCH)
 constexpr bool use_cuda = true;
 #else
 constexpr bool use_cuda = false;
