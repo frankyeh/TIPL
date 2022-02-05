@@ -3104,31 +3104,52 @@ struct product_delegate{
         return *this;
     }
 private:
-    template<int row,int col,typename left_type,typename right_type,typename iterator>
-    void solve(const left_type& left,const right_type& right, iterator value,dim<row,col>) const
+    template<int row,int col,typename T,typename U,typename V>
+    void solve(T left,U right,V value,dim<row,col>) const
     {
+        if(left == value)
+        {
+            using value_type = typename std::iterator_traits<T>::value_type;
+            constexpr size_t s = row*c;
+            value_type buf[s];
+            for(size_t i = 0;i < s;++i)
+                std::copy(left,left+s,buf);
+            tipl::mat::product(buf,right,value,dim<row,c>(),dim<c,col>());
+            return;
+        }
+        if(right == value)
+        {
+            using value_type = typename std::iterator_traits<T>::value_type;
+            constexpr size_t s = c*col;
+            value_type buf[s];
+            for(size_t i = 0;i < s;++i)
+                std::copy(right,right+s,buf);
+            tipl::mat::product(left,buf,value,dim<row,c>(),dim<c,col>());
+            return;
+        }
+
         tipl::mat::product(left,right,value,dim<row,c>(),dim<c,col>());
     }
-    template<int row,int col,typename left_type,typename right_type,typename iterator>
-    void solve(const left_type& left,const inverse_delegate<right_type>& right,iterator value,dim<row,col>) const
+    template<int row,int col,typename T,typename V,typename U>
+    void solve(T left,const inverse_delegate<V>& right,U value,dim<row,col>) const
     {
-        using value_type = typename std::iterator_traits<iterator>::value_type;
+        using value_type = typename std::iterator_traits<U>::value_type;
         value_type buf[c*col];
         right.solve(buf,dim<c,col>());
         solve(left,buf,value,dim<row,col>());
     }
-    template<int row,int col,typename left_type,typename right_type,typename iterator>
-    void solve(const inverse_delegate<left_type>& left,const right_type& right,iterator value,dim<row,col>) const
+    template<int row,int col,typename V,typename T,typename U>
+    void solve(const inverse_delegate<V>& left,T right,U value,dim<row,col>) const
     {
-        using value_type = typename std::iterator_traits<iterator>::value_type;
+        using value_type = typename std::iterator_traits<U>::value_type;
         value_type buf[row*c];
         left.solve(buf,dim<row,c>());
         solve(buf,right,value,dim<row,col>());
     }
 
 public:
-    template<int row,int col,typename iterator>
-    void solve(iterator value,dim<row,col>) const
+    template<int row,int col,typename T>
+    void solve(T value,dim<row,col>) const
     {
         solve(lhs,rhs,value,dim<row,col>());
     }
