@@ -1042,15 +1042,15 @@ public:
             if(qfac == 0.0f)
                 qfac = 1.0f;
             nif_header2.srow_x[0] = (a2+b2-c2-d2)*nif_header2.pixdim[1];
-            nif_header2.srow_x[1] = bc2-ad2;
-            nif_header2.srow_x[2] = bd2+ac2;
+            nif_header2.srow_x[1] = (bc2-ad2)*nif_header2.pixdim[2];
+            nif_header2.srow_x[2] = (bd2+ac2)*nif_header2.pixdim[3]*qfac;
             nif_header2.srow_x[3] = nif_header2.qoffset_x;
-            nif_header2.srow_y[0] = bc2+ad2;
+            nif_header2.srow_y[0] = (bc2+ad2)*nif_header2.pixdim[1];
             nif_header2.srow_y[1] = (a2+c2-b2-d2)*nif_header2.pixdim[2];
-            nif_header2.srow_y[2] = cd2-ab2;
+            nif_header2.srow_y[2] = (cd2-ab2)*nif_header2.pixdim[3]*qfac;
             nif_header2.srow_y[3] = nif_header2.qoffset_y;
-            nif_header2.srow_z[0] = bd2-ac2;
-            nif_header2.srow_z[1] = cd2+ab2;
+            nif_header2.srow_z[0] = (bd2-ac2)*nif_header2.pixdim[1];
+            nif_header2.srow_z[1] = (cd2+ab2)*nif_header2.pixdim[2];
             nif_header2.srow_z[2] = (a2+d2-c2-b2)*nif_header2.pixdim[3]*qfac;
             nif_header2.srow_z[3] = nif_header2.qoffset_z;
             nif_header2.sform_code = 1;
