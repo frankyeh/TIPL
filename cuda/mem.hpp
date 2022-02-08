@@ -5,6 +5,11 @@
 #include <type_traits>
 #include <stdexcept>
 
+#if defined(TIPL_USE_CUDA) && defined(CUDA_ARCH)
+#include <cuda.h>
+#include <cuda_runtime.h>
+#endif//TIPL_USE_CUDA && CUDA_ARCH
+
 #ifdef __CUDACC__
 #include <cuda.h>
 #include <cuda_runtime.h>
@@ -113,11 +118,13 @@ class device_vector{
                 }
                 else
                 {
+                    #ifdef __CUDACC__
                     if constexpr(std::is_class<value_type>::value)
                         device_vector_fill<<<std::min<size_t>((added_s+255)/256,256),256>>>(buf+s,added_s,value_type());
                     else
                     if constexpr(std::is_floating_point<value_type>::value)
                         device_vector_fill<<<std::min<size_t>((added_s+255)/256,256),256>>>(buf+s,added_s,value_type(0));
+                    #endif//__CUDACC__
                 }
             }
             s = new_s;
@@ -132,10 +139,6 @@ class device_vector{
         __INLINE__ size_t size(void)    const       {return s;}
         __INLINE__ bool empty(void)     const       {return s==0;}
     public: // only in device memory
-        __INLINE__ auto begin_thrust(void)                              {return thrust::device_pointer_cast(buf);}
-        __INLINE__ auto begin_thrust(void)                      const   {return thrust::device_pointer_cast(buf);}
-        __INLINE__ auto end_thrust(void)                                {return thrust::device_pointer_cast(buf)+s;}
-        __INLINE__ auto end_thrust(void)                        const   {return thrust::device_pointer_cast(buf)+s;}
         __INLINE__ iterator get(void)                                       {return buf;}
         __INLINE__ const_iterator get(void) const                           {return buf;}
         __INLINE__ const void* begin(void)                          const   {return buf;}
@@ -178,13 +181,9 @@ public:
 public:
     __INLINE__ const_iterator begin(void)                          const   {return const_buf;}
     __INLINE__ const_iterator end(void)                            const   {return const_buf+s;}
-    __INLINE__ auto begin_thrust(void)                             const   {return thrust::device_pointer_cast(const_buf);}
-    __INLINE__ auto end_thrust(void)                               const   {return thrust::device_pointer_cast(const_buf)+s;}
     template<typename index_type>
     __INLINE__ const_reference operator[](index_type index)        const   {return const_buf[index];}
 public:
-    __INLINE__ auto begin_thrust(void)                                     {return thrust::device_pointer_cast(buf);}
-    __INLINE__ auto end_thrust(void)                                       {return thrust::device_pointer_cast(buf)+s;}
     __INLINE__ iterator begin(void)                                        {return buf;}
     __INLINE__ iterator end(void)                                          {return buf+s;}
     template<typename index_type>
