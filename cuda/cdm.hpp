@@ -111,7 +111,7 @@ inline float cdm_get_gradient_cuda(const image_type& Js,const image_type& It,dis
                 tipl::make_shared(It),
                 tipl::make_shared(new_d),
                 tipl::make_shared(r2_256));
-    return thrust::reduce(r2_256.begin_thrust(),r2_256.end_thrust(),0.0)/float(Js.size());
+    return thrust::reduce(thrust::device,r2_256.get(),r2_256.get()+r2_256.size(),0.0)/float(Js.size());
 }
 
 
