@@ -8,12 +8,10 @@
 #if defined(TIPL_USE_CUDA) && defined(CUDA_ARCH)
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <thrust/device_vector.h>
 #endif//TIPL_USE_CUDA && CUDA_ARCH
 
 #ifdef __CUDACC__
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <thrust/device_vector.h>
 template<typename T>
 __global__ void device_vector_fill(T* buf,size_t size,T v)
 {
@@ -43,7 +41,8 @@ class device_vector{
         device_vector(size_t new_size,bool init = true)                {resize(new_size,init);}
         device_vector(device_vector&& rhs)noexcept                     {swap(rhs);}
         device_vector(void){}
-        template<typename iter_type,typename std::enable_if<std::is_same<value_type,typename std::iterator_traits<iter_type>::value_type>::value,bool>::type = true>
+        template<typename iter_type,typename std::enable_if<
+                     std::is_same<value_type,typename std::iterator_traits<iter_type>::value_type>::value,bool>::type = true>
         device_vector(iter_type from,iter_type to)
         {
             resize(to-from,false);
