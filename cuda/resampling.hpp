@@ -12,9 +12,7 @@ template<typename T,typename U,typename V>
 __global__ void downsample_with_padding_cuda_kernel(T in,U out,V shift)
 {
     using value_type = typename T::value_type;
-    size_t stride = blockDim.x*gridDim.x;
-    for(size_t index = threadIdx.x + blockIdx.x*blockDim.x;
-        index < out.size();index += stride)
+    TIPL_FOR(index,out.size())
     {
         pixel_index<3> pos1(index,out.shape());
         pixel_index<3> pos2(pos1[0]<<1,pos1[1]<<1,pos1[2]<<1,in.shape());
@@ -56,10 +54,8 @@ void downsample_with_padding_cuda(const T& in,U& out)
 
         device_vector<size_t> shift_(shift.begin(),shift.end());
         out.resize(shape<3>((in.width()+1)/2,(in.height()+1)/2,(in.depth()+1)/2));
-        downsample_with_padding_cuda_kernel
-                <<<std::min<int>((out.size()+255)/256,256),256>>>(
-                        tipl::make_shared(in),tipl::make_shared(out),
-                        tipl::make_shared(shift_));
+        TIPL_RUN(downsample_with_padding_cuda_kernel,out.size())
+                (tipl::make_shared(in),tipl::make_shared(out),tipl::make_shared(shift_));
 
     }
 }
@@ -68,9 +64,7 @@ void downsample_with_padding_cuda(const T& in,U& out)
 template<tipl::interpolation itype,typename T1,typename T2>
 __global__ void upsample_with_padding_cuda_kernel(T1 from,T2 to)
 {
-    size_t stride = blockDim.x*gridDim.x;
-    for(size_t index = threadIdx.x + blockIdx.x*blockDim.x;
-        index < to.size();index += stride)
+    TIPL_FOR(index,to.size())
     {
         tipl::estimate<itype>(from,
             tipl::vector<3>(tipl::pixel_index<3>(index,to.shape()))*=0.5,
@@ -82,9 +76,8 @@ __global__ void upsample_with_padding_cuda_kernel(T1 from,T2 to)
 template<typename image_type>
 void upsample_with_padding_cuda(const image_type& in,image_type& out)
 {
-    upsample_with_padding_cuda_kernel<linear>
-            <<<std::min<int>((out.size()+255)/256,256),256>>>(
-                tipl::make_shared(in),tipl::make_shared(out));
+    TIPL_RUN(upsample_with_padding_cuda_kernel<linear>,out.size())
+            (tipl::make_shared(in),tipl::make_shared(out));
 }
 
 template<typename image_type>
@@ -100,9 +93,7 @@ void upsample_with_padding_cuda(image_type& in,const shape<image_type::dimension
 template<tipl::interpolation itype,typename T1,typename T2,typename U>
 __global__ void resample_cuda_kernel(T1 from,T2 to,U trans)
 {
-    size_t stride = blockDim.x*gridDim.x;
-    for(size_t index = threadIdx.x + blockIdx.x*blockDim.x;
-        index < to.size();index += stride)
+    TIPL_FOR(index,to.size())
     {
         tipl::pixel_index<3> pos(index,to.shape());
         tipl::vector<3> v;
@@ -115,10 +106,8 @@ __global__ void resample_cuda_kernel(T1 from,T2 to,U trans)
 template<tipl::interpolation itype = linear,typename T,typename T2,typename U>
 inline void resample_cuda(const T& from,T2& to,const U& trans,cudaStream_t stream = nullptr)
 {
-    resample_cuda_kernel<itype>
-            <<<std::min<int>((to.size()+255)/256,256),256,0,stream>>>(
-                tipl::make_shared(from),
-                tipl::make_shared(to),trans);
+    TIPL_RUN_STREAM(resample_cuda_kernel<itype>,to.size(),stream)
+            (tipl::make_shared(from),tipl::make_shared(to),trans);
     if(cudaPeekAtLastError() != cudaSuccess)
         throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
 }
