@@ -80,13 +80,19 @@ void invert_displacement_cuda(ComposeImageType& v,uint8_t iterations = 16)
 
 //---------------------------------------------------------------------------
 template<typename T>
+inline void accumulate_displacement_cuda(const T& v0,const T& vv,T& nv)
+{
+    compose_displacement_cuda(v0,vv,nv);
+    add_cuda(nv,vv);
+}
+
+//---------------------------------------------------------------------------
+template<typename T>
 inline void accumulate_displacement_cuda(T& v0,const T& vv)
 {
-    {
-        T nv;
-        compose_displacement_cuda(v0,vv,nv);
-        v0.swap(nv);
-    }
+    T nv;
+    compose_displacement_cuda(v0,vv,nv);
+    v0.swap(nv);
     add_cuda(v0,vv);
 }
 
