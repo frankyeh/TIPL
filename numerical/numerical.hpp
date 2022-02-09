@@ -694,7 +694,8 @@ minmax_value(iterator_type iter,iterator_type end)
 
 //---------------------------------------------------------------------------
 template<typename iterator_type>
-auto minmax_value_mt(iterator_type iter,iterator_type end)
+std::pair<typename std::iterator_traits<iterator_type>::value_type,typename std::iterator_traits<iterator_type>::value_type>
+minmax_value_mt(iterator_type iter,iterator_type end)
 {
     using value_type = typename std::iterator_traits<iterator_type>::value_type;
     if(iter == end)
@@ -778,7 +779,9 @@ void upper_lower_threshold(ImageType& data,value_type lower,value_type upper)
 template<typename InputIter,typename OutputIter>
 void normalize_upper_lower(InputIter from,InputIter to,OutputIter out,float upper_limit = 255.0)
 {
-    auto min_max(minmax_value(from,to));
+		using MinMaxType = typename std::iterator_traits<InputIter>::value_type;
+
+    std::pair<MinMaxType,MinMaxType> min_max(minmax_value(from,to));
     auto range = min_max.second-min_max.first;
     if(range == 0)
         return;
@@ -803,7 +806,9 @@ void normalize_upper_lower(ImageType& I,float upper_limit = 255.0)
 template<typename InputIter,typename OutputIter>
 void normalize_upper_lower_mt(InputIter from,InputIter to,OutputIter out,float upper_limit = 255.0)
 {
-    auto min_max(minmax_value_mt(from,to));
+		using MinMaxType = typename std::iterator_traits<InputIter>::value_type;
+
+    std::pair<MinMaxType,MinMaxType> min_max(minmax_value_mt(from,to));
     auto range = min_max.second-min_max.first;
     if(range == 0)
         return;

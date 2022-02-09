@@ -60,7 +60,7 @@ public:
         using DeviceImageType = device_image<3,typename ImageType::value_type>;
         if(from_raw.size() > to_raw.size())
         {
-            auto inv_trans(trans);
+            TransformType inv_trans(trans);
             inv_trans.inverse();
             return (*this)(to_raw,from_raw,inv_trans);
         }
