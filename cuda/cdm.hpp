@@ -13,16 +13,12 @@
 
 namespace tipl{
 
-namespace reg{
-
 
 
 template<tipl::interpolation itype,typename T1,typename T2,typename T3>
 __global__ void compose_displacement_cuda_kernel(T1 from,T2 dis,T3 to)
 {
-    size_t stride = blockDim.x*gridDim.x;
-    for(size_t index = threadIdx.x + blockIdx.x*blockDim.x;
-        index < to.size();index += stride)
+    TIPL_FOR(index,to.size())
     {
         if(dis[index] == typename T2::value_type())
             to[index] = from[index];
@@ -42,13 +38,45 @@ inline void compose_displacement_cuda(const T1& from,const T2& dis,T3& to)
 {
     to.clear();
     to.resize(from.shape());
-    compose_displacement_cuda_kernel<itype>
-            <<<std::min<int>((to.size()+255)/256,256),256>>>(
-                tipl::make_shared(from),
-                tipl::make_shared(dis),
-                tipl::make_shared(to));
+    TIPL_RUN(compose_displacement_cuda_kernel<itype>,to.size())
+            (tipl::make_shared(from),tipl::make_shared(dis),tipl::make_shared(to));
 }
 
+
+template<typename T1,typename T2>
+__global__ void invert_displacement_cuda_kernel(T1 v,T2 iv)
+{
+    TIPL_FOR(index,v.size())
+        v[index] = -iv[index];
+}
+
+//---------------------------------------------------------------------------
+template<tipl::interpolation itype = tipl::interpolation::linear,
+         typename T1,typename T2>
+void invert_displacement_cuda(const T1& v0,T2& v1,uint8_t iterations = 16)
+{
+    T1 vv(v0.shape());
+    v1.resize(v0.shape());
+    TIPL_RUN(invert_displacement_cuda_kernel,v0.size())
+            (tipl::make_shared(v1),tipl::make_shared(v0));
+
+    for(uint8_t i = 0;i < iterations;++i)
+    {
+        TIPL_RUN(compose_displacement_cuda_kernel<itype>,v0.size())
+            (tipl::make_shared(v0),tipl::make_shared(v1),tipl::make_shared(vv));
+        TIPL_RUN(invert_displacement_cuda_kernel,v0.size())
+                    (tipl::make_shared(v1),tipl::make_shared(vv));
+
+    }
+}
+//---------------------------------------------------------------------------
+template<typename ComposeImageType>
+void invert_displacement_cuda(ComposeImageType& v,uint8_t iterations = 16)
+{
+    ComposeImageType v0;
+    invert_displacement_cuda(v,v0,iterations);
+    v.swap(v0);
+}
 
 //---------------------------------------------------------------------------
 template<typename T>
@@ -62,15 +90,18 @@ inline void accumulate_displacement_cuda(T& v0,const T& vv)
     add_cuda(v0,vv);
 }
 
+namespace reg{
+
+
+
+
 
 // calculate dJ(cJ-I)
 
 template<typename T1,typename T2,typename T3>
 __global__ void cdm_get_gradient_cuda_kernel(T1 Js,T1 It,T2 new_d,T3 r2_256)
 {
-    size_t stride = blockDim.x*gridDim.x;
-    for(size_t index = threadIdx.x + blockIdx.x*blockDim.x;
-        index < Js.size();index += stride)
+    TIPL_FOR(index,Js.size())
     {
         tipl::pixel_index<3> pos(index,Js.shape());
         if(It[index] == 0.0f || Js[index] == 0.0f || It.shape().is_edge(pos))
@@ -105,12 +136,11 @@ template<typename image_type,typename dis_type>
 inline float cdm_get_gradient_cuda(const image_type& Js,const image_type& It,dis_type& new_d)
 {
     device_vector<float> r2_256(256);
-    cdm_get_gradient_cuda_kernel
-            <<<std::min<int>((Js.size()+255)/256,256),256>>>(
-                tipl::make_shared(Js),
-                tipl::make_shared(It),
-                tipl::make_shared(new_d),
-                tipl::make_shared(r2_256));
+    TIPL_RUN(cdm_get_gradient_cuda_kernel,Js.size())
+            (tipl::make_shared(Js),
+             tipl::make_shared(It),
+             tipl::make_shared(new_d),
+             tipl::make_shared(r2_256));
     return thrust::reduce(thrust::device,r2_256.get(),r2_256.get()+r2_256.size(),0.0)/float(Js.size());
 }
 
@@ -209,9 +239,7 @@ __global__ void cdm_constraint_cuda_kernel(T d,T dd,float constraint_length)
     shift[0] = 1;
     shift[1] = d.width();
     shift[2] = d.plane_size();
-    size_t stride = blockDim.x*gridDim.x;
-    for(size_t index = threadIdx.x + blockIdx.x*blockDim.x;
-        index < d.size();index += stride)
+    TIPL_FOR(index,d.size())
     {
         for(unsigned int dim = 0;dim < 3;++dim)
         {
@@ -238,10 +266,8 @@ template<typename dist_type>
 void cdm_constraint_cuda(dist_type& d,float constraint_length)
 {
     dist_type dd(d.shape());
-    cdm_constraint_cuda_kernel<<<std::min<int>((d.size()+255)/256,256),256>>>(
-                    tipl::make_shared(d),
-                    tipl::make_shared(dd),
-                    constraint_length);
+    TIPL_RUN(cdm_constraint_cuda_kernel,d.size())
+            (tipl::make_shared(d),tipl::make_shared(dd),constraint_length);
     add_cuda(d,dd);
 }
 
