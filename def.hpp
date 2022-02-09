@@ -38,6 +38,11 @@ constexpr bool use_xeus_cling = false;
 #define __INLINE__ __forceinline__ __device__ __host__
 #define __DEVICE__ __device__
 #define __HOST__ __host__
+#define TIPL_RUN(kernel_function,total_size) kernel_function<<<std::min<int>((total_size+255)/256,256),256>>>
+#define TIPL_FOR(index,total_size) \
+    size_t tipl_for_stride = blockDim.x*gridDim.x; \
+    for(size_t index = threadIdx.x + blockIdx.x*blockDim.x; \
+        index < total_size;index += tipl_for_stride)
 #else
 #define __DEVICE_HOST__
 #define __INLINE__ inline
