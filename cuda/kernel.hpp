@@ -9,10 +9,8 @@ namespace tipl {
 template<typename T,typename Fun>
 __global__ void cuda_for_kernel(size_t size,T from,Fun f)
 {
-    size_t stride = blockDim.x*gridDim.x;
-    for(size_t index = threadIdx.x + blockIdx.x*blockDim.x;
-        index < size;index += stride)
-            f(from+index);
+    TIPL_FOR(index,size)
+        f(from+index);
 }
 
 template <typename T,typename Func,typename std::enable_if<
