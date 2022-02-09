@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Template Image Processing Library (TIPL) is a header only c++ library for medical imaging processing. 
+Template Image Processing Library (TIPL) is a lightweight C++ template library designed mainly for high-performance medical imaging processing. 
 
 To use it, include the root header tipl.hpp
 ```
@@ -66,16 +66,63 @@ cmake -DTIPL_DIR=<install_dir>/lib/cmake/TIPL
 
 ## Design paradigm
 
-A lot of the image processing libraries are designed for experimental/research purpose and do not meet the industrial standard. Consequently, the performance of the codes is not optimal, and the library can be hard to read and use. The design of TIPL follows the several coding guidelines and principles [1-5] that makes it highly efficient and reusable. The following is the main paradigm behind TIPL.
+The design paradigm is to provide an "easy-to-use" and also "ready-to-use" header-only library. Most existing image processing libraries are not designed for medical image analysis and have suboptimal performance. TIPL was developed to fill this gap. The design paradigm follows several coding guidelines and principles that make it highly efficient and reusable. 
 
-- Decouple image type and image processing method. Most of the image processing libraries are limited to their defined image type. TIPL is not. You may use pointer, or any kind of memory block to as the input. This reduce the unnecessary memory storage and copy.
+The following is the main paradigm behind TIPL:
 
-- Not limited to RGB pixel type. In medical imaging, the most common pixel type is "short" or "float", not the RGB value. TIPL makes no assumption on the pixel type to achieve the best applicability..
+- Decouple image type and image processing method: 
+Most of the image processing libraries are limited to their defined image type. TIPL is not. You may use a pointer or any kind of memory block to as the input. This reduces unnecessary memory storage and copy.
 
-- No class inheritance, no hidden functions or interfaces. Class inheritance is known to cause programs in code maintenance  and it is not friendly for library users to customize the library. TIPL combines template-based interfaces with C-style interface to provide a "flat" library structures that is easy to maintain and modify. The connections between header files are thereby minimized. 
+- Not limited to RGB pixel type: 
+In medical imaging, the most common pixel type is "short" or "float", not the RGB value. TIPL makes no assumption on the pixel type to achieve the best applicability.
 
-## Features
+- Minimize class inheritance:
+Class inheritance is known to cause difficulties in code maintenance and unfriendly for extensions. TIPL uses template variable coupling to minimize the need for inheritance unless a strong case for inheritance is suggested. This provide a "flat" library structures that is easy to maintain and modify. 
 
-- Headers only, and easy to use. 
-- BSD license, free for all purposes        
+- Minimize between-header dependency:
+TIPL couples function and type at very late stage in the cpp to reduce header dependency. This allows for fast compilation time and achieve better abstraction. 
 
+- Avoid using plateform dependency functions or syntax:
+TIPL will be compiled against MSVC, CLANG, and GCC to ensure the best cross-platform capability.
+
+## Installation
+
+TIPL is header only. You may clon the repo or use CMake to install the package.
+
+1. Get header files from Github
+
+```
+!git clone http://github.com/frankyeh/TIPL/
+```
+
+2. Include the header 
+
+```
+#include "TIPL/tipl.hpp"  
+```
+
+Now you can use TIPL
+
+### Building the C++ examples using CMake
+
+It is possible to install TIPL using CMake, in which case C++ packages using CMake can easily build with it. 
+In this package C++ examples are available in the `cpp` subdirectory. To build these using CMake:
+
+* Make sure TIPL is installed with CMake, e.g. in a directory called `<TIPL_install_directory>`  (see the TIPL README.md file how to do this).
+* Execute the commands from the root of your cloned `TIPL-example` directory:
+```bash$
+export CMAKE_PREFIX_PATH=<TIPL_install_directory>:$CMAKE_PREFIX_PATH
+mkdir build ; cd build
+cmake ..
+cmake --build .
+cd cpp
+```
+* At this point one should be able to execute the exmaple, e.g.:
+```bash$
+./linear_reg
+```
+* We also made a directory `cpp/TIPL-examples` and symbolic linked the source `data` directory there so that the exmaples can find their inputs.
+
+Naturally one can also locate the CMake TIPLConfig.cmake file using other CMake means than `CMAKE_PREFIX_PATH` e.g. by providing the CMake option: `-DTIPL_DIR=<TIPL_install_directory>/lib/cmake/TIPL` to cmake. One should also be able to build out of source (the `build` directory can really be anywhere). 
+
+Installation of the examples is not yet supported
