@@ -26,8 +26,7 @@ minmax_value_cuda(const T& data)
 template<typename T1, typename T2,typename value_type>
 __global__  void normalize_upper_lower_cuda_kernel(T1 in,T2 out,value_type min,value_type coef)
 {
-    size_t stride = blockDim.x*gridDim.x;
-    for(size_t index = threadIdx.x + blockIdx.x*blockDim.x;index < in.size();index += stride)
+    TIPL_FOR(index,in.size())
         out[index] = value_type(in[index]-min)*coef;
 }
 
@@ -37,7 +36,7 @@ inline void normalize_upper_lower_cuda(const T& in,U& out,float upper_limit = 25
     auto min_max = minmax_value_cuda(in);
     auto range = min_max.second-min_max.first;
     float coef = range == 0 ? 0.0f:float(upper_limit/range);
-    normalize_upper_lower_cuda_kernel<<<std::min<int>((in.size()+255)/256,256),256>>>
+    TIPL_RUN(normalize_upper_lower_cuda_kernel,in.size())
         (tipl::make_shared(in),tipl::make_shared(out),float(min_max.first),coef);
 }
 
@@ -62,15 +61,14 @@ inline typename T::value_type sum_cuda(const T& data,typename T::value_type init
 template<typename T,typename U>
 __global__ void add_cuda_kernel(T I,U I2)
 {
-    size_t stride = blockDim.x*gridDim.x;
-    for(size_t index = threadIdx.x + blockIdx.x*blockDim.x;index < I.size();index += stride)
+    TIPL_FOR(index,I.size())
         I[index] += I2[index];
 }
 
 template<typename T,typename U>
 inline void add_cuda(T& I,const U& I2)
 {
-    add_cuda_kernel<<<std::min<int>((I.size()+255)/256,256),256>>>
+    TIPL_RUN(add_cuda_kernel,I.size())
         (tipl::make_shared(I),tipl::make_shared(I2));
 }
 
@@ -78,24 +76,21 @@ inline void add_cuda(T& I,const U& I2)
 template<typename T,typename U>
 __global__ void add_constant_cuda_kernel(T I,U v)
 {
-    size_t stride = blockDim.x*gridDim.x;
-    for(size_t index = threadIdx.x + blockIdx.x*blockDim.x;index < I.size();index += stride)
+    TIPL_FOR(index,I.size())
         I[index] += v;
 }
 
 template<typename T,typename U>
 inline void add_constant_cuda(T& I,U v)
 {
-    add_constant_cuda_kernel<<<std::min<int>((I.size()+255)/256,256),256>>>
+    TIPL_RUN(add_constant_cuda_kernel,I.size())
         (tipl::make_shared(I),v);
 }
 
 template<typename T1,typename T2,typename U>
 __global__ void add_constant_cuda_kernel(T1 I,T2 out,U v)
 {
-    size_t stride = blockDim.x*gridDim.x;
-    for(size_t index = threadIdx.x + blockIdx.x*blockDim.x;
-        index < I.size();index += stride)
+    TIPL_FOR(index,I.size())
         out[index] = I[index] + v;
 }
 
@@ -103,7 +98,7 @@ __global__ void add_constant_cuda_kernel(T1 I,T2 out,U v)
 template<typename T1,typename T2,typename U>
 inline void add_constant_cuda(const T1& I,T2& out,U v)
 {
-    add_constant_cuda_kernel<<<std::min<int>((I.size()+255)/256,256),256>>>
+    TIPL_RUN(add_constant_cuda_kernel,I.size())
         (tipl::make_shared(I),
          tipl::make_shared(out),v);
 }
@@ -111,9 +106,7 @@ inline void add_constant_cuda(const T1& I,T2& out,U v)
 template<typename T1,typename T2,typename U>
 __global__ void multiply_constant_cuda_kernel(T1 I,T2 out,U v)
 {
-    size_t stride = blockDim.x*gridDim.x;
-    for(size_t index = threadIdx.x + blockIdx.x*blockDim.x;
-        index < I.size();index += stride)
+    TIPL_FOR(index,I.size())
         out[index] = I[index] * v;
 }
 
@@ -121,7 +114,7 @@ __global__ void multiply_constant_cuda_kernel(T1 I,T2 out,U v)
 template<typename T1,typename T2,typename U>
 inline void multiply_constant_cuda(const T1& I,T2& out,U v)
 {
-    multiply_constant_cuda_kernel<<<std::min<int>((I.size()+255)/256,256),256>>>
+    TIPL_RUN(multiply_constant_cuda_kernel,I.size())
         (tipl::make_shared(I),
          tipl::make_shared(out),v);
 }
@@ -129,9 +122,7 @@ inline void multiply_constant_cuda(const T1& I,T2& out,U v)
 template<typename T1,typename U>
 __global__ void multiply_constant_cuda_kernel(T1 I,U v)
 {
-    size_t stride = blockDim.x*gridDim.x;
-    for(size_t index = threadIdx.x + blockIdx.x*blockDim.x;
-        index < I.size();index += stride)
+    TIPL_FOR(index,I.size())
         I[index] *= v;
 }
 
@@ -139,7 +130,7 @@ __global__ void multiply_constant_cuda_kernel(T1 I,U v)
 template<typename T1,typename U>
 inline void multiply_constant_cuda(T1& I,U v)
 {
-    multiply_constant_cuda_kernel<<<std::min<int>((I.size()+255)/256,256),256>>>
+    TIPL_RUN(multiply_constant_cuda_kernel,I.size())
         (tipl::make_shared(I),v);
 }
 
