@@ -17,9 +17,7 @@ const int his_bandwidth = 64;
 template<typename T,typename V,typename U>
 __global__ void mutual_information_cuda_kernel(T from,T to,V trans,U mutual_hist)
 {
-    size_t stride = blockDim.x*gridDim.x;
-    for(size_t index = threadIdx.x + blockIdx.x*blockDim.x;
-        index < from.size();index += stride)
+    TIPL_FOR(index,from.size())
     {
         tipl::pixel_index<3> pos(index,from.shape());
         tipl::vector<3> v;
@@ -86,7 +84,7 @@ public:
         }
 
         device_vector<int32_t> mutual_hist(his_bandwidth*his_bandwidth);
-        mutual_information_cuda_kernel<<<std::min<size_t>((from_raw.size()+255)/256,256),256>>>
+        TIPL_RUN(mutual_information_cuda_kernel,from_raw.size())
                                 (tipl::make_shared(from8),
                                  tipl::make_shared(to8),
                                  trans,
