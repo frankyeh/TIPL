@@ -59,7 +59,7 @@ public:
     {
         if(from_.size() > to_.size())
         {
-            auto trans(transform);
+            TransformType trans(transform);
             trans.inverse();
             return (*this)(to_,from_,trans);
         }
