@@ -15,10 +15,8 @@
 template<typename T>
 __global__ void device_vector_fill(T* buf,size_t size,T v)
 {
-    size_t stride = blockDim.x*gridDim.x;
-    for(size_t index = threadIdx.x + blockIdx.x*blockDim.x;
-        index < size;index += stride)
-            buf[index] = v;
+    TIPL_FOR(index,size)
+        buf[index] = v;
 }
 #endif//__CUDACC__
 
@@ -119,10 +117,12 @@ class device_vector{
                 {
                     #ifdef __CUDACC__
                     if constexpr(std::is_class<value_type>::value)
-                        device_vector_fill<<<std::min<size_t>((added_s+255)/256,256),256>>>(buf+s,added_s,value_type());
+                        TIPL_RUN(device_vector_fill,added_s)
+                            (buf+s,added_s,value_type());
                     else
                     if constexpr(std::is_floating_point<value_type>::value)
-                        device_vector_fill<<<std::min<size_t>((added_s+255)/256,256),256>>>(buf+s,added_s,value_type(0));
+                        TIPL_RUN(device_vector_fill,added_s)
+                            (buf+s,added_s,value_type(0));
                     #endif//__CUDACC__
                 }
             }
