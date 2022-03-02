@@ -327,9 +327,7 @@ public:
         struct dsr header;
         struct nifti_1_header nif_header;
     };
-    struct nifti_2_header nif_header2;
     bool is_nii; // backward compatibility to ANALYE 7.5
-    bool is_nii2;
     std::string error;
 public:
     std::shared_ptr<input_interface> input_stream;
@@ -429,7 +427,7 @@ private:
         }
     }
 
-    void convert_to_small_endian2(void)
+    void convert_to_small_endian2(nifti_2_header& nif_header2)
     {
         change_endian(nif_header2.datatype);
         change_endian(nif_header2.bitpix);
@@ -496,15 +494,14 @@ public:
         }
         else
             big_endian = false;
-        is_nii2 = size_of_header == 540;
 
-        if(is_nii2) // nifti2
+        if(size_of_header == 540) // nifti2
         {
+            nifti_2_header nif_header2;
             init_header(); // clear nifti1 headers
             input_stream->read(((char*)&nif_header2)+sizeof(int),sizeof(nifti_2_header)-sizeof(int));
             if (big_endian) // big endian condition
-                convert_to_small_endian2();
-            nif_header2.sizeof_hdr = 540;
+                convert_to_small_endian2(nif_header2);
             if (nif_header2.magic[0] != 'n' ||
                 nif_header2.magic[1] != '+' ||
                     nif_header2.magic[2] != '2')
@@ -513,13 +510,56 @@ public:
                 return false;
             }
             input_stream->seek(size_t(nif_header2.vox_offset));
+
+            nif_header.sizeof_hdr = 348;
+
+            // convert NIFTI2 to NIFTI1
+            nif_header.datatype         = nif_header2.datatype;
+            nif_header.bitpix           = nif_header2.bitpix;
+            std::copy(nif_header2.dim,nif_header2.dim+8,nif_header.dim);
+            nif_header.intent_p1        = nif_header2.intent_p1;
+            nif_header.intent_p2        = nif_header2.intent_p2;
+            nif_header.intent_p3        = nif_header2.intent_p3;
+            std::copy(nif_header2.pixdim,nif_header2.pixdim+8,nif_header.pixdim);
+
+            nif_header.vox_offset      = nif_header2.vox_offset;
+            nif_header.scl_slope       = nif_header2.scl_slope;
+            nif_header.scl_inter       = nif_header2.scl_inter;
+            nif_header.cal_max         = nif_header2.cal_max;
+            nif_header.cal_min         = nif_header2.cal_min;
+            nif_header.slice_duration  = nif_header2.slice_duration;
+            nif_header.toffset         = nif_header2.toffset;
+            nif_header.slice_start     = nif_header2.slice_start;
+            nif_header.slice_end       = nif_header2.slice_end;
+            std::copy(nif_header2.descrip,nif_header2.descrip+80,nif_header.descrip);
+            std::copy(nif_header2.aux_file,nif_header2.aux_file+24,nif_header.aux_file);
+            nif_header.qform_code      = nif_header2.qform_code;
+            nif_header.sform_code      = nif_header2.sform_code;
+            nif_header.quatern_b       = nif_header2.quatern_b;
+            nif_header.quatern_c       = nif_header2.quatern_c;
+            nif_header.quatern_d       = nif_header2.quatern_d;
+
+            nif_header.qoffset_x       = nif_header2.qoffset_x;
+            nif_header.qoffset_y       = nif_header2.qoffset_y;
+            nif_header.qoffset_z       = nif_header2.qoffset_z;
+
+            std::copy(nif_header2.srow_x,nif_header2.srow_x+4,nif_header.srow_x);
+            std::copy(nif_header2.srow_y,nif_header2.srow_y+4,nif_header.srow_y);
+            std::copy(nif_header2.srow_z,nif_header2.srow_z+4,nif_header.srow_z);
+
+            nif_header.slice_code       = nif_header2.slice_code;
+            nif_header.xyzt_units       = nif_header2.xyzt_units;
+            nif_header.intent_code      = nif_header2.intent_code;
+
+            std::copy(nif_header2.intent_name,nif_header2.intent_name+16,nif_header.intent_name);
+            nif_header.dim_info         = nif_header2.dim_info;
+
             return (*input_stream);
         }
         else
         // "ni1\0" or "n+1\0"
         {
             input_stream->read(((char*)&nif_header)+sizeof(int),sizeof(nifti_1_header)-sizeof(int));
-            nif_header2.sizeof_hdr = 348;
             if (big_endian) // big endian condition
                 convert_to_small_endian();
 
@@ -557,80 +597,34 @@ public:
                     return false;
                 }
             }
-
-            // convert NIFTI1 to NIFTI2
-            nif_header2.datatype = nif_header.datatype;
-            nif_header2.bitpix = nif_header.bitpix;
-            std::copy(nif_header.dim,nif_header.dim+8,nif_header2.dim);
-            nif_header2.intent_p1 = nif_header.intent_p1;
-            nif_header2.intent_p2 = nif_header.intent_p2;
-            nif_header2.intent_p3 = nif_header.intent_p3;
-            std::copy(nif_header.pixdim,nif_header.pixdim+8,nif_header2.pixdim);
-
-            nif_header2.vox_offset = nif_header.vox_offset;
-            nif_header2.scl_slope = nif_header.scl_slope;
-            nif_header2.scl_inter = nif_header.scl_inter;
-            nif_header2.cal_max = nif_header.cal_max;
-            nif_header2.cal_min = nif_header.cal_min;
-            nif_header2.slice_duration = nif_header.slice_duration;
-            nif_header2.toffset = nif_header.toffset;
-            nif_header2.slice_start = nif_header.slice_start;
-            nif_header2.slice_end = nif_header.slice_end;
-            std::copy(nif_header.descrip,nif_header.descrip+80,nif_header2.descrip);
-            std::copy(nif_header.aux_file,nif_header.aux_file+24,nif_header2.aux_file);
-            nif_header2.qform_code = nif_header.qform_code;
-            nif_header2.sform_code = nif_header.sform_code;
-            nif_header2.quatern_b = nif_header.quatern_b;
-            nif_header2.quatern_c = nif_header.quatern_c;
-            nif_header2.quatern_d = nif_header.quatern_d;
-
-            nif_header2.qoffset_x = nif_header.qoffset_x;
-            nif_header2.qoffset_y = nif_header.qoffset_y;
-            nif_header2.qoffset_z = nif_header.qoffset_z;
-
-            std::copy(nif_header.srow_x,nif_header.srow_x+4,nif_header2.srow_x);
-            std::copy(nif_header.srow_y,nif_header.srow_y+4,nif_header2.srow_y);
-            std::copy(nif_header.srow_z,nif_header.srow_z+4,nif_header2.srow_z);
-
-            nif_header2.slice_code = nif_header.slice_code;
-            nif_header2.xyzt_units = nif_header.xyzt_units;
-            nif_header2.intent_code = nif_header.intent_code;
-
-            std::copy(nif_header.intent_name,nif_header.intent_name+16,nif_header2.intent_name);
-            nif_header2.dim_info = nif_header.dim_info;
-
         }
         return (*input_stream);
     }
-    const char* get_descrip(void) const{return nif_header2.descrip;}
+    const char* get_descrip(void) const{return nif_header.descrip;}
     void set_descrip(const char* des)
     {
         std::copy(des,des+80,nif_header.descrip);
-        std::copy(des,des+80,nif_header2.descrip);
     }
     unsigned short width(void) const
     {
-        return nif_header2.dim[1];
+        return nif_header.dim[1];
     }
-
     unsigned short height(void) const
     {
-        return nif_header2.dim[2];
+        return nif_header.dim[2];
     }
-
     unsigned short depth(void) const
     {
-        return nif_header2.dim[3];
+        return nif_header.dim[3];
     }
-
     unsigned short dim(unsigned int index) const
     {
-        return nif_header2.dim[index];
+        return nif_header.dim[index];
     }
     bool select_volume(size_t i)
     {
-        const size_t byte_per_pixel = nif_header2.bitpix/8;
-        tipl::shape<3> geo(nif_header2.dim+1);
+        const size_t byte_per_pixel = nif_header.bitpix/8;
+        tipl::shape<3> geo(nif_header.dim+1);
         size_t volume_size = byte_per_pixel*geo.size();
         input_stream->clear();
         input_stream->seek(size_t(nif_header.vox_offset)+i*volume_size);
@@ -642,10 +636,6 @@ public:
         std::fill(nif_header.dim,nif_header.dim+8,1);
         std::copy(geo.begin(),geo.end(),nif_header.dim+1);
         nif_header.dim[0] = shape_type::dimension;
-
-        std::fill(nif_header2.dim,nif_header2.dim+8,1);
-        std::copy(geo.begin(),geo.end(),nif_header2.dim+1);
-        nif_header2.dim[0] = shape_type::dimension;
     }
 
     template<int dim>
@@ -656,15 +646,11 @@ public:
         std::copy(pixel_size_from.begin(),pixel_size_from.end(),pixdim+1);
         pixdim[0] = dim;
         std::copy(pixdim,pixdim+8,nif_header.pixdim);
-        std::copy(pixdim,pixdim+8,nif_header2.pixdim);
-        if(nif_header2.srow_x[0] == 1.0f)
+        if(nif_header.srow_x[0] == 1.0f)
         {
             nif_header.srow_x[0] = pixel_size_from[0];
             nif_header.srow_y[1] = pixel_size_from[1];
             nif_header.srow_z[2] = pixel_size_from[2];
-            nif_header2.srow_x[0] = pixel_size_from[0];
-            nif_header2.srow_y[1] = pixel_size_from[1];
-            nif_header2.srow_z[2] = pixel_size_from[2];
         }
     }
 
@@ -676,26 +662,11 @@ public:
         std::copy(R.begin(),R.begin()+4,nif_header.srow_x);
         std::copy(R.begin()+4,R.begin()+8,nif_header.srow_y);
         std::copy(R.begin()+8,R.begin()+12,nif_header.srow_z);
-
-        nif_header2.sform_code = 1.0;
-        nif_header2.qform_code = 0.0;
-        std::copy(R.begin(),R.begin()+4,nif_header2.srow_x);
-        std::copy(R.begin()+4,R.begin()+8,nif_header2.srow_y);
-        std::copy(R.begin()+8,R.begin()+12,nif_header2.srow_z);
     }
     template<typename matrix_type,typename geo_type>
     void set_LPS_transformation(matrix_type& R,const geo_type& out)
     {
         set_image_transformation(R);
-        nif_header2.srow_x[3] += nif_header2.srow_x[0]*(out.width()-1);
-        nif_header2.srow_x[0] = -nif_header2.srow_x[0];
-        nif_header2.srow_y[0] = -nif_header2.srow_y[0];
-        nif_header2.srow_z[0] = -nif_header2.srow_z[0];
-        nif_header2.srow_y[3] += nif_header2.srow_y[1]*(out.height()-1);
-        nif_header2.srow_x[1] = -nif_header2.srow_x[1];
-        nif_header2.srow_y[1] = -nif_header2.srow_y[1];
-        nif_header2.srow_z[1] = -nif_header2.srow_z[1];
-
         nif_header.srow_x[3] += nif_header.srow_x[0]*(out.width()-1);
         nif_header.srow_x[0] = -nif_header.srow_x[0];
         nif_header.srow_y[0] = -nif_header.srow_y[0];
@@ -709,37 +680,37 @@ public:
     template<int dim>
     void get_voxel_size(tipl::vector<dim,float>& pixel_size_from) const
     {
-        std::copy(nif_header2.pixdim+1,nif_header2.pixdim+1+dim,pixel_size_from.begin());
+        std::copy(nif_header.pixdim+1,nif_header.pixdim+1+dim,pixel_size_from.begin());
     }
 
     template<typename float_type>
     void get_image_orientation(float_type R)
     {
         handle_qform();
-        std::copy(nif_header2.srow_x,nif_header2.srow_x+3,R);
-        std::copy(nif_header2.srow_y,nif_header2.srow_y+3,R+3);
-        std::copy(nif_header2.srow_z,nif_header2.srow_z+3,R+6);
+        std::copy(nif_header.srow_x,nif_header.srow_x+3,R);
+        std::copy(nif_header.srow_y,nif_header.srow_y+3,R+3);
+        std::copy(nif_header.srow_z,nif_header.srow_z+3,R+6);
     }
     template<typename matrix_type>
     void get_image_transformation(matrix_type& R)
     {
         handle_qform();
         R.identity();
-        std::copy(nif_header2.srow_x,nif_header2.srow_x+12,R.begin());
+        std::copy(nif_header.srow_x,nif_header.srow_x+12,R.begin());
     }
     bool is_mni(void) const
     {
         return nif_header.sform_code == 4; // NIFTI_XFORM_MNI_152
     }
-    const double* get_transformation(void)
+    const float* get_transformation(void)
     {
         handle_qform();
-        return nif_header2.srow_x;
+        return nif_header.srow_x;
     }
 
     unsigned short get_bit_count(void)
     {
-        return nif_header2.bitpix;
+        return nif_header.bitpix;
     }
 public:
     nifti_base(void):input_stream(new input_interface)
@@ -762,24 +733,6 @@ public:
         nif_header.magic[1] = '+';
         nif_header.magic[2] = '1';
         nif_header.magic[3] = 0;
-
-        std::fill((char*)&nif_header2,(char*)&nif_header2 + sizeof(nifti_2_header),0);
-        nif_header2.sizeof_hdr = 540;
-        nif_header2.vox_offset = 544;
-        nif_header2.scl_slope = 1.0;
-        nif_header2.sform_code = 1;
-        nif_header2.quatern_c = 1;
-        nif_header2.srow_x[0] = 1.0;
-        nif_header2.srow_y[1] = 1.0;
-        nif_header2.srow_z[2] = 1.0;
-        nif_header2.magic[0] = 'n';
-        nif_header2.magic[1] = '+';
-        nif_header2.magic[2] = '2';
-        nif_header2.magic[3] = 0;
-        nif_header2.magic[4] = '\r';
-        nif_header2.magic[5] = '\n';
-        nif_header2.magic[6] = 32;
-        nif_header2.magic[7] = '\n';
         is_nii = true;
         set_voxel_size(tipl::vector<3>(1.0f,1.0f,1.0f));
     }
@@ -787,25 +740,21 @@ public:
     template<int dimension>
     void get_image_dimension(shape<dimension>& geo) const
     {
-        std::copy(nif_header2.dim+1,nif_header2.dim+1+dimension,geo.begin());
+        std::copy(nif_header.dim+1,nif_header.dim+1+dimension,geo.begin());
     }
     bool is_integer(void) const
     {
-        if(nif_header.datatype)
-            return nif_header.datatype != 16 && nif_header.datatype != 64;
-        return nif_header2.datatype != 16 && nif_header2.datatype != 64;
+        return nif_header.datatype != 16 && nif_header.datatype != 64;
     }
     template<typename image_type>
     void load_from_image(const image_type& source)
     {
-        nif_header2.datatype = nifti_type_info<typename image_type::value_type>::data_type;
-        nif_header2.bitpix = nifti_type_info<typename image_type::value_type>::bit_pix;
-        nif_header.datatype = nif_header2.datatype;
-        nif_header.bitpix = nif_header2.bitpix;
+        nif_header.datatype = nifti_type_info<typename image_type::value_type>::data_type;
+        nif_header.bitpix = nifti_type_info<typename image_type::value_type>::bit_pix;
 
         set_dim(source.shape());
-        write_size = source.size()*(size_t)(nif_header2.bitpix/8);
-        if(nif_header2.datatype == 128 && nif_header2.bitpix == 24)
+        write_size = source.size()*(size_t)(nif_header.bitpix/8);
+        if(nif_header.datatype == 128 && nif_header.bitpix == 24)
         {
             rgb_write_buf.resize(source.size()*3);
             for(size_t i = 0,j = 0; i < source.size();++i,j += 3)
@@ -860,7 +809,7 @@ public:
         nii.set_image_transformation(T);
         nii.load_from_image(I);
         if(is_mni_152)
-            nii.nif_header2.sform_code = nii.nif_header.sform_code = 4; //NIFTI_XFORM_MNI_152
+            nii.nif_header.sform_code = nii.nif_header.sform_code = 4; //NIFTI_XFORM_MNI_152
         if(descript)
             nii.set_descrip(descript);
         return nii.save_to_file(pfile_name);
@@ -875,7 +824,7 @@ public:
             //yes, then change the header to the NIFTI format
             nif_header.sizeof_hdr = 348;
             nif_header.vox_offset = 352;
-            nif_header.qform_code = 1;
+            nif_header.sform_code = 1;
             nif_header.magic[0] = 'n';
             nif_header.magic[1] = '+';
             nif_header.magic[2] = '1';
@@ -914,9 +863,9 @@ public:
     template<typename pointer_type>
     bool save_to_buffer(pointer_type ptr,size_t pixel_count) const
     {
-        const size_t byte_per_pixel = nif_header2.bitpix/8;
+        const size_t byte_per_pixel = nif_header.bitpix/8;
         typedef typename std::iterator_traits<pointer_type>::value_type value_type;
-        if(compatible(nifti_type_info<value_type>::data_type,nif_header2.datatype))
+        if(compatible(nifti_type_info<value_type>::data_type,nif_header.datatype))
         {
             if(!input_stream->read((char*)&*ptr,pixel_count*byte_per_pixel))
                 return false;
@@ -947,7 +896,7 @@ public:
                         break;
                 }
             }
-            switch (nif_header2.datatype)
+            switch (nif_header.datatype)
             {
             case 2://DT_UNSIGNED_CHAR 2
                 copy_data<unsigned char>(buf_ptr,ptr,pixel_count);
@@ -1000,13 +949,13 @@ public:
     {
         if(!has_data())
             return false;
-        out.resize(tipl::shape<image_type::dimension>(nif_header2.dim+1));
+        out.resize(tipl::shape<image_type::dimension>(nif_header.dim+1));
         if(!save_to_buffer(out.begin(),out.size()))
             return false;
-        if(nif_header2.scl_slope != 0)
+        if(nif_header.scl_slope != 0)
         {
-            tipl::multiply_constant(out,nif_header2.scl_slope);
-            tipl::add_constant(out,nif_header2.scl_inter);
+            tipl::multiply_constant(out,nif_header.scl_slope);
+            tipl::add_constant(out,nif_header.scl_inter);
         }
         return true;
     }
@@ -1032,11 +981,11 @@ public:
 
     void handle_qform(void)
     {
-        if(nif_header2.qform_code > 0 && nif_header2.sform_code == 0)
+        if(nif_header.qform_code > 0 && nif_header.sform_code == 0)
         {
-            float b = nif_header2.quatern_b;
-            float c = nif_header2.quatern_c;
-            float d = nif_header2.quatern_d;
+            float b = nif_header.quatern_b;
+            float c = nif_header.quatern_c;
+            float d = nif_header.quatern_d;
             float b2 = b*b;
             float c2 = c*c;
             float d2 = d*d;
@@ -1050,22 +999,22 @@ public:
             float bd2 = 2.0f*b*d;
             float cd2 = 2.0f*c*d;
 
-            float qfac = nif_header2.pixdim[0];
+            float qfac = nif_header.pixdim[0];
             if(qfac == 0.0f)
                 qfac = 1.0f;
-            nif_header2.srow_x[0] = (a2+b2-c2-d2)*nif_header2.pixdim[1];
-            nif_header2.srow_x[1] = (bc2-ad2)*nif_header2.pixdim[2];
-            nif_header2.srow_x[2] = (bd2+ac2)*nif_header2.pixdim[3]*qfac;
-            nif_header2.srow_x[3] = nif_header2.qoffset_x;
-            nif_header2.srow_y[0] = (bc2+ad2)*nif_header2.pixdim[1];
-            nif_header2.srow_y[1] = (a2+c2-b2-d2)*nif_header2.pixdim[2];
-            nif_header2.srow_y[2] = (cd2-ab2)*nif_header2.pixdim[3]*qfac;
-            nif_header2.srow_y[3] = nif_header2.qoffset_y;
-            nif_header2.srow_z[0] = (bd2-ac2)*nif_header2.pixdim[1];
-            nif_header2.srow_z[1] = (cd2+ab2)*nif_header2.pixdim[2];
-            nif_header2.srow_z[2] = (a2+d2-c2-b2)*nif_header2.pixdim[3]*qfac;
-            nif_header2.srow_z[3] = nif_header2.qoffset_z;
-            nif_header2.sform_code = 1;
+            nif_header.srow_x[0] = (a2+b2-c2-d2)*nif_header.pixdim[1];
+            nif_header.srow_x[1] = (bc2-ad2)*nif_header.pixdim[2];
+            nif_header.srow_x[2] = (bd2+ac2)*nif_header.pixdim[3]*qfac;
+            nif_header.srow_x[3] = nif_header.qoffset_x;
+            nif_header.srow_y[0] = (bc2+ad2)*nif_header.pixdim[1];
+            nif_header.srow_y[1] = (a2+c2-b2-d2)*nif_header.pixdim[2];
+            nif_header.srow_y[2] = (cd2-ab2)*nif_header.pixdim[3]*qfac;
+            nif_header.srow_y[3] = nif_header.qoffset_y;
+            nif_header.srow_z[0] = (bd2-ac2)*nif_header.pixdim[1];
+            nif_header.srow_z[1] = (cd2+ab2)*nif_header.pixdim[2];
+            nif_header.srow_z[2] = (a2+d2-c2-b2)*nif_header.pixdim[3]*qfac;
+            nif_header.srow_z[3] = nif_header.qoffset_z;
+            nif_header.sform_code = 1;
         }
     }
 
@@ -1081,46 +1030,46 @@ public:
         handle_qform();
 
         // swap x y
-        if(std::fabs(nif_header2.srow_y[1]) < std::fabs(nif_header2.srow_x[1]) &&
-           std::fabs(nif_header2.srow_z[1]) < std::fabs(nif_header2.srow_x[1]))
+        if(std::fabs(nif_header.srow_y[1]) < std::fabs(nif_header.srow_x[1]) &&
+           std::fabs(nif_header.srow_z[1]) < std::fabs(nif_header.srow_x[1]))
         {
             if(change_header)
             {
-                std::swap(nif_header2.srow_x[0],nif_header2.srow_x[1]);
-                std::swap(nif_header2.srow_y[0],nif_header2.srow_y[1]);
-                std::swap(nif_header2.srow_z[0],nif_header2.srow_z[1]);
-                std::swap(nif_header2.pixdim[1],nif_header2.pixdim[2]);
-                std::swap(nif_header2.dim[1],nif_header2.dim[2]);
+                std::swap(nif_header.srow_x[0],nif_header.srow_x[1]);
+                std::swap(nif_header.srow_y[0],nif_header.srow_y[1]);
+                std::swap(nif_header.srow_z[0],nif_header.srow_z[1]);
+                std::swap(nif_header.pixdim[1],nif_header.pixdim[2]);
+                std::swap(nif_header.dim[1],nif_header.dim[2]);
             }
             if(load_image)
                 tipl::swap_xy(out);
         }
         // swap x z
-        if(std::fabs(nif_header2.srow_y[2]) < std::fabs(nif_header2.srow_x[2]) &&
-           std::fabs(nif_header2.srow_z[2]) < std::fabs(nif_header2.srow_x[2]))
+        if(std::fabs(nif_header.srow_y[2]) < std::fabs(nif_header.srow_x[2]) &&
+           std::fabs(nif_header.srow_z[2]) < std::fabs(nif_header.srow_x[2]))
         {
             if(change_header)
             {
-                std::swap(nif_header2.srow_x[0],nif_header2.srow_x[2]);
-                std::swap(nif_header2.srow_y[0],nif_header2.srow_y[2]);
-                std::swap(nif_header2.srow_z[0],nif_header2.srow_z[2]);
-                std::swap(nif_header2.pixdim[1],nif_header2.pixdim[3]);
-                std::swap(nif_header2.dim[1],nif_header2.dim[3]);
+                std::swap(nif_header.srow_x[0],nif_header.srow_x[2]);
+                std::swap(nif_header.srow_y[0],nif_header.srow_y[2]);
+                std::swap(nif_header.srow_z[0],nif_header.srow_z[2]);
+                std::swap(nif_header.pixdim[1],nif_header.pixdim[3]);
+                std::swap(nif_header.dim[1],nif_header.dim[3]);
             }
             if(load_image)
                 tipl::swap_xz(out);
         }
         // swap y z
-        if(std::fabs(nif_header2.srow_x[2]) < std::fabs(nif_header2.srow_y[2]) &&
-           std::fabs(nif_header2.srow_z[2]) < std::fabs(nif_header2.srow_y[2]))
+        if(std::fabs(nif_header.srow_x[2]) < std::fabs(nif_header.srow_y[2]) &&
+           std::fabs(nif_header.srow_z[2]) < std::fabs(nif_header.srow_y[2]))
         {
             if(change_header)
             {
-                std::swap(nif_header2.srow_x[1],nif_header2.srow_x[2]);
-                std::swap(nif_header2.srow_y[1],nif_header2.srow_y[2]);
-                std::swap(nif_header2.srow_z[1],nif_header2.srow_z[2]);
-                std::swap(nif_header2.pixdim[2],nif_header2.pixdim[3]);
-                std::swap(nif_header2.dim[2],nif_header2.dim[3]);
+                std::swap(nif_header.srow_x[1],nif_header.srow_x[2]);
+                std::swap(nif_header.srow_y[1],nif_header.srow_y[2]);
+                std::swap(nif_header.srow_z[1],nif_header.srow_z[2]);
+                std::swap(nif_header.pixdim[2],nif_header.pixdim[3]);
+                std::swap(nif_header.dim[2],nif_header.dim[3]);
             }
             if(load_image)
                 tipl::swap_yz(out);
@@ -1128,92 +1077,92 @@ public:
 
         // from +x = Right  +y = Anterior +z = Superior
         // to +x = Left  +y = Posterior +z = Superior
-        if(nif_header2.srow_x[0] > 0)
+        if(nif_header.srow_x[0] > 0)
         {
             if(load_image)
                 tipl::flip_x(out);
             if(change_header)
             {
-                nif_header2.srow_x[3] += nif_header2.srow_x[0]*(nif_header2.dim[1]-1);
-                nif_header2.srow_x[0] = -nif_header2.srow_x[0];
-                nif_header2.srow_y[0] = -nif_header2.srow_y[0];
-                nif_header2.srow_z[0] = -nif_header2.srow_z[0];
+                nif_header.srow_x[3] += nif_header.srow_x[0]*(nif_header.dim[1]-1);
+                nif_header.srow_x[0] = -nif_header.srow_x[0];
+                nif_header.srow_y[0] = -nif_header.srow_y[0];
+                nif_header.srow_z[0] = -nif_header.srow_z[0];
             }
         }
 
-        if(nif_header2.srow_y[1] > 0)
+        if(nif_header.srow_y[1] > 0)
         {
             if(load_image)
                 tipl::flip_y(out);
             if(change_header)
             {
-                nif_header2.srow_y[3] += nif_header2.srow_y[1]*(nif_header2.dim[2]-1);
-                nif_header2.srow_x[1] = -nif_header2.srow_x[1];
-                nif_header2.srow_y[1] = -nif_header2.srow_y[1];
-                nif_header2.srow_z[1] = -nif_header2.srow_z[1];
+                nif_header.srow_y[3] += nif_header.srow_y[1]*(nif_header.dim[2]-1);
+                nif_header.srow_x[1] = -nif_header.srow_x[1];
+                nif_header.srow_y[1] = -nif_header.srow_y[1];
+                nif_header.srow_z[1] = -nif_header.srow_z[1];
             }
         }
 
-        if(nif_header2.srow_z[2] < 0)
+        if(nif_header.srow_z[2] < 0)
         {
             if(load_image)
                 tipl::flip_z(out);
             if(change_header)
             {
-                nif_header2.srow_z[3] += nif_header2.srow_z[2]*(nif_header2.dim[3]-1);
-                nif_header2.srow_x[2] = -nif_header2.srow_x[2];
-                nif_header2.srow_y[2] = -nif_header2.srow_y[2];
-                nif_header2.srow_z[2] = -nif_header2.srow_z[2];
+                nif_header.srow_z[3] += nif_header.srow_z[2]*(nif_header.dim[3]-1);
+                nif_header.srow_x[2] = -nif_header.srow_x[2];
+                nif_header.srow_y[2] = -nif_header.srow_y[2];
+                nif_header.srow_z[2] = -nif_header.srow_z[2];
             }
         }
         return true;
     }
     friend std::ostream& operator<<(std::ostream& out,const nifti_base& nii)
     {
-        out << "sizeof_hdr=" << nii.nif_header2.sizeof_hdr << std::endl;
-        out << "ndim_info=" << (int)nii.nif_header2.dim_info << std::endl;
+        out << "sizeof_hdr=" << nii.nif_header.sizeof_hdr << std::endl;
+        out << "ndim_info=" << (int)nii.nif_header.dim_info << std::endl;
         for(unsigned int i = 0;i < 8;++i)
-            out << "dim[" << i << "]=" << nii.nif_header2.dim[i] << std::endl;
-        out << "intent_p1=" << nii.nif_header2.intent_p1 << std::endl;
-        out << "intent_p2=" << nii.nif_header2.intent_p2 << std::endl;
-        out << "intent_p3=" << nii.nif_header2.intent_p3 << std::endl;
-        out << "intent_code=" << nii.nif_header2.intent_code << std::endl;
-        out << "datatype=" << nii.nif_header2.datatype << std::endl;
-        out << "bitpix=" << nii.nif_header2.bitpix << std::endl;
-        out << "slice_start=" << nii.nif_header2.slice_start << std::endl;
+            out << "dim[" << i << "]=" << nii.nif_header.dim[i] << std::endl;
+        out << "intent_p1=" << nii.nif_header.intent_p1 << std::endl;
+        out << "intent_p2=" << nii.nif_header.intent_p2 << std::endl;
+        out << "intent_p3=" << nii.nif_header.intent_p3 << std::endl;
+        out << "intent_code=" << nii.nif_header.intent_code << std::endl;
+        out << "datatype=" << nii.nif_header.datatype << std::endl;
+        out << "bitpix=" << nii.nif_header.bitpix << std::endl;
+        out << "slice_start=" << nii.nif_header.slice_start << std::endl;
 
         for(unsigned int i = 0;i < 8;++i)
-            out << "pixdim[" << i << "]=" << nii.nif_header2.pixdim[i] << std::endl;
+            out << "pixdim[" << i << "]=" << nii.nif_header.pixdim[i] << std::endl;
 
-        out << "vox_offset=" << nii.nif_header2.vox_offset << std::endl;
-        out << "scl_slope=" << nii.nif_header2.scl_slope << std::endl;
-        out << "scl_inter=" << nii.nif_header2.scl_inter << std::endl;
-        out << "slice_end=" << nii.nif_header2.slice_end << std::endl;
-        out << "slice_code=" << (int)nii.nif_header2.slice_code << std::endl;
-        out << "xyzt_units=" << (int)nii.nif_header2.xyzt_units << std::endl;
-        out << "scl_inter=" << nii.nif_header2.scl_inter << std::endl;
-        out << "cal_max=" << nii.nif_header2.cal_max << std::endl;
-        out << "cal_min=" << nii.nif_header2.cal_min << std::endl;
-        out << "slice_duration=" << nii.nif_header2.slice_duration << std::endl;
-        out << "toffset=" << nii.nif_header2.toffset << std::endl;
-        out << "descrip=" << nii.nif_header2.descrip << std::endl;
-        out << "aux_file=" << nii.nif_header2.aux_file << std::endl;
-        out << "qform_code=" << nii.nif_header2.qform_code << std::endl;
-        out << "sform_code=" << nii.nif_header2.sform_code << std::endl;
-        out << "quatern_b=" << nii.nif_header2.quatern_b << std::endl;
-        out << "quatern_c=" << nii.nif_header2.quatern_c << std::endl;
-        out << "quatern_d=" << nii.nif_header2.quatern_d << std::endl;
-        out << "qoffset_x=" << nii.nif_header2.qoffset_x << std::endl;
-        out << "qoffset_y=" << nii.nif_header2.qoffset_y << std::endl;
-        out << "qoffset_z=" << nii.nif_header2.qoffset_z << std::endl;
+        out << "vox_offset=" << nii.nif_header.vox_offset << std::endl;
+        out << "scl_slope=" << nii.nif_header.scl_slope << std::endl;
+        out << "scl_inter=" << nii.nif_header.scl_inter << std::endl;
+        out << "slice_end=" << nii.nif_header.slice_end << std::endl;
+        out << "slice_code=" << (int)nii.nif_header.slice_code << std::endl;
+        out << "xyzt_units=" << (int)nii.nif_header.xyzt_units << std::endl;
+        out << "scl_inter=" << nii.nif_header.scl_inter << std::endl;
+        out << "cal_max=" << nii.nif_header.cal_max << std::endl;
+        out << "cal_min=" << nii.nif_header.cal_min << std::endl;
+        out << "slice_duration=" << nii.nif_header.slice_duration << std::endl;
+        out << "toffset=" << nii.nif_header.toffset << std::endl;
+        out << "descrip=" << nii.nif_header.descrip << std::endl;
+        out << "aux_file=" << nii.nif_header.aux_file << std::endl;
+        out << "qform_code=" << nii.nif_header.qform_code << std::endl;
+        out << "sform_code=" << nii.nif_header.sform_code << std::endl;
+        out << "quatern_b=" << nii.nif_header.quatern_b << std::endl;
+        out << "quatern_c=" << nii.nif_header.quatern_c << std::endl;
+        out << "quatern_d=" << nii.nif_header.quatern_d << std::endl;
+        out << "qoffset_x=" << nii.nif_header.qoffset_x << std::endl;
+        out << "qoffset_y=" << nii.nif_header.qoffset_y << std::endl;
+        out << "qoffset_z=" << nii.nif_header.qoffset_z << std::endl;
 
         for(unsigned int i = 0;i < 4;++i)
-            out << "srow_x[" << i << "]=" << nii.nif_header2.srow_x[i] << std::endl;
+            out << "srow_x[" << i << "]=" << nii.nif_header.srow_x[i] << std::endl;
         for(unsigned int i = 0;i < 4;++i)
-            out << "srow_y[" << i << "]=" << nii.nif_header2.srow_y[i] << std::endl;
+            out << "srow_y[" << i << "]=" << nii.nif_header.srow_y[i] << std::endl;
         for(unsigned int i = 0;i < 4;++i)
-            out << "srow_z[" << i << "]=" << nii.nif_header2.srow_z[i] << std::endl;
-        out << "intent_name=" << nii.nif_header2.intent_name << std::endl;
+            out << "srow_z[" << i << "]=" << nii.nif_header.srow_z[i] << std::endl;
+        out << "intent_name=" << nii.nif_header.intent_name << std::endl;
         return out;
     }
 
