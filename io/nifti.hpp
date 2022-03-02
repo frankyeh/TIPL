@@ -727,8 +727,10 @@ public:
         R.identity();
         std::copy(nif_header2.srow_x,nif_header2.srow_x+12,R.begin());
     }
-
-
+    bool is_mni(void) const
+    {
+        return nii.nif_header.sform_code == 4; // NIFTI_XFORM_MNI_152
+    }
     const double* get_transformation(void)
     {
         handle_qform();
@@ -851,7 +853,7 @@ public:
 
     template<typename char_type,typename image_type,typename vs_type,typename srow_type>
     static bool save_to_file(const char_type* pfile_name,const image_type& I,const vs_type& vs,const srow_type& T,
-                             const char* descript = nullptr,bool is_mni_152 = false)
+                             bool is_mni_152 = false,const char* descript = nullptr)
     {
         nifti_base nii;
         nii.set_voxel_size(vs);
