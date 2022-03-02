@@ -729,7 +729,7 @@ public:
     }
     bool is_mni(void) const
     {
-        return nii.nif_header.sform_code == 4; // NIFTI_XFORM_MNI_152
+        return nif_header.sform_code == 4; // NIFTI_XFORM_MNI_152
     }
     const double* get_transformation(void)
     {
@@ -848,7 +848,7 @@ public:
     static inline bool load_from_file(const char_type* pfile_name,image_type& I,vs_type& vs,srow_type& T)
     {
         bool is_mni = false;
-        return load_From_file(pfile_name,I,vs,T,is_mni);
+        return load_from_file(pfile_name,I,vs,T,is_mni);
     }
 
     template<typename char_type,typename image_type,typename vs_type,typename srow_type>
