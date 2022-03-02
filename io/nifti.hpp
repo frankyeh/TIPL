@@ -831,7 +831,7 @@ public:
         return true;
     }
     template<typename char_type,typename image_type,typename vs_type,typename srow_type>
-    static bool load_from_file(const char_type* pfile_name,image_type& I,vs_type& vs,srow_type& T)
+    static bool load_from_file(const char_type* pfile_name,image_type& I,vs_type& vs,srow_type& T,bool& is_mni)
     {
         nifti_base nii;
         if(!nii.load_from_file(pfile_name) ||
@@ -839,16 +839,26 @@ public:
             return false;
         nii.get_voxel_size(vs);
         nii.get_image_transformation(T);
+        is_mni = (nii.nif_header.sform_code == 4); // NIFTI_XFORM_MNI_152
         return true;
+    }
+    template<typename char_type,typename image_type,typename vs_type,typename srow_type>
+    static inline bool load_from_file(const char_type* pfile_name,image_type& I,vs_type& vs,srow_type& T)
+    {
+        bool is_mni = false;
+        return load_From_file(pfile_name,I,vs,T,is_mni);
     }
 
     template<typename char_type,typename image_type,typename vs_type,typename srow_type>
-    static bool save_to_file(const char_type* pfile_name,const image_type& I,const vs_type& vs,const srow_type& T,const char* descript = nullptr)
+    static bool save_to_file(const char_type* pfile_name,const image_type& I,const vs_type& vs,const srow_type& T,
+                             const char* descript = nullptr,bool is_mni_152 = false)
     {
         nifti_base nii;
         nii.set_voxel_size(vs);
         nii.set_image_transformation(T);
         nii.load_from_image(I);
+        if(is_mni_152)
+            nii.nif_header2.sform_code = nii.nif_header.sform_code = 4; //NIFTI_XFORM_MNI_152
         if(descript)
             nii.set_descrip(descript);
         return nii.save_to_file(pfile_name);
