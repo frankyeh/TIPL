@@ -655,10 +655,10 @@ public:
     }
 
     template<typename matrix_type>
-    void set_image_transformation(matrix_type& R)
+    void set_image_transformation(matrix_type& R,bool mni = false)
     {
-        nif_header.sform_code = 1.0;
-        nif_header.qform_code = 0.0;
+        nif_header.sform_code = mni ? 4:1;
+        nif_header.qform_code = 0;
         std::copy(R.begin(),R.begin()+4,nif_header.srow_x);
         std::copy(R.begin()+4,R.begin()+8,nif_header.srow_y);
         std::copy(R.begin()+8,R.begin()+12,nif_header.srow_z);
@@ -806,10 +806,8 @@ public:
     {
         nifti_base nii;
         nii.set_voxel_size(vs);
-        nii.set_image_transformation(T);
+        nii.set_image_transformation(T,is_mni_152);
         nii.load_from_image(I);
-        if(is_mni_152)
-            nii.nif_header.sform_code = nii.nif_header.sform_code = 4; //NIFTI_XFORM_MNI_152
         if(descript)
             nii.set_descrip(descript);
         return nii.save_to_file(pfile_name);
