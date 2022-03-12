@@ -248,7 +248,7 @@ void fill_rect(image_type& I,PosType from,PosType to,pixel_type value)
 
 //--------------------------------------------------------------------------
 template<typename T,typename U>
-__INLINE__ bool draw_range(T from_w,T to_w,U pos,int64_t& shift,int64_t& draw_range)
+__INLINE__ bool draw_range(T from_w,T to_w,U& pos,int64_t& shift,int64_t& draw_range)
 {
     if (pos < 0)
     {
