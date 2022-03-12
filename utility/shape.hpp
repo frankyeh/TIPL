@@ -23,12 +23,13 @@ public:
     {
         clear();
     }
-    __INLINE__ shape(unsigned int x,unsigned int y,unsigned int z,unsigned int t)
+    template<typename T,typename U>
+    __INLINE__ shape(T x,T y,T z,U t)
     {
-        dim[0] = x;
-        dim[1] = y;
-        dim[2] = z;
-        dim[3] = t;
+        dim[0] = uint32_t(x);
+        dim[1] = uint32_t(y);
+        dim[2] = uint32_t(z);
+        dim[3] = uint32_t(t);
     }
     __INLINE__ shape(const shape<dimension>& rhs)
     {
