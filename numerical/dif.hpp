@@ -116,25 +116,36 @@ void compose_displacement_with_affine(const ImageType& src,OutImageType& dest,
 
 //---------------------------------------------------------------------------
 template<typename ComposeImageType>
-void invert_displacement(const ComposeImageType& v0,ComposeImageType& v1,uint8_t iterations = 16)
+void invert_displacement_imp(const ComposeImageType& v0,ComposeImageType& v1)
 {
     ComposeImageType vv;
-    v1.resize(v0.shape());
-    for(size_t index = 0;index < v1.size();++index)
-        v1[index] = -v0[index];
-    for(uint8_t i = 0;i < iterations;++i)
+    for(uint8_t i = 0;i < 4;++i)
     {
         tipl::compose_displacement(v0,v1,vv);
         for(size_t index = 0;index < v1.size();++index)
             v1[index] = -vv[index];
     }
 }
+template<typename ComposeImageType>
+void invert_displacement(const ComposeImageType& v0,ComposeImageType& v1)
+{
+    v1.resize(v0.shape());
+    for(size_t i = 1;i <= 7;++i)
+    {
+        float ratio = float(i)/8.0f;
+        ComposeImageType v0_reduced(v0.shape());
+        for(size_t j = 0;j < v0.size();++j)
+            v0_reduced[j] = v0[j]*ratio;
+        invert_displacement_imp(v0_reduced,v1);
+    }
+    invert_displacement_imp(v0,v1);
+}
 //---------------------------------------------------------------------------
 template<typename ComposeImageType>
-void invert_displacement(ComposeImageType& v,uint8_t iterations = 16)
+void invert_displacement(ComposeImageType& v)
 {
     ComposeImageType v0;
-    invert_displacement(v,v0,iterations);
+    invert_displacement(v,v0);
     v.swap(v0);
 }
 

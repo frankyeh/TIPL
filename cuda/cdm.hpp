@@ -53,28 +53,44 @@ __global__ void invert_displacement_cuda_kernel(T1 v,T2 iv)
 //---------------------------------------------------------------------------
 template<tipl::interpolation itype = tipl::interpolation::linear,
          typename T1,typename T2>
-void invert_displacement_cuda(const T1& v0,T2& v1,uint8_t iterations = 16)
+void invert_displacement_cuda_imp(const T1& v0,T2& v1)
 {
     T1 vv(v0.shape());
-    v1.resize(v0.shape());
-    TIPL_RUN(invert_displacement_cuda_kernel,v0.size())
-            (tipl::make_shared(v1),tipl::make_shared(v0));
-
-    for(uint8_t i = 0;i < iterations;++i)
+    for(uint8_t i = 0;i < 4;++i)
     {
         TIPL_RUN(compose_displacement_cuda_kernel<itype>,v0.size())
             (tipl::make_shared(v0),tipl::make_shared(v1),tipl::make_shared(vv));
         TIPL_RUN(invert_displacement_cuda_kernel,v0.size())
                     (tipl::make_shared(v1),tipl::make_shared(vv));
-
     }
+}
+template<typename T1,typename T2>
+__global__ void reduce_displacement_cuda_kernel(T1 v0_reduced,T2 v0,float r)
+{
+    TIPL_FOR(index,v0.size())
+        v0_reduced[index] = v0[index]*r;
+}
+//---------------------------------------------------------------------------
+template<typename T1,typename T2>
+void invert_displacement_cuda(const T1& v0,T2& v1)
+{
+    v1.resize(v0.shape());
+    for(size_t i = 1;i <= 7;++i)
+    {
+        float ratio = float(i)/8.0f;
+        T1 v0_reduced(v0.shape());
+        TIPL_RUN(reduce_displacement_cuda_kernel,v0.size())
+                (tipl::make_shared(v0_reduced),tipl::make_shared(v0),ratio);
+        invert_displacement_cuda_imp(v0_reduced,v1);
+    }
+    invert_displacement_cuda_imp(v0,v1);
 }
 //---------------------------------------------------------------------------
 template<typename ComposeImageType>
-void invert_displacement_cuda(ComposeImageType& v,uint8_t iterations = 16)
+void invert_displacement_cuda(ComposeImageType& v)
 {
     ComposeImageType v0;
-    invert_displacement_cuda(v,v0,iterations);
+    invert_displacement_cuda(v,v0);
     v.swap(v0);
 }
 
