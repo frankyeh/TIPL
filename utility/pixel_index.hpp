@@ -823,6 +823,26 @@ public:
         y_ = std::ceil(y_);
         z_ = std::ceil(z_);
     }
+    template<typename T,typename std::enable_if<std::is_arithmetic<T>::value,bool>::type = true>
+    __INLINE__ void ceil(T cx,T cy,T cz)
+    {
+        if(x_ > cx)
+            x_ = cx;
+        if(y_ > cy)
+            y_ = cy;
+        if(z_ > cz)
+            z_ = cz;
+    }
+    template<typename T,typename std::enable_if<std::is_arithmetic<T>::value,bool>::type = true>
+    __INLINE__ void floor(T fx,T fy,T fz)
+    {
+        if(x_ < fx)
+            x_ = fx;
+        if(y_ < fy)
+            y_ = fy;
+        if(z_ < fz)
+            z_ = fz;
+    }
 
     __INLINE__ data_type operator*(const vector<3,data_type>& rhs) const
     {
