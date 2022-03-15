@@ -39,14 +39,10 @@ class device_vector{
         device_vector(size_t new_size,bool init = true)                {resize(new_size,init);}
         device_vector(device_vector&& rhs)noexcept                     {swap(rhs);}
         device_vector(void){}
+        device_vector(const void* from,const void* to)                 {copy_from(from,to);}
         template<typename iter_type,typename std::enable_if<
                      std::is_same<value_type,typename std::iterator_traits<iter_type>::value_type>::value,bool>::type = true>
-        device_vector(iter_type from,iter_type to)
-        {
-            resize(to-from,false);
-            if(cudaMemcpy(buf, &*from, s*sizeof(value_type),cudaMemcpyHostToDevice) != cudaSuccess)
-                throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
-        }
+        device_vector(iter_type from,iter_type to)                     {copy_from(from,to);}
         ~device_vector(void)
         {
             if(buf)
@@ -64,15 +60,25 @@ class device_vector{
         {
             s = 0;
         }
-        template<typename T>
+        void copy_from(const void* from,const void* to)
+        {
+            size_t size = reinterpret_cast<const char*>(to)-reinterpret_cast<const char*>(from);
+            resize(size/sizeof(value_type),false);
+            if(s && cudaMemcpy(buf,from,size,cudaMemcpyDeviceToDevice) != cudaSuccess)
+                throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+        }
+        template<typename iter_type,typename std::enable_if<
+                     std::is_same<value_type,typename std::iterator_traits<iter_type>::value_type>::value,bool>::type = true>
+        void copy_from(iter_type from,iter_type to)
+        {
+            resize(to-from,false);
+            if(s && cudaMemcpy(buf, &*from, s*sizeof(value_type),cudaMemcpyHostToDevice) != cudaSuccess)
+                throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+        }
+        template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
         void copy_from(const T& rhs)
         {
-            resize(rhs.size(),false);
-            if(s)
-            {
-                if(cudaMemcpy(buf, &rhs[0], s*sizeof(value_type), cudaMemcpyHostToDevice) != cudaSuccess)
-                    throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
-            }
+            copy_from(rhs.begin(),rhs.end());
         }
         template<typename T>
         void copy_to(T& rhs)
