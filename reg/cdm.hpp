@@ -523,13 +523,13 @@ void cdm_solve_poisson(T& new_d,terminated_type& terminated)
 template<typename dist_type,typename value_type>
 void cdm_accumulate_dis(dist_type& d,dist_type& new_d,value_type& theta,float speed)
 {
-    if(theta == 0.0f)
-        par_for(new_d.size(),[&](int i)
-        {
-           value_type l = new_d[i].length();
-           if(l > theta)
-               theta = l;
-        });
+    //if(theta == 0.0f)
+    par_for(new_d.size(),[&](int i)
+    {
+        value_type l = new_d[i].length();
+        if(l > theta)
+           theta = l;
+    });
     if(theta == 0.0)
         return;
     new_d *= speed/theta;
@@ -549,71 +549,21 @@ void cdm_constraint(dist_type& d,float constraint_length)
         for(unsigned char dim = 0;dim < 3;++dim)
         {
             size_t cur_index_with_shift = cur_index + shift[dim];
-            if(cur_index_with_shift >= d.size())
-                break;
-            float dis = d[cur_index_with_shift][dim] - d[cur_index][dim];
-            if(dis < 0)
-                dis *= 0.25f;
-            else
+            if(cur_index_with_shift < d.size())
             {
-                if(dis > constraint_length)
-                    dis = 0.25f*(dis-constraint_length);
-                else
-                    continue;
+                float dis = d[cur_index_with_shift][dim] - d[cur_index][dim];
+                if(dis < 0.0f)
+                    dd[cur_index][dim] += dis * 0.25f;
             }
-            dd[cur_index][dim] += dis;
-            dd[cur_index_with_shift][dim] -= dis;
+            if(cur_index >= shift[dim])
+            {
+                float dis = d[cur_index][dim] - d[cur_index-shift[dim]][dim];
+                if(dis < 0.0f)
+                    dd[cur_index][dim] -= dis * 0.25f;
+            }
         }
     });
     d += dd;
-}
-
-template<typename image_type,typename dist_type,typename terminate_type>
-float cdm(const image_type& It,
-            const image_type& Is,
-            dist_type& d,// displacement field
-            terminate_type& terminated,
-            cdm_param param = cdm_param())
-{
-    if(It.shape() != Is.shape())
-        throw "Inconsistent image dimension";
-    auto geo = It.shape();
-    d.resize(It.shape());
-
-    // multi resolution
-    if (*std::min_element(geo.begin(),geo.end()) > param.min_dimension)
-    {
-        //downsampling
-        image_type rIs,rIt;
-        downsample_with_padding(It,rIt);
-        downsample_with_padding(Is,rIs);
-        cdm_param param2 = param;
-        param2.resolution /= 2.0f;
-        float r = cdm(rIt,rIs,d,terminated,param2);
-        d *= 2.0f;
-        upsample_with_padding(d,geo);
-        if(param.resolution > 1.0f)
-            return r;
-    }
-    image_type Js;// transformed I
-    dist_type new_d(d.shape());
-    float theta = 0.0;
-
-    std::deque<float> r,iter;
-    for (unsigned int index = 0;index < param.iterations && !terminated;++index)
-    {
-        compose_displacement(Is,d,Js);
-        // dJ(cJ-I)
-        r.push_back(cdm_get_gradient(Js,It,new_d));
-        iter.push_back(index);
-        if(!cdm_improved(r,iter))
-            break;
-        // solving the poisson equation using Jacobi method
-        cdm_solve_poisson(new_d,terminated);
-        cdm_accumulate_dis(d,new_d,theta,param.speed);
-        cdm_constraint(d,param.constraint);
-    }
-    return r.front();
 }
 
 
@@ -621,15 +571,14 @@ template<typename image_type,typename dist_type,typename terminate_type>
 float cdm2(const image_type& It,const image_type& It2,
            const image_type& Is,const image_type& Is2,
            dist_type& d,// displacement field
+           dist_type& inv_d,// displacement field
            terminate_type& terminated,
            cdm_param param = cdm_param())
 {
-    if(It.shape() != It2.shape() ||
-       It.shape() != Is.shape() ||
-       It.shape() != Is2.shape())
-        throw "Inconsistent image dimension";
+    bool has_dual = (It2.size() && Is2.size());
     auto geo = It.shape();
     d.resize(It.shape());
+    inv_d.resize(It.shape());
     // multi resolution
     if (*std::min_element(geo.begin(),geo.end()) > param.min_dimension)
     {
@@ -637,18 +586,23 @@ float cdm2(const image_type& It,const image_type& It2,
         image_type rIs,rIt,rIs2,rIt2;
         downsample_with_padding(It,rIt);
         downsample_with_padding(Is,rIs);
-        downsample_with_padding(It2,rIt2);
-        downsample_with_padding(Is2,rIs2);
+        if(has_dual)
+        {
+            downsample_with_padding(It2,rIt2);
+            downsample_with_padding(Is2,rIs2);
+        }
         cdm_param param2 = param;
         param2.resolution /= 2.0f;
-        float r = cdm2(rIt,rIt2,rIs,rIs2,d,terminated,param2);
+        float r = cdm2(rIt,rIt2,rIs,rIs2,d,inv_d,terminated,param2);
         d *= 2.0f;
+        inv_d *= 2.0f;
         upsample_with_padding(d,geo);
+        upsample_with_padding(inv_d,geo);
         if(param.resolution > 1.0f)
             return r;
     }
     image_type Js,Js2;// transformed I
-    dist_type new_d(d.shape()),new_d2(d.shape());// new displacements
+    dist_type new_d(It.shape()),new_d2(It2.shape());// new displacements
     float theta = 0.0;
 
 
@@ -656,19 +610,41 @@ float cdm2(const image_type& It,const image_type& It2,
     for (unsigned int index = 0;index < param.iterations && !terminated;++index)
     {
         compose_displacement(Is,d,Js);
-        compose_displacement(Is2,d,Js2);
         // dJ(cJ-I)
-        r.push_back((cdm_get_gradient(Js,It,new_d)+cdm_get_gradient(Js2,It2,new_d2))*0.5f);
+        r.push_back(cdm_get_gradient(Js,It,new_d));
+        if(has_dual)
+        {
+            compose_displacement(Is2,d,Js2);
+            r.back() += cdm_get_gradient(Js2,It2,new_d2);
+            r.back() *= 0.5f;
+        }
+
         iter.push_back(index);
         if(!cdm_improved(r,iter))
             break;
-        new_d += new_d2;
+        if(has_dual)
+            new_d += new_d2;
         // solving the poisson equation using Jacobi method
         cdm_solve_poisson(new_d,terminated);
         cdm_accumulate_dis(d,new_d,theta,param.speed);
+
         cdm_constraint(d,param.constraint);
+        invert_displacement_imp(d,inv_d);
+        invert_displacement_imp(inv_d,d);
     }
     return r.front();
+}
+
+
+template<typename image_type,typename dist_type,typename terminate_type>
+float cdm(const image_type& It,
+            const image_type& Is,
+            dist_type& d,// displacement field
+            dist_type& inv_d,// displacement field
+            terminate_type& terminated,
+            cdm_param param = cdm_param())
+{
+    return cdm2(It,image_type(),Is,image_type(),d,inv_d,terminated,param);
 }
 
 

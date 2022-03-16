@@ -14,6 +14,50 @@
 namespace tipl{
 
 
+template<typename T>
+__global__ void displacement_to_mapping_cuda_kernel(T dis)
+{
+    TIPL_FOR(index,dis.size())
+        dis[index] += tipl::pixel_index<3>(index,dis.shape());
+}
+
+template<typename T>
+inline void displacement_to_mapping_cuda(T& dis)
+{
+    TIPL_RUN(displacement_to_mapping_cuda_kernel,dis.size())
+            (tipl::make_shared(dis));
+}
+
+
+template<typename T,typename U>
+__global__ void displacement_to_mapping_cuda_kernel2(T dis,U mapping)
+{
+    TIPL_FOR(index,dis.size())
+        mapping[index] += tipl::pixel_index<3>(index,dis.shape());
+}
+
+template<typename T>
+inline void displacement_to_mapping_cuda(const T& dis,T& mapping)
+{
+    mapping = dis;
+    TIPL_RUN(displacement_to_mapping_cuda_kernel2,dis.size())
+            (tipl::make_shared(dis),tipl::make_shared(mapping));
+}
+
+template<typename T>
+__global__ void mapping_to_displacement_cuda_kernel(T mapping)
+{
+    TIPL_FOR(index,mapping.size())
+        mapping[index] -= tipl::pixel_index<3>(index,mapping.shape());
+}
+
+template<typename T>
+inline void mapping_to_displacement_cuda(T& mapping)
+{
+    TIPL_RUN(mapping_to_displacement_cuda_kernel,mapping.size())
+            (tipl::make_shared(mapping));
+}
+
 
 template<tipl::interpolation itype,typename T1,typename T2,typename T3>
 __global__ void compose_displacement_cuda_kernel(T1 from,T2 dis,T3 to)
@@ -44,10 +88,10 @@ inline void compose_displacement_cuda(const T1& from,const T2& dis,T3& to)
 
 
 template<typename T1,typename T2>
-__global__ void invert_displacement_cuda_kernel(T1 v,T2 iv)
+__global__ void invert_displacement_cuda_kernel(T1 v,T2 vv)
 {
     TIPL_FOR(index,v.size())
-        v[index] = -iv[index];
+        v[index] = -vv[index];
 }
 
 //---------------------------------------------------------------------------
@@ -58,8 +102,7 @@ void invert_displacement_cuda_imp(const T1& v0,T2& v1)
     T1 vv(v0.shape());
     for(uint8_t i = 0;i < 4;++i)
     {
-        TIPL_RUN(compose_displacement_cuda_kernel<itype>,v0.size())
-            (tipl::make_shared(v0),tipl::make_shared(v1),tipl::make_shared(vv));
+        compose_displacement_cuda(v0,v1,vv);
         TIPL_RUN(invert_displacement_cuda_kernel,v0.size())
                     (tipl::make_shared(v1),tipl::make_shared(vv));
     }
@@ -95,21 +138,32 @@ void invert_displacement_cuda(ComposeImageType& v)
 }
 
 //---------------------------------------------------------------------------
-template<typename T>
-inline void accumulate_displacement_cuda(const T& v0,const T& vv,T& nv)
+
+template<tipl::interpolation itype,typename T1,typename T2,typename T3>
+__global__ void accumulate_displacement_cuda_kernel(T1 mapping,T2 new_dis,T3 out_dis,float c = 0.2f)
 {
-    compose_displacement_cuda(v0,vv,nv);
-    add_cuda(nv,vv);
+    TIPL_FOR(index,new_dis.size())
+    {
+        tipl::vector<3> d = new_dis[index];
+        if(d != tipl::vector<3>())
+        {
+            tipl::vector<3> v(tipl::pixel_index<3>(index,new_dis.shape())),vv;
+            vv = v;
+            v += d;
+            if(tipl::estimate<itype>(mapping,v,out_dis[index]))
+                out_dis[index] -= vv;
+        }
+    }
 }
 
-//---------------------------------------------------------------------------
-template<typename T>
-inline void accumulate_displacement_cuda(T& v0,const T& vv)
+template<tipl::interpolation itype = tipl::interpolation::linear,
+         typename T>
+inline void accumulate_displacement_cuda(T& dis,const T& new_dis)
 {
-    T nv;
-    compose_displacement_cuda(v0,vv,nv);
-    v0.swap(nv);
-    add_cuda(v0,vv);
+    T mapping;
+    displacement_to_mapping_cuda(dis,mapping);
+    TIPL_RUN(accumulate_displacement_cuda_kernel<itype>,dis.size())
+            (tipl::make_shared(mapping),tipl::make_shared(new_dis),tipl::make_shared(dis));
 }
 
 namespace reg{
@@ -239,7 +293,7 @@ struct cdm_accumulate_dis_vector_length
 template<typename dist_type,typename value_type>
 void cdm_accumulate_dis_cuda(dist_type& d,dist_type& new_d,value_type& theta,float speed)
 {
-    if(theta == 0.0f)
+    //if(theta == 0.0f)
     {
         theta = thrust::transform_reduce(thrust::device,
                     new_d.get(),
@@ -266,20 +320,18 @@ __global__ void cdm_constraint_cuda_kernel(T d,T dd,float constraint_length)
         for(unsigned int dim = 0;dim < 3;++dim)
         {
             size_t index_with_shift = index + shift[dim];
-            if(index_with_shift >= d.size())
-                break;
-            float dis = d[index_with_shift][dim] - d[index][dim];
-            if(dis < 0)
-                dis *= 0.25f;
-            else
+            if(index_with_shift < d.size())
             {
-                if(dis > constraint_length)
-                    dis = 0.25f*(dis-constraint_length);
-                else
-                    continue;
+                float dis = d[index_with_shift][dim]-d[index][dim];
+                if(dis < 0.0f)
+                    dd[index][dim] += dis * 0.25f;
             }
-            atomicAdd(&dd[index][dim],dis);
-            atomicAdd(&dd[index_with_shift][dim],-dis);
+            if(index >= shift[dim])
+            {
+                float dis = d[index][dim]-d[index-shift[dim]][dim];
+                if(dis < 0.0f)
+                    dd[index][dim] -= dis * 0.25f;
+            }
         }
     }
 }
@@ -294,68 +346,17 @@ void cdm_constraint_cuda(dist_type& d,float constraint_length)
 }
 
 template<typename image_type,typename dist_type,typename terminate_type>
-float cdm_cuda(const image_type& It,
-               const image_type& Is,
-               dist_type& d,// displacement field
-               terminate_type& terminated,
-               cdm_param param = cdm_param())
-{
-    if(It.shape() != Is.shape())
-        throw "Inconsistent image dimension";
-    auto geo = It.shape();
-    d.resize(It.shape());
-
-    // multi resolution
-    if (*std::min_element(geo.begin(),geo.end()) > param.min_dimension)
-    {
-        //downsampling
-        image_type rIs,rIt;
-        downsample_with_padding_cuda(It,rIt);
-        downsample_with_padding_cuda(Is,rIs);
-        cdm_param param2 = param;
-        param2.resolution /= 2.0f;
-        float r = cdm_cuda(rIt,rIs,d,terminated,param2);
-        multiply_constant_cuda(d,2.0f);
-        upsample_with_padding_cuda(d,geo);
-        if(param.resolution > 1.0f)
-            return r;
-    }
-
-    image_type Js;// transformed I
-    dist_type new_d(d.shape());
-    float theta = 0.0;
-
-    std::deque<float> r,iter;
-    for (unsigned int index = 0;index < param.iterations && !terminated;++index)
-    {
-        compose_displacement_cuda(Is,d,Js);
-        // dJ(cJ-I)
-        r.push_back(cdm_get_gradient_cuda(Js,It,new_d));
-        iter.push_back(index);
-        if(!cdm_improved(r,iter))
-            break;
-        // solving the poisson equation using Jacobi method
-        cdm_solve_poisson_cuda(new_d,terminated);
-        cdm_accumulate_dis_cuda(d,new_d,theta,param.speed);
-        cdm_constraint_cuda(d,param.constraint);
-    }
-    return r.front();
-}
-
-template<typename image_type,typename dist_type,typename terminate_type>
 float cdm2_cuda(const image_type& It,const image_type& It2,
            const image_type& Is,const image_type& Is2,
            dist_type& d,// displacement field
+           dist_type& inv_d,// displacement field
            terminate_type& terminated,
            cdm_param param = cdm_param())
 {
-    if(It.shape() != It2.shape() ||
-       It.shape() != Is.shape() ||
-       It.shape() != Is2.shape())
-        throw "Inconsistent image dimension";
+    bool has_dual = (It2.size() && Is2.size());
     auto geo = It.shape();
     d.resize(It.shape());
-
+    inv_d.resize(It.shape());
     // multi resolution
     if (*std::min_element(geo.begin(),geo.end()) > param.min_dimension)
     {
@@ -363,38 +364,66 @@ float cdm2_cuda(const image_type& It,const image_type& It2,
         image_type rIs,rIt,rIs2,rIt2;
         downsample_with_padding_cuda(It,rIt);
         downsample_with_padding_cuda(Is,rIs);
-        downsample_with_padding_cuda(It2,rIt2);
-        downsample_with_padding_cuda(Is2,rIs2);
+        if(has_dual)
+        {
+            downsample_with_padding_cuda(It2,rIt2);
+            downsample_with_padding_cuda(Is2,rIs2);
+        }
         cdm_param param2 = param;
         param2.resolution /= 2.0f;
-        float r = cdm2_cuda(rIt,rIt2,rIs,rIs2,d,terminated,param2);
+        float r = cdm2_cuda(rIt,rIt2,rIs,rIs2,d,inv_d,terminated,param2);
         multiply_constant_cuda(d,2.0f);
+        multiply_constant_cuda(inv_d,2.0f);
         upsample_with_padding_cuda(d,geo);
+        upsample_with_padding_cuda(inv_d,geo);
         if(param.resolution > 1.0f)
             return r;
     }
 
     image_type Js,Js2;// transformed I
-    dist_type new_d(d.shape()),new_d2(d.shape());// new displacements
+    dist_type new_d(It.shape()),new_d2(It2.shape());// new displacements
     float theta = 0.0;
 
     std::deque<float> r,iter;
     for (unsigned int index = 0;index < param.iterations && !terminated;++index)
     {
-        compose_displacement_cuda(Is,d,Js);
-        compose_displacement_cuda(Is2,d,Js2);
+        compose_displacement_cuda(Is,d,Js);           
         // dJ(cJ-I)
-        r.push_back((cdm_get_gradient_cuda(Js,It,new_d)+cdm_get_gradient_cuda(Js2,It2,new_d2))*0.5f);
+        r.push_back(cdm_get_gradient_cuda(Js,It,new_d));
+
+        if(has_dual)
+        {
+            compose_displacement_cuda(Is2,d,Js2);
+            r.back() += cdm_get_gradient_cuda(Js2,It2,new_d2);
+            r.back() *= 0.5f;
+        }
+
         iter.push_back(index);
         if(!cdm_improved(r,iter))
             break;
-        add_cuda(new_d,new_d2);
+        if(has_dual)
+            add_cuda(new_d,new_d2);
         // solving the poisson equation using Jacobi method
         cdm_solve_poisson_cuda(new_d,terminated);
         cdm_accumulate_dis_cuda(d,new_d,theta,param.speed);
+
+
         cdm_constraint_cuda(d,param.constraint);
+        invert_displacement_cuda_imp(d,inv_d);
+        invert_displacement_cuda_imp(inv_d,d);
     }
     return r.front();
+}
+
+template<typename image_type,typename dist_type,typename terminate_type>
+inline float cdm_cuda(const image_type& It,
+               const image_type& Is,
+               dist_type& d,// displacement field
+               dist_type& inv_d,// displacement field
+               terminate_type& terminated,
+               cdm_param param = cdm_param())
+{
+    return cdm2_cuda(It,image_type(),Is,image_type(),d,inv_d,terminated,param);
 }
 
 }//reg
