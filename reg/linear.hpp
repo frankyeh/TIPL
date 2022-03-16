@@ -231,14 +231,15 @@ float linear(const image_type1& from,const vs_type1& from_vs,
              transform_type& arg_min,
              reg_type base_type,
              teminated_class& terminated,
-             double precision = 0.01,bool line_search = true,const float* bound = reg_bound)
+             double precision = 0.01,bool line_search = true,const float* bound = reg_bound,size_t iterations = 3)
 {
     reg_type reg_list[4] = {translocation,rigid_body,rigid_scaling,affine};
     auto fun = make_functor<CostFunctionType>(from,from_vs,to,to_vs);
     auto optimal_value = fun(arg_min);
+    for(size_t i = 0;i < iterations;++i,precision *= 0.5f)
     for(int type = 0;type < 4 && reg_list[type] <= base_type && !terminated;++type)
     {
-        if(!line_search && reg_list[type] != base_type)
+        if(reg_list[type] != base_type)
             continue;
         transform_type upper,lower;
         tipl::reg::get_bound(from,to,transform_type(),upper,lower,reg_list[type],bound);
@@ -262,12 +263,10 @@ float linear_mr(const image_type1& from,const vs_type1& from_vs,
                 reg_type base_type,
                 teminated_class& terminated,
                 double precision = 0.01,
+                bool line_search = true,
                 const float* bound = reg_bound)
 {
-    // multi resolution
-    bool line_search = true;
-    if (*std::max_element(from.shape().begin(),from.shape().end()) > 64 &&
-        *std::max_element(to.shape().begin(),to.shape().end()) > 64)
+    if (from.size() > 128*128*128 || to.size() > 128*128*128)
     {
         //downsampling
         image<image_type1::dimension,typename image_type1::value_type> from_r;
@@ -279,62 +278,15 @@ float linear_mr(const image_type1& from,const vs_type1& from_vs,
         to_vs_r *= 2.0;
         transform_type arg_min_r(arg_min);
         arg_min_r.downsampling();
-        linear_mr<CostFunctionType>(from_r,from_vs_r,to_r,to_vs_r,arg_min_r,base_type,terminated,precision,bound);
+        float result = linear_mr<CostFunctionType>(from_r,from_vs_r,to_r,to_vs_r,
+                                                   arg_min_r,base_type,terminated,precision,line_search,bound);
         arg_min_r.upsampling();
         arg_min = arg_min_r;
-        if(terminated)
-            return 0.0;
-        line_search = false;
-    }
-    return linear<CostFunctionType>(from,from_vs,to,to_vs,arg_min,base_type,terminated,precision,line_search,bound);
-}
-
-template<typename CostFunctionType,typename image_type,typename vs_type,typename TransType,typename teminated_class>
-float two_way_linear_mr(const image_type& from,const vs_type& from_vs,
-                            const image_type& to,const vs_type& to_vs,
-                            TransType& T,
-                            reg_type base_type,
-                            teminated_class& terminated,
-                            tipl::affine_transform<typename TransType::value_type>* arg = nullptr,
-                            const float* bound = reg_bound)
-{
-    tipl::affine_transform<typename TransType::value_type> arg1,arg2;
-    if(arg)
-        arg2.translocation[2] = -arg->translocation[2]*from_vs[2]/to_vs[2];
-
-    tipl::par_for(2,[&](int i){
-        if(i)
-        {
-            if(arg)
-                linear_mr<CostFunctionType>(from,from_vs,to,to_vs,*arg,base_type,terminated,0.01,bound);
-            else
-                linear_mr<CostFunctionType>(from,from_vs,to,to_vs,arg1,base_type,terminated,0.01,bound);
-        }
-        else
-            linear_mr<CostFunctionType>(to,to_vs,from,from_vs,arg2,base_type,terminated,0.01,bound);
-    },2);
-
-
-    TransType T1(arg == 0 ? arg1:*arg,from.shape(),from_vs,to.shape(),to_vs);
-    TransType T2(arg2,to.shape(),to_vs,from.shape(),from_vs);
-    T2.inverse();
-    float cost = 0.0f;
-    if(CostFunctionType()(from,to,T2) < CostFunctionType()(from,to,T1))
-    {
-        cost = linear<CostFunctionType>(to,to_vs,from,from_vs,arg2,base_type,terminated,0.001f,false,bound);
-        TransType T22(arg2,to.shape(),to_vs,from.shape(),from_vs);
-        T22.inverse();
-        T = T22;
+        return result;
     }
     else
-    {
-        if(arg)
-            cost = linear<CostFunctionType>(from,from_vs,to,to_vs,*arg,base_type,terminated,0.001f,false,bound);
-        else
-            cost = linear<CostFunctionType>(from,from_vs,to,to_vs,arg1,base_type,terminated,0.001f,false,bound);
-        T = TransType(arg == 0 ? arg1:*arg,from.shape(),from_vs,to.shape(),to_vs);
-    }
-    return cost;
+        return linear<CostFunctionType>(from,from_vs,to,to_vs,
+                                        arg_min,base_type,terminated,precision,line_search,bound);
 }
 
 
