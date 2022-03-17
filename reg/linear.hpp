@@ -240,12 +240,6 @@ float linear(const image_type1& from,const vs_type1& from_vs,
         iterations += 2;
     for(size_t i = 0;i < iterations;++i,precision *= 0.5f)
     {
-        arg_min[0] += precision;
-        arg_min[1] += precision;
-        arg_min[2] += precision;
-        arg_min[3] += precision;
-        arg_min[4] += precision;
-        arg_min[5] += precision;
         optimal_value = fun(arg_min);
         for(int type = 0;type < 4 && reg_list[type] <= base_type && !terminated;++type)
         {
