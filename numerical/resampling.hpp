@@ -613,7 +613,9 @@ template<typename ImageType1,typename ImageType2,
 void downsample_with_padding(const ImageType1& in,ImageType2& out)
 {
     using value_type = typename ImageType1::value_type;
-    out.resize(shape<3>((in.width()+1)/2,(in.height()+1)/2,(in.depth()+1)/2));
+    shape<3> out_shape((in.width()+1)/2,(in.height()+1)/2,(in.depth()+1)/2);
+    if(out.size() < out_shape.size())
+        out.resize(out_shape);
     size_t shift[8];
     shift[0] = 0;
     shift[1] = 1;
@@ -624,7 +626,7 @@ void downsample_with_padding(const ImageType1& in,ImageType2& out)
     shift[6] = in.plane_size()+in.width();
     shift[7] = in.plane_size()+1+in.width();
 
-    par_for(tipl::begin_index(out.shape()),tipl::end_index(out.shape()),[&]
+    par_for(tipl::begin_index(out_shape),tipl::end_index(out_shape),[&]
             (const pixel_index<3>& pos1)
     {
         pixel_index<3> pos2(pos1[0]<<1,pos1[1]<<1,pos1[2]<<1,in.shape());
@@ -647,6 +649,7 @@ void downsample_with_padding(const ImageType1& in,ImageType2& out)
         else
             out[pos1.index()] = out_value/8;
     });
+    out.resize(out_shape);
 }
 
 template<typename ImageType>
