@@ -309,7 +309,7 @@ void cdm_accumulate_dis_cuda(dist_type& d,dist_type& new_d,value_type& theta,flo
 
 
 template<typename T>
-__global__ void cdm_constraint_cuda_kernel(T d,T dd,float constraint_length)
+__global__ void cdm_constraint_cuda_kernel(T d,T dd)
 {
     size_t shift[T::dimension];
     shift[0] = 1;
@@ -337,11 +337,11 @@ __global__ void cdm_constraint_cuda_kernel(T d,T dd,float constraint_length)
 }
 
 template<typename dist_type>
-void cdm_constraint_cuda(dist_type& d,float constraint_length)
+void cdm_constraint_cuda(dist_type& d)
 {
     dist_type dd(d.shape());
     TIPL_RUN(cdm_constraint_cuda_kernel,d.size())
-            (tipl::make_shared(d),tipl::make_shared(dd),constraint_length);
+            (tipl::make_shared(d),tipl::make_shared(dd));
     add_cuda(d,dd);
 }
 
@@ -408,7 +408,7 @@ float cdm2_cuda(const image_type& It,const image_type& It2,
         cdm_accumulate_dis_cuda(d,new_d,theta,param.speed);
 
 
-        cdm_constraint_cuda(d,param.constraint);
+        cdm_constraint_cuda(d);
         invert_displacement_cuda_imp(d,inv_d);
         invert_displacement_cuda_imp(inv_d,d);
     }

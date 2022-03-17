@@ -363,7 +363,6 @@ bool cdm_improved(r_type& r,r_type& iter)
 struct cdm_param{
     float resolution = 2.0f;
     float speed = 0.5f;
-    float constraint = 2.0f;
     unsigned int iterations = 200;
     unsigned int min_dimension = 16;
 };
@@ -537,7 +536,7 @@ void cdm_accumulate_dis(dist_type& d,dist_type& new_d,value_type& theta,float sp
 }
 
 template<typename dist_type>
-void cdm_constraint(dist_type& d,float constraint_length)
+void cdm_constraint(dist_type& d)
 {
     size_t shift[dist_type::dimension];
     shift[0] = 1;
@@ -628,7 +627,7 @@ float cdm2(const image_type& It,const image_type& It2,
         cdm_solve_poisson(new_d,terminated);
         cdm_accumulate_dis(d,new_d,theta,param.speed);
 
-        cdm_constraint(d,param.constraint);
+        cdm_constraint(d);
         invert_displacement_imp(d,inv_d);
         invert_displacement_imp(inv_d,d);
     }
