@@ -249,7 +249,7 @@ float linear(const image_type1& from,const vs_type1& from_vs,
         optimal_value = fun(arg_min);
         for(int type = 0;type < 4 && reg_list[type] <= base_type && !terminated;++type)
         {
-            if(reg_list[type] != base_type)
+            if(!line_search && reg_list[type] != base_type)
                 continue;
             transform_type upper,lower;
             tipl::reg::get_bound(from,to,transform_type(),upper,lower,reg_list[type],bound);
