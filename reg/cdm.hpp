@@ -362,9 +362,9 @@ bool cdm_improved(r_type& r,r_type& iter)
 
 struct cdm_param{
     float resolution = 2.0f;
-    float speed = 0.5f;
+    float speed = 1.0f;
     unsigned int iterations = 200;
-    unsigned int min_dimension = 16;
+    unsigned int min_dimension = 8;
 };
 
 
@@ -553,12 +553,16 @@ void cdm_constraint(dist_type& d)
                 float dis = d[cur_index_with_shift][dim] - d[cur_index][dim];
                 if(dis < 0.0f)
                     dd[cur_index][dim] += dis * 0.25f;
+                //if(dis > 2.0f)
+                //    dd[cur_index][dim] += (dis-2.0f) * 0.25f;
             }
             if(cur_index >= shift[dim])
             {
                 float dis = d[cur_index][dim] - d[cur_index-shift[dim]][dim];
                 if(dis < 0.0f)
                     dd[cur_index][dim] -= dis * 0.25f;
+                //if(dis > 2.0f)
+                //    dd[cur_index][dim] -= (dis-2.0f) * 0.25f;
             }
         }
     });
