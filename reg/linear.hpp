@@ -235,21 +235,32 @@ float linear(const image_type1& from,const vs_type1& from_vs,
 {
     reg_type reg_list[4] = {translocation,rigid_body,rigid_scaling,affine};
     auto fun = make_functor<CostFunctionType>(from,from_vs,to,to_vs);
-    auto optimal_value = fun(arg_min);
+    double optimal_value;
+    if(base_type == affine)
+        iterations += 2;
     for(size_t i = 0;i < iterations;++i,precision *= 0.5f)
-    for(int type = 0;type < 4 && reg_list[type] <= base_type && !terminated;++type)
     {
-        if(reg_list[type] != base_type)
-            continue;
-        transform_type upper,lower;
-        tipl::reg::get_bound(from,to,transform_type(),upper,lower,reg_list[type],bound);
-        if(line_search)
-            tipl::optimization::line_search_mt(arg_min.begin(),arg_min.end(),
-                                             upper.begin(),lower.begin(),fun,optimal_value,terminated);
+        arg_min[0] += 0.001f;
+        arg_min[1] += 0.001f;
+        arg_min[2] += 0.001f;
+        arg_min[3] += 0.001f;
+        arg_min[4] += 0.001f;
+        arg_min[5] += 0.001f;
+        optimal_value = fun(arg_min);
+        for(int type = 0;type < 4 && reg_list[type] <= base_type && !terminated;++type)
+        {
+            if(reg_list[type] != base_type)
+                continue;
+            transform_type upper,lower;
+            tipl::reg::get_bound(from,to,transform_type(),upper,lower,reg_list[type],bound);
+            if(line_search)
+                tipl::optimization::line_search_mt(arg_min.begin(),arg_min.end(),
+                                                 upper.begin(),lower.begin(),fun,optimal_value,terminated);
 
-        tipl::optimization::quasi_newtons_minimize_mt(arg_min.begin(),arg_min.end(),
-                                                   upper.begin(),lower.begin(),fun,optimal_value,terminated,
-                                                   precision);
+            tipl::optimization::quasi_newtons_minimize_mt(arg_min.begin(),arg_min.end(),
+                                                       upper.begin(),lower.begin(),fun,optimal_value,terminated,
+                                                       precision);
+        }
     }
     return optimal_value;
 }
