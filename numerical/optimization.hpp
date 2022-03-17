@@ -323,41 +323,38 @@ void line_search_mt(iter_type1 x_beg,iter_type1 x_end,
                      teminated_class& terminated)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
-    float dis[16] = {0.05f,0.10f,0.15,0.20f,0.25f,0.30f,0.35f,0.40f,
-                     -0.05f,-0.10f,-0.15,-0.20f,-0.25f,-0.30f,-0.35f,-0.40f};
+    float dis[8] = {0.05f,0.10f,0.20f,0.40f,
+                     -0.05f,-0.10f,-0.20f,-0.40f};
     std::vector<param_type> range(x_end-x_beg);
     for(size_t i = 0;i < range.size();++i)
         range[i] = x_upper[i]-x_lower[i];
-    for(int iter = 0;iter < 5;++iter)
+    float ratio = 1.0f;
+    for(int iter = 0;iter < 10;++iter,ratio*=0.95f)
     {
-        bool has_improved = false;
         for(int cur_dim = 0;cur_dim < range.size() && !terminated;++cur_dim)
         {
             if(x_upper[cur_dim] == x_lower[cur_dim])
                 continue;
             std::mutex m;
             param_type best_x = x_beg[cur_dim];
-            tipl::par_for(16,[&](int seg,int id)
+            tipl::par_for(8,[&](int seg,int id)
             {
-                auto new_x = x_beg[cur_dim]+range[cur_dim]*dis[seg];
+                auto new_x = x_beg[cur_dim]+range[cur_dim]*dis[seg]*ratio;
                 if(new_x < x_lower[cur_dim] ||
                    new_x > x_upper[cur_dim])
                     return;
                 std::vector<param_type> param(x_beg,x_end);
                 param[cur_dim] = new_x;
                 double current_value = fun(param,id);
+                std::lock_guard<std::mutex> lock(m);
                 if(current_value < optimal_value)
                 {
-                    std::lock_guard<std::mutex> lock(m);
                     optimal_value = current_value;
                     best_x = param[cur_dim];
-                    has_improved = true;
                 }
             });
             x_beg[cur_dim] = best_x;
         }
-        if(!has_improved)
-            break;
     }
 }
 
