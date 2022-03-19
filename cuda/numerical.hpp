@@ -41,13 +41,23 @@ inline void normalize_upper_lower_cuda(const T& in,U& out,float upper_limit = 25
 }
 
 template<typename T,
-         typename std::enable_if<std::is_fundamental<typename T::value_type>::value,bool>::type = true>
-inline typename T::value_type sum_cuda(const T& data,typename T::value_type init = 0,cudaStream_t stream = nullptr)
+         typename std::enable_if<std::is_integral<typename T::value_type>::value,bool>::type = true>
+inline typename T::value_type sum_cuda(const T& data,size_t init = 0,cudaStream_t stream = nullptr)
 {
     if(stream)
         return thrust::reduce(thrust::cuda::par.on(stream),data.get(),data.get()+data.size(),init);
     return thrust::reduce(thrust::device,data.get(),data.get()+data.size(),init);
 }
+
+template<typename T,
+         typename std::enable_if<std::is_floating_point<typename T::value_type>::value,bool>::type = true>
+inline typename T::value_type sum_cuda(const T& data,double init = 0.0,cudaStream_t stream = nullptr)
+{
+    if(stream)
+        return thrust::reduce(thrust::cuda::par.on(stream),data.get(),data.get()+data.size(),init);
+    return thrust::reduce(thrust::device,data.get(),data.get()+data.size(),init);
+}
+
 
 template<typename T,
          typename std::enable_if<std::is_class<typename T::value_type>::value,bool>::type = true>
@@ -56,6 +66,13 @@ inline typename T::value_type sum_cuda(const T& data,typename T::value_type init
     if(stream)
         return thrust::reduce(thrust::cuda::par.on(stream),data.get(),data.get()+data.size(),init);
     return thrust::reduce(thrust::device,data.get(),data.get()+data.size(),init);
+}
+
+
+template<typename image_type>
+__INLINE__ auto mean_cuda(const image_type& I)
+{
+    return (I.empty()) ? 0.0 :double(sum_cuda(I))/double(I.size());
 }
 
 template<typename T,typename U>
