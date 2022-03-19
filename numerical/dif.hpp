@@ -171,25 +171,28 @@ void invert_mapping(const ComposeImageType& s0,ComposeImageType& s1,uint8_t iter
     displacement_to_mapping(s1);
 }
 //---------------------------------------------------------------------------
-template<tipl::interpolation Type = tipl::interpolation::linear,typename T>
-void accumulate_displacement(T& dis,const T& new_dis,float c = 0.2f)
+template<typename T,typename U,typename V>
+__INLINE__ void accumulate_displacement_imp(T& dis,U& new_dis,V& mapping,
+                                       const tipl::pixel_index<3>& index)
+{
+    tipl::vector<3> d = new_dis[index.index()];
+    if(d != tipl::vector<3>())
+    {
+        if(tipl::estimate<tipl::interpolation::linear>(mapping,tipl::vector<3>(index)+d,dis[index.index()]))
+            dis[index.index()] -= index;
+    }
+}
+//---------------------------------------------------------------------------
+template<typename T>
+void accumulate_displacement(T& dis,const T& new_dis)
 {
     T mapping;
     displacement_to_mapping(dis,mapping);
     tipl::par_for(tipl::begin_index(dis.shape()),tipl::end_index(dis.shape()),
         [&](const tipl::pixel_index<3>& index)
     {
-        tipl::vector<3> d = new_dis[index.index()];
-        if(d != tipl::vector<3>())
-        {
-            tipl::vector<3> v(index),vv;
-            vv = v;
-            v += d;
-            if(tipl::estimate<Type>(mapping,v,dis[index.index()]))
-                dis[index.index()] -= vv;
-        }
+        accumulate_displacement_imp(dis,new_dis,mapping,index);
     });
-
 }
 //---------------------------------------------------------------------------
 // v = vx compose vy
