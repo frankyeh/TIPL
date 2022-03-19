@@ -139,30 +139,22 @@ void invert_displacement_cuda(ComposeImageType& v)
 
 //---------------------------------------------------------------------------
 
-template<tipl::interpolation itype,typename T1,typename T2,typename T3>
-__global__ void accumulate_displacement_cuda_kernel(T1 mapping,T2 new_dis,T3 out_dis,float c = 0.2f)
+template<typename T1,typename T2,typename T3>
+__global__ void accumulate_displacement_cuda_kernel(T1 mapping,T2 new_dis,T3 dis)
 {
     TIPL_FOR(index,new_dis.size())
     {
-        tipl::vector<3> d = new_dis[index];
-        if(d != tipl::vector<3>())
-        {
-            tipl::vector<3> v(tipl::pixel_index<3>(index,new_dis.shape())),vv;
-            vv = v;
-            v += d;
-            if(tipl::estimate<itype>(mapping,v,out_dis[index]))
-                out_dis[index] -= vv;
-        }
+        accumulate_displacement_imp(dis,new_dis,mapping,
+                                    tipl::pixel_index<3>(index,new_dis.shape()));
     }
 }
 
-template<tipl::interpolation itype = tipl::interpolation::linear,
-         typename T>
+template<typename T>
 inline void accumulate_displacement_cuda(T& dis,const T& new_dis)
 {
     T mapping;
     displacement_to_mapping_cuda(dis,mapping);
-    TIPL_RUN(accumulate_displacement_cuda_kernel<itype>,dis.size())
+    TIPL_RUN(accumulate_displacement_cuda_kernel,dis.size())
             (tipl::make_shared(mapping),tipl::make_shared(new_dis),tipl::make_shared(dis));
 }
 
@@ -175,49 +167,24 @@ namespace reg{
 // calculate dJ(cJ-I)
 
 template<typename T1,typename T2,typename T3>
-__global__ void cdm_get_gradient_cuda_kernel(T1 Js,T1 It,T2 new_d,T3 r2_256)
+__global__ void cdm_get_gradient_cuda_kernel(T1 Js,T1 It,T2 new_d,T3 r2_map)
 {
     TIPL_FOR(index,Js.size())
     {
-        tipl::pixel_index<3> pos(index,Js.shape());
-        if(It[index] == 0.0f || Js[index] == 0.0f || It.shape().is_edge(pos))
-        {
-            new_d[index] = typename T2::value_type();
-            continue;
-        }
-        // calculate gradient
-        new_d[index][0] = Js[index+1]-Js[index-1];
-        new_d[index][1] = Js[index+Js.width()]-Js[index-Js.width()];
-        new_d[index][2] = Js[index+Js.plane_size()]-Js[index-Js.plane_size()];
-
-
-        typename T1::value_type Itv[get_window_size<2,3>::value];
-        typename T1::value_type Jsv[get_window_size<2,3>::value];
-        get_window_at_width<2>(pos,It,Itv);
-        auto size = get_window_at_width<2>(pos,Js,Jsv);
-
-        float a,b,r2;
-        linear_regression(Jsv,Jsv+size,Itv,a,b,r2);
-        if(a <= 0.0f)
-            new_d[index] = typename T2::value_type();
-        else
-        {
-            new_d[index] *= r2*(Js[index]*a+b-It[index]);
-            atomicAdd(r2_256.begin()+threadIdx.x,r2);
-        }
+        cdm_get_gradient_imp(tipl::pixel_index<3>(index,Js.shape()),Js,It,new_d,r2_map);
     }
 }
 
 template<typename image_type,typename dis_type>
 inline float cdm_get_gradient_cuda(const image_type& Js,const image_type& It,dis_type& new_d)
 {
-    device_vector<float> r2_256(256);
+    image_type r2_map(Js.shape());
     TIPL_RUN(cdm_get_gradient_cuda_kernel,Js.size())
             (tipl::make_shared(Js),
              tipl::make_shared(It),
              tipl::make_shared(new_d),
-             tipl::make_shared(r2_256));
-    return thrust::reduce(thrust::device,r2_256.get(),r2_256.get()+r2_256.size(),0.0)/float(Js.size());
+             tipl::make_shared(r2_map));
+    return mean_cuda(r2_map);
 }
 
 
@@ -311,28 +278,11 @@ void cdm_accumulate_dis_cuda(dist_type& d,dist_type& new_d,value_type& theta,flo
 template<typename T>
 __global__ void cdm_constraint_cuda_kernel(T d,T dd)
 {
-    size_t shift[T::dimension];
-    shift[0] = 1;
-    shift[1] = d.width();
-    shift[2] = d.plane_size();
-    TIPL_FOR(index,d.size())
+    TIPL_FOR(cur_index,d.size())
     {
-        for(unsigned int dim = 0;dim < 3;++dim)
-        {
-            size_t index_with_shift = index + shift[dim];
-            if(index_with_shift < d.size())
-            {
-                float dis = d[index_with_shift][dim]-d[index][dim];
-                if(dis < 0.0f)
-                    dd[index][dim] += dis * 0.25f;
-            }
-            if(index >= shift[dim])
-            {
-                float dis = d[index][dim]-d[index-shift[dim]][dim];
-                if(dis < 0.0f)
-                    dd[index][dim] -= dis * 0.25f;
-            }
-        }
+        cdm_constraint_imp(d,dd,cur_index,0,1);
+        cdm_constraint_imp(d,dd,cur_index,1,d.width());
+        cdm_constraint_imp(d,dd,cur_index,2,d.plane_size());
     }
 }
 
