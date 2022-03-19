@@ -367,41 +367,46 @@ struct cdm_param{
     unsigned int min_dimension = 8;
 };
 
+template<typename T,typename U,typename V,typename W>
+__INLINE__ void cdm_get_gradient_imp(const pixel_index<T::dimension>& index,
+                                     const T& Js,const U& It,V& new_d,W& r2_map)
+{
+    if(It[index.index()] == 0.0 || Js[index.index()] == 0.0 ||
+       It.shape().is_edge(index))
+    {
+        new_d[index.index()] = typename V::value_type();
+        return;
+    }
+    // calculate gradient
+    new_d[index.index()][0] = Js[index.index()+1]-Js[index.index()-1];
+    new_d[index.index()][1] = Js[index.index()+Js.width()]-Js[index.index()-Js.width()];
+    new_d[index.index()][2] = Js[index.index()+Js.plane_size()]-Js[index.index()-Js.plane_size()];
 
+    typename T::value_type Itv[get_window_size<2,T::dimension>::value];
+    typename T::value_type Jsv[get_window_size<2,T::dimension>::value];
+    get_window_at_width<2>(index,It,Itv);
+    auto size = get_window_at_width<2>(index,Js,Jsv);
+    float a,b,r2;
+    linear_regression(Jsv,Jsv+size,Itv,a,b,r2);
+    if(a <= 0.0f)
+        new_d[index.index()] = typename V::value_type();
+    else
+    {
+        new_d[index.index()] *= r2*(Js[index.index()]*a+b-It[index.index()]);
+        r2_map[index.index()] = r2;
+    }
+}
 // calculate dJ(cJ-I)
 template<typename image_type,typename dis_type>
 float cdm_get_gradient(const image_type& Js,const image_type& It,dis_type& new_d)
 {
-    std::vector<double> accumulated_r2(std::thread::hardware_concurrency());
+    std::vector<float> r2_map(Js.size());
     tipl::par_for(tipl::begin_index(Js.shape()),tipl::end_index(Js.shape()),
-                        [&](const pixel_index<image_type::dimension>& index,int id)
+                        [&](const pixel_index<image_type::dimension>& index)
     {
-        if(It[index.index()] == 0.0 || Js[index.index()] == 0.0 ||
-           It.shape().is_edge(index))
-        {
-            new_d[index.index()] = typename dis_type::value_type();
-            return;
-        }
-        // calculate gradient
-        new_d[index.index()][0] = Js[index.index()+1]-Js[index.index()-1];
-        new_d[index.index()][1] = Js[index.index()+Js.width()]-Js[index.index()-Js.width()];
-        new_d[index.index()][2] = Js[index.index()+Js.plane_size()]-Js[index.index()-Js.plane_size()];
-
-        typename image_type::value_type Itv[get_window_size<2,image_type::dimension>::value];
-        typename image_type::value_type Jsv[get_window_size<2,image_type::dimension>::value];
-        get_window_at_width<2>(index,It,Itv);
-        auto size = get_window_at_width<2>(index,Js,Jsv);
-        float a,b,r2;
-        linear_regression(Jsv,Jsv+size,Itv,a,b,r2);
-        if(a <= 0.0f)
-            new_d[index.index()] = typename dis_type::value_type();
-        else
-        {
-            new_d[index.index()] *= r2*(Js[index.index()]*a+b-It[index.index()]);
-            accumulated_r2[id] += r2;
-        }
+        cdm_get_gradient_imp(index,Js,It,new_d,r2_map);
     });
-    return std::accumulate(accumulated_r2.begin(),accumulated_r2.end(),0.0)/float(Js.size());
+    return float(tipl::mean(r2_map));
 }
 
 
@@ -535,36 +540,32 @@ void cdm_accumulate_dis(dist_type& d,dist_type& new_d,value_type& theta,float sp
     tipl::accumulate_displacement(d,new_d);
 }
 
+template<typename T,typename U>
+__INLINE__ void cdm_constraint_imp(T& d,U& dd,size_t cur_index,unsigned char dim,size_t shift)
+{
+    size_t cur_index_with_shift = cur_index + shift;
+    if(cur_index_with_shift < d.size())
+    {
+        float dis = d[cur_index_with_shift][dim] - d[cur_index][dim];
+        if(dis < 0.0f)
+            dd[cur_index][dim] += dis * 0.05f;
+    }
+    if(cur_index >= shift)
+    {
+        float dis = d[cur_index][dim] - d[cur_index-shift][dim];
+        if(dis < 0.0f)
+            dd[cur_index][dim] -= dis * 0.05f;
+    }
+}
 template<typename dist_type>
 void cdm_constraint(dist_type& d)
 {
-    size_t shift[dist_type::dimension];
-    shift[0] = 1;
-    shift[1] = d.width();
-    shift[2] = d.plane_size();
     dist_type dd(d.shape());
     tipl::par_for(d.size(),[&](size_t cur_index)
     {
-        for(unsigned char dim = 0;dim < 3;++dim)
-        {
-            size_t cur_index_with_shift = cur_index + shift[dim];
-            if(cur_index_with_shift < d.size())
-            {
-                float dis = d[cur_index_with_shift][dim] - d[cur_index][dim];
-                if(dis < 0.0f)
-                    dd[cur_index][dim] += dis * 0.25f;
-                //if(dis > 2.0f)
-                //    dd[cur_index][dim] += (dis-2.0f) * 0.25f;
-            }
-            if(cur_index >= shift[dim])
-            {
-                float dis = d[cur_index][dim] - d[cur_index-shift[dim]][dim];
-                if(dis < 0.0f)
-                    dd[cur_index][dim] -= dis * 0.25f;
-                //if(dis > 2.0f)
-                //    dd[cur_index][dim] -= (dis-2.0f) * 0.25f;
-            }
-        }
+        cdm_constraint_imp(d,dd,cur_index,0,1);
+        cdm_constraint_imp(d,dd,cur_index,1,d.width());
+        cdm_constraint_imp(d,dd,cur_index,2,d.plane_size());
     });
     d += dd;
 }
