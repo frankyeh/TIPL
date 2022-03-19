@@ -363,6 +363,7 @@ bool cdm_improved(r_type& r,r_type& iter)
 struct cdm_param{
     float resolution = 2.0f;
     float speed = 1.0f;
+    float smoothing = 0.2f;
     unsigned int iterations = 200;
     unsigned int min_dimension = 8;
 };
@@ -524,20 +525,17 @@ void cdm_solve_poisson(T& new_d,terminated_type& terminated)
     new_d.swap(solve_d);
 }
 
-template<typename dist_type,typename value_type>
-void cdm_accumulate_dis(dist_type& d,dist_type& new_d,value_type& theta,float speed)
+template<typename dist_type>
+float cdm_max_displacement_length(dist_type& new_d)
 {
-    //if(theta == 0.0f)
+    float theta = 0.0f;
     par_for(new_d.size(),[&](int i)
     {
-        value_type l = new_d[i].length();
+        float l = new_d[i].length();
         if(l > theta)
            theta = l;
     });
-    if(theta == 0.0)
-        return;
-    new_d *= speed/theta;
-    tipl::accumulate_displacement(d,new_d);
+    return theta;
 }
 
 template<typename T,typename U>
@@ -568,6 +566,59 @@ void cdm_constraint(dist_type& d)
         cdm_constraint_imp(d,dd,cur_index,2,d.plane_size());
     });
     d += dd;
+}
+
+template<typename dist_type>
+void cdm_dis_constraint(dist_type& new_d)
+{
+    tipl::par_for(new_d.size(),[&](int i)
+    {
+        float l = new_d[i].length();
+        if(l > 0.5f)
+           new_d[i] *= 0.5f/l;
+    });
+}
+
+
+template<typename T,typename U>
+__INLINE__ void cdm_smooth_imp(T& d,U& dd,size_t cur_index,float smoothing)
+{
+    size_t cur_index_with_shift = cur_index + 1;
+    tipl::vector<3> v;
+    if(cur_index_with_shift < d.size())
+        v += d[cur_index_with_shift];
+    if(cur_index >= 1)
+        v += d[cur_index-1];
+    cur_index_with_shift = cur_index + d.width();
+    if(cur_index_with_shift < d.size())
+        v += d[cur_index_with_shift];
+    if(cur_index >= d.width())
+        v += d[cur_index-d.width()];
+    cur_index_with_shift = cur_index + d.plane_size();
+    if(cur_index_with_shift < d.size())
+        v += d[cur_index_with_shift];
+    if(cur_index >= d.plane_size())
+        v += d[cur_index-d.plane_size()];
+    v *= smoothing/6.0f;
+    dd[cur_index] = v;
+}
+template<typename dist_type>
+void cdm_smooth(dist_type& d,float smoothing)
+{
+    if(smoothing == 0.0f)
+        return;
+    dist_type dd(d.shape());
+    tipl::par_for(d.size(),[&](size_t cur_index)
+    {
+        cdm_smooth_imp(d,dd,cur_index,smoothing);
+    });
+    if(smoothing == 1.0f)
+        d.swap(dd);
+    else
+    {
+        multiply_constant(d,1.0f-smoothing);
+        add(d,dd);
+    }
 }
 
 
@@ -627,14 +678,26 @@ float cdm2(const image_type& It,const image_type& It2,
         if(!cdm_improved(r,iter))
             break;
         if(has_dual)
-            new_d += new_d2;
+            add(new_d,new_d2);
         // solving the poisson equation using Jacobi method
         cdm_solve_poisson(new_d,terminated);
-        cdm_accumulate_dis(d,new_d,theta,param.speed);
+
+        if(theta == 0.0f)
+            theta = cdm_max_displacement_length(new_d);
+        if(theta == 0.0f)
+            break;
+
+        multiply_constant(new_d,param.speed/theta);
+
+        cdm_dis_constraint(new_d);
+
+        accumulate_displacement(d,new_d);
 
         cdm_constraint(d);
         invert_displacement_imp(d,inv_d);
+        cdm_smooth(inv_d,param.smoothing);
         invert_displacement_imp(inv_d,d);
+        cdm_smooth(d,param.smoothing);
     }
     return r.front();
 }
