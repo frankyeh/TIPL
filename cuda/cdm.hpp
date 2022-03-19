@@ -87,24 +87,27 @@ inline void compose_displacement_cuda(const T1& from,const T2& dis,T3& to)
 }
 
 
-template<typename T1,typename T2>
-__global__ void invert_displacement_cuda_kernel(T1 v,T2 vv)
+
+template<typename T,typename U>
+__global__ void invert_displacement_cuda_imp_kernel(T v1,U mapping)
 {
-    TIPL_FOR(index,v.size())
-        v[index] = -vv[index];
+    TIPL_FOR(index,v1.size())
+    {
+        invert_displacement_imp_imp(tipl::pixel_index<3>(index,v1.shape()),v1,mapping);
+    }
 }
 
 //---------------------------------------------------------------------------
-template<tipl::interpolation itype = tipl::interpolation::linear,
-         typename T1,typename T2>
-void invert_displacement_cuda_imp(const T1& v0,T2& v1)
+template<typename T>
+void invert_displacement_cuda_imp(const T& v0,T& v1)
 {
-    T1 vv(v0.shape());
+    T mapping(v0);
+    displacement_to_mapping_cuda(mapping);
     for(uint8_t i = 0;i < 4;++i)
     {
-        compose_displacement_cuda(v0,v1,vv);
-        TIPL_RUN(invert_displacement_cuda_kernel,v0.size())
-                    (tipl::make_shared(v1),tipl::make_shared(vv));
+        TIPL_RUN(invert_displacement_cuda_imp_kernel,v1.size())
+                (tipl::make_shared(v1),tipl::make_shared(mapping));
+
     }
 }
 template<typename T1,typename T2>
@@ -248,7 +251,7 @@ inline void cdm_solve_poisson_cuda(T& new_d,terminated_type& terminated)
 }
 
 
-struct cdm_accumulate_dis_vector_length
+struct cdm_dis_vector_length
 {
     template<typename T>
     __INLINE__ float operator()(const T &v) const
@@ -257,21 +260,13 @@ struct cdm_accumulate_dis_vector_length
     }
 };
 
-template<typename dist_type,typename value_type>
-void cdm_accumulate_dis_cuda(dist_type& d,dist_type& new_d,value_type& theta,float speed)
+template<typename dist_type>
+float cdm_max_displacement_length_cuda(dist_type& new_d)
 {
-    //if(theta == 0.0f)
-    {
-        theta = thrust::transform_reduce(thrust::device,
-                    new_d.get(),
-                    new_d.get()+d.size(),
-                    cdm_accumulate_dis_vector_length(),
+    return thrust::transform_reduce(thrust::device,
+                    new_d.get(),new_d.get()+new_d.size(),
+                    cdm_dis_vector_length(),
                         0.0f,thrust::maximum<float>());
-    }
-    if(theta == 0.0)
-        return;
-    multiply_constant_cuda(new_d,speed/theta);
-    accumulate_displacement_cuda(d,new_d);
 }
 
 
@@ -293,6 +288,51 @@ void cdm_constraint_cuda(dist_type& d)
     TIPL_RUN(cdm_constraint_cuda_kernel,d.size())
             (tipl::make_shared(d),tipl::make_shared(dd));
     add_cuda(d,dd);
+}
+
+template<typename T>
+__global__ void cdm_dis_constraint_cuda_kernel(T new_d)
+{
+    TIPL_FOR(i,new_d.size())
+    {
+        float l = new_d[i].length();
+        if(l > 0.5f)
+           new_d[i] *= 0.5/l;
+    }
+}
+
+template<typename dist_type>
+void cdm_dis_constraint_cuda(dist_type& new_d)
+{
+    TIPL_RUN(cdm_dis_constraint_cuda_kernel,new_d.size())
+            (tipl::make_shared(new_d));
+}
+
+template<typename T>
+__global__ void cdm_smooth_cuda_kernel(T d,T dd,float smoothing)
+{
+    TIPL_FOR(cur_index,d.size())
+    {
+        cdm_smooth_imp(d,dd,cur_index,smoothing);
+    }
+}
+
+
+template<typename dist_type>
+void cdm_smooth_cuda(dist_type& d,float smoothing)
+{
+    if(smoothing == 0.0f)
+        return;
+    dist_type dd(d.shape());
+    TIPL_RUN(cdm_smooth_cuda_kernel,d.size())
+            (tipl::make_shared(d),tipl::make_shared(dd),smoothing);
+    if(smoothing == 1.0f)
+        d.swap(dd);
+    else
+    {
+        multiply_constant_cuda(d,1.0f-smoothing);
+        add_cuda(d,dd);
+    }
 }
 
 template<typename image_type,typename dist_type,typename terminate_type>
@@ -355,12 +395,24 @@ float cdm2_cuda(const image_type& It,const image_type& It2,
             add_cuda(new_d,new_d2);
         // solving the poisson equation using Jacobi method
         cdm_solve_poisson_cuda(new_d,terminated);
-        cdm_accumulate_dis_cuda(d,new_d,theta,param.speed);
 
+        if(theta == 0.0f)
+            theta = cdm_max_displacement_length_cuda(new_d);
+        if(theta == 0.0f)
+            break;
+
+
+        multiply_constant_cuda(new_d,param.speed/theta);
+
+        cdm_dis_constraint_cuda(new_d);
+
+        accumulate_displacement_cuda(d,new_d);
 
         cdm_constraint_cuda(d);
         invert_displacement_cuda_imp(d,inv_d);
+        cdm_smooth_cuda(inv_d,param.smoothing);
         invert_displacement_cuda_imp(inv_d,d);
+        cdm_smooth_cuda(d,param.smoothing);
     }
     return r.front();
 }
