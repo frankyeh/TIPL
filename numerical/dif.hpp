@@ -125,17 +125,33 @@ void compose_displacement_with_affine(const ImageType& src,OutImageType& dest,
         tipl::estimate<Type>(src,pos,dest[index.index()]);
     });
 }
+template<typename T,typename U>
+__INLINE__ void invert_displacement_imp_imp(const tipl::pixel_index<T::dimension>& index,T& v1,U& mapping)
+{
+    auto& v = v1[index.index()];
+    tipl::vector<3> vv;
+    if(tipl::estimate<linear>(mapping,v+index,vv))
+    {
+        vv -= index;
+        v -= vv;
+    }
+    else
+        v *= 0.5f;
+}
 
 //---------------------------------------------------------------------------
-template<typename ComposeImageType>
-void invert_displacement_imp(const ComposeImageType& v0,ComposeImageType& v1)
+template<typename T>
+void invert_displacement_imp(const T& v0,T& v1)
 {
-    ComposeImageType vv;
+    T mapping(v0);
+    displacement_to_mapping(mapping);
     for(uint8_t i = 0;i < 4;++i)
     {
-        tipl::compose_displacement(v0,v1,vv);
-        for(size_t index = 0;index < v1.size();++index)
-            v1[index] = -vv[index];
+        tipl::par_for(tipl::begin_index(v1.shape()),tipl::end_index(v1.shape()),
+            [&](const tipl::pixel_index<T::dimension>& index)
+        {
+            invert_displacement_imp_imp(index,v1,mapping);
+        });
     }
 }
 template<typename ComposeImageType>
