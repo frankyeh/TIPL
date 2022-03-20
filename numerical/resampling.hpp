@@ -607,16 +607,40 @@ void downsample_with_padding(const ImageType1& in,ImageType2& out)
     });
 }
 
+template<typename T,typename U,typename V>
+__INLINE__ void downsample_with_padding_imp(const pixel_index<3>& pos1,
+                                            T& in,U& out,V& shift)
+{
+    using value_type = typename T::value_type;
+    pixel_index<3> pos2(pos1[0]<<1,pos1[1]<<1,pos1[2]<<1,in.shape());
+    char has = 0;
+    if(pos2[0]+1 < in.width())
+        has += 1;
+    if(pos2[1]+1 < in.height())
+        has += 2;
+    if(pos2[2]+1 < in.depth())
+        has += 4;
+    value_type buf[8];
+    typename sum_type<value_type>::type out_value = buf[0] = in[pos2.index()];
+    for(int i = 1 ;i < 8;++i)
+    {
+        auto h = has & i;
+        out_value += (buf[i] = ((h == i) ? in[pos2.index()+shift[i]] : buf[h]));
+    }
+    if constexpr(std::is_integral<decltype(out_value)>::value)
+        out[pos1.index()] = out_value >> 3;
+    else
+        out[pos1.index()] = out_value/8;
+}
 
 template<typename ImageType1,typename ImageType2,
          typename std::enable_if<ImageType1::dimension==3,bool>::type = true>
 void downsample_with_padding(const ImageType1& in,ImageType2& out)
 {
-    using value_type = typename ImageType1::value_type;
     shape<3> out_shape((in.width()+1)/2,(in.height()+1)/2,(in.depth()+1)/2);
     if(out.size() < out_shape.size())
         out.resize(out_shape);
-    size_t shift[8];
+    std::vector<size_t> shift(8);
     shift[0] = 0;
     shift[1] = 1;
     shift[2] = in.width();
@@ -629,25 +653,7 @@ void downsample_with_padding(const ImageType1& in,ImageType2& out)
     par_for(tipl::begin_index(out_shape),tipl::end_index(out_shape),[&]
             (const pixel_index<3>& pos1)
     {
-        pixel_index<3> pos2(pos1[0]<<1,pos1[1]<<1,pos1[2]<<1,in.shape());
-        char has = 0;
-        if(pos2[0]+1 < in.width())
-            has += 1;
-        if(pos2[1]+1 < in.height())
-            has += 2;
-        if(pos2[2]+1 < in.depth())
-            has += 4;
-        value_type buf[8];
-        typename sum_type<value_type>::type out_value = buf[0] = in[pos2.index()];
-        for(int i = 1 ;i < 8;++i)
-        {
-            auto h = has & i;
-            out_value += (buf[i] = ((h == i) ? in[pos2.index()+shift[i]] : buf[h]));
-        }
-        if constexpr(std::is_integral<decltype(out_value)>::value)
-            out[pos1.index()] = out_value >> 3;
-        else
-            out[pos1.index()] = out_value/8;
+        downsample_with_padding_imp(pos1,in,out,shift);
     });
     out.resize(out_shape);
 }
