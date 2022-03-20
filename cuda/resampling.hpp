@@ -14,26 +14,7 @@ __global__ void downsample_with_padding_cuda_kernel(T in,U out,V shift)
     using value_type = typename T::value_type;
     TIPL_FOR(index,out.size())
     {
-        pixel_index<3> pos1(index,out.shape());
-        pixel_index<3> pos2(pos1[0]<<1,pos1[1]<<1,pos1[2]<<1,in.shape());
-        char has = 0;
-        if(pos2[0]+1 < in.width())
-            has += 1;
-        if(pos2[1]+1 < in.height())
-            has += 2;
-        if(pos2[2]+1 < in.depth())
-            has += 4;
-        value_type buf[8];
-        typename sum_type<value_type>::type out_value = buf[0] = in[pos2.index()];
-        for(int i = 1 ;i < 8;++i)
-        {
-            auto h = has & i;
-            out_value += (buf[i] = ((h == i) ? in[pos2.index()+shift[i]] : buf[h]));
-        }
-        if constexpr(std::is_integral<value_type>::value)
-            out[pos1.index()] = out_value >> 3;
-        else
-            out[pos1.index()] = out_value/8;
+        downsample_with_padding_imp(pixel_index<3>(index,out.shape()),in,out,shift);
     }
 }
 
@@ -42,6 +23,10 @@ void downsample_with_padding_cuda(const T& in,U& out)
 {
     if constexpr(T::dimension==3)
     {
+        shape<3> out_shape((in.width()+1)/2,(in.height()+1)/2,(in.depth()+1)/2);
+        if(out.size() < out_shape.size())
+            out.resize(out_shape);
+
         std::vector<size_t> shift(8);
         shift[0] = 0;
         shift[1] = 1;
@@ -53,10 +38,10 @@ void downsample_with_padding_cuda(const T& in,U& out)
         shift[7] = in.plane_size()+1+in.width();
 
         device_vector<size_t> shift_(shift.begin(),shift.end());
-        out.resize(shape<3>((in.width()+1)/2,(in.height()+1)/2,(in.depth()+1)/2));
         TIPL_RUN(downsample_with_padding_cuda_kernel,out.size())
                 (tipl::make_shared(in),tipl::make_shared(out),tipl::make_shared(shift_));
 
+        out.resize(out_shape);
     }
 }
 
