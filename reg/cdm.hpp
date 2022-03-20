@@ -86,21 +86,6 @@ float cdm_contrast(const image<dimension,pixel_type>& J0,
     return value1/value2;
 }
 
-template<typename pixel_type,size_t dimension>
-void cdm_update_contrast(const std::vector<image<dimension,pixel_type> >& Ji,
-                          std::vector<float>& contrast)
-{
-    image<dimension,pixel_type> J0;
-    cdm_average_img(Ji,J0);
-    contrast.resize(Ji.size());
-    for (unsigned int index = 0; index < Ji.size(); ++index)
-        contrast[index] = cdm_contrast(J0,Ji[index]);
-    float sum_contrast = std::accumulate(contrast.begin(),contrast.end(),0.0f);
-    sum_contrast /= Ji.size();
-    divide_constant(contrast.begin(),contrast.end(),sum_contrast);
-}
-
-
 // trim the image size to uniform
 template<typename pixel_type,unsigned int dimension,typename crop_type>
 void cdm_trim_images(std::vector<image<dimension,pixel_type> >& I,
@@ -255,7 +240,6 @@ void cdm_group(const std::vector<image<dimension,pixel_type> >& I,// original im
     image<dimension,pixel_type> J0(geo);// the potential template
     std::vector<image<dimension,pixel_type> > Ji(n);// transformed I
     std::vector<image<dimension,vtor_type> > new_d(n);// new displacements
-    std::vector<float> contrast(n);
     float current_dif = std::numeric_limits<float>::max();
     for (float dis = 0.5;dis > theta;)
     {
@@ -263,12 +247,6 @@ void cdm_group(const std::vector<image<dimension,pixel_type> >& I,// original im
         for (unsigned int index = 0;index < n;++index)
             compose_displacement(I[index],d[index],Ji[index]);
 
-
-        // calculate contrast
-        cdm_update_contrast(Ji,contrast);
-
-        // apply contrast
-        multiply(Ji.begin(),Ji.end(),contrast.begin());
 
         cdm_average_img(Ji,J0);
 
