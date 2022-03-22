@@ -951,15 +951,15 @@ void project_y(const image_type& I,output_type& P)
 }
 
 template<typename ImageType>
-float variance(const ImageType& I)
+double variance(const ImageType& I)
 {
-    float sum = 0;
-    float sum_square = 0;
+    double sum = 0;
+    double sum_square = 0;
     typename ImageType::const_iterator iter = I.begin();
     typename ImageType::const_iterator end = I.end();
     for(; iter != end; ++iter)
     {
-        float value = *iter;
+        double value = *iter;
         sum += value;
         sum_square += value*value;
     }
