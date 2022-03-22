@@ -1741,10 +1741,10 @@ for (int i = col_index + 1; i < col_count(dim);++i)
 return x_norm;
 }*/
 
-template <class input_iterator,typename output_iterator>
+template <typename input_iterator,typename output_iterator1,typename output_iterator2>
 void eigen_decomposition_sym(input_iterator A,
-                                    output_iterator V,
-                                    output_iterator d,dim<2,2>)
+                                    output_iterator1 V,
+                                    output_iterator2 d,dim<2,2>)
 {
     double b = A[1];
     if (b + 1.0 == 1.0)
@@ -1816,10 +1816,10 @@ void eigen_decomposition_sym(input_iterator A,
         }
     }
 */
-template <class input_iterator,typename output_iterator>
+template <typename input_iterator,typename output_iterator1,typename output_iterator2>
 void eigen_decomposition_sym(input_iterator A,
-                                    output_iterator V,
-                                    output_iterator d,dim<3,3>)
+                                    output_iterator1 V,
+                                    output_iterator2 d,dim<3,3>)
 {
     typedef typename std::iterator_traits<input_iterator>::value_type value_type;
     // check plane stress or plane strain
@@ -2129,7 +2129,7 @@ A must be a symmetric matrix
 Output V:eigenvectors, *stored in colomn major
 Output d:eigenvalues
 */
-template <class input_iterator,typename output_iterator1,typename output_iterator2,typename dym_type>
+template <typename input_iterator,typename output_iterator1,typename output_iterator2,typename dym_type>
 void eigen_decomposition_sym(input_iterator A,
                                     output_iterator1 V,
                                     output_iterator2 d,const dym_type& dimension)
