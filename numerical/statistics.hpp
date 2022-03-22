@@ -354,6 +354,11 @@ __INLINE__ double covariance(input_iterator1 x_from,input_iterator1 x_to,
 {
     return covariance(x_from,x_to,y_from,mean(x_from,x_to),mean(y_from,y_from+(x_to-x_from)));
 }
+template<typename T,typename U>
+__INLINE__ double covariance(const T& x,const U& y)
+{
+    return covariance(x.begin(),x.end(),y.begin());
+}
 
 template<typename input_iterator1,typename input_iterator2>
 __INLINE__ double correlation(input_iterator1 x_from,input_iterator1 x_to,
