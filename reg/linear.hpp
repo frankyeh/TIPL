@@ -139,8 +139,9 @@ enum cost_type{corr,mutual_info};
 const float narrow_bound[8] = {0.2f,-0.2f,0.1f, -0.1f, 1.5f,0.9f,0.1f,-0.1f};
 const float reg_bound[8] =    {1.0f,-1.0f,0.25f,-0.25f,2.0f,0.5f,0.2f,-0.2f};
 const float large_bound[8] =  {1.0f,-1.0f,1.2f, -1.2f, 4.0f,0.2f,0.5f,-0.5f};
-template<typename image_type1,typename image_type2,typename transform_type>
+template<typename image_type1,typename image_type2,typename vstype1,typename vstype2,typename transform_type>
 void get_bound(const image_type1& from,const image_type2& to,
+               vstype1 from_vs,vstype2 to_vs,
                const transform_type& trans,
                transform_type& upper_trans,
                transform_type& lower_trans,
@@ -153,8 +154,8 @@ void get_bound(const image_type1& from,const image_type2& to,
     {
         for (unsigned int index = 0; index < dimension; ++index)
         {
-            float range = std::max<float>(std::max<float>(from.shape()[index],to.shape()[index])*0.5f,
-                                          std::fabs((float)from.shape()[index]-(float)to.shape()[index]));
+            float range = std::max<float>(std::max<float>(from.shape()[index]*from_vs[index],to.shape()[index]*to_vs[index])*0.5f,
+                                          std::fabs((float)from.shape()[index]*from_vs[index]-(float)to.shape()[index]*to_vs[index]));
             upper_trans[index] = range*bound[0];
             lower_trans[index] = range*bound[1];
         }
@@ -245,7 +246,7 @@ float linear(const image_type1& from,const vs_type1& from_vs,
             if(!line_search && reg_list[type] != base_type)
                 continue;
             transform_type upper,lower;
-            tipl::reg::get_bound(from,to,transform_type(),upper,lower,reg_list[type],bound);
+            tipl::reg::get_bound(from,to,from_vs,to_vs,transform_type(),upper,lower,reg_list[type],bound);
             if(line_search)
                 tipl::optimization::line_search_mt(arg_min.begin(),arg_min.end(),
                                                  upper.begin(),lower.begin(),fun,optimal_value,is_terminated);
@@ -279,13 +280,10 @@ float linear_mr(const image_type1& from,const vs_type1& from_vs,
         image<image_type1::dimension,typename image_type1::value_type> from_r;
         image<image_type2::dimension,typename image_type2::value_type> to_r;
         tipl::vector<image_type1::dimension> from_vs_r(from_vs),to_vs_r(to_vs);
-        transform_type arg_min_r(arg_min);
-
         if(downsample_from)
         {
             downsample_with_padding(from,from_r);
             from_vs_r *= 2.0;
-            arg_min_r.downsampling();
         }
         if(downsample_to)
         {
@@ -298,13 +296,8 @@ float linear_mr(const image_type1& from,const vs_type1& from_vs,
                              downsample_from ? from_r.shape():from.shape()),from_vs_r,
             tipl::make_image(downsample_to ? &to_r[0]:&to[0],
                              downsample_to ? to_r.shape():to.shape()),to_vs_r,
-                             downsample_from ? arg_min_r:arg_min,base_type,
+                             arg_min,base_type,
                              is_terminated,precision,bound);
-        if(downsample_from)
-        {
-            arg_min_r.upsampling();
-            arg_min = arg_min_r;
-        }
         line_search = false;
     }
     return linear<CostFunctionType>(from,from_vs,to,to_vs,
