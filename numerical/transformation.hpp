@@ -574,16 +574,6 @@ public:
     __INLINE__ value_type* begin(void) {return data;}
     __INLINE__ value_type* end(void) {return data+total_size;}
     __INLINE__ unsigned int size(void) const{return total_size;}
-    __INLINE__ void downsampling(void)
-    {
-        translocation[0] *= 0.5;
-        translocation[1] *= 0.5;
-    }
-    __INLINE__ void upsampling(void)
-    {
-        translocation[0] *= 2;
-        translocation[1] *= 2;
-    }
     friend std::ostream & operator<<(std::ostream& out, const affine_transform_2d<value_type> &T)
     {
         out << "translocation=" << T.translocation[0] << " " << T.translocation[1] << std::endl;
@@ -669,18 +659,6 @@ public:
     __INLINE__ value_type* begin(void) {return data;}
     __INLINE__ value_type* end(void) {return data+total_size;}
     __INLINE__ unsigned int size(void) const{return total_size;}
-    __INLINE__ void downsampling(void)
-    {
-        translocation[0] *= 0.5;
-        translocation[1] *= 0.5;
-        translocation[2] *= 0.5;
-    }
-    __INLINE__ void upsampling(void)
-    {
-        translocation[0] *= 2;
-        translocation[1] *= 2;
-        translocation[2] *= 2;
-    }
     friend std::ostream & operator<<(std::ostream& out, const affine_transform<value_type> &T)
     {
         out << "translocation:" << T.translocation[0] << " " << T.translocation[1] << " " << T.translocation[2] << std::endl;
@@ -733,9 +711,9 @@ public:
         // calculate (vs*Translocation*shift_center)
         tipl::vector<2> t(from[0],from[1]);
         t *= -0.5;
-        t += rb.translocation;
         t[0] *= from_vs[0];
         t[1] *= from_vs[1];
+        t += rb.translocation;
         // (Affine*Scaling*R1*R2*R3)*(vs*Translocation*shift_center)
         shift[0] = sr[0]*t[0]+sr[1]*t[1];
         shift[1] = sr[2]*t[0]+sr[3]*t[1];
@@ -885,10 +863,10 @@ public:
         // calculate (vs*Translocation*shift_center)
         vs_type t(from[0],from[1],from[2]);
         t *= -0.5;
-        t += rb.translocation;
         t[0] *= from_vs[0];
         t[1] *= from_vs[1];
         t[2] *= from_vs[2];
+        t += rb.translocation;
         // (Affine*Scaling*R1*R2*R3)*(vs*Translocation*shift_center)
         shift[0] = sr[0]*t[0]+sr[1]*t[1]+sr[2]*t[2];
         shift[1] = sr[3]*t[0]+sr[4]*t[1]+sr[5]*t[2];
@@ -977,9 +955,9 @@ public:
         R[7] /= from_vs[1];
         R[8] /= from_vs[2];
         iR = tipl::inverse(R);
-        rb.translocation[0] = (iR[0]*t[0]+iR[1]*t[1]+iR[2]*t[2])/from_vs[0]+from[0]*value_type(0.5);
-        rb.translocation[1] = (iR[3]*t[0]+iR[4]*t[1]+iR[5]*t[2])/from_vs[1]+from[1]*value_type(0.5);
-        rb.translocation[2] = (iR[6]*t[0]+iR[7]*t[1]+iR[8]*t[2])/from_vs[2]+from[2]*value_type(0.5);
+        rb.translocation[0] = (iR[0]*t[0]+iR[1]*t[1]+iR[2]*t[2])+from[0]*value_type(0.5)*from_vs[0];
+        rb.translocation[1] = (iR[3]*t[0]+iR[4]*t[1]+iR[5]*t[2])+from[1]*value_type(0.5)*from_vs[1];
+        rb.translocation[2] = (iR[6]*t[0]+iR[7]*t[1]+iR[8]*t[2])+from[2]*value_type(0.5)*from_vs[2];
         matrix_to_rotation_scaling_affine(R.begin(),rb.rotation,rb.scaling,rb.affine,vdim<dimension>());
     }
 public:
