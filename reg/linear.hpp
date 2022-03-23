@@ -188,7 +188,6 @@ void get_bound(const image_type1& from,const image_type2& to,
     }
 }
 
-
 template<typename image_type1,typename vs_type1,
          typename image_type2,typename vs_type2,
          typename cost_type>
@@ -225,12 +224,12 @@ make_functor(const image_type1& from,const vs_type1& from_vs,const image_type2& 
 
 template<typename CostFunctionType,typename image_type1,typename vs_type1,
          typename image_type2,typename vs_type2,
-         typename transform_type,typename teminated_class>
+         typename transform_type,typename function>
 float linear(const image_type1& from,const vs_type1& from_vs,
              const image_type2& to  ,const vs_type2& to_vs,
              transform_type& arg_min,
              reg_type base_type,
-             teminated_class& terminated,
+             function&& is_terminated,
              double precision = 0.01,bool line_search = true,const float* bound = reg_bound,size_t iterations = 3)
 {
     reg_type reg_list[4] = {translocation,rigid_body,rigid_scaling,affine};
@@ -241,7 +240,7 @@ float linear(const image_type1& from,const vs_type1& from_vs,
     for(size_t i = 0;i < iterations;++i,precision *= 0.5f)
     {
         optimal_value = fun(arg_min);
-        for(int type = 0;type < 4 && reg_list[type] <= base_type && !terminated;++type)
+        for(int type = 0;type < 4 && reg_list[type] <= base_type && !is_terminated();++type)
         {
             if(!line_search && reg_list[type] != base_type)
                 continue;
@@ -249,10 +248,10 @@ float linear(const image_type1& from,const vs_type1& from_vs,
             tipl::reg::get_bound(from,to,transform_type(),upper,lower,reg_list[type],bound);
             if(line_search)
                 tipl::optimization::line_search_mt(arg_min.begin(),arg_min.end(),
-                                                 upper.begin(),lower.begin(),fun,optimal_value,terminated);
+                                                 upper.begin(),lower.begin(),fun,optimal_value,is_terminated);
 
             tipl::optimization::quasi_newtons_minimize_mt(arg_min.begin(),arg_min.end(),
-                                                       upper.begin(),lower.begin(),fun,optimal_value,terminated,
+                                                       upper.begin(),lower.begin(),fun,optimal_value,is_terminated,
                                                        precision);
         }
     }
@@ -261,37 +260,55 @@ float linear(const image_type1& from,const vs_type1& from_vs,
 
 template<typename CostFunctionType,typename image_type1,typename vs_type1,
          typename image_type2,typename vs_type2,
-         typename transform_type,typename teminated_class>
+         typename transform_type,typename function>
 float linear_mr(const image_type1& from,const vs_type1& from_vs,
                 const image_type2& to  ,const vs_type2& to_vs,
                 transform_type& arg_min,
                 reg_type base_type,
-                teminated_class& terminated,
+                function&& is_terminated,
                 double precision = 0.01,
-                bool line_search = true,
                 const float* bound = reg_bound)
 {
-    if (from.size() > 128*128*128 || to.size() > 128*128*128)
+    bool line_search = true;
+    bool downsample_from = from.size() > 64*64*64;
+    bool downsample_to = to.size() > 64*64*64;
+
+    if (downsample_from || downsample_to)
     {
         //downsampling
         image<image_type1::dimension,typename image_type1::value_type> from_r;
         image<image_type2::dimension,typename image_type2::value_type> to_r;
         tipl::vector<image_type1::dimension> from_vs_r(from_vs),to_vs_r(to_vs);
-        downsample_with_padding(from,from_r);
-        downsample_with_padding(to,to_r);
-        from_vs_r *= 2.0;
-        to_vs_r *= 2.0;
         transform_type arg_min_r(arg_min);
-        arg_min_r.downsampling();
-        float result = linear_mr<CostFunctionType>(from_r,from_vs_r,to_r,to_vs_r,
-                                                   arg_min_r,base_type,terminated,precision,line_search,bound);
-        arg_min_r.upsampling();
-        arg_min = arg_min_r;
-        return result;
+
+        if(downsample_from)
+        {
+            downsample_with_padding(from,from_r);
+            from_vs_r *= 2.0;
+            arg_min_r.downsampling();
+        }
+        if(downsample_to)
+        {
+            downsample_with_padding(to,to_r);
+            to_vs_r *= 2.0;
+        }
+
+        float result = linear_mr<CostFunctionType>(
+            tipl::make_image(downsample_from ? &from_r[0]:&from[0],
+                             downsample_from ? from_r.shape():from.shape()),from_vs_r,
+            tipl::make_image(downsample_to ? &to_r[0]:&to[0],
+                             downsample_to ? to_r.shape():to.shape()),to_vs_r,
+                             downsample_from ? arg_min_r:arg_min,base_type,
+                             is_terminated,precision,bound);
+        if(downsample_from)
+        {
+            arg_min_r.upsampling();
+            arg_min = arg_min_r;
+        }
+        line_search = false;
     }
-    else
-        return linear<CostFunctionType>(from,from_vs,to,to_vs,
-                                        arg_min,base_type,terminated,precision,line_search,bound);
+    return linear<CostFunctionType>(from,from_vs,to,to_vs,
+                                        arg_min,base_type,is_terminated,precision,line_search,bound,1);
 }
 
 

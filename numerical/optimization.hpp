@@ -214,7 +214,7 @@ void quasi_newtons_minimize_mt(
                 iter_type1 x_upper,iter_type1 x_lower,
                 function_type& fun,
                 typename function_type::value_type& fun_x,
-                terminated_class& terminated,double precision = 0.001)
+                terminated_class&& is_terminated,double precision = 0.001)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
     typedef typename function_type::value_type value_type;
@@ -222,7 +222,7 @@ void quasi_newtons_minimize_mt(
     unsigned int size = x_end-x_beg;
     std::vector<param_type> tols(size);
     double tol_length = calculate_resolution(tols,x_upper,x_lower,precision);
-    for(unsigned int iter = 0;iter < 500 && !terminated;++iter)
+    for(unsigned int iter = 0;iter < 500 && !is_terminated();++iter)
     {
         std::vector<value_type> fun_x_ei(size);
         std::vector<param_type> g(size),h(size*size),p(size);
@@ -320,7 +320,7 @@ void line_search_mt(iter_type1 x_beg,iter_type1 x_end,
                      iter_type2 x_upper,iter_type2 x_lower,
                      function_type& fun,
                      typename function_type::value_type& optimal_value,
-                     teminated_class& terminated)
+                     teminated_class&& is_terminated)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
     float dis[8] = {0.05f,0.10f,0.20f,0.40f,
@@ -331,7 +331,7 @@ void line_search_mt(iter_type1 x_beg,iter_type1 x_end,
     float ratio = 1.0f;
     for(int iter = 0;iter < 10;++iter,ratio*=0.95f)
     {
-        for(int cur_dim = 0;cur_dim < range.size() && !terminated;++cur_dim)
+        for(int cur_dim = 0;cur_dim < range.size() && !is_terminated();++cur_dim)
         {
             if(x_upper[cur_dim] == x_lower[cur_dim])
                 continue;
