@@ -839,6 +839,21 @@ ImageType& normalize(ImageType& I,float upper_limit = 255)
     return I;
 }
 
+template<typename T,typename U>
+void normalize(const T& I,U& J,float upper_limit = 255.0f)
+{
+    J.resize(I.shape());
+    if(I.empty())
+        return;
+    auto m = *std::max_element(I.begin(),I.end());
+    if(m != 0)
+    {
+        upper_limit /= m;
+        for(size_t i = 0;i < I.size();++i)
+            J[i] = I[i]*upper_limit;
+    }
+}
+
 
 template<typename ImageType>
 ImageType& normalize_abs(ImageType& I,float upper_limit = 1.0f)
@@ -873,19 +888,25 @@ void apply_sort_index(container_type& c,const std::vector<index_type>& idx)
 template<typename I_type>
 tipl::vector<I_type::dimension,float> center_of_mass(const I_type& Im)
 {
-    tipl::vector<I_type::dimension,float> sum_mass;
-    double total_w = 0.0;
+    std::vector<tipl::vector<I_type::dimension,float> > sum_mass(std::thread::hardware_concurrency());
+    std::vector<double> total_w(std::thread::hardware_concurrency());
     tipl::par_for(tipl::begin_index(Im.shape()),tipl::end_index(Im.shape()),
-                        [&](const tipl::pixel_index<I_type::dimension>& index)
+                        [&](const tipl::pixel_index<I_type::dimension>& index,size_t id)
     {
         auto v = Im[index.index()];
-        total_w += v;
+        total_w[id] += v;
         tipl::vector<I_type::dimension,float> pos(index);
         pos *= v;
-        sum_mass += pos;
+        sum_mass[id] += pos;
     });
-    sum_mass /= total_w;
-    return sum_mass;
+    for(size_t i = 1;i < sum_mass.size();++i)
+    {
+        sum_mass[0] += sum_mass[i];
+        total_w[0] += total_w[i];
+    }
+    if(total_w[0] != 0.0)
+        sum_mass[0] /= total_w[0];
+    return sum_mass[0];
 }
 
 
