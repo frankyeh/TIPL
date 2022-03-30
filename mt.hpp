@@ -139,13 +139,12 @@ namespace backend {
 
 
 class thread{
-private:
     std::shared_ptr<std::future<void> > th;
-    bool started;
 public:
-    bool terminated;
+    bool running = false;
+    bool terminated = false;
 public:
-    thread(void):started(false),terminated(false){}
+    thread(void){}
     ~thread(void){clear();}
     void clear(void)
     {
@@ -156,22 +155,21 @@ public:
             th.reset();
         }
         terminated = false;
-        started = false;
+        running = false;
     }
 
     template<typename lambda_type>
     void run(lambda_type&& fun)
     {
-        if(started)
+        if(th.get())
             clear();
-        started = true;
+        running = true;
         th.reset(new std::future<void>(std::async(std::launch::async,fun)));
     }
     void wait(void)
     {
         th->wait();
     }
-    bool has_started(void)const{return started;}
 };
 
 
