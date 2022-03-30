@@ -268,7 +268,8 @@ float linear_mr(const image_type1& from,const vs_type1& from_vs,
                 reg_type base_type,
                 function&& is_terminated,
                 double precision = 0.01,
-                const float* bound = reg_bound)
+                const float* bound = reg_bound,
+                size_t iterations = 5)
 {
     bool line_search = true;
     bool downsample_from = from.size() > 64*64*64;
@@ -297,11 +298,11 @@ float linear_mr(const image_type1& from,const vs_type1& from_vs,
             tipl::make_image(downsample_to ? &to_r[0]:&to[0],
                              downsample_to ? to_r.shape():to.shape()),to_vs_r,
                              arg_min,base_type,
-                             is_terminated,precision,bound);
+                             is_terminated,precision,bound,iterations);
         line_search = false;
     }
     return linear<CostFunctionType>(from,from_vs,to,to_vs,
-                                        arg_min,base_type,is_terminated,precision,line_search,bound,1);
+                                        arg_min,base_type,is_terminated,precision,line_search,bound,iterations);
 }
 
 
