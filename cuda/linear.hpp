@@ -58,12 +58,6 @@ public:
     double operator()(const ImageType& from_raw,const ImageType& to_raw,const TransformType& trans,int thread_id = 0)
     {
         using DeviceImageType = device_image<3,typename ImageType::value_type>;
-        if(from_raw.size() > to_raw.size())
-        {
-            TransformType inv_trans(trans);
-            inv_trans.inverse();
-            return (*this)(to_raw,from_raw,inv_trans);
-        }
         {
             std::scoped_lock<std::mutex> lock(init_mutex);
             if (from8_hist.empty() || to_raw.size() != to8.size() || from_raw.size() != from8.size())
