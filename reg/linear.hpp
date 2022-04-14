@@ -138,7 +138,7 @@ void get_bound(const image_type1& from,const image_type2& to,
                vstype1 from_vs,vstype2 to_vs,
                const transform_type& trans,
                transform_type& upper_trans,
-               transform_type& lower_trans,
+               transform_type& lower_trans,               
                reg_type type,const float* bound = reg_bound)
 {
     const unsigned int dimension = image_type1::dimension;
@@ -159,8 +159,8 @@ void get_bound(const image_type1& from,const image_type2& to,
     {
         for (unsigned int index = dimension; index < dimension + dimension; ++index)
         {
-            upper_trans[index] += 3.14159265358979323846f*bound[2];
-            lower_trans[index] += 3.14159265358979323846f*bound[3];
+            upper_trans[index] = 3.14159265358979323846f*bound[2];
+            lower_trans[index] = 3.14159265358979323846f*bound[3];
         }
     }
 
@@ -225,7 +225,10 @@ float linear(const image_type1& from,const vs_type1& from_vs,
              transform_type& arg_min,
              reg_type base_type,
              function&& is_terminated,
-             double precision = 0.01,bool line_search = true,const float* bound = reg_bound,size_t iterations = 3)
+             double precision = 0.01,
+             bool line_search = true,
+             const float* bound = reg_bound,
+             size_t iterations = 3)
 {
     reg_type reg_list[4] = {translocation,rigid_body,rigid_scaling,affine};
     auto fun = make_functor<CostFunctionType>(from,from_vs,to,to_vs);
@@ -240,7 +243,7 @@ float linear(const image_type1& from,const vs_type1& from_vs,
             if(!line_search && reg_list[type] != base_type)
                 continue;
             transform_type upper,lower;
-            tipl::reg::get_bound(from,to,from_vs,to_vs,transform_type(),upper,lower,reg_list[type],bound);
+            tipl::reg::get_bound(from,to,from_vs,to_vs,arg_min,upper,lower,reg_list[type],bound);
             if(line_search)
                 tipl::optimization::line_search_mt(arg_min.begin(),arg_min.end(),
                                                  upper.begin(),lower.begin(),fun,optimal_value,is_terminated);
@@ -262,10 +265,10 @@ float linear_mr(const image_type1& from,const vs_type1& from_vs,
                 reg_type base_type,
                 function&& is_terminated,
                 double precision = 0.01,
+                bool line_search = true,
                 const float* bound = reg_bound,
                 size_t iterations = 5)
 {
-    bool line_search = true;
     bool downsample_from = from.size() > 64*64*64;
     bool downsample_to = to.size() > 64*64*64;
 
@@ -292,13 +295,48 @@ float linear_mr(const image_type1& from,const vs_type1& from_vs,
             tipl::make_image(downsample_to ? &to_r[0]:&to[0],
                              downsample_to ? to_r.shape():to.shape()),to_vs_r,
                              arg_min,base_type,
-                             is_terminated,precision,bound,iterations);
+                             is_terminated,
+                             precision,line_search,bound,iterations);
         line_search = false;
     }
     return linear<CostFunctionType>(from,from_vs,to,to_vs,
                                         arg_min,base_type,is_terminated,precision,line_search,bound,iterations);
 }
 
+
+template<typename cost_fun,typename function>
+size_t linear_two_way(const tipl::image<3,float>& from,
+                              tipl::vector<3> from_vs,
+                              const tipl::image<3,float>& to,
+                              tipl::vector<3> to_vs,
+                              tipl::affine_transform<float>& arg,
+                              tipl::reg::reg_type reg_type,
+                              function&& is_terminated,
+                              const float* bound = tipl::reg::reg_bound)
+{
+    tipl::affine_transform<float> arg2(arg);
+    tipl::inverse(arg,from.shape(),from_vs,to.shape(),to_vs);
+
+    size_t result2(0),result(0);
+    tipl::par_for(2,[&](size_t id)
+    {
+        if(id)
+        {
+            linear_mr<cost_fun>(from,from_vs,to,to_vs,arg,reg_type,is_terminated,0.01,true,bound);
+            result2 = linear<cost_fun>(from,from_vs,to,to_vs,arg,reg_type,is_terminated,0.005,false,bound);
+        }
+        else
+        {
+            linear_mr<cost_fun>(to,to_vs,from,from_vs,arg2,reg_type,is_terminated,0.01,true,bound);
+            tipl::inverse(arg2,to.shape(),to_vs,from.shape(),from_vs);
+            result = linear<cost_fun>(from,from_vs,to,to_vs,arg2,reg_type,is_terminated,0.005,false,bound);
+        }
+    });
+
+    if(result < result2)
+        arg = arg2;
+    return linear<cost_fun>(from,from_vs,to,to_vs,arg,reg_type,is_terminated,0.002,false,bound);
+}
 
 }
 }
