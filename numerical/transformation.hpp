@@ -1056,6 +1056,18 @@ public:
     }
 };
 
+
+template<typename geo_type,typename vs_type,typename value_type>
+__DEVICE_HOST__ void inverse(affine_transform<value_type>& arg,
+                      const geo_type& from,
+                      const vs_type& from_vs,
+                      const geo_type& to,
+                      const vs_type& to_vs)
+{
+    auto T = tipl::transformation_matrix<value_type>(arg,from,from_vs,to,to_vs);
+    T.inverse();
+    T.to_affine_transform(arg,to,to_vs,from,from_vs);
+}
 class from_space : public tipl::matrix<4,4,float>{
 private:
     const tipl::matrix<4,4,float>& origin;
