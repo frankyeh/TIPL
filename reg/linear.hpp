@@ -248,6 +248,7 @@ float linear(const image_type1& from,const vs_type1& from_vs,
                                                    precision);
     }
 
+    tipl::reg::get_bound(from,to,from_vs,to_vs,arg_min,upper,lower,rtype,bound);
     for(size_t i = 0;i < iterations;++i,precision *= 0.5f)
         tipl::optimization::quasi_newtons_minimize_mt(arg_min.begin(),arg_min.end(),
                                                    upper.begin(),lower.begin(),fun,optimal_value,is_terminated,
