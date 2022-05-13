@@ -191,7 +191,9 @@ public:
     }
     __INLINE__ image& operator=(const image& rhs)
     {
-        storage_type new_alloc(rhs.begin(),rhs.end());
+        // Casting is needed here, because if rhs is a device vector, rhs.begin() is a void * and this
+        // will later lead to a reference to void
+        storage_type new_alloc(static_cast<const_iterator>(rhs.begin()),static_cast<const_iterator>(rhs.end()));
         alloc.swap(new_alloc);
         sp = rhs.shape();
         return *this;
