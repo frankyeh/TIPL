@@ -46,6 +46,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "numerical/dif.hpp"
 
 
+#include "io/nrrd.hpp"
 #include "io/dicom.hpp"
 #include "io/nifti.hpp"
 #include "io/bitmap.hpp"
