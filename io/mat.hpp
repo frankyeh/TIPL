@@ -418,15 +418,25 @@ public:
             str = std::string(buf,buf+row*col);
         return true;
     }
-    template<typename class_type>
-    bool read(const char* name,class_type& data) const
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    bool read(const char* name,T& value) const
+    {
+        const T* ptr = nullptr;
+        unsigned int rows,cols;
+        if(!read(name,rows,cols,ptr))
+            return false;
+        value = *ptr;
+        return true;
+    }
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    bool read(const char* name,T& data) const
     {
         return read(name,data.begin(),data.end());
     }
-    template<typename class_type>
-    class_type read(const char* name) const
+    template<typename T>
+    T read(const char* name) const
     {
-        class_type data;
+        T data;
         read(name,data);
         return data;
     }
