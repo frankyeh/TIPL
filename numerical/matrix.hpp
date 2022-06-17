@@ -3156,6 +3156,7 @@ public:
 };
 
 
+struct identity_matrix{};
 template<int r,int c,typename value_type_ = float,typename storage_type = value_type_ [r*c] >
 struct matrix{
     using value_type = value_type_;
@@ -3167,6 +3168,8 @@ struct matrix{
     storage_type value;
 public:
     matrix(void){}
+    matrix(identity_matrix){identity();}
+
     template<typename rhs_type>
     matrix(std::initializer_list<rhs_type> rhs)
     {
@@ -3189,6 +3192,11 @@ public:
     value_type* end(void){return value+mat_size;}
     const value_type* end(void) const{return value+mat_size;}
 public:
+    const matrix& operator=(identity_matrix)
+    {
+        identity();
+        return *this;
+    }
     const matrix& operator=(const matrix& rhs)
     {
         std::copy(rhs.begin(),rhs.end(),value);
@@ -3258,6 +3266,26 @@ public:
         for(size_t i = 0;i < mat_size;++i)
             if(value[i] != rhs.value[i])
                 return false;
+        return true;
+    }
+    bool operator!=(identity_matrix) const
+    {
+        return !((*this)==identity_matrix());
+    }
+    bool operator==(identity_matrix) const
+    {
+        for(int row = 0,index = 0;row < r;++row)
+        for(int col = 0;col < c;++col,++index)
+            if(col == row)
+            {
+                if(value[index] != 1.0f)
+                    return false;
+            }
+            else
+            {
+                if(value[index] != 0.0f)
+                    return false;
+            }
         return true;
     }
 public:
