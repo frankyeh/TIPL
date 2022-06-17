@@ -435,10 +435,12 @@ void bounding_box_mt(const std::vector<point_type>& points,point_type& max_value
     for(int i = 0;i < thread_count;++i)
     {
         for (unsigned char d = 0; d < dim; ++d)
+        {
             if (max_values[i][d] > max_value[d])
                 max_value[d] = max_values[i][d];
-            else if (min_values[i][d] < min_value[d])
+            if (min_values[i][d] < min_value[d])
                 min_value[d] = min_values[i][d];
+        }
     }
 }
 
