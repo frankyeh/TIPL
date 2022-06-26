@@ -119,6 +119,22 @@ inline void par_for(T& c, Func&& f,unsigned int thread_count = std::thread::hard
     par_for<enabled_mt>(c.begin(),c.end(),std::move(f),thread_count);
 }
 
+template<typename T>
+void aggregate_results(std::vector<std::vector<T> >&& results,std::vector<T>& all_result_)
+{
+    std::vector<size_t> insert_pos;
+    insert_pos.push_back(0);
+    for(size_t i = 0;i < results.size();++i)
+        insert_pos.push_back(insert_pos.back() + results[i].size());
+
+    std::vector<T> all_result(insert_pos.back());
+    tipl::par_for(results.size(),[&](unsigned int index)
+    {
+        std::move(results[index].begin(),results[index].end(),all_result.begin()+int64_t(insert_pos[index]));
+    });
+    all_result.swap(all_result_);
+}
+
 namespace backend {
     struct seq{
         template<typename Fun>
