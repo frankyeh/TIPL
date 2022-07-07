@@ -82,6 +82,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "vis/march_cube.hpp"
 #include "vis/color_map.hpp"
 
+#include "cmd.hpp"
 
 #ifdef __CUDACC__
 #include "cuda/mem.hpp"
