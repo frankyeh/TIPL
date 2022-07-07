@@ -9,6 +9,7 @@
 #include "../utility/pixel_index.hpp"
 #include "../numerical/index_algorithm.hpp"
 #include "../numerical/window.hpp"
+#include "../numerical/statistics.hpp"
 
 
 namespace tipl
@@ -16,6 +17,27 @@ namespace tipl
 
 namespace morphology
 {
+
+template<typename T,typename F>
+void for_each_label(T& data,F&& fun)
+{
+    T result_data(data.shape());
+    uint32_t m = uint32_t(tipl::max_value(data))+1;
+    tipl::par_for(m,[&](uint32_t index)
+    {
+        if(!index)
+            return;
+        tipl::image<3,char> mask(data.shape());
+        for(size_t i = 0;i < mask.size();++i)
+            if(uint32_t(data[i]) == index)
+                mask[i] = 1;
+        fun(mask);
+        for(size_t i = 0;i < mask.size();++i)
+            if(mask[i] && result_data[i] < typename T::value_type(index))
+                result_data[i] = typename T::value_type(index);
+    });
+    data.swap(result_data);
+}
 
 template<typename ImageType>
 void erosion(ImageType& I,const std::vector<int>& index_shift)
