@@ -86,6 +86,15 @@ size_t arg_min(const container_type& data)
 }
 
 
+template<typename ImageType>
+bool is_label_image(const ImageType& I)
+{
+    for(size_t i = 0;i < I.size();++i)
+        if(std::floor(I[i]) < I[i] || I[i] > 10000.0f)
+            return false;
+    return true;
+}
+
 template<typename ImageType,typename LabelImageType,typename fun_type>
 void binary(const ImageType& I,LabelImageType& out,fun_type fun)
 {
