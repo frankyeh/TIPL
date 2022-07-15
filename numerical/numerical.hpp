@@ -714,7 +714,7 @@ auto max_value_mt(input_iterator from,input_iterator to)
 }
 
 template<typename image_type>
-auto max_value_mt(const image_type& I)
+inline auto max_value_mt(const image_type& I)
 {
     return max_value_mt(I.begin(),I.end());
 }
@@ -786,44 +786,99 @@ minmax_value_mt(iterator_type iter,iterator_type end)
 
 //---------------------------------------------------------------------------
 template<typename InputIter,typename OutputIter,typename value_type>
-void upper_threshold(InputIter from,InputIter to,OutputIter out,value_type upper)
+inline void upper_threshold(InputIter from,InputIter to,OutputIter out,value_type upper)
 {
     for(;from != to;++from,++out)
         *out = std::min<value_type>(*from,upper);
 }
 //---------------------------------------------------------------------------
 template<typename InputIter,typename value_type>
-void upper_threshold(InputIter from,InputIter to,value_type upper)
+inline void upper_threshold(InputIter from,InputIter to,value_type upper)
 {
     for(;from != to;++from)
         *from = std::min<value_type>(*from,upper);
 }
 //---------------------------------------------------------------------------
 template<typename image_type,typename value_type>
-void upper_threshold(image_type& I,value_type value)
+inline void upper_threshold(image_type& I,value_type value)
 {
     upper_threshold(I.begin(),I.end(),value);
 }
 //---------------------------------------------------------------------------
 template<typename InputIter,typename OutputIter,typename value_type>
-void lower_threshold(InputIter from,InputIter to,OutputIter out,value_type lower)
+void upper_threshold_mt(InputIter from,InputIter to,OutputIter out,value_type upper)
+{
+    if(to == from)
+        return;
+    size_t n = size_t(to-from);
+    size_t thread_count = std::min<size_t>(n,std::thread::hardware_concurrency());
+    size_t block_size = n/thread_count;
+    tipl::par_for(thread_count,[&](size_t thread)
+    {
+        size_t pos = thread*block_size;
+        upper_threshold(from+pos,from+std::min<size_t>(n,pos+block_size),out+pos,upper);
+    });
+}
+//---------------------------------------------------------------------------
+template<typename InputIter,typename value_type>
+inline void upper_threshold_mt(InputIter from,InputIter to,value_type upper)
+{
+    upper_threshold_mt(from,to,from,upper);
+}
+//---------------------------------------------------------------------------
+template<typename image_type,typename value_type>
+inline void upper_threshold_mt(image_type& I,value_type value)
+{
+    upper_threshold_mt(I.begin(),I.end(),value);
+}
+//---------------------------------------------------------------------------
+template<typename InputIter,typename OutputIter,typename value_type>
+inline void lower_threshold(InputIter from,InputIter to,OutputIter out,value_type lower)
 {
     for(;from != to;++from,++out)
         *out = std::max<value_type>(*from,lower);
 }
 //---------------------------------------------------------------------------
 template<typename InputIter,typename value_type>
-void lower_threshold(InputIter from,InputIter to,value_type lower)
+inline void lower_threshold(InputIter from,InputIter to,value_type lower)
 {
     for(;from != to;++from)
         *from = std::max<value_type>(*from,lower);
 }
 //---------------------------------------------------------------------------
 template<typename image_type,typename value_type>
-void lower_threshold(image_type& I,value_type value)
+inline void lower_threshold(image_type& I,value_type value)
 {
     lower_threshold(I.begin(),I.end(),value);
 }
+//---------------------------------------------------------------------------
+template<typename InputIter,typename OutputIter,typename value_type>
+void lower_threshold_mt(InputIter from,InputIter to,OutputIter out,value_type lower)
+{
+    if(to == from)
+        return;
+    size_t n = size_t(to-from);
+    size_t thread_count = std::min<size_t>(n,std::thread::hardware_concurrency());
+    size_t block_size = n/thread_count;
+    tipl::par_for(thread_count,[&](size_t thread)
+    {
+        size_t pos = thread*block_size;
+        lower_threshold(from+pos,from+std::min<size_t>(n,pos+block_size),out+pos,lower);
+    });
+}
+//---------------------------------------------------------------------------
+template<typename InputIter,typename value_type>
+inline void lower_threshold_mt(InputIter from,InputIter to,value_type lower)
+{
+    lower_threshold_mt(from,to,from,lower);
+}
+//---------------------------------------------------------------------------
+template<typename image_type,typename value_type>
+inline void lower_threshold_mt(image_type& I,value_type value)
+{
+    lower_threshold_mt(I.begin(),I.end(),value);
+}
+
 //---------------------------------------------------------------------------
 template<typename InputIter,typename OutputIter,typename value_type>
 void upper_lower_threshold(InputIter from,InputIter to,OutputIter out,value_type lower,value_type upper)
