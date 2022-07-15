@@ -22,8 +22,8 @@ void watershed(const ImageType& input_image,LabelImageType& label)
 {
     label.clear();
     label.resize(input_image.shape());
-    tipl::image<ImageType::dimension,unsigned char> I(input_image.shape());
-    tipl::normalize(input_image,I);
+    tipl::image<ImageType::dimension,unsigned char> I(input_image);
+    tipl::normalize(I,255);
 
     std::vector<std::list<pixel_index<ImageType::dimension> > > presort_table(256);
     for (pixel_index<ImageType::dimension> index(I.shape());
@@ -165,8 +165,8 @@ void watershed2(const ImageType& input_image,LabelImageType& label,unsigned int 
         #ifdef DEBUG
         std::ostringstream name;
         name << L << ".bmp";
-        tipl::image<2,unsigned char> out;
-        tipl::normalize(label,out);
+        tipl::image<2,unsigned char> out(label);
+        tipl::normalize(out,255);
         tipl::io::bitmap bmp;
         bmp << out;
         bmp.save_to_file(name.str().c_str());
