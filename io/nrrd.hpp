@@ -78,8 +78,12 @@ private:
             return read_as_type<double>(I);
         if(values["type"] == "int")
             return read_as_type<int32_t>(I);
+        if(values["type"] == "unsigned int")
+            return read_as_type<uint32_t>(I);
         if(values["type"] == "short")
             return read_as_type<int16_t>(I);
+        if(values["type"] == "unsigned short")
+            return read_as_type<uint16_t>(I);
         if(values["type"] == "uchar")
             return read_as_type<uint8_t>(I);
         error_msg = "unsupported type:";
@@ -113,9 +117,9 @@ public:
             if(sep == std::string::npos || line.front() == '#')
                 continue;
             std::string name = line.substr(0,sep);
-            std::istringstream in2(line.substr(sep+1));
-            while(in2.peek() == ' ')
-                in2.get();
+            while(line[sep+1] == ' ' && sep+1 < line.length())
+                ++sep;
+            std::istringstream in2(values[name] = line.substr(sep+1));
             if(name == "space directions")
             {
                 read_v3(in2,T[0],T[1],T[2]);
@@ -124,27 +128,16 @@ public:
                 vs[0] = std::abs(T[0]);
                 vs[1] = std::abs(T[5]);
                 vs[2] = std::abs(T[10]);
-                continue;
             }
             if(name == "space origin")
-            {
                 read_v3(in2,T[3],T[7],T[11]);
-                continue;
-            }
             if(name == "sizes")
-            {
                 in2 >> size[0] >> size[1] >> size[2];
-                continue;
-            }
             if(name == "data file")
             {
                 in2 >> data_file;
                 data_file = std::filesystem::path(file_name).parent_path().string() + "/" + data_file;
-                continue;
             }
-            std::string value;
-            in2 >> value;
-            values[name] = value;
         }
         if(!size.size())
         {
