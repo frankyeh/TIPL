@@ -181,37 +181,6 @@ __INLINE__ auto mean(const image_type& I)
     return mean(I.begin(),I.end());
 }
 
-template<typename input_iterator>
-__INLINE__ auto min_value(input_iterator from,input_iterator to)
-{
-    auto m = *from;
-    for(;from != to;++from)
-        if(*from < m)
-            m = *from;
-    return m;
-}
-
-template<typename image_type>
-__INLINE__ auto min_value(const image_type& I)
-{
-    return min_value(I.begin(),I.end());
-}
-
-template<typename input_iterator>
-__INLINE__ auto max_value(input_iterator from,input_iterator to)
-{
-    auto m = *from;
-    for(;from != to;++from)
-        if(*from > m)
-            m = *from;
-    return m;
-}
-
-template<typename image_type>
-__INLINE__ auto max_value(const image_type& I)
-{
-    return max_value(I.begin(),I.end());
-}
 
 template <typename input_iterator>
 auto median(input_iterator begin, input_iterator end)
