@@ -6,6 +6,8 @@
 #include "numerical/matrix.hpp"
 #include "numerical/resampling.hpp"
 #include "numerical/transformation.hpp"
+#include "filter/mean.hpp"
+#include "filter/sobel.hpp"
 #include "morphology/morphology.hpp"
 
 namespace tipl{
@@ -204,42 +206,24 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         return true;
     }
 
-    if(cmd == "intensity_shift")
+    if(cmd == "add_value")
     {
-        float value = std::stof(param1);
-        tipl::par_for(data.size(),[&](size_t i)
-        {
-            data[i] += value;
-        });
+        add_constant_mt(data,std::stof(param1));
         return true;
     }
-    if(cmd == "intensity_scale")
+    if(cmd == "multiply_value")
     {
-        float value = std::stof(param1);
-        tipl::par_for(data.size(),[&](size_t i)
-        {
-            data[i] *= value;
-        });
+        multiply_constant_mt(data,std::stof(param1));
         return true;
     }
     if(cmd == "lower_threshold")
     {
-        float value = std::stof(param1);
-        tipl::par_for(data.size(),[&](size_t i)
-        {
-            if(data[i] < value)
-                data[i] = value;
-        });
+        lower_threshold_mt(data.begin(),data.end(),std::stof(param1));
         return true;
     }
     if(cmd == "upper_threshold")
     {
-        float value = std::stof(param1);
-        tipl::par_for(data.size(),[&](size_t i)
-        {
-            if(data[i] > value)
-                data[i] = value;
-        });
+        upper_threshold_mt(data.begin(),data.end(),std::stof(param1));
         return true;
     }
 
