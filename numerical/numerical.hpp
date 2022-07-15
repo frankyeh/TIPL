@@ -185,6 +185,7 @@ void cdf2pdf(iterator1 lhs_from,iterator1 lhs_to,iterator2 out)
 }
 
 
+
 template<typename LHType,typename RHType>
 void assign_negate(LHType& lhs,const RHType& rhs)
 {
@@ -648,13 +649,77 @@ void divide_pow_constant(iterator1 lhs_from,iterator1 lhs_to,value_type pow)
         }
     }
 }
-//---------------------------------------------------------------------------
+
 template<typename image_type,typename value_type>
 void divide_pow_constant(image_type& I,value_type value)
 {
     divide_pow_constant(I.begin(),I.end(),value);
 }
-//---------------------------------------------------------------------------
+
+template<typename input_iterator>
+inline auto min_value(input_iterator from,input_iterator to)
+{
+    auto m = *from;
+    for(;from != to;++from)
+        if(*from < m)
+            m = *from;
+    return m;
+}
+
+template<typename image_type>
+auto min_value(const image_type& I)
+{
+    return min_value(I.begin(),I.end());
+}
+
+template<typename image_type>
+auto min_value_mt(const image_type& I)
+{
+    return min_value_mt(I.begin(),I.end());
+}
+
+template<typename input_iterator>
+auto max_value(input_iterator from,input_iterator to)
+{
+    auto m = *from;
+    for(;from != to;++from)
+        if(*from > m)
+            m = *from;
+    return m;
+}
+
+template<typename image_type>
+auto max_value(const image_type& I)
+{
+    return max_value(I.begin(),I.end());
+}
+
+
+template<typename input_iterator>
+auto max_value_mt(input_iterator from,input_iterator to)
+{
+    using value_type = typename std::iterator_traits<input_iterator>::value_type;
+    if(to == from)
+        return value_type(0);
+    size_t n = size_t(to-from);
+    size_t thread_count = std::min<size_t>(n,std::thread::hardware_concurrency());
+    size_t block_size = n/thread_count;
+    std::vector<value_type> max_values(thread_count);
+    tipl::par_for(thread_count,[&](size_t thread)
+    {
+        size_t pos = thread*block_size;
+        max_values[thread] = max_value(from+pos,from+std::min<size_t>(n,pos+block_size));
+    });
+    return max_value(max_values);
+}
+
+template<typename image_type>
+auto max_value_mt(const image_type& I)
+{
+    return max_value_mt(I.begin(),I.end());
+}
+
+
 template<typename container_type>
 typename container_type::value_type max_abs_value(const container_type& image)
 {
@@ -716,8 +781,7 @@ minmax_value_mt(iterator_type iter,iterator_type end)
                 min_value = value;
         }
     });
-    return std::make_pair(*std::min_element(min_v.begin(),min_v.end()),
-                          *std::max_element(max_v.begin(),max_v.end()));
+    return std::make_pair(min_value(min_v.begin(),min_v.end()),max_value(max_v.begin(),max_v.end()));
 }
 
 //---------------------------------------------------------------------------
@@ -829,30 +893,27 @@ void normalize_upper_lower_mt(const ImageType1& image1,ImageType2& image2,float 
 
 
 template<typename ImageType>
-ImageType& normalize(ImageType& I,float upper_limit = 255)
+ImageType& normalize(ImageType& I,float upper_limit = 1.0f)
 {
     if(I.empty())
         return I;
-    auto m = (*std::max_element(I.begin(),I.end()));
-    if( m != 0)
-        multiply_constant(I.begin(),I.end(),upper_limit/m);
+    auto m = max_value(I);
+    if(m != 0)
+        multiply_constant(I,upper_limit/m);
     return I;
 }
 
-template<typename T,typename U>
-void normalize(const T& I,U& J,float upper_limit = 255.0f)
+template<typename ImageType>
+ImageType& normalize_mt(ImageType& I,float upper_limit = 1.0f)
 {
-    J.resize(I.shape());
     if(I.empty())
-        return;
-    auto m = *std::max_element(I.begin(),I.end());
+        return I;
+    auto m = max_value_mt(I);
     if(m != 0)
-    {
-        upper_limit /= m;
-        for(size_t i = 0;i < I.size();++i)
-            J[i] = I[i]*upper_limit;
-    }
+        multiply_constant_mt(I,upper_limit/m);
+    return I;
 }
+
 
 
 template<typename ImageType>
