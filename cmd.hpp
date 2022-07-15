@@ -51,7 +51,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     }
     if(cmd == "normalize")
     {
-        tipl::normalize(data);
+        tipl::normalize_mt(data);
         return true;
     }
     if(cmd == "smoothing")
