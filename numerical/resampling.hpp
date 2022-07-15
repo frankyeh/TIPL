@@ -872,7 +872,7 @@ void homogenize(tipl::image<3,pixel_type>& I,tipl::image<3,pixel_type>& J,int bl
     double r = tipl::correlation(I.begin(),I.end(),J.begin());
     if(r < 0.80)
     {
-        tipl::normalize(I,*std::max_element(J.begin(),J.end()));
+        tipl::normalize(I,max_value(J.begin(),J.end()));
         return;
     }
     float distance_scale = 1.0/(float)block_size/(float)block_size;
