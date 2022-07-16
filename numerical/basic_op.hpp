@@ -89,9 +89,21 @@ size_t arg_min(const container_type& data)
 template<typename ImageType>
 bool is_label_image(const ImageType& I)
 {
-    for(size_t i = 0;i < I.size();++i)
-        if(std::floor(I[i]) < I[i] || I[i] > 10000.0f)
-            return false;
+    if constexpr (std::is_floating_point<typename ImageType::value_type>::value)
+    {
+        for(size_t i = 0;i < I.size();++i)
+            if(std::floor(I[i]) < I[i] || I[i] > 10000.0f)
+                return false;
+    }
+    else
+    {
+        if constexpr (sizeof(typename ImageType::value_type) > 1) // unsigned short, int
+        {
+            for(size_t i = 0;i < I.size();++i)
+                if(I[i] > 10000)
+                    return false;
+        }
+    }
     return true;
 }
 
