@@ -1031,6 +1031,20 @@ tipl::vector<I_type::dimension,float> center_of_mass(const I_type& Im)
     return sum_mass[0];
 }
 
+template<typename T,typename U>
+void copy_mt(T from,T to,U dest)
+{
+    if(to == from)
+        return;
+    size_t size = size_t(to-from);
+    size_t thread_count = std::min<size_t>(size,std::thread::hardware_concurrency());
+    size_t block_size = size/thread_count;
+    tipl::par_for(thread_count,[&](size_t thread)
+    {
+        size_t pos = thread*block_size;
+        std::copy(from+pos,from+std::min<size_t>(size,pos+block_size),dest+pos);
+    });
+}
 
 
 }
