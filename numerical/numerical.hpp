@@ -784,6 +784,12 @@ minmax_value_mt(iterator_type iter,iterator_type end)
     return std::make_pair(min_value(min_v.begin(),min_v.end()),max_value(max_v.begin(),max_v.end()));
 }
 
+template<typename image_type>
+inline auto minmax_value_mt(const image_type& I)
+{
+    return minmax_value_mt(I.begin(),I.end());
+}
+
 //---------------------------------------------------------------------------
 template<typename InputIter,typename OutputIter,typename value_type>
 inline void upper_threshold(InputIter from,InputIter to,OutputIter out,value_type upper)
