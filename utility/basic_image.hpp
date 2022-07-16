@@ -135,6 +135,103 @@ public:
     __INLINE__ void swap(const_pointer_container& rhs)               {std::swap(bg,rhs.bg);std::swap(sz,rhs.sz);}
 };
 
+template<typename vtype>
+class buffer_container
+{
+public:
+    using value_type        = vtype;
+    using iterator          = vtype*;
+    using const_iterator    = const vtype*;
+    using reference         = vtype&;
+    using const_reference   = const vtype&;
+protected:
+    std::vector<unsigned char> buffer;
+    iterator beg = nullptr;
+    size_t sz = 0;
+    void update_beg(void)
+    {
+        beg = (buffer.empty() ? nullptr : reinterpret_cast<iterator>(&buffer[0]));
+        sz = buffer.size()/sizeof(value_type);
+    }
+public:
+    __INLINE__ buffer_container(void){}
+    __INLINE__ buffer_container(size_t new_size)
+    {
+        resize(new_size);
+    }
+    template<typename any_iterator_type>
+    __INLINE__ buffer_container(any_iterator_type from,any_iterator_type to)
+    {
+        resize(to-from);
+        if(beg)
+            std::copy(from,to,beg);
+    }
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    __INLINE__ buffer_container(T& rhs){operator=(rhs);}
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    __INLINE__ buffer_container(T&& rhs){operator=(std::move(rhs));}
+
+public:
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    __INLINE__ buffer_container& operator=(T& rhs)
+    {
+        resize(rhs.size());
+        if(beg)
+            std::copy(rhs.begin(),rhs.end(),beg);
+        return *this;
+    }
+    __INLINE__ buffer_container& operator=(const buffer_container& rhs)
+    {
+        buffer = rhs.buffer;
+        update_beg();
+        return *this;
+    }
+    __INLINE__ buffer_container& operator=(buffer_container&& rhs)
+    {
+        buffer.swap(rhs.buffer);
+        update_beg();
+        return *this;
+    }
+    __INLINE__ buffer_container& operator=(std::vector<unsigned char>&& buffer_)
+    {
+        buffer.swap(buffer_);
+        update_beg();
+        return *this;
+    }
+public:
+    template<typename index_type>
+    __INLINE__ const_reference operator[](index_type index) const    {return beg[index];}
+    __INLINE__ const_iterator begin(void)                   const    {return beg;}
+    __INLINE__ const_iterator end(void)                     const    {return beg+sz;}
+    __INLINE__ const_iterator get(void)                     const    {return beg;}
+public:
+    template<typename index_type>
+    __INLINE__ reference operator[](index_type index)                {return beg[index];}
+    __INLINE__ iterator begin(void)                                  {return beg;}
+    __INLINE__ iterator end(void)                                    {return beg+sz;}
+    __INLINE__ iterator get(void)                                    {return beg;}
+public:
+    __INLINE__ size_t size(void)                            const    {return sz;}
+    __INLINE__ bool empty(void)                             const    {return buffer.empty();}
+    __INLINE__ void clear(void)                                      {buffer.clear();beg = nullptr;sz = 0;}
+public:
+    __INLINE__ void swap(buffer_container& rhs)
+    {
+        buffer.swap(rhs.buffer);
+        update_beg();
+    }
+    __INLINE__ void swap(std::vector<unsigned char>& buffer_)
+    {
+        buffer.swap(buffer_);
+        update_beg();
+    }
+    __INLINE__ void resize(size_t new_size)
+    {
+        buffer.resize(new_size*sizeof(value_type));
+        update_beg();
+    }
+};
+
 template <int dim,typename vtype = float,template <typename...> typename stype = std::vector>
 class image
 {
@@ -217,8 +314,8 @@ public:
         return *this;
     }
 public:
-    __INLINE__ storage_type& vector(void){return alloc;}
-    __INLINE__ const storage_type& vector(void)const{return alloc;}
+    __INLINE__ storage_type& buf(void){return alloc;}
+    __INLINE__ const storage_type& buf(void)const{return alloc;}
     __INLINE__ typename storage_type::iterator get(void){return alloc.get();}
     __INLINE__ typename storage_type::const_iterator get(void)const{return alloc.get();}
     __INLINE__ void swap(image& rhs)
