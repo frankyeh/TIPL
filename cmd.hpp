@@ -148,7 +148,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     if(cmd == "translocation")
     {
         std::istringstream in(param1);
-        tipl::image<3> new_data(data.shape());
+        image_type new_data(data.shape());
 
         if(param1.find(".") != std::string::npos)
         {
@@ -180,8 +180,8 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     if(cmd == "regrid")
     {
         float nv = std::stof(param1);
-        tipl::vector<3,float> new_vs(nv,nv,nv);
-        tipl::image<3> J(tipl::shape<3>(
+        tipl::vector<3> new_vs(nv,nv,nv);
+        image_type J(tipl::shape<3>(
                 int(std::ceil(float(data.width())*vs[0]/new_vs[0])),
                 int(std::ceil(float(data.height())*vs[1]/new_vs[1])),
                 int(std::ceil(float(data.depth())*vs[2]/new_vs[2]))));
@@ -247,7 +247,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
             error_msg = "invalid size";
             return false;
         }
-        tipl::image<3> new_data(tipl::shape<3>(w,h,d));
+        image_type new_data(tipl::shape<3>(w,h,d));
         tipl::draw(data,new_data,tipl::vector<3,int>(0,0,0));
         data.swap(new_data);
         return true;
