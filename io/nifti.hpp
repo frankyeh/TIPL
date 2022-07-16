@@ -952,8 +952,10 @@ public:
             return false;
         if(nif_header.scl_slope != 0)
         {
-            tipl::multiply_constant(out,nif_header.scl_slope);
-            tipl::add_constant(out,nif_header.scl_inter);
+            if(nif_header.scl_slope != 1.0f)
+                tipl::multiply_constant_mt(out,nif_header.scl_slope);
+            if(nif_header.scl_inter != 0.0f)
+                tipl::add_constant_mt(out,nif_header.scl_inter);
         }
         return true;
     }
