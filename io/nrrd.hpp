@@ -18,12 +18,12 @@ namespace io
 
 class nrrd
 {
+public:
     std::map<std::string,std::string> values;
     tipl::matrix<4,4,float> T;
     tipl::vector<3> vs;
     tipl::shape<3> size;
     std::string data_file;
-public:
     std::string error_msg;
 private:
     bool read_v3(std::istream& in,float& vx,float& vy,float& vz)   // read (x,y,z)
@@ -48,6 +48,18 @@ private:
         }
         return true;
     }
+    template<typename T>
+    bool read_buffer(T& I)
+    {
+        I.resize(size);
+        std::ifstream in(data_file.c_str(),std::ios::binary);
+        if(!in.read(reinterpret_cast<char*>(&I[0]),I.size()*sizeof(typename T::value_type)))
+        {
+            error_msg = "error reading data file";
+            return false;
+        }
+        return true;
+    }
     template<typename as_type,typename T>
     bool read_as_type(T& I)
     {
@@ -56,17 +68,27 @@ private:
             error_msg = "data file not found";
             return false;
         }
-        std::ifstream in(data_file.c_str(),std::ios::binary);
-        tipl::image<3,as_type> buf(size);
-        if(!in.read(reinterpret_cast<char*>(&buf[0]),buf.size()*sizeof(as_type)))
+        if constexpr (std::is_same<as_type,typename T::value_type>::value ||
+                      (!std::is_floating_point<as_type>::value && sizeof(as_type) == sizeof(typename T::value_type)))
         {
-            error_msg = "error reading data file";
-            return false;
+            T buf(size);
+            if(!read_buffer(buf))
+            {
+                error_msg = "error reading data file";
+                return false;
+            }
+            I.swap(buf);
         }
-        if constexpr (std::is_same<as_type,typename T::value_type>::value)
-            buf.swap(I);
         else
+        {
+            tipl::image<3,as_type> buf(size);
+            if(!read_buffer(buf))
+            {
+                error_msg = "error reading image buffer file";
+                return false;
+            }
             I = buf;
+        }
         return true;
     }
     template<typename T>
@@ -76,13 +98,9 @@ private:
             return read_as_type<float>(I);
         if(values["type"] == "double")
             return read_as_type<double>(I);
-        if(values["type"] == "int")
-            return read_as_type<int32_t>(I);
-        if(values["type"] == "unsigned int")
+        if(values["type"] == "int" || values["type"] == "unsigned int")
             return read_as_type<uint32_t>(I);
-        if(values["type"] == "short")
-            return read_as_type<int16_t>(I);
-        if(values["type"] == "unsigned short")
+        if(values["type"] == "short" || values["type"] == "unsigned short")
             return read_as_type<uint16_t>(I);
         if(values["type"] == "uchar")
             return read_as_type<uint8_t>(I);
