@@ -924,10 +924,10 @@ public:
             case 768: // DT_UINT32
                 copy_data<uint32_t>(buf_ptr,ptr,pixel_count);
                 break;
-            case 1024: // DT_UINT32
+            case 1024: // DT_INT64
                 copy_data<int64_t>(buf_ptr,ptr,pixel_count);
                 break;
-            case 1280: // DT_UINT32
+            case 1280: // DT_UINT64
                 copy_data<uint64_t>(buf_ptr,ptr,pixel_count);
                 break;
             }
