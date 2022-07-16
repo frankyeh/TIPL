@@ -310,7 +310,7 @@ OutputIterator upsampling_y(IteratorType from,IteratorType to,OutputIterator out
             plane_iter -= width;
 
             for(int i = 0; i < width;++i)
-                out[i] = pixel_average<typename IteratorType::value_type>()(out[i],plane_iter[i]);
+                out[i] = pixel_average<typename std::iterator_traits<IteratorType>::value_type>()(out[i],plane_iter[i]);
 
             out -= width;
             std::copy(plane_iter,plane_end,out);
