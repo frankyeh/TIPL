@@ -51,7 +51,6 @@ private:
     template<typename T>
     bool read_buffer(T& I)
     {
-        I.resize(size);
         std::ifstream in(data_file.c_str(),std::ios::binary);
         if(!in.read(reinterpret_cast<char*>(&I[0]),I.size()*sizeof(typename T::value_type)))
         {
