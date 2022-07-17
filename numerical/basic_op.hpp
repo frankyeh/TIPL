@@ -92,15 +92,15 @@ bool is_label_image(const ImageType& I)
     if constexpr (std::is_floating_point<typename ImageType::value_type>::value)
     {
         for(size_t i = 0;i < I.size();++i)
-            if(std::floor(I[i]) < I[i] || I[i] > 10000.0f)
+            if(std::floor(I[i]) < I[i] || I[i] > 65535.0f)
                 return false;
     }
     else
     {
-        if constexpr (sizeof(typename ImageType::value_type) > 1) // unsigned short, int
+        if constexpr (sizeof(typename ImageType::value_type) > 2) // unsigned short, int
         {
             for(size_t i = 0;i < I.size();++i)
-                if(I[i] > 10000)
+                if(I[i] > 65535)
                     return false;
         }
     }
