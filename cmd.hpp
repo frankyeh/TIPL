@@ -17,7 +17,6 @@ template<typename image_loader,typename image_type>
 bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_mni,
              std::string cmd,std::string param1,std::string& error_msg)
 {
-    std::cout << "run command:" << cmd << " " << param1 << std::endl;
     if(cmd == "sobel")
     {
         if(tipl::is_label_image(data))
