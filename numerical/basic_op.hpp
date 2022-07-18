@@ -177,8 +177,8 @@ ImageType2D& volume2slice(const ImageType3D& slice,ImageType2D& I,dim_type dim,s
         I.resize(shape<2>(geo[0],geo[1]));
         if(slice_index >= slice.depth())
             return I;
-        std::copy(slice.begin() + slice_index*I.size(),
-                  slice.begin() + (slice_index+1)*I.size(),
+        std::copy(slice.begin() + I.size()*slice_index,
+                  slice.begin() + I.size()*(slice_index+1),
                   I.begin());
 
     }
@@ -205,6 +205,63 @@ ImageType2D& volume2slice(const ImageType3D& slice,ImageType2D& I,dim_type dim,s
                 size_t w = geo[0];
                 for (size_t index = 0;index < I.size();++index,sindex += w)
                     I[index] = slice[sindex];
+            }
+    return I;
+}
+
+//--------------------------------------------------------------------------
+
+template<typename ImageType3D,typename ImageType2D,typename dim_type,typename slice_pos_type>
+ImageType2D& volume2slice_scaled(const ImageType3D& slice,ImageType2D& I,dim_type dim,slice_pos_type slice_index,float scale)
+{
+    if(scale == 1.0f)
+        return volume2slice(slice,I,dim,slice_index);
+    I.clear();
+    const shape<3>& geo = slice.shape();
+    float ratio = 1.0f/scale;
+    if (dim == 2)   //XY
+    {
+        I.resize(shape<2>(geo[0]*scale,geo[1]*scale));
+        if(slice_index >= slice.depth())
+            return I;
+        tipl::par_for(tipl::begin_index(I.shape()),
+                      tipl::end_index(I.shape()),
+                      [&](const pixel_index<2>& pos)
+        {
+            auto x = std::min<int>(slice.width()-1,std::floor(ratio*pos[0]));
+            auto y = std::min<int>(slice.height()-1,std::floor(ratio*pos[1]));
+            I[pos.index()] = slice.at(x,y,slice_index);
+        });
+    }
+    else
+        if (dim == 1)   //XZ
+        {
+            I.resize(shape<2>(geo[0]*scale,geo[2]*scale));
+            if(slice_index >= slice.height())
+                return I;
+            tipl::par_for(tipl::begin_index(I.shape()),
+                          tipl::end_index(I.shape()),
+                          [&](const pixel_index<2>& pos)
+            {
+                auto x = std::min<int>(slice.width()-1,std::floor(ratio*pos[0]));
+                auto z = std::min<int>(slice.depth()-1,std::floor(ratio*pos[1]));
+                I[pos.index()] = slice.at(x,slice_index,z);
+            });
+        }
+        else
+            if (dim == 0)    //YZ
+            {
+                I.resize(shape<2>(geo[1]*scale,geo[2]*scale));
+                if(slice_index >= slice.width())
+                    return I;
+                tipl::par_for(tipl::begin_index(I.shape()),
+                              tipl::end_index(I.shape()),
+                              [&](const pixel_index<2>& pos)
+                {
+                    auto y = std::min<int>(slice.height()-1,std::floor(ratio*pos[0]));
+                    auto z = std::min<int>(slice.depth()-1,std::floor(ratio*pos[1]));
+                    I[pos.index()] = slice.at(slice_index,y,z);
+                });
             }
     return I;
 }
