@@ -47,9 +47,9 @@ public:
             src[index] = std::sqrt(fx*fx+fy*fy);
         }
 
-        int i1,i2;
+        int64_t i1,i2;
         float abs_x,abs_y,fx,fy;
-        for(int index = 0;index < src.size();++index)
+        for(int64_t index = 0;index < src.size();++index)
         {
             fx = gx[index];
             fy = gy[index];
@@ -150,9 +150,9 @@ public:
             src[index] = std::sqrt(fx*fx+fy*fy+fz*fz);
         }
 
-        int shift,i1,i2;
+        int64_t shift,i1,i2;
         float fx,fy,fz,max_value;
-        for(int index = 0;index < src.size();++index)
+        for(int64_t index = 0;index < src.size();++index)
         {
             if(src[index] == 0)
                 continue;

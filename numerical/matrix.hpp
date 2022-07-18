@@ -698,7 +698,7 @@ trace(input_iterator A,const dim_type& dim)
     typedef typename std::iterator_traits<input_iterator>::value_type value_type;
     value_type result = A[0];
     int leap_size = col_count(dim)+1;
-    for (int index = leap_size;index < size(dim);index += leap_size)
+    for (size_t index = leap_size;index < size(dim);index += leap_size)
         result += A[index];
     return result;
 }
@@ -732,7 +732,7 @@ void identity(iterator_type I,const dim_type& dim)
     typedef typename std::iterator_traits<iterator_type>::value_type value_type;
     std::fill(I,I+s,value_type(0));
     int leap_size = col_count(dim)+1;
-    for (int index = 0;index < s;index += leap_size)
+    for (size_t index = 0;index < s;index += leap_size)
         I[index] = value_type(1);
 }
 
@@ -804,7 +804,7 @@ lu_determinant(input_iterator A,const dim_type& dim)
     typedef typename std::iterator_traits<input_iterator>::value_type value_type;
     value_type result = A[0];
     int leap_size = col_count(dim)+1;
-    for (int index = leap_size;index < size(dim);index += leap_size)
+    for (size_t index = leap_size;index < size(dim);index += leap_size)
         result *= A[index];
     return result;
 }
@@ -3185,8 +3185,10 @@ public:
         (*this) = rhs;
     }
 public:
-    value_type& operator[](int index){return value[index];}
-    const value_type& operator[](int index) const{return value[index];}
+    template<typename T>
+    value_type& operator[](T index){return value[index];}
+    template<typename T>
+    const value_type& operator[](T index) const{return value[index];}
     value_type* begin(void){return value;}
     const value_type* begin(void) const{return value;}
     value_type* end(void){return value+mat_size;}

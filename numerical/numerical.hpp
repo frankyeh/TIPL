@@ -318,7 +318,7 @@ void add(image_type1& I,const image_type2& I2)
 template<typename image_type1,typename image_type2>
 void add_mt(image_type1& I,const image_type2& I2)
 {
-    tipl::par_for(I.size(),[&I,&I2](int index){
+    tipl::par_for(I.size(),[&I,&I2](size_t index){
        I[index] += I2[index];
     });
 }
@@ -341,7 +341,7 @@ void minus(image_type1& I,const image_type2& I2)
 template<typename image_type1,typename image_type2>
 void minus_mt(image_type1& I,const image_type2& I2)
 {
-    tipl::par_for(I.size(),[&I,&I2](int index){
+    tipl::par_for(I.size(),[&I,&I2](size_t index){
        I[index] -= I2[index];
     });
 }
@@ -364,7 +364,7 @@ void multiply(image_type1& I,const image_type2& I2)
 template<typename image_type1,typename image_type2>
 void multiply_mt(image_type1& I,const image_type2& I2)
 {
-    tipl::par_for(I.size(),[&I,&I2](int index){
+    tipl::par_for(I.size(),[&I,&I2](size_t index){
        I[index] *= I2[index];
     });
 }
@@ -400,7 +400,7 @@ void add_constant(image_type& I,value_type value)
 template<typename image_type,typename value_type>
 void add_constant_mt(image_type& I,value_type value)
 {
-    tipl::par_for(I.size(),[&I,value](int index)
+    tipl::par_for(I.size(),[&I,value](size_t index)
     {
        I[index] += value;
     });
@@ -435,7 +435,7 @@ void minus_constant(image_type& I,value_type value)
 template<typename image_type,typename value_type>
 void minus_constant_mt(image_type& I,value_type value)
 {
-    tipl::par_for(I.size(),[&I,value](int index)
+    tipl::par_for(I.size(),[&I,value](size_t index)
     {
        I[index] -= value;
     });
@@ -458,7 +458,7 @@ void multiply_constant(image_type& I,value_type value)
 template<typename image_type,typename value_type>
 void multiply_constant_mt(image_type& I,value_type value)
 {
-    tipl::par_for(I.size(),[&I,value](int index){
+    tipl::par_for(I.size(),[&I,value](size_t index){
        I[index] *= value;
     });
 }
@@ -479,7 +479,7 @@ void divide_constant(image_type& I,value_type value)
 template<typename image_type,typename value_type>
 void divide_constant_mt(image_type& I,value_type value)
 {
-    tipl::par_for(I.size(),[&I,value](int index){
+    tipl::par_for(I.size(),[&I,value](size_t index){
        I[index] /= value;
     });
 }
@@ -757,29 +757,21 @@ minmax_value(iterator_type iter,iterator_type end)
     return std::make_pair(min_value,max_value);
 }
 
-//---------------------------------------------------------------------------
 template<typename iterator_type>
-std::pair<typename std::iterator_traits<iterator_type>::value_type,typename std::iterator_traits<iterator_type>::value_type>
-minmax_value_mt(iterator_type iter,iterator_type end)
+auto minmax_value_mt(iterator_type from,iterator_type to)
 {
     using value_type = typename std::iterator_traits<iterator_type>::value_type;
-    if(iter == end)
+    if(from == to)
         return std::make_pair(value_type(0),value_type(0));
-    auto n = std::thread::hardware_concurrency();
-    size_t size = size_t(end-iter);
-    std::vector<value_type> max_v(n,*iter),min_v(n,*iter);
-    tipl::par_for(n,[&](uint16_t thread)
+    size_t size = size_t(to-from);
+    size_t thread_count = std::min<size_t>(size,std::thread::hardware_concurrency());
+    size_t block_size = size/thread_count;
+    std::vector<value_type> max_v(thread_count),min_v(thread_count);
+    tipl::par_for(thread_count,[&](size_t thread)
     {
-        auto& max_value = max_v[thread];
-        auto& min_value = min_v[thread];
-        for(size_t i = thread;i < size;i += n)
-        {
-            auto value = iter[i];
-            if(value > max_value)
-                max_value = value;
-            else if(value < min_value)
-                min_value = value;
-        }
+        size_t pos = thread*block_size;
+        max_v[thread] = max_value(from+pos,from+std::min<size_t>(size,pos+block_size));
+        min_v[thread] = min_value(from+pos,from+std::min<size_t>(size,pos+block_size));
     });
     return std::make_pair(min_value(min_v.begin(),min_v.end()),max_value(max_v.begin(),max_v.end()));
 }

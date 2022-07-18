@@ -52,7 +52,7 @@ float cdm_img_dif(const image<dimension,pixel_type>& I0,
                     const image<dimension,pixel_type>& I1)
 {
     float value = 0;
-    for (int index = 0; index < I0.size(); ++index)
+    for (size_t index = 0; index < I0.size(); ++index)
     {
         pixel_type tmp = I0[index]-I1[index];
         value += tmp*tmp;
@@ -75,7 +75,7 @@ float cdm_contrast(const image<dimension,pixel_type>& J0,
                      const image<dimension,pixel_type>& Ji)
 {
     float value1 = 0,value2 = 0;
-    for (int index = 0; index < J0.size(); ++index)
+    for (size_t index = 0; index < J0.size(); ++index)
     {
         float tmp = Ji[index];
         value1 += tmp*J0[index];
@@ -94,7 +94,7 @@ void cdm_trim_images(std::vector<image<dimension,pixel_type> >& I,
     crop_from.resize(I.size());
     crop_to.resize(I.size());
     vector<dimension,int> min_from,max_to;
-    for(int index = 0;index < I.size();++index)
+    for(size_t index = 0;index < I.size();++index)
     {
         crop(I[index],crop_from[index],crop_to[index]);
         if(index == 0)
@@ -114,7 +114,7 @@ void cdm_trim_images(std::vector<image<dimension,pixel_type> >& I,
     max_to += safe_margin;
     shape<dimension> geo(max_to.begin());
     // align with respect to the min_from
-    for(int index = 0;index < I.size();++index)
+    for(size_t index = 0;index < I.size();++index)
     {
         image<dimension,float> new_I(geo);
         vector<dimension,int> pos(crop_from[index]);
@@ -176,9 +176,9 @@ public:
     void operator()(image_type& src)
     {
         image_type dest(src.shape());
-        int w = src.width();
-        int wh = src.width()*src.height();
-        int shift[6];
+        int64_t w = src.width();
+        int64_t wh = src.width()*src.height();
+        int64_t shift[6];
         shift[0] = 1;
         shift[1] = -1;
         shift[2] = w;
@@ -189,15 +189,15 @@ public:
         {
             if (shift[i] >= 0)
             {
-                int s = shift[i];
-                par_for(dest.size()-s,[&dest,&src,s](int index){
+                int64_t s = shift[i];
+                par_for(dest.size()-s,[&dest,&src,s](size_t index){
                     dest[index+s] += src[index];
                 });
             }
             else
             {
-                int s = -shift[i];
-                par_for(dest.size()-s,[&dest,&src,s](int index){
+                int64_t s = -shift[i];
+                par_for(dest.size()-s,[&dest,&src,s](size_t index){
                     dest[index] += src[index+s];
                 });
             }

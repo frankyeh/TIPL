@@ -964,7 +964,7 @@ void match_signal_kernel(const T& VG,T& VFF)
     for(unsigned int index = 1;index+1 < sum.size();++index)
         value[index] = (sum[index]+sum[index]+sum[index-1]+sum[index+1])*0.25;
 
-    tipl::par_for(VG.size(),[&](int index)
+    tipl::par_for(VG.size(),[&](size_t index)
     {
         if(VG[index] > 0 && VFF[index] > 0)
         {

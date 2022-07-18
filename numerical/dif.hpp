@@ -219,12 +219,12 @@ void decompose_displacement(const ComposeImageType& v,const ComposeImageType& vx
 {
     ComposeImageType vtemp(vx);
     vy.resize(v.shape());
-    for (int index = 0;index < vy.size();++index)
+    for (size_t index = 0;index < vy.size();++index)
         vy[index] = v[index]-vtemp[index];
     for(int i = 0;i < 15;++i)
     {
         tipl::compose_displacement(vx,vy,vtemp);
-        for (int index = 0;index < vy.size();++index)
+        for (size_t index = 0;index < vy.size();++index)
             vy[index] = v[index]-vtemp[index];
     }
 }
