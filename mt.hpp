@@ -50,31 +50,42 @@ public:
     }
 };
 
+template<int>
+bool is_main_thread(void)
+{
+    static auto main_thread_id = std::this_thread::get_id();
+    return main_thread_id == std::this_thread::get_id();
+}
+
+
 template <bool enabled_mt = true,typename T,typename Func,typename std::enable_if<
               std::is_integral<T>::value ||
               std::is_class<T>::value,bool>::type = true>
 void par_for(T from,T to,Func&& f,unsigned int thread_count = std::thread::hardware_concurrency())
 {
-    if constexpr(tipl::use_xeus_cling || !enabled_mt)
+    if(to == from)
+        return;
+    if(!is_main_thread<0>() || tipl::use_xeus_cling || !enabled_mt)
     {
         for(;from != to;++from)
             if constexpr(function_traits<Func>::arg_num == 2)
                 f(from,0);
             else
                 f(from);
+        return;
     }
-    else
+
+    if constexpr(!tipl::use_xeus_cling && enabled_mt)
     {
-        if(to == from)
-            return;
         size_t size = to-from;
         if(thread_count > size)
             thread_count = size;
         size_t block_size = size/thread_count;
+        size_t remainder = size % thread_count;
         std::vector<std::future<void> > futures;
         for(unsigned int id = 1; id < thread_count; id++)
         {
-            auto block_end = from + block_size;
+            auto block_end = from + block_size + (id <= remainder ? 1 : 0);
             if constexpr(function_traits<Func>::arg_num == 2)
             {
                 futures.push_back(std::move(std::async(std::launch::async, [=,&f]
@@ -95,10 +106,12 @@ void par_for(T from,T to,Func&& f,unsigned int thread_count = std::thread::hardw
             from = block_end;
         }
         for(;from != to;++from)
+        {
             if constexpr(function_traits<Func>::arg_num == 2)
                 f(from,0);
             else
                 f(from);
+        }
         for(auto &future : futures)
             future.wait();
     }
