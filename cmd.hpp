@@ -68,12 +68,21 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     {
         tipl::upsampling(data);
         vs *= 0.5f;
+        T = T*tipl::matrix<4,4>({0.5f,0.0f,0.0f,0.0f,
+                                 0.0f,0.5f,0.0f,0.0f,
+                                 0.0f,0.0f,0.5f,0.0f,
+                                 0.0f,0.0f,0.0f,1.0f});
+
         return true;
     }
     if(cmd == "downsampling")
     {
         tipl::downsample_with_padding(data);
         vs *= 2.0f;
+        T = T*tipl::matrix<4,4>({2,0,0,0,
+                                 0,2,0,0,
+                                 0,0,2,0,
+                                 0,0,0,1});
         return true;
     }
     if(cmd == "flip_x")
