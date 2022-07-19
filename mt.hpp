@@ -79,8 +79,8 @@ void par_for(T from,T to,Func&& f,unsigned int thread_count = std::thread::hardw
             {
                 futures.push_back(std::move(std::async(std::launch::async, [=,&f]
                 {
-                    auto pos = from;
-                    for(;pos != block_end;++pos)
+
+                    for(auto pos = from;pos != block_end;++pos)
                         f(pos,id);
                 })));
             }
@@ -88,8 +88,7 @@ void par_for(T from,T to,Func&& f,unsigned int thread_count = std::thread::hardw
             {
                 futures.push_back(std::move(std::async(std::launch::async, [=,&f]
                 {
-                    auto pos = from;
-                    for(;pos != block_end;++pos)
+                    for(auto pos = from;pos != block_end;++pos)
                         f(pos);
                 })));
             }
