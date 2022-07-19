@@ -101,7 +101,7 @@ public:
     void operator()(image_type& src)
     {
         int w = src.width();
-        int wh = src.shape().plane_size();
+        int64_t wh = src.shape().plane_size();
 
 		std::vector<manip_type> gx(src.size());
 

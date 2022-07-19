@@ -275,9 +275,9 @@ void crop(const T1& from_image,T2& to_image,PosType from,PosType to)
     tipl::shape<2> geo(to[0]-from[0],to[1]-from[1]);
     to_image.resize(geo);
     auto size = geo.size();
-    unsigned int from_index = from[1]*from_image.width() + from[0];
-    unsigned int shift = from_image.width()-geo.width();
-    for (unsigned int to_index = 0,step_index = geo.width();
+    size_t from_index = size_t(from[1])*size_t(from_image.width()) + from[0];
+    int64_t shift = int64_t(from_image.width())-int64_t(geo.width());
+    for (size_t to_index = 0,step_index = geo.width();
             to_index < size; from_index += shift,step_index += geo.width())
         for (; to_index != step_index; ++to_index,++from_index)
             to_image[to_index] = from_image[from_index];
@@ -292,10 +292,11 @@ void crop(const T1& from_image,T2& to_image,PosType from,PosType to)
         return;
     tipl::shape<3> geo(to[0]-from[0],to[1]-from[1],to[2]-from[2]);
     to_image.resize(geo);
-    unsigned int from_index = (from[2]*from_image.height()+from[1])*from_image.width()+from[0];
-    unsigned int y_shift = from_image.width()-geo.width();
-    unsigned int z_shift = from_image.width()*from_image.height()-geo.height()*from_image.width();
-    for (unsigned int z = from[2],to_index = 0; z < to[2]; ++z,from_index += z_shift)
+    size_t from_index = (size_t(from[2])*size_t(from_image.height())+size_t(from[1]))*size_t(from_image.width())+size_t(from[0]);
+    int64_t y_shift = int64_t(from_image.width())-int64_t(geo.width());
+    int64_t z_shift = int64_t(from_image.width())*int64_t(from_image.height())-int64_t(geo.height())*int64_t(from_image.width());
+    size_t to_index = 0;
+    for (unsigned int z = from[2]; z < to[2]; ++z,from_index += z_shift)
         for (unsigned int y = from[1]; y < to[1]; ++y,from_index += y_shift)
             for (unsigned int x = from[0]; x < to[0]; ++x,++to_index,++from_index)
                 to_image[to_index] = from_image[from_index];
@@ -315,8 +316,8 @@ ImageType& crop(ImageType& I,
 template<typename image_type,typename PosType,typename pixel_type>
 void fill_rect(image_type& I,PosType from,PosType to,pixel_type value)
 {
-    int line_pos = from[0] + from[1]*I.width();
-    int line_width = to[0]-from[0];
+    size_t line_pos = size_t(from[0]) + size_t(from[1])*size_t(I.width());
+    int line_width = int(to[0])-int(from[0]);
     for(int y = from[1];y < to[1];++y)
     {
         std::fill(I.begin()+line_pos,I.begin()+line_pos+line_width,value);
@@ -712,9 +713,9 @@ void reorder(image_type& volume,dim_order_type dim_order,flip_type flip)
 
 //---------------------------------------------------------------------------
 template<typename iterator_type>
-void flip_block(iterator_type beg,iterator_type end,unsigned int block_size)
+void flip_block(iterator_type beg,iterator_type end,size_t block_size)
 {
-    tipl::par_for((end-beg)/block_size,[&](unsigned int i)
+    tipl::par_for((end-beg)/block_size,[&](size_t i)
     {
         iterator_type from = beg+i*block_size;
         iterator_type to = from+block_size-1;
@@ -728,7 +729,7 @@ void flip_block(iterator_type beg,iterator_type end,unsigned int block_size)
 }
 //---------------------------------------------------------------------------
 template<typename iterator_type>
-void flip_block_line(iterator_type beg,iterator_type end,unsigned int block_size,unsigned int line_length)
+void flip_block_line(iterator_type beg,iterator_type end,size_t block_size,unsigned int line_length)
 {
     if(line_length == 1)
         flip_block(beg,end,block_size);
@@ -772,7 +773,7 @@ ImageType& flip_z(ImageType& I)
 template<typename ImageType>
 ImageType& flip_xy(ImageType& I)
 {
-    flip_block(I.begin(),I.end(),I.height() * I.width());
+    flip_block(I.begin(),I.end(),I.plane_size());
     return I;
 }
 
@@ -950,10 +951,10 @@ template<typename PixelType1,typename PixelType2,typename LocationType,typename 
 void draw_if(const tipl::image<2,PixelType1>& src,
              tipl::image<2,PixelType2>& des,LocationType place,DetermineType pred_background)
 {
-    int x_src = 0;
-    int x_des = place[0];
-    int y_src = 0;
-    int y_des = place[1];
+    int64_t x_src = 0;
+    int64_t x_des = place[0];
+    int64_t y_src = 0;
+    int64_t y_des = place[1];
     if (x_des < 0)
     {
         x_src = -x_des;
@@ -964,8 +965,8 @@ void draw_if(const tipl::image<2,PixelType1>& src,
         x_src = -y_des;
         y_des = 0;
     }
-    int draw_width = src.width() - x_src;
-    int draw_height = src.height() - y_src;
+    int64_t draw_width = src.width() - x_src;
+    int64_t draw_height = src.height() - y_src;
     if (x_des + draw_width > des.width())
         draw_width = des.width() - x_des;
     if (y_des + draw_height > des.height())
@@ -991,7 +992,8 @@ void project(const tipl::image<2,PixelType1>& src,OutImageType& result,unsigned 
     if(dim == 0) // project x
     {
         result.resize(src.height());
-        for(unsigned int y = 0,index = 0; y < src.height(); ++y,index += src.width())
+        size_t index = 0;
+        for(unsigned int y = 0; y < src.height(); ++y,index += src.width())
             result[y] = std::accumulate(src.begin()+index,src.begin()+index+src.width(),typename OutImageType::value_type(0));
     }
     else//project y
@@ -1094,7 +1096,7 @@ void hist_norm(const image_type1& I1,image_type2& I2,unsigned int bin_count)
     if(range == 0.0f)
         range = 1.0f;
     float r = (hist.size()+1)/range;
-    for(unsigned int i = 1;i < I1.size();++i)
+    for(size_t i = 1;i < I1.size();++i)
     {
         int rank = std::floor(float(I1[i]-min_v)*r);
         if(rank <= 0)

@@ -64,7 +64,7 @@ public:
     {
         std::vector<manip_type> dest(src.size());
         int w = src.width();
-        int wh = src.width()*src.height();
+        int64_t wh = src.plane_size();
         add_weight<1>(dest,src,-1);
         add_weight<1>(dest,src,1);
         add_weight<1>(dest,src,-w);
@@ -143,7 +143,7 @@ public:
     {
         std::vector<manip_type> dest(src.size());
         int w = src.width();
-        int wh = src.width()*src.height();
+        int64_t wh = src.plane_size();
         add_weight<1>(dest,src,-1-w);
         add_weight<1>(dest,src,-1+w);
         add_weight<1>(dest,src,1-w);

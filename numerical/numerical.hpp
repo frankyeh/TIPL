@@ -90,7 +90,7 @@ void gradient(const PixelImageType& src,VectorImageType& dest)
 {
     dest.clear();
     dest.resize(src.shape());
-    int shift = 1;
+    size_t shift = 1;
     for (unsigned int index = 0; index < PixelImageType::dimension; ++index)
     {
         typename PixelImageType::const_iterator in_from1 = src.begin();
@@ -108,7 +108,7 @@ void gradient_sobel(const PixelImageType& src,VectorImageType& dest)
 {
     dest.clear();
     dest.resize(src.shape());
-    int shift = 1;
+    size_t shift = 1;
     for (unsigned int index = 0; index < PixelImageType::dimension; ++index)
     {
         auto in_from1 = src.begin();
@@ -125,7 +125,7 @@ template<typename PixelImageType,typename GradientImageType>
 void gradient(const PixelImageType& src,std::vector<GradientImageType>& dest)
 {
     dest.resize(PixelImageType::dimension);
-    unsigned int shift = 1;
+    size_t shift = 1;
     for (unsigned int index = 0; index < PixelImageType::dimension; ++index)
     {
         dest[index].resize(src.shape());

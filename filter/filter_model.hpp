@@ -149,7 +149,7 @@ template<>  struct weight<char,5> {char operator()(char value){return (value << 
 template<>  struct weight<char,6> {char operator()(int value){return (value << 2) + (value << 1);}};
 
 template<size_t weight_value,typename dest_type,typename src_type>
-void add_weight(dest_type& dest,const src_type& src,int shift)
+void add_weight(dest_type& dest,const src_type& src,int64_t shift)
 {
     weight<typename dest_type::value_type,weight_value> w;
     if (shift >= 0)
@@ -172,7 +172,7 @@ void add_weight(dest_type& dest,const src_type& src,int shift)
 
 
 template<size_t weight_value,typename dest_type,typename src_type>
-void minus_weight(dest_type& dest,const src_type& src,int shift)
+void minus_weight(dest_type& dest,const src_type& src,int64_t shift)
 {
     weight<typename dest_type::value_type,weight_value> w;
     if (shift >= 0)

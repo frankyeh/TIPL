@@ -17,7 +17,7 @@ class sample
 protected:
     double sum;
     double sum2;
-    unsigned int size_;
+    size_t size_;
 public:
     sample(void)
     {
@@ -30,7 +30,7 @@ public:
         sum = 0.0,sum2 = 0.0;
         size_ = data.size();
         double v;
-        for (unsigned int index = 0;index < size_;++index)
+        for (size_t index = 0;index < size_;++index)
         {
             v = data[index];
             sum += v;
@@ -46,7 +46,7 @@ public:
         size_ = 0;
     }
 
-    unsigned int size(void) const
+    size_t size(void) const
     {
         return size_;
     }
@@ -196,7 +196,7 @@ std::pair<double,double> mean_variance(input_iterator from,input_iterator to)
 {
     double sum = 0.0;
     double rms = 0.0;
-    unsigned int size = to-from;
+    size_t size = to-from;
     while (from != to)
     {
         double t = *from;
@@ -238,7 +238,7 @@ template<typename input_iterator,typename input_iterator2>
 __INLINE__ double root_mean_suqare_error(input_iterator from,input_iterator to,input_iterator2 from2)
 {
     double rmse = 0.0;
-    unsigned int size = to-from;
+    size_t size = to-from;
     while (from != to)
     {
         double t = *from;

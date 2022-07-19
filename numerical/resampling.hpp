@@ -284,7 +284,7 @@ OutputIterator upsampling_x_nearest(IteratorType from,IteratorType to,OutputIter
 template<typename IteratorType,typename OutputIterator>
 OutputIterator upsampling_y(IteratorType from,IteratorType to,OutputIterator out,int width,int height)
 {
-    int plane_size = width*height;
+    size_t plane_size = size_t(width)*size_t(height);
     IteratorType plane_iter = to;
     IteratorType plane_end;
     out += (to-from) << 1;
@@ -329,7 +329,7 @@ OutputIterator upsampling_y(IteratorType from,IteratorType to,OutputIterator out
 template<typename IteratorType,typename OutputIterator>
 OutputIterator upsampling_y_nearest(IteratorType from,IteratorType to,OutputIterator out,int width,int height)
 {
-    int plane_size = width*height;
+    size_t plane_size = size_t(width)*size_t(height);
     IteratorType plane_iter = to;
     IteratorType plane_end;
     out += (to-from) << 1;
@@ -390,7 +390,7 @@ void upsampling(const ImageType1& in,ImageType2& out)
     typename ImageType2::iterator end_iter =
             upsampling_x(in.begin(),in.begin()+geo.size(),out.begin(),geo.width());
     
-    unsigned int plane_size = new_geo[0];
+    size_t plane_size = new_geo[0];
     for(int dim = 1;dim < ImageType1::dimension;++dim)
     {
         end_iter = upsampling_y(out.begin(),end_iter,out.begin(),plane_size,geo[dim]);
@@ -410,7 +410,7 @@ void upsampling_nearest(const ImageType1& in,ImageType2& out)
     typename ImageType2::iterator end_iter =
             upsampling_x_nearest(in.begin(),in.begin()+geo.size(),out.begin(),geo.width());
 
-    unsigned int plane_size = new_geo[0];
+    size_t plane_size = new_geo[0];
     for(int dim = 1;dim < ImageType1::dimension;++dim)
     {
         end_iter = upsampling_y_nearest(out.begin(),end_iter,out.begin(),plane_size,geo[dim]);
@@ -526,10 +526,10 @@ OutputIterator downsampling_y(IteratorType from,IteratorType to,OutputIterator o
 {
     typedef typename std::iterator_traits<IteratorType>::value_type value_type;
     downsampling_facade<value_type> average;
-    int half_height = height >> 1;
-    int width2 = width << 1;
-    int plane_size = width*height;
-    int plane_size2 = half_height*width2;
+    size_t half_height = height >> 1;
+    size_t width2 = width << 1;
+    size_t plane_size = size_t(width)*size_t(height);
+    size_t plane_size2 = size_t(half_height)*size_t(width2);
     for(;from != to;from += plane_size)
     {
         IteratorType line_end = from+plane_size2;
@@ -561,7 +561,7 @@ void downsampling(const ImageType1& in,ImageType2& out)
     shape<ImageType1::dimension> new_geo(in.shape());
     typename ImageType2::iterator end_iter = downsampling_x(in.begin(),in.end(),out.begin(),in.width());
     new_geo[0] >>= 1;
-    unsigned int plane_size = new_geo[0];
+    size_t plane_size = new_geo[0];
     for(int dim = 1;dim < ImageType1::dimension;++dim)
     {
         end_iter = downsampling_y(out.begin(),end_iter,out.begin(),plane_size,in.shape()[dim]);
@@ -694,8 +694,8 @@ template<typename IteratorType,typename OutputIterator>
 OutputIterator downsampling_no_average_y(IteratorType from,IteratorType to,OutputIterator out,int width,int height)
 {
     int half_height = height >> 1;
-    int plane_size = width*height;
-    int plane_size2 = (half_height << 1 )*width;
+    size_t plane_size = size_t(width)*size_t(height);
+    size_t plane_size2 = (size_t(half_height) << 1 )*size_t(width);
     for(;from != to;from += plane_size)
     {
         IteratorType line_end = from+plane_size2;
@@ -720,7 +720,7 @@ void downsample_no_average(const ImageType1& in,ImageType2& out)
     tipl::shape<ImageType1::dimension> new_geo(in.shape());
     typename ImageType2::iterator end_iter = downsampling_no_average_x(in.begin(),in.end(),out.begin(),in.width());
     new_geo[0] = ((new_geo[0]+1) >> 1);
-    unsigned int plane_size = new_geo[0];
+    size_t plane_size = new_geo[0];
     for(int dim = 1;dim < ImageType1::dimension;++dim)
     {
         end_iter = downsampling_no_average_y(out.begin(),end_iter,out.begin(),plane_size,in.shape()[dim]);
@@ -755,7 +755,7 @@ void shrink(const tipl::image<3,PixelType>& image,
             tipl::image<3,PixelType>& buffer,
             unsigned int scale)
 {
-    unsigned int slice_size = image.width()*image.height();
+    size_t slice_size = image.plane_size();
     const PixelType* slice = image.begin();
     buffer.resize(tipl::shape<3>(
                       image.width()/scale,
@@ -764,7 +764,7 @@ void shrink(const tipl::image<3,PixelType>& image,
     std::fill(buffer.begin(),buffer.end(),0);
     for (unsigned int index = 0;index < buffer.depth();++index)
     {
-        PixelType* buffer_iter = buffer.begin() + index*buffer.width()*buffer.height();
+        PixelType* buffer_iter = buffer.begin() + size_t(index)*buffer.plane_size();
         tipl::image<2,PixelType> buffer_slice(
             tipl::shape<2>(image.width() /scale,
                                image.height() /scale));
@@ -811,25 +811,25 @@ void fast_resample(const tipl::image<3,PixelType>& source_image,
     double maxz = source_image.depth()-1;
     double coord[3];
     coord[2] = 0.5;
-    unsigned int wh = source_image.width()*source_image.height();
-    unsigned int w = source_image.width();
+    auto wh = source_image.plane_size();
+    auto w = source_image.width();
     for (unsigned int z = 0,index = 0;z < des_image.depth();++z,coord[2] += dz)
     {
         if (coord[2] > maxz)
             coord[2] = maxz;
-        unsigned int index_z = ((int)coord[2])*wh;
+        size_t index_z = size_t(coord[2])*wh;
         coord[1] = 0.5;
         for (unsigned int y = 0;y < des_image.height();++y,coord[1] += dy)
         {
             if (coord[1] > maxy)
                 coord[1] = maxy;
-            unsigned int index_y = index_z + ((int)coord[1])*w;
+            size_t index_y = index_z + size_t(coord[1])*w;
             coord[0] = 0.5;
             for (unsigned int x = 0;x < des_image.width();++x,++index,coord[0] += dx)
             {
                 if (coord[0] > maxx)
                     coord[0] = maxx;
-                unsigned int index_x = index_y + ((int)coord[0]);
+                size_t index_x = index_y + size_t(coord[0]);
                 des_image[index] = source_image[index_x];
             }
         }
@@ -851,13 +851,13 @@ void fast_resample(const tipl::image<2,PixelType>& source_image,
     {
         if (coord[1] > maxy)
             coord[1] = maxy;
-        unsigned int index_y = ((int)coord[1])*w;
+        size_t index_y = size_t(coord[1])*w;
         coord[0] = 0.5;
         for (unsigned int x = 0;x < des_image.width();++x,++index,coord[0] += dx)
         {
             if (coord[0] > maxx)
                 coord[0] = maxx;
-            unsigned int index_x = index_y + ((int)coord[0]);
+            size_t index_x = index_y + size_t(coord[0]);
             des_image[index] = source_image[index_x];
         }
     }
@@ -916,14 +916,14 @@ void match_signal(const T& VG,T& VFF)
     std::vector<float> x,y;
     x.reserve(VG.size());
     y.reserve(VG.size());
-    for(unsigned int index = 0;index < VG.size();++index)
+    for(size_t index = 0;index < VG.size();++index)
         if(VG[index] > 0 && VFF[index] > 0)
         {
             x.push_back(VFF[index]);
             y.push_back(VG[index]);
         }
     std::pair<double,double> r = tipl::linear_regression(x.begin(),x.end(),y.begin());
-    for(unsigned int index = 0;index < VG.size();++index)
+    for(size_t index = 0;index < VG.size();++index)
         if(VG[index] > 0 && VFF[index] > 0)
             VFF[index] = std::max<float>(0,VFF[index]*r.first+r.second);
         else
@@ -939,7 +939,7 @@ void match_signal_kernel(const T& VG,T& VFF)
     std::vector<unsigned int> count(256);
     std::vector<float> sum(256);
 
-    for(unsigned int index = 0;index < VG.size();++index)
+    for(size_t index = 0;index < VG.size();++index)
         if(VG[index] > 0 && VFF[index] > 0)
         {
             int v = std::min<int>(255,std::round((float)VFF[index]/(float)max_value*255.499f));

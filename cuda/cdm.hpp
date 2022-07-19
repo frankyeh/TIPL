@@ -196,7 +196,7 @@ __global__ void cdm_solve_poisson_cuda_kernel2(T new_d,T solve_d,T new_solve_d)
 {
     const float inv_d2 = 0.5f/3.0f;
     int w = new_d.width();
-    int wh = new_d.plane_size();
+    int64_t wh = new_d.plane_size();
     size_t stride = blockDim.x*gridDim.x;
     for(int64_t index = threadIdx.x + blockIdx.x*blockDim.x;
         index < new_d.size();index += stride)

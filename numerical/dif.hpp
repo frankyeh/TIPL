@@ -235,8 +235,8 @@ void jacobian_determinant(const image<3,VectorType>& src,DetType& dest)
     typedef typename DetType::value_type value_type;
     shape<3> geo(src.shape());
     dest.resize(geo);
-    int w = src.width();
-    int wh = src.plane_size();
+    auto w = src.width();
+    auto wh = src.plane_size();
     for (tipl::pixel_index<3> index(geo); index < geo.size();++index)
     {
         if (geo.is_edge(index))
@@ -267,8 +267,8 @@ void jacobian_determinant(const image<3,VectorType>& src,DetType& dest)
 template<typename VectorType>
 double jacobian_determinant_dis_at(const image<3,VectorType>& src,const tipl::pixel_index<3>& index)
 {
-    unsigned int w = src.width();
-    unsigned int wh = src.plane_size();
+    auto w = src.width();
+    auto wh = src.plane_size();
 
     const VectorType& v1_0 = src[index.index()+1];
     const VectorType& v1_1 = src[index.index()-1];
@@ -292,8 +292,8 @@ double jacobian_determinant_dis_at(const image<3,VectorType>& src,const tipl::pi
 template<typename VectorType,typename out_type>
 void jacobian_dis_at(const image<3,VectorType>& src,const tipl::pixel_index<3>& index,out_type* J)
 {
-    unsigned int w = src.width();
-    unsigned int wh = src.plane_size();
+    auto w = src.width();
+    auto wh = src.plane_size();
 
     VectorType vx = src[index.index()+1];
     vx -= src[index.index()-1];
@@ -336,7 +336,7 @@ void jacobian_determinant(const image<2,VectorType>& src,image<2,PixelType>& des
 {
     shape<2> geo(src.shape());
     dest.resize(geo);
-    int w = src.width();
+    auto w = src.width();
     for (tipl::pixel_index<2> index(geo); index < geo.size();++index)
     {
         if (geo.is_edge(index))
@@ -355,7 +355,7 @@ void jacobian_determinant(const image<2,VectorType>& src,image<2,PixelType>& des
 template<typename VectorType>
 double jacobian_determinant_dis_at(const image<2,VectorType>& src,const tipl::pixel_index<2>& index)
 {
-    unsigned int w = src.width();
+    auto w = src.width();
     const VectorType& v1_0 = src[index.index()+1];
     const VectorType& v1_1 = src[index.index()];
     const VectorType& v2_0 = src[index.index()+w];

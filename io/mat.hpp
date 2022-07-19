@@ -531,7 +531,7 @@ public:
         return dataset[index]->get_name().c_str();
     }
 
-    unsigned int size(void) const
+    auto size(void) const
     {
         return dataset.size();
     }

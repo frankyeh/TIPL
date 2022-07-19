@@ -293,7 +293,7 @@ public:
 
         if(!slopes.empty())
         {
-            unsigned int plane_size = dim[0]*dim[1];
+            size_t plane_size = dim.plane_size();
             std::vector<float>::iterator iter = data.begin();
             for(unsigned int z = 0;z < dim[2];++z)
             {
@@ -301,7 +301,7 @@ public:
                 if(slope_index >= slopes.size())
                    slope_index = slopes.size()-1;
                 float s = slopes[slope_index];
-                for(unsigned int index = 0;index < plane_size;++index,++iter)
+                for(size_t index = 0;index < plane_size;++index,++iter)
                     *iter /= s;
             }
         }

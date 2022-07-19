@@ -40,12 +40,11 @@ void for_each_label(T& data,F&& fun)
 }
 
 template<typename ImageType>
-void erosion(ImageType& I,const std::vector<int>& index_shift)
+void erosion(ImageType& I,const std::vector<int64_t>& index_shift)
 {
     std::vector<typename ImageType::value_type> act(I.size());
-    for (unsigned int index = 0;index < index_shift.size();++index)
+    for (int64_t shift : index_shift)
     {
-        int shift = index_shift[index];
         if (shift > 0)
         {
             auto iter1 = &*act.begin() + shift;
@@ -66,7 +65,7 @@ void erosion(ImageType& I,const std::vector<int>& index_shift)
         }
     }
 
-    for (unsigned int index = 0;index < I.size();++index)
+    for (size_t index = 0;index < I.size();++index)
         if (act[index])
             I[index] = 0;
 }
@@ -86,12 +85,12 @@ void erosion2(ImageType& I,int radius)
 }
 
 template<bool enable_mt = true,typename ImageType>
-void dilation_mt(ImageType& I,const std::vector<int>& index_shift)
+void dilation_mt(ImageType& I,const std::vector<int64_t>& index_shift)
 {
     std::vector<typename ImageType::value_type> act(I.size());
     tipl::par_for<enable_mt>(index_shift.size(),[&](unsigned int index)
     {
-        int shift = index_shift[index];
+        int64_t shift = index_shift[index];
         if (shift > 0)
         {
             auto iter1 = &*act.begin() + shift;
@@ -109,11 +108,11 @@ void dilation_mt(ImageType& I,const std::vector<int>& index_shift)
                 *iter1 |= *iter2;
         }
     });
-    for (unsigned int index = 0;index < I.size();++index)
+    for (size_t index = 0;index < I.size();++index)
         I[index] |= act[index];
 }
 template<typename ImageType>
-inline void dilation(ImageType& I,const std::vector<int>& index_shift)
+inline void dilation(ImageType& I,const std::vector<int64_t>& index_shift)
 {
     dilation_mt<false>(I,index_shift);
 }
@@ -167,9 +166,8 @@ template<typename ImageType,typename LabelType,typename ShiftType>
 void edge(const ImageType& I,LabelType& act,const ShiftType& shift_list)
 {
     act.resize(I.shape());
-    for (unsigned int index = 0;index < shift_list.size();++index)
+    for (int64_t shift : shift_list)
     {
-        int shift = shift_list[index];
         if (shift > 0)
         {
             auto iter1 = &*act.begin() + shift;
@@ -219,9 +217,9 @@ template<typename ImageType>
 void edge_xy(ImageType& I)
 {
     ImageType out;
-    std::vector<int> index_shift;
+    std::vector<int64_t> index_shift;
     index_shift.push_back(-1);
-    index_shift.push_back(-int(I.width()));
+    index_shift.push_back(-int64_t(I.width()));
     edge(I,out,index_shift);
     I = out;
 }
@@ -230,9 +228,9 @@ template<typename ImageType>
 void edge_yz(ImageType& I)
 {
     ImageType out;
-    std::vector<int> index_shift;
-    index_shift.push_back(-int(I.width()));
-    index_shift.push_back(-int(I.plane_size()));
+    std::vector<int64_t> index_shift;
+    index_shift.push_back(-int64_t(I.width()));
+    index_shift.push_back(-int64_t(I.plane_size()));
     edge(I,out,index_shift);
     I = out;
 }
@@ -241,9 +239,9 @@ template<typename ImageType>
 void edge_xz(ImageType& I)
 {
     ImageType out;
-    std::vector<int> index_shift;
+    std::vector<int64_t> index_shift;
     index_shift.push_back(-1);
-    index_shift.push_back(-int(I.plane_size()));
+    index_shift.push_back(-int64_t(I.plane_size()));
     edge(I,out,index_shift);
     I = out;
 }
@@ -253,9 +251,8 @@ void inner_edge(const ImageType& I,LabelType& act)
 {
     act.resize(I.shape());
     neighbor_index_shift<ImageType::dimension> neighborhood(I.shape());
-    for (unsigned int index = 0;index < neighborhood.index_shift.size();++index)
+    for (int64_t shift : neighborhood.index_shift)
     {
-        int shift = neighborhood.index_shift[index];
         if (shift > 0)
         {
             typename LabelType::value_type* iter1 = &*act.begin() + shift;
@@ -297,7 +294,7 @@ bool is_edge(ImageType& I,tipl::pixel_index<2> index)
     bool have_right = index.x()+1 < width;
     if (index.y() >= 1)
     {
-        unsigned int base_index = index.index()-width;
+        size_t base_index = index.index()-width;
         if ((have_left && I[base_index-1] != center) ||
                 I[base_index] != center                  ||
                 (have_right && I[base_index+1] != center))
@@ -323,8 +320,8 @@ template<typename ImageType>
 bool is_edge(ImageType& I,tipl::pixel_index<3> index)
 {
     typename ImageType::value_type center = I[index.index()];
-    unsigned int z_offset = I.shape().plane_size();
-    unsigned int y_offset = I.width();
+    size_t z_offset = I.shape().plane_size();
+    size_t y_offset = I.width();
     bool have_left = index.x() >= 1;
     bool have_right = index.x()+1 < I.width();
     bool has_top = index.y() >= 1;
@@ -408,7 +405,7 @@ unsigned char get_neighbor_count_mt(ImageType& I,std::vector<unsigned char>& act
     neighbor_index_shift<ImageType::dimension> neighborhood(I.shape());
     tipl::par_for<enable_mt>(neighborhood.index_shift.size(),[&](int index)
     {
-        int shift = neighborhood.index_shift[index];
+        int64_t shift = neighborhood.index_shift[index];
         if (shift > 0)
         {
             unsigned char* iter1 = &*act.begin() + shift;
@@ -444,7 +441,7 @@ size_t closing(ImageType& I,int threshold_shift = 0)
     unsigned int threshold = get_neighbor_count(I,act) >> 1;
     threshold += threshold_shift;
     size_t count = 0;
-    for (unsigned int index = 0;index < I.size();++index)
+    for (size_t index = 0;index < I.size();++index)
         if (!I[index] && act[index] > threshold)
         {
             I[index] = 1;
@@ -460,7 +457,7 @@ size_t opening(ImageType& I,int threshold_shift = 0)
     unsigned int threshold = get_neighbor_count(I,act) >> 1;
     threshold += threshold_shift;
     size_t count = 0;
-    for (unsigned int index = 0;index < I.size();++index)
+    for (size_t index = 0;index < I.size();++index)
         if (I[index] && act[index] < threshold)
         {
             I[index] = 0;
@@ -472,7 +469,7 @@ size_t opening(ImageType& I,int threshold_shift = 0)
 template<typename ImageType>
 void negate(ImageType& I)
 {
-    for (unsigned int index = 0;index < I.size();++index)
+    for (size_t index = 0;index < I.size();++index)
         I[index] = I[index] ? 0:1;
 }
 
@@ -508,7 +505,7 @@ bool smoothing_fill(ImageType& I)
     bool filled = false;
     std::vector<unsigned char> act;
     unsigned int threshold = get_neighbor_count(I,act) >> 1;
-    for (unsigned int index = 0;index < I.size();++index)
+    for (size_t index = 0;index < I.size();++index)
     {
         if (act[index] > threshold)
         {
@@ -676,16 +673,16 @@ void convex_x(ImageType& I,typename ImageType::value_type assign_value = 1)
 template<typename ImageType>
 void convex_y(ImageType& I)
 {
-    unsigned int plane_size = I.plane_size();
-    for(unsigned int iter_plane = 0;iter_plane < I.size();iter_plane += plane_size)
+    size_t plane_size = I.plane_size();
+    for(size_t iter_plane = 0;iter_plane < I.size();iter_plane += plane_size)
     {
-        for(int iter_x = iter_plane,iter_x_end = iter_x + I.width()
+        for(size_t iter_x = iter_plane,iter_x_end = iter_x + I.width()
                 ;iter_x < iter_x_end;++iter_x)
         {
-            int iter_y = iter_x;
-            int iter_y_end = iter_y+(plane_size-I.width());
-            int first,last;
-            int find_count = 0;
+            int64_t iter_y = iter_x;
+            int64_t iter_y_end = iter_y+(plane_size-I.width());
+            int64_t first,last;
+            int64_t find_count = 0;
             for(;iter_y <= iter_y_end;iter_y += I.width())
                 if(I[iter_y] > 0)
                 {
@@ -715,21 +712,21 @@ shift = I.width()*I.height() : grow in z dimension
 template<typename ImageType,typename LabelImageType>
 void connected_component_labeling_pass(const ImageType& I,
                                        LabelImageType& labels,
-                                       std::vector<std::vector<unsigned int> >& regions,
-                                       unsigned int shift)
+                                       std::vector<std::vector<size_t> >& regions,
+                                       size_t shift)
 {
-    typedef typename std::vector<unsigned int>::const_iterator region_iterator;
+    typedef typename std::vector<size_t>::const_iterator region_iterator;
     if (shift == 1) // growing in one dimension
     {
         regions.clear();
         labels.resize(I.shape());
         std::mutex add_lock;
 
-        unsigned int width = I.width();
-        tipl::par_for(I.size()/width,[&](unsigned int y)
+        size_t width = I.width();
+        tipl::par_for(I.size()/width,[&,width](size_t y)
         {
-            unsigned int index = y*width;
-            unsigned int end_index = index+width;
+            size_t index = size_t(y)*width;
+            size_t end_index = index+width;
             while (index < end_index)
             {
                 if (I[index] == 0)
@@ -738,11 +735,11 @@ void connected_component_labeling_pass(const ImageType& I,
                     ++index;
                     continue;
                 }
-                unsigned int start_index = index;
+                size_t start_index = index;
                 do{
                     ++index;
                 }while(index < end_index && I[index] != 0);
-                std::vector<unsigned int> voxel_pos(index-start_index);
+                std::vector<size_t> voxel_pos(index-start_index);
                 std::iota(voxel_pos.begin(),voxel_pos.end(),start_index);
                 unsigned int group_id;
                 {
@@ -757,9 +754,10 @@ void connected_component_labeling_pass(const ImageType& I,
     else
     // growing in higher dimension
     {
-        for (unsigned int x = 0;x < shift;++x)
+        for (size_t x = 0;x < shift;++x)
         {
-            for (unsigned int index = x,group_id = 0;index < I.size();index += shift)
+            unsigned int group_id = 0;
+            for (size_t index = x;index < I.size();index += shift)
             {
                 if (group_id && labels[index] != 0 && group_id != labels[index])
                 {
@@ -779,7 +777,7 @@ void connected_component_labeling_pass(const ImageType& I,
                     // merge the region information
                     {
                         regions[to_id].insert(regions[to_id].end(),regions[from_id].begin(),regions[from_id].end());
-                        regions[from_id] = std::vector<unsigned int>();
+                        regions[from_id] = std::vector<size_t>();
                     }
                 }
                 group_id = labels[index];
@@ -789,13 +787,13 @@ void connected_component_labeling_pass(const ImageType& I,
 }
 
 template<typename T1,typename T2,typename std::enable_if<T1::dimension==1,bool>::type = true>
-void connected_component_labeling(const T1& I,T2& labels,std::vector<std::vector<unsigned int> >& regions)
+void connected_component_labeling(const T1& I,T2& labels,std::vector<std::vector<size_t> >& regions)
 {
     connected_component_labeling_pass(I,labels,regions,1);
 }
 
 template<typename T1,typename T2,typename std::enable_if<T1::dimension==2,bool>::type = true>
-void connected_component_labeling(const T1& I,T2& labels,std::vector<std::vector<unsigned int> >& regions)
+void connected_component_labeling(const T1& I,T2& labels,std::vector<std::vector<size_t> >& regions)
 {
     connected_component_labeling_pass(I,labels,regions,1);
     connected_component_labeling_pass(I,labels,regions,I.width());
@@ -803,7 +801,7 @@ void connected_component_labeling(const T1& I,T2& labels,std::vector<std::vector
 
 
 template<typename T1,typename T2,typename std::enable_if<T1::dimension==3,bool>::type = true>
-void connected_component_labeling(const T1& I,T2& labels,std::vector<std::vector<unsigned int> >& regions)
+void connected_component_labeling(const T1& I,T2& labels,std::vector<std::vector<size_t> >& regions)
 {
     connected_component_labeling_pass(I,labels,regions,1);
     connected_component_labeling_pass(I,labels,regions,I.width());
@@ -812,7 +810,7 @@ void connected_component_labeling(const T1& I,T2& labels,std::vector<std::vector
 
 template<typename LabelImageType>
 void get_region_bounding_box(const LabelImageType& labels,
-                             const std::vector<std::vector<unsigned int> >& regions,
+                             const std::vector<std::vector<size_t> >& regions,
                              std::vector<tipl::vector<2,int> >& min_pos,
                              std::vector<tipl::vector<2,int> >& max_pos)
 {
@@ -836,7 +834,7 @@ void get_region_bounding_box(const LabelImageType& labels,
 
 template<typename LabelImageType>
 void get_region_bounding_size(const LabelImageType& labels,
-                              const std::vector<std::vector<unsigned int> >& regions,
+                              const std::vector<std::vector<size_t> >& regions,
                               std::vector<int>& size_x,
                               std::vector<int>& size_y)
 {
@@ -857,7 +855,7 @@ void get_region_bounding_size(const LabelImageType& labels,
 
 template<typename LabelImageType>
 void get_region_center(const LabelImageType& labels,
-                       const std::vector<std::vector<unsigned int> >& regions,
+                       const std::vector<std::vector<int64_t> >& regions,
                        std::vector<tipl::vector<2,float> >& center_of_mass)
 {
     center_of_mass.clear();
@@ -880,7 +878,7 @@ template<typename ImageType>
 void defragment(ImageType& I)
 {
     tipl::image<ImageType::dimension,unsigned int> labels(I.shape());
-    std::vector<std::vector<unsigned int> > regions;
+    std::vector<std::vector<size_t> > regions;
 
     connected_component_labeling(I,labels,regions);
 
@@ -896,7 +894,7 @@ void defragment(ImageType& I)
             }
     }
 
-    for (unsigned int index = 0;index < I.size();++index)
+    for (size_t index = 0;index < I.size();++index)
         if (I[index] && labels[index] != max_size_group_id)
             I[index] = 0;
 }
@@ -905,7 +903,7 @@ template<typename ImageType>
 void defragment_by_size(ImageType& I,unsigned int area_threshold)
 {
     tipl::image<ImageType::dimension,unsigned int> labels(I.shape());
-    std::vector<std::vector<unsigned int> > regions;
+    std::vector<std::vector<size_t> > regions;
 
     connected_component_labeling(I,labels,regions);
 
@@ -914,7 +912,7 @@ void defragment_by_size(ImageType& I,unsigned int area_threshold)
     for (unsigned int index = 0;index < regions.size();++index)
         region_filter[index+1] = regions[index].size() > area_threshold;
 
-    for (unsigned int index = 0;index < I.size();++index)
+    for (size_t index = 0;index < I.size();++index)
         if (I[index] && !region_filter[labels[index]])
             I[index] = 0;
 }
