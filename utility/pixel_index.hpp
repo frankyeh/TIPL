@@ -328,12 +328,12 @@ public:
     __INLINE__ pixel_index<3> operator+(T value) const
     {
         pixel_index<3> result;
-        int new_index = index_ + value;
-        result.index_ = size_t(new_index);
-        result.x_ = new_index % w;
+        size_t new_index = index_ + value;
+        result.index_ = new_index;
+        result.x_ = int(new_index % w);
         new_index /= w;
-        result.y_ = new_index % h;
-        result.z_ = new_index / h;
+        result.y_ = int(new_index % h);
+        result.z_ = int(new_index / h);
         result.w = w;
         result.h = h;
         return result;
