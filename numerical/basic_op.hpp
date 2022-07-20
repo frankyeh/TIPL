@@ -214,8 +214,6 @@ ImageType2D& volume2slice(const ImageType3D& slice,ImageType2D& I,dim_type dim,s
 template<typename ImageType3D,typename ImageType2D,typename dim_type,typename slice_pos_type>
 ImageType2D& volume2slice_scaled(const ImageType3D& slice,ImageType2D& I,dim_type dim,slice_pos_type slice_index,float scale)
 {
-    if(scale == 1.0f)
-        return volume2slice(slice,I,dim,slice_index);
     I.clear();
     const shape<3>& geo = slice.shape();
     float ratio = 1.0f/scale;
