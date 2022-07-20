@@ -667,7 +667,9 @@ void downsampling(ImageType& in)
 template<typename ImageType>
 void downsample_with_padding(ImageType& in)
 {
-    downsample_with_padding(in,in);
+    ImageType out;
+    downsample_with_padding(in,out);
+    in.swap(out);
 }
 
 
