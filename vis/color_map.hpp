@@ -163,10 +163,12 @@ public:
 template<typename value_type>
 class value_to_color{
 private:
-    value_type min_value,max_value,r;
+    value_type min_value = 0;
+    value_type max_value = 1;
+    value_type r = 1;
     tipl::color_map_rgb map;
 public:
-    value_to_color(void):min_value(0),r(1){}
+    value_to_color(void){}
     tipl::rgb min_color(void)const{return map.min_color();}
     tipl::rgb max_color(void)const{return map.max_color();}
 
