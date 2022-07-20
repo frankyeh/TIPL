@@ -8,6 +8,7 @@
 #include "numerical/transformation.hpp"
 #include "filter/mean.hpp"
 #include "filter/sobel.hpp"
+#include "filter/gaussian.hpp"
 #include "morphology/morphology.hpp"
 
 namespace tipl{
@@ -17,51 +18,66 @@ template<typename image_loader,typename image_type>
 bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_mni,
              std::string cmd,std::string param1,std::string& error_msg)
 {
-    if(cmd == "sobel")
-    {
-        if(tipl::is_label_image(data))
-            tipl::morphology::for_each_label(data,[](tipl::image<3,char>& mask){tipl::morphology::edge(mask);});
-        else
-            tipl::filter::sobel(data);
-        return true;
-    }
-
-    if(cmd == "defragment")
+    if(cmd == "morphology_defragment")
     {
         tipl::morphology::for_each_label(data,[](tipl::image<3,char>& mask){tipl::morphology::defragment(mask);});
         return true;
     }
-    if(cmd == "dilation")
+    if(cmd == "morphology_dilation")
     {
         tipl::morphology::for_each_label(data,[](tipl::image<3,char>& mask){tipl::morphology::dilation(mask);});
         return true;
     }
-    if(cmd == "erosion")
+    if(cmd == "morphology_erosion")
     {
         tipl::morphology::for_each_label(data,[](tipl::image<3,char>& mask){tipl::morphology::erosion(mask);});
         return true;
     }
-    if(cmd == "edge_xy")
+    if(cmd == "morphology_edge")
+    {
+        tipl::morphology::for_each_label(data,[](tipl::image<3,char>& mask){tipl::morphology::edge(mask);});
+        return true;
+    }
+    if(cmd == "morphology_edge_xy")
     {
         tipl::morphology::for_each_label(data,[](tipl::image<3,char>& mask){tipl::morphology::edge_xy(mask);});
         return true;
     }
-    if(cmd == "edge_xz")
+    if(cmd == "morphology_edge_xz")
     {
         tipl::morphology::for_each_label(data,[](tipl::image<3,char>& mask){tipl::morphology::edge_xz(mask);});
         return true;
     }
-    if(cmd == "normalize")
+    if(cmd == "morphology_smoothing")
     {
-        tipl::normalize_mt(data);
+        tipl::morphology::for_each_label(data,[](tipl::image<3,char>& mask){tipl::morphology::smoothing(mask);});
         return true;
     }
-    if(cmd == "smoothing")
+    if(cmd == "sobel_filter")
     {
-        if(is_label_image(data))
-            tipl::morphology::for_each_label(data,[](tipl::image<3,char>& mask){tipl::morphology::smoothing(mask);});
+        tipl::filter::sobel(data);
+        return true;
+    }
+    if(cmd == "gaussian_filter")
+    {
+        tipl::filter::gaussian(data);
+        return true;
+    }
+    if(cmd == "mean_filter")
+    {
+        tipl::filter::mean(data);
+        return true;
+    }
+
+    if(cmd == "normalize")
+    {
+        if constexpr(std::is_integral<typename image_type::value_type>::value)
+        {
+            tipl::normalize_mt(data,255.0f);
+            tipl::upper_threshold_mt(data,255);
+        }
         else
-            tipl::filter::mean(data);
+            tipl::normalize_mt(data);
         return true;
     }
     if(cmd == "upsampling")
@@ -153,7 +169,33 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         error_msg = "need param1";
         return false;
     }
+    if(cmd == "crop_to_fit")
+    {
+        tipl::vector<3,int> range_min,range_max,margin;
+        tipl::bounding_box(data,range_min,range_max,data[0]);
+        std::istringstream in(param1);
+        in >> margin[0] >> margin[1] >> margin[2];
 
+        range_min[0] = std::max<int>(0,range_min[0]-margin[0]);
+        range_min[1] = std::max<int>(0,range_min[1]-margin[1]);
+        range_min[2] = std::max<int>(0,range_min[2]-margin[2]);
+        range_max[0] = std::min<int>(data.width(),range_max[0]+margin[0]);
+        range_max[1] = std::min<int>(data.height(),range_max[1]+margin[1]);
+        range_max[2] = std::min<int>(data.depth(),range_max[2]+margin[2]);
+
+        range_max -= range_min;
+        if(!command<image_loader>(data,vs,T,is_mni,"translocation",std::to_string(-range_min[0]) + " " +
+                                    std::to_string(-range_min[1]) + " " +
+                                    std::to_string(-range_min[2]),error_msg))
+
+            return false;
+
+        if(!command<image_loader>(data,vs,T,is_mni,"resize",std::to_string(range_max[0]) + " " +
+                                    std::to_string(range_max[1]) + " " +
+                                    std::to_string(range_max[2]),error_msg))
+            return false;
+        return true;
+    }
     if(cmd == "translocation")
     {
         std::istringstream in(param1);
@@ -189,6 +231,11 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     if(cmd == "regrid")
     {
         float nv = std::stof(param1);
+        if(nv == 0.0f)
+        {
+            error_msg = "invalid resolution";
+            return false;
+        }
         tipl::vector<3> new_vs(nv,nv,nv);
         image_type J(tipl::shape<3>(
                 int(std::ceil(float(data.width())*vs[0]/new_vs[0])),
@@ -261,7 +308,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         data.swap(new_data);
         return true;
     }
-    if(cmd == "image_multiplication" || cmd == "image_addition" || cmd == "image_substraction")
+    if(cmd == "multiply_image" || cmd == "add_image" || cmd == "minus_image")
     {
         image_loader nii;
         if(!nii.load_from_file(param1.c_str()))
@@ -282,11 +329,11 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
             error_msg += out.str();
             return false;
         }
-        if(cmd == "image_multiplication")
+        if(cmd == "multiply_image")
             data *= mask;
-        if(cmd == "image_addition")
+        if(cmd == "add_image")
             data += mask;
-        if(cmd == "image_substraction")
+        if(cmd == "minus_image")
             data -= mask;
         return true;
     }
