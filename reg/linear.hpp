@@ -315,7 +315,7 @@ size_t linear_two_way(const tipl::image<3,float>& from,
                               const float* bound = tipl::reg::reg_bound)
 {
     tipl::affine_transform<float> arg2(arg);
-    tipl::inverse(arg,from.shape(),from_vs,to.shape(),to_vs);
+    tipl::inverse(arg2,from.shape(),from_vs,to.shape(),to_vs);
 
     size_t result2(0),result(0);
     tipl::par_for(2,[&](size_t id)
