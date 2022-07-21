@@ -317,7 +317,9 @@ struct nifti_2_header {  /* NIFTI-2 usage           */ /* NIFTI-1 usage      */ 
 /*
 
 */
-template<typename input_interface = std_istream,typename output_interface = std_ostream>
+template<typename input_interface = std_istream,
+         typename output_interface = std_ostream,
+         typename prog_type = std::less<size_t> >
 class nifti_base
 {
 
@@ -837,8 +839,10 @@ public:
         out.write((const char*)&nif_header,sizeof(nif_header));
         int padding = 0;
         out.write((const char*)&padding,4);
-        out.write((const char*)write_buf,write_size);
-        write_buf = 0;
+
+        if(!save_stream_with_prog<prog_type>(out,write_buf,write_size,error_msg))
+            return false;
+        write_buf = nullptr;
         return out;
     }
     template<typename iterator_type1,typename iterator_type2,typename int_type>
@@ -870,7 +874,7 @@ public:
         typedef typename std::iterator_traits<pointer_type>::value_type value_type;
         if(compatible(nifti_type_info<value_type>::data_type,nif_header.datatype))
         {
-            if(!input_stream->read((char*)&*ptr,pixel_count*byte_per_pixel))
+            if(!read_stream_with_prog<prog_type>(*input_stream.get(),&*ptr,pixel_count*byte_per_pixel,error_msg))
                 return false;
             if (big_endian)
                 change_endian(&*ptr,pixel_count);
@@ -882,7 +886,7 @@ public:
             if(buf.empty())
                 return false;
             void* buf_ptr = &*buf.begin();
-            if(!input_stream->read((char*)buf_ptr,buf.size()))
+            if(!read_stream_with_prog<prog_type>(*input_stream.get(),buf_ptr,buf.size(),error_msg))
                 return false;
             if (big_endian)
             {
