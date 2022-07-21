@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <stdio.h>
 #include "../numerical/basic_op.hpp"
 #include "../numerical/matrix.hpp"
 #include "../utility/shape.hpp"
@@ -16,6 +17,7 @@ namespace tipl
 namespace io
 {
 
+template<typename prog_type = std::less<size_t> >
 class nrrd
 {
 public:
@@ -25,6 +27,11 @@ public:
     tipl::shape<3> size;
     std::string data_file;
     std::string error_msg;
+private:
+    prog_type prog;
+public:
+    bool file_seris = false;
+    size_t from = 0,to = 0,step = 1;
 private:
     bool read_v3(std::istream& in,float& vx,float& vy,float& vz)   // read (x,y,z)
     {
@@ -50,23 +57,51 @@ private:
     }
     template<typename T>
     bool read_buffer(T& I)
-    {
-        std::ifstream in(data_file.c_str(),std::ios::binary);
-        if(!in.read(reinterpret_cast<char*>(&I[0]),I.size()*sizeof(typename T::value_type)))
+    {       
+        if(file_seris)
         {
-            error_msg = "error reading data file";
-            return false;
+            for(size_t index = from,z = 0;index <= to && prog(z,I.depth());index += step)
+            {
+                std::string file_name;
+                file_name.resize(data_file.length()+2);
+                sprintf(&file_name[0],data_file.c_str(),index);
+                if(!std::filesystem::exists(file_name))
+                {
+                    error_msg = "file not found ";
+                    error_msg += file_name;
+                    return false;
+                }
+                std::ifstream in(file_name,std::ios::binary);
+                if(!in.read(reinterpret_cast<char*>(&*(I.begin() + I.plane_size()*z)),I.plane_size()*sizeof(typename T::value_type)))
+                {
+                    error_msg = "error reading data file ";
+                    error_msg += file_name;
+                    return false;
+                }
+            }
+        }
+        else
+        {
+            if(!std::filesystem::exists(data_file))
+            {
+                error_msg = "data file not found";
+                return false;
+            }
+            std::ifstream in(data_file.c_str(),std::ios::binary);
+            size_t total_size = I.size()*sizeof(typename T::value_type);
+            auto ptr = reinterpret_cast<char*>(&I[0]);
+            for(size_t i = 0;prog(i*100/total_size,100);i += 64000000)
+                if(!in.read(ptr+i,std::min<size_t>(64000000,total_size-i)))
+                {
+                    error_msg = "error reading data file";
+                    return false;
+                }
         }
         return true;
     }
     template<typename as_type,typename T>
     bool read_as_type(T& I)
     {
-        if(!std::filesystem::exists(data_file))
-        {
-            error_msg = "data file not found";
-            return false;
-        }
         if constexpr (std::is_same<as_type,typename T::value_type>::value ||
                       (!std::is_floating_point<as_type>::value && sizeof(as_type) == sizeof(typename T::value_type)))
         {
@@ -153,17 +188,17 @@ public:
             if(name == "data file")
             {
                 in2 >> data_file;
+                if(data_file.find("%") != std::string::npos)
+                {
+                    file_seris = true;
+                    in2 >> from >> to >> step;
+                }
                 data_file = std::filesystem::path(file_name).parent_path().string() + "/" + data_file;
             }
         }
         if(!size.size())
         {
             error_msg = "invalid nrrd header size zero";
-            return false;
-        }
-        if(!std::filesystem::exists(data_file))
-        {
-            error_msg = "data file not found";
             return false;
         }
         return true;
