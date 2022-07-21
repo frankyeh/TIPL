@@ -328,14 +328,14 @@ public:
         struct nifti_1_header nif_header;
     };
     bool is_nii; // backward compatibility to ANALYE 7.5
-    std::string error;
+    mutable std::string error_msg;
 public:
     std::shared_ptr<input_interface> input_stream;
 private:
     bool big_endian;
 private:
     std::vector<char> rgb_write_buf;
-    const void* write_buf = 0;
+    const void* write_buf = nullptr;
     size_t write_size = 0;
 private:
     bool compatible(long type1,long type2) const
@@ -477,7 +477,7 @@ public:
     {
         if (!input_stream->open(pfile_name))
         {
-            error = "Cannot read the file. No reading privilege or the file does not exist.";
+            error_msg = "Cannot read the file. No reading privilege or the file does not exist.";
             return false;
         }
         int size_of_header = 0;
@@ -487,7 +487,7 @@ public:
             change_endian(size_of_header);
             if(size_of_header != 540 && size_of_header != 348)
             {
-                error = "Invalid NIFTI format. Size of header is not 540 or 348";
+                error_msg = "Invalid NIFTI format. Size of header is not 540 or 348";
                 return false;
             }
             big_endian = true;
@@ -506,7 +506,7 @@ public:
                 nif_header2.magic[1] != '+' ||
                     nif_header2.magic[2] != '2')
             {
-                error = "Invalid NIFTI format. No NIFTI tag found.";
+                error_msg = "Invalid NIFTI format. No NIFTI tag found.";
                 return false;
             }
             input_stream->seek(size_t(nif_header2.vox_offset));
@@ -584,7 +584,7 @@ public:
                 string_type file_name(pfile_name);
                 if (file_name.size() < 4)
                 {
-                    error = "Failed to find the img file.";
+                    error_msg = "Failed to find the img file.";
                     return false;
                 }
                 string_type file_name_no_ext(file_name.begin(),file_name.end()-4);
@@ -593,7 +593,7 @@ public:
                 input_stream.reset(new input_interface);
                 if(!input_stream->open(data_file.c_str()))
                 {
-                    error = "Failed to open the img file.";
+                    error_msg = "Failed to open the img file.";
                     return false;
                 }
             }
@@ -816,7 +816,10 @@ public:
     bool save_to_file(const char_type* pfile_name)
     {
         if(!write_buf)
+        {
+            error_msg = "no image data for saving";
             return false;
+        }
         if (!is_nii)// is the header from the analyze format?
         {
             //yes, then change the header to the NIFTI format
@@ -861,6 +864,8 @@ public:
     template<typename pointer_type>
     bool save_to_buffer(pointer_type ptr,size_t pixel_count) const
     {
+        if(!input_stream.get() || !(*input_stream))
+            return false;
         const size_t byte_per_pixel = nif_header.bitpix/8;
         typedef typename std::iterator_traits<pointer_type>::value_type value_type;
         if(compatible(nifti_type_info<value_type>::data_type,nif_header.datatype))
@@ -935,21 +940,22 @@ public:
         }
     }
 
-    bool has_data(void) const
-    {
-        if(!input_stream.get() || !(*input_stream))
-            return false;
-        return true;
-    }
-
     template<typename image_type>
     bool get_untouched_image(image_type& out) const
     {
-        if(!has_data())
+        try{
+            out.resize(tipl::shape<image_type::dimension>(nif_header.dim+1));
+        }
+        catch(...)
+        {
+            error_msg = "insufficient memory";
             return false;
-        out.resize(tipl::shape<image_type::dimension>(nif_header.dim+1));
+        }
         if(!save_to_buffer(out.begin(),out.size()))
+        {
+            error_msg = "failed to read data from file";
             return false;
+        }
         if(nif_header.scl_slope != 0)
         {
             if(nif_header.scl_slope != 1.0f)
@@ -965,12 +971,10 @@ public:
     {
         return toLPS(out);
     }
-
     template<typename image_type>
-    image_type& operator>>(image_type& source)
+    bool operator>>(image_type& source)
     {
-        toLPS(source);
-        return source;
+        return toLPS(source);
     }
     template<typename image_type>
     const image_type& operator<<(const image_type& source)
