@@ -320,12 +320,13 @@ size_t linear_two_way(const tipl::image<3,float>& from,
     size_t result2(0),result(0);
     tipl::par_for(2,[&](size_t id)
     {
-        if(id)
+        if(id == 0)
         {
             linear_mr<cost_fun>(from,from_vs,to,to_vs,arg,reg_type,is_terminated,0.01,true,bound);
             result2 = linear<cost_fun>(from,from_vs,to,to_vs,arg,reg_type,is_terminated,0.005,false,bound);
         }
         else
+        if(id == 1)
         {
             linear_mr<cost_fun>(to,to_vs,from,from_vs,arg2,reg_type,is_terminated,0.01,true,bound);
             tipl::inverse(arg2,to.shape(),to_vs,from.shape(),from_vs);
