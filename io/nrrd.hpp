@@ -5,6 +5,7 @@
 #include <fstream>
 #include <sstream>
 #include <stdio.h>
+#include "interface.hpp"
 #include "../numerical/basic_op.hpp"
 #include "../numerical/matrix.hpp"
 #include "../utility/shape.hpp"
@@ -27,8 +28,6 @@ public:
     tipl::shape<3> size;
     std::string data_file;
     std::string error_msg;
-private:
-    prog_type prog;
 public:
     bool file_seris = false;
     size_t from = 0,to = 0,step = 1;
@@ -60,6 +59,9 @@ private:
     {       
         if(file_seris)
         {
+            prog_type prog;
+            if constexpr(!std::is_same<prog_type,std::less<size_t> >::value)
+                prog.show("read from file");
             for(size_t index = from,z = 0;index <= to && prog(z,I.depth());index += step)
             {
                 std::string file_name;
@@ -74,7 +76,7 @@ private:
                 std::ifstream in(file_name,std::ios::binary);
                 if(!in.read(reinterpret_cast<char*>(&*(I.begin() + I.plane_size()*z)),I.plane_size()*sizeof(typename T::value_type)))
                 {
-                    error_msg = "error reading data file ";
+                    error_msg = "error reading image data ";
                     error_msg += file_name;
                     return false;
                 }
@@ -88,14 +90,8 @@ private:
                 return false;
             }
             std::ifstream in(data_file.c_str(),std::ios::binary);
-            size_t total_size = I.size()*sizeof(typename T::value_type);
-            auto ptr = reinterpret_cast<char*>(&I[0]);
-            for(size_t i = 0;prog(i*100/total_size,100);i += 64000000)
-                if(!in.read(ptr+i,std::min<size_t>(64000000,total_size-i)))
-                {
-                    error_msg = "error reading data file";
-                    return false;
-                }
+            if(!read_stream_with_prog<prog_type>(in,&I[0],I.size()*sizeof(typename T::value_type),error_msg))
+                return false;
         }
 
         if(values["endian"] == "big")
