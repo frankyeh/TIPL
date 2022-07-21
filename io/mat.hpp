@@ -57,7 +57,6 @@ struct mat_type_info<char>
 };
 
 
-
 class mat_matrix
 {
 private:
@@ -265,8 +264,7 @@ public:
             return false;
         }
         data_ptr = &*data_buf.begin();
-        in.read(reinterpret_cast<char*>(data_ptr),get_total_size(type));
-        return true;
+        return in.read(reinterpret_cast<char*>(data_ptr),get_total_size(type));
     }
     template<typename stream_type>
     bool write(stream_type& out) const
@@ -278,8 +276,7 @@ public:
         out.write(reinterpret_cast<const char*>(&imagf),4);
         out.write(reinterpret_cast<const char*>(&namelen),4);
         out.write(reinterpret_cast<const char*>(&*name.begin()),namelen);
-        out.write(reinterpret_cast<const char*>(data_ptr),get_total_size(type));
-        return out;
+        return out.write(reinterpret_cast<const char*>(data_ptr),get_total_size(type));
     }
     void get_info(std::string& info) const
     {
@@ -326,7 +323,7 @@ public:
     }
 };
 
-template<typename input_interface = std_istream>
+template<typename input_interface = std_istream,typename prog_type = std::less<size_t> >
 class mat_read_base
 {
 private:
@@ -447,11 +444,14 @@ public:
     template<typename char_type>
     bool load_from_file(const char_type* file_name)
     {
+        prog_type prog;
         if(!in->open(file_name))
             return false;
         dataset.clear();
         while(*in)
         {
+            if(!prog(in->cur_size()*99/in->size(),100))
+                return false;
             std::shared_ptr<mat_matrix> matrix(new mat_matrix);
             if (!matrix->read(*in.get(),delay_read))
                 break;
@@ -536,8 +536,8 @@ public:
         return dataset.size();
     }
 
-    mat_matrix& operator[](size_t index){return *dataset[index];}
-    const mat_matrix& operator[](size_t index) const {return *dataset[index];}
+    auto& operator[](size_t index){return *dataset[index];}
+    const auto& operator[](size_t index) const {return *dataset[index];}
 
     template<typename image_type>
     const mat_read_base& operator>>(image_type& source) const
