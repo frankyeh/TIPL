@@ -8,6 +8,77 @@ namespace tipl
 namespace io
 {
 
+
+template<typename prog_type,typename stream_type,typename ptr_type>
+bool read_stream_with_prog(stream_type& in,
+                           ptr_type* ptr,
+                           size_t size_in_byte,
+                           std::string& error_msg,
+                           size_t buf_size = 1000000)
+{
+    if(size_in_byte < buf_size || std::is_same<prog_type,std::less<size_t> >::value)
+        return !!in.read(reinterpret_cast<char*>(ptr),size_in_byte);
+    if constexpr(!std::is_same<prog_type,std::less<size_t> >::value)
+    {
+        prog_type prog("read from file");
+        auto buf = reinterpret_cast<char*>(ptr);
+        size_t pos = 0;
+        while(prog(pos*100/size_in_byte,100))
+        {
+            if(buf_size < 64000000)
+                buf_size *= 2;
+            if(!in.read(buf+pos,std::min<size_t>(buf_size,size_in_byte-pos)))
+            {
+                error_msg = "error reading data";
+                return false;
+            }
+            pos += buf_size;
+        }
+        if(pos < size_in_byte)
+        {
+            error_msg = "aborted";
+            return false;
+        }
+
+    }
+    return true;
+}
+
+template<typename prog_type,typename stream_type,typename ptr_type>
+bool save_stream_with_prog(stream_type& out,
+                           const ptr_type* ptr,
+                           size_t size_in_byte,
+                           std::string& error_msg,
+                           size_t buf_size = 1000000)
+{
+    if(size_in_byte < buf_size || std::is_same<prog_type,std::less<size_t> >::value)
+        return !!out.write(reinterpret_cast<const char*>(ptr),size_in_byte);
+
+    if constexpr(!std::is_same<prog_type,std::less<size_t> >::value)
+    {
+        prog_type prog("save to file");
+        auto buf = reinterpret_cast<const char*>(ptr);
+        size_t pos = 0;
+        while(prog(pos*100/size_in_byte,100))
+        {
+            if(buf_size < 64000000)
+                buf_size *= 2;
+            if(!out.write(buf+pos,std::min<size_t>(buf_size,size_in_byte-pos)))
+            {
+                error_msg = "insufficient disk space";
+                return false;
+            }
+            pos += buf_size;
+        }
+        if(pos < size_in_byte)
+        {
+            error_msg = "aborted";
+            return false;
+        }
+    }
+    return true;
+}
+
 class std_istream{
     size_t size_;
     std::ifstream in;
@@ -45,6 +116,10 @@ public:
     {
         in.clear();
     }
+    size_t cur_size(void)
+    {
+        return in.tellg();
+    }
     size_t size(void)
     {
         return size_;
@@ -66,9 +141,9 @@ public:
         out.open(file_name,std::ios::binary);
         return out.good();
     }
-    void write(const void* buf,size_t size)
+    bool write(const void* buf,size_t size)
     {
-        out.write((const char*)buf,size);
+        return out.write((const char*)buf,size).good();
     }
     void close(void)
     {
