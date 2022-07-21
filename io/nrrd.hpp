@@ -97,32 +97,50 @@ private:
                     return false;
                 }
         }
+
+        if(values["endian"] == "big")
+        {
+            size_t thread_count = std::thread::hardware_concurrency();
+            tipl::par_for(thread_count,[&](size_t id)
+            {
+                for(size_t i = id;i < I.size();i += thread_count)
+                    change_endian(I[i]);
+            });
+        }
         return true;
     }
     template<typename as_type,typename T>
     bool read_as_type(T& I)
     {
-        if constexpr (std::is_same<as_type,typename T::value_type>::value ||
-                      (!std::is_floating_point<as_type>::value && sizeof(as_type) == sizeof(typename T::value_type)))
-        {
-            T buf(size);
-            if(!read_buffer(buf))
+        try{
+            if constexpr (std::is_same<as_type,typename T::value_type>::value ||
+                          (!std::is_floating_point<as_type>::value && sizeof(as_type) == sizeof(typename T::value_type)))
             {
-                error_msg = "error reading data file";
-                return false;
+                T buf(size);
+                if(!read_buffer(buf))
+                {
+                    error_msg = "error reading data file";
+                    return false;
+                }
+                I.swap(buf);
             }
-            I.swap(buf);
-        }
-        else
-        {
-            tipl::image<3,as_type> buf(size);
-            if(!read_buffer(buf))
+            else
             {
-                error_msg = "error reading image buffer file";
-                return false;
+                tipl::image<3,as_type> buf(size);
+                if(!read_buffer(buf))
+                {
+                    error_msg = "error reading image buffer file";
+                    return false;
+                }
+                I = buf;
             }
-            I = buf;
         }
+        catch(const std::bad_alloc&)
+        {
+            error_msg = "insufficient memory";
+            return false;
+        }
+
         return true;
     }
     template<typename T>
