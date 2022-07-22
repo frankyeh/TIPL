@@ -59,11 +59,13 @@ private:
     {       
         if(file_seris)
         {
-            prog_type prog;
-            if constexpr(!std::is_same<prog_type,std::less<size_t> >::value)
-                prog.show("read from file");
-            for(size_t index = from,z = 0;index <= to && prog(z,I.depth());index += step)
+            for(size_t index = from,z = 0;index <= to;index += step)
             {
+                if constexpr(!std::is_same<prog_type,std::less<size_t> >::value)
+                {
+                    if(!prog_type::at(z,I.depth()))
+                        break;
+                }
                 std::string file_name;
                 file_name.resize(data_file.length()+2);
                 sprintf(&file_name[0],data_file.c_str(),index);
