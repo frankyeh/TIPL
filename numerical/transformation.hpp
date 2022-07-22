@@ -659,6 +659,25 @@ public:
     __INLINE__ value_type* begin(void) {return data;}
     __INLINE__ value_type* end(void) {return data+total_size;}
     __INLINE__ unsigned int size(void) const{return total_size;}
+    __INLINE__ bool operator==(const affine_transform& rhs)
+    {
+        return  translocation[0] == rhs.translocation[0] &&
+                translocation[1] == rhs.translocation[1] &&
+                translocation[2] == rhs.translocation[2] &&
+                rotation[0] == rhs.rotation[0] &&
+                rotation[1] == rhs.rotation[1] &&
+                rotation[2] == rhs.rotation[2] &&
+                scaling[0] == rhs.scaling[0] &&
+                scaling[1] == rhs.scaling[1] &&
+                scaling[2] == rhs.scaling[2] &&
+                affine[0] == rhs.affine[0] &&
+                affine[1] == rhs.affine[1] &&
+                affine[2] == rhs.affine[2];
+    }
+    __INLINE__ bool operator!=(const affine_transform& rhs)
+    {
+        return !(*this == rhs);
+    }
     friend std::ostream & operator<<(std::ostream& out, const affine_transform<value_type> &T)
     {
         out << "translocation:" << T.translocation[0] << " " << T.translocation[1] << " " << T.translocation[2] << std::endl;
