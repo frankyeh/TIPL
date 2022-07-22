@@ -444,14 +444,18 @@ public:
     template<typename char_type>
     bool load_from_file(const char_type* file_name)
     {
-        prog_type prog;
+        if constexpr(!std::is_same<prog_type,std::less<size_t> >::value)
+            prog_type::show((std::string("open file ")+file_name).c_str());
         if(!in->open(file_name))
             return false;
         dataset.clear();
         while(*in)
         {
-            if(!prog(in->cur_size()*99/in->size(),100))
-                return false;
+            if constexpr(!std::is_same<prog_type,std::less<size_t> >::value)
+            {
+                if(!prog_type::at(in->cur_size()*99/in->size(),100))
+                    return false;
+            }
             std::shared_ptr<mat_matrix> matrix(new mat_matrix);
             if (!matrix->read(*in.get(),delay_read))
                 break;
