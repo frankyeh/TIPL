@@ -162,17 +162,90 @@ __INLINE__ auto sum(input_iterator from,input_iterator to)
     return sum;
 }
 
+
 template<typename image_type>
 __INLINE__ auto sum(const image_type& I)
 {
     return sum(I.begin(),I.end());
 }
+template<typename input_iterator,
+         typename std::enable_if<
+             std::is_floating_point<typename std::iterator_traits<input_iterator>::value_type>::value,bool>::type = true>
+__INLINE__ double sum_mt(input_iterator from,input_iterator to)
+{
+    if(from == to)
+        return 0;
+    size_t size = to-from;
+    unsigned int thread_count = std::thread::hardware_concurrency();
+    std::vector<double> ss(thread_count);
+    tipl::par_for(thread_count,[&ss,thread_count,from,size](size_t sum_id)
+    {
+        double s(0.0);
+        for(size_t i = 0;i < size;i += thread_count)
+            s += from[i];
+        ss[sum_id] = s;
+    });
+    return sum(ss);
+}
 
+template<typename input_iterator,
+         typename std::enable_if<
+             std::is_integral<typename std::iterator_traits<input_iterator>::value_type>::value,bool>::type = true>
+__INLINE__ size_t sum_mt(input_iterator from,input_iterator to)
+{
+    if(from == to)
+        return 0;
+    size_t size = to-from;
+    unsigned int thread_count = std::thread::hardware_concurrency();
+    std::vector<size_t> ss(thread_count);
+    tipl::par_for(thread_count,[&ss,thread_count,from,size](size_t sum_id)
+    {
+        size_t s(0);
+        for(size_t i = 0;i < size;i += thread_count)
+            s += from[i];
+        ss[sum_id] = s;
+    });
+    return sum(ss);
+}
+
+
+template<typename input_iterator,
+         typename std::enable_if<
+             std::is_class<typename std::iterator_traits<input_iterator>::value_type>::value,bool>::type = true>
+__INLINE__ auto sum_mt(input_iterator from,input_iterator to)
+{
+    if(from == to)
+        return 0;
+    size_t size = to-from;
+    unsigned int thread_count = std::thread::hardware_concurrency();
+    std::vector<typename std::iterator_traits<input_iterator>::value_type> ss(thread_count);
+    tipl::par_for(thread_count,[&ss,thread_count,from,size](size_t sum_id)
+    {
+        size_t s;
+        for(size_t i = 0;i < size;i += thread_count)
+            s += from[i];
+        ss[sum_id] = s;
+    });
+    return sum(ss);
+}
+
+
+template<typename image_type>
+__INLINE__ auto sum_mt(const image_type& I)
+{
+    return sum_mt(I.begin(),I.end());
+}
 
 template<typename input_iterator>
 __INLINE__ double mean(input_iterator from,input_iterator to)
 {
     return (from == to) ? 0.0 :double(sum(from,to))/double(to-from);
+}
+
+template<typename input_iterator>
+__INLINE__ double mean_mt(input_iterator from,input_iterator to)
+{
+    return (from == to) ? 0.0 :double(sum_mt(from,to))/double(to-from);
 }
 
 template<typename image_type>
@@ -181,6 +254,11 @@ __INLINE__ auto mean(const image_type& I)
     return mean(I.begin(),I.end());
 }
 
+template<typename image_type>
+__INLINE__ auto mean_mt(const image_type& I)
+{
+    return mean_mt(I.begin(),I.end());
+}
 
 template <typename input_iterator>
 auto median(input_iterator begin, input_iterator end)
@@ -229,6 +307,27 @@ __INLINE__ double mean_square(input_iterator from,input_iterator to)
 }
 
 template<typename input_iterator>
+__INLINE__ double mean_square_mt(input_iterator from,input_iterator to)
+{
+    if(from == to)
+        return 0.0;
+    size_t size = to-from;
+    unsigned int thread_count = std::thread::hardware_concurrency();
+    std::vector<double> ms(thread_count);
+    tipl::par_for(thread_count,[&ms,thread_count,from,size](size_t ms_id)
+    {
+        double sum = 0.0;
+        for(size_t i = 0;i < size;i += thread_count)
+        {
+            double t = from[i];
+            sum += t*t;
+        }
+        ms[ms_id] = sum;
+    });
+    return tipl::sum(ms)/double(size);
+}
+
+template<typename input_iterator>
 __INLINE__ double root_mean_suqare(input_iterator from,input_iterator to)
 {
     return std::sqrt(mean_square(from,to));
@@ -257,16 +356,32 @@ __INLINE__ double variance(input_iterator from,input_iterator to,double mean)
 {
     return mean_square(from,to)-mean*mean;
 }
+template<typename input_iterator>
+__INLINE__ double variance_mt(input_iterator from,input_iterator to,double mean)
+{
+    return mean_square_mt(from,to)-mean*mean;
+}
 template<typename input_iterator,typename value_type>
 __INLINE__ value_type standard_deviation(input_iterator from,input_iterator to,value_type mean)
 {
     auto var = variance(from,to,mean);
     return var > 0.0 ? std::sqrt(var) : 0.0;
 }
+template<typename input_iterator,typename value_type>
+__INLINE__ value_type standard_deviation_mt(input_iterator from,input_iterator to,value_type mean)
+{
+    auto var = variance_mt(from,to,mean);
+    return var > 0.0 ? std::sqrt(var) : 0.0;
+}
 template<typename input_iterator>
 __INLINE__ double standard_deviation(input_iterator from,input_iterator to)
 {
     return standard_deviation(from,to,mean(from,to));
+}
+template<typename input_iterator>
+__INLINE__ double standard_deviation_mt(input_iterator from,input_iterator to)
+{
+    return standard_deviation_mt(from,to,mean(from,to));
 }
 
 
@@ -318,15 +433,47 @@ __INLINE__ double covariance(input_iterator1 x_from,input_iterator1 x_to,
 }
 
 template<typename input_iterator1,typename input_iterator2>
+__INLINE__ double covariance_mt(input_iterator1 x_from,input_iterator1 x_to,
+                  input_iterator2 y_from,double mean_x,double mean_y)
+{
+    if(x_to == x_from)
+        return 0.0;
+    size_t size = x_to-x_from;
+    unsigned int thread_count = std::thread::hardware_concurrency();
+    std::vector<double> co(thread_count);
+    tipl::par_for(thread_count,[&co,thread_count,x_from,y_from,size](size_t co_id)
+    {
+        double sum = 0.0;
+        for(size_t i = 0;i < size;i += thread_count)
+            sum += double(x_from[i])*double(y_from[i]);
+        co[co_id] = sum;
+    });
+    return sum(co)/double(size)-mean_x*mean_y;
+}
+
+template<typename input_iterator1,typename input_iterator2>
 __INLINE__ double covariance(input_iterator1 x_from,input_iterator1 x_to,
                   input_iterator2 y_from)
 {
     return covariance(x_from,x_to,y_from,mean(x_from,x_to),mean(y_from,y_from+(x_to-x_from)));
 }
+template<typename input_iterator1,typename input_iterator2>
+__INLINE__ double covariance_mt(input_iterator1 x_from,input_iterator1 x_to,
+                  input_iterator2 y_from)
+{
+    return covariance_mt(x_from,x_to,y_from,mean_mt(x_from,x_to),mean_mt(y_from,y_from+(x_to-x_from)));
+}
+
 template<typename T,typename U>
 __INLINE__ double covariance(const T& x,const U& y)
 {
     return covariance(x.begin(),x.end(),y.begin());
+}
+
+template<typename T,typename U>
+__INLINE__ double covariance_mt(const T& x,const U& y)
+{
+    return covariance_mt(x.begin(),x.end(),y.begin());
 }
 
 template<typename input_iterator1,typename input_iterator2>
@@ -339,11 +486,30 @@ __INLINE__ double correlation(input_iterator1 x_from,input_iterator1 x_to,
         return 0;
     return covariance(x_from,x_to,y_from,mean_x,mean_y)/sd1/sd2;
 }
+
+template<typename input_iterator1,typename input_iterator2>
+__INLINE__ double correlation_mt(input_iterator1 x_from,input_iterator1 x_to,
+                  input_iterator2 y_from,double mean_x,double mean_y)
+{
+    double sd1 = standard_deviation_mt(x_from,x_to,mean_x);
+    double sd2 = standard_deviation_mt(y_from,y_from+(x_to-x_from),mean_y);
+    if(sd1 == 0 || sd2 == 0)
+        return 0;
+    return covariance_mt(x_from,x_to,y_from,mean_x,mean_y)/sd1/sd2;
+}
+
 template<typename input_iterator1,typename input_iterator2>
 __INLINE__ double correlation(input_iterator1 x_from,input_iterator1 x_to,
                   input_iterator2 y_from)
 {
     return correlation(x_from,x_to,y_from,mean(x_from,x_to),mean(y_from,y_from+(x_to-x_from)));
+}
+
+template<typename input_iterator1,typename input_iterator2>
+__INLINE__ double correlation_mt(input_iterator1 x_from,input_iterator1 x_to,
+                  input_iterator2 y_from)
+{
+    return correlation_mt(x_from,x_to,y_from,mean_mt(x_from,x_to),mean_mt(y_from,y_from+(x_to-x_from)));
 }
 
 template<typename input_iterator1,typename input_iterator2>
