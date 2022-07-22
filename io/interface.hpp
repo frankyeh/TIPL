@@ -20,10 +20,9 @@ bool read_stream_with_prog(stream_type& in,
         return !!in.read(reinterpret_cast<char*>(ptr),size_in_byte);
     if constexpr(!std::is_same<prog_type,std::less<size_t> >::value)
     {
-        prog_type prog("read from file");
         auto buf = reinterpret_cast<char*>(ptr);
         size_t pos = 0;
-        while(prog(pos*100/size_in_byte,100))
+        while(prog_type::at(pos*100/size_in_byte,100))
         {
             if(buf_size < 64000000)
                 buf_size *= 2;
@@ -56,10 +55,9 @@ bool save_stream_with_prog(stream_type& out,
 
     if constexpr(!std::is_same<prog_type,std::less<size_t> >::value)
     {
-        prog_type prog("save to file");
         auto buf = reinterpret_cast<const char*>(ptr);
         size_t pos = 0;
-        while(prog(pos*100/size_in_byte,100))
+        while(prog_type::at(pos*100/size_in_byte,100))
         {
             if(buf_size < 64000000)
                 buf_size *= 2;
