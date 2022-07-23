@@ -255,6 +255,22 @@ float linear(const image_type1& from,const vs_type1& from_vs,
                                                    precision);
     return optimal_value;
 }
+template<typename T,typename U,typename V>
+void linear_mr_get_downsampled_images(std::list<T>& from_buffer,std::vector<U>& from_series,std::vector<V>& vs_series)
+{
+    while(from_series.back().size() > 64*64*64)
+    {
+        from_buffer.push_back(U());
+        downsample_with_padding(from_series.back(),from_buffer.back());
+        // add one more layer
+        from_series.push_back(tipl::make_image(&from_buffer.back()[0],from_buffer.back().shape()));
+        vs_series.push_back(vs_series.back()*2.0f);
+    }
+
+    // remove those too large
+    while(from_series.size() > 1 && from_series.front().width() > 512 && from_series.front().height() > 512)
+        from_series.erase(from_series.begin());
+}
 
 template<typename CostFunctionType,typename image_type1,typename vs_type1,
          typename image_type2,typename vs_type2,
@@ -269,74 +285,38 @@ float linear_mr(const image_type1& from,const vs_type1& from_vs,
                 const float* bound = reg_bound,
                 size_t iterations = 5)
 {
-    bool downsample_from = from.size() > 64*64*64;
-    bool downsample_to = to.size() > 64*64*64;
+    std::list<image<image_type1::dimension,typename image_type1::value_type> > from_buffer;
+    std::list<image<image_type1::dimension,typename image_type1::value_type> > to_buffer;
 
-    if (downsample_from || downsample_to)
+    std::vector<const_pointer_image<image_type1::dimension,typename image_type1::value_type> > from_series;
+    std::vector<const_pointer_image<image_type1::dimension,typename image_type1::value_type> > to_series;
+    std::vector<vs_type1> from_vs_series;
+    std::vector<vs_type2> to_vs_series;
+
+    // add original resolution as the first layer
+    from_series.push_back(tipl::make_image(&from[0],from.shape()));
+    to_series.push_back(tipl::make_image(&to[0],to.shape()));
+    from_vs_series.push_back(from_vs);
+    to_vs_series.push_back(to_vs);
+    // create multiple resolution layers of the original image
+    linear_mr_get_downsampled_images(from_buffer,from_series,from_vs_series);
+    linear_mr_get_downsampled_images(to_buffer,to_series,to_vs_series);
+
+    int from_index = int(from_series.size())-1;
+    int to_index = int(to_series.size())-1;
+    float result = 0.0f;
+    while(!is_terminated())
     {
-        //downsampling
-        image<image_type1::dimension,typename image_type1::value_type> from_r;
-        image<image_type2::dimension,typename image_type2::value_type> to_r;
-        tipl::vector<image_type1::dimension> from_vs_r(from_vs),to_vs_r(to_vs);
-        if(downsample_from)
-        {
-            downsample_with_padding(from,from_r);
-            from_vs_r *= 2.0;
-        }
-        if(downsample_to)
-        {
-            downsample_with_padding(to,to_r);
-            to_vs_r *= 2.0;
-        }
-
-        float result = linear_mr<CostFunctionType>(
-            tipl::make_image(downsample_from ? &from_r[0]:&from[0],
-                             downsample_from ? from_r.shape():from.shape()),from_vs_r,
-            tipl::make_image(downsample_to ? &to_r[0]:&to[0],
-                             downsample_to ? to_r.shape():to.shape()),to_vs_r,
-                             arg_min,base_type,
-                             is_terminated,
-                             precision,line_search,bound,iterations);
+        result = linear<CostFunctionType>(from_series[from_index],from_vs_series[from_index],
+                                 to_series[to_index],to_vs_series[to_index],
+                                 arg_min,base_type,is_terminated,precision,line_search,bound,iterations);
+        if(from_index == 0) // cost evaluated at "from" space
+            break;
+        from_index = std::max<int>(0,from_index-1);
+        to_index = std::max<int>(0,to_index-1);
         line_search = false;
     }
-    return linear<CostFunctionType>(from,from_vs,to,to_vs,
-                                        arg_min,base_type,is_terminated,precision,line_search,bound,iterations);
-}
-
-
-template<typename cost_fun,typename function>
-size_t linear_two_way(const tipl::image<3,float>& from,
-                              tipl::vector<3> from_vs,
-                              const tipl::image<3,float>& to,
-                              tipl::vector<3> to_vs,
-                              tipl::affine_transform<float>& arg,
-                              tipl::reg::reg_type reg_type,
-                              function&& is_terminated,
-                              const float* bound = tipl::reg::reg_bound)
-{
-    tipl::affine_transform<float> arg2(arg);
-    tipl::inverse(arg2,from.shape(),from_vs,to.shape(),to_vs);
-
-    size_t result2(0),result(0);
-    tipl::par_for(2,[&](size_t id)
-    {
-        if(id == 0)
-        {
-            linear_mr<cost_fun>(from,from_vs,to,to_vs,arg,reg_type,is_terminated,0.01,true,bound);
-            result2 = linear<cost_fun>(from,from_vs,to,to_vs,arg,reg_type,is_terminated,0.005,false,bound);
-        }
-        else
-        if(id == 1)
-        {
-            linear_mr<cost_fun>(to,to_vs,from,from_vs,arg2,reg_type,is_terminated,0.01,true,bound);
-            tipl::inverse(arg2,to.shape(),to_vs,from.shape(),from_vs);
-            result = linear<cost_fun>(from,from_vs,to,to_vs,arg2,reg_type,is_terminated,0.005,false,bound);
-        }
-    });
-
-    if(result < result2)
-        arg = arg2;
-    return linear<cost_fun>(from,from_vs,to,to_vs,arg,reg_type,is_terminated,0.002,false,bound);
+    return result;
 }
 
 }
