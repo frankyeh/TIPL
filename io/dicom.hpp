@@ -1758,7 +1758,7 @@ public:
             return false;
         free_all();
         std::vector<int> image_num;
-        unsigned int w,h;
+        unsigned int w(0),h(0);
         for (unsigned int index = 0;index < files.size();++index)
         {
             std::shared_ptr<dicom> d(new dicom);
