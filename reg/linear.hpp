@@ -55,7 +55,7 @@ public:
     mutual_information(unsigned int band_width_ = 6):band_width(band_width_),his_bandwidth(1 << band_width_) {}
 public:
     template<typename ImageType1,typename ImageType2,typename TransformType>
-    double operator()(const ImageType1& from_,const ImageType2& to_,const TransformType& transform,int thread_id = 0)
+    double operator()(const ImageType1& from_,const ImageType2& to_,const TransformType& transform,int)
     {
         {
             std::scoped_lock<std::mutex> lock(init_mutex);
