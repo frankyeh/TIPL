@@ -359,32 +359,40 @@ public:
 public:
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
     __INLINE__ auto operator+=(T value)
-    {auto ed = end();for(auto bg = begin();bg != ed;++bg)*bg += value;return *this;}
+    {auto ed = end();for(auto bg = begin();bg != ed;++bg)*bg += value;
+        return *this;}
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
     __INLINE__ auto operator-=(T value)
-    {auto ed = end();for(auto bg = begin();bg != ed;++bg)*bg -= value;return *this;}
+    {auto ed = end();for(auto bg = begin();bg != ed;++bg)*bg -= value;
+        return *this;}
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
     __INLINE__ auto operator*=(T value)
-    {auto ed = end();for(auto bg = begin();bg != ed;++bg)*bg *= value;return *this;}
+    {auto ed = end();for(auto bg = begin();bg != ed;++bg)*bg *= value;
+        return *this;}
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
     __INLINE__ auto operator/=(T value)
-    {auto ed = end();for(auto bg = begin();bg != ed;++bg)*bg /= value;return *this;}
+    {auto ed = end();for(auto bg = begin();bg != ed;++bg)*bg /= value;
+        return *this;}
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
     __INLINE__ auto operator+=(const T& rhs)
     {auto ed = end();auto bg2 = rhs.begin();
-     for(auto bg = begin();bg != ed;++bg,++bg2)*bg += *bg2;return *this;}
+     for(auto bg = begin();bg != ed;++bg,++bg2)*bg += *bg2;
+     return *this;}
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
     __INLINE__ auto operator-=(const T& rhs)
     {auto ed = end();auto bg2 = rhs.begin();
-     for(auto bg = begin();bg != ed;++bg,++bg2)*bg -= *bg2;return *this;}
+     for(auto bg = begin();bg != ed;++bg,++bg2)*bg -= *bg2;
+     return *this;}
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
     __INLINE__ auto operator*=(const T& rhs)
     {auto ed = end();auto bg2 = rhs.begin();
-     for(auto bg = begin();bg != ed;++bg,++bg2)*bg *= *bg2;return *this;}
+     for(auto bg = begin();bg != ed;++bg,++bg2)*bg *= *bg2;
+     return *this;}
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
     __INLINE__ auto operator/=(const T& rhs)
     {auto ed = end();auto bg2 = rhs.begin();
-     for(auto bg = begin();bg != ed;++bg,++bg2)*bg /= *bg2;return *this;}
+     for(auto bg = begin();bg != ed;++bg,++bg2)*bg /= *bg2;
+     return *this;}
 public:
     template<typename format_type>
     bool save_to_file(const char* file_name) const
