@@ -8,21 +8,27 @@ namespace tipl
 namespace io
 {
 
+struct default_prog_type{
+    default_prog_type(const char*){}
+    template<typename T>
+    bool operator()(T a,T b){return a < b;}
+};
 
 template<typename prog_type,typename stream_type,typename ptr_type>
-bool read_stream_with_prog(stream_type& in,
+bool read_stream_with_prog(prog_type& prog,
+                           stream_type& in,
                            ptr_type* ptr,
                            size_t size_in_byte,
                            std::string& error_msg,
                            size_t buf_size = 1000000)
 {
-    if(size_in_byte < buf_size || std::is_same<prog_type,std::less<size_t> >::value)
+    if(size_in_byte < buf_size || std::is_same<prog_type,default_prog_type>::value)
         return !!in.read(reinterpret_cast<char*>(ptr),size_in_byte);
-    if constexpr(!std::is_same<prog_type,std::less<size_t> >::value)
+    if constexpr(!std::is_same<prog_type,default_prog_type>::value)
     {
         auto buf = reinterpret_cast<char*>(ptr);
         size_t pos = 0;
-        while(prog_type::at(pos*100/size_in_byte,100))
+        while(prog(pos*100/size_in_byte,100))
         {
             if(buf_size < 64000000)
                 buf_size *= 2;
@@ -44,20 +50,21 @@ bool read_stream_with_prog(stream_type& in,
 }
 
 template<typename prog_type,typename stream_type,typename ptr_type>
-bool save_stream_with_prog(stream_type& out,
+bool save_stream_with_prog(prog_type& prog,
+                           stream_type& out,
                            const ptr_type* ptr,
                            size_t size_in_byte,
                            std::string& error_msg,
                            size_t buf_size = 1000000)
 {
-    if(size_in_byte < buf_size || std::is_same<prog_type,std::less<size_t> >::value)
+    if(size_in_byte < buf_size || std::is_same<prog_type,default_prog_type>::value)
         return !!out.write(reinterpret_cast<const char*>(ptr),size_in_byte);
 
-    if constexpr(!std::is_same<prog_type,std::less<size_t> >::value)
+    if constexpr(!std::is_same<prog_type,default_prog_type>::value)
     {
         auto buf = reinterpret_cast<const char*>(ptr);
         size_t pos = 0;
-        while(prog_type::at(pos*100/size_in_byte,100))
+        while(prog(pos*100/size_in_byte,100))
         {
             if(buf_size < 64000000)
                 buf_size *= 2;
