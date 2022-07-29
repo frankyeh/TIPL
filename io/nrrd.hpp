@@ -18,7 +18,7 @@ namespace tipl
 namespace io
 {
 
-template<typename prog_type = std::less<size_t> >
+template<typename prog_type = default_prog_type>
 class nrrd
 {
 public:
@@ -57,15 +57,13 @@ private:
     template<typename T>
     bool read_buffer(T& I)
     {       
+        prog_type prog("read image data");
         if(file_seris)
         {
             for(size_t index = from,z = 0;index <= to;index += step)
             {
-                if constexpr(!std::is_same<prog_type,std::less<size_t> >::value)
-                {
-                    if(!prog_type::at(z,I.depth()))
-                        break;
-                }
+                if(!prog(z,I.depth()))
+                    break;
                 std::string file_name;
                 file_name.resize(data_file.length()+2);
                 sprintf(&file_name[0],data_file.c_str(),index);
@@ -92,7 +90,7 @@ private:
                 return false;
             }
             std::ifstream in(data_file.c_str(),std::ios::binary);
-            if(!read_stream_with_prog<prog_type>(in,&I[0],I.size()*sizeof(typename T::value_type),error_msg))
+            if(!read_stream_with_prog(prog,in,&I[0],I.size()*sizeof(typename T::value_type),error_msg))
                 return false;
         }
 
