@@ -319,7 +319,7 @@ struct nifti_2_header {  /* NIFTI-2 usage           */ /* NIFTI-1 usage      */ 
 */
 template<typename input_interface = std_istream,
          typename output_interface = std_ostream,
-         typename prog_type = std::less<size_t> >
+         typename prog_type = default_prog_type >
 class nifti_base
 {
 
@@ -817,6 +817,7 @@ public:
     template<typename char_type>
     bool save_to_file(const char_type* pfile_name)
     {
+        prog_type prog("saving");
         if(!write_buf)
         {
             error_msg = "no image data for saving";
@@ -840,7 +841,7 @@ public:
         int padding = 0;
         out.write((const char*)&padding,4);
 
-        if(!save_stream_with_prog<prog_type>(out,write_buf,write_size,error_msg))
+        if(!save_stream_with_prog(prog,out,write_buf,write_size,error_msg))
             return false;
         write_buf = nullptr;
         return out;
@@ -870,11 +871,12 @@ public:
     {
         if(!input_stream.get() || !(*input_stream))
             return false;
+        prog_type prog("reading image data");
         const size_t byte_per_pixel = nif_header.bitpix/8;
         typedef typename std::iterator_traits<pointer_type>::value_type value_type;
         if(compatible(nifti_type_info<value_type>::data_type,nif_header.datatype))
         {
-            if(!read_stream_with_prog<prog_type>(*input_stream.get(),&*ptr,pixel_count*byte_per_pixel,error_msg))
+            if(!read_stream_with_prog(prog,*input_stream.get(),&*ptr,pixel_count*byte_per_pixel,error_msg))
                 return false;
             if (big_endian)
                 change_endian(&*ptr,pixel_count);
@@ -886,7 +888,7 @@ public:
             if(buf.empty())
                 return false;
             void* buf_ptr = &*buf.begin();
-            if(!read_stream_with_prog<prog_type>(*input_stream.get(),buf_ptr,buf.size(),error_msg))
+            if(!read_stream_with_prog(prog,*input_stream.get(),buf_ptr,buf.size(),error_msg))
                 return false;
             if (big_endian)
             {
