@@ -323,7 +323,7 @@ public:
     }
 };
 
-template<typename input_interface = std_istream,typename prog_type = std::less<size_t> >
+template<typename input_interface = std_istream,typename prog_type = default_prog_type >
 class mat_read_base
 {
 private:
@@ -444,18 +444,14 @@ public:
     template<typename char_type>
     bool load_from_file(const char_type* file_name)
     {
-        if constexpr(!std::is_same<prog_type,std::less<size_t> >::value)
-            prog_type::show((std::string("open file ")+file_name).c_str());
+        prog_type prog("reading matrices");
         if(!in->open(file_name))
             return false;
         dataset.clear();
         while(*in)
         {
-            if constexpr(!std::is_same<prog_type,std::less<size_t> >::value)
-            {
-                if(!prog_type::at(in->cur_size()*99/in->size(),100))
-                    return false;
-            }
+            if(!prog(int(in->cur_size()*99/in->size()),100))
+                return false;
             std::shared_ptr<mat_matrix> matrix(new mat_matrix);
             if (!matrix->read(*in.get(),delay_read))
                 break;
