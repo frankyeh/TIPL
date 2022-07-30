@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iterator>
 #include <sstream>
+#include <filesystem>
 #include <map>
 #include "interface.hpp"
 namespace tipl
@@ -444,7 +445,7 @@ public:
     template<typename char_type>
     bool load_from_file(const char_type* file_name)
     {
-        prog_type prog("reading matrices");
+        prog_type prog((std::string("opening ")+std::filesystem::path(file_name).filename().string()).c_str());
         if(!in->open(file_name))
             return false;
         dataset.clear();
