@@ -361,6 +361,18 @@ public:
     {
         return name_table.find(name) != name_table.end();
     }
+    bool get_col_row(const char* name,unsigned int& rows,unsigned int& cols)
+    {
+        auto iter = name_table.find(name);
+        if(iter == name_table.end())
+            return false;
+        else
+        {
+            rows = dataset[iter->second]->get_rows();
+            cols = dataset[iter->second]->get_cols();
+            return true;
+        }
+    }
     const void* read_as_type(unsigned int index,unsigned int& rows,unsigned int& cols,unsigned int type) const
     {
         if (index >= dataset.size())
