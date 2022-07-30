@@ -454,7 +454,7 @@ public:
                 return false;
             std::shared_ptr<mat_matrix> matrix(new mat_matrix);
             if (!matrix->read(*in.get(),delay_read))
-                break;
+                return false;
             dataset.push_back(matrix);
         }
         for (unsigned int index = 0; index < dataset.size(); ++index)
