@@ -32,6 +32,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sstream>
 #include <string>
 #include <memory>
+#include <filesystem>
 #include <stdint.h>
 #include "interface.hpp"
 #include "../numerical/basic_op.hpp"
@@ -477,6 +478,7 @@ public:
     template<typename char_type>
     bool load_from_file(const char_type* pfile_name)
     {
+        prog_type prog((std::string("opening ")+std::filesystem::path(pfile_name).filename().string()).c_str());
         if (!input_stream->open(pfile_name))
         {
             error_msg = "Cannot read the file. No reading privilege or the file does not exist.";
