@@ -164,6 +164,7 @@ public:
     template<typename char_type>
     bool load_from_file(const char_type* file_name)
     {
+        prog_type prog((std::string("opening ")+std::filesystem::path(file_name).filename().string()).c_str());
         std::ifstream in(file_name);
         if(!in)
         {
