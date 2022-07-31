@@ -83,7 +83,7 @@ void compose_mapping(const ImageType& src,const MappingType& mapping,OutImageTyp
 {
     dest.clear();
     dest.resize(mapping.shape());
-    tipl::par_for(dest.size(),[&](unsigned int index)
+    tipl::par_for(dest.size(),[&](size_t index)
     {
         estimate<Type>(src,mapping[index],dest[index]);
     });
