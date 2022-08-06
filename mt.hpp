@@ -83,26 +83,25 @@ void par_for(T from,T to,Func&& f,unsigned int thread_count = std::thread::hardw
             thread_count = size;
         size_t block_size = size/thread_count;
         size_t remainder = size % thread_count;
-        std::vector<std::future<void> > futures;
+        std::vector<std::thread> threads;
         for(unsigned int id = 1; id < thread_count; id++)
         {
             auto block_end = from + block_size + (id <= remainder ? 1 : 0);
             if constexpr(function_traits<Func>::arg_num == 2)
             {
-                futures.push_back(std::move(std::async(std::launch::async, [=,&f]
+                threads.push_back(std::thread([=,&f]
                 {
-
                     for(auto pos = from;pos != block_end;++pos)
                         f(pos,id);
-                })));
+                }));
             }
             else
             {
-                futures.push_back(std::move(std::async(std::launch::async, [=,&f]
+                threads.push_back(std::thread([=,&f]
                 {
                     for(auto pos = from;pos != block_end;++pos)
                         f(pos);
-                })));
+                }));
             }
             from = block_end;
         }
@@ -113,8 +112,8 @@ void par_for(T from,T to,Func&& f,unsigned int thread_count = std::thread::hardw
             else
                 f(from);
         }
-        for(auto &future : futures)
-            future.wait();
+        for(auto &thread : threads)
+            thread.join();
     }
 }
 
