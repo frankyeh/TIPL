@@ -5,11 +5,11 @@
 #include <type_traits>
 #include <stdexcept>
 
-#if defined(TIPL_USE_CUDA) && defined(CUDA_ARCH)
+#if defined(TIPL_USE_CUDA)
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <thrust/device_vector.h>
-#endif//TIPL_USE_CUDA && CUDA_ARCH
+#endif//TIPL_USE_CUDA
 
 #ifdef __CUDACC__
 template<typename T>
