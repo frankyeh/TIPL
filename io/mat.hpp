@@ -468,10 +468,9 @@ public:
             std::shared_ptr<mat_matrix> matrix(new mat_matrix);
             if (!matrix->read(*in.get(),delay_read))
                 return false;
+            name_table[matrix->get_name()] = dataset.size();
             dataset.push_back(matrix);
-        }
-        for (unsigned int index = 0; index < dataset.size(); ++index)
-            name_table[dataset[index]->get_name()] = index;
+        }    
         return !dataset.empty();
     }
     void add(const char* name_,const mat_matrix& matrix)
