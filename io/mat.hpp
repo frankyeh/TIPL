@@ -196,6 +196,11 @@ public:
         type = get_type;
         return data_ptr;
     }
+    template<typename T>
+    T* get_data(void)
+    {
+        return const_cast<T*>(reinterpret_cast<const T*>(get_data(mat_type_info<T>::type)));
+    }
     unsigned int get_rows(void) const
     {
         return rows;
@@ -283,8 +288,9 @@ public:
     {
         std::ostringstream out;
         unsigned int out_count = rows*cols;
-        if(out_count > 20)
-            out_count = 20;
+        out << name <<" type:" << type << " data[" << rows << "][" << cols << "]=";
+        if(out_count > 10)
+            out_count = 10;
         switch (type)
         {
         case 0://double
