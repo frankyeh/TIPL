@@ -66,7 +66,7 @@ void par_for(T from,T to,Func&& f,unsigned int thread_count = std::thread::hardw
 {
     if(to == from)
         return;
-    if(!is_main_thread<0>() || tipl::use_xeus_cling || !enabled_mt)
+    if(tipl::use_xeus_cling || !enabled_mt)
     {
         for(;from != to;++from)
             if constexpr(function_traits<Func>::arg_num == 2)
