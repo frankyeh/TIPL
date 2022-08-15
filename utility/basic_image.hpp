@@ -273,6 +273,7 @@ public:
     template<typename T>
     __INLINE__ image(std::initializer_list<T> rhs):sp(rhs)      {alloc.resize(sp.size());}
     __INLINE__ image(const shape_type& sp_):alloc(sp_.size()),sp(sp_){}
+    __INLINE__ image(const shape_type& sp_,value_type v):alloc(sp_.size(),v),sp(sp_){}
 public:
     template<typename T>
     __INLINE__ image(T* pointer,const shape_type& sp_):alloc(pointer,pointer+sp_.size()),sp(sp_)         {}
