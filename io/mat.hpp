@@ -312,6 +312,8 @@ public:
             info = name;
             info += "=";
             info += reinterpret_cast<const char*>(data_ptr);
+            info.erase(std::remove(info.begin(),info.end(),'\r'),info.end());
+            std::replace(info.begin(),info.end(),'\n','\t');
             return;
         }
         std::ostringstream out;
