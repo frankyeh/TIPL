@@ -209,6 +209,12 @@ public:
     {
         return cols;
     }
+    template<typename T>
+    void resize(const T& size)
+    {
+        rows = size[0];
+        cols = size[1];
+    }
     const std::string& get_name(void) const
     {
         return name;
