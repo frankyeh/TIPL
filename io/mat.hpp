@@ -215,6 +215,10 @@ public:
         rows = size[0];
         cols = size[1];
     }
+    void set_name(const std::string& new_name)
+    {
+        name = new_name;
+    }
     const std::string& get_name(void) const
     {
         return name;
@@ -294,7 +298,7 @@ public:
     {
         std::ostringstream out;
         unsigned int out_count = rows*cols;
-        out << name <<" type:" << type << " data[" << rows << "][" << cols << "]=";
+        out << name <<"= type:" << type << " data[" << rows << "][" << cols << "]:";
         if(out_count > 10)
             out_count = 10;
         switch (type)
@@ -341,7 +345,7 @@ class mat_read_base
 {
 private:
     std::vector<std::shared_ptr<mat_matrix> > dataset;
-    std::map<std::string,int> name_table;
+    std::map<std::string,size_t> name_table;
 private:
     void copy(const mat_read_base& rhs)
     {
@@ -351,12 +355,18 @@ private:
             *(matrix.get()) = *(rhs.dataset[index]);
             dataset.push_back(matrix);
         }
-        name_table = rhs.name_table;
     }
 
 public:
     mat_read_base(void):in(new input_interface){}
     mat_read_base(const mat_read_base& rhs){copy(rhs);}
+    void remove(size_t index)
+    {
+        dataset.erase(dataset.begin()+index);
+        name_table.clear();
+        for(size_t index = 0;index < dataset.size();++index)
+            name_table[dataset[index]->get_name()] = index;
+    }
     const mat_read_base& operator=(const mat_read_base& rhs)
     {
         copy(rhs);
@@ -403,7 +413,7 @@ public:
     }
     const void* read_as_type(const char* name,unsigned int& rows,unsigned int& cols,unsigned int type) const
     {
-        std::map<std::string,int>::const_iterator iter = name_table.find(name);
+        auto iter = name_table.find(name);
         if (iter == name_table.end())
             return nullptr;
         return read_as_type(iter->second,rows,cols,type);
