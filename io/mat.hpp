@@ -307,15 +307,6 @@ public:
     }
     void get_info(std::string& info) const
     {
-        if(type == 50)
-        {
-            info = name;
-            info += "=";
-            info += reinterpret_cast<const char*>(data_ptr);
-            info.erase(std::remove(info.begin(),info.end(),'\r'),info.end());
-            std::replace(info.begin(),info.end(),'\n','\t');
-            return;
-        }
         std::ostringstream out;
         unsigned int out_count = rows*cols;
         out << name <<"= type:" << type << " data[" << rows << "][" << cols << "]:";
