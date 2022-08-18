@@ -218,6 +218,17 @@ public:
     void set_name(const std::string& new_name)
     {
         name = new_name;
+        namelen = uint32_t(name.length());
+    }
+    void set_text(const std::string& text)
+    {
+        type = 50;
+        rows = 1;
+        cols = text.length()+1;
+        data_buf.clear();
+        data_buf.resize(cols);
+        std::copy(text.c_str(),text.c_str()+cols-1,data_buf.begin());
+        data_ptr = &*data_buf.begin();
     }
     const std::string& get_name(void) const
     {
@@ -296,6 +307,13 @@ public:
     }
     void get_info(std::string& info) const
     {
+        if(type == 50)
+        {
+            info = name;
+            info += "=";
+            info += reinterpret_cast<const char*>(data_ptr);
+            return;
+        }
         std::ostringstream out;
         unsigned int out_count = rows*cols;
         out << name <<"= type:" << type << " data[" << rows << "][" << cols << "]:";
