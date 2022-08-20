@@ -4,7 +4,8 @@
 #include <cmath>
 #include <map>
 #include <set>
-
+#include "../utility/pixel_index.hpp"
+#include "../mt.hpp"
 namespace tipl
 {
 
@@ -353,7 +354,9 @@ public:
     std::vector<tipl::vector<3> > point_list;
     std::vector<tipl::vector<3> > normal_list;
     std::vector<tipl::vector<3,unsigned int> > tri_list;
-
+    std::vector<unsigned int> sorted_index;
+    size_t mesh_count = 0;
+    size_t indices_count = 0;
 private:
     tipl::vector<3> vertlist[12];
     unsigned int w,wh;
@@ -379,16 +382,16 @@ private:
        Linearly interpolate the position where an isosurface cuts
        an edge between two vertices, each with their own scalar value
     */
-    static bool equal(float v1,float v2)
+    inline bool equal(float v1,float v2)
     {
         return std::fabs(v1-v2) < 1.0e-5f;
     }
-    static bool equal(double v1,double v2)
+    inline bool equal(double v1,double v2)
     {
         return std::abs(v1-v2) < 1.0e-5;
     }
     template<typename T>
-    static bool equal(T v1,T v2)
+    inline bool equal(T v1,T v2)
     {
         return v1 == v2;
     }
@@ -421,7 +424,7 @@ private:
         normal_list.clear();
         normal_list.resize(point_list.size());
         tipl::vector<3> n;
-        for (unsigned int index = 0; index < tri_list.size(); ++index)
+        tipl::par_for (tri_list.size(),[&](unsigned int index)
         {
             unsigned int p1 = tri_list[index][0];
             unsigned int p2 = tri_list[index][1];
@@ -431,47 +434,35 @@ private:
             normal_list[p1] += n;
             normal_list[p2] += n;
             normal_list[p3] += n;
-        }
-        for (unsigned int index = 0; index < normal_list.size(); ++index)
-            normal_list[index].normalize();
-    }
-
-public:
-    march_cube(const march_cube& rhs):
-            points_map(rhs.points_map),
-            point_list(rhs.point_list),
-            normal_list(rhs.normal_list),
-            tri_list(rhs.tri_list)
-    {
-    }
-    template<typename ImageType,typename ValueType>
-    march_cube(ImageType& source_image,ValueType isolevel):
-        w(source_image.shape()[0]),
-        wh(uint32_t(source_image.shape().plane_size()))
-    {
-        offset[0] = 1;
-        offset[1] = 1+w;
-        offset[2] = w;
-        offset[3] = wh;
-        offset[4] = 1+wh;
-        offset[5] = 1+w+wh;
-        offset[6] = w+wh;
-
-        // get all the edge cubes
-        size_t image_size = source_image.size()-offset[5]; // make sure the image index will not out of bound
-        for (size_t index = 0;index < image_size;++index)
+        },std::min<int>(8,std::thread::hardware_concurrency()));
+        tipl::par_for (normal_list.size(),[&](unsigned int index)
         {
-            bool greater = source_image[index] <= isolevel;
-            for (auto shift : offset)
-                if(greater ^ (source_image[index+shift] <= isolevel))
-                {
-                    addCube(source_image,tipl::pixel_index<3>(index,source_image.shape()),isolevel);
-                    break;
-                }
-        }
-        get_normal();
+            normal_list[index].normalize();
+        },std::min<int>(4,std::thread::hardware_concurrency()));
     }
+    void get_sorted_indices(void)
+    {
+        sorted_index.resize(6*(indices_count));// 6 directions
+        tipl::par_for(3,[&](size_t view_index)
+        {
+            std::vector<std::pair<float,unsigned int> > index_weighting(mesh_count);
+            for (size_t index = 0;index < mesh_count;++index)
+                index_weighting[index] =
+                std::make_pair(point_list[tri_list[index][0]][view_index],index);
 
+            std::sort(index_weighting.begin(),index_weighting.end());
+
+            auto indices = sorted_index.begin() + view_index*indices_count;
+            auto rindices = sorted_index.begin() + (view_index+4)*indices_count-3;
+            for (size_t index = 0;index < mesh_count;++index,indices += 3,rindices -= 3)
+            {
+                auto new_index = index_weighting[index].second;
+                rindices[0] = indices[0] = tri_list[new_index][0];
+                rindices[1] = indices[1] = tri_list[new_index][1];
+                rindices[2] = indices[2] = tri_list[new_index][2];
+            }
+        });
+    }
     template<typename ImageType,typename ValueType>
     void addCube(const ImageType& source_image,const pixel_index<3>& point,ValueType isolevel)
     {
@@ -534,18 +525,38 @@ public:
 
         }
     }
-
-    tipl::vector<3> get_center(void) const
+public:
+    template<typename ImageType,typename ValueType>
+    march_cube(ImageType& source_image,ValueType isolevel):
+        w(source_image.shape()[0]),
+        wh(uint32_t(source_image.shape().plane_size()))
     {
-        tipl::vector<3> center_point;
-        for (unsigned int index = 0;index < tri_list.size();++index)
+        offset[0] = 1;
+        offset[1] = 1+w;
+        offset[2] = w;
+        offset[3] = wh;
+        offset[4] = 1+wh;
+        offset[5] = 1+w+wh;
+        offset[6] = w+wh;
+
+        // get all the edge cubes
+        size_t image_size = source_image.size()-offset[5]; // make sure the image index will not out of bound
+        for (size_t index = 0;index < image_size;++index)
         {
-            center_point += point_list[tri_list[index][0]];
-            center_point += point_list[tri_list[index][1]];
-            center_point += point_list[tri_list[index][2]];
+            bool greater = source_image[index] <= isolevel;
+            for (auto shift : offset)
+                if(greater ^ (source_image[index+shift] <= isolevel))
+                {
+                    addCube(source_image,tipl::pixel_index<3>(index,source_image.shape()),isolevel);
+                    break;
+                }
         }
-        center_point /= tri_list.size()*3;
-        return center_point;
+        mesh_count = tri_list.size();
+        indices_count = mesh_count*3;
+        if(!mesh_count)
+            return;
+        get_normal();
+        get_sorted_indices();
     }
 };
 
