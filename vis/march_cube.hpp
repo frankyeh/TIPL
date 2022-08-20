@@ -423,13 +423,12 @@ private:
     {
         normal_list.clear();
         normal_list.resize(point_list.size());
-        tipl::vector<3> n;
         tipl::par_for (tri_list.size(),[&](unsigned int index)
         {
             unsigned int p1 = tri_list[index][0];
             unsigned int p2 = tri_list[index][1];
             unsigned int p3 = tri_list[index][2];
-            n = (point_list[p1] - point_list[p2]).cross_product(point_list[p2] - point_list[p3]);
+            auto n = (point_list[p1] - point_list[p2]).cross_product(point_list[p2] - point_list[p3]);
             n.normalize();
             normal_list[p1] += n;
             normal_list[p2] += n;
