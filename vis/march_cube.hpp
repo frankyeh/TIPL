@@ -450,16 +450,15 @@ private:
                 std::make_pair(point_list[tri_list[index][0]][view_index],index);
 
             std::sort(index_weighting.begin(),index_weighting.end());
-
             auto indices = sorted_index[view_index].begin();
-            auto rindices = sorted_index[view_index+3].begin();
-            for (size_t index = 0;index < tri_list.size();++index,indices+=3,rindices+=3)
+            for (size_t index = 0;index < tri_list.size();++index,indices+=3)
             {
                 auto new_index = index_weighting[index].second;
-                rindices[0] = indices[0] = tri_list[new_index][0];
-                rindices[1] = indices[1] = tri_list[new_index][1];
-                rindices[2] = indices[2] = tri_list[new_index][2];
+                indices[0] = tri_list[new_index][0];
+                indices[1] = tri_list[new_index][1];
+                indices[2] = tri_list[new_index][2];
             }
+            std::copy(sorted_index[view_index].begin(),sorted_index[view_index].end(),sorted_index[view_index+3].rbegin());
         });
     }
     template<typename ImageType,typename ValueType>
