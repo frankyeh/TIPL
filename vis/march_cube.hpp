@@ -354,9 +354,7 @@ public:
     std::vector<tipl::vector<3> > point_list;
     std::vector<tipl::vector<3> > normal_list;
     std::vector<tipl::vector<3,unsigned int> > tri_list;
-    std::vector<unsigned int> sorted_index;
-    size_t mesh_count = 0;
-    size_t indices_count = 0;
+    std::vector<std::vector<unsigned int> > sorted_index;
 private:
     tipl::vector<3> vertlist[12];
     unsigned int w,wh;
@@ -441,19 +439,21 @@ private:
     }
     void get_sorted_indices(void)
     {
-        sorted_index.resize(6*(indices_count));// 6 directions
+        sorted_index.resize(6);// 6 directions
         tipl::par_for(3,[&](size_t view_index)
         {
-            std::vector<std::pair<float,unsigned int> > index_weighting(mesh_count);
-            for (size_t index = 0;index < mesh_count;++index)
+            sorted_index[view_index].resize(tri_list.size()*3);
+            sorted_index[view_index+3].resize(tri_list.size()*3);
+            std::vector<std::pair<float,unsigned int> > index_weighting(tri_list.size());
+            for (size_t index = 0;index < tri_list.size();++index)
                 index_weighting[index] =
                 std::make_pair(point_list[tri_list[index][0]][view_index],index);
 
             std::sort(index_weighting.begin(),index_weighting.end());
 
-            auto indices = sorted_index.begin() + view_index*indices_count;
-            auto rindices = sorted_index.begin() + (view_index+4)*indices_count-3;
-            for (size_t index = 0;index < mesh_count;++index,indices += 3,rindices -= 3)
+            auto indices = sorted_index[view_index].begin();
+            auto rindices = sorted_index[view_index+3].begin();
+            for (size_t index = 0;index < tri_list.size();++index,indices+=3,rindices+=3)
             {
                 auto new_index = index_weighting[index].second;
                 rindices[0] = indices[0] = tri_list[new_index][0];
@@ -550,10 +550,6 @@ public:
                     break;
                 }
         }
-        mesh_count = tri_list.size();
-        indices_count = mesh_count*3;
-        if(!mesh_count)
-            return;
         get_normal();
         get_sorted_indices();
     }
