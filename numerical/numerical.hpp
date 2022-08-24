@@ -1000,7 +1000,7 @@ void apply_sort_index(container_type& c,const std::vector<index_type>& idx)
 }
 
 template<typename I_type>
-tipl::vector<I_type::dimension,float> center_of_mass(const I_type& Im)
+tipl::vector<I_type::dimension,float> center_of_mass_weighted(const I_type& Im)
 {
     std::vector<tipl::vector<I_type::dimension,float> > sum_mass(std::thread::hardware_concurrency());
     std::vector<double> total_w(std::thread::hardware_concurrency());
