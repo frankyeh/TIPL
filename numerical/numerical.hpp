@@ -1024,7 +1024,7 @@ tipl::vector<I_type::dimension,float> center_of_mass_weighted(const I_type& Im)
 }
 
 template<typename I_type>
-tipl::vector<I_type::dimension> center_of_mass_binary(const I_type& Im)
+auto center_of_mass_binary(const I_type& Im)
 {
     std::vector<tipl::vector<I_type::dimension> > sum_mass(std::thread::hardware_concurrency());
     std::vector<size_t> total_w(std::thread::hardware_concurrency());
@@ -1032,8 +1032,10 @@ tipl::vector<I_type::dimension> center_of_mass_binary(const I_type& Im)
                         [&](const tipl::pixel_index<I_type::dimension>& index,size_t id)
     {
         if(Im[index.index()])
+        {
             ++total_w[id];
-        sum_mass[id] += tipl::vector<I_type::dimension,float>(index);
+            sum_mass[id] += tipl::vector<I_type::dimension>(index);
+        }
     });
     for(size_t i = 1;i < sum_mass.size();++i)
     {
