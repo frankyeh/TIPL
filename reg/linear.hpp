@@ -127,12 +127,12 @@ public:
 };
 
 
-enum reg_type {none = 0,translocation = 1,rotation = 2,rigid_body = 3,scaling = 4,rigid_scaling = 7,tilt = 8,affine = 15};
+enum reg_type {none = 0,translocation = 1,rotation = 2,rigid_body = 3,scaling = 4,translocation_scaling = 5,rigid_scaling = 7,tilt = 8,affine = 15};
 enum cost_type{corr,mutual_info};
 
-const float narrow_bound[8] = {0.2f,-0.2f,0.1f, -0.1f, 1.5f,0.9f,0.1f,-0.1f};
-const float reg_bound[8] =    {1.0f,-1.0f,0.25f,-0.25f,2.0f,0.5f,0.2f,-0.2f};
-const float large_bound[8] =  {1.0f,-1.0f,1.2f, -1.2f, 4.0f,0.2f,0.5f,-0.5f};
+const float narrow_bound[8] = {0.2f,-0.2f,0.1f, -0.1f, 1.2f,0.8f,0.05f,-0.05f};
+const float reg_bound[8] =    {0.75f,-0.75f,0.3f,-0.3f,1.5f,0.7f,0.15f,-0.15f};
+const float large_bound[8] =  {1.0f,-1.0f,1.2f, -1.2f, 2.0f,0.5f,0.5f,-0.5f};
 template<typename image_type1,typename image_type2,typename vstype1,typename vstype2,typename transform_type>
 void get_bound(const image_type1& from,const image_type2& to,
                vstype1 from_vs,vstype2 to_vs,
@@ -148,8 +148,7 @@ void get_bound(const image_type1& from,const image_type2& to,
     {
         for (unsigned int index = 0; index < dimension; ++index)
         {
-            float range = std::max<float>(std::max<float>(from.shape()[index]*from_vs[index],to.shape()[index]*to_vs[index])*0.5f,
-                                          std::fabs((float)from.shape()[index]*from_vs[index]-(float)to.shape()[index]*to_vs[index]));
+            float range = from.shape()[index]*from_vs[index]*0.5f;
             upper_trans[index] = range*bound[0];
             lower_trans[index] = range*bound[1];
         }
@@ -159,8 +158,8 @@ void get_bound(const image_type1& from,const image_type2& to,
     {
         for (unsigned int index = dimension; index < dimension + dimension; ++index)
         {
-            upper_trans[index] = 3.14159265358979323846f*bound[2];
-            lower_trans[index] = 3.14159265358979323846f*bound[3];
+            upper_trans[index] = 3.14159265358979323846f*bound[2]*(index == 0 ? 2.0f:1.0f);
+            lower_trans[index] = 3.14159265358979323846f*bound[3]*(index == 0 ? 2.0f:1.0f);
         }
     }
 
@@ -217,6 +216,8 @@ make_functor(const image_type1& from,const vs_type1& from_vs,const image_type2& 
     return fun_adoptor<image_type1,vs_type1,image_type2,vs_type2,cost_type>(from,from_vs,to,to_vs);
 }
 
+
+// enum reg_type {none = 0,translocation = 1,rotation = 2,rigid_body = 3,scaling = 4,translocation_scaling = 5,rigid_scaling = 7,tilt = 8,affine = 15};
 template<typename CostFunctionType,typename image_type1,typename vs_type1,
          typename image_type2,typename vs_type2,
          typename transform_type,typename function>
@@ -230,7 +231,21 @@ float linear(const image_type1& from,const vs_type1& from_vs,
              const float* bound = reg_bound,
              size_t iterations = 3)
 {
-    reg_type reg_list[4] = {translocation,rigid_body,rigid_scaling,affine};
+    std::vector<reg_type> reg_list;
+    if(rtype == translocation)
+        reg_list = {translocation};
+    if(rtype == rotation)
+        reg_list = {rotation};
+    if(rtype == rigid_body)
+        reg_list = {translocation,rigid_body};
+    if(rtype == scaling)
+        reg_list = {scaling};
+    if(rtype == rigid_scaling)
+        reg_list = {translocation,translocation_scaling,rigid_scaling};
+    if(rtype == affine)
+        reg_list = {translocation,translocation_scaling,rigid_scaling,affine};
+
+
     auto fun = make_functor<CostFunctionType>(from,from_vs,to,to_vs);
     double optimal_value;
     if(rtype == affine)
@@ -238,9 +253,11 @@ float linear(const image_type1& from,const vs_type1& from_vs,
     optimal_value = fun(arg_min);
     transform_type upper,lower;
     if(line_search)
-    for(int type = 0;type < 4 && reg_list[type] <= rtype && !is_terminated();++type)
+    for(auto type : reg_list)
     {
-        tipl::reg::get_bound(from,to,from_vs,to_vs,arg_min,upper,lower,reg_list[type],bound);
+        if(is_terminated())
+            break;
+        tipl::reg::get_bound(from,to,from_vs,to_vs,arg_min,upper,lower,type,bound);
         tipl::optimization::line_search_mt(arg_min.begin(),arg_min.end(),
                                              upper.begin(),lower.begin(),fun,optimal_value,is_terminated);
         tipl::optimization::quasi_newtons_minimize_mt(arg_min.begin(),arg_min.end(),
