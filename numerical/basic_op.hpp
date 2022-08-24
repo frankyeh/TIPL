@@ -453,7 +453,7 @@ ImageType& move(ImageType& I,PosType pos)
 }
 
 //---------------------------------------------------------------------------
-template<typename ImageType,typename DimensionType,typename ValueType>
+template<typename ImageType,typename DimensionType,typename ValueType = typename ImageType::value_type>
 void bounding_box(const ImageType& I,
           DimensionType& range_min,
           DimensionType& range_max,
