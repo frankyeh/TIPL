@@ -133,6 +133,14 @@ public:
     {
         ;
     }
+    bool eof(void) const
+    {
+        return in.eof();
+    }
+    bool good(void) const
+    {
+        return in.good();
+    }
     operator bool() const	{return in.good();}
     bool operator!() const	{return !in.good();}
 };
