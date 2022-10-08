@@ -258,7 +258,7 @@ public:
         if (!in || type > 100 || type % 10 > 1)
             return false;
         if (type % 10) // text
-	    type = 0;
+            type = 0;
         if(!in || namelen == 0 || namelen > 255)
             return false;
         {
@@ -369,6 +369,7 @@ private:
     }
 
 public:
+    std::string error_msg;
     mat_read_base(void):in(new input_interface){}
     mat_read_base(const mat_read_base& rhs){copy(rhs);}
     void remove(size_t index)
@@ -492,15 +493,19 @@ public:
     {
         prog_type prog((std::string("opening ")+std::filesystem::path(file_name).filename().string()).c_str());
         if(!in->open(file_name))
+        {
+            error_msg = "cannot open file at ";
+            error_msg += file_name;
             return false;
+        }
         dataset.clear();
-        while(*in)
+        while(in->good() && !in->eof())
         {
             if(!prog(int(in->cur_size()*99/in->size()),100))
                 return false;
             std::shared_ptr<mat_matrix> matrix(new mat_matrix);
             if (!matrix->read(*in.get(),delay_read))
-                return false;
+                break;
             name_table[matrix->get_name()] = dataset.size();
             dataset.push_back(matrix);
         }    
