@@ -403,7 +403,7 @@ public:
         auto iter = name_table.find(name);
         if(iter == name_table.end())
             return false;
-        return dataset[iter->second]->type_compatible<T>();
+        return dataset[iter->second]->template type_compatible<T>();
     }
     bool get_col_row(const char* name,unsigned int& rows,unsigned int& cols)
     {
@@ -427,12 +427,12 @@ public:
             if(!dataset[index]->read(*in.get()))
                 return nullptr;
             // if type is not compatible, make sure all data are flushed before calling get_data
-            if(!dataset[index]->type_compatible<T>())
+            if(!dataset[index]->template type_compatible<T>())
                 in->flush();
         }
         rows = dataset[index]->get_rows();
         cols = dataset[index]->get_cols();
-        return dataset[index]->get_data<T>();
+        return dataset[index]->template get_data<T>();
     }
     template<typename T>
     const T* read_as_type(const char* name,unsigned int& rows,unsigned int& cols) const
