@@ -14,7 +14,10 @@ namespace io
 {
 
 template<typename fun_type>
-struct mat_type_info;
+struct mat_type_info
+{
+    static const unsigned int type = 60;
+};
 
 template<>
 struct mat_type_info<double>
@@ -157,49 +160,48 @@ public:
             break;
         }
     }
-    bool type_compatible(unsigned int get_type) const
+    template<typename T>
+    bool type_compatible(void) const
     {
         // same type or unsigned short v.s. short
-        return get_type == type || (type == 40 && get_type == 30) || (type == 30 && get_type == 40);
-    }
-    const void* get_data(unsigned int get_type)
-    {
-        if(get_type != 0 && get_type != 10 && get_type != 20 && get_type != 30 && get_type != 40 && get_type != 50)
-            return nullptr;
-        if (type_compatible(get_type))
-            return data_ptr;
-        std::vector<unsigned char> allocator(get_total_size(get_type));
-        void* new_data = &*allocator.begin();
-        switch (get_type)
-        {
-        case 0://double
-            copy_data(reinterpret_cast<double*>(new_data));
-            break;
-        case 10://float
-            copy_data(reinterpret_cast<float*>(new_data));
-            break;
-        case 20://unsigned int
-            copy_data(reinterpret_cast<unsigned int*>(new_data));
-            break;
-        case 30://short
-            copy_data(reinterpret_cast<short*>(new_data));
-            break;
-        case 40://unsigned short
-            copy_data(reinterpret_cast<unsigned short*>(new_data));
-            break;
-        case 50://unsigned char
-            copy_data(reinterpret_cast<unsigned char*>(new_data));
-            break;
-        }
-        std::swap(data_ptr,new_data);
-        allocator.swap(data_buf);
-        type = get_type;
-        return data_ptr;
+        return mat_type_info<T>::type == type || (type == 40 && mat_type_info<T>::type == 30) || (type == 30 && mat_type_info<T>::type == 40);
     }
     template<typename T>
     T* get_data(void)
     {
-        return const_cast<T*>(reinterpret_cast<const T*>(get_data(mat_type_info<T>::type)));
+        constexpr auto get_type = mat_type_info<T>::type;
+        if(get_type == 60)
+            return nullptr;
+        if (!type_compatible<T>())
+        {
+            std::vector<unsigned char> allocator(get_total_size(get_type));
+            void* new_data = &*allocator.begin();
+            switch (get_type)
+            {
+            case 0://double
+                copy_data(reinterpret_cast<double*>(new_data));
+                break;
+            case 10://float
+                copy_data(reinterpret_cast<float*>(new_data));
+                break;
+            case 20://unsigned int
+                copy_data(reinterpret_cast<unsigned int*>(new_data));
+                break;
+            case 30://short
+                copy_data(reinterpret_cast<short*>(new_data));
+                break;
+            case 40://unsigned short
+                copy_data(reinterpret_cast<unsigned short*>(new_data));
+                break;
+            case 50://unsigned char
+                copy_data(reinterpret_cast<unsigned char*>(new_data));
+                break;
+            }
+            std::swap(data_ptr,new_data);
+            allocator.swap(data_buf);
+            type = get_type;
+        }
+        return const_cast<T*>(reinterpret_cast<const T*>(data_ptr));
     }
     unsigned int get_rows(void) const
     {
@@ -395,6 +397,14 @@ public:
     {
         return name_table.find(name) != name_table.end();
     }
+    template<typename T>
+    bool type_compatible(const char* name)
+    {
+        auto iter = name_table.find(name);
+        if(iter == name_table.end())
+            return false;
+        return dataset[iter->second]->type_compatible<T>();
+    }
     bool get_col_row(const char* name,unsigned int& rows,unsigned int& cols)
     {
         auto iter = name_table.find(name);
@@ -407,7 +417,8 @@ public:
             return true;
         }
     }
-    const void* read_as_type(unsigned int index,unsigned int& rows,unsigned int& cols,unsigned int type) const
+    template<typename T>
+    const T* read_as_type(unsigned int index,unsigned int& rows,unsigned int& cols) const
     {
         if (index >= dataset.size())
             return nullptr;
@@ -416,29 +427,30 @@ public:
             if(!dataset[index]->read(*in.get()))
                 return nullptr;
             // if type is not compatible, make sure all data are flushed before calling get_data
-            if(!dataset[index]->type_compatible(type))
+            if(!dataset[index]->type_compatible<T>())
                 in->flush();
         }
         rows = dataset[index]->get_rows();
         cols = dataset[index]->get_cols();
-        return dataset[index]->get_data(type);
+        return dataset[index]->get_data<T>();
     }
-    const void* read_as_type(const char* name,unsigned int& rows,unsigned int& cols,unsigned int type) const
+    template<typename T>
+    const T* read_as_type(const char* name,unsigned int& rows,unsigned int& cols) const
     {
         auto iter = name_table.find(name);
         if (iter == name_table.end())
             return nullptr;
-        return read_as_type(iter->second,rows,cols,type);
+        return read_as_type<T>(iter->second,rows,cols);
     }
-    template<typename out_type>
-    const out_type*& read(unsigned int index,unsigned int& rows,unsigned int& cols,const out_type*& out) const
+    template<typename T>
+    const T*& read(unsigned int index,unsigned int& rows,unsigned int& cols,const T*& out) const
     {
-        return out = reinterpret_cast<const out_type*>(read_as_type(index,rows,cols,mat_type_info<out_type>::type));
+        return out = read_as_type<T>(index,rows,cols);
     }
-    template<typename out_type>
-    const out_type*& read(const char* name,unsigned int& rows,unsigned int& cols,const out_type*& out) const
+    template<typename T>
+    const T*& read(const char* name,unsigned int& rows,unsigned int& cols,const T*& out) const
     {
-        return out = reinterpret_cast<const out_type*>(read_as_type(name,rows,cols,mat_type_info<out_type>::type));
+        return out = read_as_type<T>(name,rows,cols);
     }
     template<typename iterator>
     bool read(const char* name,iterator first,iterator last) const
