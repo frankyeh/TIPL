@@ -53,6 +53,7 @@ struct mutual_information_cuda
     device_image<3,unsigned char> from8;
     device_image<3,unsigned char> to8;
     std::mutex init_mutex;
+    int device = 0;
 public:
     template<typename ImageType,typename TransformType>
     double operator()(const ImageType& from_raw,const ImageType& to_raw,const TransformType& trans,int thread_id = 0)
@@ -62,6 +63,7 @@ public:
             std::scoped_lock<std::mutex> lock(init_mutex);
             if (from8_hist.empty() || to_raw.size() != to8.size() || from_raw.size() != from8.size())
             {
+                cudaGetDevice(&device);
                 to8.resize(to_raw.shape());
                 normalize_upper_lower_cuda(DeviceImageType(to_raw),to8,his_bandwidth-1);
 
@@ -75,6 +77,8 @@ public:
                 from8 = host_from8;
 
             }
+            else
+                cudaSetDevice(device);
         }
 
         device_vector<int32_t> mutual_hist(his_bandwidth*his_bandwidth);
