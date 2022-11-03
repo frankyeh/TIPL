@@ -1,5 +1,7 @@
 #ifndef TRANSFORMATION_HPP_INCLUDED
 #define TRANSFORMATION_HPP_INCLUDED
+#include <iostream>
+#include <string>
 #include "../numerical/matrix.hpp"
 #include "../def.hpp"
 namespace tipl{
@@ -678,13 +680,26 @@ public:
     {
         return !(*this == rhs);
     }
-    friend std::ostream & operator<<(std::ostream& out, const affine_transform<value_type> &T)
+    friend std::ostream& operator<<(std::ostream& out, const affine_transform<value_type> &T)
     {
-        out << "translocation:" << T.translocation[0] << " " << T.translocation[1] << " " << T.translocation[2] << std::endl;
-        out << "rotation:" << T.rotation[0] << " " << T.rotation[1] << " " << T.rotation[2] << std::endl;
-        out << "scaling:" << T.scaling[0] << " " << T.scaling[1] << " " << T.scaling[2] << std::endl;
-        out << "shear:" << T.affine[0] << " " << T.affine[1] << " " << T.affine[2] << std::endl;
+        out << "translocation: " << T.translocation[0] << " " << T.translocation[1] << " " << T.translocation[2] << std::endl;
+        out << "rotation: " << T.rotation[0] << " " << T.rotation[1] << " " << T.rotation[2] << std::endl;
+        out << "scaling: " << T.scaling[0] << " " << T.scaling[1] << " " << T.scaling[2] << std::endl;
+        out << "shear: " << T.affine[0] << " " << T.affine[1] << " " << T.affine[2] << std::endl;
         return out;
+    }
+    friend std::istream& operator>>(std::istream& in, affine_transform<value_type> &T)
+    {
+        std::string text;
+        if(in)
+            in >> text >> T.translocation[0] >> T.translocation[1] >> T.translocation[2];
+        if(in)
+            in >> text >> T.rotation[0] >> T.rotation[1] >> T.rotation[2];
+        if(in)
+            in >> text >> T.scaling[0] >> T.scaling[1] >>  T.scaling[2];
+        if(in)
+            in >> text >> T.affine[0] >> T.affine[1] >> T.affine[2];
+        return in;
     }
 
 };
