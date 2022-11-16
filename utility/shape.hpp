@@ -569,6 +569,10 @@ public:
     {
         return dim[0] == rhs.dim[0] && dim[1] == rhs.dim[1] && dim[2] == rhs.dim[2];
     }
+    __INLINE__ bool operator<(const shape& rhs) const
+    {
+        return dim[2] < rhs.dim[2] || dim[1] < rhs.dim[1] || dim[0] < rhs.dim[0];
+    }
     __INLINE__ bool operator!=(const shape& rhs) const
     {
         return !(*this == rhs);
