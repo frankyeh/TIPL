@@ -9,6 +9,7 @@
 #include "filter/mean.hpp"
 #include "filter/sobel.hpp"
 #include "filter/gaussian.hpp"
+#include "filter/anisotropic_diffusion.hpp"
 #include "morphology/morphology.hpp"
 
 namespace tipl{
@@ -68,7 +69,11 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         tipl::filter::mean(data);
         return true;
     }
-
+    if(cmd == "smoothing_filter")
+    {
+        tipl::filter::anisotropic_diffusion(data);
+        return true;
+    }
     if(cmd == "normalize")
     {
         if constexpr(std::is_integral<typename image_type::value_type>::value)
