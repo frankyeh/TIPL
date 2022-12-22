@@ -868,19 +868,17 @@ public:
         tipl::normalize_upper_lower(lhs,lhs+size,rhs);
     }
 public:
-    mutable std::shared_ptr<prog_type> prog;
     template<typename pointer_type>
     bool save_to_buffer(pointer_type ptr,size_t pixel_count) const
     {
         if(!input_stream.get() || !(*input_stream))
             return false;
-        if(!prog.get())
-            prog.reset(new prog_type("reading image data"));
+        prog_type prog("reading image data");
         const size_t byte_per_pixel = nif_header.bitpix/8;
         typedef typename std::iterator_traits<pointer_type>::value_type value_type;
         if(compatible(nifti_type_info<value_type>::data_type,nif_header.datatype))
         {
-            if(!read_stream_with_prog(*prog.get(),*input_stream.get(),&*ptr,pixel_count*byte_per_pixel,error_msg))
+            if(!read_stream_with_prog(prog,*input_stream.get(),&*ptr,pixel_count*byte_per_pixel,error_msg))
                 return false;
             if (big_endian)
                 change_endian(&*ptr,pixel_count);
@@ -892,7 +890,7 @@ public:
             if(buf.empty())
                 return false;
             void* buf_ptr = &*buf.begin();
-            if(!read_stream_with_prog(*prog.get(),*input_stream.get(),buf_ptr,buf.size(),error_msg))
+            if(!read_stream_with_prog(prog,*input_stream.get(),buf_ptr,buf.size(),error_msg))
                 return false;
             if (big_endian)
             {
