@@ -239,13 +239,13 @@ void quasi_newtons_minimize_mt(
         std::vector<std::vector<param_type> > new_xs(line_search_count);
         {
             float L = -0.005f;
-            for(int i = 0;i < line_search_count;++i,L *= 2.0f)
+            for(int j = 0;j < line_search_count;++j,L *= 2.0f)
             {
                 std::vector<param_type> new_x(x_beg,x_end);
                 tipl::vec::aypx(p.begin(),p.end(),L,new_x.begin());
                 for(size_t i = 0;i < new_x.size();++i)
                     new_x[i] = std::min<param_type>(x_upper[i],std::max<param_type>(x_lower[i],new_x[i]));
-                new_xs[i].swap(new_x);
+                new_xs[j].swap(new_x);
             }
         }
 
