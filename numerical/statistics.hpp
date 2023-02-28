@@ -593,7 +593,7 @@ std::pair<double,double> linear_regression(input_iterator1 x_from,input_iterator
 }
 
 template<typename input_iterator1,typename input_iterator2,typename value_type>
-__DEVICE_HOST__ void linear_regression(input_iterator1 x_from,input_iterator1 x_to,input_iterator2 y_from,value_type& a,value_type& b,value_type& r2)
+__INLINE__ void linear_regression(input_iterator1 x_from,input_iterator1 x_to,input_iterator2 y_from,value_type& a,value_type& b,value_type& r2)
 {
     value_type mean_x = mean(x_from,x_to);
     value_type mean_y = mean(y_from,y_from+(x_to-x_from));
