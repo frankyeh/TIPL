@@ -1106,8 +1106,8 @@ class from_space : public tipl::matrix<4,4,float>{
 private:
     const tipl::matrix<4,4,float>& origin;
 public:
-    __INLINE__ from_space(const tipl::matrix<4,4,float>& space_):tipl::matrix<4,4,float>(),origin(space_){}
-    __INLINE__ from_space& to(const tipl::matrix<4,4,float>& target)
+    from_space(const tipl::matrix<4,4,float>& space_):tipl::matrix<4,4,float>(),origin(space_){}
+    from_space& to(const tipl::matrix<4,4,float>& target)
     {
         for(unsigned int i = 0;i < 16;++i)
             (*this)[i] = target[i];
