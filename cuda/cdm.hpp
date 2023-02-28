@@ -261,7 +261,7 @@ struct cdm_dis_vector_length
 };
 
 template<typename dist_type>
-float cdm_max_displacement_length_cuda(dist_type& new_d)
+__INLINE__ float cdm_max_displacement_length_cuda(dist_type& new_d)
 {
     return thrust::transform_reduce(thrust::device,
                     new_d.get(),new_d.get()+new_d.size(),
