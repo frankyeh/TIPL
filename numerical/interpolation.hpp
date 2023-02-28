@@ -59,7 +59,7 @@ namespace interpolator{
 
 
 template<typename image_type,typename data_iterator_type,typename weighting_iterator,typename output_type>
-__DEVICE_HOST__ void weighted_sum(const image_type& I,data_iterator_type from,data_iterator_type to,weighting_iterator w,output_type& result_)
+__INLINE__ void weighted_sum(const image_type& I,data_iterator_type from,data_iterator_type to,weighting_iterator w,output_type& result_)
 {
     using value_type = typename interpo_type<output_type>::type;
     value_type result(I[*from]);
@@ -195,7 +195,7 @@ struct linear<1>
     size_t dindex[ref_count];
 
     template<typename VTorType>
-    __DEVICE_HOST__ bool get_location(const shape<1>& geo,const VTorType& location)
+    __INLINE__ bool get_location(const shape<1>& geo,const VTorType& location)
     {
         float p,n;
         float x = location;
@@ -244,7 +244,7 @@ struct linear<2>
     size_t dindex[ref_count];
 
     template<typename VTorType>
-    __DEVICE_HOST__ bool get_location(const shape<2>& geo,const VTorType& location)
+    __INLINE__ bool get_location(const shape<2>& geo,const VTorType& location)
     {
         float p[2],n[2];
         float x = location[0];
@@ -303,7 +303,7 @@ struct linear<3>
     size_t dindex[ref_count];
 
     template<typename VTorType>
-    __DEVICE_HOST__ bool get_location(const shape<3>& geo,const VTorType& location)
+    __INLINE__ bool get_location(const shape<3>& geo,const VTorType& location)
     {
         float x = location[0];
         float y = location[1];
@@ -502,7 +502,7 @@ struct cubic<2>{
     int64_t dindex[16];
 
     template<typename VTorType>
-    __DEVICE_HOST__ bool get_location(const shape<2>& geo,const VTorType& location)
+    __INLINE__ bool get_location(const shape<2>& geo,const VTorType& location)
     {
         float x = location[0];
         float y = location[1];
@@ -576,7 +576,7 @@ struct cubic<3>{
     int64_t dindex[64];
 
     template<typename VTorType>
-    __DEVICE_HOST__ bool get_location(const shape<3>& geo,const VTorType& location)
+    __INLINE__ bool get_location(const shape<3>& geo,const VTorType& location)
     {
         float x = location[0];
         float y = location[1];
