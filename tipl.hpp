@@ -54,6 +54,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "io/2dseq.hpp"
 #include "io/avi.hpp"
 #include "io/gz_stream.hpp"
+#include "io/program_option.hpp"
 
 #include "filter/filter_model.hpp"
 #include "filter/anisotropic_diffusion.hpp"
