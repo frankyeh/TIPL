@@ -1,5 +1,5 @@
-#ifndef IMAGE_HPP
-#define IMAGE_HPP
+#ifndef TIPL_HPP
+#define TIPL_HPP
 /*
 Copyright (c) 2010-2022 Fang-Cheng Yeh
 All rights reserved.
@@ -53,7 +53,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "io/mat.hpp"
 #include "io/2dseq.hpp"
 #include "io/avi.hpp"
-
+#include "io/gz_stream.hpp"
 
 #include "filter/filter_model.hpp"
 #include "filter/anisotropic_diffusion.hpp"
@@ -170,4 +170,4 @@ namespace tipl
 
 #endif//INCLUDE_NLOHMANN_JSON_HPP_
 
-#endif//IMAGE_HPP
+#endif//TIPL_HPP
