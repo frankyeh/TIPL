@@ -8,6 +8,8 @@
 #include <stdexcept>
 #include <chrono>
 #include <stdio.h>
+#include <thread>
+
 #define SPAN 8388608L       /* 8MB as the desired distance between access points */
 #define WINSIZE 32768U      /* sliding window size */
 
