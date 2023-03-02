@@ -18,6 +18,9 @@
  * time to reset z_stream (free,iniate, set dictionary)=12
  */
 
+namespace tipl{
+namespace io{
+
 
 struct access_point {
     uint64_t uncompressed_pos = 0;
@@ -613,6 +616,9 @@ public:
 
 };
 
+
+}// namespace io
+}// namespace tipl
 
 #endif//GZ_STREAM_HPP
 #endif//GZ_STREAM_HPP
