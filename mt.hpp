@@ -147,43 +147,6 @@ void aggregate_results(std::vector<std::vector<T> >&& results,std::vector<T>& al
     all_result.swap(all_result_);
 }
 
-
-template<typename prog_class,typename fun_type,typename terminated_class>
-bool run(const char* msg,fun_type fun,terminated_class& terminated,bool has_gui = true)
-{
-    if(!has_gui)
-    {
-        fun();
-        return true;
-    }
-    prog_class prog(msg);
-    bool ended = false;
-    tipl::par_for(2,[&](int i)
-    {
-        if(!i)
-        {
-            fun();
-            ended = true;
-        }
-        else
-        {
-            size_t i = 0;
-            while(!ended)
-            {
-                std::this_thread::yield();
-                prog(i,i+1);
-                if(prog.aborted())
-                {
-                    terminated = true;
-                    ended = true;
-                }
-                ++i;
-            }
-        }
-    });
-    return !prog.aborted();
-}
-
 namespace backend {
     struct seq{
         template<typename Fun>
