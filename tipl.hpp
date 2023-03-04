@@ -84,6 +84,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "vis/color_map.hpp"
 
 #include "cmd.hpp"
+#include "prog.hpp"
 
 #ifdef __CUDACC__
 #include "cuda/mem.hpp"
