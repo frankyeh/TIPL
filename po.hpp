@@ -1,5 +1,5 @@
-#ifndef PROGRAM_OPTION_HPP
-#define PROGRAM_OPTION_HPP
+#ifndef TIPL_PO_HPP
+#define TIPL_PO_HPP
 #include <sstream>
 #include <fstream>
 #include <vector>
@@ -8,7 +8,6 @@
 #include <set>
 
 namespace tipl{
-namespace io{
 
 
 struct default_output{
@@ -257,8 +256,7 @@ public:
 };
 
 
-}// namespace io
 }// namespace tipl
 
-#endif // PROGRAM_OPTION_HPP
+#endif // TIPL_PO_HPP
 
