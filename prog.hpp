@@ -130,9 +130,11 @@ private:
                         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() -
                                 process_time.back()).count()*int(total-now)/int(now+1)/1000/60);
             at_list.resize(status_list.size());
-            at_list.back() = (std::ostringstream() << "(" << now << "/" << total << ")").str();
+            std::ostringstream outstr;
+            outstr << "(" << now << "/" << total << ")";
             if(expected_sec)
-                at_list.back() += (std::ostringstream() << " " << expected_sec << " min").str();
+                outstr << " " << expected_sec << " min";
+            at_list.back() += outstr;
             if(!update_prog(get_status(),false,now,total))
             {
                 prog_aborted_ = true;
