@@ -134,10 +134,11 @@ private:
             outstr << "(" << now << "/" << total << ")";
             if(expected_sec)
                 outstr << " " << expected_sec << " min";
-            at_list.back() += outstr.str();
+            at_list.back() = outstr.str();
             if(!update_prog(get_status(),false,now,total))
             {
                 prog_aborted_ = true;
+                progress::print("WARNING: operation aborted",false,false);
                 return false;
             }
         }
@@ -154,12 +155,15 @@ public:
             if(line.empty())
                 continue;
             std::string head;
-            for(size_t i = 0;i < status_list.size();++i)
+            for(size_t i = 1;i < status_list.size();++i)
                 head += "│ ";
-            if(head_node)
-                head += "├─";
-            else
-                head += "│ ";
+            if(!status_list.empty())
+            {
+                if(head_node)
+                    head += "├─";
+                else
+                    head += "│ ";
+            }
             if(tail_node)
                 head += "└─";
             if(!show_prog) // enable color output in command line
