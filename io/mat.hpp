@@ -353,7 +353,7 @@ public:
     }
 };
 
-template<typename input_interface = std_istream,typename prog_type = default_prog_type >
+template<typename input_interface = std_istream>
 class mat_read_base
 {
 private:
@@ -500,10 +500,9 @@ public:
 public:
     std::shared_ptr<input_interface> in;
     bool delay_read = false;
-    template<typename char_type>
-    bool load_from_file(const char_type* file_name)
+    template<typename char_type,typename prog_type = tipl::io::default_prog_type>
+    bool load_from_file(const char_type* file_name,prog_type&& prog = prog_type())
     {
-        prog_type prog((std::string("opening ")+std::filesystem::path(file_name).filename().string()).c_str());
         if(!in->open(file_name))
         {
             error_msg = "cannot open file at ";
