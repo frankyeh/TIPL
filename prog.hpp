@@ -134,7 +134,7 @@ private:
             outstr << "(" << now << "/" << total << ")";
             if(expected_sec)
                 outstr << " " << expected_sec << " min";
-            at_list.back() += outstr;
+            at_list.back() += outstr.str();
             if(!update_prog(get_status(),false,now,total))
             {
                 prog_aborted_ = true;
