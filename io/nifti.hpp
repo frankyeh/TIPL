@@ -319,8 +319,7 @@ struct nifti_2_header {  /* NIFTI-2 usage           */ /* NIFTI-1 usage      */ 
 
 */
 template<typename input_interface = std_istream,
-         typename output_interface = std_ostream,
-         typename prog_type = default_prog_type >
+         typename output_interface = std_ostream>
 class nifti_base
 {
 
@@ -478,7 +477,6 @@ public:
     template<typename char_type>
     bool load_from_file(const char_type* pfile_name)
     {
-        prog_type prog((std::string("opening ")+std::filesystem::path(pfile_name).filename().string()).c_str());
         if (!input_stream->open(pfile_name))
         {
             error_msg = "Cannot read the file. No reading privilege or the file does not exist.";
@@ -816,10 +814,9 @@ public:
             nii.set_descrip(descript);
         return nii.save_to_file(pfile_name);
     }
-    template<typename char_type>
-    bool save_to_file(const char_type* pfile_name)
+    template<typename char_type,typename prog_type = default_prog_type>
+    bool save_to_file(const char_type* pfile_name,prog_type&& prog = prog_type())
     {
-        prog_type prog("saving");
         if(!write_buf)
         {
             error_msg = "no image data for saving";
@@ -868,12 +865,11 @@ public:
         tipl::normalize_upper_lower(lhs,lhs+size,rhs);
     }
 public:
-    template<typename pointer_type>
-    bool save_to_buffer(pointer_type ptr,size_t pixel_count) const
+    template<typename pointer_type,typename prog_type>
+    bool save_to_buffer(pointer_type ptr,size_t pixel_count,prog_type& prog) const
     {
         if(!input_stream.get() || !(*input_stream))
             return false;
-        prog_type prog("reading image data");
         const size_t byte_per_pixel = nif_header.bitpix/8;
         typedef typename std::iterator_traits<pointer_type>::value_type value_type;
         if(compatible(nifti_type_info<value_type>::data_type,nif_header.datatype))
@@ -947,9 +943,8 @@ public:
             return true;
         }
     }
-
-    template<typename image_type>
-    bool get_untouched_image(image_type& out) const
+    template<typename image_type,typename prog_type = tipl::io::default_prog_type>
+    bool get_untouched_image(image_type& out,prog_type&& prog = prog_type()) const
     {
         try{
             out.resize(tipl::shape<image_type::dimension>(nif_header.dim+1));
@@ -959,7 +954,7 @@ public:
             error_msg = "insufficient memory";
             return false;
         }
-        if(!save_to_buffer(out.begin(),out.size()))
+        if(!save_to_buffer(out.begin(),out.size(),prog))
         {
             error_msg = "failed to read data from file";
             return false;
@@ -1031,12 +1026,12 @@ public:
     }
 
     //from RAS to LPS
-    template<typename image_type>
-    bool toLPS(image_type& out,bool change_header = true,bool load_image = true)
+    template<typename image_type,typename prog_type = tipl::io::default_prog_type>
+    bool toLPS(image_type& out,bool change_header = true,bool load_image = true,prog_type&& prog = prog_type())
     {
         if(!write_buf)
         {
-            if(load_image && !get_untouched_image(out))
+            if(load_image && !get_untouched_image(out,prog))
                 return false;
         }
         handle_qform();
