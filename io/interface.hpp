@@ -10,6 +10,7 @@ namespace io
 
 struct default_prog_type{
     default_prog_type(const char*){}
+    default_prog_type(void){}
     template<typename T>
     bool operator()(T a,T b){return a < b;}
 };
