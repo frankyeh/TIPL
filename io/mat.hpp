@@ -689,8 +689,14 @@ typedef mat_write_base<> mat_write;
 typedef mat_read_base<> mat_read;
 
 
-
 }
 }
 
 #endif//MAT_FILE_HPP
+
+#ifdef TIPL_GZ_STREAM_HPP
+namespace tipl{namespace io{
+typedef mat_write_base<gz_ostream> gz_mat_write;
+typedef mat_read_base<gz_istream> gz_mat_read;
+}}
+#endif
