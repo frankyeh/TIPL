@@ -1,5 +1,5 @@
-#ifndef nifti_HEADER_HPP
-#define nifti_HEADER_HPP
+#ifndef TIPL_NIFTI_HPP
+#define TIPL_NIFTI_HPP
 // Copyright Fang-Cheng Yeh 2010
 // Distributed under the BSD License
 //
@@ -1177,7 +1177,14 @@ public:
 
 typedef nifti_base<> nifti;
 
-}
-}
+} // io
+} // tipl
 
+#endif//TIPL_NIFTI_HPP
+
+#ifdef TIPL_GZ_STREAM_HPP
+namespace tipl{namespace io{
+typedef nifti_base<gz_istream,gz_ostream> gz_nifti;
+}}
 #endif
+
