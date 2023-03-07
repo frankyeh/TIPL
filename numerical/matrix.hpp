@@ -826,7 +826,7 @@ bool ll_decomposition(io_iterator A,pivot_iterator p,const dim_type& dim)
                 sum -= A[row_i_k]*A[row_i_k+offset];
             if(i == j)
             {
-                if (sum <= 0.0)
+                if (sum <= value_type(0))
                     return false;
                 p[i]=std::sqrt(sum);
             }
@@ -1154,9 +1154,9 @@ bool lq_decomposition(io_iterator A,output_iterator1 c,output_iterator2 d,const 
             for (;A_k_i<A_k_n;A_k_i++)
                 scale=std::max<value_type>(scale,*A_k_i < 0 ? -*A_k_i : *A_k_i);
         }
-        if (scale == 0.0)
+        if (scale == value_type(0))
         {
-            c[k]=d[k]=0.0;
+            c[k]=d[k]=value_type(0);
             singular = true;
         }
         else
@@ -1177,7 +1177,7 @@ bool lq_decomposition(io_iterator A,output_iterator1 c,output_iterator2 d,const 
             io_iterator A_row_j = A_row_k+n;
             for (int j=k+1;j < m;j++,A_row_j += n)
             {
-                sum = 0.0;
+                sum = value_type(0);
                 for (int i=k;i<n;i++)
                     sum += A_row_k[i]*A_row_j[i];
                 value_type tau=sum/c[k];
@@ -1230,7 +1230,7 @@ bool jacobi_regularize(io_iterator A,input_iterator2 piv,const dim_type& dim)
     std::vector<unsigned char> selected(dimension);
     for(int row = dimension-1;row >= 0;--row)
     {
-        value_type max_value = 0.0;
+        value_type max_value(0);
         int max_col = 0;
         io_iterator A_row = A + row*dimension;
         for(int col = 0;col < dimension;++col,++A_row)
@@ -1239,7 +1239,7 @@ bool jacobi_regularize(io_iterator A,input_iterator2 piv,const dim_type& dim)
                 max_col = col;
                 max_value = std::fabs(*A_row);
             }
-        if(max_value == 0.0)
+        if(max_value == value_type(0))
             return false;
         selected[max_col] = 1;
         piv[row] = max_col;
@@ -1258,13 +1258,13 @@ bool jacobi_solve(io_iterator A,pivot_iterator p,input_iterator2 b,output_iterat
     for(int i = 0;i < dimension;++i)
     {
         x[i] = b[i];
-        value_type scale = 0.0;
+        value_type scale(0);
         for(int j = 0;j < dimension;++j,++Arow_j)
             if(j != p[i])
                 x[i] -= (*Arow_j)*b[j];
             else
                 scale = (*Arow_j);
-        if(scale == 0.0)
+        if(scale == value_type(0))
             return false;
         x[i] /= scale;
     }
@@ -1280,13 +1280,13 @@ bool jacobi_solve(io_iterator A,input_iterator2 b,output_iterator x,const dim_ty
     for(int i = 0;i < dimension;++i)
     {
         x[i] = b[i];
-        value_type scale = 0.0;
+        value_type scale(0);
         for(int j = 0;j < dimension;++j,++Arow_j)
             if(i != j)
                 x[i] -= (*Arow_j)*b[j];
             else
                 scale = (*Arow_j);
-        if(scale == 0.0)
+        if(scale == value_type(0))
             return false;
         // can be improve by weighted jacobi method
         x[i] /= scale;
@@ -1586,7 +1586,7 @@ bool inverse(input_iterator A_,dim_type dim)
 
         for (int row = 0,index = col;row < dimension;++row,index += dimension)
 			A_[index] = x[row];   
-		std::fill(x,x+dimension,0.0);
+        std::fill(x,x+dimension,value_type(0));
     }
     return result;
 }
@@ -1746,15 +1746,16 @@ void eigen_decomposition_sym(input_iterator A,
                                     output_iterator1 V,
                                     output_iterator2 d,dim<2,2>)
 {
+    typedef typename std::iterator_traits<input_iterator>::value_type value_type;
     double b = A[1];
-    if (b + 1.0 == 1.0)
+    if (b + value_type(1) == value_type(1))
     {
         d[0] = A[0];
         d[1] = A[3];
-        V[0] = 1.0;
-        V[1] = 0.0;
-        V[2] = 0.0;
-        V[3] = 1.0;
+        V[0] = value_type(1);
+        V[1] = value_type(0);
+        V[2] = value_type(0);
+        V[3] = value_type(1);
         return;
     }
     double a = A[0];
@@ -1769,10 +1770,10 @@ void eigen_decomposition_sym(input_iterator A,
     double a_l2 = a-d[1];
     double l1 = sqrt(b2+a_l1*a_l1);
     double l2 = sqrt(b2+a_l2*a_l2);
-    V[0] = -b/l1;
-    V[2] = a_l1/l1;
-    V[1] = -b/l2;
-    V[3] = a_l2/l2;
+    V[0] = value_type(-b/l1);
+    V[2] = value_type(a_l1/l1);
+    V[1] = value_type(-b/l2);
+    V[3] = value_type(a_l2/l2);
 }
 
 
@@ -2398,9 +2399,9 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
                 input_iterator Arowk_k = Arowk+k;//A[k][k];
 
                 value_type s_k = tipl::vec::norm2(Arowk_k,Arowk_end);
-                if (s_k == 0.0)
+                if (s_k == value_type(0))
                 {
-                    s[k] = 0.0;
+                    s[k] = value_type(0);
                     int j = k_1;
                     if (j < n)
                     {
@@ -2417,7 +2418,7 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
                 }
                 else
                 {
-                    if (Arowk[k] < 0.0)
+                    if (Arowk[k] < value_type(0))
                         s_k = -s_k;
                     tipl::vec::scale(Arowk_k,Arowk_end,1.0/s_k);
                     *Arowk_k += 1.0;
@@ -2444,9 +2445,9 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
             {
                 value_type* e_k_1 = e + k_1;
                 value_type e_k_value = tipl::vec::norm2(e_k_1,e_end);
-                if (e_k_value != 0.0)
+                if (e_k_value != value_type(0))
                 {
-                    if (*e_k_1 < 0.0)
+                    if (*e_k_1 < value_type(0))
                         e_k_value = -e_k_value;
 
                     tipl::vec::scale(e_k_1,e_end,1.0/e_k_value);
@@ -2456,7 +2457,7 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
                     if (k+1 < m)
                     {
                         value_type* w_k_1 = w+k_1;
-                        std::fill(w_k_1,w_end,0.0);
+                        std::fill(w_k_1,w_end,value_type(0));
 
                         //if (j < n)   no need this check
                         {
@@ -2514,7 +2515,7 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
         {
             int k_1 = k+1;
             output_iterator1 Urowk_k_1 = Urowk+k_1;
-            if (k < nrt && (e[k] != 0.0))
+            if (k < nrt && (e[k] != value_type(0)))
             {
                 int j = k_1;
                 output_iterator1 Urowj_k_1 = Urowk_end+k_1;
@@ -2527,7 +2528,7 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
                 }
                 while (1);
             }
-            std::fill(Urowk,Urowk_end,0.0);
+            std::fill(Urowk,Urowk_end,value_type(0));
             Urowk[k] = 1.0;
             if (--k < 0)
                 break;
@@ -2545,7 +2546,7 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
             while (1)
             {
                 input_iterator Arowk_k = Arowk + k;
-                if (s[k] != 0.0 && k != nct)
+                if (s[k] != value_type(0) && k != nct)
                 {
                     int j = k + 1;
                     if (j < nu)
@@ -2561,11 +2562,11 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
                     }
                     tipl::vec::negate(Arowk_k,Arowk_end);
                     *Arowk_k += 1.0;
-                    std::fill(Arowk,Arowk_k,0.0);
+                    std::fill(Arowk,Arowk_k,value_type(0));
                 }
                 else
                 {
-                    std::fill(Arowk,Arowk_end,0.0);
+                    std::fill(Arowk,Arowk_end,value_type(0));
                     *Arowk_k = 1.0;
                 }
                 if (--k < 0)
@@ -2579,7 +2580,7 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
         int pp_1 = pp-1;
         if (max_value + e[pp_1] == max_value)
         {
-            e[pp_1] = 0.0;
+            e[pp_1] = value_type(0);
             --pp;
             continue;
         }
@@ -2587,20 +2588,20 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
         for (k = pp-2; k >= 0; k--)
             if (max_value + e[k] == max_value)
             {
-                e[k] = 0.0;
+                e[k] = value_type(0);
                 break;
             }
         int ks;
         for (ks = pp; ks > k; ks--)
             if (max_value + s[ks] == max_value)// singularity
             {
-                s[ks] = 0.0;
+                s[ks] = value_type(0);
                 if (ks == pp)
                 {
                     ++k;
                     // Deflate negligible s(p).
                     value_type f(e[pp_1]);
-                    e[pp_1] = 0.0;
+                    e[pp_1] = value_type(0);
 
                     output_iterator1 Urowpp = U+pp*n;
                     output_iterator1 Urowj = Urowpp-n;
@@ -2627,7 +2628,7 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
                 {
                     // Split at negligible s(k).
                     value_type f(e[ks]);
-                    e[ks] = 0.0;
+                    e[ks] = value_type(0);
                     input_iterator Arowks = A+ks*m;
                     input_iterator Arowj = Arowks;
                     value_type t,cs,sn;
@@ -2662,12 +2663,12 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
             b += (s[pp_1] + sp)*(s[pp_1] - sp);
             b /= 2.0;
             value_type c = sp*e[pp_1];
-            value_type shift = 0.0;
+            value_type shift = value_type(0);
             c *= c;
-            if ((b != 0.0) || (c != 0.0))
+            if ((b != value_type(0)) || (c != value_type(0)))
             {
                 shift = sqrt(b*b + c);
-                if (b < 0.0)
+                if (b < value_type(0))
                     shift = -shift;
                 shift = c/(b + shift);
             }
@@ -2721,7 +2722,7 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
         output_iterator2 s_end = s+nu;
         while (1)
         {
-            if (*s_iter < 0.0)
+            if (*s_iter < value_type(0))
             {
                 *s_iter = -*s_iter;
                 tipl::vec::negate(Urowk,Urowk+n);
@@ -2785,9 +2786,9 @@ void svd(input_iterator A,output_iterator2 s,dym_type dimension)
                 input_iterator Arowk_k = Arowk+k;//A[k][k];
 
                 value_type s_k = tipl::vec::norm2(Arowk_k,Arowk_end);
-                if (s_k == 0.0)
+                if (s_k == value_type(0))
                 {
-                    s[k] = 0.0;
+                    s[k] = value_type(0);
                     int j = k_1;
                     if (j < n)
                     {
@@ -2804,7 +2805,7 @@ void svd(input_iterator A,output_iterator2 s,dym_type dimension)
                 }
                 else
                 {
-                    if (Arowk[k] < 0.0)
+                    if (Arowk[k] < value_type(0))
                         s_k = -s_k;
                     tipl::vec::scale(Arowk_k,Arowk_end,1.0/s_k);
                     *Arowk_k += 1.0;
@@ -2831,9 +2832,9 @@ void svd(input_iterator A,output_iterator2 s,dym_type dimension)
             {
                 value_type* e_k_1 = e + k_1;
                 value_type e_k_value = tipl::vec::norm2(e_k_1,e_end);
-                if (e_k_value != 0.0)
+                if (e_k_value != value_type(0))
                 {
-                    if (*e_k_1 < 0.0)
+                    if (*e_k_1 < value_type(0))
                         e_k_value = -e_k_value;
 
                     tipl::vec::scale(e_k_1,e_end,1.0/e_k_value);
@@ -2843,7 +2844,7 @@ void svd(input_iterator A,output_iterator2 s,dym_type dimension)
                     if (k+1 < m)
                     {
                         value_type* w_k_1 = w+k_1;
-                        std::fill(w_k_1,w_end,0.0);
+                        std::fill(w_k_1,w_end,value_type(0));
 
                         //if (j < n)   no need this check
                         {
@@ -2895,7 +2896,7 @@ void svd(input_iterator A,output_iterator2 s,dym_type dimension)
         int pp_1 = pp-1;
         if (max_value + e[pp_1] == max_value)
         {
-            e[pp_1] = 0.0;
+            e[pp_1] = value_type(0);
             --pp;
             continue;
         }
@@ -2903,7 +2904,7 @@ void svd(input_iterator A,output_iterator2 s,dym_type dimension)
         for (k = pp-2; k >= 0; k--)
             if (max_value + e[k] == max_value)
             {
-                e[k] = 0.0;
+                e[k] = value_type(0);
                 break;
             }
         int ks;
@@ -2915,7 +2916,7 @@ void svd(input_iterator A,output_iterator2 s,dym_type dimension)
                     ++k;
                     // Deflate negligible s(p).
                     value_type f(e[pp_1]);
-                    e[pp_1] = 0.0;
+                    e[pp_1] = value_type(0);
                     value_type t,cs,sn;
                     for (int j = pp_1;j >= k;)
                     {
@@ -2934,7 +2935,7 @@ void svd(input_iterator A,output_iterator2 s,dym_type dimension)
                 {
                     // Split at negligible s(k).
                     value_type f(e[ks]);
-                    e[ks] = 0.0;
+                    e[ks] = value_type(0);
                     value_type t,cs,sn;
                     for (int j = ks;j <= pp;++j)
                     {
@@ -2962,12 +2963,12 @@ void svd(input_iterator A,output_iterator2 s,dym_type dimension)
             b += (s[pp_1] + sp)*(s[pp_1] - sp);
             b /= 2.0;
             value_type c = sp*e[pp_1];
-            value_type shift = 0.0;
+            value_type shift = value_type(0);
             c *= c;
-            if ((b != 0.0) || (c != 0.0))
+            if ((b != value_type(0)) || (c != value_type(0)))
             {
                 shift = sqrt(b*b + c);
-                if (b < 0.0)
+                if (b < value_type(0))
                     shift = -shift;
                 shift = c/(b + shift);
             }
@@ -3002,7 +3003,7 @@ void svd(input_iterator A,output_iterator2 s,dym_type dimension)
         }
     } // while
     for (int i = 0;i < nu;++i)
-        if (s[i] < 0.0)
+        if (s[i] < value_type(0))
             s[i] = -s[i];
     std::sort(s,s+nu,std::greater<value_type>());
 }
@@ -3280,12 +3281,12 @@ public:
         for(int col = 0;col < c;++col,++index)
             if(col == row)
             {
-                if(value[index] != 1.0f)
+                if(value[index] != value_type(1))
                     return false;
             }
             else
             {
-                if(value[index] != 0.0f)
+                if(value[index] != value_type(0))
                     return false;
             }
         return true;
