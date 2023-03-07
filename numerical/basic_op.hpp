@@ -209,6 +209,13 @@ ImageType2D& volume2slice(const ImageType3D& slice,ImageType2D& I,dim_type dim,s
     return I;
 }
 
+template<typename ImageType3D,typename dim_type,typename slice_pos_type>
+auto volume2slice(const ImageType3D& slice,dim_type dim,slice_pos_type slice_index)
+{
+    tipl::image<2,typename ImageType3D::value_type> I;
+    volume2slice(slice,I,dim,slice_index);
+    return I;
+}
 //--------------------------------------------------------------------------
 
 template<typename ImageType3D,typename ImageType2D,typename dim_type,typename slice_pos_type>
