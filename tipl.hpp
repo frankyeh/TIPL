@@ -65,6 +65,7 @@ TIPL library is shared under one of the following licenses
 
 #include "vis/march_cube.hpp"
 #include "vis/color_map.hpp"
+#include "vis/qt_ext.hpp"
 
 #include "cmd.hpp"
 #include "prog.hpp"
