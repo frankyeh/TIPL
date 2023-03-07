@@ -208,6 +208,13 @@ public:
         for(unsigned int i = 0;i < I1.size();++i)
             I2[i] = (*this)[I1[i]];
     }
+    tipl::color_image operator[](const tipl::image<2,value_type>& I1) const
+    {
+        tipl::color_image out(I1.shape());
+        for(unsigned int i = 0;i < I1.size();++i)
+            out[i] = (*this)[I1[i]];
+        return out;
+    }
 };
 
 }
