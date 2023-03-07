@@ -5,6 +5,7 @@
 #include <vector>
 #include <memory>
 #include <iostream>
+#include <fstream>
 #include <stdexcept>
 #include <chrono>
 #include <stdio.h>
