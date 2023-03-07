@@ -1,6 +1,6 @@
 #ifdef ZLIB_H
-#ifndef GZ_STREAM_HPP
-#define GZ_STREAM_HPP
+#ifndef TIPL_GZ_STREAM_HPP
+#define TIPL_GZ_STREAM_HPP
 
 #include <vector>
 #include <memory>
@@ -623,6 +623,6 @@ public:
 }// namespace io
 }// namespace tipl
 
-#endif//GZ_STREAM_HPP
-#endif//GZ_STREAM_HPP
+#endif//TIPL_GZ_STREAM_HPP
+#endif//ZLIB_H
 
