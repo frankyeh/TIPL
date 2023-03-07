@@ -445,7 +445,7 @@ private:
             sorted_index[view_index].resize(tri_list.size()*3);
             sorted_index[view_index+3].resize(tri_list.size()*3);
             std::vector<std::pair<float,unsigned int> > index_weighting(tri_list.size());
-            for (size_t index = 0;index < tri_list.size();++index)
+            for (unsigned int index = 0;index < tri_list.size();++index)
                 index_weighting[index] =
                 std::make_pair(point_list[tri_list[index][0]][view_index],index);
 
