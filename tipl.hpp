@@ -1,5 +1,3 @@
-#ifndef TIPL_HPP
-#define TIPL_HPP
 /*
 Copyright (c) 2010-2023 Fang-Cheng Yeh
 All rights reserved.
@@ -32,7 +30,7 @@ TIPL library is shared under one of the following licenses
 #include "numerical/statistics.hpp"
 #include "numerical/dif.hpp"
 
-
+#include "io/gz_stream.hpp"
 #include "io/nrrd.hpp"
 #include "io/dicom.hpp"
 #include "io/nifti.hpp"
@@ -40,7 +38,6 @@ TIPL library is shared under one of the following licenses
 #include "io/mat.hpp"
 #include "io/2dseq.hpp"
 #include "io/avi.hpp"
-#include "io/gz_stream.hpp"
 
 #include "filter/filter_model.hpp"
 #include "filter/anisotropic_diffusion.hpp"
@@ -160,4 +157,3 @@ namespace tipl
 
 #endif//INCLUDE_NLOHMANN_JSON_HPP_
 
-#endif//TIPL_HPP
