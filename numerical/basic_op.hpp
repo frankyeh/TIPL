@@ -264,6 +264,13 @@ ImageType2D& volume2slice_scaled(const ImageType3D& slice,ImageType2D& I,dim_typ
     return I;
 }
 
+template<typename ImageType3D,typename dim_type,typename slice_pos_type>
+auto volume2slice_scaled(const ImageType3D& slice,dim_type dim,slice_pos_type slice_index,float scale)
+{
+    tipl::image<2,typename ImageType3D::value_type> I;
+    volume2slice_scaled(slice,I,dim,slice_index,scale);
+    return I;
+}
 //--------------------------------------------------------------------------
 template<typename T1,typename T2,typename PosType,typename std::enable_if<T1::dimension==2,bool>::type = true>
 void crop(const T1& from_image,T2& to_image,PosType from,PosType to)
