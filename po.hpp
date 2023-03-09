@@ -21,10 +21,10 @@ struct default_output{
 };
 
 
-
-std::string common_prefix(const std::string& str1,const std::string& str2)
+template<typename T>
+T common_prefix(const T& str1,const T& str2)
 {
-    std::string result;
+    T result;
     for(size_t cur = 0;cur < str1.length() && cur < str2.length();++cur)
     {
         if(str1[cur] != str2[cur])
@@ -33,9 +33,10 @@ std::string common_prefix(const std::string& str1,const std::string& str2)
     }
     return result;
 }
-std::string common_prefix(const std::string& str1,const std::string& str2,const std::string& str3)
+template<typename T>
+T common_prefix(const T& str1,const T& str2,const T& str3)
 {
-    std::string result;
+    T result;
     for(size_t cur = 0;cur < str1.length() && cur < str2.length() && cur < str3.length();++cur)
     {
         if(str1[cur] != str2[cur] || str1[cur] != str3[cur])
@@ -46,9 +47,9 @@ std::string common_prefix(const std::string& str1,const std::string& str2,const 
 }
 
 
-
-bool match_strings(const std::string& str1,const std::string& str1_match,
-                   const std::string& str2,std::string& str2_match,bool try_reverse = true,bool try_swap = true)
+template<typename T>
+bool match_strings(const T& str1,const T& str1_match,
+                   const T& str2,T& str2_match,bool try_reverse = true,bool try_swap = true)
 {
 
     // A->A
@@ -81,16 +82,16 @@ bool match_strings(const std::string& str1,const std::string& str1_match,
 
     // remove common postfix
     {
-        auto cpostfix = common_prefix(std::string(str1.rbegin(),str1.rend()),
-                                      std::string(str1_match.rbegin(),str1_match.rend()),
-                                      std::string(str2.rbegin(),str2.rend()));
+        auto cpostfix = common_prefix(T(str1.rbegin(),str1.rend()),
+                                      T(str1_match.rbegin(),str1_match.rend()),
+                                      T(str2.rbegin(),str2.rend()));
         if(!cpostfix.empty())
         {
             if(!match_strings(str1.substr(0,str1.length()-cpostfix.length()),
                               str1_match.substr(0,str1_match.length()-cpostfix.length()),
                               str2.substr(0,str2.length()-cpostfix.length()),str2_match))
                 return false;
-            str2_match += std::string(cpostfix.rbegin(),cpostfix.rend());
+            str2_match += T(cpostfix.rbegin(),cpostfix.rend());
             return true;
         }
     }
@@ -127,12 +128,12 @@ bool match_strings(const std::string& str1,const std::string& str1_match,
             return true;
     }
     // try reversed
-    std::string rev;
-    if(try_reverse && match_strings(std::string(str1.rbegin(),str1.rend()),
-                     std::string(str1_match.rbegin(),str1_match.rend()),
-                     std::string(str2.rbegin(),str2.rend()),rev,false,try_swap))
+    T rev;
+    if(try_reverse && match_strings(T(str1.rbegin(),str1.rend()),
+                     T(str1_match.rbegin(),str1_match.rend()),
+                     T(str2.rbegin(),str2.rend()),rev,false,try_swap))
     {
-        str2_match = std::string(rev.rbegin(),rev.rend());
+        str2_match = T(rev.rbegin(),rev.rend());
         return true;
     }
     // try swap
@@ -141,8 +142,9 @@ bool match_strings(const std::string& str1,const std::string& str1_match,
     return false;
 }
 
-bool match_files(const std::string& file_path1,const std::string& file_path2,
-                 const std::string& file_path1_others,std::string& file_path2_gen)
+template<typename T>
+bool match_files(const T& file_path1,const T& file_path2,
+                 const T& file_path1_others,T& file_path2_gen)
 {
     auto name1 = std::filesystem::path(file_path1).filename().string();
     auto name2 = std::filesystem::path(file_path2).filename().string();
@@ -150,7 +152,7 @@ bool match_files(const std::string& file_path1,const std::string& file_path2,
     auto path1 = std::filesystem::path(file_path1).parent_path().string();
     auto path2 = std::filesystem::path(file_path2).parent_path().string();
     auto path1_others = std::filesystem::path(file_path1_others).parent_path().string();
-    std::string name2_others,path2_others;
+    T name2_others,path2_others;
     if(!match_strings(name1,name2,name1_others,name2_others) ||
        !match_strings(path1,path2,path1_others,path2_others))
         return false;
