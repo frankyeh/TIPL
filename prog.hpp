@@ -166,6 +166,7 @@ public:
             }
             if(tail_node)
                 head += "└─";
+            #ifndef WIN32
             if(!show_prog) // enable color output in command line
             {
                 if(head_node)
@@ -179,6 +180,7 @@ public:
                     line += "\033[0m";
                 }
             }
+            #endif
             if(!tipl::is_main_thread<0>())
                 head += "[thread]";
             std::cout << head + line << std::endl;
