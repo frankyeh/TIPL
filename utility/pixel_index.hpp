@@ -721,28 +721,28 @@ public:
     __INLINE__ size_t size(void) const{return 3;}
 public:
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    __INLINE__ auto operator+=(const T* rhs)
+    __INLINE__ auto& operator+=(const T* rhs)
     {x_ += rhs[0];y_ += rhs[1];z_ += rhs[2];return *this;}
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    __INLINE__ auto operator-=(const T* rhs)
+    __INLINE__ auto& operator-=(const T* rhs)
     {x_ -= rhs[0];y_ -= rhs[1];z_ -= rhs[2];return *this;}
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    __INLINE__ auto operator+=(const T& rhs)
+    __INLINE__ auto& operator+=(const T& rhs)
     {x_ += rhs[0];y_ += rhs[1];z_ += rhs[2];return *this;}
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    __INLINE__ auto operator-=(const T& rhs)
+    __INLINE__ auto& operator-=(const T& rhs)
     {x_ -= rhs[0];y_ -= rhs[1];z_ -= rhs[2];return *this;}
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    __INLINE__ auto operator+=(T r)
+    __INLINE__ auto& operator+=(T r)
     {x_ += r;y_ += r;z_ += r;return *this;}
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    __INLINE__ auto operator-=(T r)
+    __INLINE__ auto& operator-=(T r)
     {x_ -= r;y_ -= r;z_ -= r;return *this;}
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    __INLINE__ auto operator*=(T r)
+    __INLINE__ auto& operator*=(T r)
     {x_ *= r;y_ *= r;z_ *= r;return *this;}
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    __INLINE__ auto operator/=(T r)
+    __INLINE__ auto& operator/=(T r)
     {x_ /= r;y_ /= r;z_ /= r;return *this;}
 
 
