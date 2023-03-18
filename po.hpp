@@ -22,6 +22,15 @@ struct default_output{
 
 
 template<typename T>
+auto split(const T& s,typename T::value_type delimiter)
+{
+    std::vector<T> tokens;
+    std::stringstream ss(s);
+    for (T token; std::getline(ss, token, delimiter); tokens.push_back(token));
+    return tokens;
+}
+
+template<typename T>
 T common_prefix(const T& str1,const T& str2)
 {
     T result;
