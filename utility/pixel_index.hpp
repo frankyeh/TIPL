@@ -476,15 +476,15 @@ public:
         y_ -= r;
         return *this;
     }
-    template<typename rhs_type>
-    __INLINE__ vector<2,data_type>& operator*=(rhs_type r)
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    __INLINE__ vector<2,data_type>& operator*=(T r)
     {
         x_ *= r;
         y_ *= r;
         return *this;
     }
-    template<typename rhs_type>
-    __INLINE__ vector<2,data_type>& operator/=(rhs_type r)
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    __INLINE__ vector<2,data_type>& operator/=(T r)
     {
         x_ /= r;
         y_ /= r;
@@ -1010,6 +1010,33 @@ __INLINE__ tipl::vector<2,value_type> v(value_type x,value_type y)
 {
     return tipl::vector<2>(x,y);
 }
+template<typename T,typename U>
+__INLINE__ void multiply(tipl::vector<2,T>& lhs,const tipl::vector<2,U>& rhs)
+{
+    lhs[0] *= rhs[0];
+    lhs[1] *= rhs[1];
+}
+template<typename T,typename U>
+__INLINE__ void multiply(tipl::vector<3,T>& lhs,const tipl::vector<3,U>& rhs)
+{
+    lhs[0] *= rhs[0];
+    lhs[1] *= rhs[1];
+    lhs[2] *= rhs[2];
+}
+template<typename T,typename U>
+__INLINE__ void divide(tipl::vector<2,T>& lhs,const tipl::vector<2,U>& rhs)
+{
+    lhs[0] /= rhs[0];
+    lhs[1] /= rhs[1];
+}
+template<typename T,typename U>
+__INLINE__ void divide(tipl::vector<3,T>& lhs,const tipl::vector<3,U>& rhs)
+{
+    lhs[0] /= rhs[0];
+    lhs[1] /= rhs[1];
+    lhs[2] /= rhs[2];
+}
+
 
 
 }
