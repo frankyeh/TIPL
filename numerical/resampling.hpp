@@ -994,6 +994,18 @@ void resample_mt(const ImageType1& from,ImageType2& to,const T& trans)
         estimate<Type>(from,pos,to[index.index()]);
     });
 }
+template<tipl::interpolation Type = linear,typename ImageType1,typename ImageType2,typename T>
+void scale(const ImageType1& from,ImageType2& to,const tipl::vector<ImageType1::dimension>& s)
+{
+    tipl::par_for(tipl::begin_index(to.shape()),tipl::end_index(to.shape()),
+                [&](const tipl::pixel_index<ImageType1::dimension>& index)
+    {
+        tipl::vector<ImageType1::dimension> pos(index);
+        tipl::multiply(pos,s);
+        tipl::estimate<Type>(from,pos,to[index.index()]);
+    });
+}
+
 
 template<tipl::interpolation itype = linear,typename ImageType1,typename ImageType2,typename value_type>
 void resample(const ImageType1& from,ImageType2& to,const tipl::transformation_matrix<value_type>& transform)
