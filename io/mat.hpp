@@ -645,6 +645,11 @@ public:
     {
         return write(name_,&*data.begin(),1,uint32_t(data.end()-data.begin()));
     }
+    template<typename T>
+    bool write(const char* name_,const std::initializer_list<T>& data)
+    {
+        return write(name_,&*data.begin(),1,uint32_t(data.end()-data.begin()));
+    }
     template<typename container_type>
     bool write(const char* name_,const container_type& data,uint32_t d)
     {
