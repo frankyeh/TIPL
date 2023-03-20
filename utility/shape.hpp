@@ -481,6 +481,29 @@ public:
         std::swap(size_,rhs.size_);
     }
 public:
+    enum axis_type {x=0,y=1,z=2};
+    auto multiply(axis_type axis,unsigned int v) const
+    {
+        auto new_shape = *this;
+        new_shape.dim[axis] *= v;
+        new_shape.wh = new_shape.size_ = 0;
+        return new_shape;
+    }
+    auto add(axis_type axis,unsigned int v) const
+    {
+        auto new_shape = *this;
+        new_shape.dim[axis] += v;
+        new_shape.wh = new_shape.size_ = 0;
+        return new_shape;
+    }
+    auto minus(axis_type axis,unsigned int v) const
+    {
+        auto new_shape = *this;
+        new_shape.dim[axis] -= v;
+        new_shape.wh = new_shape.size_ = 0;
+        return new_shape;
+    }
+public:
     __INLINE__ const unsigned int* begin(void) const
     {
         return dim;
