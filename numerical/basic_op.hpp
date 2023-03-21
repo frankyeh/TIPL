@@ -3,6 +3,7 @@
 #define BASIC_OP_HPP
 
 #include "../def.hpp"
+#include "../numerical/numerical.hpp"
 #include "../utility/pixel_index.hpp"
 #include "../utility/basic_image.hpp"
 #include "../mt.hpp"
@@ -371,7 +372,7 @@ void draw(const T1& from_image,T2& to_image,PosType pos)
     }while(1);
 }
 //--------------------------------------------------------------------------
-template<typename T1,typename T2,typename PosType,typename std::enable_if<T1::dimension==3,bool>::type = true>
+template<bool copy = true,typename T1,typename T2,typename PosType,typename std::enable_if<T1::dimension==3,bool>::type = true>
 void draw(const T1& from_image,T2& to_image,PosType pos)
 {
     int64_t x_shift,y_shift,z_shift;
@@ -388,7 +389,10 @@ void draw(const T1& from_image,T2& to_image,PosType pos)
         auto out = to_image.begin() +
                 ((int64_t(pos[2])+z)*int64_t(to_image.height()) + int64_t(pos[1]))*int64_t(to_image.width())+int64_t(pos[0]);
         do{
-            std::copy(iter,iter+x_width,out);
+            if constexpr(copy)
+                std::copy(iter,iter+x_width,out);
+            else
+                tipl::add(out,out+x_width,iter);
             if(iter == end)
                 break;
             iter += from_image.width();
