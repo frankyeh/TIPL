@@ -214,13 +214,14 @@ public:
     template<typename T>
     void resize(const T& size)
     {
-        if(size[0]*size[1] > rows*cols)
-        {
-            data_buf.resize(size[0]*size[1]);
-            data_ptr = &*data_buf.begin();
-        }
+        bool need_reallocate = size[0]*size[1] > rows*cols;
         rows = size[0];
         cols = size[1];
+        if(need_reallocate)
+        {
+            data_buf.resize(get_total_size(type));
+            data_ptr = &*data_buf.begin();
+        }
     }
     void set_name(const std::string& new_name)
     {
