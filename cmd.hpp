@@ -19,6 +19,20 @@ template<typename image_loader,typename image_type>
 bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_mni,
              std::string cmd,std::string param1,std::string& error_msg)
 {
+    if(cmd == "set_transformation")
+    {
+        std::istringstream in(param1);
+        for(int i = 0;i < 16;++i)
+            in >> T[i];
+        return true;
+    }
+    if(cmd == "set_translocation")
+    {
+        std::istringstream in(param1);
+        in >> T[3] >> T[7] >> T[11];
+        return true;
+    }
+
     if(cmd == "morphology_defragment")
     {
         tipl::morphology::for_each_label(data,[](tipl::image<3,char>& mask){tipl::morphology::defragment(mask);});
@@ -189,7 +203,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         range_max[2] = std::min<int>(data.depth(),range_max[2]+margin[2]);
 
         range_max -= range_min;
-        if(!command<image_loader>(data,vs,T,is_mni,"translocation",std::to_string(-range_min[0]) + " " +
+        if(!command<image_loader>(data,vs,T,is_mni,"translocate",std::to_string(-range_min[0]) + " " +
                                     std::to_string(-range_min[1]) + " " +
                                     std::to_string(-range_min[2]),error_msg))
 
@@ -201,16 +215,89 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
             return false;
         return true;
     }
-    if(cmd == "translocation")
+    if(cmd == "transform")
     {
+        tipl::matrix<4,4> U;
         std::istringstream in(param1);
-        image_type new_data(data.shape());
+        for(int i = 0;i < 16;++i)
+            in >> U[i];
+        tipl::vector<3> new_vs;
+        for(int i = 0;i < 3;++i)
+            new_vs[i] = std::sqrt(U[i]*U[i]+U[i+4]*U[i+4]+U[i+8]*U[i+8]);
 
-        if(param1.find(".") != std::string::npos)
+        // main axis not in diagonal, just use transformation
+        if(T[1] != 0.0f || U[1] != 0.0f ||
+           T[2] != 0.0f || U[2] != 0.0f ||
+           T[4] != 0.0f || U[4] != 0.0f ||
+           T[6] != 0.0f || U[6] != 0.0f ||
+           T[8] != 0.0f || U[8] != 0.0f ||
+           T[9] != 0.0f || U[9] != 0.0f)
+        {
+            image_type new_data(data.shape());
+            tipl::resample_mt(data,new_data,tipl::transformation_matrix<float>(tipl::from_space(U).to(T)));
+            new_data.swap(data);
+            vs = new_vs;
+            return true;
+        }
+        // flip in x y z
+        if(T[0]*U[0] < 0)
+        {
+            if(!command<image_loader>(data,vs,T,is_mni,"flip_x","",error_msg))
+                return false;
+            return command<image_loader>(data,vs,T,is_mni,cmd,param1,error_msg);
+        }
+        if(T[5]*U[5] < 0)
+        {
+            if(!command<image_loader>(data,vs,T,is_mni,"flip_y","",error_msg))
+                return false;
+            return command<image_loader>(data,vs,T,is_mni,cmd,param1,error_msg);
+        }
+        if(T[10]*U[10] < 0)
+        {
+            if(!command<image_loader>(data,vs,T,is_mni,"flip_z","",error_msg))
+                return false;
+            return command<image_loader>(data,vs,T,is_mni,cmd,param1,error_msg);
+        }
+        // consider voxel size
+        if(T[0] != U[0] || T[5] != U[5] || T[10] != U[10])
+        {
+            if(!command<image_loader>(data,vs,T,is_mni,"regrid",std::to_string(new_vs[0])+" "+std::to_string(new_vs[1])+" "+std::to_string(new_vs[2]),error_msg))
+                return false;
+            T[0] = U[0];
+            T[5] = U[5];
+            T[10] = U[10];
+            vs = new_vs;
+            return command<image_loader>(data,vs,T,is_mni,cmd,param1,error_msg);
+        }
+        // now translocation
+        cmd = "translocate";
+        tipl::vector<3> shift((T[3] - U[3])/T[0],(T[7] - U[7])/T[5],(T[11] - U[11])/T[10]);
+        tipl::vector<3> ishift(shift);
+        ishift.floor();
+        if(ishift == shift)
+            param1 = std::to_string(int(shift[0]))+" "+
+                     std::to_string(int(shift[1]))+" "+
+                     std::to_string(int(shift[2]));
+        else
+            param1 = std::to_string(shift[0])+" "+
+                     std::to_string(shift[1])+" "+
+                     std::to_string(shift[2]);
+    }
+    if(cmd == "translocate")
+    {
+        image_type new_data(data.shape());
+        std::istringstream in(param1);
+        tipl::vector<3> shift;
+        in >> shift[0] >> shift[1] >> shift[2];
+        tipl::vector<3> ishift(shift);
+        ishift.floor();
+        if(ishift != shift)
         {
             tipl::transformation_matrix<float> m;
             m.sr[0] = m.sr[4] = m.sr[8] = 1.0f;
-            in >> m.shift[0] >> m.shift[1] >> m.shift[2];
+            m.shift[0] = shift[0];
+            m.shift[1] = shift[1];
+            m.shift[2] = shift[2];
             T[3] -= T[0]*m.shift[0];
             T[7] -= T[5]*m.shift[1];
             T[11] -= T[10]*m.shift[2];
@@ -219,16 +306,13 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
             m.shift[1] = -m.shift[1];
             m.shift[2] = -m.shift[2];
             tipl::resample(data,new_data,m);
-
         }
         else
         {
-            int dx,dy,dz;
-            in >> dx >> dy >> dz;
-            tipl::draw(data,new_data,tipl::vector<3,int>(dx,dy,dz));
-            T[3] -= T[0]*float(dx);
-            T[7] -= T[5]*float(dy);
-            T[11] -= T[10]*float(dz);
+            tipl::draw(data,new_data,tipl::vector<3,int>(shift));
+            T[3] -= T[0]*shift[0];
+            T[7] -= T[5]*shift[1];
+            T[11] -= T[10]*shift[2];
         }
         data.swap(new_data);
         return true;
