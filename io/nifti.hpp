@@ -37,6 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "interface.hpp"
 #include "../numerical/basic_op.hpp"
 #include "../numerical/numerical.hpp"
+#include "../numerical/resampling.hpp"
 
 namespace tipl
 {
@@ -772,7 +773,22 @@ public:
             write_buf = &*source.begin();
         is_nii = true;
     }
-
+    template<tipl::interpolation interpotype = linear,typename char_type,typename image_type,typename srow_type>
+    static bool load_to_space(const char_type* pfile_name,image_type& I,const srow_type& I_T)
+    {
+        nifti_base nii;
+        image_type J;
+        if(!nii.load_from_file(pfile_name) ||
+           !nii.toLPS(J))
+            return false;
+        srow_type J_T;
+        nii.get_image_transformation(J_T);
+        if(I.shape() == J.shape() && I_T == J_T)
+            I.swap(J);
+        else
+            resample_mt<interpotype>(J,I,from_space(I_T).to(J_T));
+        return true;
+    }
     template<typename char_type,typename image_type,typename vs_type>
     static bool load_from_file(const char_type* pfile_name,image_type& I,vs_type& vs)
     {
