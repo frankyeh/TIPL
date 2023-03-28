@@ -108,6 +108,25 @@ bool is_label_image(const ImageType& I)
     return true;
 }
 
+template<typename T>
+void label_to_dimension(tipl::image<3,T>& label,size_t label_count)
+{
+    std::vector<size_t> base_pos(label_count);
+    for(int i = 1;i < base_pos.size();++i)
+        base_pos[i] = base_pos[i-1]+label.size();
+
+    tipl::image<3,T> labels(label.shape().multiply(tipl::shape<3>::z,label_count));
+    for(size_t j = 0;j < label.size();++j)
+    {
+        if(!label[j])
+            continue;
+        auto v = label[j]-1;
+        if(v < label_count)
+            labels[base_pos[v] + j] = 1;
+    }
+    label.swap(labels);
+}
+
 template<typename ImageType,typename LabelImageType,typename fun_type>
 void binary(const ImageType& I,LabelImageType& out,fun_type fun)
 {
