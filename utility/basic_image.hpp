@@ -347,16 +347,34 @@ public:
     __INLINE__ auto begin(void)                            {return alloc.begin();}
     __INLINE__ auto end(void)                              {return alloc.end();}
 public:
-    __INLINE__ slice_type slice_at(unsigned int pos)
+    __INLINE__ auto slice_at(unsigned int pos)
     {
         tipl::shape<dim-1> slice_sp(sp.begin());
         return slice_type(&*alloc.begin()+pos*slice_sp.size(),slice_sp);
     }
-    __INLINE__ const_slice_type slice_at(unsigned int pos) const
+    __INLINE__ auto slice_at(unsigned int pos) const
     {
         tipl::shape<dim-1> slice_sp(sp.begin());
         return const_slice_type(&*alloc.begin()+pos*slice_sp.size(),slice_sp);
-    }    
+    }
+    template<typename shape_type>
+    __INLINE__ auto sub_image(size_t offset,const shape_type& new_shape)
+    {
+        return tipl::image<shape_type::dimension,value_type,pointer_container>(&*alloc.begin()+offset,new_shape);
+    }
+    template<typename shape_type>
+    __INLINE__ auto sub_image(size_t offset,const shape_type& new_shape) const
+    {
+        return tipl::image<shape_type::dimension,value_type,const_pointer_container>(&*alloc.begin()+offset,new_shape);
+    }
+    __INLINE__ auto alias(void)
+    {
+        return tipl::image<dim,value_type,pointer_container>(&*alloc.begin(),sp);
+    }
+    __INLINE__ auto alias(void) const
+    {
+        return tipl::image<dim,value_type,const_pointer_container>(&*alloc.begin(),sp);
+    }
 public:
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
     __INLINE__ auto operator+=(T value)
