@@ -399,31 +399,19 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     }
     if(cmd == "multiply_image" || cmd == "add_image" || cmd == "minus_image")
     {
-        image_loader nii;
-        if(!nii.load_from_file(param1.c_str()))
+        tipl::image<3> rhs(data.shape());
+        if(!image_loader::load_to_space(param1.c_str(),rhs,T))
         {
             error_msg = "cannot open file:";
             error_msg += param1;
             return false;
         }
-        tipl::image<3> mask;
-        nii.get_untouched_image(mask);
-        if(mask.shape() != data.shape())
-        {
-            error_msg = "invalid mask file:";
-            error_msg += param1;
-            error_msg += " The dimension does not match:";
-            std::ostringstream out;
-            out << mask.shape() << " vs " << data.shape();
-            error_msg += out.str();
-            return false;
-        }
         if(cmd == "multiply_image")
-            data *= mask;
+            data *= rhs;
         if(cmd == "add_image")
-            data += mask;
+            data += rhs;
         if(cmd == "minus_image")
-            data -= mask;
+            data -= rhs;
         return true;
     }
     if(cmd == "save")
