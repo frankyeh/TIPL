@@ -109,7 +109,7 @@ bool is_label_image(const ImageType& I)
 }
 
 template<typename T>
-void label_to_dimension(tipl::image<3,T>& label,size_t label_count)
+void expand_label_to_dimension(tipl::image<3,T>& label,size_t label_count)
 {
     std::vector<size_t> base_pos(label_count);
     for(int i = 1;i < base_pos.size();++i)
