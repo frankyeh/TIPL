@@ -358,12 +358,12 @@ public:
         return const_slice_type(&*alloc.begin()+pos*slice_sp.size(),slice_sp);
     }
     template<typename shape_type>
-    __INLINE__ auto sub_image(size_t offset,const shape_type& new_shape)
+    __INLINE__ auto alias(size_t offset,const shape_type& new_shape)
     {
         return tipl::image<shape_type::dimension,value_type,pointer_container>(&*alloc.begin()+offset,new_shape);
     }
     template<typename shape_type>
-    __INLINE__ auto sub_image(size_t offset,const shape_type& new_shape) const
+    __INLINE__ auto alias(size_t offset,const shape_type& new_shape) const
     {
         return tipl::image<shape_type::dimension,value_type,const_pointer_container>(&*alloc.begin()+offset,new_shape);
     }
