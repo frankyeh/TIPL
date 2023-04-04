@@ -568,24 +568,22 @@ void region_growing(const ImageType& I,const IndexType& seed_point,
 {
     std::vector<unsigned char> label_map(I.size());
     std::vector<IndexType> seeds;
-    std::vector<IndexType> neighbor;
     seeds.push_back(seed_point);
     label_map[seed_point.index()] = 1;
     for (unsigned int index = 0;index < seeds.size();++index)
     {
         IndexType active_point = seeds[index];
-        get_neighbors(active_point,I.shape(),neighbor);
-        for (unsigned int index = 0;index < neighbor.size();++index)
+        for_each_neighbors(active_point,I.shape(),[&](const auto& pos)
         {
-            unsigned int cur_neighbor_index = neighbor[index].index();
+            auto cur_neighbor_index = pos.index();
             if (label_map[cur_neighbor_index])
-                continue;
+                return;
             if (grow(I[active_point.index()],I[cur_neighbor_index]))
             {
-                seeds.push_back(neighbor[index]);
+                seeds.push_back(pos);
                 label_map[cur_neighbor_index] = 1;
             }
-        }
+        });
     }
     seeds.swap(grown_region);
 }
@@ -929,14 +927,13 @@ void fill(ImageType& I,PixelIndexType seed_point,ValueType new_value)
         PixelIndexType active_point = seeds.front();
         seeds.pop_front();
         std::vector<PixelIndexType> neighbor;
-        get_neighbors(active_point,I.shape(),neighbor);
-        for (unsigned int index = 0;index < neighbor.size();++index)
+        for_each_neighbors(active_point,I.shape(),[&](const auto& pos)
         {
-            if (I[neighbor[index].index()] != old_value)
-                continue;
-            seeds.push_back(neighbor[index]);
-            I[neighbor[index].index()] = new_value;
-        }
+            if (I[pos.index()] != old_value)
+                return;
+            seeds.push_back(pos);
+            I[pos.index()] = new_value;
+        });
     }
 }
 

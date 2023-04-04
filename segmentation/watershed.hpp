@@ -71,27 +71,26 @@ void watershed(const ImageType& input_image,LabelImageType& label)
                 label[iter->first.index()] = cur_basin;
 
                 pixel_index<ImageType::dimension> active_point(I.shape());
-                std::vector<pixel_index<ImageType::dimension> > front,neighbor_points;
+                std::vector<pixel_index<ImageType::dimension> > front;
                 front.push_back(iter->first);
                 while(!front.empty())
                 {
                     active_point = front.back();
                     front.pop_back();
-                    get_connected_neighbors(active_point,I.shape(),neighbor_points);
-                    for(size_t index = 0; index < neighbor_points.size(); ++index)
+                    for_each_connected_neighbors(active_point,I.shape(),[&](const auto& pos)
                     {
-                        size_t cur_index = neighbor_points[index].index();
+                        size_t cur_index = pos.index();
                         if(I[cur_index] == intensity)
                         {
                             if(label[cur_index] != cur_basin)
                             {
-                                front.push_back(neighbor_points[index]);
+                                front.push_back(pos);
                                 label[cur_index] = cur_basin;
                             }
                         }
                         else if(!label[cur_index])
-                            flooding_points.insert(iter,std::make_pair(neighbor_points[index],cur_basin));
-                    }
+                            flooding_points.insert(iter,std::make_pair(pos,cur_basin));
+                    });
                 }
             }
             flooding_points.erase(iter++);
@@ -128,17 +127,15 @@ void watershed2(const ImageType& input_image,LabelImageType& label,unsigned int 
             for(pixel_type pos(label.shape()); pos < label.size();++pos)
                 if(cur_label[pos.index()])
                 {
-                    std::vector<pixel_type> neighbor_points;
-                    get_connected_neighbors(pos,label.shape(),neighbor_points);
-                    for(unsigned int index = 0;index < neighbor_points.size();++index)
-                        if(label[neighbor_points[index].index()])
+                    for_each_connected_neighbors(pos,label.shape(),[&](const auto& pos2)
+                    {
+                        if(label[pos2.index()])
                         {
                             grow_pos.push_back(pos.index());
-                            grow_index.push_back(label[neighbor_points[index].index()]);
+                            grow_index.push_back(label[pos2.index()]);
                             cur_label[pos.index()] = 0;
-                            break;
                         }
-
+                    });
                 }
             if(grow_pos.empty())
                 break;

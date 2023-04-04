@@ -883,27 +883,27 @@ void homogenize(tipl::image<3,pixel_type>& I,tipl::image<3,pixel_type>& J,int bl
         for(int y = block_size;y < J.height()-block_size;y += block_size)
             for(int x = block_size;x < J.width()-block_size;x += block_size)
             {
-                std::vector<tipl::pixel_index<3> > neighbors;
-                tipl::get_neighbors(tipl::pixel_index<3>(x,y,z,I.shape()),I.shape(),block_size,neighbors);
-                std::vector<float> Iv(neighbors.size()),Jv(neighbors.size()),dis2(neighbors.size());
-                for(int i = 0; i < neighbors.size();++i)
+                std::vector<float> Iv,Jv,dis2;
+                std::vector<size_t> locations;
+                for_each_neighbors(tipl::pixel_index<3>(x,y,z,I.shape()),I.shape(),block_size,[&](const auto& pos)
                 {
-                    int dx = neighbors[i][0]-x;
-                    int dy = neighbors[i][1]-y;
-                    int dz = neighbors[i][2]-z;
-                    dis2[i] = (dx*dx+dy*dy+dz*dz)*distance_scale;
-                    Iv[i] = I[neighbors[i].index()];
-                    Jv[i] = J[neighbors[i].index()];
-                }
+                    int dx = pos[0]-x;
+                    int dy = pos[1]-y;
+                    int dz = pos[2]-z;
+                    dis2.push_back((dx*dx+dy*dy+dz*dz)*distance_scale);
+                    Iv.push_back(I[pos.index()]);
+                    Jv.push_back(J[pos.index()]);
+                    locations.push_back(pos.index());
+                });
                 double a,b,r2;
                 tipl::linear_regression(Iv.begin(),Iv.end(),Jv.begin(),a,b,r2);
-                for(int i = 0; i < neighbors.size();++i)
+                for(int i = 0; i < locations.size();++i)
                 {
                     float v = Iv[i]*a+b;
                     float w = std::exp(-dis2[i]*0.5)*r2;
                     if(w == 0.0)
                         continue;
-                    int index = neighbors[i].index();
+                    auto index = locations[i];
                     v_map[index] = (v_map[index]*w_map[index] + v*w)/(w_map[index]+w);
                     w_map[index] += w;
                 }

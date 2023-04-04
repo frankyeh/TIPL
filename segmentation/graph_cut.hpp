@@ -3,6 +3,7 @@
 #include <vector>
 #include <algorithm>
 #include "disjoint_set.hpp"
+#include "../utility/pixel_index.hpp"
 
 namespace tipl
 {
@@ -55,19 +56,18 @@ void graph_cut(const image_type& I,label_type& out,float c,unsigned int min_size
     float max_w = 0.0;
     for(index_type index(I.shape());index < I.size();++index)
     {
-        std::vector<index_type> neighbor;
-        tipl::get_neighbors(index,I.shape(),neighbor);
-        for(int i = 0; i < neighbor.size(); ++i)
-            if(index.index() > neighbor[i].index())
+        for_each_neighbors(index,I.shape(),[&](const auto& pos)
+        {
+            if(index.index() > pos.index())
             {
                 edges.push_back(graph_edge());
                 edges.back().n1 = index.index();
-                edges.back().n2 = neighbor[i].index();
+                edges.back().n2 = pos.index();
                 edges.back().w = graph_cut_dis<value_type>()(I[edges.back().n1],I[edges.back().n2]);
                 if(edges.back().w > max_w)
                     max_w = edges.back().w;
-
             }
+        });
     }
     c *= max_w;
     std::sort(edges.begin(),edges.end());

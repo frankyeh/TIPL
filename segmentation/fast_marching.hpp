@@ -1,7 +1,8 @@
 #include <vector>
 #include <limits>
 #include <memory>
-
+#include "../utility/pixel_index.hpp"
+#include "../numerical/index_algorithm.hpp"
 namespace tipl
 {
 
@@ -95,7 +96,6 @@ void fast_marching(const ImageType& gradient_image,TimeType& pass_time,IndexType
     typedef std::pair<float,pixel_index<ImageType::dimension> > narrow_band_point;
 
     std::vector<narrow_band_point*> narrow_band;
-    std::vector<pixel_index<ImageType::dimension> > neighbor_points;
     narrow_band.push_back(new narrow_band_point(0.001,seed));
 
     float infinity_time = std::numeric_limits<float>::max();
@@ -111,20 +111,19 @@ void fast_marching(const ImageType& gradient_image,TimeType& pass_time,IndexType
             return p1->first > p2->first;
         });
         narrow_band.pop_back();
-        get_connected_neighbors(active_point->second,gradient_image.shape(),neighbor_points);
-        for(size_t index = 0; index < neighbor_points.size(); ++index)
+        for_each_connected_neighbors(active_point->second,gradient_image.shape(),[&](const auto& pos)
         {
-            size_t cur_index = neighbor_points[index].index();
+            size_t cur_index = pos.index();
             if(pass_time[cur_index] != infinity_time)
-                continue;
-            float cur_T = imp::fast_marching_estimateT(pass_time,gradient_image[cur_index],gradient_image.shape(),neighbor_points[index]);
+                return;
+            float cur_T = imp::fast_marching_estimateT(pass_time,gradient_image[cur_index],gradient_image.shape(),pos);
             pass_time[cur_index] = cur_T;
-            narrow_band.push_back(new narrow_band_point(cur_T,neighbor_points[index]));
+            narrow_band.push_back(new narrow_band_point(cur_T,pos));
             std::push_heap(narrow_band.begin(),narrow_band.end(),[&](const narrow_band_point* p1,const narrow_band_point* p2)
             {
                 return p1->first > p2->first;
             });
-        }
+        });
     }
 }
 
