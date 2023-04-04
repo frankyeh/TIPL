@@ -412,9 +412,39 @@ void draw(const T1& from_image,T2& to_image,PosType pos)
                 std::copy(iter,iter+x_width,out);
             else
                 tipl::add(out,out+x_width,iter);
-            if(iter == end)
+            if(iter >= end)
                 break;
             iter += from_image.width();
+            out += to_image.width();
+        }while(1);
+    });
+}
+template<bool copy = true,typename image_type,typename pos_type,typename shape_type,typename std::enable_if<image_type::dimension==3,bool>::type = true>
+void draw_rect(image_type& to_image,
+               pos_type pos,
+               const shape_type& rect_sizes,
+               typename image_type::value_type value)
+{
+    int64_t x_shift,y_shift,z_shift;
+    int64_t x_width,y_height,z_depth;
+    if(!draw_range(rect_sizes[0],to_image.width(),pos[0],x_shift,x_width) ||
+       !draw_range(rect_sizes[1],to_image.height(),pos[1],y_shift,y_height) ||
+       !draw_range(rect_sizes[2],to_image.depth(),pos[2],z_shift,z_depth))
+        return;
+    tipl::par_for (z_depth,[&](int64_t z)
+    {
+        auto iter = ((z_shift+z)*int64_t(rect_sizes[1]) + y_shift)*int64_t(rect_sizes[0])+x_shift;
+        auto end = iter + int64_t(y_height-1)*int64_t(rect_sizes[0]);
+        auto out = to_image.begin() +
+                ((int64_t(pos[2])+z)*int64_t(to_image.height()) + int64_t(pos[1]))*int64_t(to_image.width())+int64_t(pos[0]);
+        do{
+            if constexpr(copy)
+                std::fill(out,out+x_width,value);
+            else
+                tipl::add_constant(out,out+x_width,value);
+            if(iter >= end)
+                break;
+            iter += rect_sizes[0];
             out += to_image.width();
         }while(1);
     });
