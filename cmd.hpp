@@ -33,6 +33,26 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         return true;
     }
 
+    if constexpr (std::is_floating_point<typename image_type::value_type>::value)
+    {
+        if(cmd.find("morphology") != std::string::npos)
+        {
+            tipl::image<image_type::dimension,char> mask(data.shape());
+            tipl::par_for(mask.size(),[&](size_t pos)
+            {
+                mask[pos] = data[pos] > typename image_type::value_type(0) ? 1 : 0;
+            });
+
+            if(!command<image_loader>(mask,vs,T,is_mni,cmd,param1,error_msg))
+                return false;
+            tipl::par_for(mask.size(),[&](size_t pos)
+            {
+                if(!mask[pos])
+                    data[pos] = typename image_type::value_type(0);
+            });
+            return true;
+        }
+    }
     if(cmd == "morphology_defragment")
     {
         tipl::morphology::for_each_label(data,[](tipl::image<3,char>& mask){tipl::morphology::defragment(mask);});
