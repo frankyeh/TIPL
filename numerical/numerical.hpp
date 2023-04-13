@@ -937,10 +937,16 @@ void normalize_upper_lower_mt(InputIter from,InputIter to,OutputIter out,float u
 }
 
 template<typename ImageType1,typename ImageType2>
-void normalize_upper_lower_mt(const ImageType1& image1,ImageType2& image2,float upper_limit = 255.0)
+inline void normalize_upper_lower_mt(const ImageType1& image1,ImageType2& image2,float upper_limit = 255.0)
 {
     image2.resize(image1.shape());
     normalize_upper_lower_mt(image1.begin(),image1.end(),image2.begin(),upper_limit);
+}
+
+template<typename ImageType>
+inline void normalize_upper_lower_mt(ImageType& image1,float upper_limit = 255.0)
+{
+    normalize_upper_lower_mt(image1.begin(),image1.end(),image1.begin(),upper_limit);
 }
 
 
