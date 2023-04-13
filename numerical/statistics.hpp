@@ -384,6 +384,16 @@ __INLINE__ double standard_deviation_mt(input_iterator from,input_iterator to)
     return standard_deviation_mt(from,to,mean(from,to));
 }
 
+template<typename T>
+__INLINE__ double standard_deviation(T& data)
+{
+    return standard_deviation(data.begin(),data.end(),mean(data.begin(),data.end()));
+}
+template<typename T>
+__INLINE__ double standard_deviation_mt(T& data)
+{
+    return standard_deviation_mt(data.begin(),data.end(),mean(data.begin(),data.end()));
+}
 
 template<typename input_iterator>
 double median_absolute_deviation(input_iterator from,input_iterator to)
