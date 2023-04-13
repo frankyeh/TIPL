@@ -24,6 +24,8 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         std::istringstream in(param1);
         for(int i = 0;i < 16;++i)
             in >> T[i];
+        for(int i = 0;i < 3;++i)
+            vs[i] = std::sqrt(T[i]*T[i]+T[i+4]*T[i+4]+T[i+8]*T[i+8]);
         return true;
     }
     if(cmd == "set_translocation")
