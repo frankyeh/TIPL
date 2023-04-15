@@ -463,9 +463,9 @@ public:
     {
         unsigned int rows,cols,size(std::distance(first,last));
         const typename std::iterator_traits<iterator>::value_type* ptr = nullptr;
-        if(read(name,rows,cols,ptr) == nullptr || rows*cols < size)
+        if(read(name,rows,cols,ptr) == nullptr)
             return false;
-        std::copy(ptr,ptr+size,first);
+        std::copy(ptr,ptr+std::min<size_t>(rows*cols,size),first);
         return true;
     }
     bool read(const char* name,std::string& str) const
