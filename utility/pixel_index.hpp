@@ -377,6 +377,8 @@ class vector;
 template<typename data_type>
 class vector<2,data_type>
 {
+public:
+    static const unsigned int dimension = 2;
 protected:
     union
     {
@@ -648,6 +650,8 @@ public:
 template<typename data_type>
 class vector<3,data_type>
 {
+public:
+    static const unsigned int dimension = 3;
 protected:
     union
     {
