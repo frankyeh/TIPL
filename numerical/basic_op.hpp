@@ -109,13 +109,13 @@ bool is_label_image(const ImageType& I)
 }
 
 template<typename T>
-void expand_label_to_dimension(tipl::image<3,T>& label,size_t label_count)
+void expand_label_to_dimension(T& label,size_t label_count)
 {
     std::vector<size_t> base_pos(label_count);
     for(int i = 1;i < base_pos.size();++i)
         base_pos[i] = base_pos[i-1]+label.size();
 
-    tipl::image<3,T> labels(label.shape().multiply(tipl::shape<3>::z,label_count));
+    T labels(label.shape().multiply(tipl::shape<3>::z,label_count));
     for(size_t j = 0;j < label.size();++j)
     {
         if(!label[j])
@@ -185,6 +185,41 @@ ImageType& threshold(ImageType& I,typename ImageType::value_type threshold_value
             *iter = background;
     return I;
 }
+
+
+
+template<typename T,typename U>
+inline T space2slice(unsigned char dim,const U& p)
+{
+    if constexpr(T::dimension == 3)
+        return T(p[dim == 0 ? 1:0],p[dim == 2 ? 1:2],p[dim]);
+    if constexpr(T::dimension == 2)
+        return T(p[dim == 0 ? 1:0],p[dim == 2 ? 1:2]);
+}
+
+template<typename T>
+inline T slice2space(unsigned char dim_index,typename T::value_type x,
+                                             typename T::value_type y,
+                                             typename T::value_type slice_index)
+{
+    if(dim_index == 2)
+        return T(x,y,slice_index);
+    if(dim_index == 1)
+        return T(x,slice_index,y);
+    return T(slice_index,x,y);
+}
+
+template<typename dim_type,typename GeoType,typename ResultType>
+inline void get_slice_positions(dim_type dim,float pos,const GeoType& geo,ResultType& points)
+{
+    float x_max = float(geo[dim == 0 ? 1:0])-0.5f;
+    float y_max = float(geo[dim == 2 ? 1:2])-0.5f;
+    points[0] = tipl::slice2space<typename ResultType::value_type>(dim,-0.5f,-0.5f,pos);
+    points[1] = tipl::slice2space<typename ResultType::value_type>(dim,x_max,-0.5f,pos);
+    points[2] = tipl::slice2space<typename ResultType::value_type>(dim,-0.5f,y_max,pos);
+    points[3] = tipl::slice2space<typename ResultType::value_type>(dim,x_max,y_max,pos);
+}
+
 
 
 template<typename ImageType3D,typename ImageType2D,typename dim_type,typename slice_pos_type>

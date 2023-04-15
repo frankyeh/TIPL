@@ -24,7 +24,6 @@ TIPL library is shared under one of the following licenses
 #include "numerical/basic_op.hpp"
 #include "numerical/numerical.hpp"
 #include "numerical/resampling.hpp"
-#include "numerical/slice.hpp"
 #include "numerical/fft.hpp"
 #include "numerical/optimization.hpp"
 #include "numerical/statistics.hpp"
