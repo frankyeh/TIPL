@@ -5,52 +5,32 @@
 namespace tipl
 {
 
-template<typename value_type1,typename value_type2>
-void space2slice(unsigned char dim_index,
-        value_type1 px,value_type1 py,value_type1 pz,
-        value_type2& x,value_type2& y)
+template<typename T,typename U>
+inline void space2slice(unsigned char dim,const T& p,U& v)
 {
-    switch(dim_index)
-    {
-        case 2:
-             x = px;y = py;return;
-        case 1:
-             x = px;y = pz;return;
-        case 0:
-             x = py;y = pz;return;
-    }
+    v[0] = p[dim == 0 ? 1:0];
+    v[1] = p[dim == 2 ? 1:2];
 }
 
-template<typename value_type1,typename value_type2>
-void space2slice(unsigned char dim_index,
-        value_type1 px,value_type1 py,value_type1 pz,
-        value_type2& x,value_type2& y,value_type2& slice_index)
+template<typename T,typename U>
+inline void space2slice(unsigned char dim,const T& p,U& x,U& y,U& slice_index)
 {
-    switch(dim_index)
-    {
-        case 2:
-             x = px;y = py;slice_index = pz;return;
-        case 1:
-             x = px;y = pz;slice_index = py;return;
-        case 0:
-             x = py;y = pz;slice_index = px;return;
-    }
+    x = p[dim == 0 ? 1:0];
+    y = p[dim == 2 ? 1:2];
+    slice_index = p[dim];
 }
 
-
-template<typename value_type1,typename slice_type,typename value_type2>
-void slice2space(unsigned char dim_index,
-        value_type1 x,value_type1 y,slice_type slice_index,
-        value_type2& px,value_type2& py,value_type2& pz)
+template<typename T,typename U,typename V>
+void slice2space(unsigned char dim_index,T x,T y,U slice_index,V& p)
 {
     switch(dim_index)
     {
         case 2:
-             px = x;py = y;pz = slice_index;break;
+             p[0] = x;p[1] = y;p[2] = slice_index;break;
         case 1:
-             px = x;py = slice_index;pz = y;break;
+             p[0] = x;p[1] = slice_index;p[2] = y;break;
         case 0:
-             px = slice_index;py = x;pz = y;break;
+             p[0] = slice_index;p[1] = x;p[2] = y;break;
     }
 }
 
@@ -77,10 +57,10 @@ void get_slice_positions(unsigned char dim,double pos,
     }
 
     double z_pos = pos+(double)range_min[dim];
-    tipl::slice2space(dim,x_min,y_min,z_pos,points[0][0],points[0][1],points[0][2]);
-    tipl::slice2space(dim,x_max,y_min,z_pos,points[1][0],points[1][1],points[1][2]);
-    tipl::slice2space(dim,x_min,y_max,z_pos,points[2][0],points[2][1],points[2][2]);
-    tipl::slice2space(dim,x_max,y_max,z_pos,points[3][0],points[3][1],points[3][2]);
+    tipl::slice2space(dim,x_min,y_min,z_pos,points[0]);
+    tipl::slice2space(dim,x_max,y_min,z_pos,points[1]);
+    tipl::slice2space(dim,x_min,y_max,z_pos,points[2]);
+    tipl::slice2space(dim,x_max,y_max,z_pos,points[3]);
 }
 
 
@@ -104,10 +84,10 @@ void get_slice_positions(dim_type dim,pos_type pos,const GeoType& geo,ResultType
     y_max = (double)geo[(dim+2) >= 3 ? dim-1 : dim+2]-0.5;
     }
 
-    tipl::slice2space(dim,x_min,y_min,pos,points[0][0],points[0][1],points[0][2]);
-    tipl::slice2space(dim,x_max,y_min,pos,points[1][0],points[1][1],points[1][2]);
-    tipl::slice2space(dim,x_min,y_max,pos,points[2][0],points[2][1],points[2][2]);
-    tipl::slice2space(dim,x_max,y_max,pos,points[3][0],points[3][1],points[3][2]);
+    tipl::slice2space(dim,x_min,y_min,pos,points[0]);
+    tipl::slice2space(dim,x_max,y_min,pos,points[1]);
+    tipl::slice2space(dim,x_min,y_max,pos,points[2]);
+    tipl::slice2space(dim,x_max,y_max,pos,points[3]);
 }
 
 
