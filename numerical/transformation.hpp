@@ -996,14 +996,14 @@ public:
     }
 public:
     template<typename rhs_value_type>
-    __INLINE__ transformation_matrix& operator=(const transformation_matrix<rhs_value_type>& M)
+    __INLINE__ auto& operator=(const transformation_matrix<rhs_value_type>& M)
     {
         for(unsigned int i = 0;i < total_size;++i)
             data[i] = M.data[i];
         return *this;
     }
     template<typename rhs_value_type>
-    __INLINE__ transformation_matrix& operator=(const tipl::matrix<4,4,rhs_value_type>& M)
+    __INLINE__ auto& operator=(const tipl::matrix<4,4,rhs_value_type>& M)
     {
         data[0] = M[0];
         data[1] = M[1];
@@ -1022,7 +1022,6 @@ public:
         data[11] = M[11];
         return *this;
     }
-
 public:
 
     __DEVICE_HOST__  const transformation_matrix<value_type>& operator*=(const transformation_matrix& rhs)
