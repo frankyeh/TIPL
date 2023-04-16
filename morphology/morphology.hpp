@@ -117,18 +117,18 @@ inline void dilation(ImageType& I,const std::vector<int64_t>& index_shift)
     dilation_mt<false>(I,index_shift);
 }
 
-template<typename ImageType>
-void dilation(ImageType& I)
+template<typename T>
+void dilation(T&& I)
 {
-    neighbor_index_shift_narrow<ImageType::dimension> neighborhood(I.shape());
+    neighbor_index_shift_narrow<std::remove_reference_t<T>::dimension> neighborhood(I.shape());
     dilation(I,neighborhood.index_shift);
 }
 
 
-template<typename ImageType>
-void dilation_mt(ImageType& I)
+template<typename T>
+void dilation_mt(T&& I)
 {
-    neighbor_index_shift_narrow<ImageType::dimension> neighborhood(I.shape());
+    neighbor_index_shift_narrow<std::remove_reference_t<T>::dimension> neighborhood(I.shape());
     dilation_mt(I,neighborhood.index_shift);
 }
 
