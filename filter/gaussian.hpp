@@ -18,7 +18,7 @@ struct gaussian_filter_imp2<value_type,1>
     typedef typename pixel_manip<value_type>::type manip_type;
 public:
     template<typename image_type>
-    void operator()(image_type& src)
+    void operator()(image_type&& src)
     {
         std::vector<manip_type> dest(src.size());
         add_weight<1>(dest,src,1);
@@ -37,7 +37,7 @@ class gaussian_filter_imp2<value_type,2>
     typedef typename pixel_manip<value_type>::type manip_type;
 public:
     template<typename image_type>
-    void operator()(image_type& src)
+    void operator()(image_type&& src)
     {
         std::vector<manip_type> dest(src.size());
         int w = src.width();
@@ -60,7 +60,7 @@ class gaussian_filter_imp2<value_type,3>
     typedef typename pixel_manip<value_type>::type manip_type;
 public:
     template<typename image_type>
-    void operator()(image_type& src)
+    void operator()(image_type&& src)
     {
         std::vector<manip_type> dest(src.size());
         int w = src.width();
@@ -87,7 +87,7 @@ struct gaussian_filter_imp<value_type,1>
     typedef typename pixel_manip<value_type>::type manip_type;
 public:
     template<typename image_type>
-    void operator()(image_type& src)
+    void operator()(image_type&& src)
     {
         std::vector<manip_type> dest(src.size());
         add_weight<1>(dest,src,2);
@@ -107,7 +107,7 @@ class gaussian_filter_imp<value_type,2>
     typedef typename pixel_manip<value_type>::type manip_type;
 public:
     template<typename image_type>
-    void operator()(image_type& src)
+    void operator()(image_type&& src)
     {
         std::vector<manip_type> dest(src.size());
         int w = src.width();
@@ -139,7 +139,7 @@ class gaussian_filter_imp<value_type,3>
     typedef typename pixel_manip<value_type>::type manip_type;
 public:
     template<typename image_type>
-    void operator()(image_type& src)
+    void operator()(image_type&& src)
     {
         std::vector<manip_type> dest(src.size());
         int w = src.width();
@@ -178,16 +178,16 @@ public:
 };
 
 template<typename image_type>
-image_type& gaussian(image_type& src)
+image_type& gaussian(image_type&& src)
 {
-    gaussian_filter_imp<typename image_type::value_type,image_type::dimension>()(src);
+    gaussian_filter_imp<typename std::remove_reference_t<image_type>::value_type,std::remove_reference_t<image_type>::dimension>()(src);
     return src;
 }
 
 template<typename image_type>
-image_type& gaussian2(image_type& src)
+image_type& gaussian2(image_type&& src)
 {
-    gaussian_filter_imp2<typename image_type::value_type,image_type::dimension>()(src);
+    gaussian_filter_imp2<typename std::remove_reference_t<image_type>::value_type,std::remove_reference_t<image_type>::dimension>()(src);
     return src;
 }
 
