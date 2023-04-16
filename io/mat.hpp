@@ -646,28 +646,34 @@ public:
         out.write(reinterpret_cast<const char*>(data_ptr),size_t(rows)*size_t(cols)*sizeof(Type));
         return out;
     }
-    template<typename container_type>
-    bool write(const char* name_,const container_type& data)
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    bool write(const char* name,T value)
     {
-        return write(name_,&*data.begin(),1,uint32_t(data.end()-data.begin()));
+        return write(name,&value,1,1);
     }
-    template<typename T>
-    bool write(const char* name_,const std::initializer_list<T>& data)
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    bool write(const char* name,const T& data)
     {
-        return write(name_,&*data.begin(),1,uint32_t(data.end()-data.begin()));
+        return write(name,&*data.begin(),1,uint32_t(data.end()-data.begin()));
     }
-    template<typename container_type>
-    bool write(const char* name_,const container_type& data,uint32_t d)
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    bool write(const char* name,const T& data,uint32_t d)
     {
         if(data.empty())
             return false;
-        return write(name_,&data[0],d,uint32_t((data.end()-data.begin())/d));
+        return write(name,&data[0],d,uint32_t((data.end()-data.begin())/d));
     }
-    bool write(const char* name_,const std::string text)
+    template<typename T>
+    bool write(const char* name,const std::initializer_list<T>& data)
+    {
+        return write(name,&*data.begin(),1,uint32_t(data.end()-data.begin()));
+    }
+
+    bool write(const char* name,const std::string text)
     {
         if(text.empty())
             return false;
-        return write(name_,text.c_str(),1,text.size()+1);
+        return write(name,text.c_str(),1,text.size()+1);
     }
     bool write(const mat_matrix& data)
     {
