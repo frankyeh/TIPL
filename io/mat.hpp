@@ -16,7 +16,6 @@ namespace io
 template<typename fun_type>
 struct mat_type_info
 {
-    static const unsigned int type = 60;
 };
 
 template<>
@@ -669,7 +668,7 @@ public:
         return write(name,&*data.begin(),1,uint32_t(data.end()-data.begin()));
     }
 
-    bool write(const char* name,const std::string text)
+    bool write(const char* name,const std::string& text)
     {
         if(text.empty())
             return false;
