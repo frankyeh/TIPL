@@ -392,11 +392,11 @@ protected:
 public:
     __INLINE__ vector(void):x_(0),y_(0)				{}
     __INLINE__ vector(data_type x,data_type y):x_(x),y_(y){}
-    template<typename rhs_type>
+    template<typename rhs_type,typename std::enable_if<std::is_class<rhs_type>::value,bool>::type = true>
     __INLINE__ vector(const rhs_type& rhs):x_(rhs[0]),y_(rhs[1]){}
-    template<typename rhs_type>
+    template<typename rhs_type,typename std::enable_if<std::is_fundamental<rhs_type>::value,bool>::type = true>
     __INLINE__ vector(const rhs_type* rhs):x_(rhs[0]),y_(rhs[1]){}
-    template<typename rhs_type>
+    template<typename rhs_type,typename std::enable_if<std::is_fundamental<rhs_type>::value,bool>::type = true>
     __INLINE__ vector& operator=(const rhs_type* rhs)
     {
         x_ = rhs[0];
@@ -669,9 +669,9 @@ public:
     __INLINE__ vector(void):x_(0),y_(0),z_(0)				{}
     template<typename T>
     __INLINE__ vector(T x,T y,T z):x_(data_type(x)),y_(data_type(y)),z_(data_type(z)){}
-    template<typename T>
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
     __INLINE__ vector(const T& rhs):x_(data_type(rhs[0])),y_(data_type(rhs[1])),z_(data_type(rhs[2])){}
-    template<typename T>
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
     __INLINE__ vector(const T* rhs):x_(data_type(rhs[0])),y_(data_type(rhs[1])),z_(data_type(rhs[2])){}
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
     __INLINE__ vector& operator=(T rhs)
