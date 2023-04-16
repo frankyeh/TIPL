@@ -985,7 +985,7 @@ void match_signal_kernel(const T& VG,T& VFF)
 
 
 template<tipl::interpolation Type = linear,typename ImageType1,typename ImageType2,typename T>
-void scale(const ImageType1& from,ImageType2& to,const tipl::vector<ImageType1::dimension>& s)
+void scale(const ImageType1& from,ImageType2&& to,const tipl::vector<ImageType1::dimension>& s)
 {
     tipl::par_for(tipl::begin_index(to.shape()),tipl::end_index(to.shape()),
                 [&](const tipl::pixel_index<ImageType1::dimension>& index)
@@ -998,7 +998,7 @@ void scale(const ImageType1& from,ImageType2& to,const tipl::vector<ImageType1::
 
 
 template<tipl::interpolation itype = linear,typename ImageType1,typename ImageType2,typename value_type>
-void resample(const ImageType1& from,ImageType2& to,const tipl::transformation_matrix<value_type>& trans)
+void resample(const ImageType1& from,ImageType2&& to,const tipl::transformation_matrix<value_type>& trans)
 {
     tipl::shape<ImageType1::dimension> geo(to.shape());
     for (tipl::pixel_index<ImageType1::dimension> index(geo);index < geo.size();++index)
@@ -1009,7 +1009,7 @@ void resample(const ImageType1& from,ImageType2& to,const tipl::transformation_m
     }
 }
 template<tipl::interpolation Type = linear,typename ImageType1,typename ImageType2,typename value_type>
-void resample_mt(const ImageType1& from,ImageType2& to,const tipl::transformation_matrix<value_type>& trans)
+void resample_mt(const ImageType1& from,ImageType2&& to,const tipl::transformation_matrix<value_type>& trans)
 {
     tipl::par_for(tipl::begin_index(to.shape()),tipl::end_index(to.shape()),
                 [&](const tipl::pixel_index<ImageType1::dimension>& index)
@@ -1021,20 +1021,20 @@ void resample_mt(const ImageType1& from,ImageType2& to,const tipl::transformatio
 }
 
 template<tipl::interpolation itype = linear,typename ImageType1,typename ImageType2,typename T>
-inline void resample(const ImageType1& from,ImageType2& to,const T& trans)
+inline void resample(const ImageType1& from,ImageType2&& to,const T& trans)
 {
     resample<itype>(from,to,tipl::transformation_matrix<typename T::value_type>(trans));
 }
 
 template<tipl::interpolation itype = linear,typename ImageType1,typename ImageType2,typename T>
-inline void resample_mt(const ImageType1& from,ImageType2& to,const T& trans)
+inline void resample_mt(const ImageType1& from,ImageType2&& to,const T& trans)
 {
     resample_mt<itype>(from,to,tipl::transformation_matrix<typename T::value_type>(trans));
 }
 
 
 template<tipl::interpolation Type = linear,typename ImageType1,typename ImageType2,typename transform_type>
-void resample_dis(const ImageType1& from,ImageType2& to,const transform_type& transform,const tipl::image<3,tipl::vector<3> >& dis)
+void resample_dis(const ImageType1& from,ImageType2&& to,const transform_type& transform,const tipl::image<3,tipl::vector<3> >& dis)
 {
     tipl::shape<ImageType1::dimension> geo(to.shape());
     for (tipl::pixel_index<ImageType1::dimension> index(geo);index < geo.size();++index)
