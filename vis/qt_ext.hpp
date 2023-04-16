@@ -155,6 +155,79 @@ inline void draw_ruler(QPainter& paint,
 }
 
 
+template<typename image_type>
+QImage draw_regions(const std::vector<image_type>& region_masks,
+                  const std::vector<tipl::rgb>& colors,
+                  bool fill_region,bool draw_edge,int line_width,
+                  int cur_roi_index,
+                  float display_ratio)
+{
+    if(region_masks.empty())
+        return QImage();
+    auto dim = region_masks[0].shape();
+    int w = dim.width();
+    int h = dim.height();
+    // draw region colors on the image
+    tipl::color_image slice_image_with_region(dim);  //original slices for adding regions pixels
+    // draw regions and also derive where the edges are
+    std::vector<std::vector<tipl::vector<2,int> > > edge_x(region_masks.size()),
+                                                    edge_y(region_masks.size());
+    {
+        tipl::par_for(region_masks.size(),[&](uint32_t roi_index)
+        {
+            auto& region_mask = region_masks[roi_index];
+            auto color = colors[roi_index];
+            bool draw_roi = (fill_region && color.a >= 128);
+            // detect edge
+            auto& cur_edge_x = edge_x[roi_index];
+            auto& cur_edge_y = edge_y[roi_index];
+            for(tipl::pixel_index<2> index(dim);index < dim.size();++index)
+                if(region_mask[index.index()])
+                {
+                    auto x = index[0];
+                    auto y = index[1];
+                    if(draw_roi)
+                        slice_image_with_region[index.index()] = color;
+                    if(y > 0 && !region_mask[index.index()-w])
+                        cur_edge_x.push_back(tipl::vector<2,int>(x,y));
+                    if(y+1 < h &&!region_mask[index.index()+w])
+                        cur_edge_x.push_back(tipl::vector<2,int>(x,y+1));
+                    if(x > 0 && !region_mask[index.index()-1])
+                        cur_edge_y.push_back(tipl::vector<2,int>(x,y));
+                    if(x+1 < w && !region_mask[index.index()+1])
+                        cur_edge_y.push_back(tipl::vector<2,int>(x+1,y));
+                }
+        });
+    }
+    // now apply image scaling to the slice image
+    QImage scaled_image = (QImage() << slice_image_with_region).scaled(int(w*display_ratio),int(h*display_ratio));
+    if(draw_edge)
+    {
+        unsigned int foreground_color = ((scaled_image.pixel(0,0) & 0x000000FF) < 128 ? 0xFFFFFFFF:0xFF000000);
+        QPainter paint(&scaled_image);
+        for (uint32_t roi_index = 0;roi_index < region_masks.size();++roi_index)
+        {
+            unsigned int cur_color = foreground_color;
+            if(int(roi_index) != cur_roi_index)
+                cur_color = colors[roi_index];
+            paint.setBrush(Qt::NoBrush);
+            QPen pen(QColor(cur_color),line_width, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+            paint.setPen(pen);
+            for(auto& pos : edge_x[roi_index])
+            {
+                pos *= display_ratio;
+                paint.drawLine(pos[0],pos[1],pos[0]+display_ratio,pos[1]);
+            }
+            for(auto& pos : edge_y[roi_index])
+            {
+                pos *= display_ratio;
+                paint.drawLine(pos[0],pos[1],pos[0],pos[1]+display_ratio);
+            }
+        }
+    }
+    return scaled_image;
+}
+
 
 inline QPixmap image2pixelmap(const QImage &I)
 {
