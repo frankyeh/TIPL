@@ -219,6 +219,12 @@ struct rgb
         b = (b_ >= 255.0) ? 255 : (unsigned char)b_;
     }
 
+    static rgb generate(int color_gen)
+    {
+        rgb color;
+        color.from_hsl(((color_gen)*1.1-std::floor((color_gen)*1.1/6)*6)*3.14159265358979323846/3.0,0.85,0.7);
+        return color;
+    }
     void operator|=(const rgb& rhs)
     {
         r = rhs.r | r;
