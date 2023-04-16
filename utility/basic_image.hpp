@@ -350,7 +350,10 @@ public:
     __INLINE__ auto slice_at(unsigned int pos)
     {
         tipl::shape<dim-1> slice_sp(sp.begin());
-        return slice_type(&*alloc.begin()+pos*slice_sp.size(),slice_sp);
+        if constexpr(std::is_same<storage_type,const_pointer_container<vtype> >::value)
+            return const_slice_type(&*alloc.begin()+pos*slice_sp.size(),slice_sp);
+        else
+            return slice_type(&*alloc.begin()+pos*slice_sp.size(),slice_sp);
     }
     __INLINE__ auto slice_at(unsigned int pos) const
     {
@@ -360,7 +363,10 @@ public:
     template<typename shape_type>
     __INLINE__ auto alias(size_t offset,const shape_type& new_shape)
     {
-        return tipl::image<shape_type::dimension,value_type,pointer_container>(&*alloc.begin()+offset,new_shape);
+        if constexpr(std::is_same<storage_type,const_pointer_container<vtype> >::value)
+            return tipl::image<shape_type::dimension,value_type,const_pointer_container>(&*alloc.begin()+offset,new_shape);
+        else
+            return tipl::image<shape_type::dimension,value_type,pointer_container>(&*alloc.begin()+offset,new_shape);
     }
     template<typename shape_type>
     __INLINE__ auto alias(size_t offset,const shape_type& new_shape) const
@@ -369,7 +375,10 @@ public:
     }
     __INLINE__ auto alias(void)
     {
-        return tipl::image<dim,value_type,pointer_container>(&*alloc.begin(),sp);
+        if constexpr(std::is_same<storage_type,const_pointer_container<vtype> >::value)
+            return tipl::image<dim,value_type,const_pointer_container>(&*alloc.begin(),sp);
+        else
+            return tipl::image<dim,value_type,pointer_container>(&*alloc.begin(),sp);
     }
     __INLINE__ auto alias(void) const
     {
