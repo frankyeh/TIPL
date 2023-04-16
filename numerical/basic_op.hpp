@@ -335,7 +335,7 @@ auto volume2slice_scaled(const ImageType3D& slice,dim_type dim,slice_pos_type sl
 }
 //--------------------------------------------------------------------------
 template<typename T1,typename T2,typename PosType,typename std::enable_if<T1::dimension==2,bool>::type = true>
-void crop(const T1& from_image,T2& to_image,PosType from,PosType to)
+void crop(const T1& from_image,T2&& to_image,PosType from,PosType to)
 {
     if (to[0] <= from[0] || to[1] <= from[1])
         return;
@@ -352,7 +352,7 @@ void crop(const T1& from_image,T2& to_image,PosType from,PosType to)
 }
 //--------------------------------------------------------------------------
 template<typename T1,typename T2,typename PosType,typename std::enable_if<T1::dimension==3,bool>::type = true>
-void crop(const T1& from_image,T2& to_image,PosType from,PosType to)
+void crop(const T1& from_image,T2&& to_image,PosType from,PosType to)
 {
     if (to[0] <= from[0] || to[1] <= from[1] ||
             to[2] <= from[2])
@@ -369,19 +369,17 @@ void crop(const T1& from_image,T2& to_image,PosType from,PosType to)
                 to_image[to_index] = from_image[from_index];
 }
 //---------------------------------------------------------------------------
-template<typename ImageType,typename DimensionType>
-ImageType& crop(ImageType& I,
-          const DimensionType& from,
-          const DimensionType& to)
+template<typename T,typename U>
+T& crop(T&& I,const U& from,const U& to)
 {
-    ImageType out_image;
+    std::remove_reference_t<T> out_image;
     crop(I,out_image,from,to);
     I.swap(out_image);
     return I;
 }
 //--------------------------------------------------------------------------
 template<typename image_type,typename PosType,typename pixel_type>
-void fill_rect(image_type& I,PosType from,PosType to,pixel_type value)
+void fill_rect(image_type&& I,PosType from,PosType to,pixel_type value)
 {
     size_t line_pos = size_t(from[0]) + size_t(from[1])*size_t(I.width());
     int line_width = int(to[0])-int(from[0]);
@@ -407,7 +405,7 @@ __INLINE__ bool draw_range(T from_w,T to_w,U& pos,int64_t& shift,int64_t& draw_r
     return draw_range;
 }
 template<typename T1,typename T2,typename PosType,typename std::enable_if<T1::dimension==2,bool>::type = true>
-void draw(const T1& from_image,T2& to_image,PosType pos)
+void draw(const T1& from_image,T2&& to_image,PosType pos)
 {
     int64_t x_shift,y_shift;
     int64_t x_width,y_height;
@@ -427,7 +425,7 @@ void draw(const T1& from_image,T2& to_image,PosType pos)
 }
 //--------------------------------------------------------------------------
 template<bool copy = true,typename T1,typename T2,typename PosType,typename std::enable_if<T1::dimension==3,bool>::type = true>
-void draw(const T1& from_image,T2& to_image,PosType pos)
+void draw(const T1& from_image,T2&& to_image,PosType pos)
 {
     int64_t x_shift,y_shift,z_shift;
     int64_t x_width,y_height,z_depth;
@@ -454,11 +452,12 @@ void draw(const T1& from_image,T2& to_image,PosType pos)
         }while(1);
     });
 }
-template<bool copy = true,typename image_type,typename pos_type,typename shape_type,typename std::enable_if<image_type::dimension==3,bool>::type = true>
-void draw_rect(image_type& to_image,
+template<bool copy = true,typename image_type,typename pos_type,typename shape_type,
+         typename std::enable_if<std::remove_reference<image_type>::dimension==3,bool>::type = true>
+void draw_rect(image_type&& to_image,
                pos_type pos,
                const shape_type& rect_sizes,
-               typename image_type::value_type value)
+               typename std::remove_reference<image_type>::value_type value)
 {
     int64_t x_shift,y_shift,z_shift;
     int64_t x_width,y_height,z_depth;
@@ -527,11 +526,8 @@ void draw_line(int x,int y,int x1,int y1,fun_type fun)
     }
 };
 //---------------------------------------------------------------------------
-template<typename image_type1,typename image_type2>
-void mosaic(const image_type1& source,
-            image_type2& out,
-            unsigned int mosaic_size,
-            unsigned int skip = 1)
+template<typename T,typename U>
+void mosaic(const T& source,U&& out,unsigned int mosaic_size,unsigned int skip = 1)
 {
     unsigned slice_num = source.depth() / skip;
     out.clear();
@@ -545,10 +541,10 @@ void mosaic(const image_type1& source,
     }
 }
 //---------------------------------------------------------------------------
-template<typename ImageType,typename PosType>
-ImageType& move(ImageType& I,PosType pos)
+template<typename T,typename U>
+T& move(T&& I,U pos)
 {
-    ImageType dest(I.shape());
+    std::remove_reference<T> dest(I.shape());
     draw(I,dest,pos);
     dest.swap(I);
     return I;
@@ -556,10 +552,7 @@ ImageType& move(ImageType& I,PosType pos)
 
 //---------------------------------------------------------------------------
 template<typename ImageType,typename DimensionType,typename ValueType = typename ImageType::value_type>
-void bounding_box(const ImageType& I,
-          DimensionType& range_min,
-          DimensionType& range_max,
-          ValueType background = 0)
+void bounding_box(const ImageType& I,DimensionType& range_min,DimensionType& range_max,ValueType background = 0)
 {
     //get_border(image,range_min,range_max);
     for (unsigned int di = 0; di < ImageType::dimension; ++di)
@@ -993,7 +986,7 @@ ImageType& swap_yz(ImageType& I)
 }
 //---------------------------------------------------------------------------
 template<typename ImageType>
-ImageType& flip(ImageType& I,unsigned char dim)
+ImageType& flip(ImageType&& I,unsigned char dim)
 {
     switch(dim)
     {
