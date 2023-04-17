@@ -221,6 +221,36 @@ inline void get_slice_positions(dim_type dim,float pos,const GeoType& geo,Result
 }
 
 
+template<typename T,typename U>
+inline auto volume2points(const T& shape,U&& fun,unsigned char thread_count = std::min<int>(8,std::thread::hardware_concurrency()))
+{
+    std::vector<std::vector<tipl::vector<3,short> > > points(thread_count);
+    tipl::par_for(tipl::begin_index(shape),tipl::end_index(shape),
+                   [&](const tipl::pixel_index<3>& index,unsigned int thread_id)
+    {
+        if (fun(index))
+            points[thread_id].push_back(tipl::vector<3,short>(index.x(), index.y(),index.z()));
+    },thread_count);
+    std::vector<tipl::vector<3,short> > region;
+    tipl::aggregate_results(std::move(points),region);
+    return region;
+}
+
+template<typename T>
+inline auto volume2points(const T& mask,unsigned char thread_count = std::min<int>(8,std::thread::hardware_concurrency()))
+{
+    std::vector<std::vector<tipl::vector<3,short> > > points(thread_count);
+    tipl::par_for(tipl::begin_index(mask),tipl::end_index(mask),
+                   [&](const tipl::pixel_index<3>& index,unsigned int thread_id)
+    {
+        if (mask[index.index()])
+            points[thread_id].push_back(tipl::vector<3,short>(index.x(), index.y(),index.z()));
+    },thread_count);
+    std::vector<tipl::vector<3,short> > region;
+    tipl::aggregate_results(std::move(points),region);
+    return region;
+}
+
 
 template<typename ImageType3D,typename ImageType2D,typename dim_type,typename slice_pos_type>
 ImageType2D& volume2slice(const ImageType3D& slice,ImageType2D& I,dim_type dim,slice_pos_type slice_index)
