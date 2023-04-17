@@ -26,7 +26,6 @@ inline void operator<<(QGraphicsScene& scene,QImage I)
     {
         scene.setSceneRect(0, 0, I.width(),I.height());
         scene.clear();
-        scene.addPixmap(tipl::qt::image2pixelmap(I));
 #ifdef WIN32
         scene.addPixmap(QPixmap::fromImage(I));
 #else
