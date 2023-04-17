@@ -47,20 +47,20 @@ protected:
 public:
     __INLINE__ pixel_index(void):x_(0),y_(0),index_(0),w(0){}
     template<typename stype,typename std::enable_if<stype::dimension==2,bool>::type = true>
-    __INLINE__ pixel_index(const stype& geo):x_(0),y_(0),index_(0),w(geo[0]){}
+    __INLINE__ pixel_index(const stype& geo):x_(0),y_(0),index_(0),w(geo.width()){}
     __INLINE__ pixel_index(const pixel_index& rhs):x_(rhs.x_),y_(rhs.y_),index_(rhs.index_),w(rhs.w){}
     template<typename vtype,typename stype,typename std::enable_if<stype::dimension==2,bool>::type = true>
     __INLINE__ pixel_index(vtype x,vtype y,vtype index,const stype& geo):
-            x_(int(x)),y_(int(y)),index_(index),w(geo[0]){}
+            x_(int(x)),y_(int(y)),index_(index),w(geo.width()){}
     template<typename vtype,typename stype,typename std::enable_if<stype::dimension==2,bool>::type = true>
     __INLINE__ pixel_index(vtype x,vtype y,const stype& geo):
-            x_(int(x)),y_(int(y)),index_(int(y)*geo.width()+int(x)),w(geo[0]){}
+            x_(int(x)),y_(int(y)),index_(int(y)*geo.width()+int(x)),w(geo.width()){}
     template<typename vtype,typename stype,typename std::enable_if<stype::dimension==2,bool>::type = true>
     __INLINE__ pixel_index(vtype* offset,const stype& geo):
-            x_(offset[0]),y_(offset[1]),index_(offset[1]*geo.width()+offset[0]),w(geo[0]){}
+            x_(offset[0]),y_(offset[1]),index_(offset[1]*geo.width()+offset[0]),w(geo.width()){}
     template<typename vtype,typename stype,typename std::enable_if<stype::dimension==2,bool>::type = true>
     __INLINE__ pixel_index(vtype y,const stype& geo):
-            x_(y % geo.width()),y_(y / geo.width()),index_(y),w(geo[0]){}
+            x_(y % geo.width()),y_(y / geo.width()),index_(y),w(geo.width()){}
 public:
     __INLINE__ const pixel_index& operator=(const pixel_index<2>& rhs)
     {
@@ -209,21 +209,20 @@ protected:
 public:
     __INLINE__ pixel_index(void):x_(0),y_(0),z_(0),index_(0),w(0),h(0){}
     template<typename stype,typename std::enable_if<stype::dimension==3,bool>::type = true>
-    __INLINE__ pixel_index(const stype& geo):x_(0),y_(0),z_(0),index_(0),w(int(geo[0])),h(int(geo[1])){}
+    __INLINE__ pixel_index(const stype& geo):x_(0),y_(0),z_(0),index_(0),w(int(geo.width())),h(int(geo.height())){}
     __INLINE__ pixel_index(const pixel_index& rhs):x_(rhs.x_),y_(rhs.y_),z_(rhs.z_),index_(rhs.index_),w(rhs.w),h(rhs.h){}
     template<typename vtype,typename stype,typename std::enable_if<stype::dimension==3,bool>::type = true>
-    __INLINE__ pixel_index(vtype x,vtype y,vtype z,size_t i,const stype& geo):x_(int(x)),y_(int(y)),z_(int(z)),index_(i),w(int(geo[0])),h(int(geo[1])){}
+    __INLINE__ pixel_index(vtype x,vtype y,vtype z,size_t i,const stype& geo):x_(int(x)),y_(int(y)),z_(int(z)),index_(i),w(int(geo.width())),h(int(geo.height())){}
     template<typename vtype,typename stype,typename std::enable_if<stype::dimension==3,bool>::type = true>
     __INLINE__ pixel_index(vtype x,vtype y,vtype z,const stype& geo):
-            x_(int(x)),y_(int(y)),z_(int(z)),index_(voxel2index(x,y,z,geo)),w(int(geo[0])),h(int(geo[1])){}
+            x_(int(x)),y_(int(y)),z_(int(z)),index_(voxel2index(x,y,z,geo)),w(int(geo.width())),h(int(geo.height())){}
     template<typename vtype,typename stype,typename std::enable_if<stype::dimension==3,bool>::type = true>
     __INLINE__ pixel_index(const vtype* offset,const stype& geo):
             x_(offset[0]),y_(offset[1]),z_(offset[2]),
             index_(voxel2index(offset,geo)),
-            w(int(geo[0])),h(int(geo[1])){}
-
+            w(int(geo.width())),h(int(geo.height())){}
     template<typename stype,typename std::enable_if<stype::dimension==3,bool>::type = true>
-    __INLINE__ pixel_index(size_t index,const stype& geo):index_(index),w(int(geo[0])),h(int(geo[1]))
+    __INLINE__ pixel_index(size_t index,const stype& geo):index_(index),w(int(geo.width())),h(int(geo.height()))
     {
         x_ = int(index % geo.width());
         index /= geo.width();
