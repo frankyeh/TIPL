@@ -30,6 +30,11 @@ auto split(const T& s,typename T::value_type delimiter)
     return tokens;
 }
 
+inline bool ends_with(const std::string& str,const std::string& suffix)
+{
+    return (str.size() >= suffix.size()) ? (0 == str.compare(str.size() - suffix.size(), suffix.size(), suffix)) : false;
+}
+
 template<typename T>
 T common_prefix(const T& str1,const T& str2)
 {
