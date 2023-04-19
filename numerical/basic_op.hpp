@@ -482,6 +482,15 @@ void draw(const T1& from_image,T2&& to_image,PosType pos)
         }while(1);
     });
 }
+
+template<bool copy = true,typename T1,typename T2>
+inline void draw(const T1& from_image,T2&& to_image)
+{
+    draw<copy>(from_image,to_image,
+         (tipl::vector<T1::dimension,int>(to_image.shape())-
+         tipl::vector<T1::dimension,int>(to_image.shape()))/2);
+}
+
 template<bool copy = true,typename image_type,typename pos_type,typename shape_type,
          typename std::enable_if<std::remove_reference<image_type>::dimension==3,bool>::type = true>
 void draw_rect(image_type&& to_image,
