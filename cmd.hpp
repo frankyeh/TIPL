@@ -44,13 +44,11 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
             {
                 mask[pos] = data[pos] > typename image_type::value_type(0) ? 1 : 0;
             });
-
             if(!command<image_loader>(mask,vs,T,is_mni,cmd,param1,error_msg))
                 return false;
             tipl::par_for(mask.size(),[&](size_t pos)
             {
-                if(!mask[pos])
-                    data[pos] = typename image_type::value_type(0);
+                data[pos] = typename image_type::value_type(mask[pos]);
             });
             return true;
         }
