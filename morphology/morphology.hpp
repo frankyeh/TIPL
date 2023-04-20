@@ -22,8 +22,7 @@ template<typename T,typename F>
 void for_each_label(T& data,F&& fun)
 {
     T result_data(data.shape());
-    uint32_t m = uint32_t(tipl::max_value(data))+1;
-    tipl::par_for(m,[&](uint32_t index)
+    tipl::par_for(uint32_t(tipl::max_value(data))+1,[&](uint32_t index)
     {
         if(!index)
             return;
