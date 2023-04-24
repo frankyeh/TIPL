@@ -1041,22 +1041,38 @@ public:
         }
     }
 
+public:
+    // 0: flip x  1: flip y  2: flip z
+    // 3: swap xy 4: swap yz 5: swap xz
+    std::vector<char> flip_swap_seq;
+    template<typename image_type>
+    void apply_flip_swap_seq(image_type& out,bool reverse = false)
+    {
+        for(auto type : ((reverse) ? std::vector<char>(flip_swap_seq.rbegin(),flip_swap_seq.rend()) : flip_swap_seq))
+            tipl::flip(out,type);
+    }
+public:
     //from RAS to LPS
     template<typename image_type,typename prog_type = tipl::io::default_prog_type>
-    bool toLPS(image_type& out,bool change_header = true,bool load_image = true,prog_type&& prog = prog_type())
+    bool toLPS(image_type& out,prog_type&& prog = prog_type())
     {
         if(!write_buf)
         {
-            if(load_image && !get_untouched_image(out,prog))
+            if(!get_untouched_image(out,prog))
                 return false;
         }
         handle_qform();
 
+        if(!flip_swap_seq.empty())
+        {
+            apply_flip_swap_seq(out);
+            return true;
+        }
         // swap x y
         if(std::fabs(nif_header.srow_y[1]) < std::fabs(nif_header.srow_x[1]) &&
            std::fabs(nif_header.srow_z[1]) < std::fabs(nif_header.srow_x[1]))
         {
-            if(change_header)
+            flip_swap_seq.push_back(3);
             {
                 std::swap(nif_header.srow_x[0],nif_header.srow_x[1]);
                 std::swap(nif_header.srow_y[0],nif_header.srow_y[1]);
@@ -1064,14 +1080,12 @@ public:
                 std::swap(nif_header.pixdim[1],nif_header.pixdim[2]);
                 std::swap(nif_header.dim[1],nif_header.dim[2]);
             }
-            if(load_image)
-                tipl::swap_xy(out);
         }
         // swap x z
         if(std::fabs(nif_header.srow_y[2]) < std::fabs(nif_header.srow_x[2]) &&
            std::fabs(nif_header.srow_z[2]) < std::fabs(nif_header.srow_x[2]))
         {
-            if(change_header)
+            flip_swap_seq.push_back(5);
             {
                 std::swap(nif_header.srow_x[0],nif_header.srow_x[2]);
                 std::swap(nif_header.srow_y[0],nif_header.srow_y[2]);
@@ -1079,14 +1093,12 @@ public:
                 std::swap(nif_header.pixdim[1],nif_header.pixdim[3]);
                 std::swap(nif_header.dim[1],nif_header.dim[3]);
             }
-            if(load_image)
-                tipl::swap_xz(out);
         }
         // swap y z
         if(std::fabs(nif_header.srow_x[2]) < std::fabs(nif_header.srow_y[2]) &&
            std::fabs(nif_header.srow_z[2]) < std::fabs(nif_header.srow_y[2]))
         {
-            if(change_header)
+            flip_swap_seq.push_back(4);
             {
                 std::swap(nif_header.srow_x[1],nif_header.srow_x[2]);
                 std::swap(nif_header.srow_y[1],nif_header.srow_y[2]);
@@ -1094,17 +1106,13 @@ public:
                 std::swap(nif_header.pixdim[2],nif_header.pixdim[3]);
                 std::swap(nif_header.dim[2],nif_header.dim[3]);
             }
-            if(load_image)
-                tipl::swap_yz(out);
         }
 
         // from +x = Right  +y = Anterior +z = Superior
         // to +x = Left  +y = Posterior +z = Superior
         if(nif_header.srow_x[0] > 0)
         {
-            if(load_image)
-                tipl::flip_x(out);
-            if(change_header)
+            flip_swap_seq.push_back(0);
             {
                 nif_header.srow_x[3] += nif_header.srow_x[0]*(nif_header.dim[1]-1);
                 nif_header.srow_x[0] = -nif_header.srow_x[0];
@@ -1115,9 +1123,7 @@ public:
 
         if(nif_header.srow_y[1] > 0)
         {
-            if(load_image)
-                tipl::flip_y(out);
-            if(change_header)
+            flip_swap_seq.push_back(1);
             {
                 nif_header.srow_y[3] += nif_header.srow_y[1]*(nif_header.dim[2]-1);
                 nif_header.srow_x[1] = -nif_header.srow_x[1];
@@ -1128,9 +1134,7 @@ public:
 
         if(nif_header.srow_z[2] < 0)
         {
-            if(load_image)
-                tipl::flip_z(out);
-            if(change_header)
+            flip_swap_seq.push_back(2);
             {
                 nif_header.srow_z[3] += nif_header.srow_z[2]*(nif_header.dim[3]-1);
                 nif_header.srow_x[2] = -nif_header.srow_x[2];
@@ -1138,6 +1142,7 @@ public:
                 nif_header.srow_z[2] = -nif_header.srow_z[2];
             }
         }
+        apply_flip_swap_seq(out);
         return true;
     }
     friend std::ostream& operator<<(std::ostream& out,const nifti_base& nii)
