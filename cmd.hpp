@@ -337,6 +337,28 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         data.swap(new_data);
         return true;
     }
+
+    if(cmd == "resize")
+    {
+        std::istringstream in(param1);
+        int w(0),h(0),d(0);
+        in >> w >> h >> d;
+        if(!w || !h || !d)
+        {
+            error_msg = "invalid size";
+            return false;
+        }
+        image_type new_data(tipl::shape<3>(w,h,d));
+        auto shift = tipl::vector<3,int>(new_data.shape()) - tipl::vector<3,int>(data.shape());
+        shift /= 2;
+        tipl::draw(data,new_data,shift);
+        data.swap(new_data);
+        T[3] -= T[0]*shift[0];
+        T[7] -= T[5]*shift[1];
+        T[11] -= T[10]*shift[2];
+        return true;
+    }
+
     if(cmd == "regrid")
     {
         float nv = std::stof(param1);
@@ -402,21 +424,6 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         return true;
     }
 
-    if(cmd == "resize")
-    {
-        std::istringstream in(param1);
-        int w(0),h(0),d(0);
-        in >> w >> h >> d;
-        if(!w || !h || !d)
-        {
-            error_msg = "invalid size";
-            return false;
-        }
-        image_type new_data(tipl::shape<3>(w,h,d));
-        tipl::draw(data,new_data,tipl::vector<3,int>(0,0,0));
-        data.swap(new_data);
-        return true;
-    }
     if(cmd == "multiply_image" || cmd == "add_image" || cmd == "minus_image")
     {
         tipl::image<3> rhs(data.shape());
