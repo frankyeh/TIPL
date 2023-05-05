@@ -1147,6 +1147,8 @@ public:
                 }
 
             }
+            if(ge.group == 0xFFFE && ge.data.empty())
+                continue;
             auto& item = ge_map[ge.get_order()];
             if(item == 0) // check if there is duplicate group element
                 item = (unsigned int)(data.size());
@@ -1186,6 +1188,14 @@ public:
             return false;
         result = std::string(text,text+length);
         return true;
+    }
+    std::string get_text(unsigned short group,unsigned short element) const
+    {
+        unsigned int length = 0;
+        const char* text = (const char*)get_data(group,element,length);
+        if (!text)
+            return std::string();
+        return std::string(text,text+length);
     }
 
     bool get_text_all(unsigned short group,unsigned short element,std::string& result) const
