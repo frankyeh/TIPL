@@ -1053,21 +1053,9 @@ public:
     }
 public:
     //from RAS to LPS
-    template<typename image_type,typename prog_type = tipl::io::default_prog_type>
-    bool toLPS(image_type& out,prog_type&& prog = prog_type())
+    void toLPS(void)
     {
-        if(!write_buf)
-        {
-            if(!get_untouched_image(out,prog))
-                return false;
-        }
         handle_qform();
-
-        if(!flip_swap_seq.empty())
-        {
-            apply_flip_swap_seq(out);
-            return true;
-        }
         // swap x y
         if(std::fabs(nif_header.srow_y[1]) < std::fabs(nif_header.srow_x[1]) &&
            std::fabs(nif_header.srow_z[1]) < std::fabs(nif_header.srow_x[1]))
@@ -1142,6 +1130,17 @@ public:
                 nif_header.srow_z[2] = -nif_header.srow_z[2];
             }
         }
+    }
+    template<typename image_type,typename prog_type = tipl::io::default_prog_type>
+    bool toLPS(image_type& out,prog_type&& prog = prog_type())
+    {
+        if(!write_buf)
+        {
+            if(!get_untouched_image(out,prog))
+                return false;
+        }
+        if(flip_swap_seq.empty())
+            toLPS();
         apply_flip_swap_seq(out);
         return true;
     }
