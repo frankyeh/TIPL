@@ -108,8 +108,7 @@ inline void for_each_neighbors(const pixel_index<2>& index,const shape<2>& geo,T
 }
 
 template<typename T>
-inline void for_each_neighbors(const pixel_index<3>& index,const shape<3>& geo,
-                                        std::vector<pixel_index<3> >& iterations,T&& fun)
+inline void for_each_neighbors(const pixel_index<3>& index,const shape<3>& geo,T&& fun)
 {
     auto z_offset = geo.plane_size();
     auto y_offset = geo.width();
