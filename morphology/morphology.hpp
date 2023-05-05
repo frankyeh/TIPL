@@ -897,20 +897,43 @@ void defragment(ImageType& I)
 }
 
 template<typename ImageType>
-void defragment_by_size(ImageType& I,unsigned int area_threshold)
+void defragment_by_size_ratio(ImageType& I,float area_ratio = 0.05f)
 {
     tipl::image<ImageType::dimension,unsigned int> labels(I.shape());
     std::vector<std::vector<size_t> > regions;
 
     connected_component_labeling(I,labels,regions);
 
+    size_t size_threshold = size_t(float(regions[0].size())*area_ratio);
+
     std::vector<unsigned char> region_filter(regions.size()+1);
 
     for (unsigned int index = 0;index < regions.size();++index)
-        region_filter[index+1] = regions[index].size() > area_threshold;
+        region_filter[index+1] = regions[index].size() > size_threshold;
 
     for (size_t index = 0;index < I.size();++index)
         if (I[index] && !region_filter[labels[index]])
+            I[index] = 0;
+}
+
+template<typename ImageType>
+void defragment_by_radius(ImageType& I,int radius = 3)
+{
+    tipl::image<ImageType::dimension,unsigned char> mask(I.shape()),mask2;
+    for (size_t index = 0;index < I.size();++index)
+        mask[index] = I[index] > 0 ? 1 : 0;
+    erosion2(mask,radius);
+    mask2 = mask;
+    defragment(mask);
+    for (size_t index = 0;index < mask2.size();++index)
+        if (mask2[index] && !mask[index])
+            mask2[index] = 1;
+        else
+            mask2[index] = 0;
+    dilation2(mask2,radius);
+
+    for (size_t index = 0;index < I.size();++index)
+        if (I[index] && mask2[index])
             I[index] = 0;
 }
 
