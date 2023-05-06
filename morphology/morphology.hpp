@@ -904,6 +904,8 @@ void defragment_by_size_ratio(ImageType& I,float area_ratio = 0.05f)
 
     connected_component_labeling(I,labels,regions);
 
+    if(regions.empty())
+        return;
     size_t size_threshold = size_t(float(regions[0].size())*area_ratio);
 
     std::vector<unsigned char> region_filter(regions.size()+1);
