@@ -283,6 +283,58 @@ QImage draw_regions(const std::vector<image_type>& region_masks,
     return scaled_image;
 }
 
+template<typename image_type>
+inline image_type get_bounding_box(image_type p,int margin = 5)
+{
+    int l =p.width(), r = 0, t = p.height(), b = 0;
+    auto first_pixel = p.pixel(0,0);
+    for (int y = 0; y < p.height(); ++y) {
+        auto row = reinterpret_cast<decltype(&first_pixel)>(p.scanLine(y));
+        bool rowFilled = false;
+        for (int x = 0; x < p.width(); ++x)
+        {
+            if (row[x] != first_pixel)
+            {
+                rowFilled = true;
+                r = std::max(r, x);
+                if (l > x) {
+                    l = x;
+                    x = r; // shortcut to only search for new right bound from here
+                }
+            }
+        }
+        if (rowFilled) {
+            t = std::min(t, y);
+            b = y;
+        }
+    }
+    l = std::max(0,l-margin);
+    r = std::min(p.width()-1,r+margin);
+    t = std::max(0,t-margin);
+    b = std::min(p.height()-1,b+margin);
+    return p.copy(QRect(l,t,r-l,b-t));
+}
+
+inline QImage create_mosaic(const std::vector<QImage>& images,int col_size)
+{
+    int height = 0,width = 0;
+    for (auto& I : images)
+        {
+            height = std::max<int>(I.height(),height);
+            width = std::max<int>(I.width(),width);
+        }
+    width += 5;
+    height += 5;
+    QImage I(images.size() >= col_size ? width*int(col_size): width*int(images.size()),
+             height*int(1+images.size()/col_size),QImage::Format_RGB32);
+    I.fill(images[0].pixel(0,0));
+    QPainter painter(&I);
+    painter.setCompositionMode(QPainter::CompositionMode_Source);
+    for (size_t i = 0,j = 0;i < images.size();++i,++j)
+        painter.drawImage(int(j%col_size)*width+(width-images[i].width())/2,
+                          int(i/col_size)*height+(height-images[i].height())/2,images[i]);
+    return I;
+}
 
 }//qt
 }//tipl
