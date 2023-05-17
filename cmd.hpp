@@ -140,12 +140,33 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
                                  0,0,0,1});
         return true;
     }
-    if(cmd == "flip_x")
+    if(cmd == "header_flip_x")
     {
         T[3] += T[0]*float(data.width()-1);
         T[0] = -T[0];
         T[4] = -T[4];
         T[8] = -T[8];
+        return true;
+    }
+    if(cmd == "header_flip_y")
+    {
+        T[7] += T[5]*float(data.height()-1);
+        T[1] = -T[1];
+        T[5] = -T[5];
+        T[9] = -T[9];
+        return true;
+    }
+
+    if(cmd == "header_flip_z")
+    {
+        T[11] += T[10]*float(data.depth()-1);
+        T[2] = -T[2];
+        T[6] = -T[6];
+        T[10] = -T[10];
+        return true;
+    }
+    if(cmd == "flip_x")
+    {
         tipl::flip_x(data);
         return true;
     }
@@ -153,51 +174,56 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
 
     if(cmd == "flip_y")
     {
-        T[7] += T[5]*float(data.height()-1);
-        T[1] = -T[1];
-        T[5] = -T[5];
-        T[9] = -T[9];
         tipl::flip_y(data);
         return true;
     }
 
     if(cmd == "flip_z")
     {
-        T[11] += T[10]*float(data.depth()-1);
-        T[2] = -T[2];
-        T[6] = -T[6];
-        T[10] = -T[10];
         tipl::flip_z(data);
         return true;
     }
-    if(cmd == "swap_xy")
+    if(cmd == "header_swap_xy")
     {
         T = tipl::matrix<4,4>({0,1,0,0,
                                1,0,0,0,
                                0,0,1,0,
                                0,0,0,1})*T;
-        tipl::swap_xy(data);
         std::swap(vs[0],vs[1]);
         return true;
     }
-    if(cmd == "swap_xz")
+    if(cmd == "header_swap_xz")
     {
         T = tipl::matrix<4,4>({0,0,1,0,
                                0,1,0,0,
                                1,0,0,0,
                                0,0,0,1})*T;
-        tipl::swap_xz(data);
         std::swap(vs[0],vs[2]);
         return true;
     }
-    if(cmd == "swap_yz")
+    if(cmd == "header_swap_yz")
     {
         T = tipl::matrix<4,4>({1,0,0,0,
                                0,0,1,0,
                                0,1,0,0,
                                0,0,0,1})*T;
-        tipl::swap_yz(data);
         std::swap(vs[1],vs[2]);
+        return true;
+    }
+
+    if(cmd == "swap_xy")
+    {
+        tipl::swap_xy(data);
+        return true;
+    }
+    if(cmd == "swap_xz")
+    {
+        tipl::swap_xz(data);
+        return true;
+    }
+    if(cmd == "swap_yz")
+    {
+        tipl::swap_yz(data);
         return true;
     }
 
