@@ -591,7 +591,7 @@ T& move(T&& I,U pos)
 
 //---------------------------------------------------------------------------
 template<typename ImageType,typename DimensionType,typename ValueType = typename ImageType::value_type>
-void bounding_box(const ImageType& I,DimensionType& range_min,DimensionType& range_max,ValueType background = 0)
+void bounding_box(const ImageType& I,DimensionType& range_min,DimensionType& range_max,ValueType background = 0,int margin = 0)
 {
     //get_border(image,range_min,range_max);
     for (unsigned int di = 0; di < ImageType::dimension; ++di)
@@ -611,10 +611,17 @@ void bounding_box(const ImageType& I,DimensionType& range_min,DimensionType& ran
                 range_max[di] = iter[di];
         }
     }
-
     for (unsigned int di = 0; di < ImageType::dimension; ++di)
+    {
+        if(range_max[di] == 0)
+            range_max[di] = range_min[di] = 0;
+        if(margin)
+        {
+            range_min[di] = std::max<int>(0,int(range_min[di])-margin);
+            range_max[di] = std::min<int>(I.shape()[di]-1,int(range_max[di])+margin);
+        }
         range_max[di] = range_max[di] + 1;
-
+    }
 }
 
 // ---------------------------------------------------------------------------
