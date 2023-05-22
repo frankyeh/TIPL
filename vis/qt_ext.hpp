@@ -213,7 +213,7 @@ inline void draw_ruler(QPainter& paint,
 template<typename image_type>
 QImage draw_regions(const std::vector<image_type>& region_masks,
                   const std::vector<tipl::rgb>& colors,
-                  bool fill_region,bool draw_edge,int line_width,
+                  bool draw_edge,int line_width,
                   int cur_roi_index,
                   float display_ratio)
 {
@@ -232,7 +232,7 @@ QImage draw_regions(const std::vector<image_type>& region_masks,
         {
             auto& region_mask = region_masks[roi_index];
             auto color = colors[roi_index];
-            bool draw_roi = (fill_region && color.a >= 128);
+            bool draw_roi = (!draw_edge && color.a >= 128);
             // detect edge
             auto& cur_edge_x = edge_x[roi_index];
             auto& cur_edge_y = edge_y[roi_index];
