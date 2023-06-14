@@ -387,13 +387,19 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
 
     if(cmd == "regrid")
     {
-        float nv = std::stof(param1);
-        if(nv == 0.0f)
+        std::istringstream iss(param1);
+        std::vector<float> values((std::istream_iterator<float>(iss)),std::istream_iterator<float>());
+        if(values.size() == 1)
+        {
+            values.push_back(values[0]);
+            values.push_back(values[0]);
+        }
+        if(values.size() != 3)
         {
             error_msg = "invalid resolution";
             return false;
         }
-        tipl::vector<3> new_vs(nv,nv,nv);
+        tipl::vector<3> new_vs(values);
         image_type J(tipl::shape<3>(
                 int(std::ceil(float(data.width())*vs[0]/new_vs[0])),
                 int(std::ceil(float(data.height())*vs[1]/new_vs[1])),
