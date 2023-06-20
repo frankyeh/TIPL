@@ -817,6 +817,24 @@ public:
         bool is_mni = false;
         return load_from_file(pfile_name,I,vs,T,is_mni);
     }
+    template<typename char_type,typename image_type,typename vs_type,typename srow_type>
+    static inline bool load_to_space(const char_type* pfile_name,image_type& I,tipl::matrix<4,4>& space_to)
+    {
+        nifti_base nii;
+        image_type I_;
+        if(!nii.load_from_file(pfile_name) ||
+           !nii.toLPS(I_))
+            return false;
+        tipl::matrix<4,4> space_from;
+        nii.get_image_transformation(space_from);
+        if(space_from == space_to && I.shape() == I_.shape())
+        {
+            I.swap(I_);
+            return true;
+        }
+        tipl::resample(I_,I,tipl::from_space(space_to).to(space_from));
+        return true;
+    }
 
     template<typename char_type,typename image_type,typename vs_type,typename srow_type>
     static bool save_to_file(const char_type* pfile_name,const image_type& I,const vs_type& vs,const srow_type& T,
