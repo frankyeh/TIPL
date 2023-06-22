@@ -939,7 +939,7 @@ public:
             }
             switch (nif_header.datatype)
             {
-            case 2://DT_UNSIGNED_CHAR 2
+            case 2://DT_SIGNED_CHAR 2
                 copy_data<unsigned char>(buf_ptr,ptr,pixel_count);
                 break;
             case 4://DT_SIGNED_SHORT 4
@@ -1185,7 +1185,6 @@ public:
         out << "slice_end=" << nii.nif_header.slice_end << std::endl;
         out << "slice_code=" << (int)nii.nif_header.slice_code << std::endl;
         out << "xyzt_units=" << (int)nii.nif_header.xyzt_units << std::endl;
-        out << "scl_inter=" << nii.nif_header.scl_inter << std::endl;
         out << "cal_max=" << nii.nif_header.cal_max << std::endl;
         out << "cal_min=" << nii.nif_header.cal_min << std::endl;
         out << "slice_duration=" << nii.nif_header.slice_duration << std::endl;
