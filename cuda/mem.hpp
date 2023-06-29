@@ -54,6 +54,7 @@ class device_vector{
             }
         }
     public:
+        device_vector& operator=(const device_vector& rhs)  {copy_from(rhs);return *this;}
         template<typename T>
         device_vector& operator=(const T& rhs)  {copy_from(rhs);return *this;}
         void clear(void)
