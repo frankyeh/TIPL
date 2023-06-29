@@ -283,20 +283,17 @@ public:
     template<typename T,typename std::enable_if<T::dimension==dimension && !std::is_same<storage_type,typename T::storage_type>::value,bool>::type = true>
     __INLINE__ image& operator=(const T& rhs)
     {
-        using TIteratorType = typename T::const_iterator;
+        using U = typename T::const_iterator;
         // Casting is needed here, because if rhs is a device vector, rhs.begin() is a void * and this
         // will later lead to a reference to void
-        storage_type new_alloc(static_cast<TIteratorType>(rhs.begin()),static_cast<TIteratorType>(rhs.end()));
+        storage_type new_alloc(static_cast<U>(rhs.begin()),static_cast<U>(rhs.end()));
         alloc.swap(new_alloc);
         sp = rhs.shape();
         return *this;
     }
     __INLINE__ image& operator=(const image& rhs)
     {
-        // Casting is needed here, because if rhs is a device vector, rhs.begin() is a void * and this
-        // will later lead to a reference to void
-        storage_type new_alloc(static_cast<const_iterator>(rhs.begin()),static_cast<const_iterator>(rhs.end()));
-        alloc.swap(new_alloc);
+        alloc = rhs.alloc;
         sp = rhs.shape();
         return *this;
     }
