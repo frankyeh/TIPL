@@ -214,16 +214,19 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     if(cmd == "swap_xy")
     {
         tipl::swap_xy(data);
+        std::swap(vs[0],vs[1]);
         return true;
     }
     if(cmd == "swap_xz")
     {
         tipl::swap_xz(data);
+        std::swap(vs[0],vs[2]);
         return true;
     }
     if(cmd == "swap_yz")
     {
         tipl::swap_yz(data);
+        std::swap(vs[1],vs[2]);
         return true;
     }
 
