@@ -263,10 +263,17 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     }
     if(cmd == "transform")
     {
-        tipl::matrix<4,4> U;
+        tipl::matrix<4,4> U((tipl::identity_matrix()));
         std::istringstream in(param1);
-        for(int i = 0;i < 16;++i)
+        for(int i = 0;i < 12;++i)
+        {
+            if(!in)
+            {
+                error_msg = "invalid transformation matrix";
+                return false;
+            }
             in >> U[i];
+        }
         tipl::vector<3> new_vs;
         for(int i = 0;i < 3;++i)
             new_vs[i] = std::sqrt(U[i]*U[i]+U[i+4]*U[i+4]+U[i+8]*U[i+8]);
@@ -288,20 +295,20 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         // flip in x y z
         if(T[0]*U[0] < 0)
         {
-            if(!command<image_loader>(data,vs,T,is_mni,"flip_x","",error_msg))
-                return false;
+            command<image_loader>(data,vs,T,is_mni,"header_flip_x","",error_msg);
+            command<image_loader>(data,vs,T,is_mni,"flip_x","",error_msg);
             return command<image_loader>(data,vs,T,is_mni,cmd,param1,error_msg);
         }
         if(T[5]*U[5] < 0)
         {
-            if(!command<image_loader>(data,vs,T,is_mni,"flip_y","",error_msg))
-                return false;
+            command<image_loader>(data,vs,T,is_mni,"header_flip_y","",error_msg);
+            command<image_loader>(data,vs,T,is_mni,"flip_y","",error_msg);
             return command<image_loader>(data,vs,T,is_mni,cmd,param1,error_msg);
         }
         if(T[10]*U[10] < 0)
         {
-            if(!command<image_loader>(data,vs,T,is_mni,"flip_z","",error_msg))
-                return false;
+            command<image_loader>(data,vs,T,is_mni,"header_flip_z","",error_msg);
+            command<image_loader>(data,vs,T,is_mni,"flip_z","",error_msg);
             return command<image_loader>(data,vs,T,is_mni,cmd,param1,error_msg);
         }
         // consider voxel size
@@ -318,16 +325,9 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         // now translocation
         cmd = "translocate";
         tipl::vector<3> shift((T[3] - U[3])/T[0],(T[7] - U[7])/T[5],(T[11] - U[11])/T[10]);
-        tipl::vector<3> ishift(shift);
-        ishift.floor();
-        if(ishift == shift)
-            param1 = std::to_string(int(shift[0]))+" "+
-                     std::to_string(int(shift[1]))+" "+
-                     std::to_string(int(shift[2]));
-        else
-            param1 = std::to_string(shift[0])+" "+
-                     std::to_string(shift[1])+" "+
-                     std::to_string(shift[2]);
+        if(shift[0] == 0.0f && shift[1] == 0.0f && shift[2] == 0.0f)
+            return true;
+        param1 = std::to_string(shift[0])+" "+std::to_string(shift[1])+" "+std::to_string(shift[2]);
     }
     if(cmd == "translocate")
     {
