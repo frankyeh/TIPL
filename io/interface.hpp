@@ -13,6 +13,7 @@ struct default_prog_type{
     default_prog_type(void){}
     template<typename T>
     bool operator()(T a,T b){return a < b;}
+    bool aborted(void){return false;}
 };
 
 template<typename prog_type,typename stream_type,typename ptr_type>
