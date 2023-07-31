@@ -938,7 +938,18 @@ void defragment_by_radius(ImageType& I,int radius = 3)
         if (I[index] && mask2[index])
             I[index] = 0;
 }
-
+template<typename ImageType>
+void defragment_by_threshold(ImageType& I,typename ImageType::value_type threshold)
+{
+    tipl::image<3,char> mask;
+    tipl::threshold(I,mask,threshold,1,0);
+    tipl::morphology::defragment(mask);
+    tipl::par_for(mask.size(),[&](size_t i)
+    {
+        if(mask[i] == 0)
+            I[i] = 0;
+    });
+}
 template<typename ImageType,typename PixelIndexType,typename ValueType>
 void fill(ImageType& I,PixelIndexType seed_point,ValueType new_value)
 {
