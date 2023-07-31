@@ -42,7 +42,7 @@ public:
     }
     __INLINE__ const shape<dimension>& operator=(const shape<dimension>& rhs)
     {
-	if(this == &rhs)
+        if(this == &rhs)
             return *this;
         std::copy(rhs.dim,rhs.dim+dimension,dim);
         return *this;
@@ -538,7 +538,14 @@ public:
         wh = size_ = 0;
         return dim[index];
     }
-
+    __INLINE__ shape<4> expand(int t)
+    {
+        return shape<4>(w,h,d,t);
+    }
+    __INLINE__ shape<2> reduce(void)
+    {
+        return shape<2>(w,h);
+    }
 public:
     template<typename T>
     __INLINE__ bool is_valid(T x,T y,T z) const
