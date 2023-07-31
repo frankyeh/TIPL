@@ -168,6 +168,7 @@ __INLINE__ auto sum(const image_type& I)
 {
     return sum(I.begin(),I.end());
 }
+
 template<typename input_iterator,
          typename std::enable_if<
              std::is_floating_point<typename std::iterator_traits<input_iterator>::value_type>::value,bool>::type = true>
@@ -181,7 +182,7 @@ __INLINE__ double sum_mt(input_iterator from,input_iterator to)
     tipl::par_for(thread_count,[&ss,thread_count,from,size](size_t sum_id)
     {
         double s(0.0);
-        for(size_t i = 0;i < size;i += thread_count)
+        for(size_t i = sum_id;i < size;i += thread_count)
             s += from[i];
         ss[sum_id] = s;
     });
@@ -201,7 +202,7 @@ __INLINE__ size_t sum_mt(input_iterator from,input_iterator to)
     tipl::par_for(thread_count,[&ss,thread_count,from,size](size_t sum_id)
     {
         size_t s(0);
-        for(size_t i = 0;i < size;i += thread_count)
+        for(size_t i = sum_id;i < size;i += thread_count)
             s += from[i];
         ss[sum_id] = s;
     });
@@ -222,7 +223,7 @@ __INLINE__ auto sum_mt(input_iterator from,input_iterator to)
     tipl::par_for(thread_count,[&ss,thread_count,from,size](size_t sum_id)
     {
         size_t s;
-        for(size_t i = 0;i < size;i += thread_count)
+        for(size_t i = sum_id;i < size;i += thread_count)
             s += from[i];
         ss[sum_id] = s;
     });
@@ -235,6 +236,20 @@ __INLINE__ auto sum_mt(const image_type& I)
 {
     return sum_mt(I.begin(),I.end());
 }
+
+template<typename image_type1,typename image_type2>
+__INLINE__ void sum_partial_mt(const image_type1& in,image_type2& out)
+{
+    size_t size = out.size();
+    tipl::par_for(size,[&](size_t j)
+    {
+        auto v = out[j];
+        for(size_t pos = j;pos < in.size();pos += size)
+            v += in[pos];
+        out[j] = v;
+    });
+}
+
 
 template<typename input_iterator>
 __INLINE__ double mean(input_iterator from,input_iterator to)
@@ -317,7 +332,7 @@ __INLINE__ double mean_square_mt(input_iterator from,input_iterator to)
     tipl::par_for(thread_count,[&ms,thread_count,from,size](size_t ms_id)
     {
         double sum = 0.0;
-        for(size_t i = 0;i < size;i += thread_count)
+        for(size_t i = ms_id;i < size;i += thread_count)
         {
             double t = from[i];
             sum += t*t;
@@ -381,7 +396,7 @@ __INLINE__ double standard_deviation(input_iterator from,input_iterator to)
 template<typename input_iterator>
 __INLINE__ double standard_deviation_mt(input_iterator from,input_iterator to)
 {
-    return standard_deviation_mt(from,to,mean(from,to));
+    return standard_deviation_mt(from,to,mean_mt(from,to));
 }
 
 template<typename T>
@@ -454,7 +469,7 @@ __INLINE__ double covariance_mt(input_iterator1 x_from,input_iterator1 x_to,
     tipl::par_for(thread_count,[&co,thread_count,x_from,y_from,size](size_t co_id)
     {
         double sum = 0.0;
-        for(size_t i = 0;i < size;i += thread_count)
+        for(size_t i = co_id;i < size;i += thread_count)
             sum += double(x_from[i])*double(y_from[i]);
         co[co_id] = sum;
     });
