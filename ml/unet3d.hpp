@@ -118,20 +118,23 @@ public:
         return output->forward(in);
     }
     template<typename reader>
-    static std::shared_ptr<unet3d> load_model(reader& mat)
+    static std::shared_ptr<unet3d> load_model(const char* file_name)
     {
+        reader in;
+        if(!in.load_from_file(file_name))
+            return nullptr;
         std::string feature_string;
         std::vector<int> param({1,1});
-        if(!mat.read("param",param) || !mat.read("feature_string",feature_string))
+        if(!in.read("param",param) || !in.read("feature_string",feature_string))
             return nullptr;
         std::shared_ptr<unet3d> un(new unet3d(param[0],param[1],feature_string));
-        mat.read("voxel_size",un->vs);
-        mat.read("dimension",un->dim);
+        in.read("voxel_size",un->vs);
+        in.read("dimension",un->dim);
         tipl::shape<3> d(un->dim);
         un->init_image(d);
         int id = 0;
         for(auto& param : un->parameters())
-            if(!mat.read((std::string("tensor")+std::to_string(id++)).c_str(),param.first,param.first+param.second))
+            if(!in.read((std::string("tensor")+std::to_string(id++)).c_str(),param.first,param.first+param.second))
                 return nullptr;
         return un;
     }
