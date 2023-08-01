@@ -66,8 +66,11 @@ TIPL library is shared under one of the following licenses
 #include "ml/em.hpp"
 #include "ml/hmc.hpp"
 #include "ml/cnn.hpp"
+
+#ifndef __CUDACC__
 #include "ml/cnn3d.hpp"
 #include "ml/unet3d.hpp"
+#endif
 
 #include "vis/march_cube.hpp"
 #include "vis/color_map.hpp"
