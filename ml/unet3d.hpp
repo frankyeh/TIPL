@@ -4,14 +4,54 @@
 #include "cnn3d.hpp"
 #include "../numerical/statistics.hpp"
 #include "../numerical/basic_op.hpp"
+#include "../numerical/transformation.hpp"
+#include "../numerical/resampling.hpp"
 #include "../filter/gaussian.hpp"
 #include "../morphology/morphology.hpp"
 #include "../io/interface.hpp"
+
 
 namespace tipl
 {
 namespace ml3d
 {
+
+
+/*
+ * calculate the 3d sum and use it to defragment each frame
+ */
+template<typename image_type>
+tipl::image<3> defragment4d(image_type& this_image,float prob_threshold)
+{
+    tipl::shape<3> dim3d(this_image.shape().begin());
+    auto this_image_frames = *(this_image.shape().end()-1);
+    tipl::image<3> sum(dim3d);
+    if(this_image.empty())
+        return sum;
+
+    // hard threshold to make sure prob is between 0 and 1
+    tipl::upper_lower_threshold(this_image,0.0f,1.0f);
+    // 4d to 3d partial sum
+    tipl::sum_partial_mt(this_image,sum);
+
+    auto original_sum = sum;
+    {
+        tipl::morphology::defragment_by_threshold(sum,prob_threshold);
+        tipl::filter::gaussian(sum);
+        tipl::filter::gaussian(sum);
+        tipl::upper_threshold(sum,1.0f);
+    }
+
+    tipl::par_for(this_image_frames,[&](size_t label)
+    {
+        auto I = this_image.alias(dim3d.size()*label,dim3d);
+        for(size_t pos = 0;pos < dim3d.size();++pos)
+            if(original_sum[pos] != 0.0f)
+                I[pos] *= sum[pos]/original_sum[pos];
+    });
+
+    return sum;
+}
 
 class unet3d : public network {
     std::deque<std::shared_ptr<network> > encoding,decoding,up;
@@ -117,6 +157,29 @@ public:
             return nullptr;
         return output->forward(in);
     }
+public:
+    tipl::image<3> out,sum;
+    template<typename image_type,typename prog_type = tipl::io::default_prog_type>
+    bool forward(const image_type& I,tipl::vector<3> I_vs,prog_type&& prog = prog_type())
+    {
+        tipl::transformation_matrix<float> trans(tipl::affine_transform<float>(),
+                                                 dim,vs,I.shape(),I_vs);
+        tipl::image<3> input_image(dim);
+        tipl::resample_mt(I,input_image,trans);
+        tipl::normalize(input_image);
+        auto ptr = forward_with_prog(&input_image[0],prog);
+        if(ptr == nullptr)
+            return false;
+        trans.inverse();
+        out.resize(I.shape().multiply(tipl::shape<3>::z,out_channels_));
+        tipl::par_for(out_channels_,[&](int i)
+        {
+            tipl::resample_mt(tipl::make_image(ptr+i*dim.size(),dim),out.alias(I.size()*i,I.shape()),trans);
+        });
+        auto J = tipl::make_image(&out[0],I.shape().expand(out_channels_));
+        sum = tipl::ml3d::defragment4d(J,0.5f);
+        return true;
+    }
     template<typename reader>
     static std::shared_ptr<unet3d> load_model(const char* file_name)
     {
@@ -142,41 +205,6 @@ public:
 
 
 
-/*
- * calculate the 3d sum and use it to defragment each frame
- */
-template<typename image_type>
-tipl::image<3> defragment4d(image_type& this_image,float prob_threshold)
-{
-    tipl::shape<3> dim3d(this_image.shape().begin());
-    auto this_image_frames = *(this_image.shape().end()-1);
-    tipl::image<3> sum(dim3d);
-    if(this_image.empty())
-        return sum;
-
-    // hard threshold to make sure prob is between 0 and 1
-    tipl::upper_lower_threshold(this_image,0.0f,1.0f);
-    // 4d to 3d partial sum
-    tipl::sum_partial_mt(this_image,sum);
-
-    auto original_sum = sum;
-    {
-        tipl::morphology::defragment_by_threshold(sum,prob_threshold);
-        tipl::filter::gaussian(sum);
-        tipl::filter::gaussian(sum);
-        tipl::upper_threshold(sum,1.0f);
-    }
-
-    tipl::par_for(this_image_frames,[&](size_t label)
-    {
-        auto I = this_image.alias(dim3d.size()*label,dim3d);
-        for(size_t pos = 0;pos < dim3d.size();++pos)
-            if(original_sum[pos] != 0.0f)
-                I[pos] *= sum[pos]/original_sum[pos];
-    });
-
-    return sum;
-}
 
 
 }//ml3d
