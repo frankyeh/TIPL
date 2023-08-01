@@ -538,11 +538,11 @@ public:
         wh = size_ = 0;
         return dim[index];
     }
-    __INLINE__ shape<4> expand(int t)
+    __INLINE__ shape<4> expand(int t) const
     {
         return shape<4>(w,h,d,t);
     }
-    __INLINE__ shape<2> reduce(void)
+    __INLINE__ shape<2> reduce(void) const
     {
         return shape<2>(w,h);
     }
