@@ -428,6 +428,15 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         return true;
     }
 
+    if(cmd == "select_value")
+    {
+        typename image_type::value_type v = std::stof(param1);
+        tipl::par_for(data.size(),[&](size_t index)
+        {
+            data[index] = (data[index] == v ? 1:0);
+        });
+        return true;
+    }
     if(cmd == "add_value")
     {
         add_constant_mt(data,std::stof(param1));
