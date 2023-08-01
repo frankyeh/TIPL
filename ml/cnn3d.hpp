@@ -101,7 +101,7 @@ public:
         size_t thread_count = std::thread::hardware_concurrency();
         size_t thread_plane_size = dim.plane_size()*thread_count;
         // z dimensioni stratified multi-thread
-        tipl::par_for(std::thread::hardware_concurrency(),[&](size_t thread)
+        tipl::par_for(std::thread::hardware_concurrency(),[=](size_t thread)
         {
             size_t thread_base = plane_size*thread;
             auto out_ptr = &out[0] + thread_base;
