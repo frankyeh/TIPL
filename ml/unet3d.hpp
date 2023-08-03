@@ -162,8 +162,10 @@ public:
     template<typename image_type,typename prog_type = tipl::io::default_prog_type>
     bool forward(const image_type& I,tipl::vector<3> I_vs,prog_type&& prog = prog_type())
     {
-        tipl::transformation_matrix<float> trans(tipl::affine_transform<float>(),
-                                                 dim,vs,I.shape(),I_vs);
+        tipl::affine_transform<float> arg;
+        // align top so that the T1W bottom is trancated
+        arg.translocation[2] = (float(I.depth())*I_vs[2]-float(dim[2])*vs[2])*0.5f;
+        tipl::transformation_matrix<float> trans(arg,dim,vs,I.shape(),I_vs);
         tipl::image<3> input_image(dim);
         tipl::resample_mt(I,input_image,trans);
         tipl::normalize(input_image);
@@ -174,7 +176,11 @@ public:
         out.resize(I.shape().multiply(tipl::shape<3>::z,out_channels_));
         tipl::par_for(out_channels_,[&](int i)
         {
-            tipl::resample_mt(tipl::make_image(ptr+i*dim.size(),dim),out.alias(I.size()*i,I.shape()),trans);
+            auto J = out.alias(I.size()*i,I.shape());
+            tipl::resample_mt(tipl::make_image(ptr+i*dim.size(),dim),J,trans);
+            for(size_t j = 0;j < J.size();++j)
+                if(I[j] == 0)
+                    J[j] = 0.0f;
         });
         auto J = tipl::make_image(&out[0],I.shape().expand(out_channels_));
         sum = tipl::ml3d::defragment4d(J,0.5f);
