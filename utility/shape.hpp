@@ -496,6 +496,13 @@ public:
         new_shape.wh = new_shape.size_ = 0;
         return new_shape;
     }
+    auto divide(axis_type axis,unsigned int v) const
+    {
+        auto new_shape = *this;
+        new_shape.dim[axis] /= v;
+        new_shape.wh = new_shape.size_ = 0;
+        return new_shape;
+    }
     auto minus(axis_type axis,unsigned int v) const
     {
         auto new_shape = *this;
