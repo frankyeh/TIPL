@@ -485,19 +485,44 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
             data -= rhs;
         return true;
     }
+    if(cmd == "concatenate_image")
+    {
+        image_loader nii;
+        if(!nii.load_from_file(param1.c_str()))
+            return false;
+        if(nii.width() != data.width() ||
+           nii.height() != data.height())
+        {
+            error_msg = "inconsistent image width and height";
+            return false;
+        }
+        size_t pos = data.size();
+        data.resize(data.shape().add(tipl::shape<3>::z,nii.depth()));
+        auto new_space = data.alias(pos,tipl::shape<3>(nii.width(),nii.height(),nii.depth()));
+        nii.get_untouched_image(new_space);
+        return true;
+    }
     if(cmd == "save")
     {
         image_loader nii;
         nii.set_image_transformation(T,is_mni);
         nii.set_voxel_size(vs);
         nii << data;
-        return nii.save_to_file(param1.c_str());
+        if(!nii.save_to_file(param1.c_str()))
+        {
+            error_msg = nii.error_msg;
+            return false;
+        }
+        return true;
     }
     if(cmd == "open")
     {
         image_loader nii;
         if(!nii.load_from_file(param1.c_str()))
+        {
+            error_msg = nii.error_msg;
             return false;
+        }
         nii.get_image_transformation(T);
         nii.get_voxel_size(vs);
         is_mni = nii.is_mni();
