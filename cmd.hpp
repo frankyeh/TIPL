@@ -463,7 +463,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         float value = std::stof(param1);
         tipl::par_for(data.size(),[&](size_t i)
         {
-            data[i] = data[i] < value ? 0.0f : 1.0f;
+            data[i] = data[i] > value ? 1.0f : 0.0f;
         });
         return true;
     }
