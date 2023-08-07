@@ -55,7 +55,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     }
     if(cmd == "morphology_defragment")
     {
-        tipl::morphology::for_each_label(data,[](tipl::image<3,char>& mask){tipl::morphology::defragment(mask);});
+        tipl::morphology::defragment(data);
         return true;
     }
     if(cmd == "morphology_dilation")
@@ -468,7 +468,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         return true;
     }
 
-    if(cmd == "multiply_image" || cmd == "add_image" || cmd == "minus_image")
+    if(cmd == "multiply_image" || cmd == "add_image" || cmd == "minus_image" || cmd == "max_image" || cmd == "min_image")
     {
         tipl::image<3> rhs(data.shape());
         if(!image_loader::load_to_space(param1.c_str(),rhs,T))
@@ -483,6 +483,16 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
             data += rhs;
         if(cmd == "minus_image")
             data -= rhs;
+        if(cmd == "max_image")
+        {
+            for(size_t i = 0;i < data.size();++i)
+                data[i] = std::max(data[i],rhs[i]);
+        }
+        if(cmd == "min_image")
+        {
+            for(size_t i = 0;i < data.size();++i)
+                data[i] = std::min(data[i],rhs[i]);
+        }
         return true;
     }
     if(cmd == "concatenate_image")
