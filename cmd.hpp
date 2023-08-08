@@ -58,6 +58,11 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         tipl::morphology::defragment(data);
         return true;
     }
+    if(cmd == "morphology_defragment_by_size")
+    {
+        tipl::morphology::defragment_by_size_ratio(data,param1.empty() ? 0.05f : std::stof(param1));
+        return true;
+    }
     if(cmd == "morphology_dilation")
     {
         tipl::morphology::for_each_label(data,[](tipl::image<3,char>& mask){tipl::morphology::dilation(mask);});
@@ -470,7 +475,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
 
     if(cmd == "multiply_image" || cmd == "add_image" || cmd == "minus_image" || cmd == "max_image" || cmd == "min_image")
     {
-        tipl::image<3> rhs(data.shape());
+        tipl::image<3,typename image_type::value_type> rhs(data.shape());
         if(!image_loader::load_to_space(param1.c_str(),rhs,T))
         {
             error_msg = "cannot open file:";
