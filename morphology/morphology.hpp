@@ -906,7 +906,12 @@ void defragment_by_size_ratio(ImageType& I,float area_ratio = 0.05f)
 
     if(regions.empty())
         return;
-    size_t size_threshold = size_t(float(regions[0].size())*area_ratio);
+
+    unsigned int max_size = regions[0].size();
+    for (unsigned int index = 1;index < regions.size();++index)
+        if (regions[index].size() > max_size)
+            max_size = regions[index].size();
+    size_t size_threshold = size_t(float(max_size)*area_ratio);
 
     std::vector<unsigned char> region_filter(regions.size()+1);
 
