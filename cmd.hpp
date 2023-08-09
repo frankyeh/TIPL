@@ -472,7 +472,8 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         });
         return true;
     }
-
+    if(cmd == "equation")
+        return equation(data,param1,error_msg);
     if(cmd == "multiply_image" || cmd == "add_image" || cmd == "minus_image" || cmd == "max_image" || cmd == "min_image")
     {
         tipl::image<3,typename image_type::value_type> rhs(data.shape());
