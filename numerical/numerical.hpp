@@ -2,6 +2,8 @@
 #ifndef NUMERICAL_HPP
 #define NUMERICAL_HPP
 #include <random>
+#include <string>
+#include <stdexcept>
 #include "../mt.hpp"
 #include "interpolation.hpp"
 
@@ -384,6 +386,38 @@ void divide(image_type1& I,const image_type2& I2)
     divide(I.begin(),I.end(),I2.begin());
 }
 //---------------------------------------------------------------------------
+template<typename image_type1,typename image_type2>
+void divide_mt(image_type1& I,const image_type2& I2)
+{
+    tipl::par_for(I.size(),[&I,&I2](size_t index){
+       I[index] /= I2[index];
+    });
+}
+//---------------------------------------------------------------------------
+template<typename image_type1,typename image_type2>
+void greater_mt(image_type1& I,const image_type2& I2)
+{
+    tipl::par_for(I.size(),[&I,&I2](size_t index){
+       I[index] = (I[index] > I2[index] ? 1 : 0);
+    });
+}
+//---------------------------------------------------------------------------
+template<typename image_type1,typename image_type2>
+void lesser_mt(image_type1& I,const image_type2& I2)
+{
+    tipl::par_for(I.size(),[&I,&I2](size_t index){
+       I[index] = (I[index] < I2[index] ? 1 : 0);
+    });
+}
+//---------------------------------------------------------------------------
+template<typename image_type1,typename image_type2>
+void equal_mt(image_type1& I,const image_type2& I2)
+{
+    tipl::par_for(I.size(),[&I,&I2](size_t index){
+       I[index] = (I[index] == I2[index] ? 1 : 0);
+    });
+}
+//---------------------------------------------------------------------------
 template<typename iterator1,typename value_type>
 void add_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
@@ -440,6 +474,15 @@ void minus_constant_mt(image_type& I,value_type value)
        I[index] -= value;
     });
 }
+//---------------------------------------------------------------------------
+template<typename image_type,typename value_type>
+void minus_by_constant_mt(image_type& I,value_type value)
+{
+    tipl::par_for(I.size(),[&I,value](size_t index)
+    {
+       I[index] = value - I[index];
+    });
+}
 
 //---------------------------------------------------------------------------
 template<typename iterator1,typename value_type>
@@ -483,7 +526,38 @@ void divide_constant_mt(image_type& I,value_type value)
        I[index] /= value;
     });
 }
+template<typename image_type,typename value_type>
+void divide_by_constant_mt(image_type& I,value_type value)
+{
+    tipl::par_for(I.size(),[&I,value](size_t index){
+       I[index] = value/I[index];
+    });
+}
 
+template<typename image_type,typename value_type>
+void greater_constant_mt(image_type& I,value_type value)
+{
+    tipl::par_for(I.size(),[&I,value](size_t index)
+    {
+       I[index] = (I[index] > value ? 1 : 0);
+    });
+}
+template<typename image_type,typename value_type>
+void lesser_constant_mt(image_type& I,value_type value)
+{
+    tipl::par_for(I.size(),[&I,value](size_t index)
+    {
+        I[index] = (I[index] < value ? 1 : 0);
+    });
+}
+template<typename image_type,typename value_type>
+void equal_constant_mt(image_type& I,value_type value)
+{
+    tipl::par_for(I.size(),[&I,value](size_t index)
+    {
+        I[index] = (I[index] == value ? 1 : 0);
+    });
+}
 // perform x <- x*pow(2,y)
 template<typename iterator1,typename iterator2>
 void multiply_pow(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
@@ -654,6 +728,157 @@ template<typename image_type,typename value_type>
 void divide_pow_constant(image_type& I,value_type value)
 {
     divide_pow_constant(I.begin(),I.end(),value);
+}
+
+
+
+template<typename image_type1,typename image_type2,
+         typename std::enable_if<std::is_class<image_type1>::value,bool>::type = true,
+         typename std::enable_if<std::is_class<image_type2>::value,bool>::type = true>
+void equation_mt(image_type1& lhs,const image_type2& rhs,char op)
+{
+    switch(op)
+    {
+        case '+': tipl::add_mt(lhs,rhs);return;
+        case '-': tipl::minus_mt(lhs,rhs);return;
+        case '*': tipl::multiply_mt(lhs,rhs);return;
+        case '/': tipl::divide_mt(lhs,rhs);return;
+        case '>': tipl::greater_mt(lhs,rhs);return;
+        case '<': tipl::lesser_mt(lhs,rhs);return;
+        case '=': tipl::equal_mt(lhs,rhs);return;
+    }
+}
+
+template<typename image_type1,typename value_type,
+         typename std::enable_if<std::is_fundamental<value_type>::value,bool>::type = true>
+void equation_mt(image_type1& lhs,value_type rhs,char op)
+{
+    switch(op)
+    {
+        case '+': tipl::add_constant_mt(lhs,rhs);return;
+        case '-': tipl::minus_constant_mt(lhs,rhs);return;
+        case '*': tipl::multiply_constant_mt(lhs,rhs);return;
+        case '/': tipl::divide_constant_mt(lhs,rhs);return;
+        case '>': tipl::greater_constant_mt(lhs,rhs);return;
+        case '<': tipl::lesser_constant_mt(lhs,rhs);return;
+        case '=': tipl::equal_constant_mt(lhs,rhs);return;
+    }
+}
+
+template<typename value_type,typename image_type1,
+         typename std::enable_if<std::is_fundamental<value_type>::value,bool>::type = true>
+void equation_mt(value_type lhs,image_type1& rhs,char op)
+{
+    switch(op)
+    {
+        case '+': tipl::add_constant_mt(rhs,lhs);return;
+        case '=': tipl::equal_constant_mt(rhs,lhs);return;
+        case '*': tipl::multiply_constant_mt(rhs,lhs);return;
+
+        case '>': tipl::lesser_constant_mt(rhs,lhs);return;
+        case '<': tipl::greater_constant_mt(rhs,lhs);return;
+
+        case '/': tipl::divide_by_constant_mt(rhs,lhs);return;
+        case '-': tipl::minus_by_constant_mt(rhs,lhs);return;
+    }
+}
+
+template<typename image_type>
+bool equation(image_type& x,std::string eq,std::string& error_msg)
+{
+    if(eq == "x" || eq.empty())
+        return true;
+
+    using buf_image_type = tipl::image<image_type::dimension,typename image_type::value_type>;
+
+    unsigned char parentheses = 0;
+    std::vector<std::string> tokens;
+    std::vector<char> op;
+    std::string cur_token;
+    for (int i = 0;i < eq.size();++i)
+    {
+        auto c = eq[i];
+        if (c == '(')
+            ++parentheses;
+        if (c == ')')
+            --parentheses;
+        if (!parentheses && (c == '+' || c == '-' || c == '*' || c == '/' || c == '>' || c == '<' || c == '='))
+            {
+                tokens.push_back(cur_token);
+                cur_token.clear();
+                op.push_back(c);
+                continue;
+            }
+        cur_token.push_back(c);
+    }
+    tokens.push_back(cur_token);
+    if(op.empty())
+    {
+        error_msg = "invalid equation:";
+        error_msg += eq;
+        return false;
+    }
+
+    std::vector<buf_image_type> buffer(tokens.size());
+    std::vector<float> values(tokens.size());
+    for(size_t i = 0;i < tokens.size();++i)
+    {
+        if(tokens[i].find('x') == std::string::npos)
+        {
+            try{
+                values[i] = std::stof(tokens[i]);
+            }
+            catch (const std::invalid_argument& e)
+            {
+                error_msg = std::string("invalid input: ") + tokens[i];
+                return false;
+            }
+        }
+        else
+        {
+            if(tokens[i][0] == '(')
+                tokens[i] = tokens[i].substr(1,tokens[i].size()-2);
+            if(!equation((buffer[i] = x),tokens[i],error_msg))
+                return false;
+        }
+    }
+    while(!op.empty())
+    {
+        size_t first_op = 0;
+        auto pos = std::find_if(op.begin(),op.end(),[](char c){return c == '*' || c == '/';});
+        if(pos != op.end())
+            first_op = pos - op.begin();
+
+        if(buffer[first_op].empty())
+        {
+            if(buffer[first_op+1].empty())
+            {
+                error_msg = std::string("invalid equation:") + eq;
+                return false;
+            }
+            equation_mt(values[first_op],buffer[first_op+1],op[first_op]);
+            buffer[first_op].swap(buffer[first_op+1]);
+        }
+        else
+        {
+            if(buffer[first_op+1].empty())
+                equation_mt(buffer[first_op],values[first_op+1],op[first_op]);
+            else
+                equation_mt(buffer[first_op],buffer[first_op+1],op[first_op]);
+        }
+        if(op.size() == 1)
+        {
+            if constexpr(std::is_same_v<buf_image_type,image_type>)
+                x.swap(buffer[0]);
+            else
+                x = buffer[0];
+            return true;
+        }
+        op.erase(op.begin() + first_op);
+        buffer.erase(buffer.begin() + first_op + 1);
+        values.erase(values.begin() + first_op + 1);
+    }
+    return true;
 }
 
 template<typename input_iterator>
