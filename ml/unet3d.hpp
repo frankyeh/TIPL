@@ -16,7 +16,10 @@ namespace tipl
 namespace ml3d
 {
 
-
+inline tipl::shape<3> round_up_size(const tipl::shape<3>& s)
+{
+    return tipl::shape<3>(int(std::ceil(float(s[0])/32.0f))*32,int(std::ceil(float(s[1])/32.0f))*32,int(std::ceil(float(s[2])/32.0f))*32);
+}
 /*
  * calculate the 3d sum and use it to defragment each frame
  */
@@ -187,7 +190,7 @@ public:
         return true;
     }
     template<typename reader>
-    static std::shared_ptr<unet3d> load_model(const char* file_name)
+    static std::shared_ptr<unet3d> load_model(const char* file_name,const tipl::shape<3>& dim)
     {
         reader in;
         if(!in.load_from_file(file_name))
@@ -199,6 +202,8 @@ public:
         std::shared_ptr<unet3d> un(new unet3d(param[0],param[1],feature_string));
         in.read("voxel_size",un->vs);
         in.read("dimension",un->dim);
+        if(dim.size())
+            un->dim = dim;
         tipl::shape<3> d(un->dim);
         un->init_image(d);
         int id = 0;
