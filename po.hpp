@@ -30,6 +30,11 @@ auto split(const T& s,typename T::value_type delimiter)
     return tokens;
 }
 
+inline bool contains(const std::string& str,const std::string& suffix)
+{
+    return str.find(suffix) != std::string::npos;
+}
+
 inline bool ends_with(const std::string& str,const std::string& suffix)
 {
     return (str.size() >= suffix.size()) ? (0 == str.compare(str.size() - suffix.size(), suffix.size(), suffix)) : false;
