@@ -73,10 +73,16 @@ public:
         in_channels_ = in_channels_v;
         std::vector<std::vector<int> > features_down;
         std::vector<std::vector<int> > features_up;
+        std::vector<int> kernel_size;
         {
             int input_feature = in_channels_;
             for(auto feature_string_per_level : tipl::split(feature_string,'+'))
             {
+                auto level_feature_string = tipl::split(feature_string_per_level,',');
+                if(level_feature_string.size() == 2)
+                    kernel_size.push_back(std::stoi(level_feature_string.back()));
+                else
+                    kernel_size.push_back(3);
                 features_down.push_back(std::vector<int>({input_feature}));
                 for(auto s : tipl::split(feature_string_per_level,'x'))
                     features_down.back().push_back(input_feature = std::stoi(s));
@@ -90,15 +96,15 @@ public:
             std::shared_ptr<network> n_en(new network);
             if(level)
                 *n_en.get() << add_layer(new max_pool_3d(features_down[level][0]));
-            add_conv_block(*n_en.get(),features_down[level]);
+            add_conv_block(*n_en.get(),features_down[level],kernel_size[level]);
             encoding.push_back(n_en);
         }
         for(int level=features_down.size()-2; level>=0; level--)
         {
             std::shared_ptr<network> n_up(new network),n_de(new network);
             *n_up.get() << add_layer(new upsample_3d(features_up[level+1].back()));
-            add_conv_block(*n_up.get(),{features_up[level+1].back(),features_down[level].back()});
-            add_conv_block(*n_de.get(),features_up[level]);
+            add_conv_block(*n_up.get(),{features_up[level+1].back(),features_down[level].back()},kernel_size[level]);
+            add_conv_block(*n_de.get(),features_up[level],kernel_size[level]);
 
             up.push_front(n_up);
             decoding.push_front(n_de);
@@ -106,14 +112,14 @@ public:
         output = add_layer(new conv_3d(features_up[0].back(), out_channels_v, 1));
         out_channels_ = out_channels_v;
     }
-    void add_conv_block(network& n,const std::vector<int>& rhs)
+    void add_conv_block(network& n,const std::vector<int>& rhs,size_t ks)
     {
         int count = 0;
         for(auto next_count : rhs)
         {
             if(count)
             {
-                n << add_layer(new conv_3d(count, next_count));
+                n << add_layer(new conv_3d(count, next_count,ks));
                 n << add_layer(new relu(next_count));
                 n << add_layer(new batch_norm_3d(next_count));
             }
