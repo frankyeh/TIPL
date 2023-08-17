@@ -174,7 +174,7 @@ bool match_files(const T& file_path1,const T& file_path2,
     T name2_others,path2_others;
     if(!match_strings(name1,name2,name1_others,name2_others) ||
        !match_strings(path1,path2,path1_others,path2_others))
-        return false;
+        return match_strings(file_path1,file_path2,file_path1_others,file_path2_gen);
     if(!path2_others.empty())
         path2_others += "/";
     file_path2_gen = path2_others + name2_others;
