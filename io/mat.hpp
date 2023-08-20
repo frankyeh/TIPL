@@ -386,6 +386,14 @@ public:
         for(size_t index = 0;index < dataset.size();++index)
             name_table[dataset[index]->get_name()] = index;
     }
+    template<typename T>
+    T* get_data(const char* name)
+    {
+        auto item = name_table.find(name);
+        if(item == name_table.end())
+            return nullptr;
+        return dataset[item->second]->get_data<T>();
+    }
     const mat_read_base& operator=(const mat_read_base& rhs)
     {
         copy(rhs);
