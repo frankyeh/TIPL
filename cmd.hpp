@@ -392,6 +392,19 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         T[11] -= T[10]*shift[2];
         return true;
     }
+    if(cmd == "reshape")
+    {
+        std::istringstream in(param1);
+        int w(0),h(0),d(0);
+        in >> w >> h >> d;
+        if(!w || !h || !d)
+        {
+            error_msg = "invalid size";
+            return false;
+        }
+        data.resize(tipl::shape<3>(w,h,d));
+        return true;
+    }
 
     if(cmd == "regrid")
     {
