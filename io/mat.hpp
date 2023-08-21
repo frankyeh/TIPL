@@ -392,7 +392,7 @@ public:
         auto item = name_table.find(name);
         if(item == name_table.end())
             return nullptr;
-        return dataset[item->second]->get_data<T>();
+        return dataset[item->second]->template get_data<T>();
     }
     const mat_read_base& operator=(const mat_read_base& rhs)
     {
