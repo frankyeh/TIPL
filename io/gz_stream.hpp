@@ -39,7 +39,6 @@ struct access_point {
 
 class inflate_stream{
     z_stream strm;
-    bool ok = true;
     std::vector<unsigned char> buf;
 public:
     inflate_stream(void)
