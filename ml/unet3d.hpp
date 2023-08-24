@@ -20,6 +20,51 @@ inline tipl::shape<3> round_up_size(const tipl::shape<3>& s)
 {
     return tipl::shape<3>(int(std::ceil(float(s[0])/32.0f))*32,int(std::ceil(float(s[1])/32.0f))*32,int(std::ceil(float(s[2])/32.0f))*32);
 }
+
+
+inline void preproc_actions(tipl::image<3>& images,
+                     const tipl::shape<3>& image_dim,
+                     const tipl::vector<3>& image_vs,
+                     const tipl::shape<3>& model_dim,
+                     const tipl::vector<3>& model_vs,
+                     tipl::transformation_matrix<float>& trans,
+                     bool match_resolution,
+                     bool match_fov)
+{
+    if(model_dim == image_dim && image_vs == model_vs)
+    {
+        tipl::normalize(images);
+        return;
+    }
+    int in_channel = images.depth()/image_dim[2];
+    auto target_vs = match_resolution ? model_vs : image_vs;
+    auto target_dim = match_fov ? model_dim :
+                            tipl::ml3d::round_up_size(tipl::shape<3>(float(image_dim.width())*image_vs[0]/target_vs[0],
+                                float(image_dim.height())*image_vs[1]/target_vs[1],
+                                float(image_dim.depth())*image_vs[2]/target_vs[2]));
+
+    tipl::image<3> target_images(target_dim.multiply(tipl::shape<3>::z,in_channel));
+    auto shift = tipl::vector<3,int>(target_dim)-tipl::vector<3,int>(image_dim);
+    shift[0] /= 2;
+    shift[1] /= 2;
+    tipl::affine_transform<float> arg;
+    trans = tipl::transformation_matrix<float>(arg,target_dim,target_vs,image_dim,image_vs);
+
+    tipl::par_for(in_channel,[&](int c)
+    {
+        auto image = images.alias(image_dim.size()*c,image_dim);
+        auto target_image = target_images.alias(target_dim.size()*c,target_dim);
+
+        if(!match_fov && !match_resolution)
+            tipl::draw(image,target_image,shift);
+        else
+            tipl::resample_mt(image,target_image,trans);
+
+        tipl::normalize(target_image);
+    });
+
+    target_images.swap(images);
+}
 /*
  * calculate the 3d sum and use it to defragment each frame
  */
@@ -196,7 +241,7 @@ public:
         return true;
     }
     template<typename reader>
-    static std::shared_ptr<unet3d> load_model(const char* file_name,const tipl::shape<3>& dim)
+    static std::shared_ptr<unet3d> load_model(const char* file_name)
     {
         reader in;
         if(!in.load_from_file(file_name))
@@ -208,8 +253,6 @@ public:
         std::shared_ptr<unet3d> un(new unet3d(param[0],param[1],feature_string));
         in.read("voxel_size",un->vs);
         in.read("dimension",un->dim);
-        if(dim.size())
-            un->dim = dim;
         tipl::shape<3> d(un->dim);
         un->init_image(d);
         int id = 0;
