@@ -875,11 +875,16 @@ public:
         return data+12;
     }
     __INLINE__ size_t size(void) const{return 12;}
-public:
-    __INLINE__ transformation_matrix(void)
+    __INLINE__ void identity(void)
     {
         for(unsigned int i = 0;i < total_size;++i)
             data[i] = 0;
+        sr[0] = sr[4] = sr[8] = 1;
+    }
+public:
+    __INLINE__ transformation_matrix(void)
+    {
+        identity();
     }
     __INLINE__ ~transformation_matrix(void){}
     template<typename rhs_value_type>
