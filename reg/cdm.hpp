@@ -137,8 +137,8 @@ bool cdm_improved(r_type& r,r_type& iter)
 
 struct cdm_param{
     float resolution = 2.0f;
-    float speed = 1.0f;
-    float smoothing = 0.2f;
+    float speed = 0.3f;
+    float smoothing = 0.1f;
     unsigned int iterations = 200;
     unsigned int min_dimension = 8;
 };
@@ -249,45 +249,27 @@ float cdm_max_displacement_length(dist_type& new_d)
     return theta;
 }
 
-template<typename T,typename U>
-__INLINE__ void cdm_constraint_imp(T& d,U& dd,size_t cur_index,unsigned char dim,size_t shift)
-{
-    size_t cur_index_with_shift = cur_index + shift;
-    if(cur_index_with_shift < d.size())
-    {
-        float dis = d[cur_index_with_shift][dim] - d[cur_index][dim];
-        if(dis < 0.0f)
-            dd[cur_index][dim] += dis * 0.05f;
-    }
-    if(cur_index >= shift)
-    {
-        float dis = d[cur_index][dim] - d[cur_index-shift][dim];
-        if(dis < 0.0f)
-            dd[cur_index][dim] -= dis * 0.05f;
-    }
-}
 template<typename dist_type>
 void cdm_constraint(dist_type& d)
 {
-    dist_type dd(d.shape());
     tipl::par_for(d.size(),[&](size_t cur_index)
     {
-        cdm_constraint_imp(d,dd,cur_index,0,1);
-        cdm_constraint_imp(d,dd,cur_index,1,d.width());
-        cdm_constraint_imp(d,dd,cur_index,2,d.plane_size());
+        auto v = d[cur_index];
+        if(v[0] > 0.125f)
+            v[0] = 0.125;
+        if(v[0] < -0.125f)
+            v[0] = -0.125;
+        if(v[1] > 0.125f)
+            v[1] = 0.125;
+        if(v[1] < -0.125f)
+            v[1] = -0.125;
+        if(v[2] > 0.125f)
+            v[2] = 0.125;
+        if(v[2] < -0.125f)
+            v[2] = -0.125;
+        d[cur_index] = v;
     });
-    d += dd;
-}
 
-template<typename dist_type>
-void cdm_dis_constraint(dist_type& new_d)
-{
-    tipl::par_for(new_d.size(),[&](int i)
-    {
-        float l = new_d[i].length();
-        if(l > 0.5f)
-           new_d[i] *= 0.5f/l;
-    });
 }
 
 
@@ -397,18 +379,11 @@ float cdm2(const image_type& It,const image_type& It2,
             theta = cdm_max_displacement_length(new_d);
         if(theta == 0.0f)
             break;
-
         multiply_constant(new_d,param.speed/theta);
-
-        cdm_dis_constraint(new_d);
-
+        cdm_constraint(new_d);
         accumulate_displacement(d,new_d);
-
-        cdm_constraint(d);
-        invert_displacement_imp(d,inv_d);
-        cdm_smooth(inv_d,param.smoothing);
-        invert_displacement_imp(inv_d,d);
         cdm_smooth(d,param.smoothing);
+        invert_displacement_imp(d,inv_d,2);
     }
     return r.front();
 }

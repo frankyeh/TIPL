@@ -99,47 +99,17 @@ __global__ void invert_displacement_cuda_imp_kernel(T v1,U mapping)
 
 //---------------------------------------------------------------------------
 template<typename T>
-void invert_displacement_cuda_imp(const T& v0,T& v1)
+void invert_displacement_cuda_imp(const T& v0,T& v1,size_t count = 8)
 {
     T mapping(v0);
     displacement_to_mapping_cuda(mapping);
-    for(uint8_t i = 0;i < 4;++i)
+    for(uint8_t i = 0;i < count;++i)
     {
         TIPL_RUN(invert_displacement_cuda_imp_kernel,v1.size())
                 (tipl::make_shared(v1),tipl::make_shared(mapping));
 
     }
 }
-template<typename T1,typename T2>
-__global__ void reduce_displacement_cuda_kernel(T1 v0_reduced,T2 v0,float r)
-{
-    TIPL_FOR(index,v0.size())
-        v0_reduced[index] = v0[index]*r;
-}
-//---------------------------------------------------------------------------
-template<typename T1,typename T2>
-void invert_displacement_cuda(const T1& v0,T2& v1)
-{
-    v1.resize(v0.shape());
-    for(size_t i = 1;i <= 7;++i)
-    {
-        float ratio = float(i)/8.0f;
-        T1 v0_reduced(v0.shape());
-        TIPL_RUN(reduce_displacement_cuda_kernel,v0.size())
-                (tipl::make_shared(v0_reduced),tipl::make_shared(v0),ratio);
-        invert_displacement_cuda_imp(v0_reduced,v1);
-    }
-    invert_displacement_cuda_imp(v0,v1);
-}
-//---------------------------------------------------------------------------
-template<typename ComposeImageType>
-void invert_displacement_cuda(ComposeImageType& v)
-{
-    ComposeImageType v0;
-    invert_displacement_cuda(v,v0);
-    v.swap(v0);
-}
-
 //---------------------------------------------------------------------------
 
 template<typename T1,typename T2,typename T3>
@@ -271,42 +241,35 @@ __INLINE__ float cdm_max_displacement_length_cuda(dist_type& new_d)
 
 
 template<typename T>
-__global__ void cdm_constraint_cuda_kernel(T d,T dd)
+__global__ void cdm_constraint_cuda_kernel(T d)
 {
     TIPL_FOR(cur_index,d.size())
     {
-        cdm_constraint_imp(d,dd,cur_index,0,1);
-        cdm_constraint_imp(d,dd,cur_index,1,d.width());
-        cdm_constraint_imp(d,dd,cur_index,2,d.plane_size());
+        auto v = d[cur_index];
+        if(v[0] > 0.125f)
+            v[0] = 0.125;
+        if(v[0] < -0.125f)
+            v[0] = -0.125;
+        if(v[1] > 0.125f)
+            v[1] = 0.125;
+        if(v[1] < -0.125f)
+            v[1] = -0.125;
+        if(v[2] > 0.125f)
+            v[2] = 0.125;
+        if(v[2] < -0.125f)
+            v[2] = -0.125;
+        d[cur_index] = v;
     }
 }
 
 template<typename dist_type>
 void cdm_constraint_cuda(dist_type& d)
 {
-    dist_type dd(d.shape());
     TIPL_RUN(cdm_constraint_cuda_kernel,d.size())
-            (tipl::make_shared(d),tipl::make_shared(dd));
-    add_cuda(d,dd);
+            (tipl::make_shared(d));
 }
 
-template<typename T>
-__global__ void cdm_dis_constraint_cuda_kernel(T new_d)
-{
-    TIPL_FOR(i,new_d.size())
-    {
-        float l = new_d[i].length();
-        if(l > 0.5f)
-           new_d[i] *= 0.5/l;
-    }
-}
 
-template<typename dist_type>
-void cdm_dis_constraint_cuda(dist_type& new_d)
-{
-    TIPL_RUN(cdm_dis_constraint_cuda_kernel,new_d.size())
-            (tipl::make_shared(new_d));
-}
 
 template<typename T>
 __global__ void cdm_smooth_cuda_kernel(T d,T dd,float smoothing)
@@ -400,19 +363,11 @@ float cdm2_cuda(const image_type& It,const image_type& It2,
             theta = cdm_max_displacement_length_cuda(new_d);
         if(theta == 0.0f)
             break;
-
-
-        multiply_constant_cuda(new_d,param.speed/theta);
-
-        cdm_dis_constraint_cuda(new_d);
-
+        multiply_constant_cuda(new_d,param.speed/theta);        
+        cdm_constraint_cuda(new_d);
         accumulate_displacement_cuda(d,new_d);
-
-        cdm_constraint_cuda(d);
-        invert_displacement_cuda_imp(d,inv_d);
-        cdm_smooth_cuda(inv_d,param.smoothing);
-        invert_displacement_cuda_imp(inv_d,d);
         cdm_smooth_cuda(d,param.smoothing);
+        invert_displacement_cuda_imp(d,inv_d,2);
     }
     return r.front();
 }
