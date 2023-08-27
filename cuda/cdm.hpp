@@ -269,14 +269,12 @@ void cdm_constraint_cuda(dist_type& d)
             (tipl::make_shared(d));
 }
 
-
-
 template<typename T>
 __global__ void cdm_smooth_cuda_kernel(T d,T dd,float smoothing)
 {
     TIPL_FOR(cur_index,d.size())
     {
-        cdm_smooth_imp(d,dd,cur_index,smoothing);
+        cdm_smooth_imp(d,dd,cur_index);
     }
 }
 
@@ -289,13 +287,11 @@ void cdm_smooth_cuda(dist_type& d,float smoothing)
     dist_type dd(d.shape());
     TIPL_RUN(cdm_smooth_cuda_kernel,d.size())
             (tipl::make_shared(d),tipl::make_shared(dd),smoothing);
-    if(smoothing == 1.0f)
-        d.swap(dd);
-    else
-    {
-        multiply_constant_cuda(d,1.0f-smoothing);
-        add_cuda(d,dd);
-    }
+
+    multiply_constant_cuda(dd,smoothing/6.0f);
+    multiply_constant_cuda(d,1.0f-smoothing);
+    add_cuda(d,dd);
+
 }
 
 template<typename image_type,typename dist_type,typename terminate_type>
@@ -364,11 +360,12 @@ float cdm2_cuda(const image_type& It,const image_type& It2,
         if(theta == 0.0f)
             break;
         multiply_constant_cuda(new_d,param.speed/theta);        
-        cdm_constraint_cuda(new_d);
+        //cdm_constraint_cuda(new_d);
         accumulate_displacement_cuda(d,new_d);
         cdm_smooth_cuda(d,param.smoothing);
         invert_displacement_cuda_imp(d,inv_d,2);
     }
+    invert_displacement_cuda_imp(d,inv_d);
     return r.front();
 }
 

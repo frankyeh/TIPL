@@ -274,7 +274,7 @@ void cdm_constraint(dist_type& d)
 
 
 template<typename T,typename U>
-__INLINE__ void cdm_smooth_imp(T& d,U& dd,size_t cur_index,float smoothing)
+__INLINE__ void cdm_smooth_imp(T& d,U& dd,size_t cur_index)
 {
     size_t cur_index_with_shift = cur_index + 1;
     tipl::vector<3> v;
@@ -292,7 +292,6 @@ __INLINE__ void cdm_smooth_imp(T& d,U& dd,size_t cur_index,float smoothing)
         v += d[cur_index_with_shift];
     if(cur_index >= d.plane_size())
         v += d[cur_index-d.plane_size()];
-    v *= smoothing/6.0f;
     dd[cur_index] = v;
 }
 template<typename dist_type>
@@ -303,15 +302,11 @@ void cdm_smooth(dist_type& d,float smoothing)
     dist_type dd(d.shape());
     tipl::par_for(d.size(),[&](size_t cur_index)
     {
-        cdm_smooth_imp(d,dd,cur_index,smoothing);
+        cdm_smooth_imp(d,dd,cur_index);
     });
-    if(smoothing == 1.0f)
-        d.swap(dd);
-    else
-    {
-        multiply_constant(d,1.0f-smoothing);
-        add(d,dd);
-    }
+    multiply_constant(dd,smoothing/6.0f);
+    multiply_constant(d,(1.0f-smoothing));
+    add(d,dd);
 }
 
 
@@ -380,11 +375,12 @@ float cdm2(const image_type& It,const image_type& It2,
         if(theta == 0.0f)
             break;
         multiply_constant(new_d,param.speed/theta);
-        cdm_constraint(new_d);
+        //cdm_constraint(new_d);
         accumulate_displacement(d,new_d);
         cdm_smooth(d,param.smoothing);
         invert_displacement_imp(d,inv_d,2);
     }
+    invert_displacement_imp(d,inv_d);
     return r.front();
 }
 
