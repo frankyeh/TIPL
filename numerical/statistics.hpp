@@ -252,6 +252,52 @@ __INLINE__ void sum_partial_mt(const image_type1& in,image_type2& out)
 
 
 template<typename input_iterator>
+__INLINE__ double square_sum(input_iterator from,input_iterator to)
+{
+    double ss = 0.0;
+    while (from != to)
+    {
+        double t = *from;
+        ss += t*t;
+        ++from;
+    }
+    return ss;
+}
+
+template<typename image_type>
+__INLINE__ auto square_sum(const image_type& I)
+{
+    return square_sum(I.begin(),I.end());
+}
+
+template<typename input_iterator>
+__INLINE__ double square_sum_mt(input_iterator from,input_iterator to)
+{
+    if(from == to)
+        return 0.0;
+    size_t size = to-from;
+    unsigned int thread_count = std::thread::hardware_concurrency();
+    std::vector<double> ss(thread_count);
+    tipl::par_for(thread_count,[&ss,thread_count,from,size](size_t ss_id)
+    {
+        double sum = 0.0;
+        for(size_t i = ss_id;i < size;i += thread_count)
+        {
+            double t = from[i];
+            sum += t*t;
+        }
+        ss[ss_id] = sum;
+    });
+    return tipl::sum(ss);
+}
+
+template<typename image_type>
+__INLINE__ auto square_sum_mt(const image_type& I)
+{
+    return square_sum_mt(I.begin(),I.end());
+}
+
+template<typename input_iterator>
 __INLINE__ double mean(input_iterator from,input_iterator to)
 {
     return (from == to) ? 0.0 :double(sum(from,to))/double(to-from);
@@ -308,17 +354,9 @@ std::pair<double,double> mean_variance(input_iterator from,input_iterator to)
 template<typename input_iterator>
 __INLINE__ double mean_square(input_iterator from,input_iterator to)
 {
-    double ms = 0.0;
-    size_t size = to-from;
-    while (from != to)
-    {
-        double t = *from;
-        ms += t*t;
-        ++from;
-    }
-    if(size)
-        ms /= size;
-    return ms;
+    if(from == to)
+        return 0.0;
+    return square_sum(from,to)/double(to-from);
 }
 
 template<typename input_iterator>
@@ -326,20 +364,7 @@ __INLINE__ double mean_square_mt(input_iterator from,input_iterator to)
 {
     if(from == to)
         return 0.0;
-    size_t size = to-from;
-    unsigned int thread_count = std::thread::hardware_concurrency();
-    std::vector<double> ms(thread_count);
-    tipl::par_for(thread_count,[&ms,thread_count,from,size](size_t ms_id)
-    {
-        double sum = 0.0;
-        for(size_t i = ms_id;i < size;i += thread_count)
-        {
-            double t = from[i];
-            sum += t*t;
-        }
-        ms[ms_id] = sum;
-    });
-    return tipl::sum(ms)/double(size);
+    return square_sum_mt(from,to)/double(to-from);
 }
 
 template<typename input_iterator>
