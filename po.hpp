@@ -181,6 +181,54 @@ bool match_files(const T& file_path1,const T& file_path2,
     return true;
 }
 
+template<typename path_type>
+bool search_filesystem(path_type path_,std::vector<std::string>& filenames,bool file_only = true)
+{
+    std::string path(path_);
+    if (path.find('*') == std::string::npos)
+    {
+        if (std::filesystem::exists(path))
+            filenames.push_back(path);
+        return true;
+    }
+
+    auto search_path = std::filesystem::current_path();
+
+    if (path.find('/') != std::string::npos)
+    {
+        search_path = path.substr(0, path.find_last_of('/'));
+        path = path.substr(path.find_last_of('/') + 1);
+        if(search_path.string().find('*') != std::string::npos)
+        {
+            std::vector<std::string> dirs;
+            search_filesystem(search_path.string(),dirs,false);
+            for(auto dir : dirs)
+                if(!search_filesystem(dir + "/" + path,filenames))
+                    return false;
+            return true;
+        }
+    }
+
+    try{
+        for (const auto& entry : std::filesystem::directory_iterator(search_path))
+        {
+            if (file_only && !std::filesystem::is_regular_file(entry))
+                continue;
+            if (!file_only && !std::filesystem::is_directory(entry))
+                continue;
+
+            std::string result;
+            if (tipl::match_files(path, entry.path().filename().string(),std::string("*"),result) && !result.empty())
+                filenames.push_back(entry.path().string());
+        }
+    }
+    catch (...)
+    {
+        return false;
+    }
+    return true;
+}
+
 template<typename out = default_output>
 class program_option{
     std::vector<std::string> names;
@@ -433,6 +481,17 @@ public:
     std::string get(const char* name)
     {
         return get(name,std::string());
+    }
+    bool get_files(const char* name,std::vector<std::string>& filenames)
+    {
+        out() << "searching files matching " << name << std::endl;
+        if(!search_filesystem(get(name),filenames))
+        {
+            out() << "ERROR: invalid file path " << get(name) << std::endl;;
+            return false;
+        }
+        out() << "a total of " << filenames.size() << " files found" << std::endl;
+        return true;
     }
 
 };
