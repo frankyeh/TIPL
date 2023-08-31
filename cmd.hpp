@@ -34,6 +34,16 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         in >> T[3] >> T[7] >> T[11];
         return true;
     }
+    if(cmd == "set_mni")
+    {
+        if(param1.empty())
+        {
+            error_msg = "invalid value";
+            return false;
+        }
+        is_mni = (param1[0] == '1');
+        return true;
+    }
 
     if constexpr (std::is_floating_point<typename image_type::value_type>::value)
     {
