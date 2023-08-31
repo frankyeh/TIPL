@@ -703,7 +703,7 @@ public:
     }
     bool is_mni(void) const
     {
-        return nif_header.sform_code == 4; // NIFTI_XFORM_MNI_152
+        return nif_header.sform_code >= 4 && nif_header.srow_x[3] != 0.0f && nif_header.srow_y[3] != 0.0f && nif_header.srow_z[3] != 0.0f; // NIFTI_XFORM_MNI_152
     }
     const float* get_transformation(void)
     {
@@ -1055,7 +1055,7 @@ public:
             nif_header.srow_z[1] = (cd2+ab2)*nif_header.pixdim[2];
             nif_header.srow_z[2] = (a2+d2-c2-b2)*nif_header.pixdim[3]*qfac;
             nif_header.srow_z[3] = nif_header.qoffset_z;
-            nif_header.sform_code = 1;
+            nif_header.sform_code = nif_header.qform_code;
         }
     }
 
