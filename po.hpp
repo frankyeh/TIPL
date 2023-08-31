@@ -432,9 +432,9 @@ private:
             return df;
         }
     };
-    template <>
-    struct convert_to<std::string> {
-        static const std::string& from(const std::string& value) {
+    template <typename T>
+    struct convert_to<std::basic_string<T> > {
+        static const std::basic_string<T>& from(const std::string& value) {
             return value;
         }
     };
