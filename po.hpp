@@ -187,7 +187,6 @@ class program_option{
     std::vector<std::string> values;
     std::vector<char> used;
     std::set<std::string> not_found_names;
-    std::string no_value;
     bool add_option(const std::string& str)
     {
         if(str.length() < 3 || str[0] != '-' || str[1] != '-')
@@ -358,43 +357,55 @@ public:
         values.push_back(value);
         used.push_back(0);
     }
-
-    const std::string& get(const char* name)
+    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
+    void set(const char* name,T value)
     {
-        std::string str_name(name);
-        for(size_t i = 0;i < names.size();++i)
-            if(names[i] == str_name)
-            {
-                if(!used[i])
-                {
-                    used[i] = 1;
-                    out() << name << "=" << values[i] << std::endl;
-                }
-                return values[i];
-            }
-        not_found_names.insert(name);
-        return no_value;
+        set(name,std::to_string(value));
+    }
+    template<typename T>
+    void set(const char* name,const std::vector<T>& container)
+    {
+        std::string str;
+        for(auto& each : container)
+        {
+            if(!str.empty())
+                str += ",";
+            str += std::to_string(each);
+        }
+        set(name,str);
     }
 
-    std::string get(const char* name,const char* df_ptr)
-    {
-        std::string str_name(name);
-        std::string df_value(df_ptr);
-        for(size_t i = 0;i < names.size();++i)
-            if(names[i] == str_name)
-            {
-                if(!used[i])
-                {
-                    used[i] = 1;
-                    out() << name << "=" << values[i] << std::endl;
-                }
-                return values[i];
+private:
+    template <typename T>
+    struct convert_to {
+        static T from(const std::string& value) {
+            T df;
+            std::istringstream(value) >> df;
+            return df;
+        }
+    };
+    template <>
+    struct convert_to<std::string> {
+        static const std::string& from(const std::string& value) {
+            return value;
+        }
+    };
+    template <typename T>
+    struct convert_to<std::vector<T> > {
+        static std::vector<T> from(const std::string& value) {
+            std::vector<T> result;
+            std::istringstream stream(value);
+            std::string element;
+            while (std::getline(stream, element, ',')) {
+                T parsed_value;
+                std::istringstream(element) >> parsed_value;
+                result.push_back(parsed_value);
             }
-        not_found_names.insert(name);
-        out() << name << "=" << df_value << std::endl;
-        return df_value;
-    }
+            return result;
+        }
+    };
 
+public:
     template<typename value_type>
     value_type get(const char* name,value_type df)
     {
@@ -407,13 +418,23 @@ public:
                     used[i] = 1;
                     out() << name << "=" << values[i] << std::endl;
                 }
-                std::istringstream(values[i]) >> df;
-                return df;
+                return convert_to<value_type>::from(values[i]);
             }
         not_found_names.insert(name);
         out() << name << "=" << df << std::endl;
         return df;
     }
+
+    std::string get(const char* name,const char* df_ptr)
+    {
+        return get(name,std::string(df_ptr));
+    }
+
+    std::string get(const char* name)
+    {
+        return get(name,std::string());
+    }
+
 };
 
 
