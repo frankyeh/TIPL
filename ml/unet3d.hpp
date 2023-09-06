@@ -166,7 +166,7 @@ public:
             if(count)
             {
                 n << add_layer(new conv_3d(count, next_count,ks));
-                n << add_layer(new relu(next_count));
+                n << add_layer(new leakyrelu(next_count));
                 n << add_layer(new batch_norm_3d(next_count));
             }
             count = next_count;
