@@ -79,7 +79,7 @@ public:
         });
         return in_ptr;
     }
-    virtual void print(std::ostream& out) const {out << "relu " << out_channels_ << std::endl;}
+    virtual void print(std::ostream& out) const {out << "leaky relu " << out_channels_ << std::endl;}
     virtual size_t in_size(void) const {return output_size_;}
     virtual size_t out_size(void) const {return output_size_;}
 };
