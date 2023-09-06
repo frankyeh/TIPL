@@ -58,6 +58,32 @@ public:
     virtual size_t in_size(void) const {return output_size_;}
     virtual size_t out_size(void) const {return output_size_;}
 };
+
+class leakyrelu : public layer {
+private:
+    size_t output_size_ = 0;
+    float slope = 1e-2f;
+public:
+    leakyrelu(int channels_v,float slope_ = 1e-2f):layer(channels_v),slope(slope_){}
+    virtual void init_image(tipl::shape<3>& dim_)
+    {
+        dim = dim_;
+        output_size_ = dim.size()*size_t(out_channels_);
+    }
+    virtual float* forward(float* in_ptr)
+    {
+        tipl::par_for(output_size_,[=](size_t i)
+        {
+            if(in_ptr[i] < 0.0f)
+                in_ptr[i] *= slope;
+        });
+        return in_ptr;
+    }
+    virtual void print(std::ostream& out) const {out << "relu " << out_channels_ << std::endl;}
+    virtual size_t in_size(void) const {return output_size_;}
+    virtual size_t out_size(void) const {return output_size_;}
+};
+
 class conv_3d : public layer {
 private:
     int kernel_size_,kernel_size3,range;
