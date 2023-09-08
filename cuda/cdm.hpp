@@ -86,6 +86,23 @@ inline void compose_displacement_cuda(const T1& from,const T2& dis,T3& to)
             (tipl::make_shared(from),tipl::make_shared(dis),tipl::make_shared(to));
 }
 
+template<tipl::interpolation itype,typename T1,typename T2,typename T3>
+__global__ void compose_mapping_cuda_kernel(T1 from,T2 mapping,T3 to)
+{
+    TIPL_FOR(index,to.size())
+        tipl::estimate<itype>(from,mapping[index],to[index]);
+}
+
+
+template<tipl::interpolation itype = tipl::interpolation::linear,
+         typename T1,typename T2,typename T3>
+inline void compose_mapping_cuda(const T1& from,const T2& mapping,T3& to)
+{
+    to.clear();
+    to.resize(from.shape());
+    TIPL_RUN(compose_mapping_cuda_kernel<itype>,to.size())
+            (tipl::make_shared(from),tipl::make_shared(mapping),tipl::make_shared(to));
+}
 
 
 template<typename T,typename U>
@@ -234,7 +251,7 @@ template<typename dist_type>
 __INLINE__ float cdm_max_displacement_length_cuda(dist_type& new_d)
 {
     return thrust::transform_reduce(thrust::device,
-                    new_d.get(),new_d.get()+new_d.size(),
+                    new_d.data(),new_d.data()+new_d.size(),
                     cdm_dis_vector_length(),
                         0.0f,thrust::maximum<float>());
 }
