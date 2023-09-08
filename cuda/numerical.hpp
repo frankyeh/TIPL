@@ -11,6 +11,12 @@
 
 namespace tipl{
 
+template<typename T>
+auto max_value_cuda(const T& data)
+{
+    return device_eval(thrust::max_element(thrust::device,data.data(),data.data()+data.size()));
+}
+
 
 template<typename T>
 std::pair<typename T::value_type,typename T::value_type>
@@ -19,7 +25,7 @@ minmax_value_cuda(const T& data)
     if(data.empty())
         return std::make_pair(0,0);
     auto result = thrust::minmax_element(thrust::device,
-                                         data.get(),data.get()+data.size());
+                                         data.data(),data.data()+data.size());
     return std::make_pair(device_eval(result.first),device_eval(result.second));
 }
 
@@ -45,8 +51,8 @@ template<typename T,
 inline typename T::value_type sum_cuda(const T& data,size_t init = 0,cudaStream_t stream = nullptr)
 {
     if(stream)
-        return thrust::reduce(thrust::cuda::par.on(stream),data.get(),data.get()+data.size(),init);
-    return thrust::reduce(thrust::device,data.get(),data.get()+data.size(),init);
+        return thrust::reduce(thrust::cuda::par.on(stream),data.data(),data.data()+data.size(),init);
+    return thrust::reduce(thrust::device,data.data(),data.data()+data.size(),init);
 }
 
 template<typename T,
@@ -54,8 +60,8 @@ template<typename T,
 inline typename T::value_type sum_cuda(const T& data,double init = 0.0,cudaStream_t stream = nullptr)
 {
     if(stream)
-        return thrust::reduce(thrust::cuda::par.on(stream),data.get(),data.get()+data.size(),init);
-    return thrust::reduce(thrust::device,data.get(),data.get()+data.size(),init);
+        return thrust::reduce(thrust::cuda::par.on(stream),data.data(),data.data()+data.size(),init);
+    return thrust::reduce(thrust::device,data.data(),data.data()+data.size(),init);
 }
 
 
@@ -64,8 +70,8 @@ template<typename T,
 inline typename T::value_type sum_cuda(const T& data,typename T::value_type init = typename T::value_type(),cudaStream_t stream = nullptr)
 {
     if(stream)
-        return thrust::reduce(thrust::cuda::par.on(stream),data.get(),data.get()+data.size(),init);
-    return thrust::reduce(thrust::device,data.get(),data.get()+data.size(),init);
+        return thrust::reduce(thrust::cuda::par.on(stream),data.data(),data.data()+data.size(),init);
+    return thrust::reduce(thrust::device,data.data(),data.data()+data.size(),init);
 }
 
 
@@ -151,6 +157,62 @@ inline void multiply_constant_cuda(T1& I,U v)
         (tipl::make_shared(I),v);
 }
 
+template<typename T1,typename U>
+__global__ void lower_threshold_cuda_kernel(T1 I,U v)
+{
+    TIPL_FOR(index,I.size())
+        if(I[index] < v)
+            I[index] = v;
+}
+
+
+template<typename T1,typename U>
+inline void lower_threshold_cuda(T1& I,U v)
+{
+    TIPL_RUN(lower_threshold_cuda_kernel,I.size())
+        (tipl::make_shared(I),v);
+}
+
+template<typename T1>
+inline T1& normalize_cuda(T1& I,float upper_limit = 1.0f)
+{
+    if(I.empty())
+        return I;
+    auto m = max_value_cuda(I);
+    if(m != 0)
+        multiply_constant_cuda(I,upper_limit/m);
+    return I;
+}
+
+template<typename T,typename U>
+__global__ void masking_kernel(T I,U I2)
+{
+    TIPL_FOR(index,I.size())
+        if(I2[index])
+            I[index] = 0;
+}
+
+template<typename T,typename U>
+inline void masking_cuda(T& I,const U& I2)
+{
+    TIPL_RUN(masking_kernel,I.size())
+        (tipl::make_shared(I),tipl::make_shared(I2));
+}
+
+template<typename T,typename U>
+__global__ void preserve_kernel(T I,U I2)
+{
+    TIPL_FOR(index,I.size())
+        if(!I2[index])
+            I[index] = 0;
+}
+
+template<typename T,typename U>
+inline void preserve_cuda(T& I,const U& I2)
+{
+    TIPL_RUN(preserve_kernel,I.size())
+        (tipl::make_shared(I),tipl::make_shared(I2));
+}
 
 }
 
