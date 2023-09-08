@@ -1008,6 +1008,54 @@ inline auto minmax_value_mt(const image_type& I)
 }
 
 //---------------------------------------------------------------------------
+template<typename iterator1,typename iterator2>
+void masking(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
+{
+    for (; lhs_from != lhs_to; ++lhs_from,++rhs_from)
+        if(*rhs_from)
+            *lhs_from = 0;
+}
+//---------------------------------------------------------------------------
+template<typename image_type1,typename image_type2>
+void masking(image_type1& I,const image_type2& I2)
+{
+    masking(I.begin(),I.end(),I2.begin());
+}
+//---------------------------------------------------------------------------
+template<typename image_type1,typename image_type2>
+void masking_mt(image_type1& I,const image_type2& I2)
+{
+    tipl::par_for(I.size(),[&I,&I2](size_t index){
+        if(I2[index])
+            I[index] = 0;
+    });
+}
+//---------------------------------------------------------------------------
+template<typename iterator1,typename iterator2>
+void preserve(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
+{
+    for (; lhs_from != lhs_to; ++lhs_from,++rhs_from)
+        if(!*rhs_from)
+            *lhs_from = 0;
+}
+//---------------------------------------------------------------------------
+template<typename image_type1,typename image_type2>
+void preserve(image_type1& I,const image_type2& I2)
+{
+    preserve(I.begin(),I.end(),I2.begin());
+}
+//---------------------------------------------------------------------------
+template<typename image_type1,typename image_type2>
+void preserve_mt(image_type1& I,const image_type2& I2)
+{
+    tipl::par_for(I.size(),[&I,&I2](size_t index){
+        if(!I2[index])
+            I[index] = 0;
+    });
+}
+
+
+//---------------------------------------------------------------------------
 template<typename InputIter,typename OutputIter,typename value_type>
 inline void upper_threshold(InputIter from,InputIter to,OutputIter out,value_type upper)
 {
