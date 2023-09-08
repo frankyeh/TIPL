@@ -8,6 +8,32 @@
 namespace tipl{
 
 
+
+template<tipl::interpolation itype,typename T1,typename T2>
+__global__ void scale_cuda_kernel(T1 from,T2 to,double dx,double dy,double dz)
+{
+    TIPL_FOR(index,to.size())
+    {
+        tipl::pixel_index<3> pos(index,to.shape());
+        tipl::vector<3> v(pos);
+        v[0] *= dx;
+        v[1] *= dy;
+        v[2] *= dz;
+        tipl::estimate<itype>(from,v,to[index]);
+    }
+}
+
+template<tipl::interpolation itype = linear,typename T1,typename T2>
+inline void scale_cuda(const T1& from,T2& to)
+{
+    double dx = double(from.width()-1)/double(to.width()-1);
+    double dy = double(from.height()-1)/double(to.height()-1);
+    double dz = double(from.depth()-1)/double(to.depth()-1);
+    TIPL_RUN(scale_cuda_kernel<itype>,to.size())
+            (tipl::make_shared(from),tipl::make_shared(to),dx,dy,dz);
+}
+
+
 template<typename T,typename U,typename V>
 __global__ void downsample_with_padding_cuda_kernel(T in,U out,V shift)
 {
