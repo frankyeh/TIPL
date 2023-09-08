@@ -81,12 +81,16 @@ class device_vector{
         {
             copy_from(rhs.begin(),rhs.end());
         }
+        void copy_to(device_vector& rhs)
+        {
+            rhs.copy_from(*this);
+        }
         template<typename T>
         void copy_to(T& rhs)
         {
             if(s)
             {
-                if(cudaMemcpy(&rhs[0], buf, s*sizeof(value_type), cudaMemcpyDeviceToHost) != cudaSuccess)
+                if(cudaMemcpy(rhs.data(), buf, s*sizeof(value_type), cudaMemcpyDeviceToHost) != cudaSuccess)
                     throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
             }
         }
@@ -145,8 +149,8 @@ class device_vector{
         __INLINE__ size_t size(void)    const       {return s;}
         __INLINE__ bool empty(void)     const       {return s==0;}
     public: // only in device memory
-        __INLINE__ iterator get(void)                                       {return buf;}
-        __INLINE__ const_iterator get(void) const                           {return buf;}
+        __INLINE__ iterator data(void)                                       {return buf;}
+        __INLINE__ const_iterator data(void) const                           {return buf;}
         __INLINE__ const void* begin(void)                          const   {return buf;}
         __INLINE__ const void* end(void)                            const   {return buf+s;}
         __INLINE__ void* begin(void)                                        {return buf;}
@@ -170,8 +174,8 @@ private:
     size_t s = 0;
 public:
     __INLINE__ shared_device_vector(void){}
-    __INLINE__ shared_device_vector(device_vector<value_type>& rhs):buf(rhs.get()),s(rhs.size())                    {}
-    __INLINE__ shared_device_vector(const device_vector<value_type>& rhs):const_buf(rhs.get()),s(rhs.size())        {}
+    __INLINE__ shared_device_vector(device_vector<value_type>& rhs):buf(rhs.data()),s(rhs.size())                    {}
+    __INLINE__ shared_device_vector(const device_vector<value_type>& rhs):const_buf(rhs.data()),s(rhs.size())        {}
 
     __INLINE__ shared_device_vector(shared_device_vector<value_type>& rhs):buf(rhs.buf),s(rhs.s)                    {}
     __INLINE__ shared_device_vector(const shared_device_vector<value_type>& rhs):const_buf(rhs.const_buf),s(rhs.s)  {}
@@ -187,11 +191,13 @@ public:
 public:
     __INLINE__ const_iterator begin(void)                          const   {return const_buf;}
     __INLINE__ const_iterator end(void)                            const   {return const_buf+s;}
+    __INLINE__ const_iterator data(void)                           const   {return const_buf;}
     template<typename index_type>
     __INLINE__ const_reference operator[](index_type index)        const   {return const_buf[index];}
 public:
     __INLINE__ iterator begin(void)                                        {return buf;}
     __INLINE__ iterator end(void)                                          {return buf+s;}
+    __INLINE__ iterator data(void)                                         {return buf;}
     template<typename index_type>
     __INLINE__ reference operator[](index_type index)                      {return buf[index];}
 
@@ -330,6 +336,8 @@ class host_vector{
         __INLINE__ const_iterator end(void)                         const   {return buf+s;}
         __INLINE__ iterator begin(void)                                     {return buf;}
         __INLINE__ iterator end(void)                                       {return buf+s;}
+        __INLINE__ const_iterator data(void)                       const   {return buf;}
+        __INLINE__ iterator data(void)                                     {return buf;}
 };
 
 
