@@ -52,13 +52,13 @@ public:
     __INLINE__ const_reference operator[](index_type index) const    {return bg[index];}
     __INLINE__ const_iterator begin(void)                   const    {return bg;}
     __INLINE__ const_iterator end(void)                     const    {return bg+sz;}
-    __INLINE__ const_iterator get(void)                     const    {return bg;}
+    __INLINE__ const_iterator data(void)                     const    {return bg;}
 public:
     template<typename index_type>
     __INLINE__ reference operator[](index_type index)                {return bg[index];}
     __INLINE__ iterator begin(void)                                  {return bg;}
     __INLINE__ iterator end(void)                                    {return bg+sz;}
-    __INLINE__ iterator get(void)                                    {return bg;}
+    __INLINE__ iterator data(void)                                    {return bg;}
 public:
     __INLINE__ size_t size(void)                            const    {return sz;}
     __INLINE__ bool empty(void)                             const    {return sz == 0;}
@@ -121,13 +121,13 @@ public:
     __INLINE__ const_reference operator[](index_type index) const    {return bg[index];}
     __INLINE__ const_iterator begin(void)                   const    {return bg;}
     __INLINE__ const_iterator end(void)                     const    {return bg+sz;}
-    __INLINE__ const_iterator get(void)                     const    {return bg;}
+    __INLINE__ const_iterator data(void)                     const    {return bg;}
 public:
     template<typename index_type>
     __INLINE__ reference operator[](index_type index)                {return bg[index];}
     __INLINE__ iterator begin(void)                                  {return bg;}
     __INLINE__ iterator end(void)                                    {return bg+sz;}
-    __INLINE__ iterator get(void)                                    {return bg;}
+    __INLINE__ iterator data(void)                                    {return bg;}
 public:
     __INLINE__ size_t size(void)                            const    {return sz;}
     __INLINE__ bool empty(void)                             const    {return sz == 0;}
@@ -203,13 +203,13 @@ public:
     __INLINE__ const_reference operator[](index_type index) const    {return beg[index];}
     __INLINE__ const_iterator begin(void)                   const    {return beg;}
     __INLINE__ const_iterator end(void)                     const    {return beg+sz;}
-    __INLINE__ const_iterator get(void)                     const    {return beg;}
+    __INLINE__ const_iterator data(void)                     const    {return beg;}
 public:
     template<typename index_type>
     __INLINE__ reference operator[](index_type index)                {return beg[index];}
     __INLINE__ iterator begin(void)                                  {return beg;}
     __INLINE__ iterator end(void)                                    {return beg+sz;}
-    __INLINE__ iterator get(void)                                    {return beg;}
+    __INLINE__ iterator data(void)                                    {return beg;}
 public:
     __INLINE__ size_t size(void)                            const    {return sz;}
     __INLINE__ bool empty(void)                             const    {return buffer.empty();}
@@ -312,10 +312,10 @@ public:
         return *this;
     }
 public:
-    __INLINE__ storage_type& buf(void){return alloc;}
-    __INLINE__ const storage_type& buf(void)const{return alloc;}
-    __INLINE__ typename storage_type::iterator get(void){return alloc.get();}
-    __INLINE__ typename storage_type::const_iterator get(void)const{return alloc.get();}
+    __INLINE__ auto& buf(void){return alloc;}
+    __INLINE__ const auto& buf(void)const{return alloc;}
+    __INLINE__ auto data(void){return alloc.data();}
+    __INLINE__ auto data(void)const{return alloc.data();}
     __INLINE__ void swap(image& rhs)
     {
         alloc.swap(rhs.alloc);
@@ -348,38 +348,38 @@ public:
     {
         tipl::shape<dim-1> slice_sp(sp.begin());
         if constexpr(std::is_same<storage_type,const_pointer_container<vtype> >::value)
-            return const_slice_type(&*alloc.begin()+pos*slice_sp.size(),slice_sp);
+            return const_slice_type(alloc.data()+pos*slice_sp.size(),slice_sp);
         else
-            return slice_type(&*alloc.begin()+pos*slice_sp.size(),slice_sp);
+            return slice_type(alloc.data()+pos*slice_sp.size(),slice_sp);
     }
     __INLINE__ auto slice_at(unsigned int pos) const
     {
         tipl::shape<dim-1> slice_sp(sp.begin());
-        return const_slice_type(&*alloc.begin()+pos*slice_sp.size(),slice_sp);
+        return const_slice_type(alloc.data()+pos*slice_sp.size(),slice_sp);
     }
     template<typename shape_type>
     __INLINE__ auto alias(size_t offset,const shape_type& new_shape)
     {
         if constexpr(std::is_same<storage_type,const_pointer_container<vtype> >::value)
-            return tipl::image<shape_type::dimension,value_type,const_pointer_container>(&*alloc.begin()+offset,new_shape);
+            return tipl::image<shape_type::dimension,value_type,const_pointer_container>(alloc.data()+offset,new_shape);
         else
-            return tipl::image<shape_type::dimension,value_type,pointer_container>(&*alloc.begin()+offset,new_shape);
+            return tipl::image<shape_type::dimension,value_type,pointer_container>(alloc.data()+offset,new_shape);
     }
     template<typename shape_type>
     __INLINE__ auto alias(size_t offset,const shape_type& new_shape) const
     {
-        return tipl::image<shape_type::dimension,value_type,const_pointer_container>(&*alloc.begin()+offset,new_shape);
+        return tipl::image<shape_type::dimension,value_type,const_pointer_container>(alloc.data()+offset,new_shape);
     }
     __INLINE__ auto alias(void)
     {
         if constexpr(std::is_same<storage_type,const_pointer_container<vtype> >::value)
-            return tipl::image<dim,value_type,const_pointer_container>(&*alloc.begin(),sp);
+            return tipl::image<dim,value_type,const_pointer_container>(alloc.data(),sp);
         else
-            return tipl::image<dim,value_type,pointer_container>(&*alloc.begin(),sp);
+            return tipl::image<dim,value_type,pointer_container>(alloc.data(),sp);
     }
     __INLINE__ auto alias(void) const
     {
-        return tipl::image<dim,value_type,const_pointer_container>(&*alloc.begin(),sp);
+        return tipl::image<dim,value_type,const_pointer_container>(alloc.data(),sp);
     }
 public:
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
@@ -463,7 +463,7 @@ public:
 public:
     __INLINE__ pointer_image(void) {}
     __INLINE__ pointer_image(const pointer_image& rhs):base_type(){operator=(rhs);}
-    template<typename T,typename std::enable_if<T::dimension==dimension && !std::is_same<storage_type,typename T::storage_type>::value,bool>::type = true>
+    template<typename T>
     __INLINE__ pointer_image(T& rhs):base_type(extract_pointer<vtype*>(rhs.begin()),rhs.shape()) {}
     __INLINE__ pointer_image(vtype* pointer,const tipl::shape<dim>& sp_):base_type(pointer,sp_) {}
 public:
