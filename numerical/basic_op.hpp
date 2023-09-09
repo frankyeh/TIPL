@@ -148,7 +148,7 @@ void expand_label_to_dimension(T& label,size_t label_count)
     T labels(label.shape().multiply(tipl::shape<3>::z,label_count));
     for(size_t j = 0;j < label.size();++j)
     {
-        if(!label[j])
+        if(label[j] >= 1)
             continue;
         auto v = label[j]-1;
         if(v < label_count)
