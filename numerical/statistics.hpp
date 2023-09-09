@@ -329,7 +329,11 @@ auto median(input_iterator begin, input_iterator end)
     std::nth_element(begin, begin + size,end);
     return *std::next(begin, size);
 }
-
+template<typename image_type>
+auto median(const image_type& I)
+{
+    return median(I.begin(),I.end());
+}
 template<typename input_iterator>
 std::pair<double,double> mean_variance(input_iterator from,input_iterator to)
 {
