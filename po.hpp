@@ -484,13 +484,31 @@ public:
     }
     bool get_files(const char* name,std::vector<std::string>& filenames)
     {
-        out() << "searching files matching " << name << std::endl;
-        if(!search_filesystem(get(name),filenames))
+        std::vector<std::string> file_list = tipl::split(get(name),',');
+        for(size_t index = 0;index < file_list.size();++index)
         {
-            out() << "ERROR: invalid file path " << get(name) << std::endl;;
-            return false;
+            if(file_list[index].find('*') == std::string::npos)
+            {
+                if(!std::filesystem::exists(file_list[index]))
+                {
+                    error_msg = "file not exist ";
+                    error_msg += file_list[index];
+                    return false;
+                }
+                filenames.push_back(file_list[index]);
+            }
+            else
+            {
+                size_t old_size = filenames.size();
+                if(!search_filesystem(file_list[index],filenames))
+                {
+                    error_msg = "invalid file path ";
+                    error_msg += file_list[index];
+                    return false;
+                }
+                out() << file_list[index] << ": a total of " << filenames.size()-old_size << "specified." << std::endl;
+            }
         }
-        out() << "a total of " << filenames.size() << " files found" << std::endl;
         return true;
     }
 
