@@ -148,11 +148,11 @@ void expand_label_to_dimension(T& label,size_t label_count)
     T labels(label.shape().multiply(tipl::shape<3>::z,label_count));
     for(size_t j = 0;j < label.size();++j)
     {
-        if(label[j] >= 1)
+        int cur_label = label[j];
+        if(cur_label < 1 || cur_label > label_count)
             continue;
-        auto v = label[j]-1;
-        if(v < label_count)
-            labels[base_pos[v] + j] = 1;
+        --cur_label;
+        labels[base_pos[cur_label] + j] = 1;
     }
     label.swap(labels);
 }
