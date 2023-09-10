@@ -506,7 +506,7 @@ public:
                     error_msg += file_list[index];
                     return false;
                 }
-                out() << file_list[index] << ": a total of " << filenames.size()-old_size << "specified." << std::endl;
+                out() << file_list[index] << ": " << filenames.size()-old_size << " file(s) specified." << std::endl;
             }
         }
         return true;
