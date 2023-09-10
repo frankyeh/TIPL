@@ -210,6 +210,7 @@ bool search_filesystem(path_type path_,std::vector<std::string>& filenames,bool 
     }
 
     try{
+        std::vector<std::string> new_filenames;
         for (const auto& entry : std::filesystem::directory_iterator(search_path))
         {
             if (file_only && !std::filesystem::is_regular_file(entry))
@@ -219,8 +220,10 @@ bool search_filesystem(path_type path_,std::vector<std::string>& filenames,bool 
 
             std::string result;
             if (tipl::match_files(path, entry.path().filename().string(),std::string("*"),result) && !result.empty())
-                filenames.push_back(entry.path().string());
+                new_filenames.push_back(entry.path().string());
         }
+        std::sort(new_filenames.begin(),new_filenames.end());
+        filenames.insert(filenames.end(),new_filenames.begin(),new_filenames.end());
     }
     catch (...)
     {
