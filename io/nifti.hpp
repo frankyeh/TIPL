@@ -981,7 +981,10 @@ public:
     bool get_untouched_image(image_type& out,prog_type&& prog = prog_type()) const
     {
         try{
-            out.resize(tipl::shape<image_type::dimension>(nif_header.dim+1));
+            if(untouched_dim.empty())
+                out.resize(tipl::shape<image_type::dimension>(nif_header.dim+1));
+            else
+                out.resize(tipl::shape<image_type::dimension>(untouched_dim.data()+1));
         }
         catch(...)
         {
@@ -1062,6 +1065,7 @@ public:
 public:
     // 0: flip x  1: flip y  2: flip z
     // 3: swap xy 4: swap yz 5: swap xz
+    std::vector<short> untouched_dim;
     std::vector<char> flip_swap_seq;
     template<typename image_type>
     void apply_flip_swap_seq(image_type& out,bool reverse = false)
@@ -1075,6 +1079,7 @@ public:
     {
         handle_qform();
         // swap x y
+        untouched_dim = std::vector<short>(nif_header.dim,nif_header.dim+8);
         if(std::fabs(nif_header.srow_y[1]) < std::fabs(nif_header.srow_x[1]) &&
            std::fabs(nif_header.srow_z[1]) < std::fabs(nif_header.srow_x[1]))
         {
