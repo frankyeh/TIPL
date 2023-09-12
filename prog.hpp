@@ -156,16 +156,16 @@ public:
                 continue;
             std::string head;
             for(size_t i = 1;i < status_list.size();++i)
-                head += "│ ";
+                head += "| ";
             if(!status_list.empty())
             {
                 if(head_node)
-                    head += "├─";
+                    head += "|-";
                 else
-                    head += "│ ";
+                    head += "| ";
             }
             if(tail_node)
-                head += "└─";
+                head += "|_";
             #ifndef WIN32
             if(!show_prog) // enable color output in command line
             {
