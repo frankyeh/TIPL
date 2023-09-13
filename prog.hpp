@@ -184,6 +184,12 @@ public:
                     auto eq_pos = line.find('=');
                     if(eq_pos != std::string::npos)
                         line = std::string("\033[0;32m") + line.substr(0,eq_pos) + "\033[0m" + line.substr(eq_pos);
+                    else
+                    {
+                        auto info_pos = line.find(": ");
+                        if(info_pos != std::string::npos)
+                            line = std::string("\033[0;33m") + line.substr(0,info_pos) + "\033[0m" + line.substr(info_pos);
+                    }
                 }
             }
             if(!tipl::is_main_thread<0>())
