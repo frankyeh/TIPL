@@ -166,7 +166,6 @@ public:
             }
             if(tail_node)
                 head += "|_";
-            #ifndef WIN32
             if(!show_prog) // enable color output in command line
             {
                 if(head_node)
@@ -174,13 +173,19 @@ public:
                     head += "\033[1;34m"; // blue
                     line += "\033[0m";
                 }
+                else
                 if(line[0] == 'E' || line[0] == 'W' ) // Error
                 {
                     head += "\033[1;31m"; // red
                     line += "\033[0m";
                 }
+                else
+                {
+                    auto eq_pos = line.find('=');
+                    if(eq_pos != std::string::npos)
+                        line = std::string("\033[0;32m") + line.substr(0,eq_pos) + "\033[0m" + line.substr(eq_pos);
+                }
             }
-            #endif
             if(!tipl::is_main_thread<0>())
                 head += "[thread]";
             std::cout << head + line << std::endl;
