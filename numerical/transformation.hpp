@@ -1092,6 +1092,13 @@ public:
         out << T.data[6] << " " << T.data[7] << " " << T.data[8] << " " << T.data[11] << std::endl;
         return out;
     }
+    friend std::istream& operator>>(std::istream& in, transformation_matrix<value_type> &T)
+    {
+        in >> T.data[0] >> T.data[1] >> T.data[2] >> T.data[9];
+        in >> T.data[3] >> T.data[4] >> T.data[5] >> T.data[10];
+        in >> T.data[6] >> T.data[7] >> T.data[8] >> T.data[11];
+        return in;
+    }
 };
 
 
