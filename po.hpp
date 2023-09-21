@@ -241,10 +241,16 @@ class program_option{
     bool add_option(const std::string& str)
     {
         if(str.length() < 3 || str[0] != '-' || str[1] != '-')
+        {
+            error_msg = std::string("invalid argument ") + str + " did you forget to put double dash '--' in front of the argument?";
             return false;
+        }
         auto pos = std::find(str.begin(),str.end(),'=');
         if(pos == str.end())
+        {
+            error_msg = std::string("invalid argument ") + str + " did you forget to put '=' after the argument?";
             return false;
+        }
         names.push_back(std::string(str.begin()+2,pos));
         values.push_back(std::string(pos+1,str.end()));
         used.push_back(0);
@@ -293,7 +299,7 @@ public:
                     prompt_msg += candidate_list.begin()->second;
                     prompt_msg += " ?";
                 }
-                out() << "Warning: --" << str1 << " is not used/recognized. " << prompt_msg << std::endl;
+                out() << "WARNING: --" << str1 << " is not used/recognized. " << prompt_msg << std::endl;
             }
     }
     void clear(void)
@@ -321,11 +327,7 @@ public:
         {
             std::string str(av[i]);
             if(!add_option(str))
-            {
-                error_msg = "cannot parse: ";
-                error_msg += str;
                 return false;
-            }
         }
         return true;
     }
@@ -354,11 +356,7 @@ public:
                 }
             }
             if(!str.empty() && !add_option(str))
-            {
-                error_msg = "cannot parse: ";
-                error_msg += str;
                 return false;
-            }
         }
         return true;
     }
