@@ -9,7 +9,7 @@ namespace tipl{
 namespace segmentation{
 
 template<typename ImageType>
-float otsu_threshold(const ImageType& src)
+float otsu_threshold(const ImageType& src,size_t skip = 1)
 {
     auto min_max = minmax_value(src.begin(),src.end());
     std::vector<unsigned int> hist;
@@ -18,6 +18,7 @@ float otsu_threshold(const ImageType& src)
         return min_max.first;
     std::vector<unsigned int> w(hist.size());
     std::vector<float> sum(hist.size());
+    std::fill(hist.begin(),hist.begin() + skip,0);
     w[0] = hist[0];
     sum[0] = 0.0;
     for (unsigned int index = 1,last_w = hist[0],last_sum = 0.0; index < hist.size(); ++index)
