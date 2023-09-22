@@ -27,13 +27,13 @@ struct correlation
 {
     typedef double value_type;
     template<typename ImageType1,typename ImageType2,typename TransformType>
-    double operator()(const ImageType1& Ifrom,const ImageType2& Ito,const TransformType& transform,int thread = 0)
+    double operator()(const ImageType1& Ifrom,const ImageType2& Ito,const TransformType& transform,int)
     {
         if(Ifrom.size() > Ito.size())
         {
             auto trans(transform);
             trans.inverse();
-            return (*this)(Ito,Ifrom,trans);
+            return (*this)(Ito,Ifrom,trans,0);
         }
         tipl::image<ImageType1::dimension,typename ImageType1::value_type> y(Ifrom.shape());
         tipl::resample_mt(Ito,y,transform);
@@ -133,15 +133,14 @@ enum cost_type{corr,mutual_info};
 const float narrow_bound[8] = {0.2f,-0.2f,0.1f, -0.1f, 1.2f,0.8f,0.05f,-0.05f};
 const float reg_bound[8] =    {0.75f,-0.75f,0.3f,-0.3f,1.5f,0.7f,0.15f,-0.15f};
 const float large_bound[8] =  {1.0f,-1.0f,1.2f, -1.2f, 2.0f,0.5f,0.5f,-0.5f};
-template<typename image_type1,typename image_type2,typename vstype1,typename vstype2,typename transform_type>
-void get_bound(const image_type1& from,const image_type2& to,
-               vstype1 from_vs,vstype2 to_vs,
+template<typename image_type,typename vstype,typename transform_type>
+void get_bound(const image_type& from,vstype from_vs,
                const transform_type& trans,
                transform_type& upper_trans,
                transform_type& lower_trans,               
                reg_type type,const float* bound = reg_bound)
 {
-    const unsigned int dimension = image_type1::dimension;
+    const unsigned int dimension = image_type::dimension;
     upper_trans = trans;
     lower_trans = trans;
     if (type & translocation)
@@ -257,7 +256,7 @@ float linear(const image_type1& from,const vs_type1& from_vs,
     {
         if(is_terminated())
             break;
-        tipl::reg::get_bound(from,to,from_vs,to_vs,arg_min,upper,lower,type,bound);
+        tipl::reg::get_bound(from,from_vs,arg_min,upper,lower,type,bound);
         tipl::optimization::line_search_mt(arg_min.begin(),arg_min.end(),
                                              upper.begin(),lower.begin(),fun,optimal_value,is_terminated);
         tipl::optimization::quasi_newtons_minimize_mt(arg_min.begin(),arg_min.end(),
@@ -265,7 +264,7 @@ float linear(const image_type1& from,const vs_type1& from_vs,
                                                    precision);
     }
 
-    tipl::reg::get_bound(from,to,from_vs,to_vs,arg_min,upper,lower,rtype,bound);
+    tipl::reg::get_bound(from,from_vs,arg_min,upper,lower,rtype,bound);
     for(size_t i = 0;i < iterations;++i,precision *= 0.5f)
         tipl::optimization::quasi_newtons_minimize_mt(arg_min.begin(),arg_min.end(),
                                                    upper.begin(),lower.begin(),fun,optimal_value,is_terminated,
