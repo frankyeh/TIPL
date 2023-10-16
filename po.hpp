@@ -40,6 +40,19 @@ inline bool ends_with(const std::string& str,const std::string& suffix)
     return (str.size() >= suffix.size()) ? (0 == str.compare(str.size() - suffix.size(), suffix.size(), suffix)) : false;
 }
 
+inline std::string to_lower(const std::string& str)
+{
+    std::string result(str);
+    std::transform(result.begin(), result.end(), result.begin(),
+                   [](unsigned char c){ return std::tolower(c); });
+    return result;
+}
+
+inline bool contains_case_insensitive(const std::string& str,const std::string& suffix)
+{
+    return to_lower(str).find(to_lower(suffix)) != std::string::npos;
+}
+
 template<typename T>
 T common_prefix(const T& str1,const T& str2)
 {
