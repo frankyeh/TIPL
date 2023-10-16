@@ -135,7 +135,7 @@ bool is_label_image(const ImageType& I)
             ++slope_count;
         }
     });
-    return slope_count < I.width();
+    return slope_count < I.plane_size();
 }
 
 template<typename T>
