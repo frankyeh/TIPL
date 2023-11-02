@@ -52,6 +52,10 @@ inline bool contains_case_insensitive(const std::string& str,const std::string& 
 {
     return to_lower(str).find(to_lower(suffix)) != std::string::npos;
 }
+inline bool equal_case_insensitive(const std::string& str,const std::string& suffix)
+{
+    return to_lower(str) == to_lower(suffix);
+}
 
 template<typename T>
 T common_prefix(const T& str1,const T& str2)
