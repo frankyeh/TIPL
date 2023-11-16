@@ -48,8 +48,7 @@ struct mutual_information
     unsigned int band_width;
     unsigned int his_bandwidth;
     std::vector<unsigned int> from_hist;
-    std::vector<unsigned char> from;
-    std::vector<unsigned char> to;
+    std::vector<unsigned char> from,to;
     std::mutex init_mutex;
 public:
     mutual_information(unsigned int band_width_ = 6):band_width(band_width_),his_bandwidth(1 << band_width_) {}
@@ -70,56 +69,40 @@ public:
         }
 
         // obtain the histogram
-        auto geo = from_.shape();
         unsigned int thread_count = std::thread::hardware_concurrency();
 
+        tipl::shape<2> geo(his_bandwidth,his_bandwidth);
+        std::vector<tipl::image<2,uint32_t> > mutual_hist(thread_count);
+        for(int i = 0;i < mutual_hist.size();++i)
+            mutual_hist[i].resize(geo);
 
-        std::vector<tipl::image<2,float> > mutual_hist(thread_count);
-        std::vector<std::vector<float> > to_hist(thread_count);
-        for(int i = 0;i < thread_count;++i)
-        {
-            mutual_hist[i].resize(tipl::shape<2>(his_bandwidth,his_bandwidth));
-            to_hist[i].resize(his_bandwidth);
-        }
+        auto pto = tipl::make_image(to.data(),to_.shape());
 
-        tipl::par_for(tipl::begin_index(geo),tipl::end_index(geo),
+        tipl::par_for(tipl::begin_index(from_.shape()),tipl::end_index(from_.shape()),
                        [&](const pixel_index<ImageType1::dimension>& index,int id)
         {
-            tipl::interpolator::linear<ImageType1::dimension> interp;
-            unsigned int from_index = ((unsigned int)from[index.index()]) << band_width;
-            tipl::vector<ImageType1::dimension,float> pos;
+            tipl::vector<3> pos;
             transform(index,pos);
-            if (!interp.get_location(to_.shape(),pos))
-            {
-                to_hist[id][0] += 1.0;
-                mutual_hist[id][from_index] += 1.0;
-            }
-            else
-                for (unsigned int i = 0; i < tipl::interpolator::linear<ImageType1::dimension>::ref_count; ++i)
-                {
-                    auto weighting = interp.ratio[i];
-                    unsigned int to_index = to[interp.dindex[i]];
-                    to_hist[id][to_index] += weighting;
-                    mutual_hist[id][from_index+ to_index] += weighting;
-                }
+            unsigned char to_index = 0;
+            tipl::estimate<tipl::interpolation::linear>(pto,pos,to_index);
+            mutual_hist[id][(uint32_t(from[index.index()]) << band_width) + uint32_t(to_index)]++;
         });
 
-        for(int i = 1;i < thread_count;++i)
-        {
+        for(int i = 1;i < mutual_hist.size();++i)
             tipl::add(mutual_hist[0],mutual_hist[i]);
-            tipl::add(to_hist[0],to_hist[i]);
-        }
 
         // calculate the cost
         {
             double sum = 0.0;
-            tipl::shape<2> geo(his_bandwidth,his_bandwidth);
+            std::vector<uint32_t> to_hist(his_bandwidth);
+            for (tipl::pixel_index<2> index(geo);index < geo.size();++index)
+                to_hist[index.x()] += mutual_hist[0][index.index()];
             for (tipl::pixel_index<2> index(geo);index < geo.size();++index)
             {
                 double mu = mutual_hist[0][index.index()];
                 if (mu == 0.0f)
                     continue;
-                sum += mu*std::log(mu/double(from_hist[index.y()])/double(to_hist[0][index.x()]));
+                sum += mu*std::log(mu/double(from_hist[index.y()])/double(to_hist[index.x()]));
             }
             return -sum;
         }
@@ -225,10 +208,10 @@ float linear(const image_type1& from,const vs_type1& from_vs,
              transform_type& arg_min,
              reg_type rtype,
              function&& is_terminated,
-             double precision = 0.01,
+             double precision = 0.001,
              bool line_search = true,
              const float* bound = reg_bound,
-             size_t iterations = 3)
+             size_t max_iterations = 30)
 {
     std::vector<reg_type> reg_list;
     if(rtype == translocation)
@@ -248,7 +231,7 @@ float linear(const image_type1& from,const vs_type1& from_vs,
     auto fun = make_functor<CostFunctionType>(from,from_vs,to,to_vs);
     double optimal_value;
     if(rtype == affine)
-        iterations += 2;
+        max_iterations += 20;
     optimal_value = fun(arg_min);
     transform_type upper,lower;
     if(line_search)
@@ -263,12 +246,12 @@ float linear(const image_type1& from,const vs_type1& from_vs,
                                                    upper.begin(),lower.begin(),fun,optimal_value,is_terminated,
                                                    precision);
     }
-
     tipl::reg::get_bound(from,from_vs,arg_min,upper,lower,rtype,bound);
-    for(size_t i = 0;i < iterations;++i,precision *= 0.5f)
-        tipl::optimization::quasi_newtons_minimize_mt(arg_min.begin(),arg_min.end(),
-                                                   upper.begin(),lower.begin(),fun,optimal_value,is_terminated,
-                                                   precision);
+
+
+    tipl::optimization::gradient_descent(arg_min.begin(),arg_min.end(),
+                                         upper.begin(),lower.begin(),fun,optimal_value,is_terminated,
+                                         precision,max_iterations);
     return optimal_value;
 }
 template<typename T,typename U,typename V>
@@ -299,7 +282,7 @@ float linear_mr(const image_type1& from,const vs_type1& from_vs,
                 double precision = 0.01,
                 bool line_search = true,
                 const float* bound = reg_bound,
-                size_t iterations = 5)
+                size_t iterations = 30)
 {
     std::list<image<image_type1::dimension,typename image_type1::value_type> > from_buffer;
     std::list<image<image_type1::dimension,typename image_type1::value_type> > to_buffer;
