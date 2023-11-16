@@ -205,6 +205,8 @@ inline bool match_wildcard(const std::string& file_path,const std::string& wild_
 
 inline void search_files(const std::string& search_path,const std::string& wildcard,std::vector<std::string>& results)
 {
+    if(!std::filesystem::exists(search_path) || !std::filesystem::is_directory(search_path))
+        return;
     for (const auto& entry : std::filesystem::directory_iterator(search_path))
     {
         if (!std::filesystem::is_regular_file(entry))
@@ -215,6 +217,8 @@ inline void search_files(const std::string& search_path,const std::string& wildc
 }
 inline void search_dirs(const std::string& search_path,const std::string& wildcard,std::vector<std::string>& results)
 {
+    if(!std::filesystem::exists(search_path) || !std::filesystem::is_directory(search_path))
+        return;
     for (const auto& entry : std::filesystem::directory_iterator(search_path))
     {
         if (!std::filesystem::is_directory(entry))
@@ -253,6 +257,8 @@ bool search_filesystem(path_type path_,std::vector<std::string>& filenames,bool 
     }
 
     try{
+        if(!std::filesystem::exists(search_path) || !std::filesystem::is_directory(search_path))
+            return true;
         std::vector<std::string> new_filenames;
         for (const auto& entry : std::filesystem::directory_iterator(search_path))
         {
