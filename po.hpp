@@ -197,9 +197,35 @@ bool match_files(const T& file_path1,const T& file_path2,
     file_path2_gen = path2_others + name2_others;
     return true;
 }
+inline bool match_wildcard(const std::string& file_path,const std::string& wild_card)
+{
+    std::string result;
+    return tipl::match_strings(wild_card,file_path,std::string("*"),result,true,false) && !result.empty();
+}
+
+inline void search_files(const std::string& search_path,const std::string& wildcard,std::vector<std::string>& results)
+{
+    for (const auto& entry : std::filesystem::directory_iterator(search_path))
+    {
+        if (!std::filesystem::is_regular_file(entry))
+            continue;
+        if (wildcard.empty() || tipl::match_wildcard(entry.path().filename().string(),wildcard))
+            results.push_back(entry.path().string());
+    }
+}
+inline void search_dirs(const std::string& search_path,const std::string& wildcard,std::vector<std::string>& results)
+{
+    for (const auto& entry : std::filesystem::directory_iterator(search_path))
+    {
+        if (!std::filesystem::is_directory(entry))
+            continue;
+        if (wildcard.empty() || tipl::match_wildcard(entry.path().filename().string(),wildcard))
+            results.push_back(entry.path().string());
+    }
+}
 
 template<typename path_type>
-bool search_filesystem(path_type path_,std::vector<std::string>& filenames,bool file_only = true)
+bool search_filesystem(path_type path_,std::vector<std::string>& filenames,bool file = true)
 {
     std::string path(path_);
     if (path.find('*') == std::string::npos)
@@ -230,13 +256,11 @@ bool search_filesystem(path_type path_,std::vector<std::string>& filenames,bool 
         std::vector<std::string> new_filenames;
         for (const auto& entry : std::filesystem::directory_iterator(search_path))
         {
-            if (file_only && !std::filesystem::is_regular_file(entry))
+            if (file && !std::filesystem::is_regular_file(entry))
                 continue;
-            if (!file_only && !std::filesystem::is_directory(entry))
+            if (!file && !std::filesystem::is_directory(entry))
                 continue;
-
-            std::string result;
-            if (tipl::match_files(path, entry.path().filename().string(),std::string("*"),result) && !result.empty())
+            if (tipl::match_wildcard(entry.path().filename().string(),path))
                 new_filenames.push_back(entry.path().string());
         }
         std::sort(new_filenames.begin(),new_filenames.end());
