@@ -372,7 +372,7 @@ void gradient_descent(
     unsigned int size = x_end-x_beg;
     std::vector<param_type> tols(size);
     double tol_length = calculate_resolution(tols,x_upper,x_lower,precision);
-    for(unsigned int iter = 0;iter < max_iteration && !terminated;++iter)
+    for(unsigned int iter = 0;iter < max_iteration && !terminated();++iter)
     {
         std::vector<value_type> fun_x_ei(size);
         std::vector<param_type> g(size);
