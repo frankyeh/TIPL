@@ -317,8 +317,7 @@ public:
     };
     inline program_option_assign operator[](const char* name)     {return program_option_assign(name,this);}
 public:
-    std::string error_msg;
-
+    std::string error_msg,exec_path;
     ~program_option(void)
     {
         for(size_t i = 0;i < used.size();++i)
@@ -358,6 +357,7 @@ public:
 
     bool parse(int ac, char *av[])
     {
+        exec_path = std::filesystem::absolute(std::filesystem::path(av[0])).parent_path().string();
         clear();
         if(ac == 2) // command from log file
         {
