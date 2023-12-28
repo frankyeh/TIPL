@@ -17,7 +17,7 @@ void plot_fun_2d(
                 image_type& I,
                 iter_type1 x_beg,iter_type1 x_end,
                 iter_type1 x_upper,iter_type1 x_lower,
-                function_type& fun,
+                function_type&& fun,
                 unsigned int dim1,unsigned int dim2,unsigned int sample_frequency = 100)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
@@ -33,7 +33,7 @@ void plot_fun_2d(
 
 // calculate fun(x+ei)
 template<typename iter_type1,typename tol_type,typename iter_type2,typename function_type>
-void estimate_change_mt(iter_type1 x_beg,iter_type1 x_end,tol_type tol,iter_type2 fun_ei,function_type& fun)
+void estimate_change_mt(iter_type1 x_beg,iter_type1 x_end,tol_type tol,iter_type2 fun_ei,function_type&& fun)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
     par_for(x_end-x_beg,[&](unsigned int i,int thread)
@@ -47,13 +47,13 @@ void estimate_change_mt(iter_type1 x_beg,iter_type1 x_end,tol_type tol,iter_type
 }
 // calculate fun(x+ei)
 template<typename storage_type,typename tol_storage_type,typename fun_type,typename function_type>
-void estimate_change_mt(const storage_type& x,const tol_storage_type& tol,fun_type& fun_ei,function_type& fun)
+void estimate_change_mt(const storage_type& x,const tol_storage_type& tol,fun_type& fun_ei,function_type&& fun)
 {
     estimate_change_mt(x.begin(),x.end(),tol.begin(),fun_ei.begin(),fun);
 }
 
 template<typename iter_type1,typename tol_type,typename iter_type2,typename function_type>
-void estimate_change(iter_type1 x_beg,iter_type1 x_end,tol_type tol,iter_type2 fun_ei,function_type& fun)
+void estimate_change(iter_type1 x_beg,iter_type1 x_end,tol_type tol,iter_type2 fun_ei,function_type&& fun)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
     size_t size = x_end-x_beg;
@@ -68,7 +68,7 @@ void estimate_change(iter_type1 x_beg,iter_type1 x_end,tol_type tol,iter_type2 f
 }
 // calculate fun(x+ei)
 template<typename storage_type,typename tol_storage_type,typename fun_type,typename function_type>
-void estimate_change(const storage_type& x,const tol_storage_type& tol,fun_type& fun_ei,function_type& fun)
+void estimate_change(const storage_type& x,const tol_storage_type& tol,fun_type& fun_ei,function_type&& fun)
 {
     estimate_change(x.begin(),x.end(),tol.begin(),fun_ei.begin(),fun);
 }
@@ -101,7 +101,7 @@ void hessian_mt(iter_type1 x_beg,iter_type1 x_end,
              value_type fun_x,
              iter_type2 fun_x_ei,
              iter_type3 h_iter,
-             function_type& fun)
+             function_type&& fun)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
     unsigned int size = x_end-x_beg;
@@ -128,7 +128,7 @@ void hessian_mt(iter_type1 x_beg,iter_type1 x_end,
 }
 
 template<typename storage_type,typename tol_storage_type,typename value_type,typename storage_type2,typename storage_type3,typename function_type>
-void hessian_mt(const storage_type& x,const tol_storage_type& tol,value_type fun_x,const storage_type2& fun_x_ei,storage_type3& h,function_type& fun)
+void hessian_mt(const storage_type& x,const tol_storage_type& tol,value_type fun_x,const storage_type2& fun_x_ei,storage_type3& h,function_type&& fun)
 {
     hessian_mt(x.begin(),x.end(),tol.begin(),fun_x,fun_x_ei.begin(),h.begin(),fun);
 }
@@ -139,7 +139,7 @@ bool armijo_line_search_1d(param_type& x,
                         param_type upper,param_type lower,
                         g_type g,
                         value_type& fun_x,
-                        function_type& fun,double precision)
+                        function_type&& fun,double precision)
 {
     bool has_new_x = false;
     param_type old_x = x;
@@ -166,7 +166,7 @@ bool armijo_line_search(iter_type1 x_beg,iter_type1 x_end,
                         iter_type2 x_upper,iter_type2 x_lower,
                         g_type g_beg,
                         value_type& fun_x,
-                        function_type& fun)
+                        function_type&& fun)
 {
     using param_type = typename std::iterator_traits<iter_type1>::value_type;
     unsigned int size = x_end-x_beg;
@@ -212,12 +212,12 @@ template<typename iter_type1,typename function_type,typename terminated_class>
 void quasi_newtons_minimize_mt(
                 iter_type1 x_beg,iter_type1 x_end,
                 iter_type1 x_upper,iter_type1 x_lower,
-                function_type& fun,
-                typename function_type::value_type& fun_x,
+                function_type&& fun,
+                double& fun_x,
                 terminated_class&& is_terminated,double precision = 0.001)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
-    typedef typename function_type::value_type value_type;
+    typedef double value_type;
     const int line_search_count = 10;
     unsigned int size = x_end-x_beg;
     std::vector<param_type> tols(size);
@@ -266,7 +266,7 @@ void quasi_newtons_minimize_mt(
 
 template<typename param_type,typename function_type,typename value_type,typename terminated_class>
 void graient_descent_1d(param_type& x,param_type upper,param_type lower,
-                     function_type& fun,value_type& fun_x,terminated_class& terminated,double precision = 0.001)
+                     function_type&& fun,value_type& fun_x,terminated_class& terminated,double precision = 0.001)
 {
     param_type tol = (upper-lower)*precision;
     if(tol == 0)
@@ -285,7 +285,7 @@ void graient_descent_1d(param_type& x,param_type upper,param_type lower,
 template<typename iter_type1,typename iter_type2,typename function_type,typename teminated_class>
 void random_search(iter_type1 x_beg,iter_type1 x_end,
                      iter_type2 x_upper,iter_type2 x_lower,
-                     function_type& fun,
+                     function_type&& fun,
                      double& optimal_value,
                      teminated_class& terminated,
                      int random_search_count)
@@ -318,8 +318,8 @@ void random_search(iter_type1 x_beg,iter_type1 x_end,
 template<typename iter_type1,typename iter_type2,typename function_type,typename teminated_class>
 void line_search_mt(iter_type1 x_beg,iter_type1 x_end,
                      iter_type2 x_upper,iter_type2 x_lower,
-                     function_type& fun,
-                     typename function_type::value_type& optimal_value,
+                     function_type&& fun,
+                     double& optimal_value,
                      teminated_class&& is_terminated)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
@@ -360,15 +360,15 @@ void line_search_mt(iter_type1 x_beg,iter_type1 x_end,
 
 
 template<typename iter_type1,typename iter_type2,typename function_type,typename terminated_class>
-void gradient_descent(
+void gradient_descent_mt(
                 iter_type1 x_beg,iter_type1 x_end,
                 iter_type2 x_upper,iter_type2 x_lower,
-                function_type& fun,
-                typename function_type::value_type& fun_x,
+                function_type&& fun,
+                double& fun_x,
                 terminated_class& terminated,double precision = 0.001,int max_iteration = 30)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
-    typedef typename function_type::value_type value_type;
+    typedef double value_type;
     unsigned int size = x_end-x_beg;
     std::vector<param_type> tols(size);
     double tol_length = calculate_resolution(tols,x_upper,x_lower,precision);
@@ -376,7 +376,7 @@ void gradient_descent(
     {
         std::vector<value_type> fun_x_ei(size);
         std::vector<param_type> g(size);
-        estimate_change(x_beg,x_end,tols.begin(),fun_x_ei.begin(),fun);
+        estimate_change_mt(x_beg,x_end,tols.begin(),fun_x_ei.begin(),fun);
         gradient(x_beg,x_end,tols.begin(),fun_x,fun_x_ei.begin(),g.begin());
 
         tipl::multiply(g,tols); // scale the unit to parameter unit
@@ -393,12 +393,12 @@ template<typename iter_type1,typename iter_type2,typename function_type,typename
 void conjugate_descent(
                 iter_type1 x_beg,iter_type1 x_end,
                 iter_type2 x_upper,iter_type2 x_lower,
-                function_type& fun,
-                typename function_type::value_type& fun_x,
+                function_type&& fun,
+                double& fun_x,
                 terminated_class& terminated,double precision = 0.001)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
-    typedef typename function_type::value_type value_type;
+    typedef double value_type;
     unsigned int size = x_end-x_beg;
     std::vector<param_type> tols(size);
     double tol_length = calculate_resolution(tols,x_upper,x_lower,precision);
@@ -435,7 +435,7 @@ void conjugate_descent(
 
 template<typename value_type,typename value_type2,typename value_type3,typename function_type>
 bool rand_search(value_type& x,value_type2 x_upper,value_type2 x_lower,
-                 value_type3& fun_x,function_type& fun,double variance)
+                 value_type3& fun_x,function_type&& fun,double variance)
 {
     value_type new_x(x);
     {
@@ -461,7 +461,7 @@ bool rand_search(value_type& x,value_type2 x_upper,value_type2 x_lower,
 
 template<typename value_type,typename value_type2,typename value_type3,typename function_type>
 bool rand_search2(value_type& x,value_type2 x_upper,value_type2 x_lower,
-                         value_type3& fun_x,function_type& fun)
+                         value_type3& fun_x,function_type&& fun)
 {
     value_type new_x;
     value_type new_fun_x(fun(new_x = std::min(std::max((x_upper-x_lower)*((float)std::rand()/(float)RAND_MAX) + x_lower,x_lower),x_upper)));
@@ -476,7 +476,7 @@ bool rand_search2(value_type& x,value_type2 x_upper,value_type2 x_lower,
 
 template<typename value_type,typename value_type2,typename value_type3,typename function_type>
 void linear_search2(value_type& x,value_type2& x_upper,value_type2& x_lower,
-                         value_type3& fun_x,function_type& fun,int count)
+                         value_type3& fun_x,function_type&& fun,int count)
 {
     value_type2 dis = (x_upper-x_lower)/count;
     std::deque<value_type3> x_list;
@@ -509,7 +509,7 @@ void linear_search2(value_type& x,value_type2& x_upper,value_type2& x_lower,
 
 template<typename value_type,typename value_type2,typename value_type3,typename function_type>
 bool simulated_annealing(value_type& x,value_type2 x_upper,value_type2 x_lower,
-                         value_type3& fun_x,function_type& fun,double T)
+                         value_type3& fun_x,function_type&& fun,double T)
 {
     value_type new_x;
     value_type new_fun_x(fun(new_x = std::min(std::max((x_upper-x_lower)*((float)std::rand()/(float)RAND_MAX) + x_lower,x_lower),x_upper)));
