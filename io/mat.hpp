@@ -706,7 +706,7 @@ public:
     }
     operator bool() const	{return !(!out);}
     bool operator!() const	{return !out;}
-
+    void close(void)        {out.close();}
 };
 
 typedef mat_write_base<> mat_write;
