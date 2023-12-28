@@ -51,25 +51,14 @@ public:
     }
 };
 
-template<int>
-bool is_main_thread(void)
+inline auto main_thread_id = std::this_thread::get_id();
+inline bool is_main_thread(void)
 {
-    static auto main_thread_id = std::this_thread::get_id();
     return main_thread_id == std::this_thread::get_id();
 }
 
-template<int>
-unsigned int& available_thread_count(void)
-{
-    static unsigned int available_thread_count_ = std::thread::hardware_concurrency();
-    return available_thread_count_;
-}
-template<int>
-std::mutex& available_thread_count_mutex(void)
-{
-    static std::mutex m;
-    return m;
-}
+inline unsigned int available_thread_count = std::thread::hardware_concurrency();
+inline std::mutex available_thread_count_mutex;
 
 template <bool enabled_mt = true,typename T,typename Func,typename std::enable_if<
               std::is_integral<T>::value ||
@@ -91,11 +80,11 @@ void par_for(T from,T to,Func&& f,unsigned int thread_count = std::thread::hardw
     unsigned int allocated_thread_count = 0;
     if(thread_count > 1)
     {
-        std::lock_guard<std::mutex> lock(available_thread_count_mutex<0>());
-        thread_count = std::min<unsigned int>(thread_count,available_thread_count<0>());
+        std::lock_guard<std::mutex> lock(available_thread_count_mutex);
+        thread_count = std::min<unsigned int>(thread_count,available_thread_count);
         allocated_thread_count = thread_count-1;
         if(allocated_thread_count)
-            available_thread_count<0>() -= allocated_thread_count;
+            available_thread_count -= allocated_thread_count;
     }
 
     if constexpr(!tipl::use_xeus_cling && enabled_mt)
@@ -140,8 +129,8 @@ void par_for(T from,T to,Func&& f,unsigned int thread_count = std::thread::hardw
 
     if(allocated_thread_count)
     {
-        std::lock_guard<std::mutex> lock(available_thread_count_mutex<0>());
-        available_thread_count<0>() += allocated_thread_count;
+        std::lock_guard<std::mutex> lock(available_thread_count_mutex);
+        available_thread_count += allocated_thread_count;
     }
 }
 

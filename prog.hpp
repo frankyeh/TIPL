@@ -19,6 +19,7 @@
 
 namespace tipl{
 
+inline bool prog_aborted = false;
 inline bool show_prog = false;
 inline std::vector<std::chrono::high_resolution_clock::time_point> process_time,t_last;
 inline std::vector<std::string> status_list,at_list;
@@ -30,7 +31,7 @@ inline bool processing_time_less_than(int time)
 
 inline bool update_prog(std::string status,bool show_now = false,uint32_t now = 0,uint32_t total = 0)
 {
-    if(!show_prog || !tipl::is_main_thread<0>() ||
+    if(!show_prog || !tipl::is_main_thread() ||
         (!show_now && processing_time_less_than(250)))
         return true;
     #if defined(TIPL_USE_QT) && !defined(__CUDACC__)
@@ -54,14 +55,17 @@ inline bool update_prog(std::string status,bool show_now = false,uint32_t now = 
             progressDialog->activateWindow();
         }
         else
+        {
             progressDialog->setLabelText(status.c_str());
+            if(progressDialog->wasCanceled())
+                return false;
+        }
 
         if(total != 0)
         {
             progressDialog->setRange(0, int(total));
             progressDialog->setValue(int(now));
-            if(progressDialog->wasCanceled())
-                return false;
+
         }
         progressDialog->show();
         progressDialog->raise();
@@ -74,12 +78,12 @@ inline bool update_prog(std::string status,bool show_now = false,uint32_t now = 
 
 
 class progress{
-    bool prog_aborted_ = false;
 private:
     void begin_prog(const char* status,bool show_now = false)
     {
-        if(!tipl::is_main_thread<0>())
+        if(!tipl::is_main_thread())
             return;
+        prog_aborted = false;
         status_list.push_back(status);
         process_time.resize(status_list.size());
         process_time.back() = std::chrono::high_resolution_clock::now();
@@ -115,9 +119,13 @@ private:
 
     bool check_prog(unsigned int now,unsigned int total)
     {
-        if(!show_prog || !tipl::is_main_thread<0>() || status_list.empty())
+        if(!show_prog || !tipl::is_main_thread() || status_list.empty())
+        {
+            if(prog_aborted)
+                return false;
             return now < total;
-        if(now >= total)
+        }
+        if(now >= total || aborted())
         {
             if(at_list.size() == status_list.size())
                 at_list.back().clear();
@@ -137,7 +145,7 @@ private:
             at_list.back() = outstr.str();
             if(!update_prog(get_status(),false,now,total))
             {
-                prog_aborted_ = true;
+                prog_aborted = true;
                 progress::print("WARNING: operation aborted",false,false);
                 return false;
             }
@@ -192,7 +200,7 @@ public:
                     }
                 }
             }
-            if(!tipl::is_main_thread<0>())
+            if(!tipl::is_main_thread())
                 head += "[thread]";
             std::cout << head + line << std::endl;
             head_node = false;
@@ -212,7 +220,7 @@ public:
         begin_prog(s.c_str(),show_now);
     }
     static bool is_running(void) {return !status_list.empty();}
-    bool aborted(void) { return prog_aborted_;}
+    bool aborted(void) { return prog_aborted;}
     template<typename value_type1,typename value_type2>
     bool operator()(value_type1 now,value_type2 total)
     {
@@ -220,7 +228,7 @@ public:
     }
     ~progress(void)
     {
-        if(!tipl::is_main_thread<0>())
+        if(!tipl::is_main_thread())
             return;
 
         std::ostringstream out;
