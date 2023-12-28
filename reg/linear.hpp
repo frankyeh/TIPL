@@ -71,7 +71,7 @@ public:
         }
 
         // obtain the histogram
-        unsigned int thread_count = std::thread::hardware_concurrency();
+        unsigned int thread_count = std::max<int>(1,tipl::available_thread_count);
 
         tipl::shape<2> geo(his_bandwidth,his_bandwidth);
         std::vector<tipl::image<2,uint32_t> > mutual_hist(thread_count);
@@ -88,7 +88,7 @@ public:
             unsigned char to_index = 0;
             tipl::estimate<tipl::interpolation::linear>(pto,pos,to_index);
             mutual_hist[id][(uint32_t(from[index.index()]) << band_width) + uint32_t(to_index)]++;
-        });
+        },thread_count);
 
         for(int i = 1;i < mutual_hist.size();++i)
             tipl::add(mutual_hist[0],mutual_hist[i]);
