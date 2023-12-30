@@ -270,7 +270,7 @@ template<typename T>
 inline auto volume2points(const T& mask,unsigned char thread_count = std::min<int>(8,std::thread::hardware_concurrency()))
 {
     std::vector<std::vector<tipl::vector<3,short> > > points(thread_count);
-    tipl::par_for(tipl::begin_index(mask),tipl::end_index(mask),
+    tipl::par_for(tipl::begin_index(mask.shape()),tipl::end_index(mask.shape()),
                    [&](const tipl::pixel_index<3>& index,unsigned int thread_id)
     {
         if (mask[index.index()])
