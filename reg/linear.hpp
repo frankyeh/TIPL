@@ -6,8 +6,6 @@
 #include <memory>
 #include <cstdlib>     /* srand, rand */
 #include <ctime>
-#define _USE_MATH_DEFINES
-#include <math.h>
 #include "../numerical/interpolation.hpp"
 #include "../numerical/numerical.hpp"
 #include "../numerical/basic_op.hpp"
@@ -124,6 +122,9 @@ class linear_reg_param{
     static const int dimension = 3;
     using transform_type = affine_transform<float>;
     using vs_type = tipl::vector<3>;
+private:
+    image_type1 from_buffer;
+    image_type2 to_buffer;
 public:
     const image_type1& from;
     const image_type2& to;
@@ -169,6 +170,24 @@ private:
 public:
     linear_reg_param(const image_type1& from_,const image_type2& to_,
                      transform_type& arg_min_):from(from_),to(to_),arg_min(arg_min_){}
+    template<typename rhs_image_type1,typename rhs_image_type2,
+             typename std::enable_if<!std::is_same<rhs_image_type1,image_type1>::value ||
+                                     !std::is_same<rhs_image_type2,image_type2>::value,bool>::type = true>
+    linear_reg_param(const linear_reg_param<rhs_image_type1,rhs_image_type2>& rhs):
+            from_buffer(rhs.from),to_buffer(rhs.to),
+            from(from_buffer),to(to_buffer),arg_min(rhs.arg_min),
+            from_vs(rhs.from_vs),to_vs(rhs.to_vs)
+    {
+        from_vs = rhs.from_vs;
+        to_vs = rhs.to_vs;
+        arg_upper = rhs.arg_upper;
+        arg_lower = rhs.arg_lower;
+        type = rhs.type;
+        count = rhs.count;
+        precision = rhs.precision;
+        line_search = rhs.line_search;
+        max_iterations = rhs.max_iterations;
+    }
     void set_bound(const float* bound = reg_bound,bool absolute = true)
     {
         if(reg_bound == narrow_bound)
@@ -192,8 +211,8 @@ public:
         if (type & rotation)
             for (unsigned int index = dimension; index < dimension + dimension; ++index)
             {
-                arg_upper[index] += M_PI*bound[2]*(index == 0 ? 2.0f:1.0f);
-                arg_lower[index] += M_PI*bound[3]*(index == 0 ? 2.0f:1.0f);
+                arg_upper[index] += 3.14159265358979323846f*bound[2]*(index == 0 ? 2.0f:1.0f);
+                arg_lower[index] += 3.14159265358979323846f*bound[3]*(index == 0 ? 2.0f:1.0f);
             }
 
         if (type & scaling)
