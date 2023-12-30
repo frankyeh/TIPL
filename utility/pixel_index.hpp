@@ -6,7 +6,7 @@
 #include <iosfwd>
 #include <cmath>
 #include "../def.hpp"
-
+#include "shape.hpp"
 namespace tipl
 {
 
@@ -46,20 +46,19 @@ protected:
     int w;
 public:
     __INLINE__ pixel_index(void):x_(0),y_(0),index_(0),w(0){}
-    template<typename stype,typename std::enable_if<stype::dimension==2,bool>::type = true>
-    __INLINE__ pixel_index(const stype& geo):x_(0),y_(0),index_(0),w(geo.width()){}
+    __INLINE__ pixel_index(const shape<2>& geo):x_(0),y_(0),index_(0),w(geo.width()){}
     __INLINE__ pixel_index(const pixel_index& rhs):x_(rhs.x_),y_(rhs.y_),index_(rhs.index_),w(rhs.w){}
-    template<typename vtype,typename stype,typename std::enable_if<stype::dimension==2,bool>::type = true>
-    __INLINE__ pixel_index(vtype x,vtype y,vtype index,const stype& geo):
+    template<typename vtype>
+    __INLINE__ pixel_index(vtype x,vtype y,vtype index,const shape<2>& geo):
             x_(int(x)),y_(int(y)),index_(index),w(geo.width()){}
-    template<typename vtype,typename stype,typename std::enable_if<stype::dimension==2,bool>::type = true>
-    __INLINE__ pixel_index(vtype x,vtype y,const stype& geo):
+    template<typename vtype>
+    __INLINE__ pixel_index(vtype x,vtype y,const shape<2>& geo):
             x_(int(x)),y_(int(y)),index_(int(y)*geo.width()+int(x)),w(geo.width()){}
-    template<typename vtype,typename stype,typename std::enable_if<stype::dimension==2,bool>::type = true>
-    __INLINE__ pixel_index(vtype* offset,const stype& geo):
+    template<typename vtype>
+    __INLINE__ pixel_index(vtype* offset,const shape<2>& geo):
             x_(offset[0]),y_(offset[1]),index_(offset[1]*geo.width()+offset[0]),w(geo.width()){}
-    template<typename vtype,typename stype,typename std::enable_if<stype::dimension==2,bool>::type = true>
-    __INLINE__ pixel_index(vtype y,const stype& geo):
+    template<typename vtype>
+    __INLINE__ pixel_index(vtype y,const shape<2>& geo):
             x_(y % geo.width()),y_(y / geo.width()),index_(y),w(geo.width()){}
 public:
     __INLINE__ const pixel_index& operator=(const pixel_index<2>& rhs)
@@ -184,7 +183,8 @@ public:
         in >> rhs.x_ >> rhs.y_;
         return in;
     }
-
+public:
+    operator size_t() const{return index_;}
 };
 
 
@@ -208,21 +208,19 @@ protected:
     int w,h;
 public:
     __INLINE__ pixel_index(void):x_(0),y_(0),z_(0),index_(0),w(0),h(0){}
-    template<typename stype,typename std::enable_if<stype::dimension==3,bool>::type = true>
-    __INLINE__ pixel_index(const stype& geo):x_(0),y_(0),z_(0),index_(0),w(int(geo.width())),h(int(geo.height())){}
+    __INLINE__ pixel_index(const shape<3>& geo):x_(0),y_(0),z_(0),index_(0),w(int(geo.width())),h(int(geo.height())){}
     __INLINE__ pixel_index(const pixel_index& rhs):x_(rhs.x_),y_(rhs.y_),z_(rhs.z_),index_(rhs.index_),w(rhs.w),h(rhs.h){}
-    template<typename vtype,typename stype,typename std::enable_if<stype::dimension==3,bool>::type = true>
-    __INLINE__ pixel_index(vtype x,vtype y,vtype z,size_t i,const stype& geo):x_(int(x)),y_(int(y)),z_(int(z)),index_(i),w(int(geo.width())),h(int(geo.height())){}
-    template<typename vtype,typename stype,typename std::enable_if<stype::dimension==3,bool>::type = true>
-    __INLINE__ pixel_index(vtype x,vtype y,vtype z,const stype& geo):
+    template<typename vtype>
+    __INLINE__ pixel_index(vtype x,vtype y,vtype z,size_t i,const shape<3>& geo):x_(int(x)),y_(int(y)),z_(int(z)),index_(i),w(int(geo.width())),h(int(geo.height())){}
+    template<typename vtype>
+    __INLINE__ pixel_index(vtype x,vtype y,vtype z,const shape<3>& geo):
             x_(int(x)),y_(int(y)),z_(int(z)),index_(voxel2index(x,y,z,geo)),w(int(geo.width())),h(int(geo.height())){}
-    template<typename vtype,typename stype,typename std::enable_if<stype::dimension==3,bool>::type = true>
-    __INLINE__ pixel_index(const vtype* offset,const stype& geo):
+    template<typename vtype>
+    __INLINE__ pixel_index(const vtype* offset,const shape<3>& geo):
             x_(offset[0]),y_(offset[1]),z_(offset[2]),
             index_(voxel2index(offset,geo)),
             w(int(geo.width())),h(int(geo.height())){}
-    template<typename stype,typename std::enable_if<stype::dimension==3,bool>::type = true>
-    __INLINE__ pixel_index(size_t index,const stype& geo):index_(index),w(int(geo.width())),h(int(geo.height()))
+    __INLINE__ pixel_index(size_t index,const shape<3>& geo):index_(index),w(int(geo.width())),h(int(geo.height()))
     {
         x_ = int(index % geo.width());
         index /= geo.width();
@@ -323,6 +321,15 @@ public:
         return index_ != rhs;
     }
 public:
+    __INLINE__ auto& operator+=(const pixel_index<3>& rhs)
+    {x_ += rhs.x_;y_ += rhs.y_;z_ += rhs.z_;index_ += rhs.index_;return *this;}
+    __INLINE__ auto& operator-=(const pixel_index<3>& rhs)
+    {x_ -= rhs.x_;y_ -= rhs.y_;z_ -= rhs.z_;index_ -= rhs.index_;return *this;}
+    __INLINE__ auto operator+(const pixel_index<3>& rhs) const
+    {return pixel_index<3>(*this)+=rhs;}
+    __INLINE__ auto operator-(const pixel_index<3>& rhs) const
+    {return pixel_index<3>(*this)-=rhs;}
+public:
     template<typename T>
     __INLINE__ pixel_index<3> operator+(T value) const
     {
@@ -336,10 +343,6 @@ public:
         result.w = w;
         result.h = h;
         return result;
-    }
-    __INLINE__ int64_t operator-(const pixel_index& rhs) const
-    {
-        return int64_t(index_)-int64_t(rhs.index_);
     }
     __INLINE__ pixel_index<3>& operator++(void)
     {
@@ -367,6 +370,9 @@ public:
         in >> rhs.x_ >> rhs.y_ >> rhs.z_;
         return in;
     }
+public:
+    operator size_t() const{return index_;}
+
 };
 
 
@@ -990,17 +996,18 @@ public:
     {
         return z_;
     }
+
 };
 
-template<typename stype>
-pixel_index<stype::dimension> begin_index(const stype& s)
+template<int dim>
+pixel_index<dim> begin_index(const shape<dim>& s)
 {
-    return pixel_index<stype::dimension>(s);
+    return pixel_index<dim>(s);
 }
-template<typename stype>
-pixel_index<stype::dimension> end_index(const stype& s)
+template<int dim>
+pixel_index<dim> end_index(const shape<dim>& s)
 {
-    return pixel_index<stype::dimension>(s.size(),s);
+    return pixel_index<dim>(s.size(),s);
 }
 
 template<typename value_type>
