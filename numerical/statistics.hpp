@@ -324,10 +324,10 @@ __INLINE__ auto mean_mt(const image_type& I)
 template <typename input_iterator>
 auto median(input_iterator begin, input_iterator end)
 {
-    auto size = std::distance(begin, end);
-    size /= 2;
-    std::nth_element(begin, begin + size,end);
-    return *std::next(begin, size);
+    std::vector<typename std::iterator_traits<input_iterator>::value_type> tmp(begin,end);
+    auto size = tmp.size()/2;
+    std::nth_element(tmp.begin(),tmp.begin() + size,tmp.end());
+    return tmp[size];
 }
 template<typename image_type>
 auto median(const image_type& I)
