@@ -263,22 +263,30 @@ public:
                 tipl::transformation_matrix<double>(new_param,from.shape(),from_vs,to.shape(),to_vs),thread_id);
         };
         optimal_value = fun(arg_min);
-        if(line_search)
         for(auto cur_type : reg_list)
         {
             if(is_terminated())
                 break;
             transform_type upper(arg_upper),lower(arg_lower);
             update_bound(upper,lower,cur_type);
-            tipl::optimization::line_search_mt(arg_min.begin(),arg_min.end(),
+            if(line_search)
+            {
+                tipl::optimization::line_search_mt(arg_min.begin(),arg_min.end(),
                                                  upper.begin(),lower.begin(),fun,optimal_value,is_terminated);
-            tipl::optimization::quasi_newtons_minimize_mt(arg_min.begin(),arg_min.end(),
+                tipl::optimization::quasi_newtons_minimize_mt(arg_min.begin(),arg_min.end(),
                                                        upper.begin(),lower.begin(),fun,optimal_value,is_terminated,
                                                        precision);
+            }
+            else
+                tipl::optimization::gradient_descent_mt(arg_min.begin(),arg_min.end(),
+                                                     upper.begin(),lower.begin(),fun,optimal_value,is_terminated,
+                                                     precision,max_iterations);
         }
-        tipl::optimization::gradient_descent_mt(arg_min.begin(),arg_min.end(),
-                                             arg_upper.begin(),arg_lower.begin(),fun,optimal_value,is_terminated,
-                                             precision,max_iterations);
+        if(!line_search)
+            tipl::optimization::gradient_descent_mt(arg_min.begin(),arg_min.end(),
+                                                 arg_upper.begin(),arg_lower.begin(),fun,optimal_value,is_terminated,
+                                                 precision,max_iterations);
+
         return optimal_value;
     }
 
