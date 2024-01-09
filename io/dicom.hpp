@@ -1862,6 +1862,8 @@ public:
            dim_order[0] != dim_order[2] &&
            dim_order[1] != dim_order[2])
             tipl::reorder(buffer,I,dim_order,flip); // to LPS
+        else
+            I.swap(buffer);
     }
 
     template<typename image_type>
