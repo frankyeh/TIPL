@@ -1858,7 +1858,10 @@ public:
     {
         tipl::image<3,typename image_type::value_type> buffer;
         get_untouched_image(buffer);
-        tipl::reorder(buffer,I,dim_order,flip); // to LPS
+        if(dim_order[0] != dim_order[1] &&
+           dim_order[0] != dim_order[2] &&
+           dim_order[1] != dim_order[2])
+            tipl::reorder(buffer,I,dim_order,flip); // to LPS
     }
 
     template<typename image_type>
