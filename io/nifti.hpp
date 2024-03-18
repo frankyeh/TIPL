@@ -903,8 +903,16 @@ public:
     bool save_to_buffer(pointer_type ptr,size_t pixel_count,prog_type& prog) const
     {
         if(!input_stream.get() || !(*input_stream))
+        {
+            error_msg = "end of file reached. The file is smaller than expected.";
             return false;
+        }
         const size_t byte_per_pixel = nif_header.bitpix/8;
+        if(byte_per_pixel == 0 || pixel_count == 0)
+        {
+            error_msg = "invalid pixel count.";
+            return false;
+        }
         typedef typename std::iterator_traits<pointer_type>::value_type value_type;
         if(compatible(nifti_type_info<value_type>::data_type,nif_header.datatype))
         {
@@ -917,9 +925,7 @@ public:
         else
         {
             std::vector<char> buf(pixel_count*byte_per_pixel);
-            if(buf.empty())
-                return false;
-            void* buf_ptr = &*buf.begin();
+            void* buf_ptr = &buf[0];
             if(!read_stream_with_prog(prog,*input_stream.get(),buf_ptr,buf.size(),error_msg))
                 return false;
             if (big_endian)
@@ -992,10 +998,7 @@ public:
             return false;
         }
         if(!save_to_buffer(out.begin(),out.size(),prog))
-        {
-            error_msg = "failed to read data from file";
             return false;
-        }
         if(nif_header.scl_slope != 0)
         {
             if(nif_header.scl_slope != 1.0f)
