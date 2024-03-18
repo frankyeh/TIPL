@@ -25,7 +25,16 @@ bool read_stream_with_prog(prog_type& prog,
                            size_t buf_size = 1000000)
 {
     if(size_in_byte < buf_size || std::is_same<prog_type,default_prog_type>::value)
-        return !!in.read(reinterpret_cast<char*>(ptr),size_in_byte);
+    {
+        if(!in.read(reinterpret_cast<char*>(ptr),size_in_byte))
+        {
+            if(in.eof())
+                return true;
+            error_msg = "I/O error";
+            return false;
+        }
+        return true;
+    }
     if constexpr(!std::is_same<prog_type,default_prog_type>::value)
     {
         auto buf = reinterpret_cast<char*>(ptr);
@@ -60,7 +69,14 @@ bool save_stream_with_prog(prog_type& prog,
                            size_t buf_size = 1000000)
 {
     if(size_in_byte < buf_size || std::is_same<prog_type,default_prog_type>::value)
-        return !!out.write(reinterpret_cast<const char*>(ptr),size_in_byte);
+    {
+        if(!out.write(reinterpret_cast<const char*>(ptr),size_in_byte))
+        {
+            error_msg = "insufficient disk space";
+            return false;
+        }
+        return true;
+    }
 
     if constexpr(!std::is_same<prog_type,default_prog_type>::value)
     {
