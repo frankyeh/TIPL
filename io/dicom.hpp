@@ -763,25 +763,28 @@ public:
     {
         if(data.empty())
             return;
-        if (is_float() && data.size() >= 4) // float
+        if constexpr (std::is_fundamental_v<value_type>)
         {
-            value = value_type(*(const float*)&*data.begin());
-            return;
-        }
-        if (is_double() && data.size() >= 8) // double
-        {
-            value = value_type(*(const double*)&*data.begin());
-            return;
-        }
-        if (is_int16() && data.size() >= 2) // uint16type
-        {
-            value = value_type(*(const short*)&*data.begin());
-            return;
-        }
-        if (is_int32() && data.size() >= 4)
-        {
-            value = value_type(*(const int*)&*data.begin());
-            return;
+            if (is_float() && data.size() >= 4) // float
+            {
+                value = value_type(*(const float*)&*data.begin());
+                return;
+            }
+            if (is_double() && data.size() >= 8) // double
+            {
+                value = value_type(*(const double*)&*data.begin());
+                return;
+            }
+            if (is_int16() && data.size() >= 2) // uint16type
+            {
+                value = value_type(*(const short*)&*data.begin());
+                return;
+            }
+            if (is_int32() && data.size() >= 4)
+            {
+                value = value_type(*(const int*)&*data.begin());
+                return;
+            }
         }
         bool is_ascii = true;
         if(!is_string())
@@ -799,20 +802,23 @@ public:
             in >> value;
             return;
         }
-        if (data.size() == 2) // uint16type
+        if constexpr (std::is_fundamental_v<value_type>)
         {
-            value = value_type(*(const short*)&*data.begin());
-            return;
-        }
-        if (data.size() == 4)
-        {
-            value = value_type(*(const int*)&*data.begin());
-            return;
-        }
-        if (data.size() == 8)
-        {
-            value = value_type(*(const double*)&*data.begin());
-            return;
+            if (data.size() == 2) // uint16type
+            {
+                value = value_type(*(const short*)&*data.begin());
+                return;
+            }
+            if (data.size() == 4)
+            {
+                value = value_type(*(const int*)&*data.begin());
+                return;
+            }
+            if (data.size() == 8)
+            {
+                value = value_type(*(const double*)&*data.begin());
+                return;
+            }
         }
     }
 
@@ -980,7 +986,9 @@ public:
     std::map<unsigned int,unsigned int> ge_map;
     std::map<std::string,unsigned int> csa_map;
     std::vector<dicom_csa_data> csa_data;
-    bool is_mosaic,is_big_endian;
+    bool is_mosaic = false;
+    bool is_multi_frame = false;
+    bool is_big_endian = false;
 private:
     void assign(const dicom& rhs)
     {
@@ -1081,8 +1089,8 @@ public:
                     return true;
                 {
                     std::string image_type;
-                    is_mosaic = get_int(0x0019,0x100A) > 1 ||   // multiple frame (new version)
-                            (get_text(0x0008,0x0008,image_type) && image_type.find("MOSAIC") != std::string::npos);
+                    is_multi_frame = get_int(0x0028,0x0008) > 1;   // multiple frame (new version)
+                    is_mosaic = get_int(0x0019,0x100A) > 1 || (get_text(0x0008,0x0008,image_type) && image_type.find("MOSAIC") != std::string::npos);
                 }
                 if(is_compressed)
                 {
