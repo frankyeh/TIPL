@@ -725,7 +725,7 @@ public:
     }
 
     template<typename value_type>
-    void get_values(value_type& value) const
+    void get_value(std::vector<value_type>& value) const
     {
         if(data.empty())
             return;
@@ -796,10 +796,15 @@ public:
             }
         if (is_ascii)
         {
-            std::string str(data.begin(),data.end());
-            str.push_back(0);
-            std::istringstream in(str);
-            in >> value;
+            if constexpr(std::is_same_v<value_type, std::string>)
+                value = std::string(data.begin(),data.end());
+            else
+            {
+                std::string str(data.begin(),data.end());
+                str.push_back(0);
+                std::istringstream in(str);
+                in >> value;
+            }
             return;
         }
         if constexpr (std::is_fundamental_v<value_type>)
@@ -1230,8 +1235,9 @@ public:
         return true;
     }
     template<typename value_type>
-    void get_values(unsigned short group,unsigned short element,std::vector<value_type>& values) const
+    bool get_values(unsigned short group,unsigned short element,std::vector<value_type>& values) const
     {
+        bool result = false;
         values.clear();
         unsigned int ge = ((unsigned int)group << 16) | (unsigned int)element;
         for(int i = 0;i < data.size();++i)
@@ -1240,7 +1246,9 @@ public:
                 value_type t;
                 data[i].get_value(t);
                 values.push_back(t);
+                result = true;
             }
+        return result;
     }
     unsigned int get_int(unsigned short group,unsigned short element) const
     {
@@ -1650,21 +1658,6 @@ public:
                 return true;
         return false;
     }
-    template<typename value_type>
-    static bool get_values(const dicom_group_element& data,unsigned short group, unsigned short element,
-                           value_type& value)
-    {
-        if(data.group == group && data.element == element)
-        {
-            data.get_values(value);
-            return true;
-        }
-        for(int i = 0;i < data.sq_data.size();++i)
-            if(get_values(data.sq_data[i],group,element,value))
-                return true;
-        return false;
-    }
-
     static void get_report(const std::vector<dicom_group_element>& data,std::string& report,bool item_tag = false)
     {
         std::ostringstream out;
