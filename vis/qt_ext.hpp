@@ -1,4 +1,4 @@
-#ifdef QGRAPHICSSCENE_H
+#ifdef QIMAGE_H
 
 #ifndef TIPL_QT_EXT_HPP
 #define TIPL_QT_EXT_HPP
@@ -51,7 +51,17 @@ inline QImage operator << (QImage&&,const tipl::color_image& I)
                   I.width(),I.height(),QImage::Format_RGB32).copy();
 
 }
-
+template<typename value_type>
+inline tipl::image<2,value_type>& operator << (tipl::image<2,value_type>& image,const QImage& I)
+{
+    QImage I2 = I.convertToFormat(QImage::Format_RGB32);
+    const uchar* ptr = I2.bits();
+    size_t total_size = I2.width()*I2.height();
+    image.resize(tipl::shape<2>(uint32_t(I2.width()),uint32_t(I2.height())));
+    for(size_t j = 0;j < total_size;++j,ptr += 4)
+        image[j] = value_type(tipl::rgb(*(ptr+2),*(ptr+1),*ptr));
+    return image;
+}
 
 namespace tipl{
 namespace qt{
@@ -342,4 +352,4 @@ inline QImage create_mosaic(const std::vector<QImage>& images,int col_size)
 
 
 #endif//TIPL_QT_EXT_HPP
-#endif//QGRAPHICSSCENE_H
+#endif//QIMAGE_H
