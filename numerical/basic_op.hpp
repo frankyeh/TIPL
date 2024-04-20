@@ -921,6 +921,8 @@ void flip_block_line(iterator_type beg,iterator_type end,size_t block_size,unsig
 template<typename ImageType>
 ImageType& flip_x(ImageType& I)
 {
+    if(I.empty())
+        return I;
     flip_block(I.begin(),I.end(),I.width());
     return I;
 }
@@ -928,6 +930,8 @@ ImageType& flip_x(ImageType& I)
 template<typename ImageType>
 ImageType& flip_y(ImageType& I)
 {
+    if(I.empty())
+        return I;
     flip_block_line(I.begin(),I.end(),I.height() * I.width(),I.width());
     return I;
 }
@@ -935,6 +939,8 @@ ImageType& flip_y(ImageType& I)
 template<typename ImageType>
 ImageType& flip_z(ImageType& I)
 {
+    if(I.empty())
+        return I;
     flip_block_line(I.begin(),I.end(),I.shape().plane_size() * I.depth(),I.shape().plane_size());
     return I;
 }
@@ -942,6 +948,8 @@ ImageType& flip_z(ImageType& I)
 template<typename ImageType>
 ImageType& flip_xy(ImageType& I)
 {
+    if(I.empty())
+        return I;
     flip_block(I.begin(),I.end(),I.plane_size());
     return I;
 }
