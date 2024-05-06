@@ -236,6 +236,8 @@ bool search_filesystem(path_type path_,std::vector<std::string>& filenames,bool 
     {
         if (std::filesystem::exists(path))
             filenames.push_back(path);
+        else
+            return false;
         return true;
     }
 
