@@ -112,30 +112,33 @@ bool is_label_image(const ImageType& I)
     if constexpr(ImageType::dimension == 3)
         shift_base = I.plane_size();
 
-    size_t slope_count = 0;
+    size_t same_value_count = 0;
     size_t max_size = I.size()-shift_base;
     size_t thread_count = std::thread::hardware_concurrency();
+    size_t size_threshold = (I.size()-shift_base-shift_base-std::count(I.begin()+shift_base,I.end()-shift_base,0))/4;
     tipl::par_for(thread_count,[&](int thread)
     {
-        for(size_t i = shift_base+thread;i < max_size && slope_count < I.width();i += thread_count)
+        for(size_t i = shift_base+thread;i < max_size && same_value_count <= size_threshold;i += thread_count)
         {
             auto v = I[i];
-            if(v == I[i+1] || v == I[i-1])
+            if(v == 0)
+                continue;
+            if(v != I[i+1] || v != I[i-1])
                 continue;
             if constexpr(ImageType::dimension >= 2)
             {
-                if(v == I[i+I.width()] || v == I[i-I.width()])
+                if(v != I[i+I.width()] || v != I[i-I.width()])
                     continue;
             }
             if constexpr(ImageType::dimension >= 3)
             {
-                if(v == I[i+I.plane_size()] || v == I[i-I.plane_size()])
+                if(v != I[i+I.plane_size()] || v != I[i-I.plane_size()])
                     continue;
             }
-            ++slope_count;
+            ++same_value_count;
         }
     });
-    return slope_count < I.plane_size();
+    return same_value_count > size_threshold;
 }
 
 template<typename T>
