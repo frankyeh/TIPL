@@ -11,6 +11,7 @@
 #include "filter/gaussian.hpp"
 #include "filter/anisotropic_diffusion.hpp"
 #include "morphology/morphology.hpp"
+#include "segmentation/otsu.hpp"
 
 namespace tipl{
 
@@ -132,6 +133,13 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         }
         else
             tipl::normalize_mt(data);
+        return true;
+    }
+    if(cmd == "normalize_otsu_median")
+    {
+        float median = tipl::segmentation::otsu_median(data);
+        if(median != 0.0f)
+            tipl::multiply_constant_mt(data,0.5f/median);
         return true;
     }
     if(cmd == "upsampling")
@@ -492,6 +500,15 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         tipl::par_for(data.size(),[&](size_t i)
         {
             data[i] = data[i] > value ? 1.0f : 0.0f;
+        });
+        return true;
+    }
+    if(cmd == "otsu_threshold")
+    {
+        float threshold = tipl::segmentation::otsu_threshold(data)*float(std::stof(param1));
+        tipl::par_for(data.size(),[&](size_t i)
+        {
+            data[i] = data[i] > threshold ? 1.0f : 0.0f;
         });
         return true;
     }
