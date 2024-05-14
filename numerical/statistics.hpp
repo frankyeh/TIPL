@@ -321,19 +321,39 @@ __INLINE__ auto mean_mt(const image_type& I)
     return mean_mt(I.begin(),I.end());
 }
 
+
 template <typename input_iterator>
 auto median(input_iterator begin, input_iterator end)
+    -> typename std::enable_if<!std::is_const<typename std::remove_reference<decltype(*begin)>::type>::value,typename std::iterator_traits<input_iterator>::value_type>::type
 {
-    std::vector<typename std::iterator_traits<input_iterator>::value_type> tmp(begin,end);
-    auto size = tmp.size()/2;
-    std::nth_element(tmp.begin(),tmp.begin() + size,tmp.end());
-    return tmp[size];
+    auto size = std::distance(begin, end) / 2;
+    std::nth_element(begin, begin + size, end);
+    return *(begin + size);
 }
+template <typename input_iterator>
+auto median(input_iterator begin, input_iterator end)
+    -> typename std::enable_if<std::is_const<typename std::remove_reference<decltype(*begin)>::type>::value,typename std::iterator_traits<input_iterator>::value_type>::type
+{
+    std::vector<typename std::iterator_traits<input_iterator>::value_type> tmp(begin, end);
+    return median(tmp.begin(), tmp.end());
+}
+
 template<typename image_type>
 auto median(const image_type& I)
 {
-    return median(I.begin(),I.end());
+    const size_t chunk_count = 255;
+    if(I.size() <= chunk_count)
+        return median(I.begin(),I.end());
+    std::vector<typename image_type::value_type> chunk(chunk_count);
+    size_t chunk_size = I.size()/chunk_count;
+    tipl::par_for(chunk.size(),[&](size_t i)
+    {
+        chunk[i] = median(I.begin()+i*chunk_size,(i == chunk_count-1) ? I.end() : I.begin()+(i+1)*chunk_size);
+    });
+    return median(chunk.begin(),chunk.end());
 }
+
+
 template<typename input_iterator>
 std::pair<double,double> mean_variance(input_iterator from,input_iterator to)
 {
@@ -440,7 +460,8 @@ __INLINE__ double standard_deviation_mt(T& data)
 }
 
 template<typename input_iterator>
-double median_absolute_deviation(input_iterator from,input_iterator to)
+auto median_absolute_deviation(input_iterator from,input_iterator to)
+    -> typename std::enable_if<!std::is_const<typename std::remove_reference<decltype(*from)>::type>::value,typename std::iterator_traits<input_iterator>::value_type>::type
 {
     auto size = std::distance(from,to);
     size /= 2;
@@ -455,7 +476,8 @@ double median_absolute_deviation(input_iterator from,input_iterator to)
 
 
 template<typename input_iterator>
-double median_absolute_deviation(input_iterator from,input_iterator to,double median_value)
+auto median_absolute_deviation(input_iterator from,input_iterator to,double median_value)
+    -> typename std::enable_if<!std::is_const<typename std::remove_reference<decltype(*from)>::type>::value,typename std::iterator_traits<input_iterator>::value_type>::type
 {
     auto size = std::distance(from,to);
     size /= 2;
@@ -468,6 +490,13 @@ double median_absolute_deviation(input_iterator from,input_iterator to,double me
 }
 
 
+template <typename input_iterator>
+auto median_absolute_deviation(input_iterator from, input_iterator to,double median_value)
+    -> typename std::enable_if<std::is_const<typename std::remove_reference<decltype(*from)>::type>::value,typename std::iterator_traits<input_iterator>::value_type>::type
+{
+    std::vector<typename std::iterator_traits<input_iterator>::value_type> tmp(from, to);
+    return median_absolute_deviation(tmp.begin(), tmp.end(),median_value);
+}
 
 template<typename input_iterator1,typename input_iterator2>
 __INLINE__ double covariance(input_iterator1 x_from,input_iterator1 x_to,
