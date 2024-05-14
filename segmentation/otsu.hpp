@@ -2,6 +2,7 @@
 #define OTSU_HPP
 #include <vector>
 #include "../numerical/numerical.hpp"
+#include "../numerical/statistics.hpp"
 #include "../numerical/basic_op.hpp"
 
 namespace tipl{
@@ -59,6 +60,19 @@ float otsu_threshold(const ImageType& src,size_t skip = 1)
     optimal_threshold_value += min_max.first;
     return optimal_threshold_value;
 }
+
+template<typename image_type>
+auto otsu_median(const image_type& I)
+{
+    float ot = otsu_threshold(I);
+    std::vector<float> buf;
+    buf.reserve(I.size());
+    for(size_t i = 0;i < I.size();++i)
+        if(I[i] > ot)
+            buf.push_back(I[i]);
+    return tipl::median(buf);
+}
+
 
 template<typename ImageType,typename LabelImageType>
 LabelImageType& otsu(const ImageType& src,LabelImageType& label,typename LabelImageType::value_type foreground = 1,typename LabelImageType::value_type background = 0)
