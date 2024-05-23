@@ -1235,7 +1235,7 @@ public:
         return true;
     }
     template<typename value_type>
-    bool get_values(unsigned short group,unsigned short element,std::vector<value_type>& values) const
+    bool get_frame_values(unsigned short group,unsigned short element,std::vector<value_type>& values) const
     {
         bool result = false;
         values.clear();
@@ -1369,6 +1369,86 @@ public:
         float data;
         std::istringstream(slice_location) >> data;
         return data;
+    }
+    float get_te(void) const
+    {
+        return get_float(0x0018,0x0081);
+    }
+    bool get_btable(float& bvalue,float& bx,float& by,float& bz)
+    {
+        if(!csa_map.empty())
+        {
+            const char* b_value_ptr = get_csa_data("B_value",0);
+            const char* bx_ptr = get_csa_data("DiffusionGradientDirection",0);
+            const char* by_ptr = get_csa_data("DiffusionGradientDirection",1);
+            const char* bz_ptr = get_csa_data("DiffusionGradientDirection",2);
+            if (b_value_ptr && bx_ptr && by_ptr && bz_ptr)
+            {
+                std::istringstream(std::string(b_value_ptr)) >> bvalue;
+                std::istringstream(std::string(bx_ptr)) >> bx;
+                std::istringstream(std::string(by_ptr)) >> by;
+                std::istringstream(std::string(bz_ptr)) >> bz;
+                return true;
+            }
+        }
+
+        if(!get_value(0x0018,0x9087,bvalue) &&
+           !get_value(0x0019,0x100C,bvalue) &&
+           !get_value(0x0043,0x1039,bvalue) &&
+           !get_value(0x0065,0x1009,bvalue))
+            return false;
+
+        if(bvalue == 0.0f)
+        {
+            bx = by = bz = 0.0f;
+            return true;
+        }
+
+        std::vector<double> bvec;
+        if(get_value(0x0018,0x9089,bvec) ||
+           get_value(0x0019,0x100E,bvec) ||
+           get_value(0x0019,0x1027,bvec) ||
+           get_value(0x0065,0x1037,bvec))
+        {
+            if(bvec.size() < 3)
+                return false;
+            bx = bvec[0];by = bvec[1];bz = bvec[2];
+            if(bvec.size() >= 6 && bvec[0] == 0.0)
+            {
+                bx = by = bz = 0.0;
+                if (bvec[3] != 0.0)
+                {
+                    by = bvec[3];
+                    bz = bvec[4];
+                }
+                else
+                    bz = bvec[5];
+            }
+            return true;
+        }
+
+        //GE
+        if(get_value(0x0019,0x10BB,bx) &&
+           get_value(0x0019,0x10BC,by) &&
+           get_value(0x0019,0x10BD,bz))
+        {
+            bz = -bz;
+            bvalue *= std::sqrt(bx*bx+by*by+bz*bz);
+            return true;
+        }
+
+        std::string b_str;
+        // TOSHIBU uses b-value string e.g.  b=2000(0.140,0.134,-0.981)
+        if(get_text(0x0020,0x4000,b_str))
+        {
+            std::replace(b_str.begin(),b_str.end(),'(',' ');
+            std::replace(b_str.begin(),b_str.end(),')',' ');
+            std::replace(b_str.begin(),b_str.end(),',',' ');
+            std::istringstream in(b_str);
+            in >> bvalue >> bx >> by >> bz;
+            return true;
+        }
+        return false;
     }
 
     void get_patient(std::string& info)
