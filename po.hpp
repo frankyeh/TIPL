@@ -242,9 +242,10 @@ bool search_filesystem(path_type path_,std::vector<std::string>& filenames,bool 
     }
 
     auto search_path = std::filesystem::current_path();
-
+    bool no_path = true;
     if (path.find('/') != std::string::npos)
     {
+        no_path = false;
         search_path = path.substr(0, path.find_last_of('/'));
         path = path.substr(path.find_last_of('/') + 1);
         if(search_path.string().find('*') != std::string::npos)
@@ -269,7 +270,7 @@ bool search_filesystem(path_type path_,std::vector<std::string>& filenames,bool 
             if (!file && !std::filesystem::is_directory(entry))
                 continue;
             if (tipl::match_wildcard(entry.path().filename().string(),path))
-                new_filenames.push_back(entry.path().string());
+                new_filenames.push_back(no_path ? entry.path().filename().string() : entry.path().string());
         }
         std::sort(new_filenames.begin(),new_filenames.end());
         filenames.insert(filenames.end(),new_filenames.begin(),new_filenames.end());
@@ -303,6 +304,11 @@ class program_option{
         names.push_back(std::string(str.begin()+2,pos));
         values.push_back(std::string(pos+1,str.end()));
         used.push_back(0);
+        if(values.back().front() == '\"' && values.back().back() == '\"')
+        {
+            values.back().pop_back();
+            values.back() = values.back().substr(1);
+        }
         return true;
     }
 public:
