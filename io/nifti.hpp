@@ -869,7 +869,12 @@ public:
         }
         output_interface out;
         if(!out.open(pfile_name))
+        {
+            error_msg = "Could not open the file ";
+            error_msg += pfile_name;
+            error_msg += ". Please check if the file path is correct and you have the necessary permissions to write to this file.";
             return false;
+        }
         out.write((const char*)&nif_header,sizeof(nif_header));
         int padding = 0;
         out.write((const char*)&padding,4);
