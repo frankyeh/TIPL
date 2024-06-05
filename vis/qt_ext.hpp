@@ -84,7 +84,8 @@ inline void draw_ruler(QPainter& paint,
                 unsigned char cur_dim,
                 bool flip_x,bool flip_y,
                 float zoom,
-                bool grid = false)
+                bool grid = false,
+                float tic_ratio = 1.0f)
 {
 
 
@@ -94,22 +95,27 @@ inline void draw_ruler(QPainter& paint,
 
     float zoom_2 = zoom*0.5f;
 
-    int tick = 50;
+    int tic = 50;
     float tic_dis = 10.0f; // in mm
     if(std::fabs(qsdr_scale[0])*5.0f/zoom < 1.0f)
     {
-        tick = 10;
+        tic = 10;
         tic_dis = 5.0f; // in mm
     }
     if(std::fabs(qsdr_scale[0])*5.0f/zoom < 0.4f)
     {
-        tick = 10;
+        tic = 10;
         tic_dis = 2.0f;
     }
     if(std::fabs(qsdr_scale[0])*5.0f/zoom < 0.2f)
     {
-        tick = 5;
+        tic = 5;
         tic_dis = 1.0f;
+    }
+    if(tic_ratio != 1.0f)
+    {
+        tic *= tic_ratio;
+        tic_dis *= tic_ratio;
     }
 
     float tic_length = zoom*float(shape[0])/20.0f;
@@ -183,16 +189,16 @@ inline void draw_ruler(QPainter& paint,
         paint.drawLine(int(min_X-zoom_2),int(Y),int(max_X+zoom_2),int(Y));
         for(size_t i = 0;i < tic_pos_h.size();++i)
         {
-            bool is_tick = !(int(tic_value_h[i]) % tick);
+            bool is_tic = !(int(tic_value_h[i]) % tic);
             auto X = tic_pos_h[i]+zoom_2;
-            if(is_tick)
+            if(is_tic)
             {
                 paint.setPen(pen2);
                 paint.drawLine(int(X),int(grid ? min_Y+zoom_2 : Y),int(X),int(Y+zoom));
             }
             paint.setPen(pen1);
             paint.drawLine(int(X),int(grid ? min_Y+zoom_2 : Y),int(X),int(Y+zoom));
-            paint.setFont(is_tick ? f2:f1);
+            paint.setFont(is_tic ? f2:f1);
             paint.drawText(int(X-40),int(Y-30+zoom),80,80,
                            Qt::AlignHCenter|Qt::AlignVCenter,QString::number(tic_value_h[i]));
         }
@@ -203,16 +209,16 @@ inline void draw_ruler(QPainter& paint,
         paint.drawLine(int(X),int(min_Y-zoom_2),int(X),int(max_Y+zoom_2));
         for(size_t i = 0;i < tic_pos_v.size();++i)
         {
-            bool is_tick = !(int(tic_value_v[i]) % tick);
+            bool is_tic = !(int(tic_value_v[i]) % tic);
             auto Y = tic_pos_v[i]+zoom_2;
-            if(is_tick)
+            if(is_tic)
             {
                 paint.setPen(pen2);
                 paint.drawLine(int(grid ? max_X : X),int(Y),int(X-zoom),int(Y));
             }
             paint.setPen(pen1);
             paint.drawLine(int(grid ? max_X : X),int(Y),int(X-zoom),int(Y));
-            paint.setFont(is_tick ? f2:f1);
+            paint.setFont(is_tic ? f2:f1);
             paint.drawText(2,int(Y-40),int(X-zoom)-5,80,
                            Qt::AlignRight|Qt::AlignVCenter,QString::number(tic_value_v[i]));
         }
