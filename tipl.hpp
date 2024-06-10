@@ -81,7 +81,6 @@ TIPL library is shared under one of the following licenses
 #ifdef __CUDACC__
 #include "cuda/mem.hpp"
 #include "cuda/kernel.hpp"
-#include "cuda/basic_image.hpp"
 #include "cuda/numerical.hpp"
 #include "cuda/resampling.hpp"
 #include "cuda/linear.hpp"
