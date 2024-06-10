@@ -1158,13 +1158,13 @@ void upper_lower_threshold(InputIter from,InputIter to,OutputIter out,value_type
         *out = std::min<value_type>(std::max<value_type>(*from,lower),upper);
 }
 
-template<typename ImageType,typename value_type>
-void upper_lower_threshold(ImageType& data,value_type lower,value_type upper)
+template<typename T>
+void upper_lower_threshold(T& data,typename T::value_type lower,typename T::value_type upper)
 {
-    typename ImageType::iterator from = data.begin();
-    typename ImageType::iterator to = data.end();
+    auto from = data.begin();
+    auto to = data.end();
     for(;from != to;++from)
-        *from = std::min<value_type>(std::max<value_type>(*from,lower),upper);
+        *from = std::min<typename T::value_type>(std::max<typename T::value_type>(*from,lower),upper);
 }
 template<typename InputIter,typename OutputIter>
 void normalize_upper_lower(InputIter from,InputIter to,OutputIter out,std::pair<float,float> new_range)
