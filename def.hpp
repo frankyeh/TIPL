@@ -31,6 +31,18 @@ constexpr bool use_xeus_cling = true;
 constexpr bool use_xeus_cling = false;
 #endif
 
+
+enum memory_location_type{
+    CPU,
+    CUDA,
+    HIP
+};
+
+template<typename container>
+struct memory_location{
+    static constexpr memory_location_type at = CPU;
+};
+
 }
 
 #ifdef __CUDACC__
