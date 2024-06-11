@@ -128,18 +128,18 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     {
         if constexpr(std::is_integral<typename image_type::value_type>::value)
         {
-            tipl::normalize_mt(data,255.0f);
-            tipl::upper_threshold_mt(data,255);
+            tipl::normalize(data,255.0f);
+            tipl::upper_threshold(data,255);
         }
         else
-            tipl::normalize_mt(data);
+            tipl::normalize(data);
         return true;
     }
     if(cmd == "normalize_otsu_median")
     {
         float median = tipl::segmentation::otsu_median(data);
         if(median != 0.0f)
-            tipl::multiply_constant_mt(data,0.5f/median);
+            tipl::multiply_constant(data,0.5f/median);
         return true;
     }
     if(cmd == "upsampling")
@@ -313,7 +313,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
            T[9] != 0.0f || U[9] != 0.0f)
         {
             image_type new_data(data.shape());
-            tipl::resample_mt(data,new_data,tipl::transformation_matrix<float>(tipl::from_space(U).to(T)));
+            tipl::resample(data,new_data,tipl::transformation_matrix<float>(tipl::from_space(U).to(T)));
             new_data.swap(data);
             vs = new_vs;
             return true;
@@ -455,9 +455,9 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         nT[5] = T1.sr[4] = new_vs[1]/vs[1];
         nT[10] = T1.sr[8] = new_vs[2]/vs[2];
         if(is_label_image(data))
-            tipl::resample_mt<tipl::interpolation::nearest>(data,J,T1);
+            tipl::resample<tipl::interpolation::nearest>(data,J,T1);
         else
-            tipl::resample_mt<tipl::interpolation::cubic>(data,J,T1);
+            tipl::resample<tipl::interpolation::linear>(data,J,T1);
         data.swap(J);
         vs = new_vs;
         T = T*nT;
@@ -475,22 +475,22 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     }
     if(cmd == "add_value")
     {
-        add_constant_mt(data,std::stof(param1));
+        add_constant(data,std::stof(param1));
         return true;
     }
     if(cmd == "multiply_value")
     {
-        multiply_constant_mt(data,std::stof(param1));
+        multiply_constant(data,std::stof(param1));
         return true;
     }
     if(cmd == "lower_threshold")
     {
-        lower_threshold_mt(data.begin(),data.end(),std::stof(param1));
+        lower_threshold(data,std::stof(param1));
         return true;
     }
     if(cmd == "upper_threshold")
     {
-        upper_threshold_mt(data.begin(),data.end(),std::stof(param1));
+        upper_threshold(data,std::stof(param1));
         return true;
     }
 
