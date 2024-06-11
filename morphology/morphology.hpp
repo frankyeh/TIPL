@@ -83,11 +83,11 @@ void erosion2(ImageType& I,int radius)
     erosion(I,neighborhood.index_shift);
 }
 
-template<bool enable_mt = true,typename ImageType>
-void dilation_mt(ImageType& I,const std::vector<int64_t>& index_shift)
+template<typename ImageType>
+void dilation(ImageType& I,const std::vector<int64_t>& index_shift)
 {
     std::vector<typename ImageType::value_type> act(I.size());
-    tipl::par_for<enable_mt>(index_shift.size(),[&](unsigned int index)
+    tipl::par_for(index_shift.size(),[&](unsigned int index)
     {
         int64_t shift = index_shift[index];
         if (shift > 0)
@@ -110,11 +110,6 @@ void dilation_mt(ImageType& I,const std::vector<int64_t>& index_shift)
     for (size_t index = 0;index < I.size();++index)
         I[index] |= act[index];
 }
-template<typename ImageType>
-inline void dilation(ImageType& I,const std::vector<int64_t>& index_shift)
-{
-    dilation_mt<false>(I,index_shift);
-}
 
 template<typename T>
 void dilation(T&& I)
@@ -124,13 +119,6 @@ void dilation(T&& I)
 }
 
 
-template<typename T>
-void dilation_mt(T&& I)
-{
-    neighbor_index_shift_narrow<std::remove_reference_t<T>::dimension> neighborhood(I.shape());
-    dilation_mt(I,neighborhood.index_shift);
-}
-
 template<typename ImageType>
 void dilation2(ImageType& I,int radius)
 {
@@ -138,12 +126,6 @@ void dilation2(ImageType& I,int radius)
     dilation(I,neighborhood.index_shift);
 }
 
-template<typename ImageType>
-void dilation2_mt(ImageType& I,int radius)
-{
-    neighbor_index_shift<ImageType::dimension> neighborhood(I.shape(),radius);
-    dilation_mt(I,neighborhood.index_shift);
-}
 
 /*
 template<typename ImageType>
@@ -397,12 +379,12 @@ bool is_edge(ImageType& I,tipl::pixel_index<3> index)
     return false;
 }
 
-template<bool enable_mt = true,typename ImageType>
-unsigned char get_neighbor_count_mt(ImageType& I,std::vector<unsigned char>& act)
+template<typename ImageType>
+unsigned char get_neighbor_count(ImageType& I,std::vector<unsigned char>& act)
 {
     act.resize(I.size());
     neighbor_index_shift<ImageType::dimension> neighborhood(I.shape());
-    tipl::par_for<enable_mt>(neighborhood.index_shift.size(),[&](int index)
+    tipl::par_for(neighborhood.index_shift.size(),[&](int index)
     {
         int64_t shift = neighborhood.index_shift[index];
         if (shift > 0)
@@ -425,12 +407,6 @@ unsigned char get_neighbor_count_mt(ImageType& I,std::vector<unsigned char>& act
         }
     });
     return neighborhood.index_shift.size();
-}
-
-template<typename ImageType>
-inline unsigned char get_neighbor_count(ImageType& I,std::vector<unsigned char>& act)
-{
-    return get_neighbor_count_mt<false>(I,act);
 }
 
 template<typename ImageType>
@@ -472,12 +448,12 @@ void negate(ImageType& I)
         I[index] = I[index] ? 0:1;
 }
 
-template<bool enable_mt = true,typename ImageType>
-void smoothing_mt(ImageType& I)
+template<typename ImageType>
+void smoothing(ImageType& I)
 {
     std::vector<unsigned char> act;
-    unsigned int threshold = get_neighbor_count_mt<enable_mt>(I,act) >> 1;
-    tipl::par_for<enable_mt>(I.size(),[&](size_t index)
+    unsigned int threshold = get_neighbor_count(I,act) >> 1;
+    tipl::par_for(I.size(),[&](size_t index)
     {
         if (act[index] > threshold)
         {
@@ -491,11 +467,6 @@ void smoothing_mt(ImageType& I)
         }
 
     });
-}
-template<typename ImageType>
-inline void smoothing(ImageType& I)
-{
-    smoothing_mt<false>(I);
 }
 
 template<typename ImageType>
@@ -518,15 +489,15 @@ bool smoothing_fill(ImageType& I)
     return filled;
 }
 
-template<bool enable_mt = true,typename ImageType>
-void recursive_smoothing_mt(ImageType& I,unsigned int max_iteration = 100)
+template<typename ImageType>
+void recursive_smoothing(ImageType& I,unsigned int max_iteration = 100)
 {
     for(unsigned int iter = 0;iter < max_iteration;++iter)
     {
         bool has_change = false;
         std::vector<unsigned char> act;
-        unsigned int threshold = get_neighbor_count_mt(I,act) >> 1;
-        tipl::par_for<enable_mt>(I.size(),[&](size_t index)
+        unsigned int threshold = get_neighbor_count(I,act) >> 1;
+        tipl::par_for(I.size(),[&](size_t index)
         {
             if (act[index] > threshold)
             {
@@ -549,13 +520,6 @@ void recursive_smoothing_mt(ImageType& I,unsigned int max_iteration = 100)
             break;
     }
 }
-
-template<typename ImageType>
-inline void recursive_smoothing(ImageType& I,unsigned int max_iteration = 100)
-{
-    recursive_smoothing_mt<false>(I,max_iteration);
-}
-
 /**
 //  grow can be std::equal_to, std::less, std::greater  std::greater_equal std::less_equal
 //
