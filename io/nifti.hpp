@@ -786,7 +786,7 @@ public:
         if(I.shape() == J.shape() && I_T == J_T)
             I.swap(J);
         else
-            resample_mt<interpotype>(J,I,from_space(I_T).to(J_T));
+            resample<interpotype>(J,I,from_space(I_T).to(J_T));
         return true;
     }
     template<typename char_type,typename image_type,typename vs_type>
@@ -1007,9 +1007,9 @@ public:
         if(nif_header.scl_slope != 0)
         {
             if(nif_header.scl_slope != 1.0f)
-                tipl::multiply_constant_mt(out,nif_header.scl_slope);
+                tipl::multiply_constant(out,nif_header.scl_slope);
             if(nif_header.scl_inter != 0.0f)
-                tipl::add_constant_mt(out,nif_header.scl_inter);
+                tipl::add_constant(out,nif_header.scl_inter);
         }
         return true;
     }
