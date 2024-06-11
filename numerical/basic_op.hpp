@@ -659,7 +659,7 @@ void bounding_box(const ImageType& I,DimensionType& range_min,DimensionType& ran
 
 // ---------------------------------------------------------------------------
 template<typename point_type>
-void bounding_box_mt(const std::vector<point_type>& points,point_type& max_value,point_type& min_value)
+void bounding_box(const std::vector<point_type>& points,point_type& max_value,point_type& min_value)
 {
     if(points.empty())
         return;
