@@ -200,8 +200,8 @@ public:
         {
             auto in_ptr = in + dim.size()*outc;
             auto in_ptr_end = in_ptr + dim.size();
-            auto m = tipl::mean_mt(in_ptr,in_ptr_end);
-            auto sd = tipl::standard_deviation_mt(in_ptr,in_ptr_end);
+            auto m = tipl::mean(in_ptr,in_ptr_end);
+            auto sd = tipl::standard_deviation(in_ptr,in_ptr_end);
             auto v = (sd == 0.0f ? 0.0f : weight[outc]/sd);
             auto b = bias[outc];
             for(size_t i = 0;i < dim.size();++i)
