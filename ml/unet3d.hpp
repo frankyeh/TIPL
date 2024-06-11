@@ -59,7 +59,7 @@ inline void preproc_actions(tipl::image<3>& images,
         if(!match_fov && !match_resolution)
             tipl::draw(image,target_image,shift);
         else
-            tipl::resample_mt(image,target_image,trans);
+            tipl::resample(image,target_image,trans);
 
         tipl::normalize(target_image);
     });
@@ -81,7 +81,7 @@ tipl::image<3> defragment4d(image_type& this_image,float prob_threshold)
     // hard threshold to make sure prob is between 0 and 1
     tipl::upper_lower_threshold(this_image,0.0f,1.0f);
     // 4d to 3d partial sum
-    tipl::sum_partial_mt(this_image,sum);
+    tipl::sum_partial(this_image,sum);
 
     auto original_sum = sum;
     {
@@ -222,7 +222,7 @@ public:
         arg.translocation[2] = (float(I.depth())*I_vs[2]-float(dim[2])*vs[2])*0.5f;
         tipl::transformation_matrix<float> trans(arg,dim,vs,I.shape(),I_vs);
         tipl::image<3> input_image(dim);
-        tipl::resample_mt(I,input_image,trans);
+        tipl::resample(I,input_image,trans);
         tipl::normalize(input_image);
         auto ptr = forward_with_prog(&input_image[0],prog);
         if(ptr == nullptr)
@@ -232,7 +232,7 @@ public:
         tipl::par_for(out_channels_,[&](int i)
         {
             auto J = out.alias(I.size()*i,I.shape());
-            tipl::resample_mt(tipl::make_image(ptr+i*dim.size(),dim),J,trans);
+            tipl::resample(tipl::make_image(ptr+i*dim.size(),dim),J,trans);
             for(size_t j = 0;j < J.size();++j)
                 if(I[j] == 0)
                     J[j] = 0.0f;
