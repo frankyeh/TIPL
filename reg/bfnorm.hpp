@@ -731,8 +731,8 @@ public:
             fwhm2 = std::min(fw,fwhm2);
 
 
-            tipl::divide_constant_mt(alpha, ss_);
-            tipl::divide_constant_mt(beta, ss_);
+            tipl::divide_constant(alpha, ss_);
+            tipl::divide_constant(beta, ss_);
 
             tipl::par_for(beta.size(),[&](int i)
             {
