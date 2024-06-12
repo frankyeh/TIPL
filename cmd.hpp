@@ -15,47 +15,19 @@
 
 namespace tipl{
 
-
-template<typename image_loader,typename image_type>
-bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_mni,
-             std::string cmd,std::string param1,std::string& error_msg)
+template<typename image_type>
+bool command(image_type& data,std::string cmd,std::string param1)
 {
-    if(cmd == "set_transformation")
-    {
-        std::istringstream in(param1);
-        for(int i = 0;i < 16;++i)
-            in >> T[i];
-        for(int i = 0;i < 3;++i)
-            vs[i] = std::sqrt(T[i]*T[i]+T[i+4]*T[i+4]+T[i+8]*T[i+8]);
-        return true;
-    }
-    if(cmd == "set_translocation")
-    {
-        std::istringstream in(param1);
-        in >> T[3] >> T[7] >> T[11];
-        return true;
-    }
-    if(cmd == "set_mni")
-    {
-        if(param1.empty())
-        {
-            error_msg = "invalid value";
-            return false;
-        }
-        is_mni = (param1[0] == '1');
-        return true;
-    }
-
     if constexpr (std::is_floating_point<typename image_type::value_type>::value)
     {
-        if(cmd.find("morphology") != std::string::npos)
+        if(cmd.find("morphology") == 0)
         {
             tipl::image<image_type::dimension,char> mask(data.shape());
             tipl::par_for(mask.size(),[&](size_t pos)
             {
                 mask[pos] = data[pos] > typename image_type::value_type(0) ? 1 : 0;
             });
-            if(!command<image_loader>(mask,vs,T,is_mni,cmd,param1,error_msg))
+            if(!command(mask,cmd,param1))
                 return false;
             tipl::par_for(mask.size(),[&](size_t pos)
             {
@@ -142,6 +114,117 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
             tipl::multiply_constant(data,0.5f/median);
         return true;
     }
+    if(cmd == "flip_x")
+    {
+        tipl::flip_x(data);
+        return true;
+    }
+    if(cmd == "flip_y")
+    {
+        tipl::flip_y(data);
+        return true;
+    }
+
+    if(cmd == "flip_z")
+    {
+        tipl::flip_z(data);
+        return true;
+    }
+
+    // need param1
+    if(param1.empty())
+        return false;
+
+    if(cmd == "select_value")
+    {
+        typename image_type::value_type v = std::stof(param1);
+        tipl::par_for(data.size(),[&](size_t index)
+        {
+            data[index] = (data[index] == v ? 1:0);
+        });
+        return true;
+    }
+    if(cmd == "add_value")
+    {
+        add_constant(data,std::stof(param1));
+        return true;
+    }
+    if(cmd == "multiply_value")
+    {
+        multiply_constant(data,std::stof(param1));
+        return true;
+    }
+    if(cmd == "lower_threshold")
+    {
+        lower_threshold(data,std::stof(param1));
+        return true;
+    }
+    if(cmd == "upper_threshold")
+    {
+        upper_threshold(data,std::stof(param1));
+        return true;
+    }
+
+    if(cmd == "threshold")
+    {
+        float value = std::stof(param1);
+        tipl::par_for(data.size(),[&](size_t i)
+        {
+            data[i] = data[i] > value ? 1.0f : 0.0f;
+        });
+        return true;
+    }
+    if(cmd == "otsu_threshold")
+    {
+        float threshold = tipl::segmentation::otsu_threshold(data)*float(std::stof(param1));
+        tipl::par_for(data.size(),[&](size_t i)
+        {
+            data[i] = data[i] > threshold ? 1.0f : 0.0f;
+        });
+        return true;
+    }
+    return false;
+}
+
+
+template<typename out = void,typename image_type>
+bool equation(image_type& x,std::string eq,std::string& error_msg);
+
+template<typename out = void,typename image_loader,typename image_type>
+bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_mni,
+             std::string cmd,std::string param1,std::string& error_msg)
+{
+    if constexpr(!std::is_void_v<out>)out() << std::string(param1.empty() ? cmd : cmd+":"+param1);
+
+    if(cmd == "equation")
+        return equation<out>(data,param1,error_msg);
+    if(command(data,cmd,param1))
+        return true;
+    if(cmd == "set_transformation")
+    {
+        std::istringstream in(param1);
+        for(int i = 0;i < 16;++i)
+            in >> T[i];
+        for(int i = 0;i < 3;++i)
+            vs[i] = std::sqrt(T[i]*T[i]+T[i+4]*T[i+4]+T[i+8]*T[i+8]);
+        return true;
+    }
+    if(cmd == "set_translocation")
+    {
+        std::istringstream in(param1);
+        in >> T[3] >> T[7] >> T[11];
+        return true;
+    }
+    if(cmd == "set_mni")
+    {
+        if(param1.empty())
+        {
+            error_msg = "invalid value";
+            return false;
+        }
+        is_mni = (param1[0] == '1');
+        return true;
+    }
     if(cmd == "upsampling")
     {
         tipl::upsampling(data);
@@ -186,24 +269,6 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         T[2] = -T[2];
         T[6] = -T[6];
         T[10] = -T[10];
-        return true;
-    }
-    if(cmd == "flip_x")
-    {
-        tipl::flip_x(data);
-        return true;
-    }
-
-
-    if(cmd == "flip_y")
-    {
-        tipl::flip_y(data);
-        return true;
-    }
-
-    if(cmd == "flip_z")
-    {
-        tipl::flip_z(data);
         return true;
     }
     if(cmd == "header_swap_xy")
@@ -275,13 +340,13 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         range_max[2] = std::min<int>(data.depth(),range_max[2]+margin[2]);
 
         range_max -= range_min;
-        if(!command<image_loader>(data,vs,T,is_mni,"translocate",std::to_string(-range_min[0]) + " " +
+        if(!command<out,image_loader>(data,vs,T,is_mni,"translocate",std::to_string(-range_min[0]) + " " +
                                     std::to_string(-range_min[1]) + " " +
                                     std::to_string(-range_min[2]),error_msg))
 
             return false;
 
-        if(!command<image_loader>(data,vs,T,is_mni,"resize",std::to_string(range_max[0]) + " " +
+        if(!command<out,image_loader>(data,vs,T,is_mni,"resize",std::to_string(range_max[0]) + " " +
                                     std::to_string(range_max[1]) + " " +
                                     std::to_string(range_max[2]),error_msg))
             return false;
@@ -321,32 +386,32 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         // flip in x y z
         if(T[0]*U[0] < 0)
         {
-            command<image_loader>(data,vs,T,is_mni,"header_flip_x","",error_msg);
-            command<image_loader>(data,vs,T,is_mni,"flip_x","",error_msg);
-            return command<image_loader>(data,vs,T,is_mni,cmd,param1,error_msg);
+            command<out,image_loader>(data,vs,T,is_mni,"header_flip_x","",error_msg);
+            command<out,image_loader>(data,vs,T,is_mni,"flip_x","",error_msg);
+            return command<out,image_loader>(data,vs,T,is_mni,cmd,param1,error_msg);
         }
         if(T[5]*U[5] < 0)
         {
-            command<image_loader>(data,vs,T,is_mni,"header_flip_y","",error_msg);
-            command<image_loader>(data,vs,T,is_mni,"flip_y","",error_msg);
-            return command<image_loader>(data,vs,T,is_mni,cmd,param1,error_msg);
+            command<out,image_loader>(data,vs,T,is_mni,"header_flip_y","",error_msg);
+            command<out,image_loader>(data,vs,T,is_mni,"flip_y","",error_msg);
+            return command<out,image_loader>(data,vs,T,is_mni,cmd,param1,error_msg);
         }
         if(T[10]*U[10] < 0)
         {
-            command<image_loader>(data,vs,T,is_mni,"header_flip_z","",error_msg);
-            command<image_loader>(data,vs,T,is_mni,"flip_z","",error_msg);
-            return command<image_loader>(data,vs,T,is_mni,cmd,param1,error_msg);
+            command<out,image_loader>(data,vs,T,is_mni,"header_flip_z","",error_msg);
+            command<out,image_loader>(data,vs,T,is_mni,"flip_z","",error_msg);
+            return command<out,image_loader>(data,vs,T,is_mni,cmd,param1,error_msg);
         }
         // consider voxel size
         if(T[0] != U[0] || T[5] != U[5] || T[10] != U[10])
         {
-            if(!command<image_loader>(data,vs,T,is_mni,"regrid",std::to_string(new_vs[0])+" "+std::to_string(new_vs[1])+" "+std::to_string(new_vs[2]),error_msg))
+            if(!command<out,image_loader>(data,vs,T,is_mni,"regrid",std::to_string(new_vs[0])+" "+std::to_string(new_vs[1])+" "+std::to_string(new_vs[2]),error_msg))
                 return false;
             T[0] = U[0];
             T[5] = U[5];
             T[10] = U[10];
             vs = new_vs;
-            return command<image_loader>(data,vs,T,is_mni,cmd,param1,error_msg);
+            return command<out,image_loader>(data,vs,T,is_mni,cmd,param1,error_msg);
         }
         // now translocation
         cmd = "translocate";
@@ -464,56 +529,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         return true;
     }
 
-    if(cmd == "select_value")
-    {
-        typename image_type::value_type v = std::stof(param1);
-        tipl::par_for(data.size(),[&](size_t index)
-        {
-            data[index] = (data[index] == v ? 1:0);
-        });
-        return true;
-    }
-    if(cmd == "add_value")
-    {
-        add_constant(data,std::stof(param1));
-        return true;
-    }
-    if(cmd == "multiply_value")
-    {
-        multiply_constant(data,std::stof(param1));
-        return true;
-    }
-    if(cmd == "lower_threshold")
-    {
-        lower_threshold(data,std::stof(param1));
-        return true;
-    }
-    if(cmd == "upper_threshold")
-    {
-        upper_threshold(data,std::stof(param1));
-        return true;
-    }
 
-    if(cmd == "threshold")
-    {
-        float value = std::stof(param1);
-        tipl::par_for(data.size(),[&](size_t i)
-        {
-            data[i] = data[i] > value ? 1.0f : 0.0f;
-        });
-        return true;
-    }
-    if(cmd == "otsu_threshold")
-    {
-        float threshold = tipl::segmentation::otsu_threshold(data)*float(std::stof(param1));
-        tipl::par_for(data.size(),[&](size_t i)
-        {
-            data[i] = data[i] > threshold ? 1.0f : 0.0f;
-        });
-        return true;
-    }
-    if(cmd == "equation")
-        return equation(data,param1,error_msg);
     if(cmd == "multiply_image" || cmd == "add_image" || cmd == "minus_image" || cmd == "max_image" || cmd == "min_image")
     {
         tipl::image<3,typename image_type::value_type> rhs(data.shape());
@@ -588,6 +604,232 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     error_msg = "unknown command:";
     error_msg += cmd;
     return false;
+}
+
+
+
+
+template<typename image_type1,typename image_type2,
+         typename std::enable_if<std::is_class<image_type1>::value,bool>::type = true,
+         typename std::enable_if<std::is_class<image_type2>::value,bool>::type = true>
+void equation(image_type1& lhs,const image_type2& rhs,char op)
+{
+    switch(op)
+    {
+        case '+': tipl::add(lhs,rhs);return;
+        case '-': tipl::minus(lhs,rhs);return;
+        case '*': tipl::multiply(lhs,rhs);return;
+        case '/': tipl::divide(lhs,rhs);return;
+        case '>': tipl::greater(lhs,rhs);return;
+        case '<': tipl::lesser(lhs,rhs);return;
+        case '=': tipl::equal(lhs,rhs);return;
+    }
+}
+
+template<typename image_type1,typename value_type,
+         typename std::enable_if<std::is_fundamental<value_type>::value,bool>::type = true>
+void equation(image_type1& lhs,value_type rhs,char op)
+{
+    switch(op)
+    {
+        case '+': tipl::add_constant(lhs,rhs);return;
+        case '-': tipl::minus_constant(lhs,rhs);return;
+        case '*': tipl::multiply_constant(lhs,rhs);return;
+        case '/': tipl::divide_constant(lhs,rhs);return;
+        case '>': tipl::greater_constant(lhs,rhs);return;
+        case '<': tipl::lesser_constant(lhs,rhs);return;
+        case '=': tipl::equal_constant(lhs,rhs);return;
+    }
+}
+
+template<typename value_type,typename image_type1,
+         typename std::enable_if<std::is_fundamental<value_type>::value,bool>::type = true>
+void equation(value_type lhs,image_type1& rhs,char op)
+{
+    switch(op)
+    {
+        case '+': tipl::add_constant(rhs,lhs);return;
+        case '=': tipl::equal_constant(rhs,lhs);return;
+        case '*': tipl::multiply_constant(rhs,lhs);return;
+        case '>': tipl::lesser_constant(rhs,lhs);return;
+        case '<': tipl::greater_constant(rhs,lhs);return;
+        case '/': tipl::divide_by_constant(rhs,lhs);return;
+        case '-': tipl::minus_by_constant(rhs,lhs);return;
+    }
+}
+
+template<typename out,typename image_type>
+bool equation(image_type& x,std::string eq,std::string& error_msg)
+{
+    if(eq == "x" || eq.empty())
+        return true;
+
+    using buf_image_type = tipl::image<image_type::dimension,typename image_type::value_type>;
+
+    unsigned char parentheses = 0;
+    std::vector<std::string> tokens;
+    std::vector<char> op;
+    std::string cur_token;
+
+    auto is_number = [](const std::string& str) -> bool
+    {
+        try {
+                std::size_t pos;
+                std::stof(str, &pos);
+                return pos == str.size();
+            } catch (...) {
+                return false;
+            }
+    };
+
+    auto add_op = [&](char ch)
+    {
+        tokens.push_back(cur_token);
+        cur_token.clear();
+        op.push_back(ch);
+    };
+
+    for (int i = 0;i < eq.size();++i)
+    {
+        auto c = eq[i];
+        if (!parentheses && !cur_token.empty())
+        {
+            if(c == '(' && (cur_token == "x" || cur_token.back() == ')' || is_number(cur_token)))
+                add_op('*');
+            if(c == 'x' && (cur_token.back() == ')' || is_number(cur_token)))
+                add_op('*');
+            if(c == '+' || c == '-' || c == '*' || c == '/' || c == '>' || c == '<' || c == '=')
+            {
+                add_op(c);
+                continue;
+            }
+        }
+        if (c == '(')
+            ++parentheses;
+        if (c == ')')
+            --parentheses;
+        cur_token.push_back(c);
+    }
+
+    if(op.empty())
+    {
+        // handle function call
+        auto pos = eq.find_first_of('(');
+        if(pos && pos != std::string::npos)
+        {
+            if(eq.back() != ')')
+            {
+                error_msg = std::string("invalid parentheses:") + eq;
+                return false;
+            }
+            std::string param;
+            auto comma_pos = eq.find_last_of(',');
+            if(comma_pos != std::string::npos)
+            {
+                param = std::string(eq.begin()+comma_pos+1,eq.end()-1);
+                if(!is_number(param))
+                {
+                    error_msg = std::string("invalid parameter:") + param + " in " + eq;
+                    return false;
+                }
+            }
+            else
+                comma_pos = eq.length()-1;
+
+            auto eval = std::string(eq.begin()+pos+1,eq.begin()+comma_pos);
+            if(!equation<out>(x,eval,error_msg))
+                return false;
+
+            auto function_name = eq.substr(0,pos);
+            if constexpr(!std::is_void_v<out>)
+                    out() << "call " << function_name << "(" << std::string(param.empty() ? eval : eval + "," + param) << ")";
+            if(!command(x,function_name,param))
+            {
+                error_msg = std::string("unsupported function:") + function_name;
+                return false;
+            }
+            return true;
+        }
+        error_msg = std::string("illegal operator found in equation:") + eq;
+        return false;
+    }
+    tokens.push_back(cur_token);
+
+    std::vector<buf_image_type> operands(tokens.size());
+    std::vector<float> values(tokens.size());
+    for(size_t i = 0;i < tokens.size();++i)
+    {
+        if(is_number(tokens[i]))
+        {
+            try{
+                values[i] = std::stof(tokens[i]);
+            }
+            catch (...)
+            {
+                error_msg = std::string("invalid variable:") + tokens[i] + " in " + eq;
+                return false;
+            }
+        }
+        else
+        {
+            if(tokens[i].find_first_of('(') == 0)
+            {
+                if(tokens[i].back() != ')')
+                {
+                    error_msg = std::string("invalid parentheses:") + tokens[i] + " in " + eq;
+                    return false;
+                }
+                tokens[i] = tokens[i].substr(1,tokens[i].size()-2);
+            }
+
+            if(!equation<out>(operands[i] = x,tokens[i],error_msg))
+                return false;
+        }
+    }
+    while(!op.empty())
+    {
+        size_t first_op = 0;
+        auto pos = std::find_if(op.begin(),op.end(),[](char c){return c == '*' || c == '/';});
+        if(pos != op.end())
+            first_op = pos - op.begin();
+
+        if(operands[first_op].empty())
+        {
+            if(operands[first_op+1].empty())
+            {
+                error_msg = std::string("empty operands found in:") + eq;
+                return false;
+            }
+            if constexpr(!std::is_void_v<out>) out() << "compute " << values[first_op] << op[first_op] << tokens[first_op+1];
+            equation(values[first_op],operands[first_op+1],op[first_op]);
+            operands[first_op].swap(operands[first_op+1]);
+        }
+        else
+        {
+            if(operands[first_op+1].empty())
+            {
+                if constexpr(!std::is_void_v<out>) out() << "compute " << tokens[first_op] << op[first_op] << values[first_op+1];
+                equation(operands[first_op],values[first_op+1],op[first_op]);
+            }
+            else
+            {
+                if constexpr(!std::is_void_v<out>) out() << "compute " << tokens[first_op] << op[first_op] << tokens[first_op+1];
+                equation(operands[first_op],operands[first_op+1],op[first_op]);
+            }
+        }
+        if(op.size() == 1)
+        {
+            if constexpr(std::is_same_v<buf_image_type,image_type>)
+                x.swap(operands[0]);
+            else
+                x = operands[0];
+            return true;
+        }
+        op.erase(op.begin() + first_op);
+        operands.erase(operands.begin() + first_op + 1);
+        values.erase(values.begin() + first_op + 1);
+    }
+    return true;
 }
 
 }//namespace tipl
