@@ -115,7 +115,7 @@ void displacement_to_mapping(const DisType& dis,MappingType& mapping,const trans
 }
 
 //---------------------------------------------------------------------------
-template<tipl::interpolation Type = linear,typename DisType,typename MappingType,typename transform_type>
+template<tipl::interpolation itype = linear,typename DisType,typename MappingType,typename transform_type>
 void inv_displacement_to_mapping(const DisType& inv_dis,MappingType& inv_mapping,const transform_type& T)
 {
     auto iT = T;
@@ -125,7 +125,7 @@ void inv_displacement_to_mapping(const DisType& inv_dis,MappingType& inv_mapping
     {
         tipl::vector<3> p;
         iT(index,p);
-        p += tipl::estimate<Type>(inv_dis,p);
+        p += tipl::estimate<itype>(inv_dis,p);
         inv_mapping[index.index()] = p;
     });
 }
@@ -146,16 +146,16 @@ inline void compose_mapping(const T1& from,const T2& mapping,T3& to)
 
 {
     to.clear();
-    to.resize(from.shape());
+    to.resize(mapping.shape());
     if constexpr(memory_location<T1>::at == CUDA)
     {
         #ifdef __CUDACC__
-        TIPL_RUN(compose_mapping_cuda_kernel<itype>,to.size())
+        TIPL_RUN(compose_mapping_cuda_kernel<itype>,mapping.size())
                 (tipl::make_shared(from),tipl::make_shared(mapping),tipl::make_shared(to));
         #endif
     }
     else
-    tipl::par_for(to.size(),[&](size_t index)
+    tipl::par_for(mapping.size(),[&](size_t index)
     {
         estimate<itype>(from,mapping[index],to[index]);
     });
