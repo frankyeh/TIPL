@@ -895,14 +895,6 @@ public:
     {
         copy_ptr(reinterpret_cast<const lhs_type*>(lhs),rhs,size);
     }
-    static void copy_data(const float* lhs,unsigned char* rhs,size_t size)
-    {
-        tipl::normalize_upper_lower(lhs,lhs+size,rhs);
-    }
-    static void copy_data(const double* lhs,unsigned char* rhs,size_t size)
-    {
-        tipl::normalize_upper_lower(lhs,lhs+size,rhs);
-    }
 public:
     template<typename pointer_type,typename prog_type>
     bool save_to_buffer(pointer_type ptr,size_t pixel_count,prog_type& prog) const
