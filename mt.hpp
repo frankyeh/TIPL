@@ -57,95 +57,111 @@ inline bool is_main_thread(void)
     return main_thread_id == std::this_thread::get_id();
 }
 
-inline unsigned int available_thread_count = std::thread::hardware_concurrency();
-inline std::mutex available_thread_count_mutex;
+inline bool thread_occupied = false;
+inline int current_thread_count = 0;
+inline int max_thread_count = std::thread::hardware_concurrency();
+inline std::mutex current_thread_count_mutex;
 
-template <bool enabled_mt = true,typename T,typename Func,typename std::enable_if<
+inline int available_thread_count(void)
+{
+    auto thread_count = max_thread_count-current_thread_count;
+    if(thread_count < 1)
+        thread_count = 1;
+    return thread_count;
+}
+
+enum par_for_type{
+    regular = 0,
+    ranged = 1
+};
+
+template <par_for_type type = regular,typename T,
+          typename Func,typename std::enable_if<
               std::is_integral<T>::value ||
-              std::is_class<T>::value,bool>::type = true>
-void par_for(T from,T to,Func&& f,unsigned int thread_count = std::thread::hardware_concurrency())
+              std::is_class<T>::value ||
+              std::is_pointer<T>::value,bool>::type = true>
+__HOST__ void par_for(T from,T to,Func&& f,int thread_count = 0)
 {
     if(to == from)
         return;
-    if(tipl::use_xeus_cling || !enabled_mt)
+    if(thread_count == 1 ||
+      (thread_count == 0 && thread_occupied))
     {
-        for(;from != to;++from)
-            if constexpr(function_traits<Func>::arg_num == 2)
-                f(from,0);
-            else
-                f(from);
+        if constexpr(type == ranged)
+            f(from,to);
+        else
+        {
+            for(;from != to;++from)
+                if constexpr(function_traits<Func>::arg_num == 2)
+                    f(from,0);
+                else
+                    f(from);
+        }
         return;
     }
 
-    unsigned int allocated_thread_count = 0;
-    if(thread_count > 1)
+    if(thread_count == 0)
     {
-        std::lock_guard<std::mutex> lock(available_thread_count_mutex);
-        thread_count = std::min<unsigned int>(thread_count,available_thread_count);
-        allocated_thread_count = thread_count-1;
-        if(allocated_thread_count)
-            available_thread_count -= allocated_thread_count;
+        thread_count = available_thread_count();
+        thread_occupied = true;
     }
 
-    if constexpr(!tipl::use_xeus_cling && enabled_mt)
+    size_t n = to-from;
+    if(thread_count > n)
+        thread_count = n;
+
     {
-        size_t size = to-from;
-        if(thread_count > size)
-            thread_count = size;
-        size_t block_size = size/thread_count;
-        size_t remainder = size % thread_count;
+        size_t block_size = n / thread_count;
+        size_t remainder = n % thread_count;
+        auto run = [=,&f](T beg,T end,size_t id)
+        {
+            {
+                std::lock_guard<std::mutex> lock(current_thread_count_mutex);
+                ++current_thread_count;
+            }
+            if constexpr(type == ranged)
+                f(beg,end);
+            else
+            {
+                for(;beg != end;++beg)
+                    if constexpr(function_traits<Func>::arg_num == 2)
+                        f(beg,id);
+                    else
+                        f(beg);
+            }
+            {
+                std::lock_guard<std::mutex> lock(current_thread_count_mutex);
+                --current_thread_count;
+            }
+        };
+
         std::vector<std::thread> threads;
-        for(unsigned int id = 1; id < thread_count; id++)
+        for(size_t id = 1; id < thread_count; id++)
         {
-            auto block_end = from + block_size + (id <= remainder ? 1 : 0);
-            if constexpr(function_traits<Func>::arg_num == 2)
-            {
-                threads.push_back(std::thread([=,&f]
-                {
-                    for(auto pos = from;pos != block_end;++pos)
-                        f(pos,id);
-                }));
-            }
-            else
-            {
-                threads.push_back(std::thread([=,&f]
-                {
-                    for(auto pos = from;pos != block_end;++pos)
-                        f(pos);
-                }));
-            }
-            from = block_end;
+            auto end = from + block_size + (id <= remainder ? 1 : 0);
+            threads.push_back(std::thread(run,from,end,id));
+            from = end;
         }
-        for(;from != to;++from)
-        {
-            if constexpr(function_traits<Func>::arg_num == 2)
-                f(from,0);
-            else
-                f(from);
-        }
+        run(from,to,0);
         for(auto &thread : threads)
             thread.join();
     }
-
-    if(allocated_thread_count)
-    {
-        std::lock_guard<std::mutex> lock(available_thread_count_mutex);
-        available_thread_count += allocated_thread_count;
-    }
+    thread_occupied = false;
 }
 
-template <bool enabled_mt = true,typename T,typename Func,
+template <par_for_type type = regular,typename T,typename Func,
           typename std::enable_if<std::is_integral<T>::value,bool>::type = true>
-inline void par_for(T size, Func&& f,unsigned int thread_count = std::thread::hardware_concurrency())
+inline void par_for(T size, Func&& f,unsigned int thread_count = 0)
 {
-    par_for<enabled_mt>(T(0),size,std::move(f),thread_count);
+    par_for<type>(T(),size,std::move(f),thread_count);
 }
 
-template <bool enabled_mt = true,typename T,typename Func,
-          typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-inline void par_for(T& c, Func&& f,unsigned int thread_count = std::thread::hardware_concurrency())
+template <par_for_type type = regular,typename T,typename Func>
+inline typename std::enable_if<
+    std::is_same<decltype(std::declval<T>().begin()), decltype(std::declval<T>().end())>::value>::type
+par_for(T& c, Func&& f,unsigned int thread_count = 0)
 {
-    par_for<enabled_mt>(c.begin(),c.end(),std::move(f),thread_count);
+    par_for<type>(c.begin(),c.end(),std::move(f),thread_count);
 }
 
 template<typename T>

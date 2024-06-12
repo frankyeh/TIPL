@@ -1,5 +1,6 @@
 #ifndef CDM_HPP
 #define CDM_HPP
+#include "../def.hpp"
 #include "../numerical/basic_op.hpp"
 #include "../numerical/dif.hpp"
 #include "../filter/gaussian.hpp"
@@ -117,18 +118,18 @@ public:
     }
 };
 
-template<typename r_type>
-bool cdm_improved(r_type& r,r_type& iter)
+template<typename cost_type>
+bool cdm_improved(cost_type& cost,cost_type& iter)
 {
-    if(r.size() > 5)
+    if(cost.size() > 5)
     {
         float a,b,r2;
-        linear_regression(iter.begin(),iter.end(),r.begin(),a,b,r2);
-        if(a < 0.0f)
+        linear_regression(iter.begin(),iter.end(),cost.begin(),a,b,r2);
+        if(a > 0.0f)
             return false;
-        if(r.size() > 7)
+        if(cost.size() > 7)
         {
-            r.pop_front();
+            cost.pop_front();
             iter.pop_front();
         }
     }
@@ -145,7 +146,7 @@ struct cdm_param{
 
 template<typename T,typename U,typename V,typename W>
 __INLINE__ void cdm_get_gradient_imp(const pixel_index<T::dimension>& index,
-                                     const T& Js,const U& It,V& new_d,W& r2_map)
+                                     const T& Js,const U& It,V& new_d,W& cost_map)
 {
     if(It[index.index()] == 0.0 || Js[index.index()] == 0.0 ||
        It.shape().is_edge(index))
@@ -169,89 +170,221 @@ __INLINE__ void cdm_get_gradient_imp(const pixel_index<T::dimension>& index,
     else
     {
         new_d[index.index()] *= r2*(Js[index.index()]*a+b-It[index.index()]);
-        r2_map[index.index()] = r2;
+        cost_map[index.index()] = -r2;
     }
 }
+//---------------------------------------------------------------------------
+#ifdef __CUDACC__
+template<typename T1,typename T2,typename T3>
+__global__ void cdm_get_gradient_cuda_kernel(T1 Js,T1 It,T2 new_d,T3 cost_map)
+{
+    TIPL_FOR(index,Js.size())
+    {
+        cdm_get_gradient_imp(tipl::pixel_index<3>(index,Js.shape()),Js,It,new_d,cost_map);
+    }
+}
+#endif
+
 // calculate dJ(cJ-I)
 template<typename image_type,typename dis_type>
-float cdm_get_gradient(const image_type& Js,const image_type& It,dis_type& new_d)
+inline float cdm_get_gradient(const image_type& Js,const image_type& It,dis_type& new_d)
 {
-    std::vector<float> r2_map(Js.size());
-    tipl::par_for(tipl::begin_index(Js.shape()),tipl::end_index(Js.shape()),
-                        [&](const pixel_index<image_type::dimension>& index)
+    image_type cost_map(Js.shape());
+    if constexpr(memory_location<image_type>::at == CUDA)
     {
-        cdm_get_gradient_imp(index,Js,It,new_d,r2_map);
-    });
-    return float(tipl::mean(r2_map));
+        #ifdef __CUDACC__
+        TIPL_RUN(cdm_get_gradient_cuda_kernel,Js.size())
+                (tipl::make_shared(Js),
+                 tipl::make_shared(It),
+                 tipl::make_shared(new_d),
+                 tipl::make_shared(cost_map));
+        #endif
+    }
+    else
+    {
+        tipl::par_for(tipl::begin_index(Js.shape()),tipl::end_index(Js.shape()),
+                            [&](const pixel_index<image_type::dimension>& index)
+        {
+            cdm_get_gradient_imp(index,Js,It,new_d,cost_map);
+        });
+    }
+    return float(tipl::mean(cost_map));
 }
+//---------------------------------------------------------------------------
+#ifdef __CUDACC__
 
+template<typename T>
+__global__ void cdm_solve_poisson_cuda_kernel2(T new_d,T solve_d,T new_solve_d)
+{
+    const float inv_d2 = 0.5f/3.0f;
+    int w = new_d.width();
+    int64_t wh = new_d.plane_size();
+    size_t stride = blockDim.x*gridDim.x;
+    for(int64_t index = threadIdx.x + blockIdx.x*blockDim.x;
+        index < new_d.size();index += stride)
+    {
+        typename T::value_type v;
+        {
+            int64_t p1 = index-1;
+            int64_t p2 = index+1;
+            if(p1 >= 0)
+               v += solve_d[p1];
+            if(p2 < solve_d.size())
+               v += solve_d[p2];
+        }
+        {
+            int64_t p1 = index-w;
+            int64_t p2 = index+w;
+            if(p1 >= 0)
+               v += solve_d[p1];
+            if(p2 < solve_d.size())
+               v += solve_d[p2];
+        }
+        {
+            int64_t p1 = index-wh;
+            int64_t p2 = index+wh;
+            if(p1 >= 0)
+               v += solve_d[p1];
+            if(p2 < solve_d.size())
+               v += solve_d[p2];
+        }
+        v -= new_d[index];
+        v *= inv_d2;
+        new_solve_d[index] = v;
+    }
+}
+#endif
 
 template<typename T,typename terminated_type>
 void cdm_solve_poisson(T& new_d,terminated_type& terminated)
 {
-    float inv_d2 = 0.5f/3.0f;
-    T solve_d(new_d);
-    multiply_constant_mt(solve_d,-inv_d2);
+    T solve_d(new_d),new_solve_d(new_d.shape());
+    multiply_constant(solve_d,float(-0.5f/3.0f));
 
-    int w = new_d.width();
-    int wh = new_d.plane_size();
     for(int iter = 0;iter < 12 && !terminated;++iter)
     {
-        T new_solve_d(new_d.shape());
-        tipl::par_for(solve_d.size(),[&](int pos)
+        if constexpr(memory_location<T>::at == CUDA)
         {
-            // boundary checking (p > 0 && p < width) is critical for
-            // getting correct results from low resolution
-            auto v = new_solve_d[pos];
+            #ifdef __CUDACC__
+            cdm_solve_poisson_cuda_kernel2<<<std::min<int>((new_d.size()+255)/256,256),256>>>(
+                        tipl::make_shared(new_d),
+                        tipl::make_shared(solve_d),
+                        tipl::make_shared(new_solve_d));
+            #endif
+        }
+        else
+        {
+            const int w = new_d.width();
+            const int wh = new_d.plane_size();
+            tipl::par_for(solve_d.size(),[&](int pos)
             {
-                int p1 = pos-1;
-                int p2 = pos+1;
-                if(p1 >= 0)
-                   v += solve_d[p1];
-                if(p2 < solve_d.size())
-                   v += solve_d[p2];
-            }
-            {
-                int p1 = pos-w;
-                int p2 = pos+w;
-                if(p1 >= 0)
-                   v += solve_d[p1];
-                if(p2 < solve_d.size())
-                   v += solve_d[p2];
-            }
-            {
-                int p1 = pos-wh;
-                int p2 = pos+wh;
-                if(p1 >= 0)
-                   v += solve_d[p1];
-                if(p2 < solve_d.size())
-                   v += solve_d[p2];
-            }
-            v -= new_d[pos];
-            v *= inv_d2;
-            new_solve_d[pos] = v;
-        });
+                // boundary checking (p > 0 && p < width) is critical for
+                // getting correct results from low resolution
+                constexpr float inv_d2 = 0.5f/3.0f;
+                auto v = new_solve_d[pos];
+                {
+                    int p1 = pos-1;
+                    int p2 = pos+1;
+                    if(p1 >= 0)
+                       v += solve_d[p1];
+                    if(p2 < solve_d.size())
+                       v += solve_d[p2];
+                }
+                {
+                    int p1 = pos-w;
+                    int p2 = pos+w;
+                    if(p1 >= 0)
+                       v += solve_d[p1];
+                    if(p2 < solve_d.size())
+                       v += solve_d[p2];
+                }
+                {
+                    int p1 = pos-wh;
+                    int p2 = pos+wh;
+                    if(p1 >= 0)
+                       v += solve_d[p1];
+                    if(p2 < solve_d.size())
+                       v += solve_d[p2];
+                }
+                v -= new_d[pos];
+                v *= inv_d2;
+                new_solve_d[pos] = v;
+            });
+        }
         solve_d.swap(new_solve_d);
     }
     new_d.swap(solve_d);
 }
 
-template<typename dist_type>
-float cdm_max_displacement_length(dist_type& new_d)
+struct cdm_dis_vector_length
 {
-    float theta = 0.0f;
-    par_for(new_d.size(),[&](int i)
+    template<typename T>
+    __INLINE__ float operator()(const T &v) const
     {
-        float l = new_d[i].length();
-        if(l > theta)
-           theta = l;
-    });
-    return theta;
-}
+        return v.length();
+    }
+};
 
+template<typename dist_type>
+inline float cdm_max_displacement_length(dist_type& new_d)
+{
+    if constexpr(memory_location<dist_type>::at == CUDA)
+    {
+        #ifdef __CUDACC__
+        return thrust::transform_reduce(thrust::device,
+                        new_d.data(),new_d.data()+new_d.size(),
+                        cdm_dis_vector_length(),
+                            0.0f,thrust::maximum<float>());
+        #endif
+    }
+    else
+    {
+        float theta = 0.0f;
+        par_for(new_d.size(),[&](int i)
+        {
+            float l = new_d[i].length();
+            if(l > theta)
+               theta = l;
+        });
+        return theta;
+    }
+}
+//---------------------------------------------------------------------------
+#ifdef __CUDACC__
+
+template<typename T>
+__global__ void cdm_constraint_cuda_kernel(T d)
+{
+    TIPL_FOR(cur_index,d.size())
+    {
+        auto v = d[cur_index];
+        if(v[0] > 0.125f)
+            v[0] = 0.125;
+        if(v[0] < -0.125f)
+            v[0] = -0.125;
+        if(v[1] > 0.125f)
+            v[1] = 0.125;
+        if(v[1] < -0.125f)
+            v[1] = -0.125;
+        if(v[2] > 0.125f)
+            v[2] = 0.125;
+        if(v[2] < -0.125f)
+            v[2] = -0.125;
+        d[cur_index] = v;
+    }
+}
+#endif
 template<typename dist_type>
 void cdm_constraint(dist_type& d)
 {
+    if constexpr(memory_location<dist_type>::at == CUDA)
+    {
+        #ifdef __CUDACC__
+        TIPL_RUN(cdm_constraint_cuda_kernel,d.size())
+                (tipl::make_shared(d));
+        #endif
+    }
+    else
     tipl::par_for(d.size(),[&](size_t cur_index)
     {
         auto v = d[cur_index];
@@ -273,6 +406,7 @@ void cdm_constraint(dist_type& d)
 }
 
 
+//---------------------------------------------------------------------------
 template<typename T,typename U>
 __INLINE__ void cdm_smooth_imp(T& d,U& dd,size_t cur_index)
 {
@@ -294,12 +428,33 @@ __INLINE__ void cdm_smooth_imp(T& d,U& dd,size_t cur_index)
         v += d[cur_index-d.plane_size()];
     dd[cur_index] = v;
 }
+//---------------------------------------------------------------------------
+#ifdef __CUDACC__
+template<typename T>
+__global__ void cdm_smooth_cuda_kernel(T d,T dd,float smoothing)
+{
+    TIPL_FOR(cur_index,d.size())
+    {
+        cdm_smooth_imp(d,dd,cur_index);
+    }
+}
+
+#endif
 template<typename dist_type>
 void cdm_smooth(dist_type& d,float smoothing)
 {
     if(smoothing == 0.0f)
         return;
     dist_type dd(d.shape());
+    if constexpr(memory_location<dist_type>::at == CUDA)
+    {
+        #ifdef __CUDACC__
+        TIPL_RUN(cdm_smooth_cuda_kernel,d.size())
+                (tipl::make_shared(d),tipl::make_shared(dd),smoothing);
+
+        #endif
+    }
+    else
     tipl::par_for(d.size(),[&](size_t cur_index)
     {
         cdm_smooth_imp(d,dd,cur_index);
@@ -310,7 +465,8 @@ void cdm_smooth(dist_type& d,float smoothing)
 }
 
 
-template<typename image_type,typename dist_type,typename terminate_type>
+
+template<typename out_type = void,typename image_type,typename dist_type,typename terminate_type>
 float cdm2(const image_type& It,const image_type& It2,
            const image_type& Is,const image_type& Is2,
            dist_type& d,// displacement field
@@ -336,9 +492,9 @@ float cdm2(const image_type& It,const image_type& It2,
         }
         cdm_param param2 = param;
         param2.resolution /= 2.0f;
-        float r = cdm2(rIt,rIt2,rIs,rIs2,d,inv_d,terminated,param2);
-        d *= 2.0f;
-        inv_d *= 2.0f;
+        float r = cdm2<out_type>(rIt,rIt2,rIs,rIs2,d,inv_d,terminated,param2);
+        multiply_constant(d,2.0f);
+        multiply_constant(inv_d,2.0f);
         upsample_with_padding(d,geo);
         upsample_with_padding(inv_d,geo);
         if(param.resolution > 1.0f)
@@ -348,22 +504,28 @@ float cdm2(const image_type& It,const image_type& It2,
     dist_type new_d(It.shape()),new_d2(It2.shape());// new displacements
     float theta = 0.0;
 
+    if constexpr(!std::is_void<out_type>::value)
+        out_type() << "resolution:" << It.shape();
 
-    std::deque<float> r,iter;
+    std::deque<float> cost,iter;
     for (unsigned int index = 0;index < param.iterations && !terminated;++index)
     {
         compose_displacement(Is,d,Js);
         // dJ(cJ-I)
-        r.push_back(cdm_get_gradient(Js,It,new_d));
+        cost.push_back(cdm_get_gradient(Js,It,new_d));
         if(has_dual)
         {
             compose_displacement(Is2,d,Js2);
-            r.back() += cdm_get_gradient(Js2,It2,new_d2);
-            r.back() *= 0.5f;
+            cost.back() += cdm_get_gradient(Js2,It2,new_d2);
+            cost.back() *= 0.5f;
         }
 
         iter.push_back(index);
-        if(!cdm_improved(r,iter))
+
+        if constexpr(!std::is_void<out_type>::value)
+            out_type() << "cost:" << cost.back();
+
+        if(!cdm_improved(cost,iter))
             break;
         if(has_dual)
             add(new_d,new_d2);
@@ -378,10 +540,10 @@ float cdm2(const image_type& It,const image_type& It2,
         //cdm_constraint(new_d);
         accumulate_displacement(d,new_d);
         cdm_smooth(d,param.smoothing);
-        invert_displacement_imp(d,inv_d,2);
+        invert_displacement(d,inv_d,2);
     }
-    invert_displacement_imp(d,inv_d);
-    return r.front();
+    invert_displacement(d,inv_d);
+    return cost.front();
 }
 
 
