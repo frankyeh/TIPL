@@ -25,13 +25,6 @@ constexpr bool use_cuda = true;
 constexpr bool use_cuda = false;
 #endif
 
-#ifdef INCLUDE_NLOHMANN_JSON_HPP_
-constexpr bool use_xeus_cling = true;
-#else
-constexpr bool use_xeus_cling = false;
-#endif
-
-
 enum memory_location_type{
     CPU,
     CUDA,
