@@ -759,7 +759,7 @@ template<typename input_iterator>
 __INLINE__ auto max_value(input_iterator from,input_iterator to)
 {
     if(from == to)
-        return std::iterator_traits<input_iterator>::value_type();
+        return typename std::iterator_traits<input_iterator>::value_type();
     auto m = *from;
     for(;from != to;++from)
         if(*from > m)
