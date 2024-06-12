@@ -297,7 +297,7 @@ bool run(const char* msg,fun_type fun,terminated_class& terminated)
                 ++i;
             }
         }
-    });
+    },2);
     return !prog.aborted();
 }
 
