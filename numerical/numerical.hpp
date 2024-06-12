@@ -720,7 +720,7 @@ template<typename input_iterator>
 __INLINE__ auto min_value(input_iterator from,input_iterator to)
 {
     if(from == to)
-        return std::iterator_traits<input_iterator>::value_type(0);
+        return typename std::iterator_traits<input_iterator>::value_type(0);
     auto m = *from;
     for(;from != to;++from)
         if(*from < m)
