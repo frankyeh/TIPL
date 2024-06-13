@@ -202,11 +202,12 @@ inline float cdm_get_gradient(const image_type& Js,const image_type& It,dis_type
     }
     else
     {
-        tipl::par_for(tipl::begin_index(Js.shape()),tipl::end_index(Js.shape()),
-                            [&](const pixel_index<image_type::dimension>& index)
+        size_t n = tipl::available_thread_count();
+        tipl::par_for(n,[&](size_t id)
         {
-            cdm_get_gradient_imp(index,Js,It,new_d,cost_map);
-        });
+            for(size_t index = id;index < Js.size();index += n)
+                cdm_get_gradient_imp(tipl::pixel_index<3>(index,Js.shape()),Js,It,new_d,cost_map);
+        },n);
     }
     return float(tipl::mean(cost_map));
 }
