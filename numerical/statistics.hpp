@@ -564,7 +564,7 @@ double permutation_test(input_iterator from,input_iterator to,unsigned int nx,un
 // fitting equation y=ax+b
 // return (a,b)
 template<typename input_iterator1,typename input_iterator2>
-std::pair<double,double> linear_regression(input_iterator1 x_from,input_iterator1 x_to,input_iterator2 y_from)
+__INLINE__ std::pair<double,double> linear_regression(input_iterator1 x_from,input_iterator1 x_to,input_iterator2 y_from)
 {
     double mean_x = mean(x_from,x_to);
     double mean_y = mean(y_from,y_from+(x_to-x_from));
