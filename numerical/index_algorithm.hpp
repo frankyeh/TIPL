@@ -317,7 +317,7 @@ public:
             {
                 int64_t yw = y*w;
                 for (int64_t x = -radius;x <= radius; ++x)
-                    if(x*x + y*y < radius*radius)
+                    if(x*x + y*y <= radius*radius)
                         index_shift.push_back(x + yw);
             }
     }
@@ -356,7 +356,7 @@ public:
             {
                 int64_t yw = y*w;
                 for (int64_t x = -radius;x <= radius; ++x)
-                    if(x*x + y*y + z*z < radius*radius)
+                    if(x*x + y*y + z*z <= radius*radius)
                         index_shift.push_back(x + yw + zwh);
             }
         }
