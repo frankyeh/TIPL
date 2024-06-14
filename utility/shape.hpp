@@ -591,7 +591,7 @@ public:
     }
     __INLINE__ size_t plane_size(void) const
     {
-        if (w && !wh)
+        if (!wh && w)
             wh = size_t(w)*size_t(h);
         return wh;
     }
