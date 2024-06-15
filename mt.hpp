@@ -57,17 +57,10 @@ inline bool is_main_thread(void)
     return main_thread_id == std::this_thread::get_id();
 }
 
-inline bool thread_occupied = false;
-inline int current_thread_count = 0;
 inline int max_thread_count = std::thread::hardware_concurrency();
-inline std::mutex current_thread_count_mutex;
-
 inline int available_thread_count(void)
 {
-    auto thread_count = max_thread_count-current_thread_count;
-    if(thread_count < 1)
-        thread_count = 1;
-    return thread_count;
+    return max_thread_count;
 }
 
 enum par_for_type{
@@ -80,12 +73,11 @@ template <par_for_type type = regular,typename T,
               std::is_integral<T>::value ||
               std::is_class<T>::value ||
               std::is_pointer<T>::value,bool>::type = true>
-__HOST__ void par_for(T from,T to,Func&& f,int thread_count = 0)
+__HOST__ void par_for(T from,T to,Func&& f,int thread_count)
 {
     if(to == from)
         return;
-    if(thread_count == 1 ||
-      (thread_count == 0 && thread_occupied))
+    if(thread_count <= 1)
     {
         if constexpr(type == ranged)
             f(from,to);
@@ -100,12 +92,6 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count = 0)
         return;
     }
 
-    if(thread_count == 0)
-    {
-        thread_count = available_thread_count();
-        thread_occupied = true;
-    }
-
     size_t n = to-from;
     if(thread_count > n)
         thread_count = n;
@@ -115,10 +101,6 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count = 0)
         size_t remainder = n % thread_count;
         auto run = [=,&f](T beg,T end,size_t id)
         {
-            {
-                std::lock_guard<std::mutex> lock(current_thread_count_mutex);
-                ++current_thread_count;
-            }
             if constexpr(type == ranged)
                 f(beg,end);
             else
@@ -128,10 +110,6 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count = 0)
                         f(beg,id);
                     else
                         f(beg);
-            }
-            {
-                std::lock_guard<std::mutex> lock(current_thread_count_mutex);
-                --current_thread_count;
             }
         };
 
@@ -146,22 +124,81 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count = 0)
         for(auto &thread : threads)
             thread.join();
     }
-    thread_occupied = false;
+}
+
+
+template <par_for_type type = regular,typename T,
+          typename Func,typename std::enable_if<
+              std::is_integral<T>::value ||
+              std::is_class<T>::value ||
+              std::is_pointer<T>::value,bool>::type = true>
+void par_for(T from,T to,Func&& f)
+{
+    static struct thread_opt{
+        std::vector<size_t> performance;
+        size_t cur_thread_count = 1;
+        size_t last_size = 0;
+        thread_opt(size_t max_thread = max_thread_count):performance(max_thread+1){}
+        std::chrono::high_resolution_clock::time_point beg;
+        void start()
+        {
+            beg = std::chrono::high_resolution_clock::now();
+        }
+        void end()
+        {
+            auto time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()-beg).count();
+            if(!performance[cur_thread_count])
+                performance[cur_thread_count] = time;
+            else
+                performance[cur_thread_count] = (performance[cur_thread_count]+time)/2;
+            if(cur_thread_count > 1 && time > performance[cur_thread_count-1])
+                --cur_thread_count;
+            if(time > performance[cur_thread_count+1] && cur_thread_count < performance.size()-1)
+                ++cur_thread_count;
+        }
+        void check(size_t new_size)
+        {
+            if(last_size != new_size)
+            {
+                std::fill(performance.begin(),performance.end(),0);
+                cur_thread_count = 1;
+                last_size = last_size;
+            }
+        }
+    } thread_optimizer;
+
+    thread_optimizer.start();
+    par_for<type>(from,to,std::move(f),thread_optimizer.cur_thread_count);
+    thread_optimizer.end();
 }
 
 template <par_for_type type = regular,typename T,typename Func,
           typename std::enable_if<std::is_integral<T>::value,bool>::type = true>
-inline void par_for(T size, Func&& f,unsigned int thread_count = 0)
+inline void par_for(T size, Func&& f,unsigned int thread_count)
 {
     par_for<type>(T(),size,std::move(f),thread_count);
 }
+template <par_for_type type = regular,typename T,typename Func,
+          typename std::enable_if<std::is_integral<T>::value,bool>::type = true>
+inline void par_for(T size, Func&& f)
+{
+    par_for<type>(T(),size,std::move(f));
+}
+
 
 template <par_for_type type = regular,typename T,typename Func>
 inline typename std::enable_if<
     std::is_same<decltype(std::declval<T>().begin()), decltype(std::declval<T>().end())>::value>::type
-par_for(T& c, Func&& f,unsigned int thread_count = 0)
+par_for(T& c, Func&& f,unsigned int thread_count)
 {
     par_for<type>(c.begin(),c.end(),std::move(f),thread_count);
+}
+template <par_for_type type = regular,typename T,typename Func>
+inline typename std::enable_if<
+    std::is_same<decltype(std::declval<T>().begin()), decltype(std::declval<T>().end())>::value>::type
+par_for(T& c, Func&& f)
+{
+    par_for<type>(c.begin(),c.end(),std::move(f));
 }
 
 template<typename T>
