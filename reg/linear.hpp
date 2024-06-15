@@ -183,12 +183,14 @@ public:
         tipl::par_for(tipl::begin_index(from_.shape()),tipl::end_index(from_.shape()),
                        [&](const pixel_index<ImageType1::dimension>& index,int id)
         {
+            if(id >= thread_count)
+                id = 0;
             tipl::vector<3> pos;
             transform(index,pos);
             unsigned char to_index = 0;
             tipl::estimate<tipl::interpolation::linear>(pto,pos,to_index);
             mutual_hist[id][(uint32_t(from[index.index()]) << band_width) + uint32_t(to_index)]++;
-        },thread_count);
+        });
 
         for(int i = 1;i < mutual_hist.size();++i)
             tipl::add(mutual_hist[0],mutual_hist[i]);
