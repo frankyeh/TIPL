@@ -9,6 +9,7 @@
 #include "../numerical/resampling.hpp"
 #include "../numerical/statistics.hpp"
 #include "../numerical/window.hpp"
+#include "../numerical/index_algorithm.hpp"
 #include <iostream>
 #include <limits>
 #include <vector>
@@ -40,84 +41,6 @@ void cdm_pre(image_type& It,image_type& It2,
     t4.join();
 }
 
-
-template<typename value_type,size_t dimension>
-class poisson_equation_solver;
-
-template<typename value_type>
-class poisson_equation_solver<value_type,2>
-{
-    typedef typename filter::pixel_manip<value_type>::type manip_type;
-public:
-    template<typename image_type>
-    void operator()(image_type& src)
-    {
-        image_type dest(src.shape());
-        int w = src.width();
-        int shift[4];
-        shift[0] = 1;
-        shift[1] = -1;
-        shift[2] = w;
-        shift[3] = -w;
-        for(int i = 0;i < 4;++i)
-        if (shift[i] >= 0)
-        {
-            auto iter1 = dest.begin() + shift[i];
-            auto iter2 = src.begin();
-            auto end = dest.end();
-            for (;iter1 < end;++iter1,++iter2)
-                *iter1 += *iter2;
-        }
-        else
-        {
-            auto iter1 = dest.begin();
-            auto iter2 = src.begin() + (-shift[i]);
-            auto end = src.end();
-            for (;iter2 < end;++iter1,++iter2)
-                *iter1 += *iter2;
-        }
-        dest.swap(src);
-    }
-};
-template<typename value_type>
-class poisson_equation_solver<value_type,3>
-{
-    typedef typename filter::pixel_manip<value_type>::type manip_type;
-public:
-    template<typename image_type>
-    void operator()(image_type& src)
-    {
-        image_type dest(src.shape());
-        int64_t w = src.width();
-        int64_t wh = src.width()*src.height();
-        int64_t shift[6];
-        shift[0] = 1;
-        shift[1] = -1;
-        shift[2] = w;
-        shift[3] = -w;
-        shift[4] = wh;
-        shift[5] = -wh;
-        for(int i = 0;i < 6;++i)
-        {
-            if (shift[i] >= 0)
-            {
-                int64_t s = shift[i];
-                par_for(dest.size()-s,[&dest,&src,s](size_t index){
-                    dest[index+s] += src[index];
-                });
-            }
-            else
-            {
-                int64_t s = -shift[i];
-                par_for(dest.size()-s,[&dest,&src,s](size_t index){
-                    dest[index] += src[index+s];
-                });
-            }
-        }
-        dest.swap(src);
-    }
-};
-
 template<typename cost_type>
 bool cdm_improved(cost_type& cost,cost_type& iter)
 {
@@ -148,29 +71,23 @@ template<typename T,typename U,typename V,typename W>
 __INLINE__ void cdm_get_gradient_imp(const pixel_index<T::dimension>& index,
                                      const T& Js,const U& It,V& new_d,W& cost_map)
 {
-    if(It[index.index()] == 0.0 || Js[index.index()] == 0.0 ||
-       It.shape().is_edge(index))
-    {
-        new_d[index.index()] = typename V::value_type();
-        return;
-    }
-    // calculate gradient
-    new_d[index.index()][0] = Js[index.index()+1]-Js[index.index()-1];
-    new_d[index.index()][1] = Js[index.index()+Js.width()]-Js[index.index()-Js.width()];
-    new_d[index.index()][2] = Js[index.index()+Js.plane_size()]-Js[index.index()-Js.plane_size()];
-
     typename T::value_type Itv[get_window_size<2,T::dimension>::value];
     typename T::value_type Jsv[get_window_size<2,T::dimension>::value];
     get_window_at_width<2>(index,It,Itv);
     auto size = get_window_at_width<2>(index,Js,Jsv);
+
     float a,b,r2;
-    linear_regression(Jsv,Jsv+size,Itv,a,b,r2);
-    if(a <= 0.0f)
-        new_d[index.index()] = typename V::value_type();
-    else
+    linear_regression(Jsv,Jsv+33,Itv,a,b,r2);
+    if(a > 0.0f)
     {
-        new_d[index.index()] *= r2*(Js[index.index()]*a+b-It[index.index()]);
-        cost_map[index.index()] = -r2;
+        // calculate gradient
+        float data[6];
+        connected_neighbors(index,Js,data);
+        tipl::vector<3> g(data[1] - data[0],data[3] - data[2],data[5] - data[4]);
+        auto pos = index.index();
+        g *= r2*(Js[pos]*a+b-It[pos]);
+        new_d[pos] += g;
+        cost_map[pos] = -r2;
     }
 }
 //---------------------------------------------------------------------------
@@ -202,12 +119,10 @@ inline float cdm_get_gradient(const image_type& Js,const image_type& It,dis_type
     }
     else
     {
-        size_t n = tipl::available_thread_count();
-        tipl::par_for(n,[&](size_t id)
+        tipl::par_for(Js.size(),[&](size_t index)
         {
-            for(size_t index = id;index < Js.size();index += n)
-                cdm_get_gradient_imp(tipl::pixel_index<3>(index,Js.shape()),Js,It,new_d,cost_map);
-        },n);
+            cdm_get_gradient_imp(tipl::pixel_index<3>(index,Js.shape()),Js,It,new_d,cost_map);
+        });
     }
     return float(tipl::mean(cost_map));
 }
@@ -215,43 +130,33 @@ inline float cdm_get_gradient(const image_type& Js,const image_type& It,dis_type
 #ifdef __CUDACC__
 
 template<typename T>
-__global__ void cdm_solve_poisson_cuda_kernel2(T new_d,T solve_d,T new_solve_d)
+__global__ void cdm_solve_poisson_cuda_kernel(T new_d,T solve_d,T new_solve_d)
 {
-    const float inv_d2 = 0.5f/3.0f;
-    int w = new_d.width();
-    int64_t wh = new_d.plane_size();
-    size_t stride = blockDim.x*gridDim.x;
-    for(int64_t index = threadIdx.x + blockIdx.x*blockDim.x;
-        index < new_d.size();index += stride)
+    const int w = new_d.width();
+    const int wh = new_d.plane_size();
+    const int size = new_d.size();
+    const int size_1 = new_d.size()-1;
+    const int size_w = new_d.size()-w;
+    const int size_wh = new_d.size()-wh;
+    constexpr float inv_d2 = 0.5f / 3.0f;
+    TIPL_FOR(pos,new_d.size())
     {
-        typename T::value_type v;
-        {
-            int64_t p1 = index-1;
-            int64_t p2 = index+1;
-            if(p1 >= 0)
-               v += solve_d[p1];
-            if(p2 < solve_d.size())
-               v += solve_d[p2];
-        }
-        {
-            int64_t p1 = index-w;
-            int64_t p2 = index+w;
-            if(p1 >= 0)
-               v += solve_d[p1];
-            if(p2 < solve_d.size())
-               v += solve_d[p2];
-        }
-        {
-            int64_t p1 = index-wh;
-            int64_t p2 = index+wh;
-            if(p1 >= 0)
-               v += solve_d[p1];
-            if(p2 < solve_d.size())
-               v += solve_d[p2];
-        }
-        v -= new_d[index];
+        auto v = new_solve_d[pos];
+        if(pos >= 1)
+           v += solve_d[pos-1];
+        if(pos < size_1)
+           v += solve_d[pos+1];
+        if(pos >= w)
+           v += solve_d[pos-w];
+        if(pos < size_w)
+           v += solve_d[pos+w];
+        if(pos >= wh)
+           v += solve_d[pos-wh];
+        if(pos < size_wh)
+           v += solve_d[pos+wh];
+        v -= new_d[pos];
         v *= inv_d2;
-        new_solve_d[index] = v;
+        new_solve_d[pos] = v;
     }
 }
 #endif
@@ -267,7 +172,7 @@ void cdm_solve_poisson(T& new_d,terminated_type& terminated)
         if constexpr(memory_location<T>::at == CUDA)
         {
             #ifdef __CUDACC__
-            cdm_solve_poisson_cuda_kernel2<<<std::min<int>((new_d.size()+255)/256,256),256>>>(
+            cdm_solve_poisson_cuda_kernel<<<std::min<int>((new_d.size()+255)/256,256),256>>>(
                         tipl::make_shared(new_d),
                         tipl::make_shared(solve_d),
                         tipl::make_shared(new_solve_d));
@@ -277,36 +182,26 @@ void cdm_solve_poisson(T& new_d,terminated_type& terminated)
         {
             const int w = new_d.width();
             const int wh = new_d.plane_size();
+            const int size = new_d.size();
+            const int size_1 = new_d.size()-1;
+            const int size_w = new_d.size()-w;
+            const int size_wh = new_d.size()-wh;
+            constexpr float inv_d2 = 0.5f / 3.0f;
             tipl::par_for(solve_d.size(),[&](int pos)
             {
-                // boundary checking (p > 0 && p < width) is critical for
-                // getting correct results from low resolution
-                constexpr float inv_d2 = 0.5f/3.0f;
                 auto v = new_solve_d[pos];
-                {
-                    int p1 = pos-1;
-                    int p2 = pos+1;
-                    if(p1 >= 0)
-                       v += solve_d[p1];
-                    if(p2 < solve_d.size())
-                       v += solve_d[p2];
-                }
-                {
-                    int p1 = pos-w;
-                    int p2 = pos+w;
-                    if(p1 >= 0)
-                       v += solve_d[p1];
-                    if(p2 < solve_d.size())
-                       v += solve_d[p2];
-                }
-                {
-                    int p1 = pos-wh;
-                    int p2 = pos+wh;
-                    if(p1 >= 0)
-                       v += solve_d[p1];
-                    if(p2 < solve_d.size())
-                       v += solve_d[p2];
-                }
+                if(pos >= 1)
+                   v += solve_d[pos-1];
+                if(pos < size_1)
+                   v += solve_d[pos+1];
+                if(pos >= w)
+                   v += solve_d[pos-w];
+                if(pos < size_w)
+                   v += solve_d[pos+w];
+                if(pos >= wh)
+                   v += solve_d[pos-wh];
+                if(pos < size_wh)
+                   v += solve_d[pos+wh];
                 v -= new_d[pos];
                 v *= inv_d2;
                 new_solve_d[pos] = v;
@@ -351,65 +246,8 @@ inline float cdm_max_displacement_length(dist_type& new_d)
     }
 }
 //---------------------------------------------------------------------------
-#ifdef __CUDACC__
-
-template<typename T>
-__global__ void cdm_constraint_cuda_kernel(T d)
-{
-    TIPL_FOR(cur_index,d.size())
-    {
-        auto v = d[cur_index];
-        if(v[0] > 0.125f)
-            v[0] = 0.125;
-        if(v[0] < -0.125f)
-            v[0] = -0.125;
-        if(v[1] > 0.125f)
-            v[1] = 0.125;
-        if(v[1] < -0.125f)
-            v[1] = -0.125;
-        if(v[2] > 0.125f)
-            v[2] = 0.125;
-        if(v[2] < -0.125f)
-            v[2] = -0.125;
-        d[cur_index] = v;
-    }
-}
-#endif
-template<typename dist_type>
-void cdm_constraint(dist_type& d)
-{
-    if constexpr(memory_location<dist_type>::at == CUDA)
-    {
-        #ifdef __CUDACC__
-        TIPL_RUN(cdm_constraint_cuda_kernel,d.size())
-                (tipl::make_shared(d));
-        #endif
-    }
-    else
-    tipl::par_for(d.size(),[&](size_t cur_index)
-    {
-        auto v = d[cur_index];
-        if(v[0] > 0.125f)
-            v[0] = 0.125;
-        if(v[0] < -0.125f)
-            v[0] = -0.125;
-        if(v[1] > 0.125f)
-            v[1] = 0.125;
-        if(v[1] < -0.125f)
-            v[1] = -0.125;
-        if(v[2] > 0.125f)
-            v[2] = 0.125;
-        if(v[2] < -0.125f)
-            v[2] = -0.125;
-        d[cur_index] = v;
-    });
-
-}
-
-
-//---------------------------------------------------------------------------
 template<typename T,typename U>
-__INLINE__ void cdm_smooth_imp(T& d,U& dd,size_t cur_index)
+__INLINE__ void cdm_smooth_imp(T& d,U& dd,size_t cur_index,float w_6,float w_1)
 {
     size_t cur_index_with_shift = cur_index + 1;
     tipl::vector<3> v;
@@ -427,16 +265,17 @@ __INLINE__ void cdm_smooth_imp(T& d,U& dd,size_t cur_index)
         v += d[cur_index_with_shift];
     if(cur_index >= d.plane_size())
         v += d[cur_index-d.plane_size()];
-    dd[cur_index] = v;
+    v *= w_6;
+    dd[cur_index] = d[cur_index]*w_1+v;
 }
 //---------------------------------------------------------------------------
 #ifdef __CUDACC__
 template<typename T>
-__global__ void cdm_smooth_cuda_kernel(T d,T dd,float smoothing)
+__global__ void cdm_smooth_cuda_kernel(T d,T dd,float w_6,float w_1)
 {
     TIPL_FOR(cur_index,d.size())
     {
-        cdm_smooth_imp(d,dd,cur_index);
+        cdm_smooth_imp(d,dd,cur_index,w_6,w_1);
     }
 }
 
@@ -451,18 +290,16 @@ void cdm_smooth(dist_type& d,float smoothing)
     {
         #ifdef __CUDACC__
         TIPL_RUN(cdm_smooth_cuda_kernel,d.size())
-                (tipl::make_shared(d),tipl::make_shared(dd),smoothing);
+                (tipl::make_shared(d),tipl::make_shared(dd),smoothing/6.0f,(1.0f-smoothing));
 
         #endif
     }
     else
     tipl::par_for(d.size(),[&](size_t cur_index)
     {
-        cdm_smooth_imp(d,dd,cur_index);
+        cdm_smooth_imp(d,dd,cur_index,smoothing/6.0f,(1.0f-smoothing));
     });
-    multiply_constant(dd,smoothing/6.0f);
-    multiply_constant(d,(1.0f-smoothing));
-    add(d,dd);
+    dd.swap(d);
 }
 
 
@@ -502,22 +339,24 @@ float cdm2(const image_type& It,const image_type& It2,
             return r;
     }
     image_type Js,Js2;// transformed I
-    dist_type new_d(It.shape()),new_d2(It2.shape());// new displacements
+
     float theta = 0.0;
 
     if constexpr(!std::is_void<out_type>::value)
         out_type() << "resolution:" << It.shape();
+
 
     std::deque<float> cost,iter;
     for (unsigned int index = 0;index < param.iterations && !terminated;++index)
     {
         compose_displacement(Is,d,Js);
         // dJ(cJ-I)
+        dist_type new_d(It.shape());
         cost.push_back(cdm_get_gradient(Js,It,new_d));
         if(has_dual)
         {
             compose_displacement(Is2,d,Js2);
-            cost.back() += cdm_get_gradient(Js2,It2,new_d2);
+            cost.back() += cdm_get_gradient(Js2,It2,new_d);
             cost.back() *= 0.5f;
         }
 
@@ -528,8 +367,6 @@ float cdm2(const image_type& It,const image_type& It2,
 
         if(!cdm_improved(cost,iter))
             break;
-        if(has_dual)
-            add(new_d,new_d2);
         // solving the poisson equation using Jacobi method
         cdm_solve_poisson(new_d,terminated);
 
@@ -540,6 +377,7 @@ float cdm2(const image_type& It,const image_type& It2,
         multiply_constant(new_d,param.speed/theta);
         //cdm_constraint(new_d);
         accumulate_displacement(d,new_d);
+        d.swap(new_d);
         cdm_smooth(d,param.smoothing);
         invert_displacement(d,inv_d,2);
     }

@@ -274,32 +274,34 @@ void invert_displacement(const T& v0,T& v1,size_t count = 8)
 }
 //---------------------------------------------------------------------------
 template<typename T,typename U,typename V>
-__INLINE__ void accumulate_displacement_imp(T& dis,U& new_dis,V& mapping,
-                                       const tipl::pixel_index<3>& index)
+__INLINE__ void accumulate_displacement_imp(const tipl::pixel_index<3>& index,const T& dis,U& new_dis,const V& mapping)
 {
     tipl::vector<3> d = new_dis[index.index()];
     if(d != tipl::vector<3>())
     {
-        if(tipl::estimate<tipl::interpolation::linear>(mapping,tipl::vector<3>(index)+d,dis[index.index()]))
-            dis[index.index()] -= index;
+        if(tipl::estimate<tipl::interpolation::linear>(mapping,tipl::vector<3>(index)+d,new_dis[index.index()]))
+            new_dis[index.index()] -= index;
+        else
+            new_dis[index.index()] = dis[index.index()];
     }
+    else
+        new_dis[index.index()] = dis[index.index()];
 }
 //---------------------------------------------------------------------------
 #ifdef __CUDACC__
 template<typename T1,typename T2,typename T3>
-__global__ void accumulate_displacement_cuda_kernel(T1 mapping,T2 new_dis,T3 dis)
+__global__ void accumulate_displacement_cuda_kernel(T1 dis,T2 new_dis,T3 mapping)
 {
     TIPL_FOR(index,new_dis.size())
     {
-        accumulate_displacement_imp(dis,new_dis,mapping,
-                                    tipl::pixel_index<3>(index,new_dis.shape()));
+        accumulate_displacement_imp(tipl::pixel_index<3>(index,new_dis.shape()),dis,new_dis,mapping);
     }
 }
 
 #endif
 //---------------------------------------------------------------------------
 template<typename T>
-void accumulate_displacement(T& dis,const T& new_dis)
+void accumulate_displacement(const T& dis,T& new_dis)
 {
     T mapping;
     displacement_to_mapping(dis,mapping);
@@ -307,14 +309,13 @@ void accumulate_displacement(T& dis,const T& new_dis)
     {
         #ifdef __CUDACC__
         TIPL_RUN(accumulate_displacement_cuda_kernel,dis.size())
-                (tipl::make_shared(mapping),tipl::make_shared(new_dis),tipl::make_shared(dis));
+                (tipl::make_shared(dis),tipl::make_shared(new_dis),tipl::make_shared(mapping));
         #endif
     }
     else
-    tipl::par_for(tipl::begin_index(dis.shape()),tipl::end_index(dis.shape()),
-        [&](const tipl::pixel_index<3>& index)
+    tipl::par_for(tipl::begin_index(dis.shape()),tipl::end_index(dis.shape()),[&](const tipl::pixel_index<3>& index)
     {
-        accumulate_displacement_imp(dis,new_dis,mapping,index);
+        accumulate_displacement_imp(index,dis,new_dis,mapping);
     });
 }
 //---------------------------------------------------------------------------
