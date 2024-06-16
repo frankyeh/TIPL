@@ -73,6 +73,16 @@ auto otsu_median(const image_type& I)
     return tipl::median(buf);
 }
 
+template<typename image_type>
+void otsu_median_regulzried(image_type& I)
+{
+    float ot = otsu_median(I);
+    if(ot == 0.0f)
+        return;
+    tipl::multiply_constant(I,0.5f/ot);
+    tipl::minus_constant(I,0.1);
+    tipl::upper_lower_threshold(I,0.0f,1.0f);
+}
 
 template<typename ImageType,typename LabelImageType>
 LabelImageType& otsu(const ImageType& src,LabelImageType& label,typename LabelImageType::value_type foreground = 1,typename LabelImageType::value_type background = 0)
