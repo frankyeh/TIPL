@@ -900,7 +900,7 @@ public:
         //now sr = Affine*Scaling*R1*R2*R3
         rotation_scaling_affine_matrix(rb.rotation,rb.scaling,rb.affine,sr,vdim<dimension>());
         // calculate (vs*Translocation*shift_center)
-        vs_type t(from[0],from[1],from[2]);
+        vs_type t(from.width(),from.height(),from.depth());
         t *= -0.5;
         t[0] *= from_vs[0];
         t[1] *= from_vs[1];
@@ -942,9 +942,9 @@ public:
             shift[2] /= to_vs[2];
         }
         // inv(shift_center) ... = inv(shift_center)(shift_center)...
-        shift[0] += to[0]*value_type(0.5);
-        shift[1] += to[1]*value_type(0.5);
-        shift[2] += to[2]*value_type(0.5);
+        shift[0] += float(to.width())*value_type(0.5);
+        shift[1] += float(to.height())*value_type(0.5);
+        shift[2] += float(to.depth())*value_type(0.5);
     }
     template<typename geo_type,typename vs_type>
     __DEVICE_HOST__ void to_affine_transform(affine_transform<value_type>& rb,
@@ -957,9 +957,9 @@ public:
         std::copy(sr,sr+9,R.begin());
 
         value_type t[3];
-        t[0] = shift[0]-to[0]*value_type(0.5);
-        t[1] = shift[1]-to[1]*value_type(0.5);
-        t[2] = shift[2]-to[2]*value_type(0.5);
+        t[0] = shift[0]-float(to.width())*value_type(0.5);
+        t[1] = shift[1]-float(to.height())*value_type(0.5);
+        t[2] = shift[2]-float(to.depth())*value_type(0.5);
 
         if(to_vs[2] != value_type(1))
         {
@@ -994,9 +994,9 @@ public:
         R[7] /= from_vs[1];
         R[8] /= from_vs[2];
         iR = tipl::inverse(R);
-        rb.translocation[0] = (iR[0]*t[0]+iR[1]*t[1]+iR[2]*t[2])+from[0]*value_type(0.5)*from_vs[0];
-        rb.translocation[1] = (iR[3]*t[0]+iR[4]*t[1]+iR[5]*t[2])+from[1]*value_type(0.5)*from_vs[1];
-        rb.translocation[2] = (iR[6]*t[0]+iR[7]*t[1]+iR[8]*t[2])+from[2]*value_type(0.5)*from_vs[2];
+        rb.translocation[0] = (iR[0]*t[0]+iR[1]*t[1]+iR[2]*t[2])+float(from.width())*value_type(0.5)*from_vs[0];
+        rb.translocation[1] = (iR[3]*t[0]+iR[4]*t[1]+iR[5]*t[2])+float(from.height())*value_type(0.5)*from_vs[1];
+        rb.translocation[2] = (iR[6]*t[0]+iR[7]*t[1]+iR[8]*t[2])+float(from.depth())*value_type(0.5)*from_vs[2];
         matrix_to_rotation_scaling_affine(R.begin(),rb.rotation,rb.scaling,rb.affine,vdim<dimension>());
     }
 public:
