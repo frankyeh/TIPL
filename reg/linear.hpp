@@ -334,7 +334,7 @@ public:
     __INLINE__ float optimize(bool& is_terminated)
     {
         std::vector<std::shared_ptr<cost_type> > cost_fun;
-        for(size_t i = 0;i < from.size();++i)
+        for(size_t i = 0;i < std::min(from.size(),to.size());++i)
             cost_fun.push_back(std::make_shared<cost_type>());
         return optimize(cost_fun,[&](void){return is_terminated;});
     }
@@ -405,7 +405,7 @@ public:
     __INLINE__ float optimize_mr(bool& is_terminated)
     {
         std::vector<std::shared_ptr<cost_type> > cost_fun;
-        for(size_t i = 0;i < from.size();++i)
+        for(size_t i = 0;i < std::min(from.size(),to.size());++i)
             cost_fun.push_back(std::make_shared<cost_type>());
         return optimize_mr(cost_fun,[&](void){return is_terminated;});
     }
@@ -449,7 +449,8 @@ public:
             line_search = false;
         }
         line_search = previous_line_search;
-        */float result = 0.0f;
+        */
+        float result = 0.0f;
         for(size_t i = 0;i < 5;++i)
         {
             line_search = (i == 0);
@@ -462,8 +463,8 @@ public:
 
 template<typename T,typename U>
 inline auto linear_reg(const std::vector<T>& template_image,tipl::vector<3> template_vs,
-                const std::vector<U>& subject_image,tipl::vector<3> subject_vs,
-                affine_transform<float>& arg_min)
+                       const std::vector<U>& subject_image,tipl::vector<3> subject_vs,
+                       affine_transform<float>& arg_min)
 {
     auto reg = std::make_shared<linear_reg_param<T,U> >(template_image,subject_image,arg_min);
     reg->from_vs = template_vs;
