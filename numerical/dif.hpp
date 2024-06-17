@@ -207,6 +207,14 @@ void compose_displacement(const T& from,const U& dis,V& to)
         });
     }
 }
+template<tipl::interpolation itype = linear,typename T,typename U>
+inline T compose_displacement(const T& from,const U& dis)
+{
+    T result;
+    compose_displacement(from,dis,result);
+    return std::move(result);
+}
+
 //---------------------------------------------------------------------------
 template<tipl::interpolation Type = linear,typename ImageType,typename ComposeImageType,typename OutImageType,typename transform_type>
 void compose_displacement_with_affine(const ImageType& src,OutImageType& dest,
