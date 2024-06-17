@@ -789,7 +789,7 @@ public:
             resample<interpotype>(J,I,from_space(I_T).to(J_T));
         return true;
     }
-    template<typename char_type,typename image_type,typename vs_type>
+    template<typename char_type,typename image_type>
     static bool load_from_file(const char_type* pfile_name,image_type& I)
     {
         nifti_base nii;
