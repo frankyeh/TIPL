@@ -226,12 +226,9 @@ class linear_reg_param{
     static const int dimension = 3;
     using transform_type = affine_transform<float>;
     using vs_type = tipl::vector<3>;
-private:
-    image_type1 from_buffer;
-    image_type2 to_buffer;
 public:
-    const image_type1& from;
-    const image_type2& to;
+    std::vector<image_type1> from;
+    std::vector<image_type2> to;
     transform_type& arg_min;
     tipl::vector<3> from_vs;
     tipl::vector<3> to_vs;
@@ -260,7 +257,7 @@ private:
     {
         while(from_series.back().size() > 64*64*64)
         {
-            from_buffer.push_back(U());
+            from_buffer.push_back(T());
             downsample_with_padding(from_series.back(),from_buffer.back());
             // add one more layer
             from_series.push_back(tipl::make_image(&from_buffer.back()[0],from_buffer.back().shape()));
@@ -272,14 +269,13 @@ private:
     }
 
 public:
-    linear_reg_param(const image_type1& from_,const image_type2& to_,
-                     transform_type& arg_min_):from(from_),to(to_),arg_min(arg_min_){}
+    linear_reg_param(const std::vector<image_type1>& from_,
+                     const std::vector<image_type2>& to_,transform_type& arg_min_):from(from_),to(to_),arg_min(arg_min_){}
     template<typename rhs_image_type1,typename rhs_image_type2,
              typename std::enable_if<!std::is_same<rhs_image_type1,image_type1>::value ||
                                      !std::is_same<rhs_image_type2,image_type2>::value,bool>::type = true>
     linear_reg_param(const linear_reg_param<rhs_image_type1,rhs_image_type2>& rhs):
-            from_buffer(rhs.from),to_buffer(rhs.to),
-            from(from_buffer),to(to_buffer),arg_min(rhs.arg_min),
+            from(rhs.from),to(rhs.to),arg_min(rhs.arg_min),
             from_vs(rhs.from_vs),to_vs(rhs.to_vs)
     {
         from_vs = rhs.from_vs;
@@ -307,8 +303,8 @@ public:
         if (type & translocation)
             for (unsigned int index = 0; index < dimension; ++index)
             {
-                float range = std::max<float>(from.shape()[index]*from_vs[index],
-                                              to.shape()[index]*to_vs[index])*0.5f;
+                float range = std::max<float>(from[0].shape()[index]*from_vs[index],
+                                              to[0].shape()[index]*to_vs[index])*0.5f;
                 arg_upper[index] += range*bound[0];
                 arg_lower[index] += range*bound[1];
             }
@@ -334,14 +330,21 @@ public:
             }
 
     }
-
     template<typename cost_type>
-    __INLINE__ float optimize(std::shared_ptr<cost_type> cost_fun,bool& is_terminated)
+    __INLINE__ float optimize(bool& is_terminated)
+    {
+        std::vector<std::shared_ptr<cost_type> > cost_fun;
+        for(size_t i = 0;i < from.size();++i)
+            cost_fun.push_back(std::make_shared<cost_type>());
+        return optimize(cost_fun,[&](void){return is_terminated;});
+    }
+    template<typename cost_type>
+    __INLINE__ float optimize(std::vector<std::shared_ptr<cost_type> >& cost_fun,bool& is_terminated)
     {
         return optimize(cost_fun,[&](void){return is_terminated;});
     }
     template<typename cost_type,typename terminated_type>
-    float optimize(std::shared_ptr<cost_type> cost_fun,terminated_type&& is_terminated)
+    float optimize(std::vector<std::shared_ptr<cost_type> > cost_fun,terminated_type&& is_terminated)
     {
         std::vector<reg_type> reg_list;
         if(type == translocation)
@@ -363,8 +366,13 @@ public:
         auto fun = [&](const transform_type& new_param,int thread_id = 0)
         {
             ++count;
-            return (*cost_fun.get())(from,to,
-                tipl::transformation_matrix<double>(new_param,from.shape(),from_vs,to.shape(),to_vs),thread_id);
+            std::vector<float> costs(cost_fun.size());
+            tipl::par_for(cost_fun.size(),[&](size_t i)
+            {
+                costs[i] = (*cost_fun[i].get())(from[i],to[i],
+                    tipl::transformation_matrix<double>(new_param,from[i].shape(),from_vs,to[i].shape(),to_vs),thread_id);
+            },cost_fun.size());
+            return tipl::sum(costs);
         };
         optimal_value = fun(arg_min);
         for(auto cur_type : reg_list)
@@ -393,15 +401,23 @@ public:
 
         return optimal_value;
     }
-
     template<typename cost_type>
-    __INLINE__ float optimize_mr(std::shared_ptr<cost_type> cost_fun,bool& is_terminated)
+    __INLINE__ float optimize_mr(bool& is_terminated)
+    {
+        std::vector<std::shared_ptr<cost_type> > cost_fun;
+        for(size_t i = 0;i < from.size();++i)
+            cost_fun.push_back(std::make_shared<cost_type>());
+        return optimize_mr(cost_fun,[&](void){return is_terminated;});
+    }
+    template<typename cost_type>
+    __INLINE__ float optimize_mr(std::vector<std::shared_ptr<cost_type> >& cost_fun,bool& is_terminated)
     {
         return optimize_mr(cost_fun,[&](void){return is_terminated;});
     }
     template<typename cost_type,typename terminated_type>
-    float optimize_mr(std::shared_ptr<cost_type> cost_fun,terminated_type&& is_terminated)
+    float optimize_mr(std::vector<std::shared_ptr<cost_type> > cost_fun,terminated_type&& is_terminated)
     {
+        /*
         std::list<image<image_type1::dimension,typename image_type1::value_type> > from_buffer;
         std::list<image<image_type1::dimension,typename image_type1::value_type> > to_buffer;
 
@@ -411,16 +427,16 @@ public:
         std::vector<vs_type> to_vs_series;
 
         // add original resolution as the first layer
-        from_series.push_back(tipl::make_image(&from[0],from.shape()));
-        to_series.push_back(tipl::make_image(&to[0],to.shape()));
+        from_series.push_back(from[0]);
+        to_series.push_back(to[0]);
         from_vs_series.push_back(from_vs);
         to_vs_series.push_back(to_vs);
         // create multiple resolution layers of the original image
         linear_mr_get_downsampled_images(from_buffer,from_series,from_vs_series);
         linear_mr_get_downsampled_images(to_buffer,to_series,to_vs_series);
-
         int from_index = int(from_series.size())-1;
         int to_index = int(to_series.size())-1;
+
         float result = 0.0f;
         bool previous_line_search = line_search;
         while(!is_terminated())
@@ -433,14 +449,20 @@ public:
             line_search = false;
         }
         line_search = previous_line_search;
+        */float result = 0.0f;
+        for(size_t i = 0;i < 5;++i)
+        {
+            line_search = (i == 0);
+            result = optimize(cost_fun,is_terminated);
+        }
         return result;
     }
 };
 
 
 template<typename T,typename U>
-auto linear_reg(const T& template_image,tipl::vector<3> template_vs,
-                const U& subject_image,tipl::vector<3> subject_vs,
+inline auto linear_reg(const std::vector<T>& template_image,tipl::vector<3> template_vs,
+                const std::vector<U>& subject_image,tipl::vector<3> subject_vs,
                 affine_transform<float>& arg_min)
 {
     auto reg = std::make_shared<linear_reg_param<T,U> >(template_image,subject_image,arg_min);
