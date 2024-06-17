@@ -790,6 +790,15 @@ public:
         return true;
     }
     template<typename char_type,typename image_type,typename vs_type>
+    static bool load_from_file(const char_type* pfile_name,image_type& I)
+    {
+        nifti_base nii;
+        if(!nii.load_from_file(pfile_name) ||
+           !nii.toLPS(I))
+            return false;
+        return true;
+    }
+    template<typename char_type,typename image_type,typename vs_type>
     static bool load_from_file(const char_type* pfile_name,image_type& I,vs_type& vs)
     {
         nifti_base nii;
