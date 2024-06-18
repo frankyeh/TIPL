@@ -16,7 +16,6 @@
 #include "../segmentation/otsu.hpp"
 #include "../morphology/morphology.hpp"
 #include "../filter/sobel.hpp"
-
 #ifdef __CUDACC__
 #include "../cu.hpp"
 #endif
@@ -221,18 +220,18 @@ const float narrow_bound[8] = {0.2f,-0.2f,      0.1f,-0.1f,    1.2f,0.8f,  0.05f
 const float reg_bound[8] =    {0.75f,-0.75f,    0.3f,-0.3f,    1.5f,0.7f,  0.15f,-0.15f};
 const float large_bound[8] =  {1.0f,-1.0f,      1.2f,-1.2f,    2.0f,0.5f,  0.5f,-0.5f};
 
-template<typename image_type1,typename image_type2>
+template<int dim,typename value_type>
 class linear_reg_param{
-    static const int dimension = 3;
+    static const int dimension = dim;
     using transform_type = affine_transform<float>;
-    using vs_type = tipl::vector<3>;
+    using vs_type = tipl::vector<dim>;
+    using image_type = image<dim,value_type>;
+    using pointer_image_type = const_pointer_image<dim,value_type>;
 public:
-    std::vector<image_type1> from;
-    std::vector<image_type2> to;
-    transform_type& arg_min;
-    tipl::vector<3> from_vs;
-    tipl::vector<3> to_vs;
+    std::vector<pointer_image_type> from,to;
+    tipl::vector<3> from_vs,to_vs;
     transform_type arg_upper,arg_lower;
+    transform_type& arg_min;
     reg_type type = affine;
 public:
     unsigned int count = 0;
@@ -251,30 +250,26 @@ private:
             if(!(type & check_reg[index]))
                 upper[index] = lower[index] = arg_min[index];
     }
-
-    template<typename T,typename U,typename V>
-    void linear_mr_get_downsampled_images(std::list<T>& from_buffer,std::vector<U>& from_series,std::vector<V>& vs_series)
+private:
+    std::vector<image_type> buffer;
+    void down_sampling(void)
     {
-        while(from_series.back().size() > 64*64*64)
+        buffer.resize(from.size()+to.size());
+        std::vector<pointer_image_type> from_to_list(buffer.size());
+        tipl::par_for(buffer.size(),[&](size_t id)
         {
-            from_buffer.push_back(T());
-            downsample_with_padding(from_series.back(),from_buffer.back());
-            // add one more layer
-            from_series.push_back(tipl::make_image(&from_buffer.back()[0],from_buffer.back().shape()));
-            vs_series.push_back(vs_series.back()*2.0f);
-        }
-        // remove those too large
-        while(from_series.size() > 1 && from_series.front().width() > 512 && from_series.front().height() > 512)
-            from_series.erase(from_series.begin());
+            downsample_with_padding(id < from.size() ? from[id]:to[id-from.size()],buffer[id]);
+            from_to_list[id] = pointer_image_type(&buffer[id][0],buffer[id].shape());
+        },buffer.size());
+        from = std::vector<pointer_image_type>(from_to_list.begin(),from_to_list.begin()+from.size());
+        to = std::vector<pointer_image_type>(from_to_list.begin()+from.size(),from_to_list.end());
+        from_vs *= 2.0f;
+        to_vs *= 2.0f;
     }
-
 public:
-    linear_reg_param(const std::vector<image_type1>& from_,
-                     const std::vector<image_type2>& to_,transform_type& arg_min_):from(from_),to(to_),arg_min(arg_min_){}
-    template<typename rhs_image_type1,typename rhs_image_type2,
-             typename std::enable_if<!std::is_same<rhs_image_type1,image_type1>::value ||
-                                     !std::is_same<rhs_image_type2,image_type2>::value,bool>::type = true>
-    linear_reg_param(const linear_reg_param<rhs_image_type1,rhs_image_type2>& rhs):
+    linear_reg_param(const std::vector<pointer_image_type>& from_,
+                     const std::vector<pointer_image_type>& to_,transform_type& arg_min_):from(from_),to(to_),arg_min(arg_min_){}
+    linear_reg_param(const linear_reg_param& rhs):
             from(rhs.from),to(rhs.to),arg_min(rhs.arg_min),
             from_vs(rhs.from_vs),to_vs(rhs.to_vs)
     {
@@ -329,19 +324,6 @@ public:
                 arg_lower[index] += bound[7];
             }
 
-    }
-    template<typename cost_type>
-    __INLINE__ float optimize(bool& is_terminated)
-    {
-        std::vector<std::shared_ptr<cost_type> > cost_fun;
-        for(size_t i = 0;i < std::min(from.size(),to.size());++i)
-            cost_fun.push_back(std::make_shared<cost_type>());
-        return optimize(cost_fun,[&](void){return is_terminated;});
-    }
-    template<typename cost_type>
-    __INLINE__ float optimize(std::vector<std::shared_ptr<cost_type> >& cost_fun,bool& is_terminated)
-    {
-        return optimize(cost_fun,[&](void){return is_terminated;});
     }
     template<typename cost_type,typename terminated_type>
     float optimize(std::vector<std::shared_ptr<cost_type> > cost_fun,terminated_type&& is_terminated)
@@ -401,62 +383,36 @@ public:
 
         return optimal_value;
     }
-    template<typename cost_type>
-    __INLINE__ float optimize_mr(bool& is_terminated)
+    template<typename cost_type,typename terminated_type>
+    __INLINE__ float optimize(terminated_type&& is_terminated)
     {
         std::vector<std::shared_ptr<cost_type> > cost_fun;
         for(size_t i = 0;i < std::min(from.size(),to.size());++i)
             cost_fun.push_back(std::make_shared<cost_type>());
-        return optimize_mr(cost_fun,[&](void){return is_terminated;});
+        return optimize(cost_fun,is_terminated);
     }
     template<typename cost_type>
-    __INLINE__ float optimize_mr(std::vector<std::shared_ptr<cost_type> >& cost_fun,bool& is_terminated)
+    __INLINE__ float optimize(bool& is_terminated)
     {
-        return optimize_mr(cost_fun,[&](void){return is_terminated;});
+        return optimize<cost_type>([&](void){return is_terminated;});
     }
     template<typename cost_type,typename terminated_type>
-    float optimize_mr(std::vector<std::shared_ptr<cost_type> > cost_fun,terminated_type&& is_terminated)
+    __INLINE__ float optimize_mr(terminated_type&& terminated)
     {
-        /*
-        std::list<image<image_type1::dimension,typename image_type1::value_type> > from_buffer;
-        std::list<image<image_type1::dimension,typename image_type1::value_type> > to_buffer;
-
-        std::vector<const_pointer_image<image_type1::dimension,typename image_type1::value_type> > from_series;
-        std::vector<const_pointer_image<image_type1::dimension,typename image_type1::value_type> > to_series;
-        std::vector<vs_type> from_vs_series;
-        std::vector<vs_type> to_vs_series;
-
-        // add original resolution as the first layer
-        from_series.push_back(from[0]);
-        to_series.push_back(to[0]);
-        from_vs_series.push_back(from_vs);
-        to_vs_series.push_back(to_vs);
-        // create multiple resolution layers of the original image
-        linear_mr_get_downsampled_images(from_buffer,from_series,from_vs_series);
-        linear_mr_get_downsampled_images(to_buffer,to_series,to_vs_series);
-        int from_index = int(from_series.size())-1;
-        int to_index = int(to_series.size())-1;
-
-        float result = 0.0f;
-        bool previous_line_search = line_search;
-        while(!is_terminated())
+        if(from[0].size() > 64*64*64)
         {
-            result = optimize(cost_fun,is_terminated);
-            if(from_index == 0) // cost evaluated at "from" space
-                break;
-            from_index = std::max<int>(0,from_index-1);
-            to_index = std::max<int>(0,to_index-1);
-            line_search = false;
+            linear_reg_param low_reso_reg(*this);
+            low_reso_reg.down_sampling();
+            low_reso_reg.optimize_mr<cost_type>(terminated);
+            if(line_search)
+                line_search = false;
         }
-        line_search = previous_line_search;
-        */
-        float result = 0.0f;
-        for(size_t i = 0;i < 5;++i)
-        {
-            line_search = (i == 0);
-            result = optimize(cost_fun,is_terminated);
-        }
-        return result;
+        return optimize<cost_type>(terminated);
+    }
+    template<typename cost_type>
+    __INLINE__ float optimize_mr(bool& is_terminated)
+    {
+        return optimize_mr<cost_type>([&](void){return is_terminated;});
     }
 };
 
@@ -466,7 +422,7 @@ inline auto linear_reg(const std::vector<T>& template_image,tipl::vector<3> temp
                        const std::vector<U>& subject_image,tipl::vector<3> subject_vs,
                        affine_transform<float>& arg_min)
 {
-    auto reg = std::make_shared<linear_reg_param<T,U> >(template_image,subject_image,arg_min);
+    auto reg = std::make_shared<linear_reg_param<T::dimension,typename U::value_type> >(template_image,subject_image,arg_min);
     reg->from_vs = template_vs;
     reg->to_vs = subject_vs;
     return reg;
