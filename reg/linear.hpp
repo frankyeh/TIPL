@@ -397,7 +397,7 @@ public:
         return optimize<cost_type>([&](void){return is_terminated;});
     }
     template<typename cost_type,typename terminated_type>
-    __INLINE__ float optimize_mr(terminated_type&& terminated)
+    float optimize_mr(terminated_type&& terminated)
     {
         if(from[0].size() > 64*64*64)
         {
