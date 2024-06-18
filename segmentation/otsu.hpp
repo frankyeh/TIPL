@@ -62,7 +62,7 @@ float otsu_threshold(const ImageType& src,size_t skip = 1)
 }
 
 template<typename image_type>
-auto otsu_median(const image_type& I)
+float otsu_median(const image_type& I)
 {
     float ot = otsu_threshold(I);
     std::vector<float> buf;
@@ -70,6 +70,8 @@ auto otsu_median(const image_type& I)
     for(size_t i = 0;i < I.size();++i)
         if(I[i] > ot)
             buf.push_back(I[i]);
+    if(buf.empty())
+        return ot;
     return tipl::median(buf);
 }
 
