@@ -815,12 +815,11 @@ __INLINE__ typename container_type::value_type max_abs_value(const container_typ
 
 
 template<typename iterator_type>
-__INLINE__
-std::pair<typename std::iterator_traits<iterator_type>::value_type,typename std::iterator_traits<iterator_type>::value_type>
-minmax_value(iterator_type iter,iterator_type end)
+__INLINE__ auto minmax_value(iterator_type iter,iterator_type end)
 {
+    using value_type = typename std::iterator_traits<iterator_type>::value_type;
     if(iter == end)
-        return std::make_pair(0,0);
+        return std::make_pair(value_type(),value_type());
     auto min_value = *iter;
     auto max_value = *iter;
     for(++iter; iter != end; ++iter)
