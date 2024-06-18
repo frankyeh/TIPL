@@ -1090,7 +1090,7 @@ void upper_lower_threshold(T& I,typename T::value_type lower,typename T::value_t
 }
 
 template<typename InputIter,typename OutputIter>
-__INLINE__ void normalize_upper_lower2(InputIter from,InputIter to,OutputIter out,float upper_limit = 255.0)
+__INLINE__ void normalize_upper_lower2(InputIter from,InputIter to,OutputIter out,float upper_limit)
 {
 		using MinMaxType = typename std::iterator_traits<InputIter>::value_type;
 
@@ -1113,7 +1113,7 @@ __global__  void normalize_upper_lower2_cuda_kernel(T1 in,T2 out,value_type min,
 #endif
 //---------------------------------------------------------------------------
 template<typename T,typename U>
-void normalize_upper_lower2(const T& in,U& out,float upper_limit = 255.0)
+void normalize_upper_lower2(const T& in,U& out,float upper_limit)
 {
     auto min_max = minmax_value(in);
     auto range = min_max.second-min_max.first;
@@ -1137,7 +1137,7 @@ void normalize_upper_lower2(const T& in,U& out,float upper_limit = 255.0)
 }
 
 template<typename ImageType>
-inline void normalize_upper_lower(ImageType& I,float upper_limit = 255.0)
+inline void normalize_upper_lower(ImageType& I,float upper_limit)
 {
     normalize_upper_lower2(I.begin(),I.end(),I.begin(),upper_limit);
 }
