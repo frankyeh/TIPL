@@ -387,7 +387,8 @@ public:
     __INLINE__ float optimize(terminated_type&& is_terminated)
     {
         std::vector<std::shared_ptr<cost_type> > cost_fun;
-        for(size_t i = 0;i < std::min(from.size(),to.size());++i)
+        auto size = (from.size() > to.size() ? to.size() : from.size());
+        for(size_t i = 0;i < size;++i)
             cost_fun.push_back(std::make_shared<cost_type>());
         return optimize(cost_fun,is_terminated);
     }
