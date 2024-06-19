@@ -64,7 +64,15 @@ public:
     __INLINE__ bool empty(void)                             const    {return sz == 0;}
     __INLINE__ void clear(void)                                      {sz = 0;}
 public:
-    __INLINE__ void swap(pointer_container& rhs)                     {std::swap(bg,rhs.bg);std::swap(sz,rhs.sz);}
+    __INLINE__ void swap(pointer_container& rhs)
+    {
+        iterator temp_bg = rhs.bg;
+        size_t temp_sz = rhs.sz;
+        rhs.bg = bg;
+        rhs.sz = sz;
+        bg = temp_bg;
+        sz = temp_sz;
+    }
     __INLINE__ void resize(size_t new_size)                          {sz = new_size;}
 };
 
@@ -132,7 +140,15 @@ public:
     __INLINE__ size_t size(void)                            const    {return sz;}
     __INLINE__ bool empty(void)                             const    {return sz == 0;}
 public:
-    __INLINE__ void swap(const_pointer_container& rhs)               {std::swap(bg,rhs.bg);std::swap(sz,rhs.sz);}
+    void swap(const_pointer_container& rhs)
+    {
+        iterator temp_bg = rhs.bg;
+        size_t temp_sz = rhs.sz;
+        rhs.bg = bg;
+        rhs.sz = sz;
+        bg = temp_bg;
+        sz = temp_sz;
+    }
 };
 
 template<typename vtype>
@@ -154,45 +170,45 @@ protected:
         sz = buffer.size()/sizeof(value_type);
     }
 public:
-    __INLINE__ buffer_container(void){}
-    __INLINE__ buffer_container(size_t new_size)
+    buffer_container(void){}
+    buffer_container(size_t new_size)
     {
         resize(new_size);
     }
     template<typename any_iterator_type>
-    __INLINE__ buffer_container(any_iterator_type from,any_iterator_type to)
+    buffer_container(any_iterator_type from,any_iterator_type to)
     {
         resize(to-from);
         if(beg)
             std::copy(from,to,beg);
     }
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    __INLINE__ buffer_container(T& rhs){operator=(rhs);}
+    buffer_container(T& rhs){operator=(rhs);}
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    __INLINE__ buffer_container(T&& rhs){operator=(std::move(rhs));}
+    buffer_container(T&& rhs){operator=(std::move(rhs));}
 
 public:
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    __INLINE__ buffer_container& operator=(T& rhs)
+    buffer_container& operator=(T& rhs)
     {
         resize(rhs.size());
         if(beg)
             std::copy(rhs.begin(),rhs.end(),beg);
         return *this;
     }
-    __INLINE__ buffer_container& operator=(const buffer_container& rhs)
+    buffer_container& operator=(const buffer_container& rhs)
     {
         buffer = rhs.buffer;
         update_beg();
         return *this;
     }
-    __INLINE__ buffer_container& operator=(buffer_container&& rhs)
+    buffer_container& operator=(buffer_container&& rhs)
     {
         buffer.swap(rhs.buffer);
         update_beg();
         return *this;
     }
-    __INLINE__ buffer_container& operator=(std::vector<unsigned char>&& buffer_)
+    buffer_container& operator=(std::vector<unsigned char>&& buffer_)
     {
         buffer.swap(buffer_);
         update_beg();
@@ -200,32 +216,32 @@ public:
     }
 public:
     template<typename index_type>
-    __INLINE__ const_reference operator[](index_type index) const    {return beg[index];}
-    __INLINE__ const_iterator begin(void)                   const    {return beg;}
-    __INLINE__ const_iterator end(void)                     const    {return beg+sz;}
-    __INLINE__ const_iterator data(void)                     const    {return beg;}
+    const_reference operator[](index_type index) const    {return beg[index];}
+    const_iterator begin(void)                   const    {return beg;}
+    const_iterator end(void)                     const    {return beg+sz;}
+    const_iterator data(void)                     const    {return beg;}
 public:
     template<typename index_type>
-    __INLINE__ reference operator[](index_type index)                {return beg[index];}
-    __INLINE__ iterator begin(void)                                  {return beg;}
-    __INLINE__ iterator end(void)                                    {return beg+sz;}
-    __INLINE__ iterator data(void)                                    {return beg;}
+    reference operator[](index_type index)                {return beg[index];}
+    iterator begin(void)                                  {return beg;}
+    iterator end(void)                                    {return beg+sz;}
+    iterator data(void)                                    {return beg;}
 public:
-    __INLINE__ size_t size(void)                            const    {return sz;}
-    __INLINE__ bool empty(void)                             const    {return buffer.empty();}
-    __INLINE__ void clear(void)                                      {buffer.clear();beg = nullptr;sz = 0;}
+    size_t size(void)                            const    {return sz;}
+    bool empty(void)                             const    {return buffer.empty();}
+    void clear(void)                                      {buffer.clear();beg = nullptr;sz = 0;}
 public:
-    __INLINE__ void swap(buffer_container& rhs)
+    void swap(buffer_container& rhs)
     {
         buffer.swap(rhs.buffer);
         update_beg();
     }
-    __INLINE__ void swap(std::vector<unsigned char>& buffer_)
+    void swap(std::vector<unsigned char>& buffer_)
     {
         buffer.swap(buffer_);
         update_beg();
     }
-    __INLINE__ void resize(size_t new_size)
+    void resize(size_t new_size)
     {
         buffer.resize(new_size*sizeof(value_type));
         update_beg();
@@ -244,7 +260,7 @@ public:
     using slice_type        = tipl::image<dim-1,value_type,pointer_container> ;
     using const_slice_type  = tipl::image<dim-1,value_type,const_pointer_container>;
     using shape_type        = tipl::shape<dim>;
-    using buffer_type       = typename image<dim,vtype,std::vector>;
+    using buffer_type       = typename image<dim,vtype,stype>;
     static constexpr int dimension = dim;
 protected:
     storage_type alloc;
