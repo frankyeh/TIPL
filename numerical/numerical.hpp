@@ -814,12 +814,11 @@ __INLINE__ typename container_type::value_type max_abs_value(const container_typ
 }
 
 
-template<typename iterator_type>
-__INLINE__ auto minmax_value(iterator_type iter,iterator_type end)
+template<typename iterator_type,typename value_type>
+__INLINE__ void minmax_value(iterator_type iter,iterator_type end,value_type& minv,value_type& maxv)
 {
-    using value_type = typename std::iterator_traits<iterator_type>::value_type;
     if(iter == end)
-        return std::make_pair(value_type(),value_type());
+        return;
     auto min_value = *iter;
     auto max_value = *iter;
     for(++iter; iter != end; ++iter)
@@ -830,42 +829,48 @@ __INLINE__ auto minmax_value(iterator_type iter,iterator_type end)
         else if(value < min_value)
             min_value = value;
     }
-    return std::make_pair(min_value,max_value);
+    minv = min_value;
+    maxv = max_value;
 }
 
-template<typename T>
+template<typename T,typename value_type>
 __HOST__
-std::pair<typename T::value_type,typename T::value_type>
-minmax_value(const T& data)
+void minmax_value(const T& data,value_type& minv,value_type& maxv)
 {
     if(data.empty())
-        return std::make_pair(0,0);
+        return;
     if constexpr(memory_location<T>::at == CUDA)
     {
         #ifdef __CUDACC__
         auto result = thrust::minmax_element(thrust::device,
                                      data.data(),data.data()+data.size());
-        return std::make_pair(device_eval(result.first),device_eval(result.second));
+        minv = device_eval(result.first);
+        maxv = device_eval(result.second);
         #endif
     }
     else
     {
         if(data.size() < 10000 || available_thread_count() < 2)
-            return minmax_value(data.begin(),data.end());
+        {
+            minmax_value(data.begin(),data.end(),minv,maxv);
+            return;
+        }
 
         std::mutex mutex;
         auto min_v = data[0];
         auto max_v = data[0];
         tipl::par_for<ranged>(data.begin(),data.end(),[&](auto beg,auto end)
         {
-            auto result = minmax_value(beg,end);
+            value_type min_v_(data[0]),max_v_(data[0]);
+            minmax_value(beg,end,min_v_,max_v_);
             std::lock_guard<std::mutex> lock(mutex);
-            if(result.first < min_v)
-                min_v = result.first;
-            if(result.second > max_v)
-                max_v = result.second;
+            if(min_v_ < min_v)
+                min_v = min_v_;
+            if(max_v_ > max_v)
+                max_v = max_v_;
         });
-        return std::make_pair(min_v,max_v);
+        minv = min_v;
+        maxv = max_v;
     }
 }
 //---------------------------------------------------------------------------
@@ -1092,15 +1097,17 @@ void upper_lower_threshold(T& I,typename T::value_type lower,typename T::value_t
 template<typename InputIter,typename OutputIter>
 __INLINE__ void normalize_upper_lower2(InputIter from,InputIter to,OutputIter out,float upper_limit)
 {
-		using MinMaxType = typename std::iterator_traits<InputIter>::value_type;
-
-    std::pair<MinMaxType,MinMaxType> min_max(minmax_value(from,to));
-    auto range = min_max.second-min_max.first;
+    if(from == to)
+        return;
+    auto min_v = *from;
+    auto max_v = *from;
+    minmax_value(from,to,min_v,max_v);
+    auto range = max_v-min_v;
     if(range == 0)
         return;
     upper_limit /= range;
     for(;from != to;++from,++out)
-        *out = (*from-min_max.first)*upper_limit;
+        *out = (*from-min_v)*upper_limit;
 }
 //---------------------------------------------------------------------------
 #ifdef __CUDACC__
@@ -1113,25 +1120,28 @@ __global__  void normalize_upper_lower2_cuda_kernel(T1 in,T2 out,value_type min,
 #endif
 //---------------------------------------------------------------------------
 template<typename T,typename U>
-void normalize_upper_lower2(const T& in,U& out,float upper_limit)
+__HOST__ void normalize_upper_lower2(const T& in,U& out,float upper_limit)
 {
-    auto min_max = minmax_value(in);
-    auto range = min_max.second-min_max.first;
-    if(range == 0)
+    if(in.empty())
+        return;
+    float min_v(0),max_v(0);
+    minmax_value(in,min_v,max_v);
+    float range = max_v-min_v;
+    if(range == 0.0f)
         return;
     upper_limit /= range;
     if constexpr(memory_location<T>::at == CUDA)
     {
         #ifdef __CUDACC__
         TIPL_RUN(normalize_upper_lower2_cuda_kernel,in.size())
-            (tipl::make_shared(in),tipl::make_shared(out),float(min_max.first),upper_limit);
+            (tipl::make_shared(in),tipl::make_shared(out),min_v,upper_limit);
         #endif
     }
     else
     {
         par_for(in.size(),[&](size_t i)
         {
-            out[i] = (in[i]-min_max.first)*upper_limit;
+            out[i] = (in[i]-min_v)*upper_limit;
         });
     }
 }
@@ -1159,8 +1169,10 @@ void normalize_abs(ImageType& I,float upper_limit = 1.0f)
 {
     if(I.empty())
         return;
-    auto minmax = minmax_value(I);
-    auto scale = std::max(-*minmax.first,*minmax.second);
+    auto min_v = I[0];
+    auto max_v = I[0];
+    minmax_value(I,min_v,max_v);
+    auto scale = std::max(-min_v,max_v);
     if(scale != 0)
         multiply_constant(I,upper_limit/scale);
 }

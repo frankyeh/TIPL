@@ -12,11 +12,15 @@ namespace segmentation{
 template<typename ImageType>
 float otsu_threshold(const ImageType& src,size_t skip = 1)
 {
-    auto min_max = minmax_value(src.begin(),src.end());
+    if(src.empty())
+        return 0.0f;
+    auto min_v = src[0];
+    auto max_v = src[0];
+    minmax_value(src,min_v,max_v);
     std::vector<unsigned int> hist;
-    histogram(src,hist,min_max.first,min_max.second);
+    histogram(src,hist,min_v,max_v);
     if(hist.empty())
-        return min_max.first;
+        return min_v;
     std::vector<unsigned int> w(hist.size());
     std::vector<float> sum(hist.size());
     std::fill(hist.begin(),hist.begin() + skip,0);
@@ -56,8 +60,8 @@ float otsu_threshold(const ImageType& src,size_t skip = 1)
     }
     float optimal_threshold_value = optimal_threshold;
     optimal_threshold_value /= hist.size();
-    optimal_threshold_value *= min_max.second - min_max.first;
-    optimal_threshold_value += min_max.first;
+    optimal_threshold_value *= max_v - min_v;
+    optimal_threshold_value += min_v;
     return optimal_threshold_value;
 }
 
