@@ -285,7 +285,7 @@ public:
     }
     void set_bound(const float* bound = reg_bound,bool absolute = true)
     {
-        if(reg_bound == narrow_bound)
+        if(bound == narrow_bound)
             line_search = false;
         if(absolute)
         {
