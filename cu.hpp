@@ -155,7 +155,7 @@ class device_vector{
             {
                 value_type* new_buf;
                 if(cudaMalloc(&new_buf,sizeof(value_type)*new_s) != cudaSuccess)
-                    throw std::bad_alloc();
+                    throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
                 if(s)
                 {
                     if(cudaMemcpy(new_buf,buf,s*sizeof(value_type),cudaMemcpyDeviceToDevice) != cudaSuccess)
@@ -355,7 +355,7 @@ class host_vector{
             {
                 iterator new_buf;
                 if(cudaMallocHost(&new_buf,sizeof(value_type)*new_s) != cudaSuccess)
-                    throw std::bad_alloc();
+                    throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
                 if(s)
                 {
                     if(cudaMemcpy(new_buf, buf, s*sizeof(value_type), cudaMemcpyHostToHost) != cudaSuccess)
@@ -394,15 +394,81 @@ class host_vector{
 };
 
 
+template<typename vtype>
+class const_pointer_device_container
+{
+public:
+    using value_type        = vtype;
+    using iterator          = const vtype*;
+    using const_iterator    = const vtype*;
+    using reference         = const vtype&;
+    using const_reference   = const vtype&;
+protected:
+    iterator bg = nullptr;
+    size_t sz = 0;
+public:
+    __INLINE__ const_pointer_device_container(void){}
+    __INLINE__ const_pointer_device_container(const const_pointer_device_container& rhs):bg(rhs.bg),sz(rhs.sz){}
+    __INLINE__ const_pointer_device_container(iterator from,iterator to):bg(from),sz(to-from){}
+    __INLINE__ const_pointer_device_container& operator=(const const_pointer_device_container& rhs)
+    {
+        bg = rhs.bg;sz = rhs.sz;
+        return *this;
+    }
+public:
+    __INLINE__ const void* begin(void)                   const    {return bg;}
+    __INLINE__ const void* end(void)                     const    {return bg+sz;}
+    __INLINE__ const void* data(void)                     const    {return bg;}
+public:
+    __INLINE__ size_t size(void)                            const    {return sz;}
+    __INLINE__ bool empty(void)                             const    {return sz == 0;}
+};
 
 template<int dim,typename vtype = float>
-using device_image = tipl::image<dim,vtype,device_vector>;
+class const_pointer_device_image : public image<dim,vtype,const_pointer_device_container>
+{
+public:
+    using value_type        =   vtype;
+    using base_type         =   image<dim,value_type,const_pointer_device_container>;
+    using iterator          =   typename base_type::iterator;
+    using const_iterator    =   typename base_type::const_iterator;
+    using storage_type      =   typename image<dim,vtype,const_pointer_device_container>::storage_type;
+    using buffer_type       =   typename image<dim,vtype,device_vector>;
+    static constexpr int dimension = dim;
+public:
+    __INLINE__ const_pointer_device_image(void) {}
+    __INLINE__ const_pointer_device_image(const const_pointer_device_image& rhs):base_type(){operator=(rhs);}
+    __INLINE__ const_pointer_device_image(const image<dimension,vtype,device_vector>& rhs):
+                base_type(reinterpret_cast<const float*>(rhs.begin()),rhs.shape()){}
+public:
+    __INLINE__ const_pointer_device_image& operator=(const const_pointer_device_image& rhs)
+    {
+        base_type::alloc = rhs.alloc;
+        base_type::sp = rhs.sp;
+        return *this;
+    }
+};
+
+
+template<int dim,typename vtype = float>
+using device_image = image<dim,vtype,device_vector>;
+
+template<int dim,typename vtype = float>
+__INLINE__ auto make_device_shared(const device_image<dim,vtype>& I)
+{
+    return const_pointer_device_image<dim,vtype>(I);
+}
+
 template<int dim,typename vtype = float>
 using host_image = tipl::image<dim,vtype,host_vector>;
 
 
 template<int dim,typename vtype>
 struct memory_location<device_image<dim,vtype> >{
+    static constexpr memory_location_type at = CUDA;
+};
+template<int dim,typename vtype>
+struct memory_location<const_pointer_device_image<dim,vtype> >{
     static constexpr memory_location_type at = CUDA;
 };
 
