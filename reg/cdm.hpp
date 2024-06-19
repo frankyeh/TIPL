@@ -77,13 +77,19 @@ __INLINE__ void cdm_get_gradient_imp(const pixel_index<T::dimension>& index,
     auto size = get_window_at_width<2>(index,Js,Jsv);
 
     float a,b,r2;
-    linear_regression(Jsv,Jsv+33,Itv,a,b,r2);
+    linear_regression(Jsv,Jsv+size,Itv,a,b,r2);
     if(a > 0.0f)
     {
         // calculate gradient
         float data[6];
         connected_neighbors(index,Js,data);
         tipl::vector<3> g(data[1] - data[0],data[3] - data[2],data[5] - data[4]);
+        if(data[0] == 0.0f || data[1] == 0.0f)
+            g[0] = 0.0f;
+        if(data[2] == 0.0f || data[3] == 0.0f)
+            g[1] = 0.0f;
+        if(data[4] == 0.0f || data[5] == 0.0f)
+            g[2] = 0.0f;
         auto pos = index.index();
         g *= r2*(Js[pos]*a+b-It[pos]);
         new_d[pos] += g;
@@ -338,7 +344,7 @@ float cdm2(const image_type& It,const image_type& It2,
         if(param.resolution > 1.0f)
             return r;
     }
-    image_type Js,Js2;// transformed I
+
 
     float theta = 0.0;
 
@@ -349,12 +355,14 @@ float cdm2(const image_type& It,const image_type& It2,
     std::deque<float> cost,iter;
     for (unsigned int index = 0;index < param.iterations && !terminated;++index)
     {
+        image_type Js;
         compose_displacement(Is,d,Js);
         // dJ(cJ-I)
         dist_type new_d(It.shape());
         cost.push_back(cdm_get_gradient(Js,It,new_d));
         if(has_dual)
         {
+            image_type Js2;
             compose_displacement(Is2,d,Js2);
             cost.back() += cdm_get_gradient(Js2,It2,new_d);
             cost.back() *= 0.5f;
