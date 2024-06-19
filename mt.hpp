@@ -77,6 +77,10 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
 {
     if(to == from)
         return;
+    size_t n = to-from;
+    if(thread_count > n)
+        thread_count = n;
+
     if(thread_count <= 1)
     {
         if constexpr(type == ranged)
@@ -92,15 +96,28 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
         return;
     }
 
-    size_t n = to-from;
-    if(thread_count > n)
-        thread_count = n;
+
+    #ifdef __CUDACC__
+    int cur_device = 0;
+    if constexpr(use_cuda)
+    {
+        if(cudaGetDevice(&cur_device) != cudaSuccess)
+            throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+    }
+    #endif
 
     {
         size_t block_size = n / thread_count;
         size_t remainder = n % thread_count;
         auto run = [=,&f](T beg,T end,size_t id)
         {
+            #ifdef __CUDACC__
+            if constexpr(use_cuda)
+            {
+                if(id && cudaSetDevice(cur_device) != cudaSuccess)
+                    throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+            }
+            #endif
             if constexpr(type == ranged)
                 f(beg,end);
             else
