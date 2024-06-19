@@ -84,12 +84,6 @@ __INLINE__ void cdm_get_gradient_imp(const pixel_index<T::dimension>& index,
         float data[6];
         connected_neighbors(index,Js,data);
         tipl::vector<3> g(data[1] - data[0],data[3] - data[2],data[5] - data[4]);
-        if(data[0] == 0.0f || data[1] == 0.0f)
-            g[0] = 0.0f;
-        if(data[2] == 0.0f || data[3] == 0.0f)
-            g[1] = 0.0f;
-        if(data[4] == 0.0f || data[5] == 0.0f)
-            g[2] = 0.0f;
         auto pos = index.index();
         g *= r2*(Js[pos]*a+b-It[pos]);
         new_d[pos] += g;
@@ -109,11 +103,11 @@ __global__ void cdm_get_gradient_cuda_kernel(T1 Js,T1 It,T2 new_d,T3 cost_map)
 #endif
 
 // calculate dJ(cJ-I)
-template<typename image_type,typename dis_type>
-inline float cdm_get_gradient(const image_type& Js,const image_type& It,dis_type& new_d)
+template<typename image_type1,typename image_type2,typename dis_type>
+inline float cdm_get_gradient(const image_type1& Js,const image_type2& It,dis_type& new_d)
 {
-    image_type cost_map(Js.shape());
-    if constexpr(memory_location<image_type>::at == CUDA)
+    typename image_type1::buffer_type cost_map(Js.shape());
+    if constexpr(memory_location<image_type1>::at == CUDA)
     {
         #ifdef __CUDACC__
         TIPL_RUN(cdm_get_gradient_cuda_kernel,Js.size())
@@ -121,6 +115,8 @@ inline float cdm_get_gradient(const image_type& Js,const image_type& It,dis_type
                  tipl::make_shared(It),
                  tipl::make_shared(new_d),
                  tipl::make_shared(cost_map));
+        if (cudaGetLastError() != cudaSuccess)
+            throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
         #endif
     }
     else
@@ -182,6 +178,8 @@ void cdm_solve_poisson(T& new_d,terminated_type& terminated)
                         tipl::make_shared(new_d),
                         tipl::make_shared(solve_d),
                         tipl::make_shared(new_solve_d));
+            if (cudaGetLastError() != cudaSuccess)
+                throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
             #endif
         }
         else
@@ -297,7 +295,8 @@ void cdm_smooth(dist_type& d,float smoothing)
         #ifdef __CUDACC__
         TIPL_RUN(cdm_smooth_cuda_kernel,d.size())
                 (tipl::make_shared(d),tipl::make_shared(dd),smoothing/6.0f,(1.0f-smoothing));
-
+        if (cudaGetLastError() != cudaSuccess)
+            throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
         #endif
     }
     else
@@ -310,33 +309,39 @@ void cdm_smooth(dist_type& d,float smoothing)
 
 
 
-template<typename out_type = void,typename image_type,typename dist_type,typename terminate_type>
-float cdm2(const image_type& It,const image_type& It2,
-           const image_type& Is,const image_type& Is2,
+template<typename out_type = void,typename pointer_image_type,typename dist_type,typename terminate_type>
+float cdm(std::vector<pointer_image_type> It,
+          std::vector<pointer_image_type> Is,
            dist_type& d,// displacement field
            dist_type& inv_d,// displacement field
            terminate_type& terminated,
            cdm_param param = cdm_param())
 {
-    bool has_dual = (It2.size() && Is2.size());
-    auto geo = It.shape();
-    d.resize(It.shape());
-    inv_d.resize(It.shape());
+    using image_type = typename pointer_image_type::buffer_type;
+    using value_type = typename pointer_image_type::value_type;
+    if(It.size() < Is.size())
+        Is.resize(It.size());
+    if(Is.size() < It.size())
+        It.resize(Is.size());
+
+    auto geo = It[0].shape();
+    d.resize(geo);
+    inv_d.resize(geo);
     // multi resolution
-    if (*std::min_element(geo.begin(),geo.end()) > param.min_dimension)
+    if (min_value(geo) > param.min_dimension)
     {
-        //downsampling
-        image_type rIs,rIt,rIs2,rIt2;
-        downsample_with_padding(It,rIt);
-        downsample_with_padding(Is,rIs);
-        if(has_dual)
+        std::vector<image_type> rIt_buffer(It.size()),rIs_buffer(It.size());
+        std::vector<pointer_image_type> rIt(It.size()),rIs(It.size());
+        tipl::par_for(It.size(),[&](size_t i)
         {
-            downsample_with_padding(It2,rIt2);
-            downsample_with_padding(Is2,rIs2);
-        }
+            downsample_with_padding(It[i],rIt_buffer[i]);
+            downsample_with_padding(Is[i],rIs_buffer[i]);
+            rIt[i] = rIt_buffer[i];
+            rIs[i] = rIs_buffer[i];
+        },It.size());
         cdm_param param2 = param;
         param2.resolution /= 2.0f;
-        float r = cdm2<out_type>(rIt,rIt2,rIs,rIs2,d,inv_d,terminated,param2);
+        float r = cdm<out_type>(rIt,rIs,d,inv_d,terminated,param2);
         multiply_constant(d,2.0f);
         multiply_constant(inv_d,2.0f);
         upsample_with_padding(d,geo);
@@ -355,19 +360,21 @@ float cdm2(const image_type& It,const image_type& It2,
     std::deque<float> cost,iter;
     for (unsigned int index = 0;index < param.iterations && !terminated;++index)
     {
-        image_type Js;
-        compose_displacement(Is,d,Js);
-        // dJ(cJ-I)
-        dist_type new_d(It.shape());
-        cost.push_back(cdm_get_gradient(Js,It,new_d));
-        if(has_dual)
+        std::vector<float> sub_cost(It.size());
+        std::vector<dist_type> sub_new_d(It.size());
+        tipl::par_for(It.size(),[&](size_t i)
         {
-            image_type Js2;
-            compose_displacement(Is2,d,Js2);
-            cost.back() += cdm_get_gradient(Js2,It2,new_d);
-            cost.back() *= 0.5f;
-        }
+            image_type Js;
+            compose_displacement(Is[i],d,Js);
+            sub_new_d[i].resize(It[i].shape());
+            sub_cost[i] = cdm_get_gradient(Js,It[i],sub_new_d[i]);
+        },It.size());
 
+        auto new_d = sub_new_d[0];
+        for(size_t i = 1;i < sub_new_d.size();++i)
+            add(new_d,sub_new_d[i]);
+
+        cost.push_back(mean(sub_cost));
         iter.push_back(index);
 
         if constexpr(!std::is_void<out_type>::value)
@@ -392,20 +399,6 @@ float cdm2(const image_type& It,const image_type& It2,
     invert_displacement(d,inv_d);
     return cost.front();
 }
-
-
-template<typename image_type,typename dist_type,typename terminate_type>
-float cdm(const image_type& It,
-            const image_type& Is,
-            dist_type& d,// displacement field
-            dist_type& inv_d,// displacement field
-            terminate_type& terminated,
-            cdm_param param = cdm_param())
-{
-    return cdm2(It,image_type(),Is,image_type(),d,inv_d,terminated,param);
-}
-
-
 
 
 }// namespace reg
