@@ -51,14 +51,14 @@ public:
     void forward_af(float* y)
     {
 
-        for(int i = 0; i < output_size; ++i)
+        for(size_t i = 0; i < output_size; ++i)
             if(y[i] < 0.0f)
                 y[i] = 0.0f;
 
     }
     void back_af(float* dOut,const float* x)
     {
-        for(int i = 0; i < output_size; ++i)
+        for(size_t i = 0; i < output_size; ++i)
              if(x[i] < 0)
                  dOut[i] = 0;
     }
@@ -69,14 +69,14 @@ public:
     void forward_af(float* y)
     {
 
-        for(int i = 0; i < output_size; ++i)
+        for(size_t i = 0; i < output_size; ++i)
             if(y[i] < 0.0f)
                 y[i] *= 0.01f;
 
     }
     void back_af(float* dOut,const float* x)
     {
-        for(int i = 0; i < output_size; ++i)
+        for(size_t i = 0; i < output_size; ++i)
              if(x[i] < 0)
                  dOut[i] *= 0.01f;
     }
@@ -107,8 +107,8 @@ public:
     std::vector<std::shared_ptr<basic_activation_layer> > af;
 public:
     status_type status;
-    int input_size;
-    int output_size;
+    size_t input_size;
+    size_t output_size;
     float weight_base;
     std::vector<float> weight,bias;
 public:
@@ -125,7 +125,7 @@ public:
     }
     virtual void initialize_weight(tipl::uniform_dist<float>& gen)
     {
-        for(int i = 0; i < weight.size(); ++i)
+        for(size_t i = 0; i < weight.size(); ++i)
             weight[i] = gen()*weight_base;
         if(!bias.empty())
             std::fill(bias.begin(), bias.end(), 0.0f);
@@ -178,7 +178,7 @@ public:
     float bn_ratio = 0.0f;
 private:
     float weight_scale = 0.0f;
-    unsigned int count = 0;
+    size_t count = 0;
 public:
     tipl::shape<3> in_dim;
     fully_connected_layer(void){}
@@ -252,7 +252,7 @@ class max_pooling_layer : public basic_layer
     shape<3> out_dim;
 
 public:
-    int pool_size;
+    size_t pool_size;
 public:
     max_pooling_layer(int pool_size_):pool_size(pool_size_){}
     bool init(const tipl::shape<3>& in_dim_,const tipl::shape<3>& out_dim_) override
@@ -269,7 +269,7 @@ public:
 
     void forward_propagation(const float* x,float* y) override
     {
-        for(int i = 0; i < o2i.size(); i++)
+        for(size_t i = 0; i < o2i.size(); i++)
         {
             float max_value = std::numeric_limits<float>::lowest();
             for(auto j : o2i[i])
@@ -286,7 +286,7 @@ public:
     {
         std::vector<int> max_idx(out_dim.size());
 
-        for(int i = 0; i < o2i.size(); i++)
+        for(size_t i = 0; i < o2i.size(); i++)
         {
             float max_value = std::numeric_limits<float>::lowest();
             for(auto j : o2i[i])
@@ -298,7 +298,7 @@ public:
                 }
             }
         }
-        for(int i = 0; i < i2o.size(); i++)
+        for(size_t i = 0; i < i2o.size(); i++)
         {
             int outi = i2o[i];
             dX[i] = (max_idx[outi] == i) ? dOut[outi] : float(0);
@@ -395,7 +395,7 @@ public:
                             const float * w = w_ptr;
                             const float * p = in_line + x;
                             float sum(0);
-                            for(int i = 0; i < kernel_size2; i++)
+                            for(size_t i = 0; i < kernel_size2; i++)
                                 sum += w[i]*p[kernel_index[i]];
                             out_line[x] += sum;
                         }
@@ -453,7 +453,7 @@ public:
                         const float * ppw = &weight[w_index];
                         const float v = dOut_pos[x];
                         float *p = dX_pos + y_pos + x;
-                        for(int i = 0; i < kernel_size2; i++)
+                        for(size_t i = 0; i < kernel_size2; i++)
                             p[kernel_index[i]] += v*ppw[i];
                     }
                 }
@@ -481,7 +481,7 @@ public:
     void forward_propagation(const float* x,float* y) override
     {
         float m = *std::max_element(x,x+input_size);
-        for(int i = 0;i < input_size;++i)
+        for(size_t i = 0;i < input_size;++i)
             y[i] = expf(x[i]-m);
         float sum = std::accumulate(y,y+output_size,float(0));
         if(sum != 0)
@@ -627,7 +627,7 @@ public:
     {
         source = &rhs;
         pos.resize(rhs.size());
-        for(int i = 0;i < pos.size();++i)
+        for(size_t i = 0;i < pos.size();++i)
             pos[i] = i;
         return *this;
     }
@@ -642,13 +642,13 @@ public:
         if(source->output.size() == 1)
             return;
         std::vector<std::vector<unsigned int> > pile(source->output.size());
-        for(int i = 0;i < pos.size();++i)
+        for(size_t i = 0;i < pos.size();++i)
             if(source->data_label[pos[i]] < pile.size())
                 pile[source->data_label[pos[i]]].push_back(pos[i]);
         int max_size = 0;
-        for(int i = 0;i < pile.size();++i)
+        for(size_t i = 0;i < pile.size();++i)
             max_size = std::max<int>(max_size,pile[i].size());
-        for(int i = 0;i < pile.size();++i)
+        for(size_t i = 0;i < pile.size();++i)
             if(!pile[i].empty())
             {
                 int dup = max_size/pile[i].size()-1;
@@ -660,21 +660,21 @@ public:
     float calculate_mae(const std::vector<float>& result) const
     {
         float sum_error = 0.0f;
-        for(int i = 0;i < size();++i)
+        for(size_t i = 0;i < size();++i)
             sum_error += std::fabs(result[i]-get_label(i));
         return sum_error/size();
     }
     float calculate_r(const std::vector<float>& result) const
     {
         std::vector<float> d(size());
-        for(int i = 0;i < d.size();++i)
+        for(size_t i = 0;i < d.size();++i)
             d[i] = get_label(i);
         return tipl::correlation(d.begin(),d.end(),result.begin());
     }
     float calculate_mae(const std::vector<std::vector<float> >& result,size_t index) const
     {
         float sum_error = 0.0f;
-        for(int i = 0;i < size();++i)
+        for(size_t i = 0;i < size();++i)
             sum_error += std::fabs(result[i][index]-get_label(i)[index]);
         return sum_error/size();
     }
@@ -682,7 +682,7 @@ public:
     float calculate_r(const std::vector<std::vector<float> >& result,size_t index) const
     {
         std::vector<float> d(size()),d2(size());
-        for(int i = 0;i < d.size();++i)
+        for(size_t i = 0;i < d.size();++i)
         {
             d[i] = get_label(i)[index];
             d2[i] = result[i][index];
@@ -693,7 +693,7 @@ public:
     int calculate_miss(const std::vector<label_type>& result) const
     {
         int mis_count = 0;
-        for(int i = 0;i < size();++i)
+        for(size_t i = 0;i < size();++i)
             if(result[i] != get_label(i))
                 ++mis_count;
         return mis_count;
@@ -708,7 +708,7 @@ void data_fold_for_cv(const network_data<label_type>& rhs,
 {
     training_data = std::vector<network_data_proxy<label_type> >(total_fold);
     testing_data = std::vector<network_data_proxy<label_type> >(total_fold);
-    for(int i = 0;i < total_fold;++i)
+    for(size_t i = 0;i < total_fold;++i)
     {
         training_data[i].source = &rhs;
         testing_data[i].source = &rhs;
@@ -730,7 +730,7 @@ void data_fold_for_cv(const network_data<label_type>& rhs,
     else
     {
         for(int j = 0;j < total_fold;++j)
-        for(int i = 0;i < rhs.size();++i)
+        for(size_t i = 0;i < rhs.size();++i)
         {
             if(j == total_fold*i/rhs.size())
                 testing_data[j].pos.push_back(i);
@@ -778,7 +778,7 @@ public:
     {
         reset();
         add(rhs.get_layer_text());
-        for(int i = 0;i < rhs.layers.size();++i)
+        for(size_t i = 0;i < rhs.layers.size();++i)
             if(!layers[i]->weight.empty())
             {
                 layers[i]->weight = rhs.layers[i]->weight;
@@ -808,7 +808,7 @@ public:
     }
     void sort_fully_layer(void)
     {
-        for(int i = 0;i+1 < layers.size();++i)
+        for(size_t i = 0;i+1 < layers.size();++i)
         {
             fully_connected_layer* l1;
             fully_connected_layer* l2;
@@ -818,8 +818,8 @@ public:
                 auto& w1 = l1->weight;
                 auto& b1 = l1->bias;
                 auto& w2 = l2->weight;
-                int n = l1->input_size;
-                int m = l1->output_size;
+                size_t n = l1->input_size;
+                size_t m = l1->output_size;
                 std::vector<float> vector_length(m);
                 tipl::par_for(m,[&](int i)
                 {
@@ -975,7 +975,7 @@ public:
     std::string get_layer_text(void) const
     {
         std::ostringstream out;
-        for(int i = 0;i < geo.size();++i)
+        for(size_t i = 0;i < geo.size();++i)
         {
             if(i)
                 out << "|";
@@ -1113,7 +1113,7 @@ public:
     float calculate_error(const std::vector<float>& label,float* df_ptr)
     {
         float sum_error = 0.0;
-        for(int i = 0;i < output_size;++i)
+        for(size_t i = 0;i < output_size;++i)
             sum_error += std::fabs(df_ptr[i] -= label[i]);
         return sum_error;
     }
@@ -1236,7 +1236,7 @@ public:
         back_df.resize(thread_count);
         in_out_ptr.resize(thread_count);
         back_df_ptr.resize(thread_count);
-        for(int i = 0;i < thread_count;++i)
+        for(size_t i = 0;i < thread_count;++i)
         {
             dweight[i].resize(nn.layers.size());
             dbias[i].resize(nn.layers.size());
@@ -1282,7 +1282,7 @@ public:
         training_error_value = 0.0f;
         if(!error_table.empty())
             std::fill(error_table.begin(),error_table.end(),0);
-        for(int i = 0;i < data.size() && !terminated;i += batch_size)
+        for(size_t i = 0;i < data.size() && !terminated;i += batch_size)
         {
             // train a batch
             int cur_size = std::min<int>(batch_size,data.size()-i);
@@ -1347,7 +1347,7 @@ public:
             tmp.add(nn.get_layer_text());
             tmp.init_weights(seed);
             initialize_training(tmp);
-            for(int i = 0;i < 5 && !terminated;++i)
+            for(size_t i = 0;i < 5 && !terminated;++i)
             {
                 data.shuffle(rd_gen);
                 train_batch(tmp,data,terminated);
@@ -1504,7 +1504,7 @@ void to_image(network& nn,color_image& I,std::vector<float> in,label_type label,
         to_image(nn.layers[i],Is[i],max_width);
     });
     int total_height = 0;
-    for(int i = 0;i < Is.size();++i)
+    for(size_t i = 0;i < Is.size();++i)
         total_height += std::max<int>(Is[i].height(),layer_height);
 
     int data_size = nn.data_size;
@@ -1521,7 +1521,7 @@ void to_image(network& nn,color_image& I,std::vector<float> in,label_type label,
     nn.calculate_error(label,back_buf+end);
     nn.back_propagation(out_buf+end,back_buf+end);
 
-    for(int i = 0;i < geo.size();++i)
+    for(size_t i = 0;i < geo.size();++i)
     {
         if(geo[i].width() < 5000 && geo[i].height() < 1000)
         {
@@ -1582,7 +1582,7 @@ void to_image(network& nn,color_image& I,std::vector<float> in,label_type label,
     I.resize(tipl::shape<2>(max_width,total_height));
     std::fill(I.begin(),I.end(),tipl::rgb(255,255,255));
     int cur_height = 0;
-    for(int i = 0;i < geo.size();++i)
+    for(size_t i = 0;i < geo.size();++i)
     {
         // input image
         tipl::draw(values[i],I,tipl::shape<2>(0,cur_height));
