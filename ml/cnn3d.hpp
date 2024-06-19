@@ -24,6 +24,7 @@ public:
 public:
     layer(int channels_v):in_channels_(channels_v),out_channels_(channels_v){}
     layer(int in_channels_v,int out_channels_v):in_channels_(in_channels_v),out_channels_(out_channels_v){}
+    virtual ~layer(void){}
     virtual std::vector<std::pair<float*,size_t> > parameters(void){return std::vector<std::pair<float*,size_t> >();}
     virtual void init_image(tipl::shape<3>& dim_){dim = dim_;}
 public:
