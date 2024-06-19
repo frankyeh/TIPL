@@ -156,15 +156,6 @@ void par_for(T from,T to,Func&& f)
             if(time > performance[cur_thread_count+1] && cur_thread_count < performance.size()-1)
                 ++cur_thread_count;
         }
-        void check(size_t new_size)
-        {
-            if(last_size != new_size)
-            {
-                std::fill(performance.begin(),performance.end(),0);
-                cur_thread_count = 1;
-                last_size = last_size;
-            }
-        }
     } thread_optimizer;
 
     thread_optimizer.start();
