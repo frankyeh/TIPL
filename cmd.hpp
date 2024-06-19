@@ -675,7 +675,7 @@ bool equation(image_type& x,std::string eq,std::string& error_msg)
     {
         try {
                 std::size_t pos;
-                std::stof(str, &pos);
+                float n = std::stof(str, &pos);
                 return pos == str.size();
             } catch (...) {
                 return false;
