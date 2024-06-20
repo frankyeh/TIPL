@@ -8,28 +8,6 @@
 namespace tipl
 {
 
-
-template<typename T,typename U>
-__INLINE__ void connected_neighbors(const pixel_index<2>& index,const T& I,U out)
-{
-    out[0] = I[index.x() ? index.index()-1:index.index()];
-    out[1] = I[index.x()+1 < I.width() ? index.index()+1:index.index()];
-    out[2] = I[index.y() ? index.index()-I.width():index.index()];
-    out[3] = I[index.y()+1 < I.height() ? index.index()+I.width():index.index()];
-}
-
-template<typename T,typename U>
-__INLINE__ void connected_neighbors(const pixel_index<3>& index,const T& I,U out)
-{
-    out[0] = I[index.x() ? index.index()-1:index.index()];
-    out[1] = I[index.x()+1 < I.width() ? index.index()+1:index.index()];
-    out[2] = I[index.y() ? index.index()-I.width():index.index()];
-    out[3] = I[index.y()+1 < I.height() ? index.index()+I.width():index.index()];
-    out[4] = I[index.z() ? index.index()-I.plane_size():index.index()];
-    out[5] = I[index.z()+1 < I.depth() ? index.index()+I.plane_size():index.index()];
-}
-
-
 template<int width,int dim>
 struct get_window_size;
 
