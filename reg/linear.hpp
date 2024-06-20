@@ -223,10 +223,10 @@ const float large_bound[8] =  {1.0f,-1.0f,      1.2f,-1.2f,    2.0f,0.5f,  0.5f,
 template<int dim,typename value_type>
 class linear_reg_param{
     static const int dimension = dim;
-    using transform_type = affine_transform<float>;
+    using transform_type = affine_transform<float,dimension>;
     using vs_type = tipl::vector<dim>;
     using image_type = image<dim,value_type>;
-    using pointer_image_type = const_pointer_image<dim,value_type>;
+    using pointer_image_type = const_pointer_image<dimension,value_type>;
 public:
     std::vector<pointer_image_type> from,to;
     tipl::vector<3> from_vs,to_vs;
@@ -352,7 +352,7 @@ public:
             tipl::par_for(cost_fun.size(),[&](size_t i)
             {
                 costs[i] = (*cost_fun[i].get())(from[i],to[i],
-                    tipl::transformation_matrix<double>(new_param,from[i].shape(),from_vs,to[i].shape(),to_vs),thread_id);
+                    tipl::transformation_matrix<float,dim>(new_param,from[i].shape(),from_vs,to[i].shape(),to_vs),thread_id);
             },cost_fun.size());
             return tipl::sum(costs);
         };
