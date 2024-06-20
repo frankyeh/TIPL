@@ -80,10 +80,7 @@ __INLINE__ void cdm_get_gradient_imp(const pixel_index<T::dimension>& index,
     linear_regression(Jsv,Jsv+size,Itv,a,b,r2);
     if(a > 0.0f)
     {
-        // calculate gradient
-        float data[6];
-        connected_neighbors(index,Js,data);
-        tipl::vector<3> g(data[1] - data[0],data[3] - data[2],data[5] - data[4]);
+        auto g = gradient_at(Js,index);
         auto pos = index.index();
         g *= r2*(Js[pos]*a+b-It[pos]);
         new_d[pos] += g;
@@ -97,7 +94,7 @@ __global__ void cdm_get_gradient_cuda_kernel(T1 Js,T1 It,T2 new_d,T3 cost_map)
 {
     TIPL_FOR(index,Js.size())
     {
-        cdm_get_gradient_imp(tipl::pixel_index<3>(index,Js.shape()),Js,It,new_d,cost_map);
+        cdm_get_gradient_imp(tipl::pixel_index<T1::dimension>(index,Js.shape()),Js,It,new_d,cost_map);
     }
 }
 #endif
@@ -254,7 +251,7 @@ template<typename T,typename U>
 __INLINE__ void cdm_smooth_imp(T& d,U& dd,size_t cur_index,float w_6,float w_1)
 {
     size_t cur_index_with_shift = cur_index + 1;
-    tipl::vector<3> v;
+    tipl::vector<T::dimension> v;
     if(cur_index_with_shift < d.size())
         v += d[cur_index_with_shift];
     if(cur_index >= 1)
@@ -264,11 +261,14 @@ __INLINE__ void cdm_smooth_imp(T& d,U& dd,size_t cur_index,float w_6,float w_1)
         v += d[cur_index_with_shift];
     if(cur_index >= d.width())
         v += d[cur_index-d.width()];
-    cur_index_with_shift = cur_index + d.plane_size();
-    if(cur_index_with_shift < d.size())
-        v += d[cur_index_with_shift];
-    if(cur_index >= d.plane_size())
-        v += d[cur_index-d.plane_size()];
+    if constexpr(T::dimension == 3)
+    {
+        cur_index_with_shift = cur_index + d.plane_size();
+        if(cur_index_with_shift < d.size())
+            v += d[cur_index_with_shift];
+        if(cur_index >= d.plane_size())
+            v += d[cur_index-d.plane_size()];
+    }
     v *= w_6;
     dd[cur_index] = d[cur_index]*w_1+v;
 }
