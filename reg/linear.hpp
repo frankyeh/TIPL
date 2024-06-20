@@ -88,10 +88,8 @@ struct mutual_information_cuda
 {
     typedef double value_type;
     device_vector<int32_t> from8_hist;
-    device_vector<unsigned char> from8;
-    device_vector<unsigned char> to8;
+    device_vector<unsigned char> from8,to8;
     std::mutex init_mutex;
-    int device = 0;
     static constexpr int bandwidth = 6;
     static constexpr int his_bandwidth = 64;
 public:
@@ -103,11 +101,10 @@ public:
             std::scoped_lock<std::mutex> lock(init_mutex);
             if (from8_hist.empty() || to_raw.size() != to8.size() || from_raw.size() != from8.size())
             {
-                cudaGetDevice(&device);
                 to8.resize(to_raw.size());
                 normalize_upper_lower2(DeviceImageType(to_raw),to8,his_bandwidth-1);
 
-                host_vector<unsigned char> host_from8,host_to8;
+                host_vector<unsigned char> host_from8;
                 host_vector<int32_t> host_from8_hist;
 
                 host_from8.resize(from_raw.size());
@@ -118,14 +115,12 @@ public:
                 from8 = host_from8;
 
             }
-            else
-                cudaSetDevice(device);
         }
 
         device_vector<int32_t> mutual_hist(his_bandwidth*his_bandwidth);
         TIPL_RUN(mutual_information_cuda_kernel,from_raw.size())
-                                (tipl::make_image(reinterpret_cast<const float*>(from8.begin()),from_raw.shape()),
-                                 tipl::make_image(reinterpret_cast<const float*>(to8.begin()),to_raw.shape()),
+                                (tipl::make_image(from8.data(),from_raw.shape()),
+                                 tipl::make_image(to8.data(),to_raw.shape()),
                                  trans,
                                  tipl::make_shared(mutual_hist));
         if(cudaPeekAtLastError() != cudaSuccess)
