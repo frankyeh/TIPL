@@ -55,8 +55,8 @@ __global__ void mutual_information_cuda_kernel(T from,T to,V trans,U mutual_hist
     constexpr int his_bandwidth = 64;
     TIPL_FOR(index,from.size())
     {
-        tipl::pixel_index<3> pos(index,from.shape());
-        tipl::vector<3> v;
+        tipl::pixel_index<T::dimension> pos(index,from.shape());
+        tipl::vector<T::dimension> v;
         trans(pos,v);
         unsigned char to_index = 0;
         tipl::estimate<tipl::interpolation::linear>(to,v,to_index);
@@ -88,8 +88,8 @@ struct mutual_information_cuda
 {
     typedef double value_type;
     device_vector<int32_t> from8_hist;
-    device_image<3,unsigned char> from8;
-    device_image<3,unsigned char> to8;
+    device_vector<unsigned char> from8;
+    device_vector<unsigned char> to8;
     std::mutex init_mutex;
     int device = 0;
     static constexpr int bandwidth = 6;
@@ -98,19 +98,19 @@ public:
     template<typename ImageType,typename TransformType>
     double operator()(const ImageType& from_raw,const ImageType& to_raw,const TransformType& trans,int thread_id = 0)
     {
-        using DeviceImageType = device_image<3,typename ImageType::value_type>;
+        using DeviceImageType = device_image<ImageType::dimension,typename ImageType::value_type>;
         {
             std::scoped_lock<std::mutex> lock(init_mutex);
             if (from8_hist.empty() || to_raw.size() != to8.size() || from_raw.size() != from8.size())
             {
                 cudaGetDevice(&device);
-                to8.resize(to_raw.shape());
+                to8.resize(to_raw.size());
                 normalize_upper_lower2(DeviceImageType(to_raw),to8,his_bandwidth-1);
 
-                host_image<3,unsigned char> host_from8,host_to8;
+                host_vector<unsigned char> host_from8,host_to8;
                 host_vector<int32_t> host_from8_hist;
 
-                host_from8.resize(from_raw.shape());
+                host_from8.resize(from_raw.size());
                 normalize_upper_lower2(from_raw,host_from8,his_bandwidth-1);
                 histogram(host_from8,host_from8_hist,0,his_bandwidth-1,his_bandwidth);
 
@@ -124,8 +124,8 @@ public:
 
         device_vector<int32_t> mutual_hist(his_bandwidth*his_bandwidth);
         TIPL_RUN(mutual_information_cuda_kernel,from_raw.size())
-                                (tipl::make_shared(from8),
-                                 tipl::make_shared(to8),
+                                (tipl::make_image(reinterpret_cast<const float*>(from8.begin()),from_raw.shape()),
+                                 tipl::make_image(reinterpret_cast<const float*>(to8.begin()),to_raw.shape()),
                                  trans,
                                  tipl::make_shared(mutual_hist));
         if(cudaPeekAtLastError() != cudaSuccess)
@@ -184,7 +184,7 @@ public:
         {
             if(id >= thread_count)
                 id = 0;
-            tipl::vector<3> pos;
+            tipl::vector<ImageType1::dimension> pos;
             transform(index,pos);
             unsigned char to_index = 0;
             tipl::estimate<tipl::interpolation::linear>(pto,pos,to_index);
@@ -229,7 +229,7 @@ class linear_reg_param{
     using pointer_image_type = const_pointer_image<dimension,value_type>;
 public:
     std::vector<pointer_image_type> from,to;
-    tipl::vector<3> from_vs,to_vs;
+    tipl::vector<dim> from_vs,to_vs;
     transform_type arg_upper,arg_lower;
     transform_type& arg_min;
     reg_type type = affine;
@@ -419,8 +419,8 @@ public:
 
 
 template<typename T,typename U>
-inline auto linear_reg(const std::vector<T>& template_image,tipl::vector<3> template_vs,
-                       const std::vector<U>& subject_image,tipl::vector<3> subject_vs,
+inline auto linear_reg(const std::vector<T>& template_image,tipl::vector<T::dimension> template_vs,
+                       const std::vector<U>& subject_image,tipl::vector<T::dimension> subject_vs,
                        affine_transform<float>& arg_min)
 {
     auto reg = std::make_shared<linear_reg_param<T::dimension,typename U::value_type> >(template_image,subject_image,arg_min);
