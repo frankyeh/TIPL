@@ -714,7 +714,7 @@ public:
     __INLINE__ ~transformation_matrix(void){}
     template<typename rhs_value_type>
     __INLINE__ transformation_matrix(const rhs_value_type& M){operator=(M);}
-    template<typename geo_type,typename vs_type,typename std::enable_if<dimension==3,bool>::type = true>
+    template<typename geo_type,typename vs_type>
     __DEVICE_HOST__ transformation_matrix(const affine_transform<value_type,3>& rb,
                           const geo_type& from,
                           const vs_type& from_vs,
@@ -769,6 +769,45 @@ public:
         shift[0] += float(to.width())*value_type(0.5);
         shift[1] += float(to.height())*value_type(0.5);
         shift[2] += float(to.depth())*value_type(0.5);
+    }
+    template<typename geo_type,typename vs_type>
+    __DEVICE_HOST__ transformation_matrix(const affine_transform<value_type,2>& rb,
+                          const geo_type& from,
+                          const vs_type& from_vs,
+                          const geo_type& to,
+                          const vs_type& to_vs)
+    {
+        //now sr = Affine*Scaling*R1*R2
+        rotation_scaling_affine_matrix(rb.rotation,rb.scaling,rb.affine[0],sr,vdim<2>());
+        // calculate (vs*Translocation*shift_center)
+        vs_type t(from.width(),from.height());
+        t *= -0.5;
+        t[0] *= from_vs[0];
+        t[1] *= from_vs[1];
+        t += rb.translocation;
+        // (Affine*Scaling*R1*R2)*(vs*Translocation*shift_center)
+        shift[0] = sr[0]*t[0]+sr[1]*t[1];
+        shift[1] = sr[2]*t[0]+sr[3]*t[1];
+        sr[0] *= from_vs[0];
+        sr[1] *= from_vs[1];
+        sr[2] *= from_vs[0];
+        sr[3] *= from_vs[1];
+        // inv(vs) ... = inv(vs)(vs*shift_center)...
+        if(to_vs[0] != value_type(1))
+        {
+            sr[0] /= to_vs[0];
+            sr[1] /= to_vs[0];
+            shift[0] /= to_vs[0];
+        }
+        if(to_vs[1] != value_type(1))
+        {
+            sr[2] /= to_vs[1];
+            sr[3] /= to_vs[1];
+            shift[1] /= to_vs[1];
+        }
+        // inv(shift_center) ... = inv(shift_center)(shift_center)...
+        shift[0] += float(to.width())*value_type(0.5);
+        shift[1] += float(to.height())*value_type(0.5);
     }
     // (Affine*Scaling*R1*R2*R3*vs*Translocation*shift_center)*from = (vs*shift_center)*to;
     template<typename geo_type,typename vs_type,typename std::enable_if<dimension==3,bool>::type = true>
