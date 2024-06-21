@@ -276,13 +276,13 @@ public:
     __INLINE__ reference at(unsigned int x,unsigned int y)          {return alloc[size_t(y)*sp[0]+x];}
     __INLINE__ value_type at(unsigned int x,unsigned int y,unsigned int z) const    {return alloc[size_t(z*sp[1]+y)*sp[0]+x];}
     __INLINE__ reference at(unsigned int x,unsigned int y,unsigned int z)           {return alloc[size_t(z*sp[1]+y)*sp[0]+x];}
-    template<typename T,typename std::enable_if<std::is_class<T>::value && dimension==2,bool>::type = true>
+    template<typename T,typename std::enable_if<T::dimension==2,bool>::type = true>
     __INLINE__ value_type at(const T& pos) const    {return alloc[size_t(pos[1])*sp[0]+size_t(pos[0])];}
-    template<typename T,typename std::enable_if<std::is_class<T>::value && dimension==2,bool>::type = true>
+    template<typename T,typename std::enable_if<T::dimension==2,bool>::type = true>
     __INLINE__ reference at(const T& pos)           {return alloc[size_t(pos[1])*sp[0]+size_t(pos[0])];}
-    template<typename T,typename std::enable_if<std::is_class<T>::value && dimension==3,bool>::type = true>
+    template<typename T,typename std::enable_if<T::dimension==3,bool>::type = true>
     __INLINE__ value_type at(const T& pos) const    {return alloc[size_t(size_t(pos[2])*sp[1]+size_t(pos[1]))*sp[0]+size_t(pos[0])];}
-    template<typename T,typename std::enable_if<std::is_class<T>::value && dimension==3,bool>::type = true>
+    template<typename T,typename std::enable_if<T::dimension==3,bool>::type = true>
     __INLINE__ reference at(const T& pos)           {return alloc[size_t(size_t(pos[2])*sp[1]+size_t(pos[1]))*sp[0]+size_t(pos[0])];}
 public:
     __INLINE__ image(void) {}
