@@ -1065,7 +1065,7 @@ __global__ void resample_cuda_kernel(T1 from,T2 to,U trans)
 #endif
 
 template<tipl::interpolation itype = linear,typename T,typename U,typename V>
-void resample(const T& from,U&& to,const tipl::transformation_matrix<V>& trans)
+void resample(const T& from,U&& to,const tipl::transformation_matrix<V,T::dimension>& trans)
 {
     if constexpr(memory_location<T>::at == CUDA)
     {
@@ -1091,7 +1091,7 @@ void resample(const T& from,U&& to,const tipl::transformation_matrix<V>& trans)
 template<tipl::interpolation itype = linear,typename ImageType1,typename ImageType2,typename T>
 inline void resample(const ImageType1& from,ImageType2&& to,const T& trans)
 {
-    resample<itype>(from,to,tipl::transformation_matrix<typename T::value_type>(trans));
+    resample<itype>(from,to,tipl::transformation_matrix<typename T::value_type,ImageType1::dimension>(trans));
 }
 
 template<tipl::interpolation Type = linear,typename ImageType1,typename ImageType2,typename transform_type>
@@ -1108,7 +1108,7 @@ void resample_dis(const ImageType1& from,ImageType2&& to,const transform_type& t
 }
 
 template<tipl::interpolation Type = linear,typename ImageType,typename value_type>
-void resample(ImageType& from,const tipl::transformation_matrix<value_type>& transform)
+void resample(ImageType& from,const tipl::transformation_matrix<value_type,ImageType::dimension>& transform)
 {
     tipl::image<ImageType::dimension,typename ImageType::value_type> I(from.shape());
     for (tipl::pixel_index<ImageType::dimension> index(from.shape());index < from.size();++index)
@@ -1205,7 +1205,7 @@ void scale(const T1& source_image,T2& des_image,const T3& ratio)
                                     uint32_t(std::ceil(float(source_image.depth())*ratio[2]))));
     if(des_image.empty())
         return;
-    tipl::transformation_matrix<double> T;
+    tipl::transformation_matrix<double,T1::dimension> T;
     T.sr[0] = 1.0/double(ratio[0]);
     T.sr[4] = 1.0/double(ratio[1]);
     T.sr[8] = 1.0/double(ratio[2]);
