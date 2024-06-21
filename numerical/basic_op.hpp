@@ -285,7 +285,8 @@ inline auto volume2points(const T& mask)
 }
 
 
-template<typename ImageType3D,typename ImageType2D,typename dim_type,typename slice_pos_type>
+template<typename ImageType3D,typename ImageType2D,typename dim_type,typename slice_pos_type,
+         typename std::enable_if<ImageType3D::dimension==3,bool>::type = true>
 ImageType2D& volume2slice(const ImageType3D& slice,ImageType2D& I,dim_type dim,slice_pos_type slice_index)
 {
     I.clear();
