@@ -13,9 +13,6 @@
 #include "../numerical/optimization.hpp"
 #include "../numerical/statistics.hpp"
 #include "../numerical/resampling.hpp"
-#include "../segmentation/otsu.hpp"
-#include "../morphology/morphology.hpp"
-#include "../filter/sobel.hpp"
 #ifdef __CUDACC__
 #include "../cu.hpp"
 #endif
@@ -224,7 +221,7 @@ class linear_reg_param{
     using pointer_image_type = const_pointer_image<dimension,value_type>;
 public:
     std::vector<pointer_image_type> from,to;
-    tipl::vector<dim> from_vs,to_vs;
+    tipl::vector<dimension> from_vs,to_vs;
     transform_type arg_upper,arg_lower;
     transform_type& arg_min;
     reg_type type = affine;
@@ -232,19 +229,7 @@ public:
     unsigned int count = 0;
     double precision = 0.001;
     bool line_search = true;
-    size_t max_iterations = 10;
-private:
-    void update_bound(transform_type& upper,transform_type& lower,reg_type type)
-    {
-        const int check_reg[transform_type::total_size] =
-                                  {translocation,translocation,translocation,
-                                   rotation,rotation,rotation,
-                                   scaling,scaling,scaling,
-                                   tilt,tilt,tilt};
-        for (unsigned int index = 0; index < transform_type::total_size; ++index)
-            if(!(type & check_reg[index]))
-                upper[index] = lower[index] = arg_min[index];
-    }
+    size_t max_iterations = 10;    
 private:
     std::vector<image_type> buffer;
     void down_sampling(void)
@@ -278,6 +263,35 @@ public:
         line_search = rhs.line_search;
         max_iterations = rhs.max_iterations;
     }
+    void update_bound(transform_type& upper,transform_type& lower,reg_type type)
+    {
+        for (unsigned int index = 0; index < dimension; ++index)
+        {
+            if (!(type & translocation))
+            {
+                arg_upper.translocation[index] = arg_min.translocation[index];
+                arg_lower.translocation[index] = arg_min.translocation[index];
+            }
+            if (!(type & scaling))
+            {
+                arg_upper.scaling[index] = arg_min.scaling[index];
+                arg_lower.scaling[index] = arg_min.scaling[index];
+            }
+        }
+        for (unsigned int index = 0; index < (dim == 3 ? 3 : 1); ++index)
+        {
+            if (!(type & rotation))
+            {
+                arg_upper.rotation[index] = arg_min.rotation[index];
+                arg_lower.rotation[index] = arg_min.rotation[index];
+            }
+            if (!(type & tilt))
+            {
+                arg_upper.affine[index] = arg_min.affine[index];
+                arg_lower.affine[index] = arg_min.affine[index];
+            }
+        }
+    }
     void set_bound(const float* bound = reg_bound,bool absolute = true)
     {
         if(bound == narrow_bound)
@@ -290,37 +304,36 @@ public:
         else
             arg_upper = arg_lower = arg_min;
 
-        if (type & translocation)
-            for (unsigned int index = 0; index < dimension; ++index)
+        for (unsigned int index = 0; index < dimension; ++index)
+        {
+            if (type & translocation)
             {
                 float range = std::max<float>(from[0].shape()[index]*from_vs[index],
                                               to[0].shape()[index]*to_vs[index])*0.5f;
-                arg_upper[index] += range*bound[0];
-                arg_lower[index] += range*bound[1];
+                arg_upper.translocation[index] += range*bound[0];
+                arg_lower.translocation[index] += range*bound[1];
             }
-        if (type & rotation)
-            for (unsigned int index = dimension; index < dimension + dimension; ++index)
+            if (type & scaling)
             {
-                arg_upper[index] += 3.14159265358979323846f*bound[2]*(index == 0 ? 2.0f:1.0f);
-                arg_lower[index] += 3.14159265358979323846f*bound[3]*(index == 0 ? 2.0f:1.0f);
+                arg_upper.scaling[index] *= bound[4];
+                arg_lower.scaling[index] *= bound[5];
             }
-
-        if (type & scaling)
-            for (unsigned int index = dimension + dimension; index < dimension+dimension+dimension; ++index)
+        }
+        for (unsigned int index = 0; index < (dim == 3 ? 3 : 1); ++index)
+        {
+            if (type & rotation)
             {
-                arg_upper[index] *= bound[4];
-                arg_lower[index] *= bound[5];
+                arg_upper.rotation[index] += 3.14159265358979323846f*bound[2]*(index == 0 ? 2.0f:1.0f);
+                arg_lower.rotation[index] += 3.14159265358979323846f*bound[3]*(index == 0 ? 2.0f:1.0f);
             }
-
-        if (type & tilt)
-            for (unsigned int index = dimension + dimension + dimension; index < transform_type::total_size; ++index)
+            if (type & tilt)
             {
-                arg_upper[index] += bound[6];
-                arg_lower[index] += bound[7];
+                arg_upper.affine[index] += bound[6];
+                arg_lower.affine[index] += bound[7];
             }
-
+        }
     }
-    template<typename cost_type,typename terminated_type>
+    template<typename cost_type,typename out_type = void,typename terminated_type>
     float optimize(std::vector<std::shared_ptr<cost_type> > cost_fun,terminated_type&& is_terminated)
     {
         std::vector<reg_type> reg_list;
@@ -349,66 +362,90 @@ public:
                 costs[i] = (*cost_fun[i].get())(from[i],to[i],
                     tipl::transformation_matrix<float,dim>(new_param,from[i].shape(),from_vs,to[i].shape(),to_vs),thread_id);
             },cost_fun.size());
+            if constexpr(!std::is_void<out_type>::value)
+            {
+                out_type() << new_param;
+                out_type() << "cost:" << optimal_value;
+            }
             return tipl::sum(costs);
         };
         optimal_value = fun(arg_min);
         for(auto cur_type : reg_list)
         {
+            if constexpr(!std::is_void<out_type>::value)
+                out_type() << "optimal cost:" << optimal_value;
             if(is_terminated())
                 break;
             transform_type upper(arg_upper),lower(arg_lower);
             update_bound(upper,lower,cur_type);
             if(line_search)
             {
+                if constexpr(!std::is_void<out_type>::value)
+                    out_type() << "line search";
                 tipl::optimization::line_search(arg_min.begin(),arg_min.end(),
                                                  upper.begin(),lower.begin(),fun,optimal_value,is_terminated);
+                if constexpr(!std::is_void<out_type>::value)
+                    out_type() << "quasi_newtons_minimize";
                 tipl::optimization::quasi_newtons_minimize(arg_min.begin(),arg_min.end(),
                                                        upper.begin(),lower.begin(),fun,optimal_value,is_terminated,
                                                        precision);
             }
             else
+            {
+                if constexpr(!std::is_void<out_type>::value)
+                    out_type() << "gradient_descent";
                 tipl::optimization::gradient_descent(arg_min.begin(),arg_min.end(),
                                                      upper.begin(),lower.begin(),fun,optimal_value,is_terminated,
                                                      precision,max_iterations);
+            }
         }
         if(!line_search)
             tipl::optimization::gradient_descent(arg_min.begin(),arg_min.end(),
                                                  arg_upper.begin(),arg_lower.begin(),fun,optimal_value,is_terminated,
                                                  precision,max_iterations);
-
+        if constexpr(!std::is_void<out_type>::value)
+            out_type() << "end cost:" << optimal_value;
         return optimal_value;
     }
-    template<typename cost_type,typename terminated_type>
+    template<typename cost_type,typename out_type = void,typename terminated_type>
     __INLINE__ float optimize(terminated_type&& is_terminated)
     {
         std::vector<std::shared_ptr<cost_type> > cost_fun;
         auto size = (from.size() > to.size() ? to.size() : from.size());
         for(size_t i = 0;i < size;++i)
             cost_fun.push_back(std::make_shared<cost_type>());
-        return optimize(cost_fun,is_terminated);
+        return optimize<cost_type,out_type>(cost_fun,is_terminated);
     }
-    template<typename cost_type>
+    template<typename cost_type,typename out_type = void>
     __INLINE__ float optimize(bool& is_terminated)
     {
-        return optimize<cost_type>([&](void){return is_terminated;});
+        return optimize<cost_type,out_type>([&](void){return is_terminated;});
     }
-    template<typename cost_type,typename terminated_type>
+    template<typename cost_type,typename out_type = void,typename terminated_type>
     float optimize_mr(terminated_type&& terminated)
     {
-        if(from[0].size() > 64*64*64)
+        if constexpr(!std::is_void<out_type>::value)
         {
+            out_type() << "resolution:" << from_vs;
+            out_type() << "size:" << from[0].shape();
+        }
+
+        if(from[0].size() > (dim == 3 ? 64*64*64 : 64*64))
+        {
+            if constexpr(!std::is_void<out_type>::value)
+                out_type() << "try lower resolution first";
             linear_reg_param low_reso_reg(*this);
-            low_reso_reg.down_sampling();
-            low_reso_reg.optimize_mr<cost_type>(terminated);
+            low_reso_reg.down_sampling();         
+            low_reso_reg.optimize_mr<cost_type,out_type>(terminated);
             if(line_search)
                 line_search = false;
         }
-        return optimize<cost_type>(terminated);
+        return optimize<cost_type,out_type>(terminated);
     }
-    template<typename cost_type>
+    template<typename cost_type,typename out_type = void>
     __INLINE__ float optimize_mr(bool& is_terminated)
     {
-        return optimize_mr<cost_type>([&](void){return is_terminated;});
+        return optimize_mr<cost_type,out_type>([&](void){return is_terminated;});
     }
 };
 
@@ -416,7 +453,7 @@ public:
 template<typename T,typename U>
 inline auto linear_reg(const std::vector<T>& template_image,tipl::vector<T::dimension> template_vs,
                        const std::vector<U>& subject_image,tipl::vector<T::dimension> subject_vs,
-                       affine_transform<float>& arg_min)
+                       affine_transform<float,T::dimension>& arg_min)
 {
     auto reg = std::make_shared<linear_reg_param<T::dimension,typename U::value_type> >(template_image,subject_image,arg_min);
     reg->from_vs = template_vs;
