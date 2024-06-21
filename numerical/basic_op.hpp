@@ -353,7 +353,7 @@ ImageType2D& volume2slice_scaled(const ImageType3D& slice,ImageType2D& I,dim_typ
         {
             auto x = std::min<int>(slice.width()-1,std::floor(ratio*pos[0]));
             auto y = std::min<int>(slice.height()-1,std::floor(ratio*pos[1]));
-            I[pos.index()] = slice.at(x,y,slice_index);
+            I[pos.index()] = slice.at(vector<3,int>(x,y,int(slice_index)));
         });
     }
     else
@@ -368,7 +368,7 @@ ImageType2D& volume2slice_scaled(const ImageType3D& slice,ImageType2D& I,dim_typ
             {
                 auto x = std::min<int>(slice.width()-1,std::floor(ratio*pos[0]));
                 auto z = std::min<int>(slice.depth()-1,std::floor(ratio*pos[1]));
-                I[pos.index()] = slice.at(x,slice_index,z);
+                I[pos.index()] = slice.at(vector<3,int>(x,int(slice_index),z));
             });
         }
         else
@@ -383,7 +383,7 @@ ImageType2D& volume2slice_scaled(const ImageType3D& slice,ImageType2D& I,dim_typ
                 {
                     auto y = std::min<int>(slice.height()-1,std::floor(ratio*pos[0]));
                     auto z = std::min<int>(slice.depth()-1,std::floor(ratio*pos[1]));
-                    I[pos.index()] = slice.at(slice_index,y,z);
+                    I[pos.index()] = slice.at(vector<3,int>(int(slice_index),y,z));
                 });
             }
     return I;
