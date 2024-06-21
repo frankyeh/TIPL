@@ -524,13 +524,13 @@ class affine_transform
 public:
     using value_type = value_type_;
     static constexpr int dimension = dim;
-    static constexpr int total_size = (dim == 3 ? 12:7);
+    static constexpr int total_size = (dim-1)*6;
     union
     {
         struct
         {
             value_type translocation[dim];
-            value_type rotation[dim];
+            value_type rotation[dim == 3 ? 3 : 1];
             value_type scaling[dim];
             value_type affine[dim == 3 ? 3 : 1];
         };
@@ -574,16 +574,16 @@ public:
     {
         translocation[0] = 0;
         translocation[1] = 0;
-        rotation[0] = 0;
-        rotation[1] = 0;
         scaling[0] = 1;
         scaling[1] = 1;
+        rotation[0] = 0;
         affine[0] = 0;
         if constexpr(dimension == 3)
         {
             translocation[2] = 0;
-            rotation[2] = 0;
             scaling[2] = 1;
+            rotation[1] = 0;
+            rotation[2] = 0;
             affine[1] = 0;
             affine[2] = 0;
         }
@@ -618,7 +618,7 @@ public:
         else
         {
             out << "translocation: " << T.translocation[0] << " " << T.translocation[1] << " " << std::endl;
-            out << "rotation: " << T.rotation[0] << " " << T.rotation[1] << " " << std::endl;
+            out << "rotation: " << T.rotation[0] << std::endl;
             out << "scaling: " << T.scaling[0] << " " << T.scaling[1] << " " << std::endl;
             out << "shear: " << T.affine[0] << std::endl;
         }
@@ -715,102 +715,101 @@ public:
     template<typename rhs_value_type>
     __INLINE__ transformation_matrix(const rhs_value_type& M){operator=(M);}
     template<typename geo_type,typename vs_type>
-    __DEVICE_HOST__ transformation_matrix(const affine_transform<value_type,3>& rb,
+    __DEVICE_HOST__ transformation_matrix(const affine_transform<value_type,dimension>& rb,
                           const geo_type& from,
                           const vs_type& from_vs,
                           const geo_type& to,
                           const vs_type& to_vs)
     {
         //now sr = Affine*Scaling*R1*R2*R3
-        rotation_scaling_affine_matrix(rb.rotation,rb.scaling,rb.affine,sr,vdim<3>());
         // calculate (vs*Translocation*shift_center)
-        vs_type t(from.width(),from.height(),from.depth());
-        t *= -0.5;
-        t[0] *= from_vs[0];
-        t[1] *= from_vs[1];
-        t[2] *= from_vs[2];
-        t += rb.translocation;
-        // (Affine*Scaling*R1*R2*R3)*(vs*Translocation*shift_center)
-        shift[0] = sr[0]*t[0]+sr[1]*t[1]+sr[2]*t[2];
-        shift[1] = sr[3]*t[0]+sr[4]*t[1]+sr[5]*t[2];
-        shift[2] = sr[6]*t[0]+sr[7]*t[1]+sr[8]*t[2];
-        sr[0] *= from_vs[0];
-        sr[1] *= from_vs[1];
-        sr[2] *= from_vs[2];
-        sr[3] *= from_vs[0];
-        sr[4] *= from_vs[1];
-        sr[5] *= from_vs[2];
-        sr[6] *= from_vs[0];
-        sr[7] *= from_vs[1];
-        sr[8] *= from_vs[2];
-        // inv(vs) ... = inv(vs)(vs*shift_center)...
-        if(to_vs[0] != value_type(1))
+        if constexpr(dimension==3)
         {
-            sr[0] /= to_vs[0];
-            sr[1] /= to_vs[0];
-            sr[2] /= to_vs[0];
-            shift[0] /= to_vs[0];
+            rotation_scaling_affine_matrix(rb.rotation,rb.scaling,rb.affine,sr,vdim<dimension>());
+            vs_type t(from.width(),from.height(),from.depth());
+            t *= -0.5;
+            t[0] *= from_vs[0];
+            t[1] *= from_vs[1];
+            t[2] *= from_vs[2];
+            t += rb.translocation;
+            // (Affine*Scaling*R1*R2*R3)*(vs*Translocation*shift_center)
+            shift[0] = sr[0]*t[0]+sr[1]*t[1]+sr[2]*t[2];
+            shift[1] = sr[3]*t[0]+sr[4]*t[1]+sr[5]*t[2];
+            shift[2] = sr[6]*t[0]+sr[7]*t[1]+sr[8]*t[2];
+            sr[0] *= from_vs[0];
+            sr[1] *= from_vs[1];
+            sr[2] *= from_vs[2];
+            sr[3] *= from_vs[0];
+            sr[4] *= from_vs[1];
+            sr[5] *= from_vs[2];
+            sr[6] *= from_vs[0];
+            sr[7] *= from_vs[1];
+            sr[8] *= from_vs[2];
+            // inv(vs) ... = inv(vs)(vs*shift_center)...
+            if(to_vs[0] != value_type(1))
+            {
+                sr[0] /= to_vs[0];
+                sr[1] /= to_vs[0];
+                sr[2] /= to_vs[0];
+                shift[0] /= to_vs[0];
+            }
+            if(to_vs[1] != value_type(1))
+            {
+                sr[3] /= to_vs[1];
+                sr[4] /= to_vs[1];
+                sr[5] /= to_vs[1];
+                shift[1] /= to_vs[1];
+            }
+            if(to_vs[2] != value_type(1))
+            {
+                sr[6] /= to_vs[2];
+                sr[7] /= to_vs[2];
+                sr[8] /= to_vs[2];
+                shift[2] /= to_vs[2];
+            }
+            // inv(shift_center) ... = inv(shift_center)(shift_center)...
+            shift[0] += float(to.width())*value_type(0.5);
+            shift[1] += float(to.height())*value_type(0.5);
+            shift[2] += float(to.depth())*value_type(0.5);
         }
-        if(to_vs[1] != value_type(1))
+
+        else
         {
-            sr[3] /= to_vs[1];
-            sr[4] /= to_vs[1];
-            sr[5] /= to_vs[1];
-            shift[1] /= to_vs[1];
+            //now sr = Affine*Scaling*R1*R2
+            rotation_scaling_affine_matrix(rb.rotation[0],rb.scaling,rb.affine[0],sr,vdim<2>());
+            // calculate (vs*Translocation*shift_center)
+            vs_type t(from.width(),from.height());
+            t *= -0.5;
+            t[0] *= from_vs[0];
+            t[1] *= from_vs[1];
+            t += rb.translocation;
+            // (Affine*Scaling*R1*R2)*(vs*Translocation*shift_center)
+            shift[0] = sr[0]*t[0]+sr[1]*t[1];
+            shift[1] = sr[2]*t[0]+sr[3]*t[1];
+            sr[0] *= from_vs[0];
+            sr[1] *= from_vs[1];
+            sr[2] *= from_vs[0];
+            sr[3] *= from_vs[1];
+            // inv(vs) ... = inv(vs)(vs*shift_center)...
+            if(to_vs[0] != value_type(1))
+            {
+                sr[0] /= to_vs[0];
+                sr[1] /= to_vs[0];
+                shift[0] /= to_vs[0];
+            }
+            if(to_vs[1] != value_type(1))
+            {
+                sr[2] /= to_vs[1];
+                sr[3] /= to_vs[1];
+                shift[1] /= to_vs[1];
+            }
+            // inv(shift_center) ... = inv(shift_center)(shift_center)...
+            shift[0] += float(to.width())*value_type(0.5);
+            shift[1] += float(to.height())*value_type(0.5);
         }
-        if(to_vs[2] != value_type(1))
-        {
-            sr[6] /= to_vs[2];
-            sr[7] /= to_vs[2];
-            sr[8] /= to_vs[2];
-            shift[2] /= to_vs[2];
-        }
-        // inv(shift_center) ... = inv(shift_center)(shift_center)...
-        shift[0] += float(to.width())*value_type(0.5);
-        shift[1] += float(to.height())*value_type(0.5);
-        shift[2] += float(to.depth())*value_type(0.5);
-    }
-    template<typename geo_type,typename vs_type>
-    __DEVICE_HOST__ transformation_matrix(const affine_transform<value_type,2>& rb,
-                          const geo_type& from,
-                          const vs_type& from_vs,
-                          const geo_type& to,
-                          const vs_type& to_vs)
-    {
-        //now sr = Affine*Scaling*R1*R2
-        rotation_scaling_affine_matrix(rb.rotation,rb.scaling,rb.affine[0],sr,vdim<2>());
-        // calculate (vs*Translocation*shift_center)
-        vs_type t(from.width(),from.height());
-        t *= -0.5;
-        t[0] *= from_vs[0];
-        t[1] *= from_vs[1];
-        t += rb.translocation;
-        // (Affine*Scaling*R1*R2)*(vs*Translocation*shift_center)
-        shift[0] = sr[0]*t[0]+sr[1]*t[1];
-        shift[1] = sr[2]*t[0]+sr[3]*t[1];
-        sr[0] *= from_vs[0];
-        sr[1] *= from_vs[1];
-        sr[2] *= from_vs[0];
-        sr[3] *= from_vs[1];
-        // inv(vs) ... = inv(vs)(vs*shift_center)...
-        if(to_vs[0] != value_type(1))
-        {
-            sr[0] /= to_vs[0];
-            sr[1] /= to_vs[0];
-            shift[0] /= to_vs[0];
-        }
-        if(to_vs[1] != value_type(1))
-        {
-            sr[2] /= to_vs[1];
-            sr[3] /= to_vs[1];
-            shift[1] /= to_vs[1];
-        }
-        // inv(shift_center) ... = inv(shift_center)(shift_center)...
-        shift[0] += float(to.width())*value_type(0.5);
-        shift[1] += float(to.height())*value_type(0.5);
     }
     // (Affine*Scaling*R1*R2*R3*vs*Translocation*shift_center)*from = (vs*shift_center)*to;
-    template<typename geo_type,typename vs_type,typename std::enable_if<dimension==3,bool>::type = true>
+    template<typename geo_type,typename vs_type>
     __DEVICE_HOST__ void to_affine_transform(affine_transform<value_type,3>& rb,
                           const geo_type& from,
                           const vs_type& from_vs,
@@ -872,33 +871,49 @@ public:
         return *this;
     }
     template<typename rhs_value_type>
-    __INLINE__ auto& operator=(const tipl::matrix<4,4,rhs_value_type>& M)
+    __INLINE__ auto& operator=(const tipl::matrix<dimension+1,dimension+1,rhs_value_type>& M)
     {
-        data[0] = M[0];
-        data[1] = M[1];
-        data[2] = M[2];
+        if constexpr(dimension == 3)
+        {
+            data[0] = M[0];
+            data[1] = M[1];
+            data[2] = M[2];
 
-        data[3] = M[4];
-        data[4] = M[5];
-        data[5] = M[6];
+            data[3] = M[4];
+            data[4] = M[5];
+            data[5] = M[6];
 
-        data[6] = M[8];
-        data[7] = M[9];
-        data[8] = M[10];
+            data[6] = M[8];
+            data[7] = M[9];
+            data[8] = M[10];
 
-        data[9] = M[3];
-        data[10] = M[7];
-        data[11] = M[11];
+            data[9] = M[3];
+            data[10] = M[7];
+            data[11] = M[11];
+        }
+        else
+        {
+            data[0] = M[0];
+            data[1] = M[1];
+
+            data[2] = M[3];
+            data[3] = M[4];
+
+            data[4] = M[2];
+            data[5] = M[5];
+        }
         return *this;
     }
 public:
 
-    __DEVICE_HOST__  const transformation_matrix<value_type>& operator*=(const transformation_matrix& rhs)
+    __DEVICE_HOST__  const transformation_matrix& operator*=(const transformation_matrix& rhs)
     {
-        tipl::matrix<3,3,value_type> sr_tmp(sr);
-        tipl::mat::product(rhs.sr,sr_tmp.begin(),sr,tipl::dim<3,3>(),tipl::dim<3,3>());
-        value_type shift_t[3] = {shift[0],shift[1],shift[2]};
-        vector_transformation(shift_t,shift,rhs.sr,rhs.shift,vdim<3>());
+        tipl::matrix<dimension,dimension,value_type> sr_tmp(sr);
+        tipl::mat::product(rhs.sr,sr_tmp.begin(),sr,tipl::dim<dimension,dimension>(),tipl::dim<dimension,dimension>());
+        value_type shift_t[dimension];
+        for(char d = 0;d < dimension;++d)
+            shift_t[d] = shift[d];
+        vector_transformation(shift_t,shift,rhs.sr,rhs.shift,vdim<dimension>());
         return *this;
     }
     template<typename InputIterType>
@@ -923,14 +938,14 @@ public:
 
     __DEVICE_HOST__ bool inverse(void)
     {
-        tipl::matrix<3,3,value_type> iT(sr);
+        tipl::matrix<dimension,dimension,value_type> iT(sr);
         if(!iT.inv())
             return false;
-        value_type new_shift[3];
-        vector_rotation(shift,new_shift,iT.begin(),vdim<3>());
-        for(unsigned int d = 0;d < 3;++d)
+        value_type new_shift[dimension];
+        vector_rotation(shift,new_shift,iT.begin(),vdim<dimension>());
+        for(unsigned int d = 0;d < dimension;++d)
             shift[d] = -new_shift[d];
-        for(unsigned int d = 0;d < 9;++d)
+        for(unsigned int d = 0;d < dimension*dimension;++d)
             sr[d] = iT[d];
         return true;
     }
@@ -938,28 +953,44 @@ public:
     template<typename vtype1,typename vtype2>
     __INLINE__ void operator()(const vtype1& from,vtype2& to) const
     {
-        vector_transformation(from.begin(),to.begin(),sr,shift,vdim<3>());
+        vector_transformation(from.begin(),to.begin(),sr,shift,vdim<dimension>());
     }
     template<typename vtype>
     __INLINE__ void operator()(vtype& pos) const
     {
         vtype result;
-        vector_transformation(pos.begin(),result.begin(),sr,shift,vdim<3>());
+        vector_transformation(pos.begin(),result.begin(),sr,shift,vdim<dimension>());
         pos = result;
     }
 
-    friend std::ostream & operator<<(std::ostream& out, const transformation_matrix<value_type> &T)
+    friend std::ostream & operator<<(std::ostream& out, const transformation_matrix& T)
     {
-        out << T.data[0] << " " << T.data[1] << " " << T.data[2] << " " << T.data[9] << std::endl;
-        out << T.data[3] << " " << T.data[4] << " " << T.data[5] << " " << T.data[10] << std::endl;
-        out << T.data[6] << " " << T.data[7] << " " << T.data[8] << " " << T.data[11] << std::endl;
+        if constexpr(dimension==3)
+        {
+            out << T.data[0] << " " << T.data[1] << " " << T.data[2] << " " << T.data[9] << std::endl;
+            out << T.data[3] << " " << T.data[4] << " " << T.data[5] << " " << T.data[10] << std::endl;
+            out << T.data[6] << " " << T.data[7] << " " << T.data[8] << " " << T.data[11] << std::endl;
+        }
+        else
+        {
+            out << T.data[0] << " " << T.data[1] << " " << T.data[4] << std::endl;
+            out << T.data[2] << " " << T.data[3] << " " << T.data[5] << std::endl;
+        }
         return out;
     }
-    friend std::istream& operator>>(std::istream& in, transformation_matrix<value_type> &T)
+    friend std::istream& operator>>(std::istream& in, transformation_matrix& T)
     {
-        in >> T.data[0] >> T.data[1] >> T.data[2] >> T.data[9];
-        in >> T.data[3] >> T.data[4] >> T.data[5] >> T.data[10];
-        in >> T.data[6] >> T.data[7] >> T.data[8] >> T.data[11];
+        if constexpr(dimension==3)
+        {
+            in >> T.data[0] >> T.data[1] >> T.data[2] >> T.data[9];
+            in >> T.data[3] >> T.data[4] >> T.data[5] >> T.data[10];
+            in >> T.data[6] >> T.data[7] >> T.data[8] >> T.data[11];
+        }
+        else
+        {
+            in >> T.data[0] >> T.data[1] >> T.data[4];
+            in >> T.data[2] >> T.data[3] >> T.data[5];
+        }
         return in;
     }
 };
