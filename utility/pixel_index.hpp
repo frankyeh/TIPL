@@ -672,8 +672,7 @@ public:
     using value_type = data_type;
 public:
     __INLINE__ vector(void):x_(0),y_(0),z_(0)				{}
-    template<typename T>
-    __INLINE__ vector(T x,T y,T z):x_(data_type(x)),y_(data_type(y)),z_(data_type(z)){}
+    __INLINE__ vector(data_type x,data_type y,data_type z):x_(x),y_(y),z_(z){}
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
     __INLINE__ vector(const T& rhs):x_(data_type(rhs[0])),y_(data_type(rhs[1])),z_(data_type(rhs[2])){}
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
