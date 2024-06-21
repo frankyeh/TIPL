@@ -788,7 +788,7 @@ void upsample_with_padding(const T& in,T& out)
     else
     {
         par_for(begin_index(out.shape()),end_index(out.shape()),[&]
-                (const pixel_index<3>& pos)
+                (const pixel_index<T::dimension>& pos)
         {
             vector<3> v(pos);
             v *= 0.5f;
