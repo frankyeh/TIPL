@@ -27,13 +27,13 @@ inline void preproc_actions(tipl::image<3>& images,
                      const tipl::vector<3>& image_vs,
                      const tipl::shape<3>& model_dim,
                      const tipl::vector<3>& model_vs,
-                     tipl::transformation_matrix<float>& trans,
+                     tipl::transformation_matrix<float,3>& trans,
                      bool match_resolution,
                      bool match_fov)
 {
     if(model_dim == image_dim && image_vs == model_vs)
     {
-        trans = tipl::transformation_matrix<float>();
+        trans = tipl::transformation_matrix<float,3>();
         tipl::normalize(images);
         return;
     }
@@ -49,7 +49,7 @@ inline void preproc_actions(tipl::image<3>& images,
     shift[0] /= 2;
     shift[1] /= 2;
     tipl::affine_transform<float> arg;
-    trans = tipl::transformation_matrix<float>(arg,target_dim,target_vs,image_dim,image_vs);
+    trans = tipl::transformation_matrix<float,3>(arg,target_dim,target_vs,image_dim,image_vs);
 
     tipl::par_for(in_channel,[&](int c)
     {
@@ -220,7 +220,7 @@ public:
         tipl::affine_transform<float> arg;
         // align top so that the T1W bottom is trancated
         arg.translocation[2] = (float(I.depth())*I_vs[2]-float(dim[2])*vs[2])*0.5f;
-        tipl::transformation_matrix<float> trans(arg,dim,vs,I.shape(),I_vs);
+        tipl::transformation_matrix<float,3> trans(arg,dim,vs,I.shape(),I_vs);
         tipl::image<3> input_image(dim);
         tipl::resample(I,input_image,trans);
         tipl::normalize(input_image);
