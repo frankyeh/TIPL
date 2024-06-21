@@ -297,8 +297,8 @@ bool is_edge(ImageType& I,tipl::pixel_index<2> index)
     return false;
 }
 
-template<typename ImageType>
-bool is_edge(ImageType& I,tipl::pixel_index<3> index)
+template<typename ImageType,typename std::enable_if<ImageType::dimension==3,bool>::type = true>
+bool is_edge(ImageType& I,tipl::pixel_index<ImageType::dimension> index)
 {
     typename ImageType::value_type center = I[index.index()];
     size_t z_offset = I.shape().plane_size();
