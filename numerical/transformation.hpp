@@ -713,7 +713,9 @@ public:
     }
     __INLINE__ ~transformation_matrix(void){}
     template<typename rhs_value_type>
-    __INLINE__ transformation_matrix(const rhs_value_type& M){operator=(M);}
+    __INLINE__ transformation_matrix(const transformation_matrix<rhs_value_type,dimension>& M){*this = M;}
+    template<typename rhs_value_type>
+    __INLINE__ transformation_matrix(const tipl::matrix<dimension+1,dimension+1,rhs_value_type>& M){*this = M;}
     template<typename geo_type,typename vs_type>
     __DEVICE_HOST__ transformation_matrix(const affine_transform<value_type,dimension>& rb,
                           const geo_type& from,
@@ -864,7 +866,7 @@ public:
     }
 public:
     template<typename rhs_value_type>
-    __INLINE__ auto& operator=(const transformation_matrix<rhs_value_type>& M)
+    __INLINE__ auto& operator=(const transformation_matrix<rhs_value_type,dimension>& M)
     {
         for(unsigned int i = 0;i < total_size;++i)
             data[i] = M.data[i];
