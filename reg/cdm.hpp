@@ -120,7 +120,7 @@ inline float cdm_get_gradient(const image_type1& Js,const image_type2& It,dis_ty
     {
         tipl::par_for(Js.size(),[&](size_t index)
         {
-            cdm_get_gradient_imp(tipl::pixel_index<3>(index,Js.shape()),Js,It,new_d,cost_map);
+            cdm_get_gradient_imp(tipl::pixel_index<image_type1::dimension>(index,Js.shape()),Js,It,new_d,cost_map);
         });
     }
     return float(tipl::mean(cost_map));
@@ -310,7 +310,7 @@ void cdm_smooth(dist_type& d,float smoothing)
 
 
 template<typename out_type = void,typename pointer_image_type,typename dist_type,typename terminate_type>
-float cdm(std::vector<pointer_image_type> It,
+void cdm(std::vector<pointer_image_type> It,
           std::vector<pointer_image_type> Is,
            dist_type& d,// displacement field
            dist_type& inv_d,// displacement field
@@ -341,20 +341,20 @@ float cdm(std::vector<pointer_image_type> It,
         },It.size());
         cdm_param param2 = param;
         param2.resolution /= 2.0f;
-        float r = cdm<out_type>(rIt,rIs,d,inv_d,terminated,param2);
+        cdm<out_type>(rIt,rIs,d,inv_d,terminated,param2);
         multiply_constant(d,2.0f);
         multiply_constant(inv_d,2.0f);
         upsample_with_padding(d,geo);
         upsample_with_padding(inv_d,geo);
         if(param.resolution > 1.0f)
-            return r;
+            return;
     }
 
 
     float theta = 0.0;
 
     if constexpr(!std::is_void<out_type>::value)
-        out_type() << "resolution:" << It.shape();
+        out_type() << "size:" << It[0].shape();
 
 
     std::deque<float> cost,iter;
@@ -397,7 +397,6 @@ float cdm(std::vector<pointer_image_type> It,
         invert_displacement(d,inv_d,2);
     }
     invert_displacement(d,inv_d);
-    return cost.front();
 }
 
 
