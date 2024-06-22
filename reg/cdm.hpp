@@ -376,7 +376,7 @@ void cdm(std::vector<pointer_image_type> It,
             sub_cost[i] = cdm_get_gradient(Js,It[i],sub_new_d[i]);
         },It.size());
 
-        auto new_d = sub_new_d[0];
+        auto& new_d = sub_new_d[0];
         for(size_t i = 1;i < sub_new_d.size();++i)
             add(new_d,sub_new_d[i]);
 
