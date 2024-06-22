@@ -395,6 +395,7 @@ public:
     {
         return size();
     }
+    __INLINE__ auto expand(unsigned int t) const;
 public:
     __INLINE__ bool operator==(const shape<2>& rhs) const
     {
@@ -545,7 +546,7 @@ public:
         wh = size_ = 0;
         return dim[index];
     }
-    __INLINE__ shape<4> expand(int t) const
+    __INLINE__ shape<4> expand(unsigned int t) const
     {
         return shape<4>(w,h,d,t);
     }
@@ -621,6 +622,11 @@ public:
     }
 
 };
+
+__INLINE__ auto shape<2>::expand(unsigned int t) const
+{
+    return shape<3>(w,h,t);
+}
 
 template<typename value_type>
 __INLINE__ tipl::shape<3> s(value_type x,value_type y,value_type z)
