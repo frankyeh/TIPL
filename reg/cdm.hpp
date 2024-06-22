@@ -164,7 +164,7 @@ template<typename T,typename terminated_type>
 void cdm_solve_poisson(T& new_d,terminated_type& terminated)
 {
     T solve_d(new_d),new_solve_d(new_d.shape());
-    multiply_constant(solve_d,float(-0.5f/3.0f));
+    multiply_constant(solve_d,float(-0.5f/float(T::dimension)));
 
     for(int iter = 0;iter < 12 && !terminated;++iter)
     {
@@ -187,7 +187,7 @@ void cdm_solve_poisson(T& new_d,terminated_type& terminated)
             const int size_1 = new_d.size()-1;
             const int size_w = new_d.size()-w;
             const int size_wh = new_d.size()-wh;
-            constexpr float inv_d2 = 0.5f / 3.0f;
+            constexpr float inv_d2 = 0.5f / float(T::dimension);
             tipl::par_for(solve_d.size(),[&](int pos)
             {
                 auto v = new_solve_d[pos];
@@ -199,10 +199,13 @@ void cdm_solve_poisson(T& new_d,terminated_type& terminated)
                    v += solve_d[pos-w];
                 if(pos < size_w)
                    v += solve_d[pos+w];
-                if(pos >= wh)
-                   v += solve_d[pos-wh];
-                if(pos < size_wh)
-                   v += solve_d[pos+wh];
+                if constexpr(T::dimension == 3)
+                {
+                    if(pos >= wh)
+                        v += solve_d[pos-wh];
+                    if(pos < size_wh)
+                        v += solve_d[pos+wh];
+                }
                 v -= new_d[pos];
                 v *= inv_d2;
                 new_solve_d[pos] = v;
@@ -302,7 +305,7 @@ void cdm_smooth(dist_type& d,float smoothing)
     else
     tipl::par_for(d.size(),[&](size_t cur_index)
     {
-        cdm_smooth_imp(d,dd,cur_index,smoothing/6.0f,(1.0f-smoothing));
+        cdm_smooth_imp(d,dd,cur_index,smoothing/float(2.0f*dist_type::dimension),(1.0f-smoothing));
     });
     dd.swap(d);
 }
