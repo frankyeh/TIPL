@@ -770,7 +770,7 @@ __global__ void upsample_with_padding_cuda_kernel(T1 from,T2 to)
     TIPL_FOR(index,to.size())
     {
         tipl::estimate<itype>(from,
-            tipl::vector<3>(tipl::pixel_index<3>(index,to.shape()))*=0.5,
+            tipl::vector<T1::dimension>(tipl::pixel_index<T1::dimension>(index,to.shape()))*=0.5,
             to[index]);
     }
 }
@@ -790,7 +790,7 @@ void upsample_with_padding(const T& in,T& out)
         par_for(begin_index(out.shape()),end_index(out.shape()),[&]
                 (const pixel_index<T::dimension>& pos)
         {
-            vector<3> v(pos);
+            vector<T::dimension> v(pos);
             v *= 0.5f;
             estimate(in,v,out[pos.index()]);
         });
