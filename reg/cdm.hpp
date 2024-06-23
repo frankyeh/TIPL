@@ -364,6 +364,7 @@ void cdm(std::vector<pointer_image_type> It,
 
 
     std::deque<float> cost,iter;
+    tipl::thread inv_thread;
     for (unsigned int index = 0;index < param.iterations && !terminated;++index)
     {
         std::vector<float> sub_cost(It.size());
@@ -398,11 +399,10 @@ void cdm(std::vector<pointer_image_type> It,
         multiply_constant(new_d,param.speed/theta);
         //cdm_constraint(new_d);
         accumulate_displacement(d,new_d);
+        cdm_smooth(new_d,param.smoothing);
         d.swap(new_d);
-        cdm_smooth(d,param.smoothing);
-        invert_displacement(d,inv_d,2);
+        inv_thread.run([&](void){invert_displacement(d,inv_d);});
     }
-    invert_displacement(d,inv_d);
 }
 
 
