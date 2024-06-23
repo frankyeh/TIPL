@@ -245,19 +245,29 @@ namespace backend {
 
 
 class thread{
-    std::shared_ptr<std::future<void> > th;
+    std::shared_ptr<std::thread> th;
 public:
     bool running = false;
     bool terminated = false;
+    #ifdef __CUDACC__
+    int cur_device = 0;
+    #endif
 public:
     thread(void){}
-    ~thread(void){clear();}
+    ~thread(void)
+    {
+        clear();
+        #ifdef __CUDACC__
+        if constexpr(use_cuda)
+            cudaDeviceSynchronize();
+        #endif
+    }
     void clear(void)
     {
         if(th.get())
         {
             terminated = true;
-            th->wait();
+            th->join();
             th.reset();
         }
         terminated = false;
@@ -270,11 +280,29 @@ public:
         if(th.get())
             clear();
         running = true;
-        th.reset(new std::future<void>(std::async(std::launch::async,fun)));
+        #ifdef __CUDACC__
+        if constexpr(use_cuda)
+        {
+            if(cudaGetDevice(&cur_device) != cudaSuccess)
+                throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+        }
+        #endif
+        th.reset(new std::thread([&]()
+        {
+            #ifdef __CUDACC__
+            if constexpr(use_cuda)
+            {
+                if(cudaSetDevice(cur_device) != cudaSuccess)
+                    throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+            }
+            #endif
+            fun();
+        }
+        ));
     }
-    void wait(void)
+    void join(void)
     {
-        th->wait();
+        th->join();
     }
 };
 
