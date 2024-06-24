@@ -271,14 +271,10 @@ public:
         terminated = false;
         running = false;
     }
-
     template<typename lambda_type>
     void run(lambda_type&& fun)
     {
-        if(th.get())
-            clear();
-        terminated = false;
-        running = true;
+        clear();
         #ifdef __CUDACC__
         if constexpr(use_cuda)
         {
@@ -286,8 +282,9 @@ public:
                 throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
         }
         #endif
-        th.reset(new std::thread([&]()
+        th.reset(new std::thread([this,&fun]()
         {
+            running = true;
             #ifdef __CUDACC__
             if constexpr(use_cuda)
             {
