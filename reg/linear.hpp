@@ -410,7 +410,7 @@ public:
         auto size = (from.size() > to.size() ? to.size() : from.size());
         for(size_t i = 0;i < size;++i)
             cost_fun.push_back(std::make_shared<cost_type>());
-        return optimize<cost_type>(cost_fun,std::forward(is_terminated));
+        return optimize<cost_type>(cost_fun,std::forward<terminated_type>(is_terminated));
     }
     template<typename cost_type>
     __INLINE__ float optimize(bool& is_terminated)
@@ -435,13 +435,13 @@ public:
             max_prog += reg_list.size();
             linear_reg_param low_reso_reg(*this);
             low_reso_reg.down_sampling();
-            low_reso_reg.optimize_mr<cost_type>(std::forward(terminated));
+            low_reso_reg.optimize_mr<cost_type>(std::forward<terminated_type>(terminated));
             max_prog = low_reso_reg.max_prog;
             prog = low_reso_reg.prog;
             if(line_search)
                 line_search = false;
         }
-        return optimize<cost_type>(std::forward(terminated));
+        return optimize<cost_type>(std::forward<terminated_type>(terminated));
     }
     template<typename cost_type>
     __INLINE__ float optimize_mr(bool& is_terminated)
