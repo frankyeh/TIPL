@@ -91,7 +91,7 @@ struct mutual_information_cuda
     static constexpr int his_bandwidth = 64;
 public:
     template<typename ImageType,typename TransformType>
-    double operator()(const ImageType& from_raw,const ImageType& to_raw,const TransformType& trans,int thread_id = 0)
+    double operator()(const ImageType& from_raw,const ImageType& to_raw,const TransformType& trans)
     {
         using DeviceImageType = device_image<ImageType::dimension,typename ImageType::value_type>;
         {
@@ -147,7 +147,7 @@ public:
     mutual_information(unsigned int band_width_ = 6):band_width(band_width_),his_bandwidth(1 << band_width_) {}
 public:
     template<typename ImageType1,typename ImageType2,typename TransformType>
-    double operator()(const ImageType1& from_,const ImageType2& to_,const TransformType& transform,int)
+    double operator()(const ImageType1& from_,const ImageType2& to_,const TransformType& transform)
     {
         {
             std::scoped_lock<std::mutex> lock(init_mutex);
@@ -172,7 +172,7 @@ public:
         auto pto = tipl::make_image(to.data(),to_.shape());
 
         tipl::par_for(tipl::begin_index(from_.shape()),tipl::end_index(from_.shape()),
-                       [&](const pixel_index<ImageType1::dimension>& index,int id)
+                       [&](const auto& index,int id)
         {
             if(id >= thread_count)
                 id = 0;
@@ -353,12 +353,12 @@ public:
         if(type == affine)
             max_iterations += 20;
 
-        auto fun = [&](const transform_type& new_param,int thread_id = 0)
+        auto fun = [&](const transform_type& new_param)
         {
             ++count;
             float cost = 0.0f;
             for(size_t i = 0;i < cost_fun.size();++i)
-                cost += (*cost_fun[i].get())(from[i],to[i],tipl::transformation_matrix<float,dim>(new_param,from[i].shape(),from_vs,to[i].shape(),to_vs),thread_id);
+                cost += (*cost_fun[i].get())(from[i],to[i],tipl::transformation_matrix<float,dim>(new_param,from[i].shape(),from_vs,to[i].shape(),to_vs));
             if constexpr(!std::is_void<out_type>::value)
             {
                 out_type() << new_param;
