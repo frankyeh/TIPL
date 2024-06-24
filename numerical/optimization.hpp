@@ -36,13 +36,13 @@ template<typename iter_type1,typename tol_type,typename iter_type2,typename func
 void estimate_change(iter_type1 x_beg,iter_type1 x_end,tol_type tol,iter_type2 fun_ei,function_type&& fun)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
-    par_for(x_end-x_beg,[&](unsigned int i,int thread)
+    par_for(x_end-x_beg,[&](unsigned int i)
     {
         if(tol[i] == 0)
             return;
         std::vector<param_type> x(x_beg,x_end);
         x[i] += tol[i];
-        fun_ei[i] = fun(x,thread);
+        fun_ei[i] = fun(x);
     });
 }
 // calculate fun(x+ei)
@@ -228,9 +228,9 @@ void quasi_newtons_minimize(
             }
         }
 
-        par_for(line_search_count,[&](unsigned int i,int thread)
+        par_for(line_search_count,[&](unsigned int i)
         {
-            cost[i] = fun(new_xs[i],thread);
+            cost[i] = fun(new_xs[i]);
         });
 
         size_t min_index = size_t(std::min_element(cost.begin(),cost.end())-cost.begin());
