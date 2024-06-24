@@ -756,7 +756,7 @@ auto min_value(const T& data)
     }
     else
     {
-        if(data.size() < 10000 || available_thread_count() < 2)
+        if(data.size() < 10000 || max_thread_count < 2)
             return min_value(data.begin(),data.end());
 
         std::mutex mutex;
@@ -795,7 +795,7 @@ auto max_value(const T& data)
     }
     else
     {
-        if(data.size() < 10000 || available_thread_count() < 2)
+        if(data.size() < 10000 || max_thread_count < 2)
             return max_value(data.begin(),data.end());
         std::mutex mutex;
         auto max_v = data[0];
@@ -867,7 +867,7 @@ void minmax_value(const T& data,value_type& minv,value_type& maxv)
     }
     else
     {
-        if(data.size() < 10000 || available_thread_count() < 2)
+        if(data.size() < 10000 || max_thread_count < 2)
         {
             minmax_value(data.begin(),data.end(),minv,maxv);
             return;
@@ -991,7 +991,7 @@ void upper_threshold(T& I,V value)
     }
     else
     {
-        if(I.size() < 1000 || available_thread_count() < 2)
+        if(I.size() < 1000 || max_thread_count < 2)
         {
             upper_threshold(I.begin(),I.end(),value);
             return;
@@ -1033,7 +1033,7 @@ void lower_threshold(T& I,V value)
     }
     else
     {
-        if(I.size() < 1000 || available_thread_count() < 2)
+        if(I.size() < 1000 || max_thread_count < 2)
         {
             lower_threshold(I.begin(),I.end(),value);
             return;
@@ -1099,7 +1099,7 @@ void upper_lower_threshold(T& I,typename T::value_type lower,typename T::value_t
     }
     else
     {
-        if(I.size() < 1000 || available_thread_count() < 2)
+        if(I.size() < 1000 || max_thread_count < 2)
         {
             upper_lower_threshold(I.begin(),I.end(),lower,upper);
             return;
@@ -1212,17 +1212,17 @@ void apply_sort_index(container_type& c,const std::vector<index_type>& idx)
     c.swap(new_c);
 }
 
-template<typename I_type>
-tipl::vector<I_type::dimension,float> center_of_mass_weighted(const I_type& Im)
+template<typename T>
+tipl::vector<T::dimension,float> center_of_mass_weighted(const T& Im)
 {
-    std::vector<tipl::vector<I_type::dimension,float> > sum_mass(std::thread::hardware_concurrency());
-    std::vector<double> total_w(std::thread::hardware_concurrency());
-    tipl::par_for(tipl::begin_index(Im.shape()),tipl::end_index(Im.shape()),
-                        [&](const tipl::pixel_index<I_type::dimension>& index,size_t id)
+    std::vector<vector<T::dimension,float> > sum_mass(max_thread_count);
+    std::vector<double> total_w(max_thread_count);
+    par_for<sequential_with_id>(tipl::begin_index(Im.shape()),tipl::end_index(Im.shape()),
+                        [&](const auto& index,size_t id)
     {
         auto v = Im[index.index()];
         total_w[id] += v;
-        tipl::vector<I_type::dimension,float> pos(index);
+        tipl::vector<T::dimension,float> pos(index);
         pos *= v;
         sum_mass[id] += pos;
     });
@@ -1236,18 +1236,18 @@ tipl::vector<I_type::dimension,float> center_of_mass_weighted(const I_type& Im)
     return sum_mass[0];
 }
 
-template<typename I_type>
-auto center_of_mass_binary(const I_type& Im)
+template<typename T>
+auto center_of_mass_binary(const T& Im)
 {
-    std::vector<tipl::vector<I_type::dimension> > sum_mass(std::thread::hardware_concurrency());
-    std::vector<size_t> total_w(std::thread::hardware_concurrency());
+    std::vector<tipl::vector<T::dimension> > sum_mass(max_thread_count);
+    std::vector<size_t> total_w(max_thread_count);
     tipl::par_for(tipl::begin_index(Im.shape()),tipl::end_index(Im.shape()),
-                        [&](const tipl::pixel_index<I_type::dimension>& index,size_t id)
+                        [&](const auto& index,size_t id)
     {
         if(Im[index.index()])
         {
             ++total_w[id];
-            sum_mass[id] += tipl::vector<I_type::dimension>(index);
+            sum_mass[id] += tipl::vector<T::dimension>(index);
         }
     });
     for(size_t i = 1;i < sum_mass.size();++i)

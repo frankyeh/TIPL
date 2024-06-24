@@ -165,7 +165,7 @@ auto sum(const T& data)
     }
     else
     {
-        if(data.size() < 1000 || available_thread_count() < 2)
+        if(data.size() < 1000 || max_thread_count < 2)
             return sum(data.begin(),data.end());
         std::mutex mutex;
         return_type sums = return_type();
@@ -212,7 +212,7 @@ auto square_sum(const T& data)
 {
     using value_type = typename T::value_type;
     using return_type = typename sum_result_type<value_type>::type;
-    if(data.size() < 1000 || available_thread_count() < 2)
+    if(data.size() < 1000 || max_thread_count < 2)
         return square_sum(data.begin(),data.end());
     std::mutex mutex;
     return_type sums = return_type();

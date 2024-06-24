@@ -1286,7 +1286,7 @@ public:
         {
             // train a batch
             int cur_size = std::min<int>(batch_size,data.size()-i);
-            par_for(cur_size,[&](int m, int thread_id)
+            par_for<sequential_with_id>(cur_size,[&](int m, int thread_id)
             {
                 ++training_count;
                 int data_index = i+m;

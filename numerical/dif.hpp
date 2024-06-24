@@ -38,7 +38,7 @@ void displacement_to_mapping(T& dis)
     }
     else
     tipl::par_for(tipl::begin_index(dis.shape()),tipl::end_index(dis.shape()),
-                [&](const tipl::pixel_index<T::dimension>& index)
+                [&](const auto& index)
     {
         dis[index.index()] += index;
     });

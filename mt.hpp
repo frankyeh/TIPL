@@ -58,17 +58,15 @@ inline bool is_main_thread(void)
 }
 
 inline int max_thread_count = std::thread::hardware_concurrency();
-inline int available_thread_count(void)
-{
-    return max_thread_count;
-}
+
 
 enum par_for_type{
-    regular = 0,
-    ranged = 1
+    sequential = 0,
+    ranged = 1,
+    sequential_with_id = 2
 };
 
-template <par_for_type type = regular,typename T,
+template <par_for_type type = sequential,typename T,
           typename Func,typename std::enable_if<
               std::is_integral<T>::value ||
               std::is_class<T>::value ||
@@ -88,7 +86,7 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
         else
         {
             for(;from != to;++from)
-                if constexpr(function_traits<Func>::arg_num == 2)
+                if constexpr(type == sequential_with_id)
                     f(from,0);
                 else
                     f(from);
@@ -123,7 +121,7 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
             else
             {
                 for(;beg != end;++beg)
-                    if constexpr(function_traits<Func>::arg_num == 2)
+                    if constexpr(type == sequential_with_id)
                         f(beg,id);
                     else
                         f(beg);
@@ -144,7 +142,7 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
 }
 
 
-template <par_for_type type = regular,typename T,
+template <par_for_type type = sequential,typename T,
           typename Func,typename std::enable_if<
               std::is_integral<T>::value ||
               std::is_class<T>::value ||
@@ -180,13 +178,13 @@ void par_for(T from,T to,Func&& f)
     thread_optimizer.end();
 }
 
-template <par_for_type type = regular,typename T,typename Func,
+template <par_for_type type = sequential,typename T,typename Func,
           typename std::enable_if<std::is_integral<T>::value,bool>::type = true>
 inline void par_for(T size, Func&& f,unsigned int thread_count)
 {
     par_for<type>(T(),size,std::move(f),thread_count);
 }
-template <par_for_type type = regular,typename T,typename Func,
+template <par_for_type type = sequential,typename T,typename Func,
           typename std::enable_if<std::is_integral<T>::value,bool>::type = true>
 inline void par_for(T size, Func&& f)
 {
@@ -194,14 +192,14 @@ inline void par_for(T size, Func&& f)
 }
 
 
-template <par_for_type type = regular,typename T,typename Func>
+template <par_for_type type = sequential,typename T,typename Func>
 inline typename std::enable_if<
     std::is_same<decltype(std::declval<T>().begin()), decltype(std::declval<T>().end())>::value>::type
 par_for(T& c, Func&& f,unsigned int thread_count)
 {
     par_for<type>(c.begin(),c.end(),std::move(f),thread_count);
 }
-template <par_for_type type = regular,typename T,typename Func>
+template <par_for_type type = sequential,typename T,typename Func>
 inline typename std::enable_if<
     std::is_same<decltype(std::declval<T>().begin()), decltype(std::declval<T>().end())>::value>::type
 par_for(T& c, Func&& f)

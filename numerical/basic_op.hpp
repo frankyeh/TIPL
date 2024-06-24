@@ -116,7 +116,7 @@ bool is_label_image(const ImageType& I)
     size_t max_size = I.size()-shift_base;
     size_t thread_count = std::thread::hardware_concurrency();
     size_t size_threshold = (I.size()-shift_base-shift_base-std::count(I.begin()+shift_base,I.end()-shift_base,0))/4;
-    tipl::par_for(thread_count,[&](int thread)
+    par_for(thread_count,[&](int thread)
     {
         for(size_t i = shift_base+thread;i < max_size && same_value_count <= size_threshold;i += thread_count)
         {
@@ -257,9 +257,9 @@ inline void get_slice_positions(dim_type dim,float pos,const GeoType& geo,Result
 template<typename T,typename U>
 inline auto volume2points(const T& shape,U&& fun)
 {
-    std::vector<std::vector<tipl::vector<3,short> > > points(tipl::available_thread_count());
-    tipl::par_for(tipl::begin_index(shape),tipl::end_index(shape),
-                   [&](const tipl::pixel_index<3>& index,unsigned int thread_id)
+    std::vector<std::vector<tipl::vector<3,short> > > points(tipl::max_thread_count);
+    tipl::par_for<sequential_with_id>(tipl::begin_index(shape),tipl::end_index(shape),
+                   [&](const auto& index,unsigned int thread_id)
     {
         if (fun(index))
             points[thread_id].push_back(tipl::vector<3,short>(index.x(), index.y(),index.z()));
@@ -272,14 +272,14 @@ inline auto volume2points(const T& shape,U&& fun)
 template<typename T>
 inline auto volume2points(const T& mask)
 {
-    std::vector<std::vector<tipl::vector<3,short> > > points(tipl::available_thread_count());
-    tipl::par_for(tipl::begin_index(mask.shape()),tipl::end_index(mask.shape()),
-                   [&](const tipl::pixel_index<3>& index,unsigned int thread_id)
+    std::vector<std::vector<tipl::vector<T::dimension,short> > > points(tipl::max_thread_count);
+    tipl::par_for<sequential_with_id>(tipl::begin_index(mask.shape()),tipl::end_index(mask.shape()),
+                   [&](const auto& index,unsigned int thread_id)
     {
         if (mask[index.index()])
             points[thread_id].push_back(tipl::vector<3,short>(index.x(), index.y(),index.z()));
     });
-    std::vector<tipl::vector<3,short> > region;
+    std::vector<tipl::vector<T::dimension,short> > region;
     tipl::aggregate_results(std::move(points),region);
     return region;
 }
@@ -343,7 +343,7 @@ ImageType2D& volume2slice_scaled(const ImageType3D& slice,ImageType2D& I,dim_typ
     I.clear();
     I.resize(shape<2>(slice.shape()[0]*scale,slice.shape()[1]*scale));
     float ratio = 1.0f/scale;
-    tipl::par_for(tipl::begin_index(I.shape()),tipl::end_index(I.shape()),[&](const pixel_index<2>& pos)
+    tipl::par_for(tipl::begin_index(I.shape()),tipl::end_index(I.shape()),[&](const auto& pos)
     {
         auto x = std::min<int>(slice.width()-1,std::floor(ratio*pos[0]));
         auto y = std::min<int>(slice.height()-1,std::floor(ratio*pos[1]));
@@ -364,7 +364,7 @@ ImageType2D& volume2slice_scaled(const ImageType3D& slice,ImageType2D& I,dim_typ
     float ratio = 1.0f/scale;
     if (dim == 2)   //XY
     {
-        tipl::par_for(tipl::begin_index(I.shape()),tipl::end_index(I.shape()),[&](const pixel_index<2>& pos)
+        tipl::par_for(tipl::begin_index(I.shape()),tipl::end_index(I.shape()),[&](const auto& pos)
         {
             auto x = std::min<int>(slice.width()-1,std::floor(ratio*pos[0]));
             auto y = std::min<int>(slice.height()-1,std::floor(ratio*pos[1]));
@@ -374,7 +374,7 @@ ImageType2D& volume2slice_scaled(const ImageType3D& slice,ImageType2D& I,dim_typ
     else
         if (dim == 1)   //XZ
         {
-            tipl::par_for(tipl::begin_index(I.shape()),tipl::end_index(I.shape()),[&](const pixel_index<2>& pos)
+            tipl::par_for(tipl::begin_index(I.shape()),tipl::end_index(I.shape()),[&](const auto& pos)
             {
                 auto x = std::min<int>(slice.width()-1,std::floor(ratio*pos[0]));
                 auto z = std::min<int>(slice.depth()-1,std::floor(ratio*pos[1]));
@@ -384,7 +384,7 @@ ImageType2D& volume2slice_scaled(const ImageType3D& slice,ImageType2D& I,dim_typ
         else
             if (dim == 0)    //YZ
             {
-                tipl::par_for(tipl::begin_index(I.shape()),tipl::end_index(I.shape()),[&](const pixel_index<2>& pos)
+                tipl::par_for(tipl::begin_index(I.shape()),tipl::end_index(I.shape()),[&](const auto& pos)
                 {
                     auto y = std::min<int>(slice.height()-1,std::floor(ratio*pos[0]));
                     auto z = std::min<int>(slice.depth()-1,std::floor(ratio*pos[1]));
@@ -668,7 +668,7 @@ void bounding_box(const std::vector<point_type>& points,point_type& max_value,po
 {
     if(points.empty())
         return;
-    unsigned int thread_count = std::thread::hardware_concurrency();
+    unsigned int thread_count = tipl::max_thread_count;
     std::vector<point_type> max_values(thread_count),
                             min_values(thread_count);
     for(int i = 0;i < thread_count;++i)
@@ -677,7 +677,7 @@ void bounding_box(const std::vector<point_type>& points,point_type& max_value,po
         min_values[i] = points[0];
     }
     unsigned char dim = points[0].size();
-    tipl::par_for(points.size(),[&](unsigned int index,unsigned int id)
+    tipl::par_for<sequential_with_id>(points.size(),[&](unsigned int index,unsigned int id)
     {
         for (unsigned char d = 0; d < dim; ++d)
             if (points[index][d] > max_values[id][d])
