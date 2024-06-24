@@ -27,13 +27,13 @@ struct correlation
 {
     typedef double value_type;
     template<typename ImageType1,typename ImageType2,typename TransformType>
-    double operator()(const ImageType1& Ifrom,const ImageType2& Ito,const TransformType& transform,int)
+    double operator()(const ImageType1& Ifrom,const ImageType2& Ito,const TransformType& transform)
     {
         if(Ifrom.size() > Ito.size())
         {
             auto trans(transform);
             trans.inverse();
-            return (*this)(Ito,Ifrom,trans,0);
+            return (*this)(Ito,Ifrom,trans);
         }
         tipl::image<ImageType1::dimension,typename ImageType1::value_type> y(Ifrom.shape());
         tipl::resample(Ito,y,transform);
@@ -162,19 +162,17 @@ public:
         }
 
         // obtain the histogram
-        unsigned int thread_count = tipl::available_thread_count();
-
         tipl::shape<2> geo(his_bandwidth,his_bandwidth);
-        std::vector<tipl::image<2,uint32_t> > mutual_hist(thread_count);
+        std::vector<tipl::image<2,uint32_t> > mutual_hist(max_thread_count);
         for(int i = 0;i < mutual_hist.size();++i)
             mutual_hist[i].resize(geo);
 
         auto pto = tipl::make_image(to.data(),to_.shape());
 
-        tipl::par_for(tipl::begin_index(from_.shape()),tipl::end_index(from_.shape()),
-                       [&](const auto& index,int id)
+        tipl::par_for<sequential_with_id>(tipl::begin_index(from_.shape()),tipl::end_index(from_.shape()),
+                                       [&](const auto& index,int id)
         {
-            if(id >= thread_count)
+            if(id >= max_thread_count)
                 id = 0;
             tipl::vector<ImageType1::dimension> pos;
             transform(index,pos);
