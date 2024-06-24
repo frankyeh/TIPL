@@ -243,7 +243,7 @@ namespace backend {
 
 
 class thread{
-    std::shared_ptr<std::thread> th;
+    std::unique_ptr<std::thread> th;
 public:
     bool running = false;
     bool terminated = false;
@@ -254,15 +254,15 @@ public:
     thread(void){}
     ~thread(void)
     {
-        clear();
         #ifdef __CUDACC__
         if constexpr(use_cuda)
             cudaDeviceSynchronize();
         #endif
+        clear();
     }
     void clear(void)
     {
-        if(th.get())
+        if(th)
         {
             terminated = true;
             th->join();
@@ -282,7 +282,7 @@ public:
                 throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
         }
         #endif
-        th.reset(new std::thread([this,fun]()
+        th = std::make_unique<std::thread>([this,fun = std::forward<lambda_type>(fun)]()
         {
             running = true;
             #ifdef __CUDACC__
@@ -292,10 +292,15 @@ public:
                     throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
             }
             #endif
+            try{
             fun();
+            }
+            catch(...){
+                running = false;
+                throw;
+            }
             running = false;
-        }
-        ));
+        });
     }
     void join(void)
     {
