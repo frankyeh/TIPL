@@ -207,7 +207,8 @@ public:
         }
     }
 public:
-    progress(void){}
+    bool temporary = false;
+    progress(void):temporary(true){}
     progress(const char* status,bool show_now = false)
     {
         print(status,true,false);
@@ -229,7 +230,7 @@ public:
     }
     ~progress(void)
     {
-        if(!tipl::is_main_thread())
+        if(!tipl::is_main_thread() || temporary)
             return;
         std::ostringstream out;
 
@@ -265,8 +266,8 @@ public:
 };
 
 
-template<typename fun_type,typename terminated_class>
-bool run(const char* msg,fun_type fun,terminated_class& terminated)
+template<typename fun_type>
+bool run(const char* msg,fun_type fun)
 {
     if(!show_prog)
     {
@@ -290,10 +291,7 @@ bool run(const char* msg,fun_type fun,terminated_class& terminated)
                 std::this_thread::yield();
                 prog(i,i+1);
                 if(prog.aborted())
-                {
-                    terminated = true;
-                    ended = true;
-                }
+                    return;
                 ++i;
             }
         }
