@@ -42,19 +42,18 @@ void cdm_pre(image_type& It,image_type& It2,
 }
 
 template<typename cost_type>
-bool cdm_improved(cost_type& cost,cost_type& iter)
+bool cdm_improved(cost_type& cost)
 {
     if(cost.size() > 5)
     {
+        std::vector<int> iter(cost.size());
+        std::iota(iter.begin(),iter.end(),0);
         float a,b,r2;
         linear_regression(iter.begin(),iter.end(),cost.begin(),a,b,r2);
         if(a > 0.0f)
             return false;
         if(cost.size() > 7)
-        {
             cost.pop_front();
-            iter.pop_front();
-        }
     }
     return true;
 }
@@ -363,8 +362,10 @@ void cdm(std::vector<pointer_image_type> It,
         out_type() << "size:" << It[0].shape();
 
 
-    std::deque<float> cost,iter;
+    std::deque<float> cost;
+    float best_cost = std::numeric_limits<float>::max();
     tipl::thread inv_thread;
+    dist_type cur_d(d);
     for (unsigned int index = 0;index < param.iterations && !terminated;++index)
     {
         std::vector<float> sub_cost(It.size());
@@ -372,7 +373,7 @@ void cdm(std::vector<pointer_image_type> It,
         tipl::par_for(It.size(),[&](size_t i)
         {
             image_type Js;
-            compose_displacement(Is[i],d,Js);
+            compose_displacement(Is[i],cur_d,Js);
             sub_new_d[i].resize(It[i].shape());
             sub_cost[i] = cdm_get_gradient(Js,It[i],sub_new_d[i]);
         },It.size());
@@ -382,12 +383,19 @@ void cdm(std::vector<pointer_image_type> It,
             add(new_d,sub_new_d[i]);
 
         cost.push_back(mean(sub_cost));
-        iter.push_back(index);
-
         if constexpr(!std::is_void<out_type>::value)
             out_type() << "cost:" << cost.back();
 
-        if(!cdm_improved(cost,iter))
+        if(cost.back() < best_cost)
+        {
+            best_cost = cost.back();
+            if(index)
+            {
+                d = cur_d;
+                inv_thread.run([&](void){invert_displacement(d,inv_d);});
+            }
+        }
+        if(!cdm_improved(cost))
             break;
         // solving the poisson equation using Jacobi method
         cdm_solve_poisson(new_d,terminated);
@@ -398,10 +406,9 @@ void cdm(std::vector<pointer_image_type> It,
             break;
         multiply_constant(new_d,param.speed/theta);
         //cdm_constraint(new_d);
-        accumulate_displacement(d,new_d);
+        accumulate_displacement(cur_d,new_d);
         cdm_smooth(new_d,param.smoothing);
-        d.swap(new_d);
-        inv_thread.run([&](void){invert_displacement(d,inv_d);});
+        cur_d.swap(new_d);
     }
 }
 
