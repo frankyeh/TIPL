@@ -356,18 +356,15 @@ public:
         auto fun = [&](const transform_type& new_param,int thread_id = 0)
         {
             ++count;
-            std::vector<float> costs(cost_fun.size());
-            tipl::par_for(cost_fun.size(),[&](size_t i)
-            {
-                costs[i] = (*cost_fun[i].get())(from[i],to[i],
-                    tipl::transformation_matrix<float,dim>(new_param,from[i].shape(),from_vs,to[i].shape(),to_vs),thread_id);
-            },cost_fun.size());
+            float cost = 0.0f;
+            for(size_t i = 0;i < cost_fun.size();++i)
+                cost += (*cost_fun[i].get())(from[i],to[i],tipl::transformation_matrix<float,dim>(new_param,from[i].shape(),from_vs,to[i].shape(),to_vs),thread_id);
             if constexpr(!std::is_void<out_type>::value)
             {
                 out_type() << new_param;
                 out_type() << "cost:" << optimal_value;
             }
-            return tipl::sum(costs);
+            return cost;
         };
         optimal_value = fun(arg_min);
         for(auto cur_type : reg_list)
