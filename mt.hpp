@@ -277,6 +277,7 @@ public:
     {
         if(th.get())
             clear();
+        terminated = false;
         running = true;
         #ifdef __CUDACC__
         if constexpr(use_cuda)
@@ -295,6 +296,7 @@ public:
             }
             #endif
             fun();
+            running = false;
         }
         ));
     }
