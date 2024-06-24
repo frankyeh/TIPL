@@ -64,6 +64,7 @@ struct cdm_param{
     float smoothing = 0.1f;
     unsigned int iterations = 200;
     unsigned int min_dimension = 8;
+    unsigned int prog = 0,max_prog = 0;
 };
 
 template<typename T,typename U,typename V,typename W>
@@ -314,7 +315,7 @@ void cdm_smooth(dist_type& d,float smoothing)
 
 
 
-template<typename out_type = void,typename pointer_image_type,typename dist_type,typename terminate_type>
+template<typename prog_type = void,typename out_type = void,typename pointer_image_type,typename dist_type,typename terminate_type>
 void cdm(std::vector<pointer_image_type> It,
           std::vector<pointer_image_type> Is,
            dist_type& d,// displacement field
@@ -333,6 +334,7 @@ void cdm(std::vector<pointer_image_type> It,
     d.resize(geo);
     inv_d.resize(geo);
     // multi resolution
+    ++param.max_prog;
     if (min_value(geo) > param.min_dimension)
     {
         std::vector<image_type> rIt_buffer(It.size()),rIs_buffer(It.size());
@@ -346,7 +348,7 @@ void cdm(std::vector<pointer_image_type> It,
         },It.size());
         cdm_param param2 = param;
         param2.resolution /= 2.0f;
-        cdm<out_type>(rIt,rIs,d,inv_d,terminated,param2);
+        cdm<prog_type,out_type>(rIt,rIs,d,inv_d,terminated,param2);
         multiply_constant(d,2.0f);
         multiply_constant(inv_d,2.0f);
         upsample_with_padding(d,geo);
@@ -368,6 +370,8 @@ void cdm(std::vector<pointer_image_type> It,
     dist_type cur_d(d);
     for (unsigned int index = 0;index < param.iterations && !terminated;++index)
     {
+        if constexpr(!std::is_void<prog_type>::value)
+            prog_type()(param.prog,param.max_prog);
         std::vector<float> sub_cost(It.size());
         std::vector<dist_type> sub_new_d(It.size());
         tipl::par_for(It.size(),[&](size_t i)
@@ -410,6 +414,7 @@ void cdm(std::vector<pointer_image_type> It,
         cdm_smooth(new_d,param.smoothing);
         cur_d.swap(new_d);
     }
+    ++param.prog;
 }
 
 
