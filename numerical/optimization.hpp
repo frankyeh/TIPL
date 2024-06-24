@@ -316,7 +316,7 @@ void line_search(iter_type1 x_beg,iter_type1 x_end,
                 continue;
             std::mutex m;
             param_type best_x = x_beg[cur_dim];
-            tipl::par_for(8,[&](int seg,int id)
+            tipl::par_for(8,[&](int seg)
             {
                 auto new_x = x_beg[cur_dim]+range[cur_dim]*dis[seg]*ratio;
                 if(new_x < x_lower[cur_dim] ||
@@ -324,7 +324,7 @@ void line_search(iter_type1 x_beg,iter_type1 x_end,
                     return;
                 std::vector<param_type> param(x_beg,x_end);
                 param[cur_dim] = new_x;
-                double current_value = fun(param,id);
+                double current_value = fun(param);
                 std::lock_guard<std::mutex> lock(m);
                 if(current_value < optimal_value)
                 {
