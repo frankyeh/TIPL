@@ -282,7 +282,7 @@ public:
                 throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
         }
         #endif
-        th.reset(new std::thread([this,&fun]()
+        th.reset(new std::thread([this,fun]()
         {
             running = true;
             #ifdef __CUDACC__
