@@ -92,7 +92,7 @@ private:
         update_prog(get_status(),show_now);
     }
 
-    std::string get_status(void)
+    static std::string get_status(void)
     {
         std::string result;
         for(size_t i = 0;i < status_list.size();++i)
@@ -117,7 +117,7 @@ private:
         return result;
     }
 
-    bool check_prog(unsigned int now,unsigned int total)
+    static bool check_prog(unsigned int now,unsigned int total)
     {
         if(!show_prog || !tipl::is_main_thread() || status_list.empty())
         {
@@ -207,6 +207,7 @@ public:
         }
     }
 public:
+    progress(void){}
     progress(const char* status,bool show_now = false)
     {
         print(status,true,false);
@@ -220,7 +221,7 @@ public:
         begin_prog(s.c_str(),show_now);
     }
     static bool is_running(void) {return !status_list.empty();}
-    bool aborted(void) { return prog_aborted;}
+    static bool aborted(void) { return prog_aborted;}
     template<typename value_type1,typename value_type2>
     bool operator()(value_type1 now,value_type2 total)
     {
@@ -230,7 +231,6 @@ public:
     {
         if(!tipl::is_main_thread())
             return;
-
         std::ostringstream out;
 
         {
