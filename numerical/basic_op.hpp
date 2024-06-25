@@ -1195,7 +1195,7 @@ void project_x(const image_type& I,output_type& P)
     typedef typename output_type::value_type value_type;
     P.resize(tipl::shape<2>(I.height(),I.depth()));// P = I(y,z)
     tipl::par_for(tipl::begin_index(P.shape()),tipl::end_index(P.shape()),
-        [&](const tipl::pixel_index<2>& index)
+        [&](const auto& index)
     {
         size_t pos = (index[0]+index[1]*I.height())*I.width();
         P[index.index()] = std::accumulate(I.begin()+pos,I.begin()+pos+I.width(),value_type(0));
