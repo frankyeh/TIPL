@@ -931,7 +931,7 @@ public:
         else
         {
             std::vector<char> buf(pixel_count*byte_per_pixel);
-            void* buf_ptr = &buf[0];
+            void* buf_ptr = buf.data();
             if(!read_stream_with_prog(prog,*input_stream.get(),buf_ptr,buf.size(),error_msg))
                 return false;
             if (big_endian)
