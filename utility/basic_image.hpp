@@ -34,7 +34,7 @@ public:
     {
         sz = rhs.size();
         if (sz)
-            bg = &rhs[0];
+            bg = rhs.data();
         return *this;
     }
 public:
@@ -103,7 +103,7 @@ public:
     {
         sz = rhs.size();
         if (sz)
-            bg = &rhs[0];
+            bg = rhs.data();
         return *this;
     }
 public:
@@ -166,7 +166,7 @@ protected:
     size_t sz = 0;
     void update_beg(void)
     {
-        beg = (buffer.empty() ? nullptr : reinterpret_cast<iterator>(&buffer[0]));
+        beg = (buffer.empty() ? nullptr : reinterpret_cast<iterator>(buffer.data()));
         sz = buffer.size()/sizeof(value_type);
     }
 public:
