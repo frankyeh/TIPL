@@ -131,8 +131,8 @@ public:
         tipl::par_for(std::thread::hardware_concurrency(),[=](size_t thread)
         {
             size_t thread_base = plane_size*thread;
-            auto out_ptr = &out[0] + thread_base;
-            auto w_ptr = &weight[0];
+            auto out_ptr = out.data() + thread_base;
+            auto w_ptr = weight.data();
             for(size_t outc = 0;outc < out_channels_;++outc,out_ptr += image_size)
             {
                 // fill output with bias values
@@ -172,7 +172,7 @@ public:
                 }
             }
         });
-        return &out[0];
+        return out.data();
     }
     virtual void print(std::ostream& out) const {out << "conv3d " << in_channels_ << " " << out_channels_ << std::endl;}
 };
@@ -249,7 +249,7 @@ public:
         tipl::par_for(out_channels_,[&](size_t c)
         {
             auto in_ptr = in+c*dim.size();
-            auto out_ptr = &out[0]+c*out_dim.size();
+            auto out_ptr = out.data()+c*out_dim.size();
             for(int i = 0; i < out_dim.size(); i++)
             {
                 float max_value = std::numeric_limits<float>::lowest();
@@ -261,7 +261,7 @@ public:
                 out_ptr[i] = max_value;
             }
         });
-        return &out[0];
+        return out.data();
     }
     virtual void print(std::ostream& out) const {out << "max_pool_3d " << out_channels_ << std::endl;    }
     virtual size_t out_size(void) const {return out_dim.size()*out_channels_;}
@@ -301,11 +301,11 @@ public:
         tipl::par_for(out_channels_,[&](size_t c)
         {
             auto in_ptr = in + c*dim.size();
-            auto out_ptr = &out[0]+c*out_dim.size();
+            auto out_ptr = out.data()+c*out_dim.size();
             for(int i = 0; i < out_dim.size(); i++)
                 out_ptr[i] = in_ptr[o2i[i]];
         });
-        return &out[0];
+        return out.data();
     }
     virtual void print(std::ostream& out) const {out << "upsample_3d " << out_channels_ << std::endl;}
     virtual size_t out_size(void)  const {return out_dim.size()*out_channels_;}
