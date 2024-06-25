@@ -575,66 +575,34 @@ void downsampling(const ImageType1& in,ImageType2& out)
     out.resize(new_geo);
 }
 
-
-template<typename ImageType1,typename ImageType2,
-         typename std::enable_if<ImageType1::dimension==2,bool>::type = true>
-void downsample_with_padding(const ImageType1& in,ImageType2& out)
-{
-    using value_type = typename ImageType1::value_type;
-    out.resize(shape<2>((in.width()+1)/2,(in.height()+1)/2));
-    size_t shift[4];
-    shift[0] = 0;
-    shift[1] = 1;
-    shift[2] = in.width();
-    shift[3] = 1+in.width();
-
-    par_for(tipl::begin_index(out.shape()),tipl::end_index(out.shape()),[&]
-            (const pixel_index<2>& pos1)
-    {
-        pixel_index<2> pos2(pos1[0]<<1,pos1[1]<<1,in.shape());
-        char has = 0;
-        if(pos2[0]+1 < in.width())
-            has += 1;
-        if(pos2[1]+1 < in.height())
-            has += 2;
-        value_type buf[4];
-        typename sum_type<value_type>::type out_value = buf[0] = in[pos2.index()];
-        for(int i = 1 ;i < 4;++i)
-        {
-            auto h = has & i;
-            out_value += (buf[i] = ((h == i) ? in[pos2.index()+shift[i]] : buf[h]));
-        }
-        if constexpr(std::is_integral<decltype(out_value)>::value)
-            out[pos1.index()] = out_value >> 2;
-        else
-            out[pos1.index()] = out_value/4;
-    });
-}
-
 template<typename T,typename U,typename V>
-__INLINE__ void downsample_with_padding_imp(const pixel_index<3>& pos1,
+__INLINE__ void downsample_with_padding_imp(const pixel_index<T::dimension>& pos1,
                                             T& in,U& out,V& shift)
 {
+    constexpr int buf_count = (T::dimension == 3 ? 8 : 4);
     using value_type = typename T::value_type;
-    pixel_index<3> pos2(pos1[0]<<1,pos1[1]<<1,pos1[2]<<1,in.shape());
+    pixel_index<T::dimension> pos2((v(pos1)*2).begin(),in.shape());
     char has = 0;
     if(pos2[0]+1 < in.width())
         has += 1;
     if(pos2[1]+1 < in.height())
         has += 2;
-    if(pos2[2]+1 < in.depth())
-        has += 4;
-    value_type buf[8];
+    if constexpr(T::dimension == 3)
+    {
+        if(pos2[2]+1 < in.depth())
+            has += 4;
+    }
+    value_type buf[buf_count];
     typename sum_type<value_type>::type out_value = buf[0] = in[pos2.index()];
-    for(int i = 1 ;i < 8;++i)
+    for(int i = 1 ;i < buf_count;++i)
     {
         auto h = has & i;
         out_value += (buf[i] = ((h == i) ? in[pos2.index()+shift[i]] : buf[h]));
     }
     if constexpr(std::is_integral<decltype(out_value)>::value)
-        out[pos1.index()] = out_value >> 3;
+        out[pos1.index()] = out_value >> (T::dimension);
     else
-        out[pos1.index()] = out_value/8;
+        out[pos1.index()] = out_value/buf_count;
 }
 
 #ifdef __CUDACC__
@@ -646,29 +614,31 @@ __global__ void downsample_with_padding_cuda_kernel(T in,U out,V shift)
     using value_type = typename T::value_type;
     TIPL_FOR(index,out.size())
     {
-        downsample_with_padding_imp(pixel_index<3>(index,out.shape()),in,out,shift);
+        downsample_with_padding_imp(pixel_index<T::dimension>(index,out.shape()),in,out,shift);
     }
 }
 
 #endif
 
-template<typename T,typename U,
-         typename std::enable_if<T::dimension==3,bool>::type = true>
+template<typename T,typename U>
 void downsample_with_padding(const T& in,U& out)
 {
-    shape<3> out_shape((in.width()+1)/2,(in.height()+1)/2,(in.depth()+1)/2);
+    shape<T::dimension> out_shape(((v(in.shape())+1)/2).begin());
     if(out.size() < out_shape.size())
         out.resize(out_shape);
 
-    std::vector<size_t> shift(8);
+    std::vector<size_t> shift(T::dimension == 3 ? 8 : 4);
     shift[0] = 0;
     shift[1] = 1;
     shift[2] = in.width();
     shift[3] = 1+in.width();
-    shift[4] = in.plane_size();
-    shift[5] = in.plane_size()+1;
-    shift[6] = in.plane_size()+in.width();
-    shift[7] = in.plane_size()+1+in.width();
+    if constexpr(T::dimension == 3)
+    {
+        shift[4] = in.plane_size();
+        shift[5] = in.plane_size()+1;
+        shift[6] = in.plane_size()+in.width();
+        shift[7] = in.plane_size()+1+in.width();
+    }
 
     if constexpr(memory_location<T>::at == CUDA)
     {
@@ -681,7 +651,7 @@ void downsample_with_padding(const T& in,U& out)
     else
     {
         par_for(tipl::begin_index(out_shape),tipl::end_index(out_shape),[&]
-                (const pixel_index<3>& pos1)
+                (const auto& pos1)
         {
             downsample_with_padding_imp(pos1,in,out,shift);
         });
