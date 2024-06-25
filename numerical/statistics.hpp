@@ -212,17 +212,33 @@ auto square_sum(const T& data)
 {
     using value_type = typename T::value_type;
     using return_type = typename sum_result_type<value_type>::type;
-    if(data.size() < 1000 || max_thread_count < 2)
-        return square_sum(data.begin(),data.end());
-    std::mutex mutex;
-    return_type sums = return_type();
-    tipl::par_for<ranged>(data.begin(),data.end(),[&](auto beg,auto end)
+    if constexpr(memory_location<T>::at == CUDA)
     {
-        auto v = square_sum(beg,end);
-        std::lock_guard<std::mutex> lock(mutex);
-        sums += v;
-    });
-    return sums;
+        #ifdef __CUDACC__
+        struct square {
+            __device__ double operator()(const double& v) const {
+                return v * v;
+            }
+        };
+        return thrust::transform_reduce(thrust::device,
+                                 data.data(),data.data()+data.size(),
+                                 square(),0.0f,thrust::plus<double>());
+        #endif
+    }
+    else
+    {
+        if(data.size() < 1000 || max_thread_count < 2)
+        return square_sum(data.begin(),data.end());
+        std::mutex mutex;
+        return_type sums = return_type();
+        tipl::par_for<ranged>(data.begin(),data.end(),[&](auto beg,auto end)
+        {
+            auto v = square_sum(beg,end);
+            std::lock_guard<std::mutex> lock(mutex);
+            sums += v;
+        });
+        return sums;
+    }
 }
 
 template<typename input_iterator>
@@ -277,26 +293,7 @@ auto median(const image_type& I)
 }
 
 
-template<typename input_iterator>
-std::pair<double,double> mean_variance(input_iterator from,input_iterator to)
-{
-    double sum = 0.0;
-    double rms = 0.0;
-    size_t size = to-from;
-    while (from != to)
-    {
-        double t = *from;
-        sum += t;
-        rms += t*t;
-        ++from;
-    }
-    if(size)
-    {
-        sum /= size;
-        rms /= size;
-    }
-    return std::pair<double,double>(sum,rms-sum*sum);
-}
+
 
 template<typename input_iterator>
 __INLINE__ double mean_square(input_iterator from,input_iterator to)
@@ -415,8 +412,8 @@ auto median_absolute_deviation(input_iterator from, input_iterator to,double med
 }
 
 template<typename input_iterator1,typename input_iterator2>
-__INLINE__ double covariance(input_iterator1 x_from,input_iterator1 x_to,
-                  input_iterator2 y_from,double mean_x,double mean_y)
+__INLINE__ double inner_product(input_iterator1 x_from,input_iterator1 x_to,
+                                     input_iterator2 y_from)
 {
     if(x_to == x_from)
         return 0.0;
@@ -428,36 +425,66 @@ __INLINE__ double covariance(input_iterator1 x_from,input_iterator1 x_to,
         ++x_from;
         ++y_from;
     }
-    co /= size;
-    return co-mean_x*mean_y;
+    return co;
 }
-
 template<typename T,typename U>
-__HOST__ double covariance(const T& x,const U& y,double mean_x,double mean_y)
+__HOST__ auto inner_product(const T& x,const U& y)
 {
+    using value_type = typename T::value_type;
+    using return_type = typename sum_result_type<value_type>::type;
     if(x.empty())
-        return 0.0;
-    unsigned int thread_count = std::thread::hardware_concurrency();
-    std::vector<double> co(thread_count);
-    tipl::par_for(thread_count,[&](size_t co_id)
+        return return_type();
+    if constexpr(memory_location<T>::at == CUDA)
     {
-        double sum = 0.0;
-        for(size_t i = co_id;i < x.size();i += thread_count)
-            sum += double(x[i])*double(y[i]);
-        co[co_id] = sum;
-    });
-    return sum(co)/double(x.size())-mean_x*mean_y;
+        #ifdef __CUDACC__
+        return thrust::inner_product(thrust::device,
+                                     x.data(),x.data()+x.size(),
+                                     y.data(),0.0);
+        #endif
+    }
+    else
+    {
+        std::mutex mutex;
+        return_type sums = return_type();
+        tipl::par_for<ranged>(x.size(),[&](auto from,auto to)
+        {
+            auto v = inner_product(x.begin()+from,x.begin()+to,y.begin()+from);
+            std::lock_guard<std::mutex> lock(mutex);
+            sums += v;
+        });
+        return sums;
+    }
 }
 
 template<typename input_iterator1,typename input_iterator2>
 __INLINE__ double covariance(input_iterator1 x_from,input_iterator1 x_to,
+                             input_iterator2 y_from,double mean_x,double mean_y)
+{
+    if(x_to == x_from)
+        return 0.0;
+    auto size = x_to-x_from;
+    return inner_product(x_from,x_to,y_from)/double(size)-mean_x*mean_y;
+}
+template<typename input_iterator1,typename input_iterator2>
+__INLINE__ double covariance(input_iterator1 x_from,input_iterator1 x_to,
                              input_iterator2 y_from)
 {
-    return covariance(x_from,x_to,y_from,mean(x_from,x_to),mean(y_from,y_from+(x_to-x_from)));
+    if(x_to == x_from)
+        return 0.0;
+    auto size = x_to-x_from;
+    return inner_product(x_from,x_to,y_from)/double(size)-mean(x_from,x_to)*mean(y_from,y_from+size);
 }
 
 template<typename T,typename U>
-__HOST__ double covariance(const T& x,const U& y)
+inline double covariance(const T& x,const U& y,double mean_x,double mean_y)
+{
+    if(x.empty())
+        return 0.0;
+    return inner_product(x,y)/double(x.size())-mean_x*mean_y;
+}
+
+template<typename T,typename U>
+inline double covariance(const T& x,const U& y)
 {
     return covariance(x,y,mean(x),mean(y));
 }
@@ -474,7 +501,7 @@ __INLINE__ double correlation(input_iterator1 x_from,input_iterator1 x_to,
 }
 
 template<typename T,typename U>
-__HOST__ double correlation(const T& x,const U& y,double mean_x,double mean_y)
+inline double correlation(const T& x,const U& y,double mean_x,double mean_y)
 {
     double sd1 = standard_deviation(x,mean_x);
     double sd2 = standard_deviation(y,mean_y);
@@ -491,7 +518,7 @@ __INLINE__ double correlation(input_iterator1 x_from,input_iterator1 x_to,
 }
 
 template<typename T,typename U>
-__HOST__ double correlation(const T& x,const U& y)
+inline double correlation(const T& x,const U& y)
 {
     return correlation(x,y,mean(x),mean(y));
 }
