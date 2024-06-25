@@ -1041,12 +1041,12 @@ void match_signal_kernel(const T& VG,T& VFF)
 template<tipl::interpolation Type = linear,typename ImageType1,typename ImageType2,typename T>
 void scale(const ImageType1& from,ImageType2&& to,const tipl::vector<ImageType1::dimension>& s)
 {
-    tipl::par_for(tipl::begin_index(to.shape()),tipl::end_index(to.shape()),
-                [&](const tipl::pixel_index<ImageType1::dimension>& index)
+    par_for(begin_index(to.shape()),end_index(to.shape()),
+                [&](const auto& index)
     {
-        tipl::vector<ImageType1::dimension> pos(index);
-        tipl::multiply(pos,s);
-        tipl::estimate<Type>(from,pos,to[index.index()]);
+        vector<ImageType1::dimension> pos(index);
+        multiply(pos,s);
+        estimate<Type>(from,pos,to[index.index()]);
     });
 }
 //---------------------------------------------------------------------------
@@ -1079,7 +1079,7 @@ void resample(const T& from,U&& to,const tipl::transformation_matrix<V,T::dimens
     else
     {
         tipl::par_for(tipl::begin_index(to.shape()),tipl::end_index(to.shape()),
-                    [&](const tipl::pixel_index<T::dimension>& index)
+                    [&](const auto& index)
         {
             tipl::vector<T::dimension> pos;
             trans(index,pos);
