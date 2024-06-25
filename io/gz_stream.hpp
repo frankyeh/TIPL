@@ -87,7 +87,7 @@ public:
     void input(const std::vector<unsigned char>& rhs)
     {
         strm.avail_in = uint32_t(rhs.size());
-        strm.next_in = rhs.data();
+        strm.next_in = const_cast<unsigned char*>(rhs.data());
     }
     void input(std::vector<unsigned char>&& rhs)
     {
