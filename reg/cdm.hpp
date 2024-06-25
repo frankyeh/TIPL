@@ -65,6 +65,7 @@ struct cdm_param{
     unsigned int iterations = 200;
     unsigned int min_dimension = 8;
     unsigned int prog = 0,max_prog = 0;
+    enum {corr = 0,mi = 1} cost_type = corr;
 };
 
 template<typename T,typename U,typename V,typename W>
@@ -219,7 +220,8 @@ void cdm_solve_poisson(T& new_d,terminated_type& terminated)
     new_d.swap(solve_d);
 }
 
-struct cdm_dis_vector_length
+
+struct cdm_vector_length
 {
     template<typename T>
     __INLINE__ float operator()(const T &v) const
@@ -227,16 +229,16 @@ struct cdm_dis_vector_length
         return v.length();
     }
 };
-
 template<typename dist_type>
 inline float cdm_max_displacement_length(dist_type& new_d)
 {
     if constexpr(memory_location<dist_type>::at == CUDA)
     {
         #ifdef __CUDACC__
+
         return thrust::transform_reduce(thrust::device,
                         new_d.data(),new_d.data()+new_d.size(),
-                        cdm_dis_vector_length(),
+                        cdm_vector_length(),
                             0.0f,thrust::maximum<float>());
         #endif
     }
