@@ -1049,7 +1049,7 @@ void qr_compute_q(io_iterator A,iterator1 c,output_iterator2 Q,const dim_type& d
         for (int i = 0,pos = 0;i < m;++i,pos += m+1)
             Qt[pos] = 1;
         auto Arowk = A;
-        auto Qtrowk = &Qt[0];
+        auto Qtrowk = Qt.data();
         for (int k = 0;k < min; k++,Arowk += n,Qtrowk += m)
             if (c[k] != value_type(0))
             {
