@@ -376,7 +376,7 @@ public:
     {
 
         float* out_ptr = out;
-        const float* w_ptr = &weight[0];
+        const float* w_ptr = weight.data();
         // for each output channel
         for(int outc = 0; outc < out_dim.depth(); ++outc, out_ptr += out_dim.plane_size())
         {
@@ -631,7 +631,7 @@ public:
             pos[i] = i;
         return *this;
     }
-    const float* get_data(unsigned int index) const{return &source->data[pos[index]][0];}
+    const float* get_data(unsigned int index) const{return source->data[pos[index]].data();}
     const label_type& get_label(unsigned int index) const{return source->data_label[pos[index]];}
     size_t size(void)const{return pos.size();}
     bool empty(void)const{return pos.empty();}
@@ -1080,7 +1080,7 @@ public:
     void forward_propagation(std::vector<float>& in) const
     {
         std::vector<float> out(data_size);
-        forward_propagation(&in[0],&out[0]);
+        forward_propagation(in.data(),out.data());
         in.resize(output_size);
         std::copy(out.end()-in.size(),out.end(),in.begin());
     }
@@ -1142,14 +1142,14 @@ public:
     unsigned int predict(std::vector<float>& in)const
     {
         unsigned int label = 0;
-        predict(&in[0],label);
+        predict(in.data(),label);
         return label;
     }
 
     template<typename output_type>
     void predict(std::vector<float>& in,output_type& output)const
     {
-        predict(&in[0],output);
+        predict(in.data(),output);
     }
 
     template<typename output_type>
@@ -1247,8 +1247,8 @@ public:
             }
             in_out[i].resize(nn.data_size);
             back_df[i].resize(nn.data_size);
-            in_out_ptr[i] = &in_out[i][0];
-            back_df_ptr[i] = &back_df[i][0];
+            in_out_ptr[i] = in_out[i].data();
+            back_df_ptr[i] = back_df[i].data();
         }
     }
 
@@ -1513,9 +1513,9 @@ void to_image(network& nn,color_image& I,std::vector<float> in,label_type label,
     auto& geo = nn.geo;
     std::vector<tipl::color_image> values(geo.size());
     std::vector<float> out(data_size),back(data_size);
-    float* out_buf = &out[0];
-    float* back_buf = &back[0];
-    float* in_buf = &in[0];
+    float* out_buf = out.data();
+    float* back_buf = back.data();
+    float* in_buf = in.data();
     nn.forward_propagation(in_buf,out_buf);
     std::copy(out_buf+end,out_buf+end+output_size,back_buf+end);
     nn.calculate_error(label,back_buf+end);
