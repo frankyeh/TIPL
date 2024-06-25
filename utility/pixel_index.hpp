@@ -973,37 +973,47 @@ pixel_index<dim> end_index(const shape<dim>& s)
     return pixel_index<dim>(s.size(),s);
 }
 
-template<typename value_type>
-__INLINE__ tipl::vector<3,value_type> v(value_type x,value_type y,value_type z)
+template<typename value_type,
+         typename std::enable_if<std::is_fundamental<value_type>::value,bool>::type = true>
+__INLINE__ auto v(value_type x,value_type y,value_type z)
 {
-    return tipl::vector<3>(x,y,z);
+    return vector<3>(x,y,z);
 }
-template<typename value_type>
-__INLINE__ tipl::vector<2,value_type> v(value_type x,value_type y)
+template<typename value_type,
+         typename std::enable_if<std::is_fundamental<value_type>::value,bool>::type = true>
+__INLINE__ auto v(value_type x,value_type y)
 {
-    return tipl::vector<2>(x,y);
+    return vector<2>(x,y);
 }
+template<typename T,
+         typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+__INLINE__ auto v(const T& data)
+{
+    return vector<T::dimension,
+            typename std::remove_const<typename std::remove_reference<decltype(data[0])>::type>::type>(data.begin());
+}
+
 template<typename T,typename U>
-__INLINE__ void multiply(tipl::vector<2,T>& lhs,const U& rhs)
+__INLINE__ void multiply(vector<2,T>& lhs,const U& rhs)
 {
     lhs[0] *= rhs[0];
     lhs[1] *= rhs[1];
 }
 template<typename T,typename U>
-__INLINE__ void multiply(tipl::vector<3,T>& lhs,const U& rhs)
+__INLINE__ void multiply(vector<3,T>& lhs,const U& rhs)
 {
     lhs[0] *= rhs[0];
     lhs[1] *= rhs[1];
     lhs[2] *= rhs[2];
 }
 template<typename T,typename U>
-__INLINE__ void divide(tipl::vector<2,T>& lhs,const U& rhs)
+__INLINE__ void divide(vector<2,T>& lhs,const U& rhs)
 {
     lhs[0] /= rhs[0];
     lhs[1] /= rhs[1];
 }
 template<typename T,typename U>
-__INLINE__ void divide(tipl::vector<3,T>& lhs,const U& rhs)
+__INLINE__ void divide(vector<3,T>& lhs,const U& rhs)
 {
     lhs[0] /= rhs[0];
     lhs[1] /= rhs[1];
