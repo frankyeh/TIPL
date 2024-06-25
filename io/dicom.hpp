@@ -334,7 +334,7 @@ inline bool decode_1_2_840_10008_1_2_4_70(unsigned char *buf_ptr, long buf_size,
         int lPx = -1; //pixel position
         int lPredicted =  1 << (SOFprecision-1-SOSpttrans);
         buf.resize(lItems*2);
-        lImgRA8 = &buf[0];
+        lImgRA8 = buf.data();
         uint16_t *lImgRA16 = (uint16_t*) lImgRA8;
         for (int i = 0; i < lItems; i++)
             lImgRA16[i] = 0; //zero array
@@ -377,7 +377,7 @@ inline bool decode_1_2_840_10008_1_2_4_70(unsigned char *buf_ptr, long buf_size,
     } else if (SOFnf == 3) { //if 16-bit data; else 8-bit 3 frames
         *bits = 8;
         buf.resize(lItems);
-        lImgRA8 = &buf[0];
+        lImgRA8 = buf.data();
 
         int lPx[kmaxFrames+1], lPredicted[kmaxFrames+1]; //pixel position
         for (int f = 1; f <= SOFnf; f++) {
@@ -436,7 +436,7 @@ inline bool decode_1_2_840_10008_1_2_4_70(unsigned char *buf_ptr, long buf_size,
     }else { //if 8-bit data 3frames; else 8-bit 1 frames
         *bits = 8;
         buf.resize(lItems);
-        lImgRA8 = &buf[0];
+        lImgRA8 = buf.data();
         int lPx = -1; //pixel position
         int lPredicted =  1 << (SOFprecision-1-SOSpttrans);
         for (int i = 0; i < lItems; i++)
@@ -1594,7 +1594,8 @@ public:
                     if(bits == 8)
                         std::copy(buf.begin(),buf.begin()+std::min<size_t>(pixel_count,buf.size()),ptr);
                     if(bits == 16)
-                        std::copy((const short*)&buf[0],(const short*)&buf[0] + +std::min<size_t>(pixel_count,buf.size() >> 1),ptr);
+                        std::copy(reinterpret_cast<const short*>(buf.data()),
+                                  reinterpret_cast<const short*>(buf.data()) + +std::min<size_t>(pixel_count,buf.size() >> 1),ptr);
                     compressed_buf.clear();
                     is_compressed = false;
                 }
