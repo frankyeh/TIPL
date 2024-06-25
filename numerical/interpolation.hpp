@@ -246,7 +246,6 @@ struct linear<2>
     template<typename VTorType>
     __INLINE__ bool get_location(const shape<2>& geo,const VTorType& location)
     {
-        float p[2],n[2];
         float x = location[0];
         float y = location[1];
         if (x < 0 || y < 0)
@@ -257,20 +256,20 @@ struct linear<2>
         size_t iy = fy;
         if (ix + 1 >= geo[0] || iy + 1>= geo[1])
             return false;
-        p[1] = y-fy;
-        p[0] = x-fx;
+
         dindex[0] = iy*geo[0] + ix;
         dindex[1] = dindex[0] + 1;
         dindex[2] = dindex[0] + geo[0];
         dindex[3] = dindex[2] + 1;
 
-        n[0] = 1.0 - p[0];
-        n[1] = 1.0 - p[1];
-
-        ratio[0] = n[0]*n[1];
-        ratio[1] = p[0]*n[1];
-        ratio[2] = n[0]*p[1];
-        ratio[3] = p[0]*p[1];
+        float p0 = x-fx;
+        float p1 = y-fy;
+        float n0 = 1.0f-p0;
+        float n1 = 1.0f-p1;
+        ratio[0] = n0*n1;
+        ratio[1] = p0*n1;
+        ratio[2] = n0*p1;
+        ratio[3] = p0*p1;
         return true;
     }
 
