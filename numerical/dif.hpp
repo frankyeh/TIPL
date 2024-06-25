@@ -10,7 +10,7 @@ template<typename MappingType>
 void make_identity(MappingType& s)
 {
     tipl::par_for(tipl::begin_index(s.shape()),tipl::end_index(s.shape()),
-                [&](const tipl::pixel_index<MappingType::dimension>& index)
+                [&](const auto& index)
     {
         s[index.index()] = index;
     });
@@ -66,10 +66,9 @@ void displacement_to_mapping(const T& dis,U& mapping)
     }
     else
     tipl::par_for(tipl::begin_index(mapping.shape()),tipl::end_index(mapping.shape()),
-                            [&](const tipl::pixel_index<T::dimension>& index)
+                            [&](const auto& index)
     {
-        typename U::value_type vtor(index);
-        mapping[index.index()] += vtor;
+        mapping[index.index()] += index;
     });
 }
 //---------------------------------------------------------------------------
@@ -94,7 +93,7 @@ void mapping_to_displacement(T& mapping)
     }
     else
     tipl::par_for(tipl::begin_index(mapping.shape()),tipl::end_index(mapping.shape()),
-                [&](const tipl::pixel_index<T::dimension>& index)
+                [&](const auto& index)
     {
         mapping[index.index()] -= index;
     });
@@ -106,7 +105,7 @@ void displacement_to_mapping(const DisType& dis,MappingType& mapping,const trans
 {
     mapping = dis;
     tipl::par_for(tipl::begin_index(mapping.shape()),tipl::end_index(mapping.shape()),
-                            [&](const tipl::pixel_index<MappingType::dimension>& index)
+                            [&](const auto& index)
     {
         typename MappingType::value_type vtor(index);
         vtor += mapping[index.index()];
@@ -121,7 +120,7 @@ void inv_displacement_to_mapping(const DisType& inv_dis,MappingType& inv_mapping
     auto iT = T;
     iT.inverse();
     tipl::par_for(tipl::begin_index(inv_mapping.shape()),tipl::end_index(inv_mapping.shape()),
-        [&](const tipl::pixel_index<DisType::dimension>& index)
+        [&](const auto& index)
     {
         tipl::vector<DisType::dimension> p;
         iT(index,p);
@@ -194,7 +193,7 @@ void compose_displacement(const T& from,const U& dis,V& to)
     else
     {
         tipl::par_for(tipl::begin_index(from.shape()),tipl::end_index(from.shape()),
-            [&](const tipl::pixel_index<U::dimension>& index)
+            [&](const auto& index)
         {
             if(dis[index.index()] == typename U::value_type())
                 to[index.index()] = from[index.index()];
@@ -224,7 +223,7 @@ void compose_displacement_with_affine(const ImageType& src,OutImageType& dest,
     dest.clear();
     dest.resize(displace.shape());
     tipl::par_for(tipl::begin_index(displace.shape()),tipl::end_index(displace.shape()),
-        [&](const tipl::pixel_index<OutImageType::dimension>& index)
+        [&](const auto& index)
     {
         typename ComposeImageType::value_type vtor(index);
         vtor += displace[index.index()];
@@ -233,8 +232,8 @@ void compose_displacement_with_affine(const ImageType& src,OutImageType& dest,
         tipl::estimate<Type>(src,pos,dest[index.index()]);
     });
 }
-template<typename T,typename U>
-__INLINE__ void invert_displacement_imp(const tipl::pixel_index<T::dimension>& index,T& v1,U& mapping)
+template<typename T,typename U,typename V>
+__INLINE__ void invert_displacement_imp(const V& index,T& v1,U& mapping)
 {
     auto& v = v1[index.index()];
     tipl::vector<T::dimension> vv;
@@ -274,24 +273,19 @@ void invert_displacement(const T& v0,T& v1,size_t count = 8)
         }
         else
         tipl::par_for(tipl::begin_index(v1.shape()),tipl::end_index(v1.shape()),
-            [&](const tipl::pixel_index<T::dimension>& index)
+            [&](const auto& index)
         {
             invert_displacement_imp(index,v1,mapping);
         });
     }
 }
 //---------------------------------------------------------------------------
-template<typename T,typename U,typename V>
-__INLINE__ void accumulate_displacement_imp(const tipl::pixel_index<T::dimension>& index,const T& dis,U& new_dis,const V& mapping)
+template<typename T,typename U,typename V,typename W>
+__INLINE__ void accumulate_displacement_imp(const W& index,const T& dis,U& new_dis,const V& mapping)
 {
-    tipl::vector<T::dimension> d = new_dis[index.index()];
-    if(d != tipl::vector<T::dimension>())
-    {
-        if(tipl::estimate<tipl::interpolation::linear>(mapping,tipl::vector<T::dimension>(index)+d,new_dis[index.index()]))
-            new_dis[index.index()] -= index;
-        else
-            new_dis[index.index()] = dis[index.index()];
-    }
+    auto d = new_dis[index.index()];
+    if(d != decltype(d)() && tipl::estimate<tipl::interpolation::linear>(mapping,d+=index,new_dis[index.index()]))
+        new_dis[index.index()] -= index;
     else
         new_dis[index.index()] = dis[index.index()];
 }
@@ -321,7 +315,7 @@ void accumulate_displacement(const T& dis,T& new_dis)
         #endif
     }
     else
-    tipl::par_for(tipl::begin_index(dis.shape()),tipl::end_index(dis.shape()),[&](const tipl::pixel_index<T::dimension>& index)
+    tipl::par_for(tipl::begin_index(dis.shape()),tipl::end_index(dis.shape()),[&](const auto& index)
     {
         accumulate_displacement_imp(index,dis,new_dis,mapping);
     });
