@@ -87,7 +87,7 @@ public:
     void input(const std::vector<unsigned char>& rhs)
     {
         strm.avail_in = uint32_t(rhs.size());
-        strm.next_in = const_cast<unsigned char*>(&rhs[0]);
+        strm.next_in = rhs.data();
     }
     void input(std::vector<unsigned char>&& rhs)
     {
@@ -143,7 +143,7 @@ private:
             if(!file_buf_ready[begin_index])
             {
                 std::vector<unsigned char> buf(WINSIZE);
-                in.read(reinterpret_cast<char*>(&buf[0]),WINSIZE);
+                in.read(reinterpret_cast<char*>(buf.data()),WINSIZE);
                 if(in.gcount() != WINSIZE)
                     buf.resize(size_t(in.gcount()));
                 if(buf.empty())
