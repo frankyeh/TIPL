@@ -62,8 +62,9 @@ inline int max_thread_count = std::thread::hardware_concurrency();
 
 enum par_for_type{
     sequential = 0,
-    ranged = 1,
-    sequential_with_id = 2
+    sequential_with_id = 1,
+    ranged = 2,
+    ranged_with_id = 3
 };
 
 template <par_for_type type = sequential,typename T,
@@ -81,8 +82,13 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
 
     if(thread_count <= 1)
     {
-        if constexpr(type == ranged)
-            f(from,to);
+        if constexpr(type >= ranged)
+        {
+            if constexpr(type == ranged_with_id)
+                f(from,to,0);
+            else
+                f(from,to);
+        }
         else
         {
             for(;from != to;++from)
@@ -116,8 +122,13 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
                     throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
             }
             #endif
-            if constexpr(type == ranged)
-                f(beg,end);
+            if constexpr(type >= ranged)
+            {
+                if constexpr(type == ranged_with_id)
+                    f(beg,end,id);
+                else
+                    f(beg,end);
+            }
             else
             {
                 for(;beg != end;++beg)
