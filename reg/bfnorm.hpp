@@ -155,11 +155,11 @@ public:
 
         tipl::shape<2> dyz_x(nyz,nx),dz_y(nz,ny),dx_1(nx,1),dy_1(ny,1);
         std::vector<value_type> bx_(nx),by_(ny),bz_(nz),temp_(nyz),temp2_(nz);
-        value_type *bx = &bx_[0];
-        value_type *by = &by_[0];
-        value_type *bz = &bz_[0];
-        value_type *temp = &temp_[0];
-        value_type *temp2 = &temp2_[0];
+        value_type *bx = bx_.data();
+        value_type *by = by_.data();
+        value_type *bz = bz_.data();
+        value_type *temp = temp_.data();
+        value_type *temp2 = temp2_.data();
 
         {
             for(int k = 0,index = from[0]; k < nx; ++k,index += VGgeo[0])
@@ -306,15 +306,15 @@ public:
         nxy = nx*ny;
         nxyz = nxy*nz;
         nxyz3 = nxyz*3;
-        bx3[0] = &dB0[0];
-        bx3[1] =  &B0[0];
-        bx3[2] =  &B0[0];
-        by3[0] =  &B1[0];
-        by3[1] = &dB1[0];
-        by3[2] =  &B1[0];
-        bz3[0] =  &B2[0];
-        bz3[1] =  &B2[0];
-        bz3[2] = &dB2[0];
+        bx3[0] = dB0.data();
+        bx3[1] =  B0.data();
+        bx3[2] =  B0.data();
+        by3[0] =  B1.data();
+        by3[1] = dB1.data();
+        by3[2] =  B1.data();
+        bz3[0] =  B2.data();
+        bz3[1] =  B2.data();
+        bz3[2] = dB2.data();
 
         nxy_values.resize(nz);
         dim1_2_values.resize(nz);
@@ -395,7 +395,7 @@ public:
                 std::vector<value_type> betaxy(nxy3 + 4),alphaxy((nxy3 + 4)*(nxy3 + 4));
                 /* build up the deformation field (and derivatives) from it's seperable form */
                 {
-                    const value_type* ptr = &T[0];
+                    const value_type* ptr = T.data();
                     for(int i1=0; i1<3; i1++, ptr += nxyz)
                         for(int x1=0; x1<nxy; x1++)
                         {
@@ -450,7 +450,7 @@ public:
                     for(s0[0]=1; s0[0]<dim1[0]; s0[0]+=samp[0]) /* For each pixel in the row */
                     {
                         /* nonlinear deformation of the template space, followed by the affine transform */
-                        const value_type* ptr = &Ty[0];
+                        const value_type* ptr = Ty.data();
                         value_type J[3][3];
                         value_type trans[3];
                         for(int i1=0; i1<3; i1++, ptr += nx)
@@ -803,14 +803,14 @@ void bfnorm_get_jacobian(const bfnorm_mapping<value_type>& mapping,const from_ty
     const std::vector<value_type>& T = mapping.T;
 
     std::vector<value_type> bx_(nx),by_(ny),bz_(nz),dbx_(nx),dby_(ny),dbz_(nz),temp_(nyz),temp2_(nz);
-    value_type *bx = &bx_[0];
-    value_type *by = &by_[0];
-    value_type *bz = &bz_[0];
+    value_type *bx = bx_.data();
+    value_type *by = by_.data();
+    value_type *bz = bz_.data();
     value_type *dbx = &dbx_[0];
     value_type *dby = &dby_[0];
     value_type *dbz = &dbz_[0];
-    value_type *temp = &temp_[0];
-    value_type *temp2 = &temp2_[0];
+    value_type *temp = temp_.data();
+    value_type *temp2 = temp2_.data();
 
     for(unsigned int k = 0,index = from[0]; k < nx; ++k,index += mapping.VGgeo[0])
     {
