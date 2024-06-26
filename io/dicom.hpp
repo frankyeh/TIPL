@@ -1094,7 +1094,7 @@ public:
                     return true;
                 {
                     std::string image_type;
-                    is_multi_frame = get_int(0x0028,0x0008) > 1;   // multiple frame (new version)
+                    is_multi_frame = get_int(0x0028,0x0008) > 1 || (image_size > width()*height());   // multiple frame (new version)
                     is_mosaic = get_int(0x0019,0x100A) > 1 || (get_text(0x0008,0x0008,image_type) && image_type.find("MOSAIC") != std::string::npos);
                 }
                 if(is_compressed)
@@ -1880,16 +1880,22 @@ public:
             std::istringstream(d->get_image_num()) >> image_num.back();
             dicom_reader.push_back(d);
         }
-        // sort dicom according to the image num
-        {
-            auto order = tipl::arg_sort(image_num.size(),[&](uint32_t i,uint32_t j){return image_num[i] < image_num[j];});
-            std::vector<std::shared_ptr<dicom> > new_dicom_reader(order.size());
-            for(size_t i = 0;i < order.size();++i)
-                new_dicom_reader[i] = dicom_reader[order[i]];
-            new_dicom_reader.swap(dicom_reader);
-        }
 
+        if(files.size() == 1)
         {
+            dicom_reader.front()->get_image_dimension(dim);
+            dicom_reader.front()->get_voxel_size(vs);
+            dicom_reader.front()->get_image_orientation(orientation_matrix);
+        }
+        else
+        {        // sort dicom according to the image num
+            {
+                auto order = tipl::arg_sort(image_num.size(),[&](uint32_t i,uint32_t j){return image_num[i] < image_num[j];});
+                std::vector<std::shared_ptr<dicom> > new_dicom_reader(order.size());
+                for(size_t i = 0;i < order.size();++i)
+                    new_dicom_reader[i] = dicom_reader[order[i]];
+                new_dicom_reader.swap(dicom_reader);
+            }
             dim = tipl::shape<3>(dicom_reader.front()->width(),
                                  dicom_reader.front()->height(),
                                  uint32_t(dicom_reader.size()));
@@ -1913,9 +1919,8 @@ public:
                 orientation_matrix[7] = pos2[1]-pos1[1];
                 orientation_matrix[8] = pos2[2]-pos1[2];
             }
-            tipl::get_orientation(3,orientation_matrix,dim_order,flip);
-
         }
+        tipl::get_orientation(3,orientation_matrix,dim_order,flip);
         tipl::reorient_vector(vs,dim_order);
         tipl::reorient_matrix(orientation_matrix,dim_order,flip);
         return true;
@@ -1938,7 +1943,7 @@ public:
     template<typename image_type>
     void save_to_image(image_type& I) const
     {
-        tipl::image<3,typename image_type::value_type> buffer;
+        typename image_type::buffer_type buffer;
         get_untouched_image(buffer);
         tipl::reorder(buffer,I,dim_order,flip); // to LPS
     }
