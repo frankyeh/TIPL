@@ -437,9 +437,11 @@ __HOST__ auto inner_product(const T& x,const U& y)
     if constexpr(memory_location<T>::at == CUDA)
     {
         #ifdef __CUDACC__
-        return thrust::inner_product(thrust::device,
+        return thrust::transform_reduce(thrust::device,
                                      x.data(),x.data()+x.size(),
-                                     y.data(),0.0);
+                                     y.data(),0.0,
+                                     thrust::plus<double>(),
+                                     thrust::multiplies<double>());
         #endif
     }
     else
