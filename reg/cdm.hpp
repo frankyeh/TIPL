@@ -321,7 +321,6 @@ template<typename prog_type = void,typename out_type = void,typename pointer_ima
 void cdm(std::vector<pointer_image_type> It,
           std::vector<pointer_image_type> Is,
            dist_type& d,// displacement field
-           dist_type& inv_d,// displacement field
            terminate_type& terminated,
            cdm_param param = cdm_param())
 {
@@ -334,7 +333,6 @@ void cdm(std::vector<pointer_image_type> It,
 
     auto geo = It[0].shape();
     d.resize(geo);
-    inv_d.resize(geo);
     // multi resolution
     ++param.max_prog;
     if (min_value(geo) > param.min_dimension)
@@ -350,11 +348,9 @@ void cdm(std::vector<pointer_image_type> It,
         },It.size());
         cdm_param param2 = param;
         param2.resolution /= 2.0f;
-        cdm<prog_type,out_type>(rIt,rIs,d,inv_d,terminated,param2);
+        cdm<prog_type,out_type>(rIt,rIs,d,terminated,param2);
         multiply_constant(d,2.0f);
-        multiply_constant(inv_d,2.0f);
         upsample_with_padding(d,geo);
-        upsample_with_padding(inv_d,geo);
         if(param.resolution > 1.0f)
             return;
     }
@@ -396,10 +392,7 @@ void cdm(std::vector<pointer_image_type> It,
         {
             best_cost = cost.back();
             if(index)
-            {
                 d = cur_d;
-                inv_thread.run([&](void){invert_displacement(d,inv_d);});
-            }
         }
         if(!cdm_improved(cost))
             break;
