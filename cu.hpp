@@ -418,7 +418,7 @@ public:
 public:
     __INLINE__ const void* begin(void)                   const    {return bg;}
     __INLINE__ const void* end(void)                     const    {return bg+sz;}
-    __INLINE__ const void* data(void)                     const    {return bg;}
+    __INLINE__ const_iterator data(void)                     const    {return bg;}
 public:
     __INLINE__ size_t size(void)                            const    {return sz;}
     __INLINE__ bool empty(void)                             const    {return sz == 0;}
