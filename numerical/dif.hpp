@@ -260,6 +260,7 @@ __global__ void invert_displacement_cuda_kernel(T v1,U mapping)
 template<typename T>
 void invert_displacement(const T& v0,T& v1,size_t count = 8)
 {
+    v1.resize(v0.shape());
     T mapping(v0);
     displacement_to_mapping(mapping);
     for(uint8_t i = 0;i < count;++i)
