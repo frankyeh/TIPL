@@ -61,7 +61,7 @@ bool cdm_improved(cost_type& cost)
 struct cdm_param{
     float resolution = 2.0f;
     float speed = 0.3f;
-    float smoothing = 0.1f;
+    float smoothing = 0.05f;
     unsigned int iterations = 200;
     unsigned int min_dimension = 8;
     unsigned int prog = 0,max_prog = 0;
@@ -104,6 +104,7 @@ __global__ void cdm_get_gradient_cuda_kernel(T1 Js,T1 It,T2 new_d,T3 cost_map)
 template<typename image_type1,typename image_type2,typename dis_type>
 inline float cdm_get_gradient(const image_type1& Js,const image_type2& It,dis_type& new_d)
 {
+    new_d.resize(It.shape());
     typename image_type1::buffer_type cost_map(Js.shape());
     if constexpr(memory_location<image_type1>::at == CUDA)
     {
@@ -256,7 +257,7 @@ inline float cdm_max_displacement_length(dist_type& new_d)
 }
 //---------------------------------------------------------------------------
 template<typename T,typename U>
-__INLINE__ void cdm_smooth_imp(T& d,U& dd,size_t cur_index,float w_6,float w_1)
+__INLINE__ void cdm_smooth_imp(const T& d,U& dd,size_t cur_index,float w_6,float w_1)
 {
     size_t cur_index_with_shift = cur_index + 1;
     tipl::vector<T::dimension> v;
@@ -282,8 +283,8 @@ __INLINE__ void cdm_smooth_imp(T& d,U& dd,size_t cur_index,float w_6,float w_1)
 }
 //---------------------------------------------------------------------------
 #ifdef __CUDACC__
-template<typename T>
-__global__ void cdm_smooth_cuda_kernel(T d,T dd,float w_6,float w_1)
+template<typename T,typename U>
+__global__ void cdm_smooth_cuda_kernel(T d,U dd,float w_6,float w_1)
 {
     TIPL_FOR(cur_index,d.size())
     {
@@ -292,27 +293,26 @@ __global__ void cdm_smooth_cuda_kernel(T d,T dd,float w_6,float w_1)
 }
 
 #endif
-template<typename dist_type>
-void cdm_smooth(dist_type& d,float smoothing)
+template<typename T,typename U>
+void cdm_smooth(const T& d,U& dd,float smoothing)
 {
     if(smoothing == 0.0f)
         return;
-    dist_type dd(d.shape());
-    if constexpr(memory_location<dist_type>::at == CUDA)
+    dd.resize(d.shape());
+    float w_6 = smoothing/float(2.0f*T::dimension);
+    float w_1 = (1.0f-smoothing);
+    if constexpr(memory_location<T>::at == CUDA)
     {
         #ifdef __CUDACC__
         TIPL_RUN(cdm_smooth_cuda_kernel,d.size())
-                (tipl::make_shared(d),tipl::make_shared(dd),smoothing/6.0f,(1.0f-smoothing));
-        if (cudaGetLastError() != cudaSuccess)
-            throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+                (tipl::make_shared(d),tipl::make_shared(dd),w_6,w_1);
         #endif
     }
     else
     tipl::par_for(d.size(),[&](size_t cur_index)
     {
-        cdm_smooth_imp(d,dd,cur_index,smoothing/float(2.0f*dist_type::dimension),(1.0f-smoothing));
+        cdm_smooth_imp(d,dd,cur_index,w_6,w_1);
     });
-    dd.swap(d);
 }
 
 
@@ -320,7 +320,7 @@ void cdm_smooth(dist_type& d,float smoothing)
 template<typename prog_type = void,typename out_type = void,typename pointer_image_type,typename dist_type,typename terminate_type>
 void cdm(std::vector<pointer_image_type> It,
           std::vector<pointer_image_type> Is,
-           dist_type& d,// displacement field
+           dist_type& best_d,// displacement field
            terminate_type& terminated,
            cdm_param param = cdm_param())
 {
@@ -332,7 +332,7 @@ void cdm(std::vector<pointer_image_type> It,
         It.resize(Is.size());
 
     auto geo = It[0].shape();
-    d.resize(geo);
+    best_d.resize(geo);
     // multi resolution
     ++param.max_prog;
     if (min_value(geo) > param.min_dimension)
@@ -348,9 +348,9 @@ void cdm(std::vector<pointer_image_type> It,
         },It.size());
         cdm_param param2 = param;
         param2.resolution /= 2.0f;
-        cdm<prog_type,out_type>(rIt,rIs,d,terminated,param2);
-        multiply_constant(d,2.0f);
-        upsample_with_padding(d,geo);
+        cdm<prog_type,out_type>(rIt,rIs,best_d,terminated,param2);
+        multiply_constant(best_d,2.0f);
+        upsample_with_padding(best_d,geo);
         if(param.resolution > 1.0f)
             return;
     }
@@ -364,27 +364,34 @@ void cdm(std::vector<pointer_image_type> It,
 
     std::deque<float> cost;
     float best_cost = std::numeric_limits<float>::max();
-    tipl::thread inv_thread;
-    dist_type cur_d(d);
+    dist_type cur_d(best_d);
+
+    float cur_smoothing = 0.8f;
     for (unsigned int index = 0;index < param.iterations && !terminated;++index)
     {
         if constexpr(!std::is_void<prog_type>::value)
             prog_type()(param.prog,param.max_prog);
-        std::vector<float> sub_cost(It.size());
-        std::vector<dist_type> sub_new_d(It.size());
-        tipl::par_for(It.size(),[&](size_t i)
+
+        dist_type new_d;
+
         {
-            image_type Js;
-            compose_displacement(Is[i],cur_d,Js);
-            sub_new_d[i].resize(It[i].shape());
-            sub_cost[i] = cdm_get_gradient(Js,It[i],sub_new_d[i]);
-        },It.size());
+            float sum_cost = 0.0f;
+            std::mutex mutex;
+            tipl::par_for(It.size(),[&](size_t i)
+            {
+                dist_type dd;
+                float c = cdm_get_gradient(compose_displacement(Is[i],cur_d),It[i],dd);
+                std::lock_guard<std::mutex> lock(mutex);
+                sum_cost += c;
+                if(new_d.empty())
+                    new_d.swap(dd);
+                else
+                    add(new_d,dd);
 
-        auto& new_d = sub_new_d[0];
-        for(size_t i = 1;i < sub_new_d.size();++i)
-            add(new_d,sub_new_d[i]);
+            },It.size());
+            cost.push_back(sum_cost/It.size());
+        }
 
-        cost.push_back(mean(sub_cost));
         if constexpr(!std::is_void<out_type>::value)
             out_type() << "cost:" << cost.back();
 
@@ -392,10 +399,18 @@ void cdm(std::vector<pointer_image_type> It,
         {
             best_cost = cost.back();
             if(index)
-                d = cur_d;
+                best_d = cur_d;
         }
         if(!cdm_improved(cost))
-            break;
+        {
+            if(cur_smoothing <= param.smoothing)
+                break;
+            cur_d = best_d;
+            cur_smoothing *= 0.5f;
+            cost.clear();
+            if constexpr(!std::is_void<out_type>::value)
+                out_type() << "smoothing:" << cur_smoothing;
+        }
         // solving the poisson equation using Jacobi method
         cdm_solve_poisson(new_d,terminated);
 
@@ -406,8 +421,10 @@ void cdm(std::vector<pointer_image_type> It,
         multiply_constant(new_d,param.speed/theta);
         //cdm_constraint(new_d);
         accumulate_displacement(cur_d,new_d);
-        cdm_smooth(new_d,param.smoothing);
-        cur_d.swap(new_d);
+
+        // optimize smoothing
+        cdm_smooth(new_d,cur_d,cur_smoothing);
+
     }
     ++param.prog;
 }
