@@ -294,24 +294,17 @@ void cdm_smooth(const T& d,U& dd,float smoothing)
 
 
 template<typename out_type = void,typename pointer_image_type,typename dist_type,typename terminate_type>
-void cdm(std::vector<pointer_image_type> It,
-          std::vector<pointer_image_type> Is,
+void cdm(const std::vector<pointer_image_type>& It,
+         const std::vector<pointer_image_type>& Is,
            dist_type& best_d,// displacement field
            terminate_type& terminated,
            cdm_param param = cdm_param())
 {
-    using image_type = typename pointer_image_type::buffer_type;
-    using value_type = typename pointer_image_type::value_type;
-    if(It.size() < Is.size())
-        Is.resize(It.size());
-    if(Is.size() < It.size())
-        It.resize(Is.size());
-
     best_d.resize(It[0].shape());
     // multi resolution
     if (min_value(It[0].shape()) > param.min_dimension)
     {
-        std::vector<image_type> rIt_buffer(It.size()),rIs_buffer(It.size());
+        std::vector<typename pointer_image_type::buffer_type> rIt_buffer(It.size()),rIs_buffer(It.size());
         std::vector<pointer_image_type> rIt(It.size()),rIs(It.size());
         tipl::par_for(It.size(),[&](size_t i)
         {
