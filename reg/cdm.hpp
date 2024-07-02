@@ -40,9 +40,7 @@ struct cdm_param{
     float resolution = 2.0f;
     float speed = 0.3f;
     float smoothing = 0.05f;
-    unsigned int iterations = 200;
     unsigned int min_dimension = 8;
-    unsigned int prog = 0,max_prog = 0;
     enum {corr = 0,mi = 1} cost_type = corr;
 };
 
@@ -295,7 +293,7 @@ void cdm_smooth(const T& d,U& dd,float smoothing)
 
 
 
-template<typename prog_type = void,typename out_type = void,typename pointer_image_type,typename dist_type,typename terminate_type>
+template<typename out_type = void,typename pointer_image_type,typename dist_type,typename terminate_type>
 void cdm(std::vector<pointer_image_type> It,
           std::vector<pointer_image_type> Is,
            dist_type& best_d,// displacement field
@@ -311,7 +309,6 @@ void cdm(std::vector<pointer_image_type> It,
 
     best_d.resize(It[0].shape());
     // multi resolution
-    ++param.max_prog;
     if (min_value(It[0].shape()) > param.min_dimension)
     {
         std::vector<image_type> rIt_buffer(It.size()),rIs_buffer(It.size());
@@ -325,7 +322,7 @@ void cdm(std::vector<pointer_image_type> It,
         },It.size());
         cdm_param param2 = param;
         param2.resolution /= 2.0f;
-        cdm<prog_type,out_type>(rIt,rIs,best_d,terminated,param2);
+        cdm<out_type>(rIt,rIs,best_d,terminated,param2);
         multiply_constant(best_d,2.0f);
         upsample_with_padding(best_d,It[0].shape());
         if(param.resolution > 1.0f)
@@ -344,11 +341,8 @@ void cdm(std::vector<pointer_image_type> It,
     dist_type cur_d(best_d);
 
     float cur_smoothing = 0.8f;
-    for (unsigned int index = 0;index < param.iterations && !terminated;++index)
+    for (unsigned int index = 0;index < 200 && !terminated;++index)
     {
-        if constexpr(!std::is_void<prog_type>::value)
-            prog_type()(param.prog,param.max_prog);
-
         dist_type new_d;
 
         {
@@ -403,7 +397,6 @@ void cdm(std::vector<pointer_image_type> It,
         cdm_smooth(new_d,cur_d,cur_smoothing);
 
     }
-    ++param.prog;
 }
 
 
