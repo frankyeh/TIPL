@@ -260,7 +260,7 @@ public:
     using slice_type        = tipl::image<dim-1,value_type,pointer_container> ;
     using const_slice_type  = tipl::image<dim-1,value_type,const_pointer_container>;
     using shape_type        = tipl::shape<dim>;
-    using buffer_type       = typename image<dim,vtype,stype>;
+    using buffer_type       = image<dim,vtype,stype>;
     static constexpr int dimension = dim;
 protected:
     storage_type alloc;
@@ -480,7 +480,7 @@ public:
     using iterator          = typename base_type::iterator;
     using const_iterator    = typename base_type::const_iterator;
     using storage_type      = typename image<dim,vtype,pointer_container>::storage_type;
-    using buffer_type       = typename image<dim,vtype>;
+    using buffer_type       = image<dim,vtype>;
     static const int dimension = dim;
 public:
     __INLINE__ pointer_image(void) {}
@@ -517,7 +517,7 @@ public:
     using iterator          =   typename base_type::iterator;
     using const_iterator    =   typename base_type::const_iterator;
     using storage_type      =   typename image<dim,vtype,const_pointer_container>::storage_type;
-    using buffer_type       =   typename image<dim,vtype>;
+    using buffer_type       =   image<dim,vtype>;
     static const int dimension = dim;
 public:
     __INLINE__ const_pointer_image(void) {}
