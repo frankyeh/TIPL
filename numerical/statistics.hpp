@@ -206,7 +206,14 @@ __INLINE__ double square_sum(input_iterator from,input_iterator to)
     }
     return ss;
 }
-
+#ifdef __CUDACC__
+struct square_sum_imp {
+    template<typename T>
+    __device__ T operator()(const T& v) const {
+        return v * v;
+    }
+};
+#endif
 template<typename T>
 auto square_sum(const T& data)
 {
@@ -215,14 +222,9 @@ auto square_sum(const T& data)
     if constexpr(memory_location<T>::at == CUDA)
     {
         #ifdef __CUDACC__
-        struct square {
-            __device__ double operator()(const double& v) const {
-                return v * v;
-            }
-        };
         return thrust::transform_reduce(thrust::device,
                                  data.data(),data.data()+data.size(),
-                                 square(),0.0f,thrust::plus<double>());
+                                 square_sum_imp(),return_type(),thrust::plus<value_type>());
         #endif
     }
     else
@@ -437,11 +439,11 @@ __HOST__ auto inner_product(const T& x,const U& y)
     if constexpr(memory_location<T>::at == CUDA)
     {
         #ifdef __CUDACC__
-        return thrust::transform_reduce(thrust::device,
-                                     x.data(),x.data()+x.size(),
-                                     y.data(),0.0,
-                                     thrust::plus<double>(),
-                                     thrust::multiplies<double>());
+        device_vector<value_type> xy(x.size());
+        thrust::transform(thrust::device,
+                                 x.data(),x.data()+x.size(),
+                                 y.data(),xy.data(),thrust::multiplies<value_type>());
+        return thrust::reduce(thrust::device,xy.data(),xy.data()+xy.size(),return_type());
         #endif
     }
     else
