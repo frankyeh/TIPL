@@ -18,28 +18,6 @@ namespace tipl
 {
 namespace reg
 {
-template<typename image_type>
-void cdm_pre(image_type& I)
-{
-    if(I.empty())
-        return;
-    float mean = float(tipl::mean(I));
-    if(mean != 0.0f)
-        I *= 1.0f/mean;
-}
-template<typename image_type>
-void cdm_pre(image_type& It,image_type& It2,
-             image_type& Is,image_type& Is2)
-{
-    std::thread t1([&](){cdm_pre(It);});
-    std::thread t2([&](){cdm_pre(It2);});
-    std::thread t3([&](){cdm_pre(Is);});
-    std::thread t4([&](){cdm_pre(Is2);});
-    t1.join();
-    t2.join();
-    t3.join();
-    t4.join();
-}
 
 template<typename cost_type>
 bool cdm_improved(cost_type& cost)
@@ -331,11 +309,10 @@ void cdm(std::vector<pointer_image_type> It,
     if(Is.size() < It.size())
         It.resize(Is.size());
 
-    auto geo = It[0].shape();
-    best_d.resize(geo);
+    best_d.resize(It[0].shape());
     // multi resolution
     ++param.max_prog;
-    if (min_value(geo) > param.min_dimension)
+    if (min_value(It[0].shape()) > param.min_dimension)
     {
         std::vector<image_type> rIt_buffer(It.size()),rIs_buffer(It.size());
         std::vector<pointer_image_type> rIt(It.size()),rIs(It.size());
@@ -350,7 +327,7 @@ void cdm(std::vector<pointer_image_type> It,
         param2.resolution /= 2.0f;
         cdm<prog_type,out_type>(rIt,rIs,best_d,terminated,param2);
         multiply_constant(best_d,2.0f);
-        upsample_with_padding(best_d,geo);
+        upsample_with_padding(best_d,It[0].shape());
         if(param.resolution > 1.0f)
             return;
     }
