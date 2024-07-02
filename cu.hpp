@@ -433,7 +433,7 @@ public:
     using iterator          =   typename base_type::iterator;
     using const_iterator    =   typename base_type::const_iterator;
     using storage_type      =   typename image<dim,vtype,const_pointer_device_container>::storage_type;
-    using buffer_type       =   typename image<dim,vtype,device_vector>;
+    using buffer_type       =   image<dim,vtype,device_vector>;
     static constexpr int dimension = dim;
 public:
     __INLINE__ const_pointer_device_image(void) {}
