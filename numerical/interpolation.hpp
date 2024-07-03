@@ -11,14 +11,14 @@
 
 namespace tipl
 {
-template<typename value_type>   struct sum_type{using type = value_type;};
-template<> struct sum_type<char>            {using type = int16_t;};
-template<> struct sum_type<unsigned char>   {using type = uint16_t;};
-template<> struct sum_type<short>           {using type = int32_t;};
-template<> struct sum_type<unsigned short>  {using type = uint32_t;};
-template<> struct sum_type<int>             {using type = int64_t;};
-template<> struct sum_type<unsigned int>    {using type = uint64_t;};
-template<> struct sum_type<rgb>             {using type = vector<3,uint16_t>;};
+template<typename value_type>   struct add_type{using type = value_type;};
+template<> struct add_type<char>            {using type = int16_t;};
+template<> struct add_type<unsigned char>   {using type = uint16_t;};
+template<> struct add_type<short>           {using type = int32_t;};
+template<> struct add_type<unsigned short>  {using type = uint32_t;};
+template<> struct add_type<int>             {using type = int64_t;};
+template<> struct add_type<unsigned int>    {using type = uint64_t;};
+template<> struct add_type<rgb>             {using type = vector<3,uint16_t>;};
 
 template<typename value_type>
 struct interpo_type{

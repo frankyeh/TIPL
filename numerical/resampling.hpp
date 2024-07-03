@@ -593,7 +593,7 @@ __INLINE__ void downsample_with_padding_imp(const pixel_index<T::dimension>& pos
             has += 4;
     }
     value_type buf[buf_count];
-    typename sum_type<value_type>::type out_value = buf[0] = in[pos2.index()];
+    typename add_type<value_type>::type out_value = buf[0] = in[pos2.index()];
     for(int i = 1 ;i < buf_count;++i)
     {
         auto h = has & i;
