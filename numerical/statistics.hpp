@@ -195,12 +195,14 @@ __INLINE__ void sum_partial(const image_type1& in,image_type2& out)
 
 
 template<typename input_iterator>
-__INLINE__ double square_sum(input_iterator from,input_iterator to)
+__INLINE__ auto square_sum(input_iterator from,input_iterator to)
 {
-    double ss = 0.0;
+    using value_type = typename std::iterator_traits<input_iterator>::value_type;
+    using return_type = typename sum_result_type<value_type>::type;
+    return_type ss = return_type();
     while (from != to)
     {
-        double t = *from;
+        return_type t = *from;
         ss += t*t;
         ++from;
     }
@@ -230,7 +232,7 @@ auto square_sum(const T& data)
     else
     {
         if(data.size() < 1000 || max_thread_count < 2)
-        return square_sum(data.begin(),data.end());
+            return square_sum(data.begin(),data.end());
         std::mutex mutex;
         return_type sums = return_type();
         tipl::par_for<ranged>(data.begin(),data.end(),[&](auto beg,auto end)
