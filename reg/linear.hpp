@@ -144,12 +144,12 @@ inline void get_mutual_info(T& mutual_hist_all,const U& to,const V& from,const W
 }
 
 
-template <template <typename...> typename stype = std::vector>
+template <int dim,template <typename...> typename stype = std::vector>
 struct mutual_information
 {
     typedef double value_type;
     stype<unsigned int> from_hist;
-    stype<unsigned char> from,to;
+    image<dim,unsigned char,stype> from,to;
     std::mutex init_mutex;
 public:
     template<typename ImageType1,typename ImageType2,typename TransformType>
@@ -162,35 +162,50 @@ public:
                 if constexpr(memory_location<stype<unsigned int> >::at == CUDA)
                 {
                     #ifdef __CUDACC__
-                    using device_image_type = device_image<ImageType1::dimension,typename ImageType1::value_type>;
-                    to.resize(to_.size());
-                    normalize_upper_lower2(device_image_type(to_),to,float(mi_his_bandwidth)-0.01f);
+                    if constexpr(std::is_same_v<unsigned char,typename ImageType1::value_type>)
+                    {
+                        host_vector<int32_t> host_from_hist;
+                        histogram(from_,host_from_hist,0,mi_his_bandwidth-1,mi_his_bandwidth);
+                        from_hist = host_from_hist;
+                        from = from_;
+                        to = to_;
+                    }
+                    else
+                    {
+                        using device_image_type = device_image<ImageType1::dimension,typename ImageType1::value_type>;
+                        to.resize(to_.shape());
+                        normalize_upper_lower2(device_image_type(to_),to,float(mi_his_bandwidth)-0.01f);
 
-                    host_vector<unsigned char> host_from;
-                    host_vector<int32_t> host_from_hist;
+                        host_image<dim,unsigned char> host_from;
+                        host_vector<int32_t> host_from_hist;
 
-                    host_from.resize(from_.size());
-                    normalize_upper_lower2(from_,host_from,float(mi_his_bandwidth)-0.01f);
-                    histogram(host_from,host_from_hist,0,mi_his_bandwidth-1,mi_his_bandwidth);
+                        host_from.resize(from_.shape());
+                        normalize_upper_lower2(from_,host_from,float(mi_his_bandwidth)-0.01f);
+                        histogram(host_from,host_from_hist,0,mi_his_bandwidth-1,mi_his_bandwidth);
 
-                    from_hist = host_from_hist;
-                    from = host_from;
+                        from_hist = host_from_hist;
+                        from = host_from;
+                    }
                     #endif
                 }
                 else
                 {
-                    to.resize(to_.size());
-                    from.resize(from_.size());
-                    normalize_upper_lower2(to_,to,float(mi_his_bandwidth)-0.01f);
-                    normalize_upper_lower2(from_,from,float(mi_his_bandwidth)-0.01f);
+                    if constexpr(std::is_same_v<unsigned char,typename ImageType1::value_type>)
+                    {
+                        to = to_;
+                        from = from_;
+                    }
+                    else
+                    {
+                        normalize_upper_lower2(to_,to,float(mi_his_bandwidth)-0.01f);
+                        normalize_upper_lower2(from_,from,float(mi_his_bandwidth)-0.01f);
+                    }
                     histogram(from,from_hist,0,mi_his_bandwidth-1,mi_his_bandwidth);
                 }
             }
         }
         image<2,int32_t,stype> mutual_hist(shape<2>(mi_his_bandwidth,mi_his_bandwidth));
-        get_mutual_info(mutual_hist,
-                            make_image(to.data(),to_.shape()),
-                            make_image(from.data(),from_.shape()),transform);
+        get_mutual_info(mutual_hist,make_shared(to),make_shared(from),transform);
         return -get_mutual_info_sum(mutual_hist,from_hist);
     }
 };
