@@ -81,27 +81,28 @@ template<typename image_type1,typename image_type2,typename dis_type>
 inline float cdm_get_gradient(const image_type1& Js,const image_type2& It,dis_type& new_d)
 {
     new_d.resize(It.shape());
-    typename image_type1::buffer_type cost_map(Js.shape());
     if constexpr(memory_location<image_type1>::at == CUDA)
     {
         #ifdef __CUDACC__
+        device_vector<float> cost_map(Js.size());
         TIPL_RUN(cdm_get_gradient_cuda_kernel,Js.size())
                 (tipl::make_shared(Js),
                  tipl::make_shared(It),
                  tipl::make_shared(new_d),
                  tipl::make_shared(cost_map));
-        if (cudaGetLastError() != cudaSuccess)
-            throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+        return tipl::mean(cost_map);
         #endif
     }
     else
     {
+        std::vector<float> cost_map(Js.size());
         tipl::par_for(Js.size(),[&](size_t index)
         {
             cdm_get_gradient_imp(tipl::pixel_index<image_type1::dimension>(index,Js.shape()),Js,It,new_d,cost_map);
         });
+        return tipl::mean(cost_map);
     }
-    return float(tipl::mean(cost_map));
+
 }
 //---------------------------------------------------------------------------
 #ifdef __CUDACC__
