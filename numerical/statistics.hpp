@@ -135,7 +135,7 @@ struct sum_result_type {
 };
 template<typename T>
 struct sum_result_type<T,typename std::enable_if<std::is_integral<T>::value>::type>{
-    using type = size_t;
+    using type = int64_t;
 };
 template<typename T>
 struct sum_result_type<T,typename std::enable_if<std::is_floating_point<T>::value>::type> {
@@ -194,11 +194,11 @@ __INLINE__ void sum_partial(const image_type1& in,image_type2& out)
 }
 
 
-template<typename input_iterator>
-__INLINE__ auto square_sum(input_iterator from,input_iterator to)
+template<typename input_iterator,
+         typename value_type = typename std::iterator_traits<input_iterator>::value_type,
+         typename return_type = typename sum_result_type<value_type>::type>
+__INLINE__ return_type square_sum(input_iterator from,input_iterator to)
 {
-    using value_type = typename std::iterator_traits<input_iterator>::value_type;
-    using return_type = typename sum_result_type<value_type>::type;
     return_type ss = return_type();
     while (from != to)
     {
@@ -211,22 +211,24 @@ __INLINE__ auto square_sum(input_iterator from,input_iterator to)
 #ifdef __CUDACC__
 struct square_sum_imp {
     template<typename T>
-    __device__ T operator()(const T& v) const {
-        return v * v;
+    __device__ auto operator()(const T& v) const {
+        typename sum_result_type<T>::type vv(v);
+        vv *= v;
+        return vv;
     }
 };
 #endif
-template<typename T>
-auto square_sum(const T& data)
+template<typename T,
+         typename value_type = typename T::value_type,
+         typename return_type = typename sum_result_type<value_type>::type>
+return_type square_sum(const T& data)
 {
-    using value_type = typename T::value_type;
-    using return_type = typename sum_result_type<value_type>::type;
     if constexpr(memory_location<T>::at == CUDA)
     {
         #ifdef __CUDACC__
         return thrust::transform_reduce(thrust::device,
                                  data.data(),data.data()+data.size(),
-                                 square_sum_imp(),return_type(),thrust::plus<value_type>());
+                                 square_sum_imp(),return_type(),thrust::plus<return_type>());
         #endif
     }
     else
@@ -252,14 +254,15 @@ __INLINE__ double mean(input_iterator from,input_iterator to)
 }
 
 template<typename T>
-inline auto mean(const T& I)
+inline double mean(const T& I)
 {
     return (I.empty()) ? 0.0 :double(sum(I))/double(I.size());
 }
 
 
 
-template <typename input_iterator>
+template <typename input_iterator,
+          typename value_type = typename std::iterator_traits<input_iterator>::value_type>
 __INLINE__ auto median(input_iterator begin, input_iterator end)
     -> typename std::enable_if<!std::is_const<typename std::remove_reference<decltype(*begin)>::type>::value,typename std::iterator_traits<input_iterator>::value_type>::type
 {
@@ -267,22 +270,24 @@ __INLINE__ auto median(input_iterator begin, input_iterator end)
     std::nth_element(begin, begin + size, end);
     return *(begin + size);
 }
-template <typename input_iterator>
+template <typename input_iterator,
+          typename value_type = typename std::iterator_traits<input_iterator>::value_type>
 __INLINE__ auto median(input_iterator begin, input_iterator end)
     -> typename std::enable_if<std::is_const<typename std::remove_reference<decltype(*begin)>::type>::value,typename std::iterator_traits<input_iterator>::value_type>::type
 {
-    std::vector<typename std::iterator_traits<input_iterator>::value_type> tmp(begin, end);
+    std::vector<value_type> tmp(begin, end);
     return median(tmp.begin(), tmp.end());
 }
 
-template<typename image_type>
-auto median(const image_type& I)
+template<typename image_type,
+         typename value_type = typename image_type::value_type>
+value_type median(const image_type& I)
 {
     const size_t chunk_count = 256;
     if(I.size() < 2048)
         return median(I.begin(),I.end());
 
-    std::vector<typename image_type::value_type> chunk(chunk_count);
+    std::vector<value_type> chunk(chunk_count);
     size_t total_size = I.size();
     size_t chunk_size = total_size / chunk_count;
     size_t remainder = total_size % chunk_count;
@@ -355,7 +360,7 @@ inline double variance(T& data)
     return variance(data,mean(data));
 }
 template<typename input_iterator,typename value_type>
-__INLINE__ value_type standard_deviation(input_iterator from,input_iterator to,value_type mean)
+__INLINE__ double standard_deviation(input_iterator from,input_iterator to,value_type mean)
 {
     auto var = variance(from,to,mean);
     return var > 0.0 ? std::sqrt(var) : 0.0;
@@ -407,44 +412,47 @@ __INLINE__ auto median_absolute_deviation(input_iterator from,input_iterator to,
 }
 
 
-template <typename input_iterator>
+template <typename input_iterator,
+          typename value_type = typename std::iterator_traits<input_iterator>::value_type>
 auto median_absolute_deviation(input_iterator from, input_iterator to,double median_value)
     -> typename std::enable_if<std::is_const<typename std::remove_reference<decltype(*from)>::type>::value,typename std::iterator_traits<input_iterator>::value_type>::type
 {
-    std::vector<typename std::iterator_traits<input_iterator>::value_type> tmp(from, to);
+    std::vector<value_type> tmp(from, to);
     return median_absolute_deviation(tmp.begin(), tmp.end(),median_value);
 }
 
-template<typename input_iterator1,typename input_iterator2>
-__INLINE__ double inner_product(input_iterator1 x_from,input_iterator1 x_to,
+template<typename input_iterator1,typename input_iterator2,
+         typename value_type = typename std::iterator_traits<input_iterator1>::value_type,
+         typename return_type = typename sum_result_type<value_type>::type>
+__INLINE__ return_type inner_product(input_iterator1 x_from,input_iterator1 x_to,
                                      input_iterator2 y_from)
 {
     if(x_to == x_from)
-        return 0.0;
-    double co = 0.0;
+        return return_type();
+    return_type co = return_type();
     size_t size = x_to-x_from;
     while (x_from != x_to)
     {
-        co += double(*x_from)*double(*y_from);
+        co += return_type(*x_from)*return_type(*y_from);
         ++x_from;
         ++y_from;
     }
     return co;
 }
-template<typename T,typename U>
+template<typename T,typename U,
+         typename value_type = typename T::value_type,
+         typename return_type = typename sum_result_type<value_type>::type>
 __HOST__ auto inner_product(const T& x,const U& y)
 {
-    using value_type = typename T::value_type;
-    using return_type = typename sum_result_type<value_type>::type;
     if(x.empty())
         return return_type();
     if constexpr(memory_location<T>::at == CUDA)
     {
         #ifdef __CUDACC__
-        device_vector<value_type> xy(x.size());
+        device_vector<return_type> xy(x.size());
         thrust::transform(thrust::device,
                                  x.data(),x.data()+x.size(),
-                                 y.data(),xy.data(),thrust::multiplies<value_type>());
+                                 y.data(),xy.data(),thrust::multiplies<return_type>());
         return thrust::reduce(thrust::device,xy.data(),xy.data()+xy.size(),return_type());
         #endif
     }
@@ -499,18 +507,18 @@ template<typename input_iterator1,typename input_iterator2>
 __INLINE__ double correlation(input_iterator1 x_from,input_iterator1 x_to,
                   input_iterator2 y_from,double mean_x,double mean_y)
 {
-    double sd1 = standard_deviation(x_from,x_to,mean_x);
-    double sd2 = standard_deviation(y_from,y_from+(x_to-x_from),mean_y);
+    auto sd1 = standard_deviation(x_from,x_to,mean_x);
+    auto sd2 = standard_deviation(y_from,y_from+(x_to-x_from),mean_y);
     if(sd1 == 0 || sd2 == 0)
-        return 0;
+        return sd1;
     return covariance(x_from,x_to,y_from,mean_x,mean_y)/sd1/sd2;
 }
 
 template<typename T,typename U>
 inline double correlation(const T& x,const U& y,double mean_x,double mean_y)
 {
-    double sd1 = standard_deviation(x,mean_x);
-    double sd2 = standard_deviation(y,mean_y);
+    auto sd1 = standard_deviation(x,mean_x);
+    auto sd2 = standard_deviation(y,mean_y);
     if(sd1 == 0 || sd2 == 0)
         return 0;
     return covariance(x,y,mean_x,mean_y)/sd1/sd2;
@@ -599,23 +607,23 @@ double permutation_test(input_iterator from,input_iterator to,unsigned int nx,un
 template<typename input_iterator1,typename input_iterator2>
 __INLINE__ std::pair<double,double> linear_regression(input_iterator1 x_from,input_iterator1 x_to,input_iterator2 y_from)
 {
-    double mean_x = mean(x_from,x_to);
-    double mean_y = mean(y_from,y_from+(x_to-x_from));
-    double x_var = variance(x_from,x_to,mean_x);
+    auto mean_x = mean(x_from,x_to);
+    auto mean_y = mean(y_from,y_from+(x_to-x_from));
+    auto x_var = variance(x_from,x_to,mean_x);
     if(x_var == 0.0)
         return std::pair<double,double>(0,mean_y);
-    double a = covariance(x_from,x_to,y_from,mean_x,mean_y)/x_var;
-    double b = mean_y-a*mean_x;
+    auto a = covariance(x_from,x_to,y_from,mean_x,mean_y)/x_var;
+    auto b = mean_y-a*mean_x;
     return std::pair<double,double>(a,b);
 }
 
 template<typename input_iterator1,typename input_iterator2,typename value_type>
 __INLINE__ void linear_regression(input_iterator1 x_from,input_iterator1 x_to,input_iterator2 y_from,value_type& a,value_type& b,value_type& r2)
 {
-    value_type mean_x = mean(x_from,x_to);
-    value_type mean_y = mean(y_from,y_from+(x_to-x_from));
-    value_type x_var = variance(x_from,x_to,mean_x);
-    value_type y_var = variance(y_from,y_from+(x_to-x_from),mean_y);
+    auto mean_x = mean(x_from,x_to);
+    auto mean_y = mean(y_from,y_from+(x_to-x_from));
+    auto x_var = variance(x_from,x_to,mean_x);
+    auto y_var = variance(y_from,y_from+(x_to-x_from),mean_y);
     if(x_var == 0 || y_var == 0)
     {
         a = 0;
@@ -623,7 +631,7 @@ __INLINE__ void linear_regression(input_iterator1 x_from,input_iterator1 x_to,in
         r2 = 0;
         return;
     }
-    value_type cov = covariance(x_from,x_to,y_from,mean_x,mean_y);
+    auto cov = covariance(x_from,x_to,y_from,mean_x,mean_y);
     a = cov/x_var;
     b = mean_y-a*mean_x;
     r2 = cov*cov/x_var/y_var;
