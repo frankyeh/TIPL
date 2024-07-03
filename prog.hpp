@@ -31,46 +31,43 @@ inline bool processing_time_less_than(int time)
 
 inline bool update_prog(std::string status,bool show_now = false,uint32_t now = 0,uint32_t total = 0)
 {
-    if(!show_prog || !tipl::is_main_thread() ||
-        (!show_now && processing_time_less_than(250)))
+    if(!show_prog || !tipl::is_main_thread())
         return true;
     #if defined(TIPL_USE_QT) && !defined(__CUDACC__)
     static std::shared_ptr<QProgressDialog> progressDialog;
+    if(status.empty() && progressDialog.get())
     {
-        if(status.empty())
-        {
-            if(progressDialog.get())
-            {
-                progressDialog->close();
-                progressDialog.reset();
-            }
-            QApplication::processEvents();
-            return true;
-        }
-
-        if(!progressDialog.get())
-        {
-            progressDialog.reset(new QProgressDialog(status.c_str(),"Cancel",0,100));
-            progressDialog->setAttribute(Qt::WA_ShowWithoutActivating);
-            progressDialog->activateWindow();
-        }
-        else
-        {
-            progressDialog->setLabelText(status.c_str());
-            if(progressDialog->wasCanceled())
-                return false;
-        }
-
-        if(total != 0)
-        {
-            progressDialog->setRange(0, int(total));
-            progressDialog->setValue(int(now));
-
-        }
-        progressDialog->show();
-        progressDialog->raise();
+        progressDialog->close();
+        progressDialog.reset();
         QApplication::processEvents();
+        return true;
     }
+
+    if(!show_now && processing_time_less_than(250))
+        return true;
+
+    if(!progressDialog.get())
+    {
+        progressDialog.reset(new QProgressDialog(status.c_str(),"Cancel",0,100));
+        progressDialog->setAttribute(Qt::WA_ShowWithoutActivating);
+        progressDialog->activateWindow();
+    }
+    else
+    {
+        progressDialog->setLabelText(status.c_str());
+        if(progressDialog->wasCanceled())
+            return false;
+    }
+
+    if(total != 0)
+    {
+        progressDialog->setRange(0, int(total));
+        progressDialog->setValue(int(now));
+
+    }
+    progressDialog->show();
+    progressDialog->raise();
+    QApplication::processEvents();
     #endif
     return true;
 }
