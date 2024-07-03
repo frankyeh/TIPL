@@ -29,22 +29,25 @@ inline bool processing_time_less_than(int time)
            std::chrono::high_resolution_clock::now() - process_time.back()).count() < time;
 }
 
-inline bool update_prog(std::string status,bool show_now = false,uint32_t now = 0,uint32_t total = 0)
+inline void update_prog(std::string status,bool show_now = false,uint32_t now = 0,uint32_t total = 0)
 {
     if(!show_prog || !tipl::is_main_thread())
-        return true;
+        return;
     #if defined(TIPL_USE_QT) && !defined(__CUDACC__)
     static std::shared_ptr<QProgressDialog> progressDialog;
-    if(status.empty() && progressDialog.get())
+    if(status_list.empty())
     {
-        progressDialog->close();
-        progressDialog.reset();
-        QApplication::processEvents();
-        return true;
+        if(progressDialog.get())
+        {
+            progressDialog->close();
+            progressDialog.reset();
+            QApplication::processEvents();
+        }
+        return;
     }
 
     if(!show_now && processing_time_less_than(250))
-        return true;
+        return;
 
     if(!progressDialog.get())
     {
@@ -56,7 +59,11 @@ inline bool update_prog(std::string status,bool show_now = false,uint32_t now = 
     {
         progressDialog->setLabelText(status.c_str());
         if(progressDialog->wasCanceled())
-            return false;
+        {
+            prog_aborted = true;
+            return;
+        }
+
     }
 
     if(total != 0)
@@ -69,7 +76,7 @@ inline bool update_prog(std::string status,bool show_now = false,uint32_t now = 
     progressDialog->raise();
     QApplication::processEvents();
     #endif
-    return true;
+    return;
 }
 
 
@@ -140,12 +147,10 @@ private:
             if(expected_sec)
                 outstr << " " << expected_sec << " min";
             at_list.back() = outstr.str();
-            if(!update_prog(get_status(),false,now,total))
-            {
-                prog_aborted = true;
+            update_prog(get_status(),false,now,total);
+            if(prog_aborted)
                 progress::print("WARNING: operation aborted",false,false);
-                return false;
-            }
+            return !prog_aborted;
         }
         return now < total;
     }
