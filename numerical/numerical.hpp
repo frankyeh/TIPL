@@ -1147,6 +1147,7 @@ __HOST__ void normalize_upper_lower2(const T& in,U& out,float upper_limit)
     if(range == 0.0f)
         return;
     upper_limit /= range;
+    out.resize(in.shape());
     if constexpr(memory_location<T>::at == CUDA)
     {
         #ifdef __CUDACC__
