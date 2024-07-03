@@ -140,21 +140,21 @@ void gradient(const PixelImageType& src,std::vector<GradientImageType>& dest)
 template<typename T,typename std::enable_if<T::dimension == 3,bool>::type = true>
 __INLINE__ tipl::vector<3> gradient_at(const T& I,const pixel_index<3>& index)
 {
-    return tipl::vector<3>(I[index.x()+1 < I.width() ? index.index()+1:index.index()] -
-                           I[index.x() ? index.index()-1:index.index()],
-                           I[index.y()+1 < I.height() ? index.index()+I.width():index.index()] -
-                           I[index.y() ? index.index()-I.width():index.index()],
-                           I[index.z()+1 < I.depth() ? index.index()+I.plane_size():index.index()] -
-                           I[index.z() ? index.index()-I.plane_size():index.index()]);
+    return tipl::vector<3>(float(I[index.x()+1 < I.width() ? index.index()+1:index.index()]) -
+                           float(I[index.x() ? index.index()-1:index.index()]),
+                           float(I[index.y()+1 < I.height() ? index.index()+I.width():index.index()]) -
+                           float(I[index.y() ? index.index()-I.width():index.index()]),
+                           float(I[index.z()+1 < I.depth() ? index.index()+I.plane_size():index.index()]) -
+                           float(I[index.z() ? index.index()-I.plane_size():index.index()]));
 }
 //---------------------------------------------------------------------------
 template<typename T,typename std::enable_if<T::dimension == 2,bool>::type = true>
 __INLINE__ tipl::vector<2> gradient_at(const T& I,const pixel_index<2>& index)
 {
-    return tipl::vector<2>(I[index.x()+1 < I.width() ? index.index()+1:index.index()] -
-                           I[index.x() ? index.index()-1:index.index()],
-                           I[index.y()+1 < I.height() ? index.index()+I.width():index.index()] -
-                           I[index.y() ? index.index()-I.width():index.index()]);
+    return tipl::vector<2>(float(I[index.x()+1 < I.width() ? index.index()+1:index.index()]) -
+                           float(I[index.x() ? index.index()-1:index.index()]),
+                           float(I[index.y()+1 < I.height() ? index.index()+I.width():index.index()]) -
+                           float(I[index.y() ? index.index()-I.width():index.index()]));
 }
 //---------------------------------------------------------------------------
 // implement -1 0 1
