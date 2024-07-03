@@ -426,23 +426,24 @@ auto median_absolute_deviation(input_iterator from, input_iterator to,double med
     return median_absolute_deviation(tmp.begin(), tmp.end(),median_value);
 }
 
-template<typename input_iterator1,typename input_iterator2>
+template<typename input_iterator1,typename input_iterator2,
+         typename value_type1 = typename std::iterator_traits<input_iterator1>::value_type,
+         typename value_type2 = typename std::iterator_traits<input_iterator2>::value_type,
+         typename return_type = typename sum_result_type<decltype(value_type1()*value_type2())>::type>
 __INLINE__ double inner_product(input_iterator1 x_from,input_iterator1 x_to,
                                      input_iterator2 y_from)
 {
     if(x_to == x_from)
-        return 0.0;
-    double co = 0.0;
-    do{
-        co += double(*x_from)*double(*y_from);
-        ++x_from;
-        ++y_from;
-    }while(x_from != x_to);
+        return return_type();
+    return_type co = (*x_from)*(*y_from);
+    while(++x_from != x_to)
+        co += (*x_from)*(*(++y_from));
     return co;
 }
 template<typename T,typename U,
-         typename value_type = typename T::value_type,
-         typename return_type = typename sum_result_type<value_type>::type>
+         typename value_type1 = typename T::value_type,
+         typename value_type2 = typename U::value_type,
+         typename return_type = typename sum_result_type<decltype(value_type1()*value_type2())>::type>
 __HOST__ auto inner_product(const T& x,const U& y)
 {
     if(x.empty())
@@ -477,7 +478,7 @@ __INLINE__ double covariance(input_iterator1 x_from,input_iterator1 x_to,
 {
     if(x_to == x_from)
         return 0.0;
-    return double(inner_product(x_from,x_to,y_from))/double(x_to-x_from)-mean_x*mean_y;
+    return inner_product(x_from,x_to,y_from)/double(x_to-x_from)-mean_x*mean_y;
 }
 template<typename input_iterator1,typename input_iterator2>
 __INLINE__ double covariance(input_iterator1 x_from,input_iterator1 x_to,
@@ -491,7 +492,7 @@ inline double covariance(const T& x,const U& y,double mean_x,double mean_y)
 {
     if(x.empty())
         return 0.0;
-    return double(inner_product(x,y))/double(x.size())-mean_x*mean_y;
+    return inner_product(x,y)/double(x.size())-mean_x*mean_y;
 }
 
 template<typename T,typename U>
