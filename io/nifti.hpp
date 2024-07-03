@@ -749,6 +749,10 @@ public:
     {
         return nif_header.datatype != 16 && nif_header.datatype != 64;
     }
+    bool is_int8(void) const
+    {
+        return nif_header.datatype == 2;
+    }
     template<typename image_type>
     void load_from_image(const image_type& source)
     {
@@ -1083,6 +1087,13 @@ public:
             tipl::flip(out,type);
     }
 public:
+    template<typename T>
+    auto toImage(void)
+    {
+        T I;
+        *this >> I;
+        return I;
+    }
     //from RAS to LPS
     void toLPS(void)
     {
