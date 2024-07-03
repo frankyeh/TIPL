@@ -439,7 +439,7 @@ public:
     __INLINE__ const_pointer_device_image(void) {}
     __INLINE__ const_pointer_device_image(const const_pointer_device_image& rhs):base_type(){operator=(rhs);}
     __INLINE__ const_pointer_device_image(const image<dimension,vtype,device_vector>& rhs):
-                base_type(reinterpret_cast<const float*>(rhs.begin()),rhs.shape()){}
+                base_type(reinterpret_cast<const vtype*>(rhs.begin()),rhs.shape()){}
 public:
     __INLINE__ const_pointer_device_image& operator=(const const_pointer_device_image& rhs)
     {
@@ -453,7 +453,7 @@ public:
 template<int dim,typename vtype = float>
 using device_image = image<dim,vtype,device_vector>;
 
-template<int dim,typename vtype = float>
+template<int dim,typename vtype>
 __INLINE__ auto make_device_shared(const device_image<dim,vtype>& I)
 {
     return const_pointer_device_image<dim,vtype>(I);
