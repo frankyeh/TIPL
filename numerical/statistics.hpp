@@ -131,16 +131,21 @@ double gaussian_distribution(value_type x,value_type mean,value_type variance,va
 
 template<typename T,typename Enable = void>
 struct sum_result_type {
-    using type = T;
+    using type = void;
 };
 template<typename T>
 struct sum_result_type<T,typename std::enable_if<std::is_integral<T>::value>::type>{
     using type = int64_t;
 };
 template<typename T>
+struct sum_result_type<T,typename std::enable_if<std::is_class<T>::value>::type>{
+    using type = T;
+};
+template<typename T>
 struct sum_result_type<T,typename std::enable_if<std::is_floating_point<T>::value>::type> {
     using type = double;
 };
+
 template<typename input_iterator,
          typename value_type = typename std::iterator_traits<input_iterator>::value_type,
          typename return_type = typename sum_result_type<value_type>::type>
@@ -429,14 +434,9 @@ __INLINE__ return_type inner_product(input_iterator1 x_from,input_iterator1 x_to
 {
     if(x_to == x_from)
         return return_type();
-    return_type co = return_type();
-    size_t size = x_to-x_from;
-    while (x_from != x_to)
-    {
-        co += return_type(*x_from)*return_type(*y_from);
-        ++x_from;
-        ++y_from;
-    }
+    auto co = return_type(*x_from)*return_type(*y_from);
+    while ((++x_from) != x_to)
+        co += return_type(*x_from)*return_type(*(++y_from));
     return co;
 }
 template<typename T,typename U,
