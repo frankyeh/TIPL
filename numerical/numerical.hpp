@@ -205,7 +205,7 @@ void cdf2pdf(iterator1 lhs_from,iterator1 lhs_to,iterator2 out)
 }
 //---------------------------------------------------------------------------
 template<typename iterator>
-__INLINE__ auto norm2(iterator lhs_from,iterator lhs_to)
+auto norm2(iterator lhs_from,iterator lhs_to)
 {
     typename std::iterator_traits<iterator>::value_type result(0);
     for (; lhs_from != lhs_to; ++lhs_from)
@@ -214,7 +214,7 @@ __INLINE__ auto norm2(iterator lhs_from,iterator lhs_to)
 }
 //---------------------------------------------------------------------------
 template<typename image_type>
-__INLINE__ auto norm2(const image_type& I)
+auto norm2(const image_type& I)
 {
     return norm2(I.begin(),I.end());
 }
