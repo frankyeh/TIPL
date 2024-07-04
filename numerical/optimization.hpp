@@ -205,13 +205,13 @@ void quasi_newtons_minimize(
     {
         std::vector<value_type> fun_x_ei(size);
         std::vector<param_type> g(size),h(size*size),p(size);
-        estimate_change(x_beg,x_end,tols.begin(),fun_x_ei.begin(),fun);
-        gradient(x_beg,x_end,tols.begin(),fun_x,fun_x_ei.begin(),g.begin());
-        hessian(x_beg,x_end,tols.begin(),fun_x,fun_x_ei.begin(),h.begin(),fun);
+        estimate_change(x_beg,x_end,tols.data(),fun_x_ei.data(),fun);
+        gradient(x_beg,x_end,tols.data(),fun_x,fun_x_ei.data(),g.data());
+        hessian(x_beg,x_end,tols.data(),fun_x,fun_x_ei.data(),h.data(),fun);
 
         std::vector<unsigned int> pivot(size);
-        if(!tipl::mat::lu_decomposition(h.begin(),pivot.begin(),tipl::shape<2>(size,size)) ||
-           !tipl::mat::lu_solve(h.begin(),pivot.begin(),g.begin(),p.begin(),tipl::shape<2>(size,size)))
+        if(!tipl::mat::lu_decomposition(h.data(),pivot.data(),tipl::shape<2>(size,size)) ||
+           !tipl::mat::lu_solve(h.data(),pivot.data(),g.data(),p.data(),tipl::shape<2>(size,size)))
             return;
 
         std::vector<param_type> cost(line_search_count);
@@ -221,7 +221,7 @@ void quasi_newtons_minimize(
             for(int j = 0;j < line_search_count;++j,L *= 2.0f)
             {
                 std::vector<param_type> new_x(x_beg,x_end);
-                tipl::vec::aypx(p.begin(),p.end(),L,new_x.begin());
+                tipl::vec::aypx(p.data(),p.data()+size,L,new_x.data());
                 for(size_t i = 0;i < new_x.size();++i)
                     new_x[i] = std::min<param_type>(x_upper[i],std::max<param_type>(x_lower[i],new_x[i]));
                 new_xs[j].swap(new_x);
@@ -355,15 +355,15 @@ void gradient_descent(
     {
         std::vector<value_type> fun_x_ei(size);
         std::vector<param_type> g(size);
-        estimate_change(x_beg,x_end,tols.begin(),fun_x_ei.begin(),fun);
-        gradient(x_beg,x_end,tols.begin(),fun_x,fun_x_ei.begin(),g.begin());
+        estimate_change(x_beg,x_end,tols.data(),fun_x_ei.data(),fun);
+        gradient(x_beg,x_end,tols.data(),fun_x,fun_x_ei.data(),g.data());
 
         tipl::multiply(g,tols); // scale the unit to parameter unit
-        double length = tipl::norm2(g.begin(),g.end());
+        double length = tipl::norm2(g.data(),g.data()+size);
         if(length == 0.0)
             break;
         tipl::multiply_constant(g,tol_length/length);
-        if(!armijo_line_search(x_beg,x_end,x_upper,x_lower,g.begin(),fun_x,fun))
+        if(!armijo_line_search(x_beg,x_end,x_upper,x_lower,g.data(),fun_x,fun))
             break;
     }
 }
