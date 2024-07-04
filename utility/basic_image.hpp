@@ -23,14 +23,14 @@ protected:
     iterator bg = nullptr;
     size_t sz = 0;
 public:
-    __INLINE__ pointer_container(void){}
+    pointer_container(void){}
     template<typename any_iterator_type>
-    __INLINE__ pointer_container(any_iterator_type bg_,any_iterator_type ed_):
+    pointer_container(any_iterator_type bg_,any_iterator_type ed_):
         bg(bg_),sz(ed_-bg_){}
     template<typename any_container_type>
-    __INLINE__ pointer_container(any_container_type& rhs){operator=(rhs);}
+    pointer_container(any_container_type& rhs){operator=(rhs);}
     template<typename any_container_type>
-    __INLINE__ pointer_container& operator=(any_container_type& rhs)
+    pointer_container& operator=(any_container_type& rhs)
     {
         sz = rhs.size();
         if (sz)
@@ -38,8 +38,8 @@ public:
         return *this;
     }
 public:
-    __INLINE__ pointer_container(const pointer_container& rhs):bg(rhs.bg),sz(rhs.sz){}
-    __INLINE__ pointer_container& operator=(const pointer_container& rhs)
+    pointer_container(const pointer_container& rhs):bg(rhs.bg),sz(rhs.sz){}
+    pointer_container& operator=(const pointer_container& rhs)
     {
         if (this == &rhs)
             return *this;
@@ -51,20 +51,20 @@ public:
     template<typename index_type>
     __INLINE__ const_reference operator[](index_type index) const    {return bg[index];}
     __INLINE__ const_iterator begin(void)                   const    {return bg;}
-    __INLINE__ const_iterator end(void)                     const    {return bg+sz;}
-    __INLINE__ const_iterator data(void)                     const    {return bg;}
+    const_iterator end(void)                     const    {return bg+sz;}
+    const_iterator data(void)                     const    {return bg;}
 public:
     template<typename index_type>
     __INLINE__ reference operator[](index_type index)                {return bg[index];}
     __INLINE__ iterator begin(void)                                  {return bg;}
-    __INLINE__ iterator end(void)                                    {return bg+sz;}
-    __INLINE__ iterator data(void)                                    {return bg;}
+    iterator end(void)                                    {return bg+sz;}
+    iterator data(void)                                    {return bg;}
 public:
     __INLINE__ size_t size(void)                            const    {return sz;}
-    __INLINE__ bool empty(void)                             const    {return sz == 0;}
-    __INLINE__ void clear(void)                                      {sz = 0;}
+    bool empty(void)                             const    {return sz == 0;}
+    void clear(void)                                      {sz = 0;}
 public:
-    __INLINE__ void swap(pointer_container& rhs)
+    void swap(pointer_container& rhs)
     {
         iterator temp_bg = rhs.bg;
         size_t temp_sz = rhs.sz;
@@ -73,7 +73,7 @@ public:
         bg = temp_bg;
         sz = temp_sz;
     }
-    __INLINE__ void resize(size_t new_size)                          {sz = new_size;}
+    void resize(size_t new_size)                          {sz = new_size;}
 };
 
 
@@ -91,15 +91,15 @@ protected:
     iterator bg = nullptr;
     size_t sz = 0;
 public:
-    __INLINE__ const_pointer_container(void){}
+    const_pointer_container(void){}
     template<typename any_iterator_type>
-    __INLINE__ const_pointer_container(any_iterator_type bg_,any_iterator_type ed_):
+    const_pointer_container(any_iterator_type bg_,any_iterator_type ed_):
         bg(bg_),sz(ed_-bg_){}
 public:
     template<typename any_container_type>
-    __INLINE__ const_pointer_container(const any_container_type& rhs){operator=(rhs);}
+    const_pointer_container(const any_container_type& rhs){operator=(rhs);}
     template<typename any_container_type>
-    __INLINE__ const_pointer_container& operator=(const any_container_type& rhs)
+    const_pointer_container& operator=(const any_container_type& rhs)
     {
         sz = rhs.size();
         if (sz)
@@ -107,8 +107,8 @@ public:
         return *this;
     }
 public:
-    __INLINE__ const_pointer_container(const const_pointer_container& rhs):bg(rhs.bg),sz(rhs.sz){}
-    __INLINE__ const_pointer_container& operator=(const const_pointer_container& rhs)
+    const_pointer_container(const const_pointer_container& rhs):bg(rhs.bg),sz(rhs.sz){}
+    const_pointer_container& operator=(const const_pointer_container& rhs)
     {
         if (this == &rhs)
             return *this;
@@ -117,8 +117,8 @@ public:
         return *this;
     }
 public:
-    __INLINE__ const_pointer_container(const pointer_container<value_type>& rhs):bg(rhs.begin()),sz(rhs.sz){}
-    __INLINE__ const_pointer_container& operator=(const pointer_container<value_type>& rhs)
+    const_pointer_container(const pointer_container<value_type>& rhs):bg(rhs.begin()),sz(rhs.sz){}
+    const_pointer_container& operator=(const pointer_container<value_type>& rhs)
     {
         bg = rhs.begin();
         sz = rhs.sz;
@@ -129,16 +129,16 @@ public:
     __INLINE__ const_reference operator[](index_type index) const    {return bg[index];}
     __INLINE__ const_iterator begin(void)                   const    {return bg;}
     __INLINE__ const_iterator end(void)                     const    {return bg+sz;}
-    __INLINE__ const_iterator data(void)                     const    {return bg;}
+    const_iterator data(void)                     const    {return bg;}
 public:
     template<typename index_type>
     __INLINE__ reference operator[](index_type index)                {return bg[index];}
-    __INLINE__ iterator begin(void)                                  {return bg;}
-    __INLINE__ iterator end(void)                                    {return bg+sz;}
-    __INLINE__ iterator data(void)                                    {return bg;}
+    iterator begin(void)                                  {return bg;}
+    iterator end(void)                                    {return bg+sz;}
+    iterator data(void)                                    {return bg;}
 public:
     __INLINE__ size_t size(void)                            const    {return sz;}
-    __INLINE__ bool empty(void)                             const    {return sz == 0;}
+    bool empty(void)                             const    {return sz == 0;}
 public:
     void swap(const_pointer_container& rhs)
     {
@@ -216,18 +216,18 @@ public:
     }
 public:
     template<typename index_type>
-    const_reference operator[](index_type index) const    {return beg[index];}
-    const_iterator begin(void)                   const    {return beg;}
-    const_iterator end(void)                     const    {return beg+sz;}
-    const_iterator data(void)                     const    {return beg;}
+    __INLINE__ const_reference operator[](index_type index) const    {return beg[index];}
+    __INLINE__ const_iterator begin(void)                   const    {return beg;}
+    __INLINE__ const_iterator end(void)                     const    {return beg+sz;}
+    const_iterator data(void)                     const   {return beg;}
 public:
     template<typename index_type>
-    reference operator[](index_type index)                {return beg[index];}
-    iterator begin(void)                                  {return beg;}
-    iterator end(void)                                    {return beg+sz;}
-    iterator data(void)                                    {return beg;}
+    __INLINE__ reference operator[](index_type index)                {return beg[index];}
+    __INLINE__ iterator begin(void)                                  {return beg;}
+    __INLINE__ iterator end(void)                                    {return beg+sz;}
+    iterator data(void)                                   {return beg;}
 public:
-    size_t size(void)                            const    {return sz;}
+    __INLINE__ size_t size(void)                            const    {return sz;}
     bool empty(void)                             const    {return buffer.empty();}
     void clear(void)                                      {buffer.clear();beg = nullptr;sz = 0;}
 public:
@@ -272,37 +272,37 @@ public:
     __INLINE__ int depth(void)                  const   {return sp.depth();}
     __INLINE__ size_t plane_size(void)          const   {return sp.plane_size();}
 public:
-    __INLINE__ value_type at(unsigned int x,unsigned int y) const   {return alloc[size_t(y)*sp[0]+x];}
-    __INLINE__ reference at(unsigned int x,unsigned int y)          {return alloc[size_t(y)*sp[0]+x];}
-    __INLINE__ value_type at(unsigned int x,unsigned int y,unsigned int z) const    {return alloc[size_t(z*sp[1]+y)*sp[0]+x];}
-    __INLINE__ reference at(unsigned int x,unsigned int y,unsigned int z)           {return alloc[size_t(z*sp[1]+y)*sp[0]+x];}
+    value_type at(unsigned int x,unsigned int y) const   {return alloc[size_t(y)*sp[0]+x];}
+    reference at(unsigned int x,unsigned int y)          {return alloc[size_t(y)*sp[0]+x];}
+    value_type at(unsigned int x,unsigned int y,unsigned int z) const    {return alloc[size_t(z*sp[1]+y)*sp[0]+x];}
+    reference at(unsigned int x,unsigned int y,unsigned int z)           {return alloc[size_t(z*sp[1]+y)*sp[0]+x];}
     template<typename T,typename std::enable_if<T::dimension==2,bool>::type = true>
-    __INLINE__ value_type at(const T& pos) const    {return alloc[size_t(pos[1])*sp[0]+size_t(pos[0])];}
+    value_type at(const T& pos) const    {return alloc[size_t(pos[1])*sp[0]+size_t(pos[0])];}
     template<typename T,typename std::enable_if<T::dimension==2,bool>::type = true>
-    __INLINE__ reference at(const T& pos)           {return alloc[size_t(pos[1])*sp[0]+size_t(pos[0])];}
+    reference at(const T& pos)           {return alloc[size_t(pos[1])*sp[0]+size_t(pos[0])];}
     template<typename T,typename std::enable_if<T::dimension==3,bool>::type = true>
-    __INLINE__ value_type at(const T& pos) const    {return alloc[size_t(size_t(pos[2])*sp[1]+size_t(pos[1]))*sp[0]+size_t(pos[0])];}
+    value_type at(const T& pos) const    {return alloc[size_t(size_t(pos[2])*sp[1]+size_t(pos[1]))*sp[0]+size_t(pos[0])];}
     template<typename T,typename std::enable_if<T::dimension==3,bool>::type = true>
-    __INLINE__ reference at(const T& pos)           {return alloc[size_t(size_t(pos[2])*sp[1]+size_t(pos[1]))*sp[0]+size_t(pos[0])];}
+    reference at(const T& pos)           {return alloc[size_t(size_t(pos[2])*sp[1]+size_t(pos[1]))*sp[0]+size_t(pos[0])];}
 public:
-    __INLINE__ image(void) {}
+    image(void) {}
     template<typename T,typename std::enable_if<T::dimension==dimension && !std::is_same<storage_type,typename T::storage_type>::value,bool>::type = true>
-    __INLINE__ image(const T& rhs)              {operator=(rhs);}
-    __INLINE__ image(const image& rhs)          {operator=(rhs);}
-    __INLINE__ image(image&& rhs) noexcept      {operator=(rhs);}
+    image(const T& rhs)              {operator=(rhs);}
+    image(const image& rhs)          {operator=(rhs);}
+    image(image&& rhs) noexcept      {operator=(rhs);}
 public:
     template<typename T>
-    __INLINE__ image(std::initializer_list<T> rhs):sp(rhs)      {alloc.resize(sp.size());}
-    __INLINE__ image(const shape_type& sp_):alloc(sp_.size()),sp(sp_){}
-    __INLINE__ image(const shape_type& sp_,value_type v):alloc(sp_.size(),v),sp(sp_){}
+    image(std::initializer_list<T> rhs):sp(rhs)      {alloc.resize(sp.size());}
+    image(const shape_type& sp_):alloc(sp_.size()),sp(sp_){}
+    image(const shape_type& sp_,value_type v):alloc(sp_.size(),v),sp(sp_){}
 public:
     template<typename T>
-    __INLINE__ image(T* pointer,const shape_type& sp_):alloc(pointer,pointer+sp_.size()),sp(sp_)         {}
+    image(T* pointer,const shape_type& sp_):alloc(pointer,pointer+sp_.size()),sp(sp_)         {}
     template<typename T>
-    __INLINE__ image(const T* pointer,const shape_type& sp_):alloc(pointer,pointer+sp_.size()),sp(sp_)   {}
+    image(const T* pointer,const shape_type& sp_):alloc(pointer,pointer+sp_.size()),sp(sp_)   {}
 public:
     template<typename T,typename std::enable_if<T::dimension==dimension && !std::is_same<storage_type,typename T::storage_type>::value,bool>::type = true>
-    __INLINE__ image& operator=(const T& rhs)
+    image& operator=(const T& rhs)
     {
         using U = typename T::const_iterator;
         // Casting is needed here, because if rhs is a device vector, rhs.begin() is a void * and this
@@ -312,20 +312,20 @@ public:
         sp = rhs.shape();
         return *this;
     }
-    __INLINE__ image& operator=(const image& rhs)
+    image& operator=(const image& rhs)
     {
         alloc = rhs.alloc;
         sp = rhs.shape();
         return *this;
     }
-    __INLINE__ image& operator=(image&& rhs) noexcept
+    image& operator=(image&& rhs) noexcept
     {
         alloc.swap(rhs.alloc);
         sp.swap(rhs.sp);
         return *this;
     }
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    __INLINE__ image& operator=(T value)
+    image& operator=(T value)
     {
         iterator end_iter = alloc.end();
         for(iterator iter = alloc.begin();iter != end_iter;++iter)
@@ -333,27 +333,27 @@ public:
         return *this;
     }
 public:
-    __INLINE__ auto& buf(void){return alloc;}
-    __INLINE__ const auto& buf(void)const{return alloc;}
-    __INLINE__ auto data(void){return alloc.data();}
-    __INLINE__ auto data(void)const{return alloc.data();}
-    __INLINE__ void swap(image& rhs)
+    auto& buf(void){return alloc;}
+    const auto& buf(void)const{return alloc;}
+    auto data(void){return alloc.data();}
+    auto data(void)const{return alloc.data();}
+    void swap(image& rhs)
     {
         alloc.swap(rhs.alloc);
         sp.swap(rhs.sp);
     }
-    __INLINE__ void resize(const shape_type& sp_)
+    void resize(const shape_type& sp_)
     {
         sp = sp_;
         alloc.resize(sp.size());
     }
-    __INLINE__ void clear(void)
+    void clear(void)
     {
         alloc.clear();
         sp.clear();
     }
     __INLINE__ size_t size(void)    const    {return alloc.size();}
-    __INLINE__ bool empty(void)     const   {return alloc.empty();}
+    bool empty(void)     const   {return alloc.empty();}
 
     template<typename index_type,typename std::enable_if<std::is_integral<index_type>::value,bool>::type = true>
     __INLINE__ const value_type& operator[](index_type index)   const   {return alloc[index];}
@@ -365,7 +365,7 @@ public:
     __INLINE__ auto begin(void)                            {return alloc.begin();}
     __INLINE__ auto end(void)                              {return alloc.end();}
 public:
-    __INLINE__ auto slice_at(unsigned int pos)
+    auto slice_at(unsigned int pos)
     {
         tipl::shape<dim-1> slice_sp(sp.begin());
         if constexpr(std::is_same<storage_type,const_pointer_container<vtype> >::value)
@@ -373,13 +373,13 @@ public:
         else
             return slice_type(alloc.data()+pos*slice_sp.size(),slice_sp);
     }
-    __INLINE__ auto slice_at(unsigned int pos) const
+    auto slice_at(unsigned int pos) const
     {
         tipl::shape<dim-1> slice_sp(sp.begin());
         return const_slice_type(alloc.data()+pos*slice_sp.size(),slice_sp);
     }
     template<typename shape_type>
-    __INLINE__ auto alias(size_t offset,const shape_type& new_shape)
+    auto alias(size_t offset,const shape_type& new_shape)
     {
         if constexpr(std::is_same<storage_type,const_pointer_container<vtype> >::value)
             return tipl::image<shape_type::dimension,value_type,const_pointer_container>(alloc.data()+offset,new_shape);
@@ -387,55 +387,55 @@ public:
             return tipl::image<shape_type::dimension,value_type,pointer_container>(alloc.data()+offset,new_shape);
     }
     template<typename shape_type>
-    __INLINE__ auto alias(size_t offset,const shape_type& new_shape) const
+    auto alias(size_t offset,const shape_type& new_shape) const
     {
         return tipl::image<shape_type::dimension,value_type,const_pointer_container>(alloc.data()+offset,new_shape);
     }
-    __INLINE__ auto alias(void)
+    auto alias(void)
     {
         if constexpr(std::is_same<storage_type,const_pointer_container<vtype> >::value)
             return tipl::image<dim,value_type,const_pointer_container>(alloc.data(),sp);
         else
             return tipl::image<dim,value_type,pointer_container>(alloc.data(),sp);
     }
-    __INLINE__ auto alias(void) const
+    auto alias(void) const
     {
         return tipl::image<dim,value_type,const_pointer_container>(alloc.data(),sp);
     }
 public:
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    __INLINE__ auto operator+=(T value)
+    auto operator+=(T value)
     {auto ed = end();for(auto bg = begin();bg != ed;++bg)*bg += value;
         return *this;}
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    __INLINE__ auto operator-=(T value)
+    auto operator-=(T value)
     {auto ed = end();for(auto bg = begin();bg != ed;++bg)*bg -= value;
         return *this;}
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    __INLINE__ auto operator*=(T value)
+    auto operator*=(T value)
     {auto ed = end();for(auto bg = begin();bg != ed;++bg)*bg *= value;
         return *this;}
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    __INLINE__ auto operator/=(T value)
+    auto operator/=(T value)
     {auto ed = end();for(auto bg = begin();bg != ed;++bg)*bg /= value;
         return *this;}
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    __INLINE__ auto operator+=(const T& rhs)
+    auto operator+=(const T& rhs)
     {auto ed = end();auto bg2 = rhs.begin();
      for(auto bg = begin();bg != ed;++bg,++bg2)*bg += *bg2;
      return *this;}
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    __INLINE__ auto operator-=(const T& rhs)
+    auto operator-=(const T& rhs)
     {auto ed = end();auto bg2 = rhs.begin();
      for(auto bg = begin();bg != ed;++bg,++bg2)*bg -= *bg2;
      return *this;}
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    __INLINE__ auto operator*=(const T& rhs)
+    auto operator*=(const T& rhs)
     {auto ed = end();auto bg2 = rhs.begin();
      for(auto bg = begin();bg != ed;++bg,++bg2)*bg *= *bg2;
      return *this;}
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    __INLINE__ auto operator/=(const T& rhs)
+    auto operator/=(const T& rhs)
     {auto ed = end();auto bg2 = rhs.begin();
      for(auto bg = begin();bg != ed;++bg,++bg2)*bg /= *bg2;
      return *this;}
@@ -467,9 +467,9 @@ public:
 };
 
 template<typename V,typename T>
-__INLINE__ V extract_pointer(T* p){return V(p);}
+inline V extract_pointer(T* p){return V(p);}
 template<typename V,typename T>
-__INLINE__ V extract_pointer(T p){return V(&*p);}
+inline V extract_pointer(T p){return V(&*p);}
 
 template<int dim,typename vtype = float>
 class pointer_image : public image<dim,vtype,pointer_container>
@@ -483,20 +483,20 @@ public:
     using buffer_type       = image<dim,vtype>;
     static const int dimension = dim;
 public:
-    __INLINE__ pointer_image(void) {}
-    __INLINE__ pointer_image(const pointer_image& rhs):base_type(){operator=(rhs);}
+    pointer_image(void) {}
+    pointer_image(const pointer_image& rhs):base_type(){operator=(rhs);}
     template<typename T>
-    __INLINE__ pointer_image(T& rhs):base_type(extract_pointer<vtype*>(rhs.begin()),rhs.shape()) {}
-    __INLINE__ pointer_image(vtype* pointer,const tipl::shape<dim>& sp_):base_type(pointer,sp_) {}
+    pointer_image(T& rhs):base_type(extract_pointer<vtype*>(rhs.begin()),rhs.shape()) {}
+    pointer_image(vtype* pointer,const tipl::shape<dim>& sp_):base_type(pointer,sp_) {}
 public:
-    __INLINE__ pointer_image& operator=(const pointer_image& rhs)
+    pointer_image& operator=(const pointer_image& rhs)
     {
         base_type::alloc = rhs.alloc;
         base_type::sp = rhs.sp;
         return *this;
     }
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    __INLINE__ pointer_image& operator=(T value)
+    pointer_image& operator=(T value)
     {
         base_type::operator=(value);
         return *this;
@@ -504,9 +504,9 @@ public:
 };
 
 template<typename V,typename T>
-__INLINE__ V extract_const_pointer(const T* p){return V(p);}
+inline V extract_const_pointer(const T* p){return V(p);}
 template<typename V,typename T>
-__INLINE__ V extract_const_pointer(T p){return V(&*p);}
+inline V extract_const_pointer(T p){return V(&*p);}
 
 template<int dim,typename vtype = float>
 class const_pointer_image : public image<dim,vtype,const_pointer_container>
@@ -520,13 +520,13 @@ public:
     using buffer_type       =   image<dim,vtype>;
     static const int dimension = dim;
 public:
-    __INLINE__ const_pointer_image(void) {}
-    __INLINE__ const_pointer_image(const const_pointer_image& rhs):base_type(){operator=(rhs);}
+    const_pointer_image(void) {}
+    const_pointer_image(const const_pointer_image& rhs):base_type(){operator=(rhs);}
     template<typename T,typename std::enable_if<T::dimension==dimension && !std::is_same<storage_type,typename T::storage_type>::value,bool>::type = true>
-    __INLINE__ const_pointer_image(const T& rhs):base_type(extract_const_pointer<const vtype*>(rhs.begin()),rhs.shape()) {}
-    __INLINE__ const_pointer_image(const vtype* pointer,const tipl::shape<dim>& sp_):base_type(pointer,sp_){}
+    const_pointer_image(const T& rhs):base_type(extract_const_pointer<const vtype*>(rhs.begin()),rhs.shape()) {}
+    const_pointer_image(const vtype* pointer,const tipl::shape<dim>& sp_):base_type(pointer,sp_){}
 public:
-    __INLINE__ const_pointer_image& operator=(const const_pointer_image& rhs)
+    const_pointer_image& operator=(const const_pointer_image& rhs)
     {
         base_type::alloc = rhs.alloc;
         base_type::sp = rhs.sp;
@@ -537,25 +537,25 @@ public:
 
 
 template<typename T>
-__INLINE__ auto make_shared(T& I)
+inline auto make_shared(T& I)
 {
     return pointer_image<T::dimension,typename T::value_type>(I);
 }
 template<typename T>
-__INLINE__ auto make_shared(const T& I)
+inline auto make_shared(const T& I)
 {
     return const_pointer_image<T::dimension,typename T::value_type>(I);
 }
 
 
 template<typename value_type,typename shape_type>
-__INLINE__ auto make_image(value_type* pointer,const shape_type& sp)
+inline auto make_image(value_type* pointer,const shape_type& sp)
 {
     return pointer_image<shape_type::dimension,value_type>(pointer,sp);
 }
 
 template<typename value_type,typename shape_type>
-__INLINE__ auto make_image(const value_type* pointer,const shape_type& sp)
+inline auto make_image(const value_type* pointer,const shape_type& sp)
 {
     return const_pointer_image<shape_type::dimension,value_type>(pointer,sp);
 }

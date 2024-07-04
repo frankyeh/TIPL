@@ -1,16 +1,12 @@
 #ifndef CDM_HPP
 #define CDM_HPP
 #include "../def.hpp"
-#include "../numerical/basic_op.hpp"
-#include "../numerical/dif.hpp"
-#include "../filter/gaussian.hpp"
-#include "../filter/filter_model.hpp"
 #include "../mt.hpp"
+#include "../numerical/numerical.hpp"
+#include "../numerical/dif.hpp"
 #include "../numerical/resampling.hpp"
 #include "../numerical/statistics.hpp"
 #include "../numerical/window.hpp"
-#include "../numerical/index_algorithm.hpp"
-#include <iostream>
 #include <limits>
 #include <vector>
 
@@ -27,11 +23,11 @@ bool cdm_improved(cost_type& cost)
         std::vector<int> iter(cost.size());
         std::iota(iter.begin(),iter.end(),0);
         float a,b,r2;
-        linear_regression(iter.begin(),iter.end(),cost.begin(),a,b,r2);
+        linear_regression(iter.data(),iter.data()+cost.size(),cost.data(),a,b,r2);
         if(a > 0.0f)
             return false;
         if(cost.size() > 7)
-            cost.pop_front();
+            cost.erase(cost.begin());
     }
     return true;
 }
@@ -330,7 +326,7 @@ void cdm(const std::vector<pointer_image_type>& It,
         out_type() << "size:" << It[0].shape();
 
 
-    std::deque<float> cost;
+    std::vector<float> cost;
     float best_cost = std::numeric_limits<float>::max();
     dist_type cur_d(best_d);
 

@@ -193,7 +193,7 @@ class device_vector{
             s = new_s;
         }
     public:
-        __INLINE__ void swap(device_vector& rhs)
+        void swap(device_vector& rhs)
         {
             std::swap(buf,rhs.buf);
             std::swap(buf_size,rhs.buf_size);
@@ -226,18 +226,18 @@ private:
     };
     size_t s = 0;
 public:
-    __INLINE__ shared_device_vector(void){}
-    __INLINE__ shared_device_vector(device_vector<value_type>& rhs):buf(rhs.data()),s(rhs.size())                    {}
-    __INLINE__ shared_device_vector(const device_vector<value_type>& rhs):const_buf(rhs.data()),s(rhs.size())        {}
+    shared_device_vector(void){}
+    shared_device_vector(device_vector<value_type>& rhs):buf(rhs.data()),s(rhs.size())                    {}
+    shared_device_vector(const device_vector<value_type>& rhs):const_buf(rhs.data()),s(rhs.size())        {}
 
-    __INLINE__ shared_device_vector(shared_device_vector<value_type>& rhs):buf(rhs.buf),s(rhs.s)                    {}
-    __INLINE__ shared_device_vector(const shared_device_vector<value_type>& rhs):const_buf(rhs.const_buf),s(rhs.s)  {}
+    shared_device_vector(shared_device_vector<value_type>& rhs):buf(rhs.buf),s(rhs.s)                    {}
+    shared_device_vector(const shared_device_vector<value_type>& rhs):const_buf(rhs.const_buf),s(rhs.s)  {}
 
-    __INLINE__ shared_device_vector(iterator buf_,size_t s_):buf(buf_),s(s_)                                        {}
-    __INLINE__ shared_device_vector(const_iterator buf_,size_t s_):const_buf(buf_),s(s_)                            {}
+    shared_device_vector(iterator buf_,size_t s_):buf(buf_),s(s_)                                        {}
+    shared_device_vector(const_iterator buf_,size_t s_):const_buf(buf_),s(s_)                            {}
 public:
-    __INLINE__ const shared_device_vector& operator=(const shared_device_vector<value_type>& rhs) const{const_buf = rhs.const_buf;s=rhs.s;return *this;}
-    __INLINE__ shared_device_vector& operator=(shared_device_vector<value_type>& rhs) {buf = rhs.buf;s=rhs.s;return *this;}
+    const shared_device_vector& operator=(const shared_device_vector<value_type>& rhs) const{const_buf = rhs.const_buf;s=rhs.s;return *this;}
+    shared_device_vector& operator=(shared_device_vector<value_type>& rhs) {buf = rhs.buf;s=rhs.s;return *this;}
 public:
     __INLINE__ size_t size(void)    const       {return s;}
     __INLINE__ bool empty(void)     const       {return s==0;}
@@ -372,25 +372,25 @@ class host_vector{
             s = new_s;
         }
     public:
-        __INLINE__ void swap(host_vector& rhs)
+        void swap(host_vector& rhs)
         {
             std::swap(buf,rhs.buf);
             std::swap(s,rhs.s);
         }
-        __INLINE__ size_t size(void)    const       {return s;}
-        __INLINE__ bool empty(void)     const       {return s==0;}
+        size_t size(void)    const       {return s;}
+        bool empty(void)     const       {return s==0;}
 
     public: // only available in host memory
         template<typename index_type>
-        __INLINE__ const value_type& operator[](index_type index)   const   {return buf[index];}
+        const value_type& operator[](index_type index)   const   {return buf[index];}
         template<typename index_type>
-        __INLINE__ reference operator[](index_type index)                   {return buf[index];}
-        __INLINE__ const_iterator begin(void)                       const   {return buf;}
-        __INLINE__ const_iterator end(void)                         const   {return buf+s;}
-        __INLINE__ iterator begin(void)                                     {return buf;}
-        __INLINE__ iterator end(void)                                       {return buf+s;}
-        __INLINE__ const_iterator data(void)                       const   {return buf;}
-        __INLINE__ iterator data(void)                                     {return buf;}
+        reference operator[](index_type index)                   {return buf[index];}
+        const_iterator begin(void)                       const   {return buf;}
+        const_iterator end(void)                         const   {return buf+s;}
+        iterator begin(void)                                     {return buf;}
+        iterator end(void)                                       {return buf+s;}
+        const_iterator data(void)                       const   {return buf;}
+        iterator data(void)                                     {return buf;}
 };
 
 
@@ -407,10 +407,10 @@ protected:
     iterator bg = nullptr;
     size_t sz = 0;
 public:
-    __INLINE__ const_pointer_device_container(void){}
-    __INLINE__ const_pointer_device_container(const const_pointer_device_container& rhs):bg(rhs.bg),sz(rhs.sz){}
-    __INLINE__ const_pointer_device_container(iterator from,iterator to):bg(from),sz(to-from){}
-    __INLINE__ const_pointer_device_container& operator=(const const_pointer_device_container& rhs)
+    const_pointer_device_container(void){}
+    const_pointer_device_container(const const_pointer_device_container& rhs):bg(rhs.bg),sz(rhs.sz){}
+    const_pointer_device_container(iterator from,iterator to):bg(from),sz(to-from){}
+    const_pointer_device_container& operator=(const const_pointer_device_container& rhs)
     {
         bg = rhs.bg;sz = rhs.sz;
         return *this;
@@ -436,12 +436,12 @@ public:
     using buffer_type       =   image<dim,vtype,device_vector>;
     static constexpr int dimension = dim;
 public:
-    __INLINE__ const_pointer_device_image(void) {}
-    __INLINE__ const_pointer_device_image(const const_pointer_device_image& rhs):base_type(){operator=(rhs);}
-    __INLINE__ const_pointer_device_image(const image<dimension,vtype,device_vector>& rhs):
+    const_pointer_device_image(void) {}
+    const_pointer_device_image(const const_pointer_device_image& rhs):base_type(){operator=(rhs);}
+    const_pointer_device_image(const image<dimension,vtype,device_vector>& rhs):
                 base_type(reinterpret_cast<const vtype*>(rhs.begin()),rhs.shape()){}
 public:
-    __INLINE__ const_pointer_device_image& operator=(const const_pointer_device_image& rhs)
+    const_pointer_device_image& operator=(const const_pointer_device_image& rhs)
     {
         base_type::alloc = rhs.alloc;
         base_type::sp = rhs.sp;

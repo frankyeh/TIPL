@@ -2,10 +2,9 @@
 #ifndef NUMERICAL_HPP
 #define NUMERICAL_HPP
 #include <random>
-#include <string>
 #include <stdexcept>
 #include "../mt.hpp"
-#include "interpolation.hpp"
+#include "../utility/pixel_index.hpp"
 #ifdef __CUDACC__
 #include "../cu.hpp"
 #endif

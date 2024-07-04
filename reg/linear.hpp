@@ -1,11 +1,5 @@
 #ifndef IMAGE_REG_HPP
 #define IMAGE_REG_HPP
-#include <limits>
-#include <future>
-#include <list>
-#include <memory>
-#include <cstdlib>     /* srand, rand */
-#include <ctime>
 #include "../numerical/interpolation.hpp"
 #include "../numerical/numerical.hpp"
 #include "../numerical/basic_op.hpp"
@@ -412,7 +406,7 @@ public:
         return optimal_value;
     }
     template<typename cost_type,typename terminated_type>
-    __INLINE__ float optimize(terminated_type&& is_terminated)
+    float optimize(terminated_type&& is_terminated)
     {
         std::vector<std::shared_ptr<cost_type> > cost_fun;
         auto size = (from.size() > to.size() ? to.size() : from.size());
@@ -421,7 +415,7 @@ public:
         return optimize<cost_type>(cost_fun,std::forward<terminated_type>(is_terminated));
     }
     template<typename cost_type>
-    __INLINE__ float optimize(bool& is_terminated)
+    float optimize(bool& is_terminated)
     {
         max_prog += reg_list.size();
         return optimize<cost_type>([&](void){return is_terminated;});
@@ -452,7 +446,7 @@ public:
         return optimize<cost_type>(std::forward<terminated_type>(terminated));
     }
     template<typename cost_type>
-    __INLINE__ float optimize_mr(bool& is_terminated)
+    float optimize_mr(bool& is_terminated)
     {
         return optimize_mr<cost_type>([&](void){return is_terminated;});
     }
