@@ -35,8 +35,9 @@ struct rgb
     rgb(unsigned char gray):
         b(gray), g(gray), r(gray), a(0) {}
     rgb(float gray):
-        b((unsigned char)gray), g((unsigned char)gray), r((unsigned char)gray), a(0) {}
-
+        b(uint8_t(gray)), g(uint8_t(gray)), r(uint8_t(gray)), a(0) {}
+    rgb(double gray):
+        b(uint8_t(gray)), g(uint8_t(gray)), r(uint8_t(gray)), a(0) {}
     operator unsigned char() const
     {
         return (unsigned char)((((short)r) + ((short)g) + ((short)b)) / 3);
