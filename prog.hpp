@@ -163,6 +163,7 @@ public:
         static const char* color32 = "\033[0;32m";
         static const char* color33 = "\033[0;33m";
         static const char* color34 = "\033[0;34m";
+        static const char* color35 = "\033[0;34m";
 
         std::istringstream in(status);
         std::string line;
@@ -170,18 +171,6 @@ public:
         {
             if(line.empty())
                 continue;
-            if(tipl::begins_with(line,"sav"))
-                line = std::string("💾")+line;
-            else
-                if(tipl::begins_with(line,"open"))
-                    line = std::string("📂")+line;
-                else
-                    if(head_node)
-                        line = std::string("⚙")+line;
-                    else
-                        if(error_code)
-                            line = std::string(reinterpret_cast<const char*>(&error_code))+line;
-
             std::string head;
             for(size_t i = 1;i < status_list.size();++i)
                 head += "│";
@@ -194,19 +183,34 @@ public:
             }
             if(tail_node)
                 head += "└";
+            if(!tipl::is_main_thread())
+                head += "[thread]";
+
+            const char* color = nullptr;
+            if(error_code)
+            {
+                line = std::string(reinterpret_cast<const char*>(&error_code))+line;
+                color = color31;
+            }
+            if(!color && tipl::begins_with(line,"sav"))
+            {
+                line = std::string("💾")+line;
+                color = color35;
+            }
+            if(!color && tipl::begins_with(line,"open"))
+            {
+                line = std::string("📂")+line;
+                color = color34;
+            }
+            if(!color && head_node)
+            {
+                line = std::string("📟")+line;
+                color = color35;
+            }
             if(!show_prog)
             {
-                if(head_node)
-                {
-                    head += color34; // blue
-                    line += color_end;
-                }
-                else
-                if(error_code) // warning or error
-                {
-                    head += color31; // red
-                    line += color_end;
-                }
+                if(color)
+                    line += std::string(color) + color_end;
                 else
                 {
                     auto eq_pos = line.find('=');
@@ -215,13 +219,11 @@ public:
                     else
                     {
                         auto info_pos = line.find(": ");
-                    if(info_pos != std::string::npos)
-                        line = std::string(color33) + line.substr(0,info_pos) + color_end + line.substr(info_pos);
+                        if(info_pos != std::string::npos)
+                            line = std::string(color33) + line.substr(0,info_pos) + color_end + line.substr(info_pos);
                     }
                 }
             }
-            if(!tipl::is_main_thread())
-                head += "[thread]";
             std::cout << head + line << std::endl;
             head_node = false;
         }
@@ -272,7 +274,7 @@ public:
                     }
                 }
             }
-            out << "⏱" << count << " " << unit;
+            out << "⏱" << count << unit;
         }
         status_list.pop_back();
         print(out.str().c_str(),false,true);
