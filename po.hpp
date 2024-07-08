@@ -39,6 +39,10 @@ inline bool ends_with(const std::string& str,const std::string& suffix)
 {
     return (str.size() >= suffix.size()) ? (0 == str.compare(str.size() - suffix.size(), suffix.size(), suffix)) : false;
 }
+inline bool begins_with(const std::string& str,const std::string& suffix)
+{
+    return (str.size() >= suffix.size()) ? (0 == str.compare(0, suffix.size(), suffix)) : false;
+}
 
 inline std::string to_lower(const std::string& str)
 {
@@ -326,7 +330,7 @@ public:
     inline program_option_assign operator[](const char* name)     {return program_option_assign(name,this);}
 public:
     std::string error_msg,exec_path;
-    ~program_option(void)
+    void check_end_param(void)
     {
         for(size_t i = 0;i < used.size();++i)
             if(!used[i])
