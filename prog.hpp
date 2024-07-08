@@ -177,7 +177,7 @@ public:
                     line = std::string("📂")+line;
                 else
                     if(head_node)
-                        line = std::string("💻")+line;
+                        line = std::string("⚙")+line;
                     else
                         if(error_code)
                             line = std::string(reinterpret_cast<const char*>(&error_code))+line;
