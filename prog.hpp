@@ -273,7 +273,7 @@ public:
                     }
                 }
             }
-            out << "🕛 " << count << " " << unit;
+            out << "⏱ " << count << " " << unit;
         }
         status_list.pop_back();
         print(out.str().c_str(),false,true);
