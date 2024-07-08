@@ -215,6 +215,7 @@ public:
                     else
                     {
                         auto info_pos = line.find(": ");
+                    if(info_pos != std::string::npos)
                         line = std::string(color33) + line.substr(0,info_pos) + color_end + line.substr(info_pos);
                     }
                 }
