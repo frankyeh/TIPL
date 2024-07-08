@@ -15,7 +15,7 @@
 #endif
 
 #include "mt.hpp"
-
+#include "po.hpp"
 
 namespace tipl{
 
@@ -149,15 +149,21 @@ private:
             at_list.back() = outstr.str();
             update_prog(get_status(),false,now,total);
             if(prog_aborted)
-                progress::print("WARNING: operation aborted",false,false);
+                progress::print("operation aborted",false,false,true);
             return !prog_aborted;
         }
         return now < total;
     }
 
 public:
-    static void print(const char* status,bool head_node, bool tail_node)
+    static void print(const char* status,bool head_node, bool tail_node,unsigned int error_code = 0)
     {
+        static const char* color_end = "\033[0m";
+        static const char* color31 = "\033[0;31m";
+        static const char* color32 = "\033[0;32m";
+        static const char* color33 = "\033[0;33m";
+        static const char* color34 = "\033[0;34m";
+
         std::istringstream in(status);
         std::string line;
         while(std::getline(in,line))
@@ -166,39 +172,52 @@ public:
                 continue;
             std::string head;
             for(size_t i = 1;i < status_list.size();++i)
-                head += "| ";
+                head += "│";
             if(!status_list.empty())
             {
                 if(head_node)
-                    head += "|-";
+                    head += "├";
                 else
-                    head += "| ";
+                    head += "│";
             }
             if(tail_node)
-                head += "|_";
-            if(!show_prog) // enable color output in command line
+                head += "└";
             {
                 if(head_node)
                 {
-                    head += "\033[1;34m"; // blue
-                    line += "\033[0m";
+                    head += "💻";
+                    if(!show_prog)
+                    {
+                        head += color34; // blue
+                        line += color_end;
+                    }
                 }
                 else
-                if(line[0] == 'E' || line[0] == 'W' ) // Error
+                if(error_code) // warning or error
                 {
-                    head += "\033[1;31m"; // red
-                    line += "\033[0m";
+                    head += reinterpret_cast<const char*>(&error_code);
+                    if(!show_prog)
+                    {
+                        head += color31; // red
+                        line += color_end;
+                    }
                 }
                 else
                 {
+                    if(tipl::begins_with(line,"sav"))
+                        line = std::string("💾")+line;
                     auto eq_pos = line.find('=');
                     if(eq_pos != std::string::npos)
-                        line = std::string("\033[0;32m") + line.substr(0,eq_pos) + "\033[0m" + line.substr(eq_pos);
+                    {
+                        auto name = show_prog ? line.substr(0,eq_pos) : std::string(color32) + line.substr(0,eq_pos) + color_end;
+                        line = std::string("⚙") + name + line.substr(eq_pos);
+                    }
                     else
                     {
                         auto info_pos = line.find(": ");
+                        auto name = show_prog ? line.substr(0,info_pos) : std::string(color33) + line.substr(0,info_pos) + color_end;
                         if(info_pos != std::string::npos)
-                            line = std::string("\033[0;33m") + line.substr(0,info_pos) + "\033[0m" + line.substr(info_pos);
+                            line = std::string("📋") + name + line.substr(info_pos);
                     }
                 }
             }
@@ -254,7 +273,7 @@ public:
                     }
                 }
             }
-            out << count << " " << unit;
+            out << "🕛 " << count << " " << unit;
         }
         status_list.pop_back();
         print(out.str().c_str(),false,true);
@@ -301,31 +320,37 @@ bool run(const char* msg,fun_type fun)
     return !prog.aborted();
 }
 
-
-class out{
+template<unsigned int code = 0>
+class output{
     std::ostringstream s;
     public:
-        ~out()
+        ~output()
         {
-            auto str = s.str();
-            if(str.empty())
+            auto out = s.str();
+            if(out.empty())
                 return;
-            if(str.back() == '\n')
-                str.pop_back();
-            progress::print(str.c_str(),false,false);
+            if(out.back() == '\n')
+                out.pop_back();
+            progress::print(out.c_str(),false,false,code);
         }
-        out& operator<<(std::ostream& (*var)(std::ostream&))
+        output& operator<<(std::ostream& (*var)(std::ostream&))
         {
             s << var;
             return *this;
         }
         template<typename type>
-        out& operator<<(const type& v)
+        output& operator<<(const type& v)
         {
             s << v;
             return *this;
         }
 };
+
+using out = output<>;
+using error = output<0x008c9de2>;   //❌ (U+274C)
+using warning = output<0x00979de2>; //❗ (U+2757)
+
+
 
 }
 
