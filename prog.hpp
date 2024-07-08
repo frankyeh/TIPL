@@ -206,18 +206,16 @@ public:
                 {
                     if(tipl::begins_with(line,"sav"))
                         line = std::string("💾")+line;
-                    auto eq_pos = line.find('=');
-                    if(eq_pos != std::string::npos)
+                    if(!show_prog)
                     {
-                        auto name = show_prog ? line.substr(0,eq_pos) : std::string(color32) + line.substr(0,eq_pos) + color_end;
-                        line = std::string("⚙") + name + line.substr(eq_pos);
-                    }
-                    else
-                    {
-                        auto info_pos = line.find(": ");
-                        auto name = show_prog ? line.substr(0,info_pos) : std::string(color33) + line.substr(0,info_pos) + color_end;
-                        if(info_pos != std::string::npos)
-                            line = std::string("📋") + name + line.substr(info_pos);
+                        auto eq_pos = line.find('=');
+                        if(eq_pos != std::string::npos)
+                            line = std::string(color32) + line.substr(0,eq_pos) + color_end + line.substr(eq_pos);
+                        else
+                        {
+                            auto info_pos = line.find(": ");
+                            line = std::string(color33) + line.substr(0,info_pos) + color_end + line.substr(info_pos);
+                        }
                     }
                 }
             }
@@ -273,7 +271,7 @@ public:
                     }
                 }
             }
-            out << "⏱ " << count << " " << unit;
+            out << "⏱" << count << " " << unit;
         }
         status_list.pop_back();
         print(out.str().c_str(),false,true);
