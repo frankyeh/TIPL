@@ -170,6 +170,18 @@ public:
         {
             if(line.empty())
                 continue;
+            if(tipl::begins_with(line,"sav"))
+                line = std::string("💾")+line;
+            else
+                if(tipl::begins_with(line,"open"))
+                    line = std::string("📂")+line;
+                else
+                    if(head_node)
+                        line = std::string("💻")+line;
+                    else
+                        if(error_code)
+                            line = std::string(reinterpret_cast<const char*>(&error_code))+line;
+
             std::string head;
             for(size_t i = 1;i < status_list.size();++i)
                 head += "│";
@@ -182,40 +194,28 @@ public:
             }
             if(tail_node)
                 head += "└";
+            if(!show_prog)
             {
                 if(head_node)
                 {
-                    head += "💻";
-                    if(!show_prog)
-                    {
-                        head += color34; // blue
-                        line += color_end;
-                    }
+                    head += color34; // blue
+                    line += color_end;
                 }
                 else
                 if(error_code) // warning or error
                 {
-                    head += reinterpret_cast<const char*>(&error_code);
-                    if(!show_prog)
-                    {
-                        head += color31; // red
-                        line += color_end;
-                    }
+                    head += color31; // red
+                    line += color_end;
                 }
                 else
                 {
-                    if(tipl::begins_with(line,"sav"))
-                        line = std::string("💾")+line;
-                    if(!show_prog)
+                    auto eq_pos = line.find('=');
+                    if(eq_pos != std::string::npos)
+                        line = std::string(color32) + line.substr(0,eq_pos) + color_end + line.substr(eq_pos);
+                    else
                     {
-                        auto eq_pos = line.find('=');
-                        if(eq_pos != std::string::npos)
-                            line = std::string(color32) + line.substr(0,eq_pos) + color_end + line.substr(eq_pos);
-                        else
-                        {
-                            auto info_pos = line.find(": ");
-                            line = std::string(color33) + line.substr(0,info_pos) + color_end + line.substr(info_pos);
-                        }
+                        auto info_pos = line.find(": ");
+                        line = std::string(color33) + line.substr(0,info_pos) + color_end + line.substr(info_pos);
                     }
                 }
             }
