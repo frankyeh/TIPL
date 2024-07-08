@@ -210,7 +210,7 @@ public:
             if(!show_prog)
             {
                 if(color)
-                    line += std::string(color) + color_end;
+                    line = std::string(color) + line + color_end;
                 else
                 {
                     auto eq_pos = line.find('=');
