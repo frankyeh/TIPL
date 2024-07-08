@@ -330,6 +330,7 @@ public:
     inline program_option_assign operator[](const char* name)     {return program_option_assign(name,this);}
 public:
     std::string error_msg,exec_path;
+    template<typename out_warning = out>
     void check_end_param(void)
     {
         for(size_t i = 0;i < used.size();++i)
@@ -357,7 +358,7 @@ public:
                     prompt_msg += candidate_list.begin()->second;
                     prompt_msg += " ?";
                 }
-                out() << "WARNING: --" << str1 << " is not used/recognized. " << prompt_msg << std::endl;
+                out_warning() << "--" << str1 << " is not used/recognized. " << prompt_msg << std::endl;
             }
     }
     void clear(void)
