@@ -163,7 +163,7 @@ public:
         static const char* color32 = "\033[0;32m";
         static const char* color33 = "\033[0;33m";
         static const char* color34 = "\033[0;34m";
-        static const char* color35 = "\033[0;34m";
+        static const char* color35 = "\033[0;35m";
 
         std::istringstream in(status);
         std::string line;
@@ -195,7 +195,7 @@ public:
             if(!color && tipl::begins_with(line,"sav"))
             {
                 line = std::string("💾")+line;
-                color = color35;
+                color = color34;
             }
             if(!color && tipl::begins_with(line,"open"))
             {
