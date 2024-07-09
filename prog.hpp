@@ -195,17 +195,17 @@ public:
             if(!color && tipl::begins_with(line,"sav"))
             {
                 line = std::string("💾")+line;
-                color = color34;
+                color = color35;
             }
             if(!color && tipl::begins_with(line,"open"))
             {
                 line = std::string("📂")+line;
-                color = color34;
+                color = color35;
             }
             if(!color && head_node)
             {
                 line = std::string("📟")+line;
-                color = color35;
+                color = color34;
             }
             if(!show_prog)
             {
