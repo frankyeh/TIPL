@@ -179,13 +179,18 @@ public:
                 if(head_node)
                     head += "├──┬──";
                 else
-                    head += "├──";
+                    if(tail_node)
+                        head += "│  ";
+                    else
+                        head += "├──";
             }
             else
                 if(head_node)
                     head = "┌──";
             if(tail_node)
                 head += "└──";
+
+
             if(!tipl::is_main_thread())
                 head += "[thread]";
 
