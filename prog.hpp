@@ -159,11 +159,11 @@ public:
     static void print(const char* status,bool head_node, bool tail_node,unsigned int error_code = 0)
     {
         static const char* color_end = "\033[0m";
-        static const char* color31 = "\033[0;31m";
+        static const char* color31 = "\033[1;31m";
         static const char* color32 = "\033[0;32m";
         static const char* color33 = "\033[0;33m";
-        static const char* color34 = "\033[0;34m";
-        static const char* color35 = "\033[0;35m";
+        static const char* color34 = "\033[1;34m";
+        static const char* color35 = "\033[1;35m";
 
         std::istringstream in(status);
         std::string line;
