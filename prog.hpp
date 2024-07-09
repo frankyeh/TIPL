@@ -173,16 +173,19 @@ public:
                 continue;
             std::string head;
             for(size_t i = 1;i < status_list.size();++i)
-                head += "│";
+                head += "│  ";
             if(!status_list.empty())
             {
                 if(head_node)
-                    head += "├";
+                    head += "├──┬──";
                 else
-                    head += "│";
+                    head += "├──";
             }
+            else
+                if(head_node)
+                    head = "┌──";
             if(tail_node)
-                head += "└";
+                head += "└──";
             if(!tipl::is_main_thread())
                 head += "[thread]";
 
