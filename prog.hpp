@@ -215,7 +215,7 @@ public:
                 line = std::string("📟")+line;
                 color = color34;
             }
-            if(!show_prog)
+
             {
                 if(color)
                     line = std::string(color) + line + color_end;
