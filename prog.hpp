@@ -23,6 +23,7 @@ inline bool prog_aborted = false;
 inline bool show_prog = false;
 inline std::vector<std::chrono::high_resolution_clock::time_point> process_time,t_last;
 inline std::vector<std::string> status_list,at_list;
+inline std::mutex print_mutex;
 inline bool processing_time_less_than(int time)
 {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -35,7 +36,7 @@ inline void update_prog(std::string status,bool show_now = false,uint32_t now = 
         return;
     #if defined(TIPL_USE_QT) && !defined(__CUDACC__)
     static std::shared_ptr<QProgressDialog> progressDialog;
-    if(status_list.empty())
+    if(status_list.size() <= 1)
     {
         if(progressDialog.get())
         {
@@ -154,85 +155,77 @@ private:
         }
         return now < total;
     }
+    static std::string get_head(bool head_node, bool tail_node)
+    {
+        std::string head;
+        for(size_t i = 1;i < status_list.size();++i)
+            head += "│  ";
+        if(!tipl::is_main_thread())
+        {
+            head += "│  ";
+            return head;
+        }
+        if(!status_list.empty())
+        {
+            if(head_node)
+                head += "├──┬──";
+            else
+                if(tail_node)
+                    head += "│  ";
+                else
+                    head += "├──";
+        }
+        else
+            if(head_node)
+                head = "┌──";
+        if(tail_node)
+            head += "└──";
+        return head;
+    }
+    static std::string get_color_line(std::string line,bool head_node,unsigned int error_code)
+    {
+        const char* color_end = "\033[0m";
+        const char* color31 = "\033[1;31m";
+        const char* color32 = "\033[0;32m";
+        const char* color33 = "\033[0;33m";
+        const char* color34 = "\033[1;34m";
+        const char* color35 = "\033[1;35m";
+        if(error_code)
+            return std::string(color31) + reinterpret_cast<const char*>(&error_code) + line + color_end;
+        if(tipl::begins_with(line,"sav"))
+            return std::string(color35) + "💾" + line + color_end;
+        if(tipl::begins_with(line,"open"))
+            return std::string(color35) + "📂" + line + color_end;
+        if(head_node)
+            return std::string(color34) + std::string("📟") + line + color_end;
 
+        auto eq_pos = line.find('=');
+        if(eq_pos != std::string::npos)
+            return std::string(color32) + line.substr(0,eq_pos) + color_end + line.substr(eq_pos);
+
+        auto info_pos = line.find(": ");
+        if(info_pos != std::string::npos)
+            return std::string(color33) + line.substr(0,info_pos) + color_end + line.substr(info_pos);
+        return line;
+    }
 public:
     static void print(const char* status,bool head_node, bool tail_node,unsigned int error_code = 0)
     {
-        static const char* color_end = "\033[0m";
-        static const char* color31 = "\033[1;31m";
-        static const char* color32 = "\033[0;32m";
-        static const char* color33 = "\033[0;33m";
-        static const char* color34 = "\033[1;34m";
-        static const char* color35 = "\033[1;35m";
-
+        std::scoped_lock<std::mutex> lock(print_mutex);
         std::istringstream in(status);
         std::string line;
         while(std::getline(in,line))
         {
             if(line.empty())
                 continue;
-            std::string head;
-            for(size_t i = 1;i < status_list.size();++i)
-                head += "│  ";
-            if(!status_list.empty())
-            {
-                if(head_node)
-                    head += "├──┬──";
-                else
-                    if(tail_node)
-                        head += "│  ";
-                    else
-                        head += "├──";
-            }
-            else
-                if(head_node)
-                    head = "┌──";
-            if(tail_node)
-                head += "└──";
-
-
+            line = get_color_line(line,head_node,error_code);
             if(!tipl::is_main_thread())
-                head += "[thread]";
-
-            const char* color = nullptr;
-            if(error_code)
             {
-                line = std::string(reinterpret_cast<const char*>(&error_code))+line;
-                color = color31;
+                std::ostringstream out;
+                out << "[thread " << std::this_thread::get_id() << "]" << line;
+                line = out.str();
             }
-            if(!color && tipl::begins_with(line,"sav"))
-            {
-                line = std::string("💾")+line;
-                color = color35;
-            }
-            if(!color && tipl::begins_with(line,"open"))
-            {
-                line = std::string("📂")+line;
-                color = color35;
-            }
-            if(!color && head_node)
-            {
-                line = std::string("📟")+line;
-                color = color34;
-            }
-
-            {
-                if(color)
-                    line = std::string(color) + line + color_end;
-                else
-                {
-                    auto eq_pos = line.find('=');
-                    if(eq_pos != std::string::npos)
-                        line = std::string(color32) + line.substr(0,eq_pos) + color_end + line.substr(eq_pos);
-                    else
-                    {
-                        auto info_pos = line.find(": ");
-                        if(info_pos != std::string::npos)
-                            line = std::string(color33) + line.substr(0,info_pos) + color_end + line.substr(info_pos);
-                    }
-                }
-            }
-            std::cout << head + line << std::endl;
+            std::cout << get_head(head_node,tail_node) + line << std::endl;
             head_node = false;
         }
     }
@@ -251,7 +244,7 @@ public:
         print(s.c_str(),true,false);
         begin_prog(s.c_str(),show_now);
     }
-    static bool is_running(void) {return !status_list.empty();}
+    static bool is_running(void) {return status_list.size() > 1;}
     static bool aborted(void) { return prog_aborted;}
     template<typename value_type1,typename value_type2>
     bool operator()(value_type1 now,value_type2 total)
@@ -262,6 +255,7 @@ public:
     {
         if(!tipl::is_main_thread() || temporary)
             return;
+
         std::ostringstream out;
 
         {
@@ -286,7 +280,6 @@ public:
         }
         status_list.pop_back();
         print(out.str().c_str(),false,true);
-
         process_time.pop_back();
         t_last.pop_back();
         if(status_list.empty())
