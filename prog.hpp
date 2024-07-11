@@ -150,7 +150,7 @@ private:
             at_list.back() = outstr.str();
             update_prog(get_status(),false,now,total);
             if(prog_aborted)
-                progress::print("operation aborted",false,false,true);
+                progress::print("operation aborted",false,false,0x008c9de2);
             return !prog_aborted;
         }
         return now < total;
