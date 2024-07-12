@@ -219,6 +219,12 @@ inline void search_files(const std::string& search_path,const std::string& wildc
             results.push_back(entry.path().string());
     }
 }
+inline std::vector<std::string> search_files(const std::string& search_path,const std::string& wildcard)
+{
+    std::vector<std::string> results;
+    search_files(search_path,wildcard,results);
+    return results;
+}
 inline void search_dirs(const std::string& search_path,const std::string& wildcard,std::vector<std::string>& results)
 {
     if(!std::filesystem::exists(search_path) || !std::filesystem::is_directory(search_path))
@@ -230,6 +236,12 @@ inline void search_dirs(const std::string& search_path,const std::string& wildca
         if (wildcard.empty() || tipl::match_wildcard(entry.path().filename().string(),wildcard))
             results.push_back(entry.path().string());
     }
+}
+inline std::vector<std::string> search_dirs(const std::string& search_path,const std::string& wildcard)
+{
+    std::vector<std::string> results;
+    search_dirs(search_path,wildcard,results);
+    return results;
 }
 
 template<typename path_type>
