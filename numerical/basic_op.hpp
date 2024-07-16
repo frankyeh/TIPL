@@ -30,6 +30,15 @@ std::vector<unsigned int> arg_sort(const container_type& data,compare_type comp)
     return idx;
 }
 
+template <typename container_type>
+void reorder(container_type& data,const std::vector<unsigned int>& arg)
+{
+    container_type new_data(arg.size());
+    for(size_t i = 0;i < arg.size();++i)
+        new_data[i] = data[arg[i]];
+    new_data.swap(data);
+}
+
 template <typename container_type,typename compare_type>
 std::vector<unsigned int> rank(const container_type& data,compare_type comp)
 {
