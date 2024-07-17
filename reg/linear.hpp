@@ -208,9 +208,15 @@ public:
 enum reg_type {none = 0,translocation = 1,rotation = 2,rigid_body = 3,scaling = 4,translocation_scaling = 5,rigid_scaling = 7,tilt = 8,affine = 15};
 enum cost_type{corr,mutual_info};
 
-const float narrow_bound[8] = {0.2f,-0.2f,      0.1f,-0.1f,    1.2f,0.8f,  0.05f,-0.05f};
-const float reg_bound[8] =    {0.75f,-0.75f,    0.3f,-0.3f,    1.5f,0.7f,  0.15f,-0.15f};
-const float large_bound[8] =  {1.0f,-1.0f,      1.2f,-1.2f,    2.0f,0.5f,  0.5f,-0.5f};
+const float narrow_bound[3][8] = {{0.2f,-0.2f,      0.1f,-0.1f,    1.2f,0.8f,  0.05f,-0.05f},
+                                  {0.2f,-0.2f,      0.1f,-0.1f,    1.2f,0.8f,  0.05f,-0.05f},
+                                  {0.2f,-0.2f,      0.1f,-0.1f,    1.2f,0.8f,  0.05f,-0.05f}};
+const float reg_bound[3][8] =    {{0.75f,-0.75f,    0.75f,-0.75f,  1.5f,0.7f,  0.1f,-0.1f},
+                                  {0.75f,-0.75f,    0.2f,-0.2f,    1.5f,0.7f,  0.1f,-0.1f},
+                                  {0.75f,-0.75f,    0.2f,-0.2f,    1.5f,0.7f,  0.1f,-0.1f}};
+const float large_bound[3][8] =  {{1.0f,-1.0f,      1.5f,-1.5f,    2.0f,0.5f,  0.25f,-0.25f},
+                                  {1.0f,-1.0f,      0.5f,-0.5f,    2.0f,0.5f,  0.25f,-0.25f},
+                                  {1.0f,-1.0f,      0.5f,-0.5f,    2.0f,0.5f,  0.25f,-0.25f}};
 
 template<int dim,typename value_type,typename prog_type = void,typename out_type = void>
 class linear_reg_param{
@@ -227,8 +233,7 @@ public:
 public:
     unsigned int count = 0,prog = 0,max_prog = 0;
     double precision = 0.001;
-    bool line_search = true;
-    size_t max_iterations = 10;
+    size_t max_iterations = 128;
     std::vector<reg_type> reg_list = {translocation,translocation_scaling,rigid_scaling,affine};
 private:
     std::vector<image_type> buffer;
@@ -253,40 +258,42 @@ public:
         from(rhs.from),to(rhs.to),from_vs(rhs.from_vs),to_vs(rhs.to_vs),
         arg_upper(rhs.arg_upper),arg_lower(rhs.arg_lower),arg_min(rhs.arg_min),
         count(rhs.count),max_prog(rhs.max_prog),
-        precision(rhs.precision),line_search(rhs.line_search),
+        precision(rhs.precision),
         max_iterations(rhs.max_iterations),reg_list(rhs.reg_list)
     {
     }
-    void update_bound(transform_type& upper,transform_type& lower,reg_type type)
+    std::pair<transform_type,transform_type> get_current_bound(reg_type type)
     {
+        transform_type upper(arg_upper),lower(arg_lower);
         for (unsigned int index = 0; index < dimension; ++index)
         {
             if (!(type & translocation))
             {
-                arg_upper.translocation[index] = arg_min.translocation[index];
-                arg_lower.translocation[index] = arg_min.translocation[index];
+                upper.translocation[index] = arg_min.translocation[index];
+                lower.translocation[index] = arg_min.translocation[index];
             }
             if (!(type & scaling))
             {
-                arg_upper.scaling[index] = arg_min.scaling[index];
-                arg_lower.scaling[index] = arg_min.scaling[index];
+                upper.scaling[index] = arg_min.scaling[index];
+                lower.scaling[index] = arg_min.scaling[index];
             }
         }
         for (unsigned int index = 0; index < (dim == 3 ? 3 : 1); ++index)
         {
             if (!(type & rotation))
             {
-                arg_upper.rotation[index] = arg_min.rotation[index];
-                arg_lower.rotation[index] = arg_min.rotation[index];
+                upper.rotation[index] = arg_min.rotation[index];
+                lower.rotation[index] = arg_min.rotation[index];
             }
             if (!(type & tilt))
             {
-                arg_upper.affine[index] = arg_min.affine[index];
-                arg_lower.affine[index] = arg_min.affine[index];
+                upper.affine[index] = arg_min.affine[index];
+                lower.affine[index] = arg_min.affine[index];
             }
         }
+        return std::make_pair(std::move(upper),std::move(lower));
     }
-    void set_bound(reg_type type,const float* bound = reg_bound,bool absolute = true)
+    void set_bound(reg_type type,const float bound[3][8] = reg_bound,bool absolute = true)
     {
         if(type == translocation)
             reg_list = {translocation};
@@ -300,9 +307,6 @@ public:
             reg_list = {translocation,translocation_scaling,rigid_scaling};
         if(type == affine)
             reg_list = {translocation,translocation_scaling,rigid_scaling,affine};
-
-        if(bound == narrow_bound)
-            line_search = false;
         if(absolute)
         {
             arg_upper.clear();
@@ -317,38 +321,33 @@ public:
             {
                 float range = std::max<float>(from[0].shape()[index]*from_vs[index],
                                               to[0].shape()[index]*to_vs[index])*0.5f;
-                arg_upper.translocation[index] += range*bound[0];
-                arg_lower.translocation[index] += range*bound[1];
+                arg_upper.translocation[index] += range*bound[index][0];
+                arg_lower.translocation[index] += range*bound[index][1];
             }
             if (type & scaling)
             {
-                arg_upper.scaling[index] *= bound[4];
-                arg_lower.scaling[index] *= bound[5];
+                arg_upper.scaling[index] *= bound[index][4];
+                arg_lower.scaling[index] *= bound[index][5];
             }
         }
         for (unsigned int index = 0; index < (dim == 3 ? 3 : 1); ++index)
         {
             if (type & rotation)
             {
-                arg_upper.rotation[index] += 3.14159265358979323846f*bound[2]*(index == 0 ? 2.0f:1.0f);
-                arg_lower.rotation[index] += 3.14159265358979323846f*bound[3]*(index == 0 ? 2.0f:1.0f);
+                arg_upper.rotation[index] += 3.14159265358979323846f*bound[index][2]*(index == 0 ? 2.0f:1.0f);
+                arg_lower.rotation[index] += 3.14159265358979323846f*bound[index][3]*(index == 0 ? 2.0f:1.0f);
             }
             if (type & tilt)
             {
-                arg_upper.affine[index] += bound[6];
-                arg_lower.affine[index] += bound[7];
+                arg_upper.affine[index] += bound[index][6];
+                arg_lower.affine[index] += bound[index][7];
             }
         }
     }
     template<typename cost_type,typename terminated_type>
     float optimize(std::vector<std::shared_ptr<cost_type> > cost_fun,terminated_type&& is_terminated)
     {
-
         double optimal_value;
-        if(reg_list.back() == affine)
-            max_iterations += 20;
-
-
         auto fun = [&](const transform_type& new_param)
         {
             ++count;
@@ -372,46 +371,18 @@ public:
             return cost;
         };
         optimal_value = fun(arg_min);
-        for(size_t iter = 0;iter < reg_list.size();++iter)
-        {
-            auto cur_type = reg_list[iter];
 
+        for(size_t iter = 0;iter < reg_list.size() && !is_terminated();++iter)
+        {
             if constexpr(!std::is_void<prog_type>::value)
                 prog_type()(prog++,max_prog);
+            auto cur_bound = get_current_bound(reg_list[iter]);
+            tipl::optimization::gradient_descent(arg_min.begin(),arg_min.end(),
+                cur_bound.first.begin(),cur_bound.second.begin(),fun,optimal_value,is_terminated,
+                precision,max_iterations);
             if constexpr(!std::is_void<out_type>::value)
                 out_type() << "optimal cost:" << optimal_value;
-
-            if(is_terminated())
-                break;
-            transform_type upper(arg_upper),lower(arg_lower);
-            update_bound(upper,lower,cur_type);
-            if(line_search)
-            {
-                if constexpr(!std::is_void<out_type>::value)
-                    out_type() << "line search";
-                tipl::optimization::line_search(arg_min.begin(),arg_min.end(),
-                                                 upper.begin(),lower.begin(),fun,optimal_value,is_terminated);
-                if constexpr(!std::is_void<out_type>::value)
-                    out_type() << "quasi_newtons_minimize";
-                tipl::optimization::quasi_newtons_minimize(arg_min.begin(),arg_min.end(),
-                                                       upper.begin(),lower.begin(),fun,optimal_value,is_terminated,
-                                                       precision);
-            }
-            else
-            {
-                if constexpr(!std::is_void<out_type>::value)
-                    out_type() << "gradient_descent";
-                tipl::optimization::gradient_descent(arg_min.begin(),arg_min.end(),
-                                                     upper.begin(),lower.begin(),fun,optimal_value,is_terminated,
-                                                     precision,max_iterations);
-            }
         }
-        if(!line_search)
-            tipl::optimization::gradient_descent(arg_min.begin(),arg_min.end(),
-                                                 arg_upper.begin(),arg_lower.begin(),fun,optimal_value,is_terminated,
-                                                 precision,max_iterations);
-        if constexpr(!std::is_void<out_type>::value)
-            out_type() << "end cost:" << optimal_value;
         return optimal_value;
     }
     template<typename cost_type,typename terminated_type>
@@ -449,8 +420,6 @@ public:
             low_reso_reg.optimize_mr<cost_type>(std::forward<terminated_type>(terminated));
             max_prog = low_reso_reg.max_prog;
             prog = low_reso_reg.prog;
-            if(line_search)
-                line_search = false;
         }
         return optimize<cost_type>(std::forward<terminated_type>(terminated));
     }
