@@ -501,7 +501,8 @@ void draw(const T1& from_image,T2&& to_image,PosType pos)
     }while(1);
 }
 //--------------------------------------------------------------------------
-template<bool copy = true,typename T1,typename T2,typename PosType,typename std::enable_if<T1::dimension==3,bool>::type = true>
+template<bool copy = true,typename T1,typename T2,typename PosType,
+         typename std::enable_if<T1::dimension==3,bool>::type = true>
 void draw(const T1& from_image,T2&& to_image,PosType pos)
 {
     int64_t x_shift,y_shift,z_shift;
@@ -530,6 +531,72 @@ void draw(const T1& from_image,T2&& to_image,PosType pos)
     });
 }
 
+template<typename T,typename U,
+         typename std::enable_if<!std::is_same_v<U,shape<2> >,bool>::type = true,
+         typename std::enable_if<T::dimension==2,bool>::type = true>
+void reshape(const T& I,U& I2)
+{
+    auto min_x = std::min(I.width(),I2.width());
+    auto min_y = std::min(I.height(),I2.height());
+
+    auto from2 = I.data();
+    auto to2 = I2.data();
+    for(size_t y = 0;y < min_y;++y)
+    {
+        if(from2 != to2)
+            for(size_t x = 0;x < min_x;++x)
+                to2[x] = from2[x];
+        from2 += I.width();
+        to2 += I2.width();
+    }
+}
+
+template<typename T,typename U,
+         typename std::enable_if<!std::is_same_v<U,shape<3> >,bool>::type = true,
+         typename std::enable_if<T::dimension==3,bool>::type = true>
+void reshape(const T& I,U& I2)
+{
+    auto min_x = std::min(I.width(),I2.width());
+    auto min_y = std::min(I.height(),I2.height());
+    auto min_z = std::min(I.depth(),I2.depth());
+
+    auto from = I.data();
+    auto to = I2.data();
+
+    for(size_t z = 0;z < min_z;++z)
+    {
+        auto from2 = from;
+        auto to2 = to;
+        for(size_t y = 0;y < min_y;++y)
+        {
+            for(size_t x = 0;x < min_x;++x)
+                to2[x] = from2[x];
+            from2 += I.width();
+            to2 += I2.width();
+        }
+        from += I.plane_size();
+        to += I2.plane_size();
+    }
+}
+
+template<typename T>
+void reshape(T& I,const shape<T::dimension>& new_shape)
+{
+    if(I.shape() == new_shape)
+        return;
+    if(I.width() < new_shape.width() ||
+       I.height() < new_shape.height() ||
+       I.size() < new_shape.size())
+    {
+        T new_I(new_shape);
+        reshape(I,new_I);
+        I.swap(new_I);
+        return;
+    }
+    auto new_I = make_image(I.data(),new_shape);
+    reshape(I,new_I);
+    I.resize(new_shape);
+}
 template<bool copy = true,typename T1,typename T2>
 inline void draw(const T1& from_image,T2&& to_image)
 {
