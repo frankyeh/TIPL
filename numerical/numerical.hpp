@@ -139,21 +139,18 @@ void gradient(const PixelImageType& src,std::vector<GradientImageType>& dest)
 template<typename T,typename std::enable_if<T::dimension == 3,bool>::type = true>
 __INLINE__ tipl::vector<3> gradient_at(const T& I,const pixel_index<3>& index)
 {
-    return tipl::vector<3>(float(I[index.x()+1 < I.width() ? index.index()+1:index.index()]) -
-                           float(I[index.x() ? index.index()-1:index.index()]),
-                           float(I[index.y()+1 < I.height() ? index.index()+I.width():index.index()]) -
-                           float(I[index.y() ? index.index()-I.width():index.index()]),
-                           float(I[index.z()+1 < I.depth() ? index.index()+I.plane_size():index.index()]) -
-                           float(I[index.z() ? index.index()-I.plane_size():index.index()]));
+    auto pos = index.index();
+    return tipl::vector<3>(index.x()+1 < I.width() && index.x() ? float(I[pos+1]-I[pos-1]) : 0.0f,
+                           index.y()+1 < I.height() && index.y() ? float(I[pos+I.width()]-I[pos-I.width()]) : 0.0f,
+                           index.z()+1 < I.depth() && index.z() ? float(I[pos+I.plane_size()]-I[pos-I.plane_size()]) : 0.0f);
 }
 //---------------------------------------------------------------------------
 template<typename T,typename std::enable_if<T::dimension == 2,bool>::type = true>
 __INLINE__ tipl::vector<2> gradient_at(const T& I,const pixel_index<2>& index)
 {
-    return tipl::vector<2>(float(I[index.x()+1 < I.width() ? index.index()+1:index.index()]) -
-                           float(I[index.x() ? index.index()-1:index.index()]),
-                           float(I[index.y()+1 < I.height() ? index.index()+I.width():index.index()]) -
-                           float(I[index.y() ? index.index()-I.width():index.index()]));
+    auto pos = index.index();
+    return tipl::vector<2>(index.x()+1 < I.width() && index.x() ? float(I[pos+1]-I[pos-1]) : 0.0f,
+                           index.y()+1 < I.height() && index.y() ? float(I[pos+I.width()]-I[pos-I.width()]) : 0.0f);
 }
 //---------------------------------------------------------------------------
 // implement -1 0 1
