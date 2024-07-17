@@ -354,7 +354,16 @@ public:
             ++count;
             float cost = 0.0f;
             for(size_t i = 0;i < cost_fun.size();++i)
-                cost += (*cost_fun[i].get())(from[i],to[i],tipl::transformation_matrix<float,dim>(new_param,from[i].shape(),from_vs,to[i].shape(),to_vs));
+            {
+                tipl::transformation_matrix<float,dim> trans(new_param,from[i].shape(),from_vs,to[i].shape(),to_vs);
+                if(from[i].size() < to[i].size())
+                    cost += (*cost_fun[i].get())(from[i],to[i],trans);
+                else
+                {
+                    trans.inverse();
+                    cost += (*cost_fun[i].get())(to[i],from[i],trans);
+                }
+            }
             if constexpr(!std::is_void<out_type>::value)
             {
                 out_type() << new_param;
