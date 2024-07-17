@@ -44,17 +44,18 @@ template<typename T,typename U,typename V,typename W>
 __INLINE__ void cdm_get_gradient_imp(const pixel_index<T::dimension>& index,
                                      const T& Js,const U& It,V& new_d,W& cost_map)
 {
+    auto pos = index.index();
+    if(Js[pos] == 0 || It[pos] == 0)
+        return;
     typename T::value_type Itv[get_window_size<2,T::dimension>::value];
     typename T::value_type Jsv[get_window_size<2,T::dimension>::value];
     get_window_at_width<2>(index,It,Itv);
     auto size = get_window_at_width<2>(index,Js,Jsv);
-
     float a,b,r2;
     linear_regression(Jsv,Jsv+size,Itv,a,b,r2);
     if(a > 0.0f)
     {
         auto g = gradient_at(Js,index);
-        auto pos = index.index();
         g *= r2*(Js[pos]*a+b-It[pos]);
         new_d[pos] += g;
         cost_map[pos] = -r2;
