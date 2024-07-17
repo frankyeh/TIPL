@@ -46,18 +46,18 @@ void erosion(ImageType& I,const std::vector<int64_t>& index_shift)
     {
         if (shift > 0)
         {
-            auto iter1 = &*act.begin() + shift;
-            auto iter2 = &*I.begin();
-            auto end = &*act.begin() + act.size();
+            auto iter1 = act.data() + shift;
+            auto iter2 = I.data();
+            auto end = act.data() + act.size();
             for (;iter1 < end;++iter1,++iter2)
                 if (*iter2 == 0)
                     *iter1 = 1;
         }
         if (shift < 0)
         {
-            auto iter1 = &*act.begin();
-            auto iter2 = &*I.begin() - shift;
-            auto end = &*I.begin() + I.size();
+            auto iter1 = act.data();
+            auto iter2 = I.data() - shift;
+            auto end = I.data() + I.size();
             for (;iter2 < end;++iter1,++iter2)
                 if (*iter2 == 0)
                     *iter1 = 1;
@@ -92,17 +92,17 @@ void dilation(ImageType& I,const std::vector<int64_t>& index_shift)
         int64_t shift = index_shift[index];
         if (shift > 0)
         {
-            auto iter1 = &*act.begin() + shift;
-            auto iter2 = &*I.begin();
-            auto end = &*act.begin() + act.size();
+            auto iter1 = act.data() + shift;
+            auto iter2 = I.data();
+            auto end = act.data() + act.size();
             for (;iter1 < end;++iter1,++iter2)
                 *iter1 |= *iter2;
         }
         if (shift < 0)
         {
-            auto iter1 = &*act.begin();
-            auto iter2 = &*I.begin() - shift;
-            auto end = &*I.begin() + I.size();
+            auto iter1 = act.data();
+            auto iter2 = I.data() - shift;
+            auto end = I.data() + I.size();
             for (;iter2 < end;++iter1,++iter2)
                 *iter1 |= *iter2;
         }
@@ -151,20 +151,20 @@ void edge(const ImageType& I,LabelType& act,const ShiftType& shift_list)
     {
         if (shift > 0)
         {
-            auto iter1 = &*act.begin() + shift;
-            auto iter2 = &*I.begin();
-            auto iter3 = &*I.begin()+shift;
-            auto end = &*act.begin() + act.size();
+            auto iter1 = act.data() + shift;
+            auto iter2 = I.data();
+            auto iter3 = I.data()+shift;
+            auto end = act.data() + act.size();
             for (;iter1 < end;++iter1,++iter2,++iter3)
                 if (*iter2 != *iter3)
                     *iter1 = 1;
         }
         if (shift < 0)
         {
-            auto iter1 = &*act.begin();
-            auto iter2 = &*I.begin() - shift;
-            auto iter3 = &*I.begin();
-            auto end = &*I.begin() + I.size();
+            auto iter1 = act.data();
+            auto iter2 = I.data() - shift;
+            auto iter3 = I.data();
+            auto end = I.data() + I.size();
             for (;iter2 < end;++iter1,++iter2,++iter3)
                 if (*iter2 != *iter3)
                     *iter1 = 1;
@@ -236,20 +236,20 @@ void inner_edge(const ImageType& I,LabelType& act)
     {
         if (shift > 0)
         {
-            typename LabelType::value_type* iter1 = &*act.begin() + shift;
-            const auto iter2 = &*I.begin();
-            const auto iter3 = &*I.begin()+shift;
-            typename LabelType::value_type* end = &*act.begin() + act.size();
+            typename LabelType::value_type* iter1 = act.data() + shift;
+            const auto iter2 = I.data();
+            const auto iter3 = I.data()+shift;
+            typename LabelType::value_type* end = act.data() + act.size();
             for (;iter1 < end;++iter1,++iter2,++iter3)
                 if (*iter2 < *iter3)
                     *iter1 = 1;
         }
         if (shift < 0)
         {
-            typename LabelType::value_type* iter1 = &*act.begin();
-            const auto iter2 = &*I.begin() - shift;
-            const auto iter3 = &*I.begin();
-            const auto end = &*I.begin() + I.size();
+            typename LabelType::value_type* iter1 = act.data();
+            const auto iter2 = I.data() - shift;
+            const auto iter3 = I.data();
+            const auto end = I.data() + I.size();
             for (;iter2 < end;++iter1,++iter2,++iter3)
                 if (*iter2 < *iter3)
                     *iter1 = 1;
@@ -380,7 +380,7 @@ bool is_edge(ImageType& I,tipl::pixel_index<ImageType::dimension> index)
 }
 
 template<typename ImageType>
-unsigned char get_neighbor_count(ImageType& I,std::vector<unsigned char>& act)
+char get_neighbor_count(ImageType& I,std::vector<char>& act)
 {
     act.resize(I.size());
     neighbor_index_shift<ImageType::dimension> neighborhood(I.shape());
@@ -389,31 +389,31 @@ unsigned char get_neighbor_count(ImageType& I,std::vector<unsigned char>& act)
         int64_t shift = neighborhood.index_shift[index];
         if (shift > 0)
         {
-            unsigned char* iter1 = &*act.begin() + shift;
-            auto iter2 = &*I.begin();
-            unsigned char* end = &*act.begin() + act.size();
+            auto iter1 = act.data() + shift;
+            auto iter2 = I.data();
+            auto end = act.data() + act.size();
             for (;iter1 < end;++iter1,++iter2)
                 if (*iter2)
                     (++*iter1);
         }
         if (shift < 0)
         {
-            unsigned char* iter1 = &*act.begin();
-            auto iter2 = &*I.begin() - shift;
-            auto end = &*I.begin() + I.size();
+            auto iter1 = act.data();
+            auto iter2 = I.data() - shift;
+            auto end = I.data() + I.size();
             for (;iter2 < end;++iter1,++iter2)
                 if (*iter2)
                     (++*iter1);
         }
     });
-    return neighborhood.index_shift.size();
+    return char(neighborhood.index_shift.size());
 }
 
 template<typename ImageType>
-size_t closing(ImageType& I,int threshold_shift = 0)
+size_t closing(ImageType& I,char threshold_shift = 0)
 {
-    std::vector<unsigned char> act;
-    unsigned int threshold = get_neighbor_count(I,act) >> 1;
+    std::vector<char> act;
+    char threshold = get_neighbor_count(I,act) >> 1;
     threshold += threshold_shift;
     size_t count = 0;
     for (size_t index = 0;index < I.size();++index)
@@ -426,10 +426,10 @@ size_t closing(ImageType& I,int threshold_shift = 0)
 }
 
 template<typename ImageType>
-size_t opening(ImageType& I,int threshold_shift = 0)
+size_t opening(ImageType& I,char threshold_shift = 0)
 {
-    std::vector<unsigned char> act;
-    unsigned int threshold = get_neighbor_count(I,act) >> 1;
+    std::vector<char> act;
+    char threshold = get_neighbor_count(I,act) >> 1;
     threshold += threshold_shift;
     size_t count = 0;
     for (size_t index = 0;index < I.size();++index)
@@ -451,32 +451,67 @@ void negate(ImageType& I)
 template<typename ImageType>
 void smoothing(ImageType& I)
 {
-    std::vector<unsigned char> act;
-    unsigned int threshold = get_neighbor_count(I,act) >> 1;
-    tipl::par_for(I.size(),[&](size_t index)
+    std::vector<char> act;
+    char threshold = get_neighbor_count(I,act) >> 1;
+    for (size_t index = 0;index < I.size();++index)
     {
         if (act[index] > threshold)
-        {
-            if (!I[index])
-                I[index] = 1;
-        }
+            I[index] = 1;
         if (act[index] < threshold)
-        {
-            if (I[index])
-                I[index] = 0;
-        }
+            I[index] = 0;
+    }
+}
 
+template<typename ImageType,typename RefImageType>
+void fit(ImageType& I,const RefImageType& ref)
+{
+    std::vector<char> act;
+    char threshold = get_neighbor_count(I,act) >> 1;
+
+    char upper_threshold = threshold+ImageType::dimension;
+    char lower_threshold = threshold-ImageType::dimension;
+    tipl::par_for(begin_index(I.shape()),end_index(I.shape()),[&](auto pos)
+    {
+        if(act[pos.index()] < lower_threshold ||
+           act[pos.index()] > upper_threshold)
+            return;
+        typename ImageType::value_type Iv[get_window_size<1,ImageType::dimension>::value];
+        float refv[get_window_size<1,RefImageType::dimension>::value];
+        get_window_at_width<1>(pos,I,Iv);
+        auto size = get_window_at_width<1>(pos,ref,refv);
+        float min_v = std::fabs(refv[1]-refv[0]);
+        auto min_label = Iv[1];
+        for(size_t i = 2;i < size;++i)
+        {
+            auto def = std::fabs(refv[i]-refv[0]);
+            if(def < min_v)
+            {
+                min_v = def;
+                min_label = Iv[i];
+            }
+        }
+        if(min_label)
+            act[pos.index()] += ImageType::dimension;
+        else
+            act[pos.index()] -= ImageType::dimension;
     });
+
+    for (size_t index = 0;index < I.size();++index)
+    {
+        if (act[index] > threshold)
+            I[index] = 1;
+        if (act[index] < threshold)
+            I[index] = 0;
+    }
 }
 
 template<typename ImageType>
 bool smoothing_fill(ImageType& I)
 {
     bool filled = false;
-    std::vector<unsigned char> act;
-    unsigned int threshold = get_neighbor_count(I,act) >> 1;
+    std::vector<char> act;
+    char threshold = get_neighbor_count(I,act) >> 1;
     for (size_t index = 0;index < I.size();++index)
-    {
         if (act[index] > threshold)
         {
             if (!I[index])
@@ -485,7 +520,6 @@ bool smoothing_fill(ImageType& I)
                 filled = true;
             }
         }
-    }
     return filled;
 }
 
@@ -495,9 +529,9 @@ void recursive_smoothing(ImageType& I,unsigned int max_iteration = 100)
     for(unsigned int iter = 0;iter < max_iteration;++iter)
     {
         bool has_change = false;
-        std::vector<unsigned char> act;
-        unsigned int threshold = get_neighbor_count(I,act) >> 1;
-        tipl::par_for(I.size(),[&](size_t index)
+        std::vector<char> act;
+        char threshold = get_neighbor_count(I,act) >> 1;
+        for (size_t index = 0;index < I.size();++index)
         {
             if (act[index] > threshold)
             {
@@ -515,7 +549,7 @@ void recursive_smoothing(ImageType& I,unsigned int max_iteration = 100)
                     has_change = true;
                 }
             }
-        });
+        }
         if(!has_change)
             break;
     }
@@ -858,6 +892,23 @@ void defragment(ImageType& I)
     for (size_t index = 0;index < I.size();++index)
         if (I[index] && labels[index] != max_size_group_id)
             I[index] = 0;
+}
+template<typename ImageType>
+void defragment_slice(ImageType& I)
+{
+    tipl::morphology::negate(I);
+    tipl::par_for(I.depth(),[&](size_t z)
+    {
+        auto slice = I.slice_at(z);
+        std::vector<std::vector<size_t> > regions;
+        tipl::image<2,size_t> labels;
+        connected_component_labeling(slice,labels,regions);
+        for(size_t i = 0;i < labels.size();++i)
+            if(labels[i] != labels[0])
+                slice[i] = 1;
+            else
+                slice[i] = 0;
+    });
 }
 
 template<typename ImageType>
