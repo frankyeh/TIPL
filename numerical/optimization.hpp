@@ -302,26 +302,20 @@ void line_search(iter_type1 x_beg,iter_type1 x_end,
                      teminated_class&& is_terminated)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
-    float dis[8] = {0.05f,0.10f,0.20f,0.40f,
-                     -0.05f,-0.10f,-0.20f,-0.40f};
-    std::vector<param_type> range(x_end-x_beg);
-    for(size_t i = 0;i < range.size();++i)
-        range[i] = x_upper[i]-x_lower[i];
-    float ratio = 1.0f;
-    for(int iter = 0;iter < 10;++iter,ratio*=0.95f)
+    float dis[9] = {0.1f,0.2f,0.3f,0.4f,0.5f,0.6f,0.7f,0.8f,0.9f};
+    float shift = 0.01f;
+    auto size = x_end-x_beg;
+    for(int iter = 0;iter < 10;++iter)
     {
-        for(int cur_dim = 0;cur_dim < range.size() && !is_terminated();++cur_dim)
+        for(int cur_dim = 0;cur_dim < size && !is_terminated();++cur_dim)
         {
             if(x_upper[cur_dim] == x_lower[cur_dim])
                 continue;
             std::mutex m;
             param_type best_x = x_beg[cur_dim];
-            tipl::par_for(8,[&](int seg)
+            tipl::par_for(9,[&](int seg)
             {
-                auto new_x = x_beg[cur_dim]+range[cur_dim]*dis[seg]*ratio;
-                if(new_x < x_lower[cur_dim] ||
-                   new_x > x_upper[cur_dim])
-                    return;
+                auto new_x = (x_upper[cur_dim]-x_lower[cur_dim])*(dis[seg]+shift)+x_lower[cur_dim];
                 std::vector<param_type> param(x_beg,x_end);
                 param[cur_dim] = new_x;
                 double current_value = fun(param);
