@@ -485,7 +485,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
             error_msg = "invalid size";
             return false;
         }
-        data.resize(tipl::shape<3>(w,h,d));
+        reshape(data,tipl::shape<3>(w,h,d));
         return true;
     }
 
