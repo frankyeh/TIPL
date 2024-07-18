@@ -532,7 +532,7 @@ void draw(const T1& from_image,T2&& to_image,PosType pos)
 }
 
 template<typename T,typename U,
-         typename std::enable_if<!std::is_same_v<U,shape<2> >,bool>::type = true,
+         typename std::enable_if<!std::is_same_v<std::decay_t<U>,shape<T::dimension> >,bool>::type = true,
          typename std::enable_if<T::dimension==2,bool>::type = true>
 void reshape(const T& I,U& I2)
 {
@@ -552,7 +552,7 @@ void reshape(const T& I,U& I2)
 }
 
 template<typename T,typename U,
-         typename std::enable_if<!std::is_same_v<U,shape<3> >,bool>::type = true,
+         typename std::enable_if<!std::is_same_v<std::decay_t<U>,shape<T::dimension> >,bool>::type = true,
          typename std::enable_if<T::dimension==3,bool>::type = true>
 void reshape(const T& I,U& I2)
 {
