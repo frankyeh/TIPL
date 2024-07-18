@@ -20,7 +20,7 @@ namespace reg
 struct correlation
 {
     template<typename T,typename U,typename V>
-    __INLINE__ double operator()(const T& from,const U& to,const V& transform)
+    double operator()(const T& from,const U& to,const V& transform)
     {
         if(from.size() > to.size())
         {
@@ -40,7 +40,7 @@ struct correlation_cuda
     image<dim,unsigned char,stype> from,to;
     std::mutex init_mutex;
     template<typename T,typename U,typename V>
-    __INLINE__ double operator()(const T& from_,const U& to_,const V& transform)
+    double operator()(const T& from_,const U& to_,const V& transform)
     {
         if(from_.size() > to_.size())
         {
