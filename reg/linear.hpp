@@ -19,20 +19,17 @@ namespace reg
 
 struct correlation
 {
-    typedef double value_type;
     template<typename T,typename U,typename V>
-    __INLINE__ double operator()(const T& Ifrom,const U& Ito,const V& transform)
+    __INLINE__ double operator()(const T& from,const U& to,const V& transform)
     {
-        if(Ifrom.size() > Ito.size())
+        if(from.size() > to.size())
         {
             auto trans(transform);
             trans.inverse();
-            return (*this)(Ito,Ifrom,trans);
+            return (*this)(to,from,trans);
         }
-        typename T::buffer_type y(Ifrom.shape());
-        tipl::resample(Ito,y,transform);
-        float c = tipl::correlation(Ifrom.begin(),Ifrom.end(),y.begin());
-        return -c*c;
+        float c = tipl::correlation(from,tipl::resample(to,from.shape(),transform));
+        return 1.0f-c*c;
     }
 };
 #ifdef __CUDACC__
@@ -40,11 +37,10 @@ struct correlation
 template <int dim,template <typename...> typename stype = std::vector>
 struct correlation_cuda
 {
-    typedef double value_type;
     image<dim,unsigned char,stype> from,to;
     std::mutex init_mutex;
-    template<typename ImageType1,typename ImageType2,typename V>
-    __INLINE__ double operator()(const ImageType1& from_,const ImageType2& to_,const V& transform)
+    template<typename T,typename U,typename V>
+    __INLINE__ double operator()(const T& from_,const U& to_,const V& transform)
     {
         if(from_.size() > to_.size())
         {
@@ -56,14 +52,14 @@ struct correlation_cuda
             std::scoped_lock<std::mutex> lock(init_mutex);
             if (to_.size() != to.size() || from_.size() != from.size())
             {
-                if constexpr(std::is_same_v<unsigned char,typename ImageType1::value_type>)
+                if constexpr(std::is_same_v<unsigned char,typename T::value_type>)
                 {
                     from = from_;
                     to = to_;
                 }
                 else
                 {
-                    using device_image_type = device_image<ImageType1::dimension,typename ImageType1::value_type>;
+                    using device_image_type = device_image<T::dimension,typename T::value_type>;
                     to.resize(to_.shape());
                     normalize_upper_lower2(device_image_type(to_),to,255.99f);
 
@@ -73,10 +69,8 @@ struct correlation_cuda
                 }
             }
         }
-        typename ImageType1::buffer_type to2(from.shape());
-        tipl::resample(to,to2,transform);
-        float c = tipl::correlation(from,to2);
-        return -c*c;
+        float c = tipl::correlation(from,tipl::resample(to,from.shape(),transform));
+        return 1.0f-c*c;
     }
 };
 
