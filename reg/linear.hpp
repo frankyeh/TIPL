@@ -35,7 +35,55 @@ struct correlation
         return -c*c;
     }
 };
+#ifdef __CUDACC__
 
+template <int dim,template <typename...> typename stype = std::vector>
+struct correlation_cuda
+{
+    typedef double value_type;
+    image<dim,unsigned char,stype> from,to;
+    std::mutex init_mutex;
+    template<typename ImageType1,typename ImageType2,typename V>
+    __INLINE__ double operator()(const ImageType1& from_,const ImageType2& to_,const V& transform)
+    {
+        if(from_.size() > to_.size())
+        {
+            auto trans(transform);
+            trans.inverse();
+            return (*this)(to_,from_,trans);
+        }
+        {
+            std::scoped_lock<std::mutex> lock(init_mutex);
+            if (to_.size() != to.size() || from_.size() != from.size())
+            {
+                if constexpr(std::is_same_v<unsigned char,typename ImageType1::value_type>)
+                {
+                    from = from_;
+                    to = to_;
+                }
+                else
+                {
+                    using device_image_type = device_image<ImageType1::dimension,typename ImageType1::value_type>;
+                    to.resize(to_.shape());
+                    normalize_upper_lower2(device_image_type(to_),to,255.99f);
+
+                    from.resize(from_.shape());
+                    normalize_upper_lower2(device_image_type(from_),from_,255.99f);
+
+                }
+            }
+        }
+        typename ImageType1::buffer_type to2(from.shape());
+        tipl::resample(to,to2,transform);
+        float c = tipl::correlation(from,to2);
+        return -c*c;
+    }
+};
+
+
+
+
+#endif
 constexpr unsigned int mi_band_width = 8;
 constexpr unsigned int mi_his_bandwidth = (1 << mi_band_width);
 
@@ -354,14 +402,9 @@ public:
             for(size_t i = 0;i < cost_fun.size();++i)
             {
                 tipl::transformation_matrix<float,dim> trans(new_param,from[i].shape(),from_vs,to[i].shape(),to_vs);
-                if(from[i].size() < to[i].size())
-                    cost += (*cost_fun[i].get())(from[i],to[i],trans);
-                else
-                {
-                    trans.inverse();
-                    cost += (*cost_fun[i].get())(to[i],from[i],trans);
-                }
+                cost += (*cost_fun[i].get())(from[i],to[i],trans);
             }
+            cost /= cost_fun.size()*2;
             if constexpr(!std::is_void<out_type>::value)
             {
                 out_type() << new_param;
