@@ -57,7 +57,7 @@ __global__ void mutual_information_cuda_kernel2(T mutual_hist,U from8_hist,V mu_
 }
 #endif
 template<typename T,typename U>
-inline double get_mutual_info_sum(const T& mutual_hist,const U& from_hist)
+inline double get_mutual_info_mean(const T& mutual_hist,const U& from_hist)
 {
     if constexpr(memory_location<T>::at == CUDA)
     {
@@ -67,7 +67,7 @@ inline double get_mutual_info_sum(const T& mutual_hist,const U& from_hist)
                                 tipl::make_shared(mutual_hist),
                                 tipl::make_shared(from_hist),
                                 tipl::make_shared(mu_log_mu));
-        return sum(mu_log_mu);
+        return mean(mu_log_mu);
         #endif
     }
     else
@@ -83,7 +83,7 @@ inline double get_mutual_info_sum(const T& mutual_hist,const U& from_hist)
                 continue;
             sum += mu*std::log(mu/double(from_hist[index.y()])/double(to_hist[index.x()]));
         }
-        return sum;
+        return sum/float(mutual_hist.size());
     }
 }
 
@@ -99,8 +99,7 @@ __global__ void mutual_information_cuda_kernel(T from,T to,V trans,U mutual_hist
         trans(pos,v);
         unsigned char to_index = 0;
         tipl::estimate<tipl::interpolation::linear>(to,v,to_index);
-        atomicAdd(mutual_hist.begin() +
-                  (uint32_t(from[index]) << mi_band_width) +to_index,1);
+        atomicAdd(mutual_hist.begin() + (uint32_t(from[index]) << mi_band_width) +to_index,1);
     }
 }
 
@@ -200,7 +199,7 @@ public:
         }
         image<2,int32_t,stype> mutual_hist(shape<2>(mi_his_bandwidth,mi_his_bandwidth));
         get_mutual_info(mutual_hist,make_shared(to),make_shared(from),transform);
-        return -get_mutual_info_sum(mutual_hist,from_hist);
+        return -get_mutual_info_mean(mutual_hist,from_hist);
     }
 };
 
