@@ -1034,7 +1034,9 @@ __global__ void resample_cuda_kernel(T1 from,T2 to,U trans)
 }
 #endif
 
-template<tipl::interpolation itype = linear,typename T,typename U,typename V>
+template<tipl::interpolation itype = linear,
+         typename T,typename U,typename V,
+         typename std::enable_if<!std::is_same_v<std::decay_t<U>,shape<T::dimension> >,bool>::type = true>
 void resample(const T& from,U&& to,const tipl::transformation_matrix<V,T::dimension>& trans)
 {
     if constexpr(memory_location<T>::at == CUDA)
@@ -1058,10 +1060,19 @@ void resample(const T& from,U&& to,const tipl::transformation_matrix<V,T::dimens
     }
 }
 
-template<tipl::interpolation itype = linear,typename ImageType1,typename ImageType2,typename T>
-inline void resample(const ImageType1& from,ImageType2&& to,const T& trans)
+template<tipl::interpolation itype = linear,typename T,typename U,typename V,
+         typename std::enable_if<!std::is_same_v<std::decay_t<U>,shape<T::dimension> >,bool>::type = true>
+inline void resample(const T& from,U&& to,const V& trans)
 {
-    resample<itype>(from,to,tipl::transformation_matrix<typename T::value_type,ImageType1::dimension>(trans));
+    resample<itype>(from,to,tipl::transformation_matrix<typename T::value_type,T::dimension>(trans));
+}
+
+template<tipl::interpolation itype = linear,typename T,typename U>
+inline auto resample(const T& from,const shape<T::dimension>& shape,const U& trans)
+{
+    typename T::buffer_type to(shape);
+    resample<itype>(from,to,trans);
+    return to;
 }
 
 template<tipl::interpolation Type = linear,typename ImageType1,typename ImageType2,typename transform_type>
