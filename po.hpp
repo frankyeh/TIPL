@@ -312,13 +312,8 @@ class program_option{
             return false;
         }
         auto pos = std::find(str.begin(),str.end(),'=');
-        if(pos == str.end())
-        {
-            error_msg = std::string("invalid argument ") + str + " did you forget to put '=' after the argument?";
-            return false;
-        }
         names.push_back(std::string(str.begin()+2,pos));
-        values.push_back(std::string(pos+1,str.end()));
+        values.push_back(pos == str.end() ? std::string() : std::string(pos+1,str.end()));
         used.push_back(0);
         if(values.back().front() == '\"' && values.back().back() == '\"')
         {
