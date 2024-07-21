@@ -559,7 +559,7 @@ public:
             {
                 if(!std::filesystem::exists(file_list[index]))
                 {
-                    error_msg = "file not exist ";
+                    error_msg = "file does not exist ";
                     error_msg += file_list[index];
                     return false;
                 }
