@@ -199,9 +199,9 @@ par_for(T& c, Func&& f)
 template <typename T, typename Func>
 size_t adaptive_par_for(T from, T to, Func&& f)
 {
-    auto size = to-from;
-    auto block_size = std::max<size_t>(1,size >> 6);
-    if(to-from <= 8)
+    int64_t size = to-from;
+    int64_t block_size = std::max<int64_t>(1,size >> 6);
+    if(size <= 8)
     {
         par_for(from,to,std::forward<Func>(f),1);
         return 1;
