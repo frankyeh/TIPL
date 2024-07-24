@@ -171,7 +171,7 @@ public:
                             }
                 }
             }
-        });
+        },std::thread::hardware_concurrency());
         return out.data();
     }
     virtual void print(std::ostream& out) const {out << "conv3d " << in_channels_ << " " << out_channels_ << std::endl;}
