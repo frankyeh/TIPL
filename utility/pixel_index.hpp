@@ -321,15 +321,6 @@ public:
         return index_ != rhs;
     }
 public:
-    __INLINE__ auto& operator+=(const pixel_index<3>& rhs)
-    {x_ += rhs.x_;y_ += rhs.y_;z_ += rhs.z_;index_ += rhs.index_;return *this;}
-    __INLINE__ auto& operator-=(const pixel_index<3>& rhs)
-    {x_ -= rhs.x_;y_ -= rhs.y_;z_ -= rhs.z_;index_ -= rhs.index_;return *this;}
-    __INLINE__ auto operator+(const pixel_index<3>& rhs) const
-    {return pixel_index<3>(*this)+=rhs;}
-    __INLINE__ auto operator-(const pixel_index<3>& rhs) const
-    {return pixel_index<3>(*this)-=rhs;}
-public:
     template<typename T>
     __INLINE__ pixel_index<3> operator+(T value) const
     {
@@ -344,6 +335,7 @@ public:
         result.h = h;
         return result;
     }
+
     __INLINE__ pixel_index<3>& operator++(void)
     {
         ++offset_[0];
@@ -357,6 +349,10 @@ public:
         offset_[1] = 0;
         ++offset_[2];
         return *this;
+    }
+    __INLINE__ int64_t operator-(const pixel_index& rhs) const
+    {
+        return int64_t(index_)-int64_t(rhs.index_);
     }
     __INLINE__ pixel_index<3> operator++(int)
     {
