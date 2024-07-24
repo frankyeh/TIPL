@@ -196,6 +196,60 @@ par_for(T& c, Func&& f)
     par_for<type>(c.begin(),c.end(),std::move(f));
 }
 
+template <typename T, typename Func>
+size_t adaptive_par_for(T from, T to, Func&& f)
+{
+    auto size = to-from;
+    auto block_size = std::max<size_t>(1,size >> 6);
+    if(to-from <= 8)
+    {
+        par_for(from,to,std::forward<Func>(f),1);
+        return 1;
+    }
+
+
+    auto start = std::chrono::high_resolution_clock::now();
+    par_for(from,   T(from + block_size), std::forward<Func>(f),1);
+    auto end = std::chrono::high_resolution_clock::now();
+    double time1 = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+
+    start = std::chrono::high_resolution_clock::now();
+    par_for(T(from+block_size), T(from + block_size*3), std::forward<Func>(f),2);
+    end = std::chrono::high_resolution_clock::now();
+    double time2 = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+
+    if(time1 > time2)
+    {
+        par_for(T(from+block_size*3),to,std::forward<Func>(f),max_thread_count);
+        return max_thread_count;
+    }
+    time2 -= time1;
+    size -= block_size*3;
+    size /= block_size;
+
+    // Estimate the best number of threads
+    int optimal_threads = 1;
+    double min_time = std::numeric_limits<double>::max();
+    for(int thread_count = 1; thread_count <= max_thread_count; ++thread_count)
+    {
+        auto estimated_time = (size / thread_count) * time1 + (thread_count-1)*time2;
+        if(estimated_time < min_time)
+        {
+            min_time = estimated_time;
+            optimal_threads = thread_count;
+        }
+    }
+    par_for(T(from+block_size*3), to,std::forward<Func>(f), optimal_threads);
+    return optimal_threads;
+}
+
+template <typename T,typename Func,
+          typename std::enable_if<std::is_integral<T>::value,bool>::type = true>
+inline size_t adaptive_par_for(T size, Func&& f)
+{
+    return adaptive_par_for(T(),size,std::move(f));
+}
+
 template<typename T>
 void aggregate_results(std::vector<std::vector<T> >&& results,std::vector<T>& all_result_)
 {
