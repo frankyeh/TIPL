@@ -448,6 +448,13 @@ public:
         return dataset[index]->template get_data<T>();
     }
     template<typename T>
+    auto read_as_vector(const char* name) const
+    {
+        unsigned int rows,cols;
+        auto ptr = read_as_type<T>(name,rows,cols);
+        return ptr ? std::vector<T>(ptr,ptr+rows*cols) : std::vector<T>();
+    }
+    template<typename T>
     const T* read_as_type(const char* name,unsigned int& rows,unsigned int& cols) const
     {
         auto iter = name_table.find(name);
@@ -547,7 +554,7 @@ public:
     void add(const char* name_,const container_type& container)
     {
         std::shared_ptr<mat_matrix> matrix(new mat_matrix);
-        matrix->assign(name_,&*container.begin(),1,uint32_t(container.end()-container.begin()));
+        matrix->assign(name_,container.data(),1,uint32_t(container.end()-container.begin()));
         dataset.push_back(matrix);
         name_table[name_] = dataset.size()-1;
     }
@@ -649,7 +656,7 @@ public:
         out.write(reinterpret_cast<const char*>(&cols),4);
         out.write(reinterpret_cast<const char*>(&imagf),4);
         out.write(reinterpret_cast<const char*>(&namelen),4);
-        out.write(reinterpret_cast<const char*>(&*name.begin()),namelen);
+        out.write(reinterpret_cast<const char*>(name.data()),namelen);
         out.write(reinterpret_cast<const char*>(data_ptr),size_t(rows)*size_t(cols)*sizeof(Type));
         return out;
     }
@@ -661,21 +668,18 @@ public:
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
     bool write(const char* name,const T& data)
     {
-        return write(name,&*data.begin(),1,uint32_t(data.end()-data.begin()));
+        auto size = uint32_t(data.end()-data.begin());
+        if(!size)
+            return false;
+        return write(name,data.data(),1,size);
     }
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
     bool write(const char* name,const T& data,uint32_t d)
     {
         if(data.empty())
             return false;
-        return write(name,&data[0],d,uint32_t((data.end()-data.begin())/d));
+        return write(name,data.data(),d,uint32_t((data.end()-data.begin())/d));
     }
-    template<typename T>
-    bool write(const char* name,const std::initializer_list<T>& data)
-    {
-        return write(name,&*data.begin(),1,uint32_t(data.end()-data.begin()));
-    }
-
     bool write(const char* name,const std::string& text)
     {
         if(text.empty())
@@ -695,7 +699,7 @@ public:
         unsigned short dim[image_type::dimension];
         std::copy(image_data.shape().begin(),image_data.shape().end(),dim);
         write("dimension",dim,1,image_type::dimension);
-        write("image",&*image_data.begin(),1,image_data.size());
+        write("image",image_data.data(),1,image_data.size());
     }
 
     template<typename image_type>
