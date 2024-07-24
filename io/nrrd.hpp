@@ -96,12 +96,8 @@ private:
 
         if(values["endian"] == "big")
         {
-            size_t thread_count = std::thread::hardware_concurrency();
-            tipl::par_for(thread_count,[&](size_t id)
-            {
-                for(size_t i = id;i < I.size();i += thread_count)
-                    change_endian(I[i]);
-            });
+            for(size_t i = 0;i < I.size();++i)
+                change_endian(I[i]);
         }
         return true;
     }
