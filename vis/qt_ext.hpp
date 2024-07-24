@@ -244,7 +244,7 @@ QImage draw_regions(const std::vector<image_type>& region_masks,
     std::vector<std::vector<tipl::vector<2,int> > > edge_x(region_masks.size()),
                                                     edge_y(region_masks.size());
     {
-        tipl::par_for(region_masks.size(),[&](uint32_t roi_index)
+        tipl::adaptive_par_for(region_masks.size(),[&](uint32_t roi_index)
         {
             auto& region_mask = region_masks[roi_index];
             auto color = colors[roi_index];
