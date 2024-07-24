@@ -528,7 +528,7 @@ public:
             value_type scaling[dim];
             value_type affine[dim == 3 ? 3 : 1];
         };
-        value_type data[total_size];
+        value_type data_[total_size];
     };
 public:
     affine_transform(void)
@@ -539,12 +539,12 @@ public:
     {
         size_t i = 0;
         for(const auto& v : rhs)
-            data[i++] = v;
+            data_[i++] = v;
     }
-    affine_transform(const value_type* data_)
+    affine_transform(const value_type* data__)
     {
         for(unsigned int i = 0;i < total_size;++i)
-            data[i] = data_[i];
+            data_[i] = data__[i];
     }
     template<typename rhs_type>
     affine_transform(const rhs_type& rhs){operator=(rhs);}
@@ -553,14 +553,14 @@ public:
     {
         size_t i = 0;
         for(const auto& v : rhs)
-            data[i++] = v;
+            data_[i++] = v;
         return *this;
     }
     affine_transform& operator=(std::initializer_list<value_type> rhs)
     {
         size_t i = 0;
         for(const auto& v : rhs)
-            data[i++] = v;
+            data_[i++] = v;
         return *this;
     }
 public:
@@ -582,17 +582,17 @@ public:
             affine[2] = 0;
         }
     }
-    value_type operator[](unsigned int i) const{return data[i];}
-    value_type& operator[](unsigned int i) {return data[i];}
-    const value_type* begin(void) const{return data;}
-    const value_type* end(void) const{return data+total_size;}
-    value_type* begin(void) {return data;}
-    value_type* end(void) {return data+total_size;}
+    value_type operator[](unsigned int i) const{return data_[i];}
+    value_type& operator[](unsigned int i) {return data_[i];}
+    const value_type* begin(void) const{return data_;}
+    const value_type* end(void) const{return data_+total_size;}
+    value_type* begin(void) {return data_;}
+    value_type* end(void) {return data_+total_size;}
     unsigned int size(void) const{return total_size;}
     bool operator==(const affine_transform& rhs)
     {
         for(char i = 0;i < total_size;++i)
-            if(data[i] != rhs.data[i])
+            if(data_[i] != rhs.data_[i])
                 return false;
         return true;
     }
@@ -663,38 +663,46 @@ public:
             value_type sr[dim*dim];
             value_type shift[dim];
         };
-        value_type data[total_size];
+        value_type data_[total_size];
     };
 public:
     __INLINE__ const value_type& operator[](unsigned int index) const
     {
-        return data[index];
+        return data_[index];
     }
     __INLINE__ value_type& operator[](unsigned int index)
     {
-        return data[index];
+        return data_[index];
+    }
+    __INLINE__ value_type* data(void)
+    {
+        return data_;
     }
     __INLINE__ value_type* begin(void)
     {
-        return data;
+        return data_;
     }
     __INLINE__ value_type* end(void)
     {
-        return data+12;
+        return data_+12;
+    }
+    __INLINE__ const value_type* data(void)const
+    {
+        return data_;
     }
     __INLINE__ const value_type* begin(void)const
     {
-        return data;
+        return data_;
     }
     __INLINE__ const value_type* end(void)	const
     {
-        return data+total_size;
+        return data_+total_size;
     }
     __INLINE__ size_t size(void) const{return total_size;}
     __INLINE__ void identity(void)
     {
         for(unsigned int i = 0;i < total_size;++i)
-            data[i] = 0;
+            data_[i] = 0;
         if constexpr(dimension == 3)
             sr[0] = sr[4] = sr[8] = 1;
         else
@@ -863,7 +871,7 @@ public:
     auto& operator=(const transformation_matrix<rhs_value_type,dimension>& M)
     {
         for(unsigned int i = 0;i < total_size;++i)
-            data[i] = M.data[i];
+            data_[i] = M.data_[i];
         return *this;
     }
     template<typename rhs_value_type>
@@ -871,32 +879,32 @@ public:
     {
         if constexpr(dimension == 3)
         {
-            data[0] = M[0];
-            data[1] = M[1];
-            data[2] = M[2];
+            data_[0] = M[0];
+            data_[1] = M[1];
+            data_[2] = M[2];
 
-            data[3] = M[4];
-            data[4] = M[5];
-            data[5] = M[6];
+            data_[3] = M[4];
+            data_[4] = M[5];
+            data_[5] = M[6];
 
-            data[6] = M[8];
-            data[7] = M[9];
-            data[8] = M[10];
+            data_[6] = M[8];
+            data_[7] = M[9];
+            data_[8] = M[10];
 
-            data[9] = M[3];
-            data[10] = M[7];
-            data[11] = M[11];
+            data_[9] = M[3];
+            data_[10] = M[7];
+            data_[11] = M[11];
         }
         else
         {
-            data[0] = M[0];
-            data[1] = M[1];
+            data_[0] = M[0];
+            data_[1] = M[1];
 
-            data[2] = M[3];
-            data[3] = M[4];
+            data_[2] = M[3];
+            data_[3] = M[4];
 
-            data[4] = M[2];
-            data[5] = M[5];
+            data_[4] = M[2];
+            data_[5] = M[5];
         }
         return *this;
     }
@@ -915,21 +923,21 @@ public:
     template<typename InputIterType>
     void save_to_transform(InputIterType M)
     {
-        M[0] = data[0];
-        M[1] = data[1];
-        M[2] = data[2];
+        M[0] = data_[0];
+        M[1] = data_[1];
+        M[2] = data_[2];
 
-        M[4] = data[3];
-        M[5] = data[4];
-        M[6] = data[5];
+        M[4] = data_[3];
+        M[5] = data_[4];
+        M[6] = data_[5];
 
-        M[8] = data[6];
-        M[9] = data[7];
-        M[10] = data[8];
+        M[8] = data_[6];
+        M[9] = data_[7];
+        M[10] = data_[8];
 
-        M[3] = data[9];
-        M[7] = data[10];
-        M[11] = data[11];
+        M[3] = data_[9];
+        M[7] = data_[10];
+        M[11] = data_[11];
     }
 
     bool inverse(void)
@@ -963,14 +971,14 @@ public:
     {
         if constexpr(dimension==3)
         {
-            out << T.data[0] << " " << T.data[1] << " " << T.data[2] << " " << T.data[9] << std::endl;
-            out << T.data[3] << " " << T.data[4] << " " << T.data[5] << " " << T.data[10] << std::endl;
-            out << T.data[6] << " " << T.data[7] << " " << T.data[8] << " " << T.data[11] << std::endl;
+            out << T.data_[0] << " " << T.data_[1] << " " << T.data_[2] << " " << T.data_[9] << std::endl;
+            out << T.data_[3] << " " << T.data_[4] << " " << T.data_[5] << " " << T.data_[10] << std::endl;
+            out << T.data_[6] << " " << T.data_[7] << " " << T.data_[8] << " " << T.data_[11] << std::endl;
         }
         else
         {
-            out << T.data[0] << " " << T.data[1] << " " << T.data[4] << std::endl;
-            out << T.data[2] << " " << T.data[3] << " " << T.data[5] << std::endl;
+            out << T.data_[0] << " " << T.data_[1] << " " << T.data_[4] << std::endl;
+            out << T.data_[2] << " " << T.data_[3] << " " << T.data_[5] << std::endl;
         }
         return out;
     }
@@ -978,14 +986,14 @@ public:
     {
         if constexpr(dimension==3)
         {
-            in >> T.data[0] >> T.data[1] >> T.data[2] >> T.data[9];
-            in >> T.data[3] >> T.data[4] >> T.data[5] >> T.data[10];
-            in >> T.data[6] >> T.data[7] >> T.data[8] >> T.data[11];
+            in >> T.data_[0] >> T.data_[1] >> T.data_[2] >> T.data_[9];
+            in >> T.data_[3] >> T.data_[4] >> T.data_[5] >> T.data_[10];
+            in >> T.data_[6] >> T.data_[7] >> T.data_[8] >> T.data_[11];
         }
         else
         {
-            in >> T.data[0] >> T.data[1] >> T.data[4];
-            in >> T.data[2] >> T.data[3] >> T.data[5];
+            in >> T.data_[0] >> T.data_[1] >> T.data_[4];
+            in >> T.data_[2] >> T.data_[3] >> T.data_[5];
         }
         return in;
     }
