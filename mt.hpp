@@ -77,79 +77,58 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
     if(to == from)
         return;
     size_t n = to-from;
-    if(thread_count > n)
-        thread_count = n;
-
-    if(thread_count <= 1)
-    {
-        if constexpr(type >= ranged)
-        {
-            if constexpr(type == ranged_with_id)
-                f(from,to,0);
-            else
-                f(from,to);
-        }
-        else
-        {
-            for(;from != to;++from)
-                if constexpr(type == sequential_with_id)
-                    f(from,0);
-                else
-                    f(from);
-        }
-        return;
-    }
-
+    thread_count = std::max<int>(1,std::min<int>(thread_count,n));
 
     #ifdef __CUDACC__
     int cur_device = 0;
     if constexpr(use_cuda)
     {
-        if(cudaGetDevice(&cur_device) != cudaSuccess)
+        if(thread_count > 1 && cudaGetDevice(&cur_device) != cudaSuccess)
             throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
     }
     #endif
 
+    auto run = [=,&f](T beg,T end,size_t id)
+    {
+        #ifdef __CUDACC__
+        if constexpr(use_cuda)
+        {
+            if(id && cudaSetDevice(cur_device) != cudaSuccess)
+                throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+        }
+        #endif
+        if constexpr(type >= ranged)
+        {
+            if constexpr(type == ranged_with_id)
+                f(beg,end,id);
+            else
+                f(beg,end);
+        }
+        else
+        {
+            for(;beg != end;++beg)
+                if constexpr(type == sequential_with_id)
+                    f(beg,id);
+                else
+                    f(beg);
+        }
+    };
+
+    std::vector<std::thread> threads;
+    if(thread_count > 1)
     {
         size_t block_size = n / thread_count;
         size_t remainder = n % thread_count;
-        auto run = [=,&f](T beg,T end,size_t id)
-        {
-            #ifdef __CUDACC__
-            if constexpr(use_cuda)
-            {
-                if(id && cudaSetDevice(cur_device) != cudaSuccess)
-                    throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
-            }
-            #endif
-            if constexpr(type >= ranged)
-            {
-                if constexpr(type == ranged_with_id)
-                    f(beg,end,id);
-                else
-                    f(beg,end);
-            }
-            else
-            {
-                for(;beg != end;++beg)
-                    if constexpr(type == sequential_with_id)
-                        f(beg,id);
-                    else
-                        f(beg);
-            }
-        };
-
-        std::vector<std::thread> threads;
         for(size_t id = 1; id < thread_count; id++)
         {
             auto end = from + block_size + (id <= remainder ? 1 : 0);
             threads.push_back(std::thread(run,from,end,id));
             from = end;
         }
-        run(from,to,0);
-        for(auto &thread : threads)
-            thread.join();
     }
+    run(from,to,0);
+    for(auto &thread : threads)
+        thread.join();
 }
 
 
@@ -193,15 +172,14 @@ template <par_for_type type = sequential,typename T,typename Func,
           typename std::enable_if<std::is_integral<T>::value,bool>::type = true>
 inline void par_for(T size, Func&& f,unsigned int thread_count)
 {
-    par_for<type>(T(),size,std::move(f),thread_count);
+    par_for<type>(T(),size,std::forward<Func>(f),thread_count);
 }
 template <par_for_type type = sequential,typename T,typename Func,
           typename std::enable_if<std::is_integral<T>::value,bool>::type = true>
 inline void par_for(T size, Func&& f)
 {
-    par_for<type>(T(),size,std::move(f));
+    par_for<type>(T(),size,std::forward<Func>(f));
 }
-
 
 template <par_for_type type = sequential,typename T,typename Func>
 inline typename std::enable_if<
