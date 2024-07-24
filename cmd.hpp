@@ -23,16 +23,12 @@ bool command(image_type& data,std::string cmd,std::string param1)
         if(cmd.find("morphology") == 0)
         {
             tipl::image<image_type::dimension,char> mask(data.shape());
-            tipl::par_for(mask.size(),[&](size_t pos)
-            {
+            for(size_t pos = 0;pos < mask.size();++pos)
                 mask[pos] = data[pos] > typename image_type::value_type(0) ? 1 : 0;
-            });
             if(!command(mask,cmd,param1))
                 return false;
-            tipl::par_for(mask.size(),[&](size_t pos)
-            {
+            for(size_t pos = 0;pos < mask.size();++pos)
                 data[pos] = typename image_type::value_type(mask[pos]);
-            });
             return true;
         }
     }
@@ -138,10 +134,8 @@ bool command(image_type& data,std::string cmd,std::string param1)
     if(cmd == "select_value")
     {
         typename image_type::value_type v = std::stof(param1);
-        tipl::par_for(data.size(),[&](size_t index)
-        {
+        for(size_t index = 0;index < data.size();++index)
             data[index] = (data[index] == v ? 1:0);
-        });
         return true;
     }
     if(cmd == "add_value")
@@ -168,19 +162,15 @@ bool command(image_type& data,std::string cmd,std::string param1)
     if(cmd == "threshold")
     {
         float value = std::stof(param1);
-        tipl::par_for(data.size(),[&](size_t i)
-        {
+        for(size_t i = 0;i < data.size();++i)
             data[i] = data[i] > value ? 1.0f : 0.0f;
-        });
         return true;
     }
     if(cmd == "otsu_threshold")
     {
         float threshold = tipl::segmentation::otsu_threshold(data)*float(std::stof(param1));
-        tipl::par_for(data.size(),[&](size_t i)
-        {
+        for(size_t i = 0;i < data.size();++i)
             data[i] = data[i] > threshold ? 1.0f : 0.0f;
-        });
         return true;
     }
     return false;
