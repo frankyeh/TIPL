@@ -75,6 +75,10 @@ public:
             std::swap(dim[index],rhs.dim[index]);
     }
 public:
+    __INLINE__ const unsigned int* data(void) const
+    {
+        return dim;
+    }
     __INLINE__ const unsigned int* begin(void) const
     {
         return dim;
@@ -211,6 +215,10 @@ public:
         std::swap(w,rhs.w);
     }
 public:
+    __INLINE__ const unsigned int* data(void) const
+    {
+        return dim;
+    }
     __INLINE__ const unsigned int* begin(void) const
     {
         return dim;
@@ -331,6 +339,10 @@ public:
         std::swap(h,rhs.h);
     }
 public:
+    __INLINE__ const unsigned int* data(void) const
+    {
+        return dim;
+    }
     __INLINE__ const unsigned int* begin(void) const
     {
         return dim;
@@ -512,6 +524,10 @@ public:
         return new_shape;
     }
 public:
+    __INLINE__ const unsigned int* data(void) const
+    {
+        return dim;
+    }
     __INLINE__ const unsigned int* begin(void) const
     {
         return dim;
@@ -530,6 +546,7 @@ public:
     {
         return shape(uint32_t(w*value),uint32_t(h*value),uint32_t(d*value));
     }
+
     __INLINE__ unsigned int* begin(void)
     {
         wh = size_ = 0;
