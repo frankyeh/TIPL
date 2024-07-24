@@ -429,6 +429,10 @@ public:
     {
         return data_+2;
     }
+    __INLINE__ const data_type* data(void)	const
+    {
+        return data_;
+    }
     __INLINE__ const data_type* begin(void)	const
     {
         return data_;
@@ -677,6 +681,10 @@ public:
     __INLINE__ data_type* end(void)
     {
         return data_+3;
+    }
+    __INLINE__ const data_type* data(void)	const
+    {
+        return data_;
     }
     __INLINE__ const data_type* begin(void)	const
     {
