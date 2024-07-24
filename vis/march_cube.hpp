@@ -459,7 +459,7 @@ private:
                 indices[2] = tri_list[new_index][2];
             }
             std::copy(sorted_index[view_index].begin(),sorted_index[view_index].end(),sorted_index[view_index+3].rbegin());
-        });
+        },3);
     }
     template<typename ImageType,typename ValueType>
     void addCube(const ImageType& source_image,const pixel_index<3>& point,ValueType isolevel)
