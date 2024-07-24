@@ -51,7 +51,7 @@ inline void preproc_actions(tipl::image<3>& images,
     tipl::affine_transform<float> arg;
     trans = tipl::transformation_matrix<float,3>(arg,target_dim,target_vs,image_dim,image_vs);
 
-    tipl::par_for(in_channel,[&](int c)
+    tipl::adaptive_par_for(in_channel,[&](int c)
     {
         auto image = images.alias(image_dim.size()*c,image_dim);
         auto target_image = target_images.alias(target_dim.size()*c,target_dim);
@@ -91,7 +91,7 @@ tipl::image<3> defragment4d(image_type& this_image,float prob_threshold)
         tipl::upper_threshold(sum,1.0f);
     }
 
-    tipl::par_for(this_image_frames,[&](size_t label)
+    tipl::adaptive_par_for(this_image_frames,[&](size_t label)
     {
         auto I = this_image.alias(dim3d.size()*label,dim3d);
         for(size_t pos = 0;pos < dim3d.size();++pos)
@@ -229,7 +229,7 @@ public:
             return false;
         trans.inverse();
         out.resize(I.shape().multiply(tipl::shape<3>::z,out_channels_));
-        tipl::par_for(out_channels_,[&](int i)
+        tipl::adaptive_par_for(out_channels_,[&](int i)
         {
             auto J = out.alias(I.size()*i,I.shape());
             tipl::resample(tipl::make_image(ptr+i*dim.size(),dim),J,trans);
