@@ -186,12 +186,12 @@ template<typename T>
 bool match_files(const T& file_path1,const T& file_path2,
                  const T& file_path1_others,T& file_path2_gen)
 {
-    auto name1 = std::filesystem::path(file_path1).filename().string();
-    auto name2 = std::filesystem::path(file_path2).filename().string();
-    auto name1_others = std::filesystem::path(file_path1_others).filename().string();
-    auto path1 = std::filesystem::path(file_path1).parent_path().string();
-    auto path2 = std::filesystem::path(file_path2).parent_path().string();
-    auto path1_others = std::filesystem::path(file_path1_others).parent_path().string();
+    auto name1 = std::filesystem::path(file_path1).filename().u8string();
+    auto name2 = std::filesystem::path(file_path2).filename().u8string();
+    auto name1_others = std::filesystem::path(file_path1_others).filename().u8string();
+    auto path1 = std::filesystem::path(file_path1).parent_path().u8string();
+    auto path2 = std::filesystem::path(file_path2).parent_path().u8string();
+    auto path1_others = std::filesystem::path(file_path1_others).parent_path().u8string();
     T name2_others,path2_others;
     if(!match_strings(name1,name2,name1_others,name2_others) ||
        !match_strings(path1,path2,path1_others,path2_others))
@@ -215,8 +215,8 @@ inline void search_files(const std::string& search_path,const std::string& wildc
     {
         if (!std::filesystem::is_regular_file(entry))
             continue;
-        if (wildcard.empty() || tipl::match_wildcard(entry.path().filename().string(),wildcard))
-            results.push_back(entry.path().string());
+        if (wildcard.empty() || tipl::match_wildcard(entry.path().filename().u8string(),wildcard))
+            results.push_back(entry.path().u8string());
     }
 }
 inline std::vector<std::string> search_files(const std::string& search_path,const std::string& wildcard)
@@ -233,8 +233,8 @@ inline void search_dirs(const std::string& search_path,const std::string& wildca
     {
         if (!std::filesystem::is_directory(entry))
             continue;
-        if (wildcard.empty() || tipl::match_wildcard(entry.path().filename().string(),wildcard))
-            results.push_back(entry.path().string());
+        if (wildcard.empty() || tipl::match_wildcard(entry.path().filename().u8string(),wildcard))
+            results.push_back(entry.path().u8string());
     }
 }
 inline std::vector<std::string> search_dirs(const std::string& search_path,const std::string& wildcard)
@@ -244,55 +244,94 @@ inline std::vector<std::string> search_dirs(const std::string& search_path,const
     return results;
 }
 
-template<typename path_type>
-bool search_filesystem(path_type path_,std::vector<std::string>& filenames,bool file = true)
+template<typename out_type = void,typename error_type = void>
+bool search_filesystem(std::string path,std::vector<std::string>& filenames,bool file = true)
 {
-    std::string path(path_);
+#ifdef _WIN32
+    std::locale utf8_locale(".UTF-8");
+#else
+    std::locale utf8_locale("en_US.UTF-8");
+#endif
+
+    if constexpr(!std::is_void<out_type>::value)
+    {
+        if(file)
+            out_type() << "searching file(s) at: " << path;
+        else
+            out_type() << "searching directories at: " << path;
+    }
     if (path.find('*') == std::string::npos)
     {
         if (std::filesystem::exists(path))
+        {
             filenames.push_back(path);
+            return true;
+        }
         else
+        {
+            if constexpr(!std::is_void<error_type>::value)
+                error_type() << "file not exist: " << path;
             return false;
-        return true;
+        }
     }
 
-    auto search_path = std::filesystem::current_path();
+    auto search_path = std::filesystem::current_path().u8string();
     bool no_path = true;
     if (path.find('/') != std::string::npos)
     {
         no_path = false;
         search_path = path.substr(0, path.find_last_of('/'));
         path = path.substr(path.find_last_of('/') + 1);
-        if(search_path.string().find('*') != std::string::npos)
+        if(search_path.find('*') != std::string::npos)
         {
             std::vector<std::string> dirs;
-            search_filesystem(search_path.string(),dirs,false);
+            search_filesystem<out_type,error_type>(search_path,dirs,false);
+            bool result = false;
             for(auto dir : dirs)
-                if(!search_filesystem(dir + "/" + path,filenames))
-                    return false;
-            return true;
+                result |= search_filesystem<out_type,error_type>(dir + "/" + path,filenames);
+            return result;
         }
     }
 
     try{
         if(!std::filesystem::exists(search_path) || !std::filesystem::is_directory(search_path))
+        {
+            if constexpr(!std::is_void<error_type>::value)
+                error_type() << "directory not exist: " << search_path;
             return true;
+        }
         std::vector<std::string> new_filenames;
+
         for (const auto& entry : std::filesystem::directory_iterator(search_path))
         {
             if (file && !std::filesystem::is_regular_file(entry))
                 continue;
             if (!file && !std::filesystem::is_directory(entry))
                 continue;
-            if (tipl::match_wildcard(entry.path().filename().string(),path))
-                new_filenames.push_back(no_path ? entry.path().filename().string() : entry.path().string());
+            if (tipl::match_wildcard(entry.path().filename().u8string(),path))
+                new_filenames.push_back(no_path ? entry.path().filename().u8string() : entry.path().u8string());
         }
+        if constexpr(!std::is_void<out_type>::value)
+            out_type() << new_filenames.size() << " files matching " << path;
         std::sort(new_filenames.begin(),new_filenames.end());
         filenames.insert(filenames.end(),new_filenames.begin(),new_filenames.end());
     }
-    catch (...)
+    catch (const std::filesystem::filesystem_error& e)
     {
+        if constexpr(!std::is_void<error_type>::value)
+            error_type() << e.what();
+        return false;
+    }
+    catch(const std::runtime_error& e)
+    {
+        if constexpr(!std::is_void<error_type>::value)
+            error_type() << e.what();
+        return false;
+    }
+    catch(...)
+    {
+        if constexpr(!std::is_void<error_type>::value)
+            error_type() << "unknown error when searching files";
         return false;
     }
     return true;
@@ -377,7 +416,7 @@ public:
 
     bool parse(int ac, char *av[])
     {
-        exec_path = std::filesystem::absolute(std::filesystem::path(av[0])).parent_path().string();
+        exec_path = std::filesystem::absolute(std::filesystem::path(av[0])).parent_path().u8string();
         clear();
         if(ac == 2) // command from log file
         {
