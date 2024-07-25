@@ -160,7 +160,7 @@ public:
     template<typename char_type>
     bool load_from_file(const char_type* file_name)
     {
-        prog_type prog((std::string("opening ")+std::filesystem::path(file_name).filename().string()).c_str());
+        prog_type prog((std::string("opening ")+std::filesystem::path(file_name).filename().u8string()).c_str());
         std::ifstream in(file_name);
         if(!in)
         {
@@ -204,7 +204,7 @@ public:
                     file_seris = true;
                     in2 >> from >> to >> step;
                 }
-                data_file = std::filesystem::path(file_name).parent_path().string() + "/" + data_file;
+                data_file = std::filesystem::path(file_name).parent_path().u8string() + "/" + data_file;
             }
         }
         if(!size.size())
