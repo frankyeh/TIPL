@@ -506,7 +506,6 @@ public:
                 {
                     union
                     {
-                        unsigned short vr;
                         struct
                         {
                             char lt0;
@@ -661,13 +660,13 @@ public:
             if(transfer_syntax == bee)
             {
                 if (is_float()) // float
-                    change_endian<float>(&*data.begin(),data.size()/sizeof(float));
+                    change_endian<float>(data.data(),data.size()/sizeof(float));
                 if (is_double()) // double
-                    change_endian<double>(&*data.begin(),data.size()/sizeof(double));
+                    change_endian<double>(data.data(),data.size()/sizeof(double));
                 if (is_int16()) // uint16type
-                    change_endian<short>(&*data.begin(),data.size()/sizeof(short));
+                    change_endian<short>(data.data(),data.size()/sizeof(short));
                 if (is_int32() && data.size() >= 4)
-                    change_endian<int>(&*data.begin(),data.size()/sizeof(int));
+                    change_endian<int>(data.data(),data.size()/sizeof(int));
             }
         }
         return !(!in);
@@ -684,11 +683,6 @@ public:
     {
         return data;
     }
-    unsigned short get_vr(void) const
-    {
-        return vr;
-    }
-
     bool is_string(void) const
     {
         return (lt0 == 'D' ||  // DA DS DT
@@ -723,40 +717,49 @@ public:
         //FD
         return (lt0 == 'F' && lt1 == 'D');
     }
-
+    bool is_unknown(void) const
+    {
+        return (lt0 == 'U' && lt1 == 'N');
+    }
+    template<typename read_as_type,typename value_type>
+    void read_as(std::vector<value_type>& value) const
+    {
+        auto iter = reinterpret_cast<const read_as_type*>(data.data());
+        for (unsigned int index = sizeof(read_as_type)-1;index < data.size();index += sizeof(read_as_type),++iter)
+            value.push_back(*iter);
+    }
     template<typename value_type>
     void get_value(std::vector<value_type>& value) const
     {
         if(data.empty())
             return;
-        if (is_float() && data.size() >= 4) // float
+        if (is_float())
         {
-            const float* iter = (const float*)&*data.begin();
-            for (unsigned int index = 3;index < data.size();index += 4,++iter)
-                value.push_back(*iter);
+            read_as<float>(value);
             return;
         }
-        if (is_double() && data.size() >= 8) // double
+        if (is_double())
         {
-            const double* iter = (const double*)&*data.begin();
-            for (unsigned int index = 7;index < data.size();index += 8,++iter)
-                value.push_back(*iter);
+            read_as<double>(value);
             return;
         }
-        if (is_int16() && data.size() >= 2)
+        if (is_int16())
         {
-            for (unsigned int index = 1;index < data.size();index+=2)
-                value.push_back(*(const short*)&*(data.begin()+index-1));
+            read_as<int16_t>(value);
             return;
         }
-        if (is_int32() && data.size() == 4)
+        if (is_int32())
         {
-            for (unsigned int index = 3;index < data.size();index+=4)
-                value.push_back(*(const int*)&*(data.begin()+index-3));
+            read_as<int32_t>(value);
             return;
         }
         if(is_string())
+        {
             std::copy(data.begin(),data.end(),std::back_inserter(value));
+            return;
+        }
+        if(is_unknown())
+            read_as<value_type>(value);
     }
     template<typename value_type>
     void get_value(value_type& value) const
@@ -767,22 +770,22 @@ public:
         {
             if (is_float() && data.size() >= 4) // float
             {
-                value = value_type(*(const float*)&*data.begin());
+                value = value_type(*(const float*)data.data());
                 return;
             }
             if (is_double() && data.size() >= 8) // double
             {
-                value = value_type(*(const double*)&*data.begin());
+                value = value_type(*(const double*)data.data());
                 return;
             }
             if (is_int16() && data.size() >= 2) // uint16type
             {
-                value = value_type(*(const short*)&*data.begin());
+                value = value_type(*(const short*)data.data());
                 return;
             }
             if (is_int32() && data.size() >= 4)
             {
-                value = value_type(*(const int*)&*data.begin());
+                value = value_type(*(const int*)data.data());
                 return;
             }
         }
@@ -811,22 +814,29 @@ public:
         {
             if (data.size() == 2) // uint16type
             {
-                value = value_type(*(const short*)&*data.begin());
+                value = value_type(*(const short*)data.data());
                 return;
             }
             if (data.size() == 4)
             {
-                value = value_type(*(const int*)&*data.begin());
+                value = value_type(*(const int*)data.data());
                 return;
             }
             if (data.size() == 8)
             {
-                value = value_type(*(const double*)&*data.begin());
+                value = value_type(*(const double*)data.data());
                 return;
             }
         }
     }
 
+    template<typename type,typename stream_type>
+    void print_as_type(stream_type& out) const
+    {
+        auto iter = reinterpret_cast<const type*>(data.data());
+        for (unsigned int index = sizeof(type)-1;index < data.size();index += sizeof(type),++iter)
+            out << *iter << " ";
+    }
     template<typename stream_type>
     void operator>> (stream_type& out) const
     {
@@ -840,30 +850,24 @@ public:
             out << "(null)";
             return;
         }
-        if (is_float() && data.size() >= 4) // float
+        if (is_float())
         {
-            const float* iter = (const float*)&*data.begin();
-            for (unsigned int index = 3;index < data.size();index += 4,++iter)
-                out << *iter << " ";
+            print_as_type<float>(out);
             return;
         }
-        if (is_double() && data.size() >= 8) // double
+        if (is_double())
         {
-            const double* iter = (const double*)&*data.begin();
-            for (unsigned int index = 7;index < data.size();index += 8,++iter)
-                out << *iter << " ";
+            print_as_type<double>(out);
             return;
         }
-        if (is_int16() && data.size() >= 2)
+        if (is_int16())
         {
-            for (unsigned int index = 1;index < data.size();index+=2)
-                out << *(const short*)&*(data.begin()+index-1) << " ";
+            print_as_type<int16_t>(out);
             return;
         }
         if (is_int32() && data.size() == 4)
         {
-            for (unsigned int index = 3;index < data.size();index+=4)
-                out << *(const int*)&*(data.begin()+index-3) << " ";
+            print_as_type<int32_t>(out);
             return;
         }
         bool is_ascii = true;
@@ -871,8 +875,8 @@ public:
         for (unsigned int index = 0;index < data.size() && (data[index] || index <= 2);++index)
             if (!::isprint(data[index]))
             {
-            is_ascii = false;
-            break;
+                is_ascii = false;
+                break;
             }
         if (is_ascii)
         {
@@ -885,13 +889,19 @@ public:
             }
             return;
         }
-        out << data.size() << " bytes";
-        if(data.size() == 8)
-            out << ", double=" << *(double*)&*data.begin() << " ";
+        if(data.size() % 8 == 0)
+        {
+            out << "(double) ";
+            print_as_type<double>(out);
+            return;
+        }
         if(data.size() == 4)
-            out << ", int=" << *(int*)&*data.begin() << ", float=" << *(float*)&*data.begin() << " ";
+            out << "int=" << *(const int*)data.data() << ", float=" << *(const float*)data.data() << " ";
         if(data.size() == 2)
-            out << ", short=" << *(short*)&*data.begin() << " ";
+            out << "short=" << *(const short*)data.data() << " ";
+        if(data.size() > 8)
+            for(size_t i = 0;i < data.size() && i < 32;++i)
+                out << std::hex << std::setw(2) << std::setfill('0') << int(data[i]) << " ";
         return;
     }
 
@@ -1021,8 +1031,8 @@ private:
         unsigned int mosaic_line_size = mosaic_size*mosaic_col_count;
 
 
-        const pixel_type* slice_end = &*data.begin() + data.size();
-        for (const pixel_type* slice_band_pos = &*data.begin(); slice_band_pos < slice_end; slice_band_pos += mosaic_line_size)
+        const pixel_type* slice_end = data.data() + data.size();
+        for (const pixel_type* slice_band_pos = data.data(); slice_band_pos < slice_end; slice_band_pos += mosaic_line_size)
         {
             const pixel_type* slice_pos_end = slice_band_pos + w;
             for (const pixel_type* slice_pos = slice_band_pos; slice_pos < slice_pos_end; slice_pos += mosaic_width)
@@ -1751,9 +1761,11 @@ public:
                     ge_out << "item";
                 else
                     ge_out << "("  << std::setw( 4 ) << std::setfill( '0' ) << std::hex << std::uppercase << data[i].group
-                           << ","  << std::setw( 4 ) << std::setfill( '0' ) << std::hex << std::uppercase << data[i].element << ")";                                                        ;
+                           << ","  << std::setw( 4 ) << std::setfill( '0' ) << std::hex << std::uppercase << data[i].element << ") "
+                           << data[i].lt0 << data[i].lt1 << " " << std::dec << data[i].data.size() << " bytes ";
+
                 if(item_tag)
-                    ge_out << "[" << i << "].";
+                    ge_out << "[" << i << "] ";
                 group_element_str = ge_out.str();
             }
 
@@ -1770,29 +1782,8 @@ public:
 
             out << group_element_str << "=";
 
-            if(data[i].data.empty())
-            {
-                out << "empty";
-            }
-            else
-            {
-                out << data[i].data.size() << " bytes ";
-                if(data[i].data.empty())
-                {
-                    out << std::setw( 8 ) << std::setfill( '0' ) << std::hex << std::uppercase <<
-                    data[i].length << " ";
-                    out << std::dec;
-                }
-                else
-                {
-                    unsigned short vr = data[i].vr;
-                    if((vr & 0xFF) && (vr >> 8))
-                        out << (char)(vr & 0xFF) << (char)(vr >> 8) << " ";
-                    else
-                        out << "   ";
-                    data[i] >> out;
-                }
-            }
+            if(!data[i].data.empty())
+                data[i] >> out;
             out << std::endl;
         }
         report += out.str();
