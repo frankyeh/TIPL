@@ -1384,7 +1384,12 @@ public:
     {
         return get_float(0x0018,0x0081);
     }
-    bool get_btable(float& bvalue,float& bx,float& by,float& bz)
+    bool is_dwi(void) const
+    {
+        float bv,bx,by,bz;
+        return get_btable(bv,bx,by,bz);
+    }
+    bool get_btable(float& bvalue,float& bx,float& by,float& bz) const
     {
         if(!csa_map.empty())
         {
