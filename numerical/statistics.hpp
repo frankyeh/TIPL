@@ -131,15 +131,11 @@ double gaussian_distribution(value_type x,value_type mean,value_type variance,va
 
 template<typename T,typename Enable = void>
 struct sum_result_type {
-    using type = void;
+    using type = T;
 };
 template<typename T>
 struct sum_result_type<T,typename std::enable_if<std::is_integral<T>::value>::type>{
     using type = int64_t;
-};
-template<typename T>
-struct sum_result_type<T,typename std::enable_if<std::is_class<T>::value>::type>{
-    using type = T;
 };
 template<typename T>
 struct sum_result_type<T,typename std::enable_if<std::is_floating_point<T>::value>::type> {
