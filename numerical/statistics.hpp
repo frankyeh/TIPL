@@ -212,7 +212,7 @@ __INLINE__ return_type square_sum(input_iterator from,input_iterator to)
 #ifdef __CUDACC__
 struct square_sum_imp {
     template<typename T>
-    __device__ auto operator()(const T& v) const {
+    __device__ sum_result_type<T>::type operator()(const T& v) const {
         typename sum_result_type<T>::type vv(v);
         vv *= v;
         return vv;
