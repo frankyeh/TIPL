@@ -247,12 +247,6 @@ inline std::vector<std::string> search_dirs(const std::string& search_path,const
 template<typename out_type = void,typename error_type = void>
 bool search_filesystem(std::string path,std::vector<std::string>& filenames,bool file = true)
 {
-#ifdef _WIN32
-    std::locale utf8_locale(".UTF-8");
-#else
-    std::locale utf8_locale("en_US.UTF-8");
-#endif
-
     if constexpr(!std::is_void<out_type>::value)
     {
         if(file)
