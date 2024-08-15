@@ -111,8 +111,7 @@ private:
     std::map<unsigned short,ifd> entries;
     std::map<unsigned short,unsigned int> info;
 public:
-	template<typename char_type>
-    bool load_from_file(const char_type* file_name)
+    bool load_from_file(const std::string& file_name)
     {
         std::ifstream in(file_name,std::ios::binary);
         //Bytes 0-1: The byte order used within the file. Legal values are:"II" (4949.H)
