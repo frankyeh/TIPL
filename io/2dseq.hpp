@@ -61,9 +61,7 @@ private:
         }
     }
 public:
-    template<typename char_type>
-    bool load_from_file(const char_type* file_name)
-
+    bool load_from_file(const std::string& file_name)
     {
         std::ifstream info(file_name);
         if(!info)
@@ -129,7 +127,7 @@ private:
     std::string tmp;
     std::wstring wtmp;
 
-    bool check_name(const char* filename)
+    bool check_name(const std::string& filename)
     {
         std::string str = filename;
         if(str.length() < 5)
@@ -139,24 +137,14 @@ private:
             return false;
         return true;
     }
-    bool check_name(const wchar_t* filename)
-    {
-        std::wstring str = filename;
-        if(str.length() < 5)
-            return false;
-        std::wstring name(str.end()-5,str.end());
-        if(name[0] != L'2' || name[1] != L'd' || name[2] != L's' || name[3] != L'e' || name[4] != L'q')
-            return false;
-        return true;
-    }
-    const char* load_method(const char* filename)
+    const char* load_method(const std::string& filename)
     {
         std::string str = filename;
         tmp = str.substr(0,str.find_last_of("/\\",str.find_last_of("/\\",str.find_last_of("/\\")-1)-1)+1);
         tmp += "method";
         return tmp.c_str();
     }
-    const char* load_reco(const char* filename)
+    const char* load_reco(const std::string& filename)
     {
         std::string str = filename;
         tmp = std::string(str.begin(),str.end()-5);
@@ -170,7 +158,7 @@ private:
         wtmp += L"reco";
         return wtmp.c_str();
     }
-    const char* load_visu(const char* filename)
+    const char* load_visu(const std::string& filename)
     {
         std::string str = filename;
         tmp = std::string(str.begin(),str.end()-5);
@@ -187,9 +175,7 @@ private:
     
 public:
     std::vector<float> slopes;
-
-    template<typename char_type>
-    bool load_from_file(const char_type* file_name)
+    bool load_from_file(const std::string& file_name)
     {
         if(!check_name(file_name))
             return false;
