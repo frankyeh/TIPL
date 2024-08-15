@@ -155,11 +155,6 @@ private:
 public:
     bool load_from_file(const std::string& file_name)
     {
-        return load_from_file(file_name.c_str());
-    }
-    template<typename char_type>
-    bool load_from_file(const char_type* file_name)
-    {
         prog_type prog((std::string("opening ")+std::filesystem::path(file_name).filename().u8string()).c_str());
         std::ifstream in(file_name);
         if(!in)
