@@ -441,14 +441,14 @@ public:
      return *this;}
 public:
     template<typename format_type>
-    bool save_to_file(const char* file_name) const
+    bool save_to_file(const std::string& file_name) const
     {
         format_type out;
         out.load_from_image(*this);
         return out.save_to_file(file_name);
     }
     template<typename format_type,typename voxel_type>
-    bool save_to_file(const char* file_name,voxel_type vs) const
+    bool save_to_file(const std::string& file_name,voxel_type vs) const
     {
         format_type out;
         out.load_from_image(*this);
@@ -456,7 +456,7 @@ public:
         return out.save_to_file(file_name);
     }
     template<typename format_type>
-    bool load_from_file(const char* file_name)
+    bool load_from_file(const std::string& file_name)
     {
         format_type out;
         if(!out.load_from_file(file_name))
