@@ -65,14 +65,12 @@ public:
         std::fill(reinterpret_cast<char*>(&bmih),reinterpret_cast<char*>(&bmih)+sizeof(bmih),0);
         bmih.biSize = sizeof(bitmap_info_header);
     }
-    template<typename char_type>
-    bitmap(const char_type* file_name)
+    bitmap(const std::string& file_name)
     {
         if (!load_from_file(file_name))
             throw std::runtime_error("failed to open bitmap file");
     }
-    template<typename char_type>
-    bool save_to_file(const char_type* file_name) const
+    bool save_to_file(const std::string& file_name) const
     {
         std::ofstream out(file_name,std::ios::binary);
         return save_to_stream(out);
@@ -86,8 +84,7 @@ public:
         out.write(reinterpret_cast<const char*>(&*data.begin()),int64_t(data.size()));
         return true;
     }
-    template<typename char_type>
-    bool load_from_file(const char_type* file_name)
+    bool load_from_file(const std::string& file_name)
     {
         std::ifstream in(file_name,std::ios::binary);
         if (!in || !bmfh.read(in))
