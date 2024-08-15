@@ -541,7 +541,7 @@ public:
         return data.empty();
     }
     template <typename io_type>
-    bool load_from_file(const char* file_name)
+    bool load_from_file(const std::string& file_name)
     {
         io_type in;
         if(!in.open(file_name))
@@ -562,7 +562,7 @@ public:
         return !!in;
     }
     template <typename io_type>
-    bool save_to_file(const char* file_name) const
+    bool save_to_file(const std::string& file_name) const
     {
         io_type out;
         if(!out.open(file_name))
@@ -1010,7 +1010,7 @@ public:
         return out.str();
     }
     template<typename io_type>
-    bool save_to_file(const char* file_name)
+    bool save_to_file(const std::string& file_name)
     {
         io_type out;
         if(!out.open(file_name))
@@ -1024,7 +1024,7 @@ public:
         return true;
     }
     template<typename io_type>
-    bool load_from_file(const char* file_name)
+    bool load_from_file(const std::string& file_name)
     {
         io_type in;
         if(!in.open(file_name))
