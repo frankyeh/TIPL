@@ -37,7 +37,7 @@ public:
     estimate_time(const char* name_):name(name_){}
     ~estimate_time()
     {
-        std::cout << name.c_str() << time_total/double(n) << " microseconds" << std::endl;
+        std::cout << name << time_total/double(n) << " microseconds" << std::endl;
     }
     void start(void)
     {
