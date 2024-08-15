@@ -48,7 +48,7 @@ public:
             std::fill(begin()+index*width()+1,begin()+(index+1)*width()-1,color);
         }
     }
-    bool load_from_file(const char* file_name)
+    bool load_from_file(const std::string& file_name)
     {
         std::ifstream in(file_name);
         if(!in)
@@ -96,7 +96,7 @@ public:
             color[index][2] = float(tipl::color_spectrum_value(64,uint8_t(index)))/255.0f;
         }
     }
-    bool load_from_file(const char* file_name)
+    bool load_from_file(const std::string& file_name)
     {
         std::ifstream in(file_name);
         if(!in)
@@ -140,7 +140,7 @@ public:
             color[index][0] = tipl::color_spectrum_value(64,uint8_t(index));
         }
     }
-    bool load_from_file(const char* file_name)
+    bool load_from_file(const std::string& file_name)
     {
         std::ifstream in(file_name);
         if(!in)
