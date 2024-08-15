@@ -283,7 +283,7 @@ public:
     bool sample_access_point = false;
     bool buffer_all = false;
     bool free_on_read = true;
-    bool load_index(const char* file_name)
+    bool load_index(const std::string& file_name)
     {
         std::ifstream in(file_name,std::ios::binary);
         if(!in)
@@ -301,7 +301,7 @@ public:
         }
         return true;
     }
-    bool save_index(const char* file_name)
+    bool save_index(const std::string& file_name)
     {
         std::ofstream out(file_name,std::ios::binary);
         if(!out)
@@ -317,7 +317,7 @@ public:
     bool has_access_points(void) const {return !points.empty();}
 public:
     ~gz_istream(void){close();}
-    bool open(const char* file_name)
+    bool open(const std::string& file_name)
     {
         in.open(file_name,std::ios::binary);
         if(!in)
@@ -535,7 +535,7 @@ public:
 class gz_ostream{
     std::ofstream out;
     gzFile handle;
-    bool is_gz(const char* file_name)
+    bool is_gz(const std::string& file_name)
     {
         std::string filename = file_name;
         if (filename.length() > 3 &&
@@ -552,14 +552,14 @@ public:
         close();
     }
 public:
-    bool open(const char* file_name)
+    bool open(const std::string& file_name)
     {
         if(is_gz(file_name))
         {
-            handle = gzopen(file_name, "wb");
+            handle = gzopen(file_name.c_str(), "wb");
             std::string idx_name(file_name);
             idx_name += ".idx";
-            if(std::ifstream(idx_name.c_str(),std::ios::binary))
+            if(std::ifstream(idx_name,std::ios::binary))
                 ::remove(idx_name.c_str());
             return handle;
         }
