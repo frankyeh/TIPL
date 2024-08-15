@@ -242,7 +242,7 @@ public:
         return true;
     }
     template<typename reader>
-    static std::shared_ptr<unet3d> load_model(const char* file_name)
+    static std::shared_ptr<unet3d> load_model(const std::string& file_name)
     {
         reader in;
         if(!in.load_from_file(file_name))
