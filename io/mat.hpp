@@ -115,7 +115,7 @@ public:
         type = mat_type_info<Type>::type;
     }
     template<typename Type>
-    void assign(const char* name_,const Type* data_ptr_,unsigned int rows_,unsigned int cols_)
+    void assign(const std::string& name_,const Type* data_ptr_,unsigned int rows_,unsigned int cols_)
     {
         name = name_;
         type = mat_type_info<Type>::type;
@@ -309,7 +309,7 @@ public:
         out.write(reinterpret_cast<const char*>(&cols),4);
         out.write(reinterpret_cast<const char*>(&imagf),4);
         out.write(reinterpret_cast<const char*>(&namelen),4);
-        out.write(reinterpret_cast<const char*>(&*name.begin()),namelen);
+        out.write(reinterpret_cast<const char*>(name.data()),namelen);
         return out.write(reinterpret_cast<const char*>(data_ptr),get_total_size(type));
     }
     void get_info(std::string& info) const
@@ -379,15 +379,21 @@ public:
     std::string error_msg;
     mat_read_base(void):in(new input_interface){}
     mat_read_base(const mat_read_base& rhs){copy(rhs);}
-    void remove(size_t index)
+    void remove(const std::string& name)
     {
-        dataset.erase(dataset.begin()+index);
+        remove(index_of(name));
+    }
+    void remove(size_t remove_index)
+    {
+        if(remove_index >= dataset.size())
+            return;
+        dataset.erase(dataset.begin()+remove_index);
         name_table.clear();
         for(size_t index = 0;index < dataset.size();++index)
             name_table[dataset[index]->get_name()] = index;
     }
     template<typename T>
-    T* get_data(const char* name)
+    T* get_data(const std::string& name)
     {
         auto item = name_table.find(name);
         if(item == name_table.end())
@@ -406,19 +412,26 @@ public:
         in.swap(rhs.in);
         std::swap(delay_read,rhs.delay_read);
     }
-    bool has(const char* name) const
+    bool has(const std::string& name) const
     {
         return name_table.find(name) != name_table.end();
     }
+    size_t index_of(const std::string& name)
+    {
+        auto iter = name_table.find(name);
+        if(iter == name_table.end())
+            return dataset.size();
+        return iter->second;
+    }
     template<typename T>
-    bool type_compatible(const char* name)
+    bool type_compatible(const std::string& name)
     {
         auto iter = name_table.find(name);
         if(iter == name_table.end())
             return false;
         return dataset[iter->second]->template type_compatible<T>();
     }
-    bool get_col_row(const char* name,unsigned int& rows,unsigned int& cols)
+    bool get_col_row(const std::string& name,unsigned int& rows,unsigned int& cols)
     {
         auto iter = name_table.find(name);
         if(iter == name_table.end())
@@ -448,14 +461,21 @@ public:
         return dataset[index]->template get_data<T>();
     }
     template<typename T>
-    auto read_as_vector(const char* name) const
+    T read_as_value(const std::string& name) const
+    {
+        unsigned int rows,cols;
+        auto ptr = read_as_type<T>(name,rows,cols);
+        return ptr ? *ptr : T();
+    }
+    template<typename T>
+    auto read_as_vector(const std::string& name) const
     {
         unsigned int rows,cols;
         auto ptr = read_as_type<T>(name,rows,cols);
         return ptr ? std::vector<T>(ptr,ptr+rows*cols) : std::vector<T>();
     }
     template<typename T>
-    const T* read_as_type(const char* name,unsigned int& rows,unsigned int& cols) const
+    const T* read_as_type(const std::string& name,unsigned int& rows,unsigned int& cols) const
     {
         auto iter = name_table.find(name);
         if (iter == name_table.end())
@@ -468,12 +488,12 @@ public:
         return out = read_as_type<T>(index,rows,cols);
     }
     template<typename T>
-    const T*& read(const char* name,unsigned int& rows,unsigned int& cols,const T*& out) const
+    const T*& read(const std::string& name,unsigned int& rows,unsigned int& cols,const T*& out) const
     {
         return out = read_as_type<T>(name,rows,cols);
     }
     template<typename iterator>
-    bool read(const char* name,iterator first,iterator last) const
+    bool read(const std::string& name,iterator first,iterator last) const
     {
         unsigned int rows,cols,size(std::distance(first,last));
         const typename std::iterator_traits<iterator>::value_type* ptr = nullptr;
@@ -482,7 +502,7 @@ public:
         std::copy(ptr,ptr+std::min<size_t>(rows*cols,size),first);
         return true;
     }
-    bool read(const char* name,std::string& str) const
+    bool read(const std::string& name,std::string& str) const
     {
         const char* buf = nullptr;
         unsigned int row,col;
@@ -495,7 +515,7 @@ public:
         return true;
     }
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    bool read(const char* name,T& value) const
+    bool read(const std::string& name,T& value) const
     {
         const T* ptr = nullptr;
         unsigned int rows,cols;
@@ -505,12 +525,12 @@ public:
         return true;
     }
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    bool read(const char* name,T& data) const
+    bool read(const std::string& name,T& data) const
     {
         return read(name,data.begin(),data.end());
     }
     template<typename T>
-    T read(const char* name) const
+    T read(const std::string& name) const
     {
         T data;
         read(name,data);
@@ -520,8 +540,8 @@ public:
 public:
     std::shared_ptr<input_interface> in;
     bool delay_read = false;
-    template<typename char_type,typename prog_type = tipl::io::default_prog_type>
-    bool load_from_file(const char_type* file_name,prog_type&& prog = prog_type())
+    template<typename prog_type = tipl::io::default_prog_type>
+    bool load_from_file(const std::string& file_name,prog_type&& prog = prog_type())
     {
         if(!in->open(file_name))
         {
@@ -542,7 +562,7 @@ public:
         }    
         return !dataset.empty();
     }
-    void add(const char* name_,const mat_matrix& matrix)
+    void add(const std::string& name_,const mat_matrix& matrix)
     {
         std::shared_ptr<mat_matrix> new_matrix(new mat_matrix);
         *(new_matrix.get()) = matrix;
@@ -551,7 +571,7 @@ public:
     }
 
     template<typename container_type>
-    void add(const char* name_,const container_type& container)
+    void add(const std::string& name_,const container_type& container)
     {
         std::shared_ptr<mat_matrix> matrix(new mat_matrix);
         matrix->assign(name_,container.data(),1,uint32_t(container.end()-container.begin()));
@@ -560,7 +580,7 @@ public:
     }
 
     template<typename Type>
-    void add(const char* name_,const Type* data_ptr,unsigned int rows,unsigned int cols)
+    void add(const std::string& name_,const Type* data_ptr,unsigned int rows,unsigned int cols)
     {
         std::shared_ptr<mat_matrix> matrix(new mat_matrix);
         matrix->assign(name_,data_ptr,rows,cols);
@@ -607,9 +627,9 @@ public:
             vs[i] = vs_ptr[i];
         return true;
     }
-    const char* name(unsigned int index) const
+    const std::string& name(unsigned int index) const
     {
-        return dataset[index]->get_name().c_str();
+        return dataset[index]->get_name();
     }
 
     auto size(void) const
@@ -635,19 +655,18 @@ class mat_write_base
 {
     output_interface out;
 public:
-    mat_write_base(const char* file_name)
+    mat_write_base(const std::string& file_name)
     {
         out.open(file_name);
     }
 public:
     template<typename Type,typename size_type,typename size_type2>
-    bool write(const char* name_,const Type* data_ptr,size_type rows_,size_type2 cols_)
+    bool write(const std::string& name,const Type* data_ptr,size_type rows_,size_type2 cols_)
     {
         if(!rows_ || !cols_)
             return false;
         unsigned int imagf = 0;
         unsigned int type = mat_type_info<Type>::type;
-        std::string name(name_);
         unsigned int namelen = uint32_t(name.length()+1);
         unsigned int rows = uint32_t(rows_);
         unsigned int cols = uint32_t(cols_);
@@ -661,12 +680,12 @@ public:
         return out;
     }
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    bool write(const char* name,T value)
+    bool write(const std::string& name,T value)
     {
         return write(name,&value,1,1);
     }
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    bool write(const char* name,const T& data)
+    bool write(const std::string& name,const T& data)
     {
         auto size = uint32_t(data.end()-data.begin());
         if(!size)
@@ -674,13 +693,13 @@ public:
         return write(name,data.data(),1,size);
     }
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    bool write(const char* name,const T& data,uint32_t d)
+    bool write(const std::string& name,const T& data,uint32_t d)
     {
         if(data.empty())
             return false;
         return write(name,data.data(),d,uint32_t((data.end()-data.begin())/d));
     }
-    bool write(const char* name,const std::string& text)
+    bool write(const std::string& name,const std::string& text)
     {
         if(text.empty())
             return false;
