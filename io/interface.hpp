@@ -107,8 +107,7 @@ class std_istream{
     std::ifstream in;
 public:
     std_istream(void):size_(0){}
-    template<typename char_type>
-    bool open(const char_type* file_name)
+    bool open(const std::string& file_name)
     {
         in.open(file_name,std::ios::binary);
         if(in)
@@ -166,8 +165,7 @@ public:
 class std_ostream{
     std::ofstream out;
 public:
-    template<typename char_type>
-    bool open(const char_type* file_name)
+    bool open(const std::string& file_name)
     {
         out.open(file_name,std::ios::binary);
         return out.good();
