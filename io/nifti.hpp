@@ -355,12 +355,6 @@ private:
             return true;
         return false;
     }
-
-
-    const char* get_header_name(char)const{return ".hdr";}
-    const wchar_t* get_header_name(wchar_t)const{return L".hdr";}
-    const char* get_image_name(char)const{return ".img";}
-    const wchar_t* get_image_name(wchar_t)const{return L".img";}
     void convert_to_small_endian(void)
     {
         change_endian(header.hk.sizeof_hdr);
@@ -473,12 +467,7 @@ private:
 public:
     bool load_from_file(const std::string& file_name)
     {
-        return load_from_file(file_name.c_str());
-    }
-    template<typename char_type>
-    bool load_from_file(const char_type* pfile_name)
-    {
-        if (!input_stream->open(pfile_name))
+        if (!input_stream->open(file_name))
         {
             error_msg = "Cannot read the file. No reading privilege or the file does not exist.";
             return false;
@@ -583,16 +572,14 @@ public:
             else
             {
                 // find the img file
-                typedef std::basic_string<char_type, std::char_traits<char_type>,std::allocator<char_type> > string_type;
-                string_type file_name(pfile_name);
                 if (file_name.size() < 4)
                 {
                     error_msg = "Failed to find the img file.";
                     return false;
                 }
-                string_type file_name_no_ext(file_name.begin(),file_name.end()-4);
-                string_type data_file(file_name_no_ext);
-                data_file += get_image_name(char_type());
+                auto file_name_no_ext = std::string(file_name.begin(),file_name.end()-4);
+                auto data_file = file_name_no_ext;
+                data_file += ".img";
                 input_stream.reset(new input_interface);
                 if(!input_stream->open(data_file.c_str()))
                 {
@@ -777,12 +764,12 @@ public:
             write_buf = &*source.begin();
         is_nii = true;
     }
-    template<tipl::interpolation interpotype = linear,typename char_type,typename image_type,typename srow_type>
-    static bool load_to_space(const char_type* pfile_name,image_type& I,const srow_type& I_T)
+    template<tipl::interpolation interpotype = linear,typename image_type,typename srow_type>
+    static bool load_to_space(const std::string& file_name,image_type& I,const srow_type& I_T)
     {
         nifti_base nii;
         image_type J;
-        if(!nii.load_from_file(pfile_name) ||
+        if(!nii.load_from_file(file_name) ||
            !nii.toLPS(J))
             return false;
         srow_type J_T;
@@ -793,30 +780,30 @@ public:
             resample<interpotype>(J,I,from_space(I_T).to(J_T));
         return true;
     }
-    template<typename char_type,typename image_type>
-    static bool load_from_file(const char_type* pfile_name,image_type& I)
+    template<typename image_type>
+    static bool load_from_file(const std::string& file_name,image_type& I)
     {
         nifti_base nii;
-        if(!nii.load_from_file(pfile_name) ||
+        if(!nii.load_from_file(file_name) ||
            !nii.toLPS(I))
             return false;
         return true;
     }
-    template<typename char_type,typename image_type,typename vs_type>
-    static bool load_from_file(const char_type* pfile_name,image_type& I,vs_type& vs)
+    template<typename image_type,typename vs_type>
+    static bool load_from_file(const std::string& file_name,image_type& I,vs_type& vs)
     {
         nifti_base nii;
-        if(!nii.load_from_file(pfile_name) ||
+        if(!nii.load_from_file(file_name) ||
            !nii.toLPS(I))
             return false;
         nii.get_voxel_size(vs);
         return true;
     }
-    template<typename char_type,typename image_type,typename vs_type,typename srow_type>
-    static bool load_from_file(const char_type* pfile_name,image_type& I,vs_type& vs,srow_type& T,bool& is_mni)
+    template<typename image_type,typename vs_type,typename srow_type>
+    static bool load_from_file(const std::string& file_name,image_type& I,vs_type& vs,srow_type& T,bool& is_mni)
     {
         nifti_base nii;
-        if(!nii.load_from_file(pfile_name) ||
+        if(!nii.load_from_file(file_name) ||
            !nii.toLPS(I))
             return false;
         nii.get_voxel_size(vs);
@@ -824,18 +811,18 @@ public:
         is_mni = (nii.nif_header.sform_code == 4); // NIFTI_XFORM_MNI_152
         return true;
     }
-    template<typename char_type,typename image_type,typename vs_type,typename srow_type>
-    static inline bool load_from_file(const char_type* pfile_name,image_type& I,vs_type& vs,srow_type& T)
+    template<typename image_type,typename vs_type,typename srow_type>
+    static inline bool load_from_file(const std::string& file_name,image_type& I,vs_type& vs,srow_type& T)
     {
         bool is_mni = false;
-        return load_from_file(pfile_name,I,vs,T,is_mni);
+        return load_from_file(file_name,I,vs,T,is_mni);
     }
-    template<typename char_type,typename image_type,typename vs_type,typename srow_type>
-    static inline bool load_to_space(const char_type* pfile_name,image_type& I,tipl::matrix<4,4>& space_to)
+    template<typename image_type,typename vs_type,typename srow_type>
+    static inline bool load_to_space(const std::string& file_name,image_type& I,tipl::matrix<4,4>& space_to)
     {
         nifti_base nii;
         image_type I_;
-        if(!nii.load_from_file(pfile_name) ||
+        if(!nii.load_from_file(file_name) ||
            !nii.toLPS(I_))
             return false;
         tipl::matrix<4,4> space_from;
@@ -849,8 +836,8 @@ public:
         return true;
     }
 
-    template<typename char_type,typename image_type,typename vs_type,typename srow_type>
-    static bool save_to_file(const char_type* pfile_name,const image_type& I,const vs_type& vs,const srow_type& T,
+    template<typename image_type,typename vs_type,typename srow_type>
+    static bool save_to_file(const std::string& file_name,const image_type& I,const vs_type& vs,const srow_type& T,
                              bool is_mni_152 = false,const char* descript = nullptr)
     {
         nifti_base nii;
@@ -859,10 +846,10 @@ public:
         nii.load_from_image(I);
         if(descript)
             nii.set_descrip(descript);
-        return nii.save_to_file(pfile_name);
+        return nii.save_to_file(file_name);
     }
-    template<typename char_type,typename prog_type = default_prog_type>
-    bool save_to_file(const char_type* pfile_name,prog_type&& prog = prog_type())
+    template<typename prog_type = default_prog_type>
+    bool save_to_file(const std::string& file_name,prog_type&& prog = prog_type())
     {
         if(!write_buf)
         {
@@ -881,10 +868,10 @@ public:
             nif_header.magic[3] = 0;
         }
         output_interface out;
-        if(!out.open(pfile_name))
+        if(!out.open(file_name))
         {
             error_msg = "Could not open the file ";
-            error_msg += pfile_name;
+            error_msg += file_name;
             error_msg += ". Please check if the file path is correct and you have the necessary permissions to write to this file.";
             return false;
         }
