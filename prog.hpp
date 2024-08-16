@@ -84,7 +84,7 @@ inline void update_prog(std::string status,bool show_now = false,uint32_t now = 
 
 class progress{
 private:
-    void begin_prog(const char* status,bool show_now = false)
+    void begin_prog(const std::string& status,bool show_now = false)
     {
         if(!tipl::is_main_thread())
             return;
@@ -184,32 +184,32 @@ private:
     }
     static std::string get_color_line(std::string line,bool head_node,unsigned int error_code)
     {
-        const char* color_end = "\033[0m";
-        const char* color31 = "\033[1;31m";
-        const char* color32 = "\033[0;32m";
-        const char* color33 = "\033[0;33m";
-        const char* color34 = "\033[1;34m";
-        const char* color35 = "\033[1;35m";
+        std::string color_end = "\033[0m";
+        std::string color31 = "\033[1;31m";
+        std::string color32 = "\033[0;32m";
+        std::string color33 = "\033[0;33m";
+        std::string color34 = "\033[1;34m";
+        std::string color35 = "\033[1;35m";
         if(error_code)
-            return std::string(color31) + reinterpret_cast<const char*>(&error_code) + line + color_end;
+            return color31 + reinterpret_cast<const char*>(&error_code) + line + color_end;
         if(tipl::begins_with(line,"sav"))
-            return std::string(color35) + "💾" + line + color_end;
+            return color35 + "💾" + line + color_end;
         if(tipl::begins_with(line,"open"))
-            return std::string(color35) + "📂" + line + color_end;
+            return color35 + "📂" + line + color_end;
         if(head_node)
-            return std::string(color34) + std::string("📟") + line + color_end;
+            return color34 + std::string("📟") + line + color_end;
 
         auto eq_pos = line.find('=');
         if(eq_pos != std::string::npos)
-            return std::string(color32) + line.substr(0,eq_pos) + color_end + line.substr(eq_pos);
+            return color32 + line.substr(0,eq_pos) + color_end + line.substr(eq_pos);
 
         auto info_pos = line.find(": ");
         if(info_pos != std::string::npos)
-            return std::string(color33) + line.substr(0,info_pos) + color_end + line.substr(info_pos);
+            return color33 + line.substr(0,info_pos) + color_end + line.substr(info_pos);
         return line;
     }
 public:
-    static void print(const char* status,bool head_node, bool tail_node,unsigned int error_code = 0)
+    static void print(const std::string& status,bool head_node, bool tail_node,unsigned int error_code = 0)
     {
         std::scoped_lock<std::mutex> lock(print_mutex);
         std::istringstream in(status);
@@ -232,12 +232,12 @@ public:
 public:
     bool temporary = false;
     progress(void):temporary(true){}
-    progress(const char* status,bool show_now = false)
+    progress(const std::string& status,bool show_now = false)
     {
         print(status,true,false);
         begin_prog(status,show_now);
     }
-    progress(const char* status1,const char* status2,bool show_now = false)
+    progress(const std::string& status1,const std::string& status2,bool show_now = false)
     {
         std::string s(status1);
         s += status2;
@@ -290,7 +290,7 @@ public:
 
 
 template<typename fun_type>
-bool run(const char* msg,fun_type fun)
+bool run(const std::string& msg,fun_type fun)
 {
     if(!show_prog)
     {
