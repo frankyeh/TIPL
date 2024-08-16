@@ -1064,7 +1064,7 @@ template<tipl::interpolation itype = linear,typename T,typename U,typename V,
          typename std::enable_if<!std::is_same_v<std::decay_t<U>,shape<T::dimension> >,bool>::type = true>
 inline void resample(const T& from,U&& to,const V& trans)
 {
-    resample<itype>(from,to,tipl::transformation_matrix<typename T::value_type,T::dimension>(trans));
+    resample<itype>(from,to,tipl::transformation_matrix<typename V::value_type,T::dimension>(trans));
 }
 
 template<tipl::interpolation itype = linear,typename T,typename U>
