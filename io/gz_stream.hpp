@@ -335,7 +335,6 @@ public:
             std::string filename = file_name;
             if (filename.length() > 3 &&
                 filename[filename.length()-3] == '.' &&
-                filename[filename.length()-2] == 'g' &&
                 filename[filename.length()-1] == 'z')
                 is_gz = true;
         }
@@ -540,7 +539,6 @@ class gz_ostream{
         std::string filename = file_name;
         if (filename.length() > 3 &&
                 filename[filename.length()-3] == '.' &&
-                filename[filename.length()-2] == 'g' &&
                 filename[filename.length()-1] == 'z')
             return true;
         return false;
