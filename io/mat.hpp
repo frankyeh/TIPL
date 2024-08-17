@@ -165,6 +165,19 @@ public:
         // same type or unsigned short v.s. short
         return mat_type_info<T>::type == type || (type == 40 && mat_type_info<T>::type == 30) || (type == 30 && mat_type_info<T>::type == 40);
     }
+
+    template<typename stream_type>
+    void flush(stream_type& in,bool flush)
+    {
+        if(has_delay_read())
+        {
+            if(!read(*in.get()))
+                return;
+            if(flush)
+                in->flush();
+        }
+    }
+
     template<typename T>
     T* get_data(void)
     {
@@ -392,12 +405,20 @@ public:
         for(size_t index = 0;index < dataset.size();++index)
             name_table[dataset[index]->get_name()] = index;
     }
+    void flush(unsigned int index)
+    {
+        if(index >= dataset.size())
+            return;
+        dataset[index]->flush(in,true);
+    }
     template<typename T>
     T* get_data(const std::string& name)
     {
         auto item = name_table.find(name);
         if(item == name_table.end())
             return nullptr;
+        // if type is not compatible, make sure all data are flushed before calling get_data);
+        dataset[item->second]->flush(in,!dataset[item->second]->type_compatible<T>());
         return dataset[item->second]->template get_data<T>();
     }
     const mat_read_base& operator=(const mat_read_base& rhs)
@@ -448,16 +469,10 @@ public:
     {
         if (index >= dataset.size())
             return nullptr;
-        if(dataset[index]->has_delay_read())
-        {
-            if(!dataset[index]->read(*in.get()))
-                return nullptr;
-            // if type is not compatible, make sure all data are flushed before calling get_data
-            if(!dataset[index]->template type_compatible<T>())
-                in->flush();
-        }
         rows = dataset[index]->get_rows();
         cols = dataset[index]->get_cols();
+        // if type is not compatible, make sure all data are flushed before calling get_data);
+        dataset[index]->flush(in,!dataset[index]->type_compatible<T>());
         return dataset[index]->template get_data<T>();
     }
     template<typename T>
