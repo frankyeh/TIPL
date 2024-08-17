@@ -721,12 +721,14 @@ public:
      *
      **/
     template<typename iterator1,typename iterator2,typename iterator3>
-    void regress(iterator1 y,iterator2 b,iterator3 t) const
+    bool regress(iterator1 y,iterator2 b,iterator3 t) const
     {
-        regress(y,b);
+        if(!regress(y,b))
+            return false;
         value_type rmse = get_rmse(y,b); // residual
         for(unsigned int index = 0;index < feature_count;++index)
             t[index] = b[index]/X_cov[index]/rmse;
+        return true;
     }
     // calculate residual
     template<typename iterator1,typename iterator2>
@@ -749,11 +751,11 @@ public:
 
 
     template<typename iterator1,typename iterator2>
-    void regress(iterator1 y,iterator2 b) const
+    bool regress(iterator1 y,iterator2 b) const
     {
         std::vector<value_type> xty(feature_count); // trans(x)*y    p by 1
         tipl::mat::vector_product(&*Xt.begin(),y,&*xty.begin(),tipl::shape<2>(feature_count,subject_count));
-        tipl::mat::lu_solve(&*XtX.begin(),&*piv.begin(),&*xty.begin(),b,
+        return tipl::mat::lu_solve(&*XtX.begin(),&*piv.begin(),&*xty.begin(),b,
                                 tipl::shape<2>(feature_count,feature_count));
     }
 
