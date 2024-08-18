@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <map>
 #include "interface.hpp"
+#include "../mt.hpp"
 namespace tipl
 {
 
@@ -62,25 +63,19 @@ struct mat_type_info<char>
 
 class mat_matrix
 {
-private:
-    union{
-        struct{
-            unsigned int type;
-            unsigned int rows;
-            unsigned int cols;
-            unsigned int imagf;
-            unsigned int namelen;
-        };
-        char buf[20];
-    };
-
-private:
+public:
+    alignas(4) unsigned int type = 0;
+    alignas(4) unsigned int rows = 0;
+    alignas(4) unsigned int cols = 0;
+    alignas(4) unsigned int imagf = 0;
+    alignas(4) unsigned int namelen = 0;
+public:
     std::string name;
-private:
-    std::vector<unsigned char> data_buf;
-    void* data_ptr = nullptr; // for read
-    size_t delay_read_pos = 0;
-private:
+    std::vector<std::shared_ptr<mat_matrix> > sub_data;
+public:
+    mutable std::vector<unsigned char> data_buf,converted_data_buf;
+    mutable size_t delay_read_pos = 0;
+public:
     void copy(const mat_matrix& rhs)
     {
         type = rhs.type;
@@ -89,74 +84,90 @@ private:
         name = rhs.name;
         namelen = rhs.namelen;
         data_buf = rhs.data_buf;
-        data_ptr = data_buf.empty() ? nullptr : &*data_buf.begin();
+        converted_data_buf = rhs.converted_data_buf;
+        delay_read_pos = rhs.delay_read_pos;
     }
-
     size_t get_total_size(unsigned int ty) const
     {
         unsigned int element_size_array[10] = {8,4,4,2,2,1,0,0,0,0};
-        return size_t(rows)*size_t(cols)*size_t(element_size_array[(ty%100)/10]);
+        return size()*size_t(element_size_array[(ty%100)/10]);
     }
 public:
-    mat_matrix(void):type(0),rows(0),cols(0),namelen(0){}
-    mat_matrix(const std::string& name_):type(0),rows(0),cols(0),namelen(uint32_t(name_.size()+1)),name(name_){}
+    mat_matrix(void){}
+    mat_matrix(const std::string& name_):namelen(name_.size()+1),name(name_){}
     mat_matrix(const mat_matrix& rhs){copy(rhs);}
+    template <typename T,typename std::enable_if<std::is_arithmetic<T>::value,bool>::type = true>
+    mat_matrix(const std::string& name_,T value):type(mat_type_info<T>::type),rows(1),cols(1),namelen(name_.size()+1),name(name_)
+    {
+        data_buf.resize(sizeof(T));
+        *reinterpret_cast<T*>(data_buf.data()) = value;
+    }
+    template<typename T>
+    mat_matrix(const std::string& name_,const T* ptr,unsigned int rows_,unsigned int cols_):
+        type(mat_type_info<T>::type),rows(rows_),cols(cols_),namelen(name_.size()+1),name(name_)
+    {
+        data_buf.resize(size()*size_t(sizeof(T)));
+        std::copy(ptr,ptr+size(),reinterpret_cast<T*>(data_buf.data()));
+    }
     const mat_matrix& operator=(const mat_matrix& rhs)
     {
         copy(rhs);
         return *this;
     }
-    template<typename Type>
-    void assign(const Type* data_ptr_,unsigned int rows_,unsigned int cols_)
+    template<typename T,typename std::enable_if<std::is_arithmetic<T>::value,bool>::type = true>
+    void copy_data(T& value) const
     {
-        data_ptr = data_ptr_;
-        rows = rows_;
-        cols = cols_;
-        type = mat_type_info<Type>::type;
-    }
-    template<typename Type>
-    void assign(const std::string& name_,const Type* data_ptr_,unsigned int rows_,unsigned int cols_)
-    {
-        name = name_;
-        type = mat_type_info<Type>::type;
-        namelen = uint32_t(name.length());
-        rows = rows_;
-        cols = cols_;
-        data_buf.resize(size_t(rows)*size_t(cols)*size_t(sizeof(Type)));
-        std::copy(reinterpret_cast<const char*>(data_ptr_),reinterpret_cast<const char*>(data_ptr_)+data_buf.size(),data_buf.begin());
-        data_ptr = &*data_buf.begin();
-    }
-
-    template<typename OutType>
-    void copy_data(OutType out)
-    {
-        size_t size = size_t(rows)*size_t(cols);
         switch (type)
         {
         case 0://double
-            std::copy(reinterpret_cast<const double*>(data_ptr),
-                      reinterpret_cast<const double*>(data_ptr)+size,out);
-            break;
+            value = *reinterpret_cast<const double*>(data_buf.data());
+            return;
         case 10://float
-            std::copy(reinterpret_cast<const float*>(data_ptr),
-                      reinterpret_cast<const float*>(data_ptr)+size,out);
-            break;
+            value = *reinterpret_cast<const float*>(data_buf.data());
+            return;
         case 20://unsigned int
-            std::copy(reinterpret_cast<const unsigned int*>(data_ptr),
-                      reinterpret_cast<const unsigned int*>(data_ptr)+size,out);
-            break;
+            value = *reinterpret_cast<const unsigned int*>(data_buf.data());
+            return;
         case 30://short
-            std::copy(reinterpret_cast<const short*>(data_ptr),
-                      reinterpret_cast<const short*>(data_ptr)+size,out);
-            break;
+            value = *reinterpret_cast<const short*>(data_buf.data());
+            return;
         case 40://unsigned short
-            std::copy(reinterpret_cast<const unsigned short*>(data_ptr),
-                      reinterpret_cast<const unsigned short*>(data_ptr)+size,out);
-            break;
+            value = *reinterpret_cast<const unsigned short*>(data_buf.data());
+            return;
         case 50://unsigned char
-            std::copy(reinterpret_cast<const unsigned char*>(data_ptr),
-                      reinterpret_cast<const unsigned char*>(data_ptr)+size,out);
-            break;
+            value = *reinterpret_cast<const unsigned char*>(data_buf.data());
+            return;
+        }
+    }
+    template<typename T>
+    void copy_data(T* out)  const
+    {
+        switch (type)
+        {
+        case 0://double
+            std::copy(reinterpret_cast<const double*>(data_buf.data()),
+                      reinterpret_cast<const double*>(data_buf.data())+size(),out);
+            return;
+        case 10://float
+            std::copy(reinterpret_cast<const float*>(data_buf.data()),
+                      reinterpret_cast<const float*>(data_buf.data())+size(),out);
+            return;
+        case 20://unsigned int
+            std::copy(reinterpret_cast<const unsigned int*>(data_buf.data()),
+                      reinterpret_cast<const unsigned int*>(data_buf.data())+size(),out);
+            return;
+        case 30://short
+            std::copy(reinterpret_cast<const short*>(data_buf.data()),
+                      reinterpret_cast<const short*>(data_buf.data())+size(),out);
+            return;
+        case 40://unsigned short
+            std::copy(reinterpret_cast<const unsigned short*>(data_buf.data()),
+                      reinterpret_cast<const unsigned short*>(data_buf.data())+size(),out);
+            return;
+        case 50://unsigned char
+            std::copy(reinterpret_cast<const unsigned char*>(data_buf.data()),
+                      reinterpret_cast<const unsigned char*>(data_buf.data())+size(),out);
+            return;
         }
     }
     template<typename T>
@@ -165,7 +176,6 @@ public:
         // same type or unsigned short v.s. short
         return mat_type_info<T>::type == type || (type == 40 && mat_type_info<T>::type == 30) || (type == 30 && mat_type_info<T>::type == 40);
     }
-
     template<typename stream_type>
     void flush(stream_type& in,bool flush)
     {
@@ -177,82 +187,83 @@ public:
                 in->flush();
         }
     }
-
     template<typename T>
-    T* get_data(void)
+    bool get_sub_data(const std::string& name, T& value) const
     {
-        constexpr auto get_type = mat_type_info<T>::type;
-        if(get_type == 60)
-            return nullptr;
-        if (!type_compatible<T>())
-        {
-            std::vector<unsigned char> allocator(get_total_size(get_type));
-            void* new_data = &*allocator.begin();
-            switch (get_type)
+        for(auto each : sub_data)
+            if(each->name == name)
             {
-            case 0://double
-                copy_data(reinterpret_cast<double*>(new_data));
-                break;
-            case 10://float
-                copy_data(reinterpret_cast<float*>(new_data));
-                break;
-            case 20://unsigned int
-                copy_data(reinterpret_cast<unsigned int*>(new_data));
-                break;
-            case 30://short
-                copy_data(reinterpret_cast<short*>(new_data));
-                break;
-            case 40://unsigned short
-                copy_data(reinterpret_cast<unsigned short*>(new_data));
-                break;
-            case 50://unsigned char
-                copy_data(reinterpret_cast<unsigned char*>(new_data));
-                break;
+                each->copy_data(value);
+                return true;
             }
-            std::swap(data_ptr,new_data);
-            allocator.swap(data_buf);
-            type = get_type;
-        }
-        return const_cast<T*>(reinterpret_cast<const T*>(data_ptr));
-    }
-    unsigned int get_rows(void) const
-    {
-        return rows;
-    }
-    unsigned int get_cols(void) const
-    {
-        return cols;
+        return false;
     }
     template<typename T>
-    void resize(const T& size)
+    T* get_data(void) const
     {
-        bool need_reallocate = size[0]*size[1] > rows*cols;
-        rows = size[0];
-        cols = size[1];
-        if(need_reallocate)
+        if (type_compatible<T>())
+            return const_cast<T*>(reinterpret_cast<const T*>(data_buf.data()));
+        converted_data_buf.resize(get_total_size(mat_type_info<T>::type));
+        auto new_data = const_cast<T*>(reinterpret_cast<const T*>(converted_data_buf.data()));
+        copy_data(new_data);
+        if constexpr (sizeof(T) >= 2)
         {
-            data_buf.resize(get_total_size(type));
-            data_ptr = &*data_buf.begin();
+            if(!sub_data.empty() && type == mat_type_info<char>::type)
+            {
+                float slope = 0.0f;
+                T inter = 0;
+                if(get_sub_data(name+".slope",slope) && get_sub_data(name+".inter",inter) && slope != 0.0f)
+                    tipl::par_for(size(),[&](size_t i){
+                            new_data[i] = new_data[i]*slope+inter;
+                    });
+            }
         }
+        return new_data;
     }
+    template<typename T>
+    T* get_data(const std::vector<size_t>& si2vi,size_t total_size) const
+    {
+        auto ptr = get_data<T>();
+        if(!ptr)
+            return nullptr;
+        std::vector<unsigned char> sparse_data(total_size*sizeof(T)*rows);
+        auto sparse_ptr = reinterpret_cast<T*>(sparse_data.data());
+        if constexpr(std::is_floating_point_v<T>)
+            std::fill(sparse_ptr,sparse_ptr+total_size*rows,T());
+        size_t total = std::min<size_t>(si2vi.size(),cols);
+        if(rows == 1)
+            for(size_t index = 0;index < total;++index)
+                sparse_ptr[si2vi[index]] = ptr[index];
+        else
+        {
+            for(size_t index = 0,from = 0;index < total;++index,from += rows)
+                std::copy(ptr+from,ptr+from+rows,
+                          sparse_ptr + si2vi[index]*rows);
+        }
+        sparse_data.swap(converted_data_buf);
+        return sparse_ptr;
+    }
+    template<typename T>
+    void resize(const T& s)
+    {
+        rows = s[0];
+        cols = s[1];
+        data_buf.resize(get_total_size(type));
+    }
+    size_t size(void) const{return size_t(rows)*size_t(cols);}
     void set_name(const std::string& new_name)
     {
         name = new_name;
-        namelen = uint32_t(name.length());
+        namelen = name.size()+1;
     }
     void set_text(const std::string& text)
     {
-        type = 50;
+        type = mat_type_info<char>::type;
         rows = 1;
-        cols = text.length()+1;
+        cols = text.size()+1;
         data_buf.clear();
         data_buf.resize(cols);
-        std::copy(text.c_str(),text.c_str()+cols-1,data_buf.begin());
-        data_ptr = &*data_buf.begin();
-    }
-    const std::string& get_name(void) const
-    {
-        return name;
+        std::copy(text.begin(),text.end(),data_buf.data());
     }
     template<typename T>
     bool is_type(void) const
@@ -274,26 +285,19 @@ public:
             delay_read_pos = 0;
             goto read;
         }
-        in.read(buf,sizeof(buf));
-        if (!in || type > 100 || type % 10 > 1)
-            return false;
-        if (type % 10) // text
-            type = 0;
-        if(!in || namelen == 0 || namelen > 255)
+        in.read(reinterpret_cast<char*>(&type),20);
+        if (!in || type > 60 || type % 10 || size() == 0 || namelen == 0 || namelen > 255)
             return false;
         {
             std::vector<char> buffer(namelen+1);
-            in.read(reinterpret_cast<char*>(&*buffer.begin()),namelen);
-            if(rows*cols == 0)
-                return false;
-            name = &*buffer.begin();
+            in.read(reinterpret_cast<char*>(buffer.data()),namelen);
+            name = buffer.data();
         }
 
         // first time, do not read the data
         if(delayed_read && get_total_size(type) > 16777216) // 16MB
         {
             delay_read_pos = in.tell();
-            data_ptr = nullptr;
             in.seek(delay_read_pos + get_total_size(type));
             return true;
         }
@@ -310,64 +314,79 @@ public:
         {
             return false;
         }
-        data_ptr = &*data_buf.begin();
-        return in.read(reinterpret_cast<char*>(data_ptr),get_total_size(type));
-    }
-    template<typename stream_type>
-    bool write(stream_type& out) const
-    {
-        unsigned int imagf = 0;
-        out.write(reinterpret_cast<const char*>(&type),4);
-        out.write(reinterpret_cast<const char*>(&rows),4);
-        out.write(reinterpret_cast<const char*>(&cols),4);
-        out.write(reinterpret_cast<const char*>(&imagf),4);
-        out.write(reinterpret_cast<const char*>(&namelen),4);
-        out.write(reinterpret_cast<const char*>(name.data()),namelen);
-        return out.write(reinterpret_cast<const char*>(data_ptr),get_total_size(type));
+        return in.read(reinterpret_cast<char*>(data_buf.data()),get_total_size(type));
     }
     void get_info(std::string& info) const
     {
         std::ostringstream out;
-        unsigned int out_count = rows*cols;
-        out << name <<"= type:" << type << " data[" << rows << "][" << cols << "]:";
+        auto out_count = size();
+        out << name << "= ";
         if(out_count > 10)
             out_count = 10;
+        out << std::vector<std::string>({"double","float","unsigned int","short","unsigned short","unsigned char"})[type/10];
+        if(out_count > 1)
+        {
+            if(rows == 1)
+                out << "[" << cols << "]=";
+            else
+                out << "[" << rows << "][" << cols << "]=";
+        }
+        else
+            out << "=";
         switch (type)
         {
         case 0://double
-            std::copy(reinterpret_cast<const double*>(data_ptr),
-                      reinterpret_cast<const double*>(data_ptr)+out_count,
+            std::copy(reinterpret_cast<const double*>(data_buf.data()),
+                      reinterpret_cast<const double*>(data_buf.data())+out_count,
                       std::ostream_iterator<double>(out," "));
             break;
         case 10://float
-            std::copy(reinterpret_cast<const float*>(data_ptr),
-                      reinterpret_cast<const float*>(data_ptr)+out_count,
+            std::copy(reinterpret_cast<const float*>(data_buf.data()),
+                      reinterpret_cast<const float*>(data_buf.data())+out_count,
                       std::ostream_iterator<float>(out," "));
             break;
         case 20://unsigned int
-            std::copy(reinterpret_cast<const unsigned int*>(data_ptr),
-                      reinterpret_cast<const unsigned int*>(data_ptr)+out_count,
+            std::copy(reinterpret_cast<const unsigned int*>(data_buf.data()),
+                      reinterpret_cast<const unsigned int*>(data_buf.data())+out_count,
                       std::ostream_iterator<unsigned int>(out," "));
             break;
         case 30://short
-            std::copy(reinterpret_cast<const short*>(data_ptr),
-                      reinterpret_cast<const short*>(data_ptr)+out_count,
+            std::copy(reinterpret_cast<const short*>(data_buf.data()),
+                      reinterpret_cast<const short*>(data_buf.data())+out_count,
                       std::ostream_iterator<short>(out," "));
             break;
         case 40://unsigned short
-            std::copy(reinterpret_cast<const unsigned short*>(data_ptr),
-                      reinterpret_cast<const unsigned short*>(data_ptr)+out_count,
+            std::copy(reinterpret_cast<const unsigned short*>(data_buf.data()),
+                      reinterpret_cast<const unsigned short*>(data_buf.data())+out_count,
                       std::ostream_iterator<unsigned short>(out," "));
             break;
         case 50://unsigned char
-            std::copy(reinterpret_cast<const unsigned char*>(data_ptr),
-                      reinterpret_cast<const unsigned char*>(data_ptr)+out_count,
-                      std::ostream_iterator<unsigned char>(out," "));
+            if(sub_data.empty() && out_count < 4096)
+            {
+                std::string text(reinterpret_cast<const char*>(data_buf.data()));
+                std::replace(text.begin(),text.end(),'\n',' ');
+                info = out.str();
+                info += text;
+                return;
+            }
+            else
+            {
+                std::copy(reinterpret_cast<const unsigned char*>(data_buf.data()),
+                      reinterpret_cast<const unsigned char*>(data_buf.data())+out_count,
+                      std::ostream_iterator<unsigned short>(out," "));
+            }
             break;
         }
         info = out.str();
-        if(rows*cols > 20)
+        if(size() > 10)
             info += "...";
+        for(auto each : sub_data)
+        {
+            std::string sub_info;
+            each->get_info(sub_info);
+            info += "\n";
+            info += sub_info;
+        }
     }
 };
 
@@ -380,14 +399,14 @@ private:
 private:
     void copy(const mat_read_base& rhs)
     {
-        for(unsigned int index = 0;index < dataset.size();++index)
+        for(auto each : dataset)
         {
+            each->flush(in,true);
             std::shared_ptr<mat_matrix> matrix(new mat_matrix);
-            *(matrix.get()) = *(rhs.dataset[index]);
+            *(matrix.get()) = *(each.get());
             dataset.push_back(matrix);
         }
     }
-
 public:
     std::string error_msg;
     mat_read_base(void):in(new input_interface){}
@@ -403,23 +422,13 @@ public:
         dataset.erase(dataset.begin()+remove_index);
         name_table.clear();
         for(size_t index = 0;index < dataset.size();++index)
-            name_table[dataset[index]->get_name()] = index;
+            name_table[dataset[index]->name] = index;
     }
     void flush(unsigned int index)
     {
         if(index >= dataset.size())
             return;
         dataset[index]->flush(in,true);
-    }
-    template<typename T>
-    T* get_data(const std::string& name)
-    {
-        auto item = name_table.find(name);
-        if(item == name_table.end())
-            return nullptr;
-        // if type is not compatible, make sure all data are flushed before calling get_data);
-        dataset[item->second]->flush(in,!dataset[item->second]->type_compatible<T>());
-        return dataset[item->second]->template get_data<T>();
     }
     const mat_read_base& operator=(const mat_read_base& rhs)
     {
@@ -437,7 +446,7 @@ public:
     {
         return name_table.find(name) != name_table.end();
     }
-    size_t index_of(const std::string& name)
+    size_t index_of(const std::string& name) const
     {
         auto iter = name_table.find(name);
         if(iter == name_table.end())
@@ -445,35 +454,66 @@ public:
         return iter->second;
     }
     template<typename T>
-    bool type_compatible(const std::string& name)
+    bool type_compatible(const std::string& name) const
     {
         auto iter = name_table.find(name);
         if(iter == name_table.end())
             return false;
         return dataset[iter->second]->template type_compatible<T>();
     }
-    bool get_col_row(const std::string& name,unsigned int& rows,unsigned int& cols)
+    bool get_col_row(const std::string& name,unsigned int& rows,unsigned int& cols) const
     {
         auto iter = name_table.find(name);
         if(iter == name_table.end())
             return false;
         else
         {
-            rows = dataset[iter->second]->get_rows();
-            cols = dataset[iter->second]->get_cols();
+            rows = dataset[iter->second]->rows;
+            cols = dataset[iter->second]->cols;
             return true;
         }
+    }
+    template<typename T>
+    T* read_as_type(unsigned int index) const
+    {
+        // if type is not compatible, make sure all data are flushed before calling get_data);
+        dataset[index]->flush(in,!dataset[index]->type_compatible<T>());
+        return dataset[index]->template get_data<T>();
+    }
+    template<typename T>
+    T* read_as_type(unsigned int index,const std::vector<size_t>& si2vi,size_t total_size) const
+    {
+        if(dataset[index]->cols != si2vi.size())
+            return read_as_type<T>(index);
+        dataset[index]->flush(in,!dataset[index]->type_compatible<T>() || si2vi.size() == dataset[index]->cols);
+        return dataset[index]->template get_data<T>(si2vi,total_size);
     }
     template<typename T>
     const T* read_as_type(unsigned int index,unsigned int& rows,unsigned int& cols) const
     {
         if (index >= dataset.size())
             return nullptr;
-        rows = dataset[index]->get_rows();
-        cols = dataset[index]->get_cols();
-        // if type is not compatible, make sure all data are flushed before calling get_data);
-        dataset[index]->flush(in,!dataset[index]->type_compatible<T>());
-        return dataset[index]->template get_data<T>();
+        rows = dataset[index]->rows;
+        cols = dataset[index]->cols;
+        return read_as_type<T>(index);
+    }
+    template<typename T>
+    const T* read_as_type(const std::string& name) const
+    {
+        auto iter = name_table.find(name);
+        if(iter == name_table.end())
+            return nullptr;
+        return read_as_type<T>(iter->second);
+    }
+    template<typename T>
+    const T* read_as_type(const std::string& name,unsigned int& rows,unsigned int& cols) const
+    {
+        auto iter = name_table.find(name);
+        if (iter == name_table.end())
+            return nullptr;
+        rows = dataset[iter->second]->rows;
+        cols = dataset[iter->second]->cols;
+        return read_as_type<T>(iter->second);
     }
     template<typename T>
     T read_as_value(const std::string& name) const
@@ -487,35 +527,52 @@ public:
     {
         unsigned int rows,cols;
         auto ptr = read_as_type<T>(name,rows,cols);
-        return ptr ? std::vector<T>(ptr,ptr+rows*cols) : std::vector<T>();
+        return ptr ? std::vector<T>(ptr,ptr+size_t(rows)*size_t(cols)) : std::vector<T>();
     }
-    template<typename T>
-    const T* read_as_type(const std::string& name,unsigned int& rows,unsigned int& cols) const
-    {
-        auto iter = name_table.find(name);
-        if (iter == name_table.end())
-            return nullptr;
-        return read_as_type<T>(iter->second,rows,cols);
-    }
-    template<typename T>
+
+    template<typename T,typename std::enable_if<std::is_arithmetic<T>::value,bool>::type = true>
     const T*& read(unsigned int index,unsigned int& rows,unsigned int& cols,const T*& out) const
     {
         return out = read_as_type<T>(index,rows,cols);
     }
-    template<typename T>
+    template<typename T,typename std::enable_if<std::is_arithmetic<T>::value,bool>::type = true>
     const T*& read(const std::string& name,unsigned int& rows,unsigned int& cols,const T*& out) const
     {
         return out = read_as_type<T>(name,rows,cols);
     }
+    template<typename T,typename std::enable_if<std::is_arithmetic<T>::value,bool>::type = true>
+    const T*& read(unsigned int index,const T*& out) const
+    {
+        return out = read_as_type<T>(index);
+    }
+    template<typename T,typename std::enable_if<std::is_arithmetic<T>::value,bool>::type = true>
+    const T*& read(const std::string& name,const T*& out) const
+    {
+        return out = read_as_type<T>(name);
+    }
+    template<typename T,typename std::enable_if<std::is_arithmetic<T>::value,bool>::type = true>
+    const T*& read(unsigned int index,const T*& out,const std::vector<size_t>& si2vi,size_t total_size) const
+    {
+        return out = read_as_type<T>(index,si2vi,total_size);
+    }
+
     template<typename iterator>
-    bool read(const std::string& name,iterator first,iterator last) const
+    bool read(unsigned int index,iterator first,iterator last) const
     {
         unsigned int rows,cols,size(std::distance(first,last));
         const typename std::iterator_traits<iterator>::value_type* ptr = nullptr;
-        if(read(name,rows,cols,ptr) == nullptr)
+        if(read(index,rows,cols,ptr) == nullptr)
             return false;
-        std::copy(ptr,ptr+std::min<size_t>(rows*cols,size),first);
+        std::copy(ptr,ptr+std::min<size_t>(size_t(rows)*size_t(cols),size),first);
         return true;
+    }
+    template<typename iterator>
+    bool read(const std::string& name,iterator first,iterator last) const
+    {
+        auto iter = name_table.find(name);
+        if (iter == name_table.end())
+            return false;
+        return read(iter->second,first,last);
     }
     bool read(const std::string& name,std::string& str) const
     {
@@ -572,37 +629,21 @@ public:
             std::shared_ptr<mat_matrix> matrix(new mat_matrix);
             if (!matrix->read(*in.get(),delay_read))
                 break;
-            name_table[matrix->get_name()] = dataset.size();
-            dataset.push_back(matrix);
+            if(!dataset.empty() && matrix->name.find(dataset.back()->name + ".") == 0)
+                dataset.back()->sub_data.push_back(matrix);
+            else
+            {
+                name_table[matrix->name] = dataset.size();
+                dataset.push_back(matrix);
+            }
         }    
         return !dataset.empty();
     }
-    void add(const std::string& name_,const mat_matrix& matrix)
+    void push_back(std::shared_ptr<mat_matrix> mat)
     {
-        std::shared_ptr<mat_matrix> new_matrix(new mat_matrix);
-        *(new_matrix.get()) = matrix;
-        dataset.push_back(new_matrix);
-        name_table[name_] = dataset.size()-1;
+        dataset.push_back(mat);
+        name_table[mat->name] = dataset.size()-1;
     }
-
-    template<typename container_type>
-    void add(const std::string& name_,const container_type& container)
-    {
-        std::shared_ptr<mat_matrix> matrix(new mat_matrix);
-        matrix->assign(name_,container.data(),1,uint32_t(container.end()-container.begin()));
-        dataset.push_back(matrix);
-        name_table[name_] = dataset.size()-1;
-    }
-
-    template<typename Type>
-    void add(const std::string& name_,const Type* data_ptr,unsigned int rows,unsigned int cols)
-    {
-        std::shared_ptr<mat_matrix> matrix(new mat_matrix);
-        matrix->assign(name_,data_ptr,rows,cols);
-        dataset.push_back(matrix);
-        name_table[name_] = dataset.size()-1;
-    }
-
     template<typename image_type>
     bool save_to_image(image_type& image_data,const char* image_name) const
     {
@@ -642,11 +683,6 @@ public:
             vs[i] = vs_ptr[i];
         return true;
     }
-    const std::string& name(unsigned int index) const
-    {
-        return dataset[index]->get_name();
-    }
-
     auto size(void) const
     {
         return dataset.size();
@@ -663,70 +699,117 @@ public:
     }
 };
 
-
-
+enum storage_type {regular,sloped} ;
 template<typename output_interface = std_ostream>
 class mat_write_base
 {
     output_interface out;
 public:
+    bool slope = false;
     mat_write_base(const std::string& file_name)
     {
         out.open(file_name);
     }
 public:
-    template<typename Type,typename size_type,typename size_type2>
-    bool write(const std::string& name,const Type* data_ptr,size_type rows_,size_type2 cols_)
+
+    template<storage_type stype = regular,typename T>
+    bool write(mat_matrix& mat,const T* ptr)
+    {
+        if constexpr(stype == sloped && std::is_same_v<T,float>)
+        {
+            if(slope && mat.size() > 4096)
+            {
+                T inter(ptr[0]),max_v(ptr[0]);
+                auto size = mat.size();
+                for(size_t i = 0;i < size;++i)
+                {
+                    auto v = ptr[i];
+                    if(v < inter)
+                        inter = v;
+                    if(v > max_v)
+                        max_v = v;
+                }
+                float slope = float(max_v-inter)/255.99f;
+                std::vector<unsigned char> new_data(size);
+                if(slope != 0.0f)
+                {
+                    float scale = 1.0f/slope;
+                    tipl::par_for(new_data.size(),[&](size_t i)
+                    {
+                        new_data[i] = (ptr[i]-inter)*scale;
+                    });
+                }
+                mat.data_buf.swap(new_data);
+                ptr = reinterpret_cast<const T*>(mat.data_buf.data());
+                mat.type = mat_type_info<char>::type;
+                mat.sub_data.push_back(std::make_shared<mat_matrix>(mat.name+".slope",slope));
+                mat.sub_data.push_back(std::make_shared<mat_matrix>(mat.name+".inter",inter));
+            }
+        }
+        out.write(reinterpret_cast<const char*>(&mat.type),20);
+        out.write(mat.name.data(),mat.namelen);
+        out.write(reinterpret_cast<const char*>(ptr),mat.get_total_size(mat.type));
+        for(auto each : mat.sub_data)
+            write<regular>(*each.get());
+        return out;
+    }
+    template<storage_type stype = regular>
+    bool write(mat_matrix& mat)
+    {
+        return write<stype>(mat,mat.data_buf.data());
+    }
+    template<storage_type stype = regular,typename T,typename size_type,typename size_type2>
+    bool write(const std::string& name,const T* ptr,size_type rows_,size_type2 cols_)
     {
         if(!rows_ || !cols_)
-            return false;
-        unsigned int imagf = 0;
-        unsigned int type = mat_type_info<Type>::type;
-        unsigned int namelen = uint32_t(name.length()+1);
-        unsigned int rows = uint32_t(rows_);
-        unsigned int cols = uint32_t(cols_);
-        out.write(reinterpret_cast<const char*>(&type),4);
-        out.write(reinterpret_cast<const char*>(&rows),4);
-        out.write(reinterpret_cast<const char*>(&cols),4);
-        out.write(reinterpret_cast<const char*>(&imagf),4);
-        out.write(reinterpret_cast<const char*>(&namelen),4);
-        out.write(reinterpret_cast<const char*>(name.data()),namelen);
-        out.write(reinterpret_cast<const char*>(data_ptr),size_t(rows)*size_t(cols)*sizeof(Type));
+            return true;
+        mat_matrix out_data(name);
+        out_data.type = mat_type_info<T>::type;
+        out_data.rows = uint32_t(rows_);
+        out_data.cols = uint32_t(cols_);
+        write<stype>(out_data,ptr);
         return out;
     }
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
     bool write(const std::string& name,T value)
     {
-        return write(name,&value,1,1);
+        return write<regular>(name,&value,1,1);
     }
-    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    template<storage_type stype = regular,typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
     bool write(const std::string& name,const T& data)
     {
         auto size = uint32_t(data.end()-data.begin());
         if(!size)
-            return false;
-        return write(name,data.data(),1,size);
+            return out;
+        return write<stype>(name,data.data(),1,size);
     }
-    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    template<storage_type stype = regular,typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
     bool write(const std::string& name,const T& data,uint32_t d)
     {
         if(data.empty())
-            return false;
-        return write(name,data.data(),d,uint32_t((data.end()-data.begin())/d));
+            return out;
+        return write<stype>(name,data.data(),d,uint32_t((data.end()-data.begin())/d));
     }
     bool write(const std::string& name,const std::string& text)
     {
         if(text.empty())
-            return false;
-        return write(name,text.c_str(),1,text.size()+1);
+            return out;
+        return write<regular>(name,text.c_str(),1,text.size()+1);
     }
-    bool write(const mat_matrix& data)
+    template<storage_type stype = regular,typename T>
+    void write_sparse(const std::string& name,const T& data,const std::vector<size_t>& si2vi)
     {
-        return data.write(out);
+        if(data.empty() || si2vi.empty() || si2vi.back() >= data.size())
+            return;
+        std::vector<typename T::value_type> buf(si2vi.size());
+        for(size_t index = 0;index < si2vi.size();++index)
+            buf[index] = data[si2vi[index]];
+        if constexpr(std::is_class_v<typename T::value_type>)
+            write<stype>(name,buf.data()->data(),T::value_type::dimension,buf.size());
+        else
+            write<stype>(name,buf.data(),1,buf.size());
     }
-
 public:
-
     template<typename image_type>
     void load_from_image(const image_type& image_data)
     {
