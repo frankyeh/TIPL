@@ -43,6 +43,13 @@ inline bool begins_with(const std::string& str,const std::string& suffix)
 {
     return (str.size() >= suffix.size()) ? (0 == str.compare(0, suffix.size(), suffix)) : false;
 }
+inline bool remove_suffix(std::string& str,const std::string& suffix)
+{
+    if(!ends_with(str,suffix))
+        return false;
+    str.erase(str.size() - suffix.size());
+    return true;
+}
 
 inline std::string to_lower(const std::string& str)
 {
