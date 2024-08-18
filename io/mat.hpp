@@ -715,7 +715,7 @@ public:
     template<storage_type stype = regular,typename T>
     bool write(mat_matrix& mat,const T* ptr)
     {
-        if constexpr(stype == sloped && std::is_same_v<T,float>)
+        if constexpr(stype == sloped)
         {
             if(slope && mat.size() > 4096)
             {
@@ -797,17 +797,22 @@ public:
         return write<regular>(name,text.c_str(),1,text.size()+1);
     }
     template<storage_type stype = regular,typename T>
-    void write_sparse(const std::string& name,const T& data,const std::vector<size_t>& si2vi)
+    void write_sparse(const std::string& name,const T* data,size_t data_size,const std::vector<size_t>& si2vi)
     {
-        if(data.empty() || si2vi.empty() || si2vi.back() >= data.size())
+        if(!data || si2vi.empty() || si2vi.back() >= data_size)
             return;
-        std::vector<typename T::value_type> buf(si2vi.size());
+        std::vector<T> buf(si2vi.size());
         for(size_t index = 0;index < si2vi.size();++index)
             buf[index] = data[si2vi[index]];
-        if constexpr(std::is_class_v<typename T::value_type>)
-            write<stype>(name,buf.data()->data(),T::value_type::dimension,buf.size());
+        if constexpr(std::is_class_v<T>)
+            write<stype>(name,buf.data()->data(),T::dimension,buf.size());
         else
             write<stype>(name,buf.data(),1,buf.size());
+    }
+    template<storage_type stype = regular,typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    void write_sparse(const std::string& name,const T& data,const std::vector<size_t>& si2vi)
+    {
+        write_sparse(name,data.data(),data.size(),si2vi);
     }
 public:
     template<typename image_type>
