@@ -64,7 +64,7 @@ struct mat_type_info<char>
 class mat_matrix
 {
 public:
-    alignas(4) unsigned int type = 0;
+    alignas(4) unsigned int type = 50;
     alignas(4) unsigned int rows = 0;
     alignas(4) unsigned int cols = 0;
     alignas(4) unsigned int imagf = 0;
