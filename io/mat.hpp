@@ -812,7 +812,7 @@ public:
     template<storage_type stype = regular,typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
     void write_sparse(const std::string& name,const T& data,const std::vector<size_t>& si2vi)
     {
-        write_sparse(name,data.data(),data.size(),si2vi);
+        write_sparse<stype>(name,data.data(),data.size(),si2vi);
     }
 public:
     template<typename image_type>
