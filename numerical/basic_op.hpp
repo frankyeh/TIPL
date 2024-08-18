@@ -94,7 +94,31 @@ size_t arg_min(const container_type& data)
         }
     return m_pos;
 }
-
+template<typename T>
+inline auto get_sparse_index(const T& mask)
+{
+    std::vector<size_t> si2vi;
+    for(size_t index = 0;index < mask.size();++index)
+        if(mask[index])
+            si2vi.push_back(index);
+    return si2vi;
+}
+template<typename T>
+void to_sparse_inplace(T& data,const std::vector<size_t>& si2vi)
+{
+    for(int64_t index = si2vi.size()-1;index >= 0;--index)
+    {
+        data[si2vi[index]] = data[index];
+        if(si2vi[index] != index)
+            data[index] = 0;
+    }
+}
+template<typename T,typename U>
+void to_sparse(const T& from,U& to,const std::vector<size_t>& si2vi)
+{
+    for(size_t index = 0;index < si2vi.size();++index)
+        to[si2vi[index]] = from[index];
+}
 
 template<typename ImageType>
 bool is_label_image(const ImageType& I)
