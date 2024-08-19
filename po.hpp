@@ -596,25 +596,12 @@ public:
         for(size_t index = 0;index < file_list.size();++index)
         {
             if(file_list[index].find('*') == std::string::npos)
-            {
-                if(!std::filesystem::exists(file_list[index]))
-                {
-                    error_msg = "file does not exist ";
-                    error_msg += file_list[index];
-                    return false;
-                }
                 filenames.push_back(file_list[index]);
-            }
             else
             {
                 size_t old_size = filenames.size();
-                if(!search_filesystem(file_list[index],filenames))
-                {
-                    error_msg = "invalid file path ";
-                    error_msg += file_list[index];
-                    return false;
-                }
-                out() << file_list[index] << ": " << filenames.size()-old_size << " file(s) specified." << std::endl;
+                if(search_filesystem(file_list[index],filenames))
+                    out() << file_list[index] << ": " << filenames.size()-old_size << " file(s) specified." << std::endl;
             }
         }
         return true;
