@@ -316,13 +316,15 @@ public:
         }
         return in.read(reinterpret_cast<char*>(data_buf.data()),get_total_size(type));
     }
-    void get_info(std::string& info) const
+    std::string get_info(void) const
     {
         std::ostringstream out;
         auto out_count = size();
         out << name << "= ";
-        if(out_count > 10)
-            out_count = 10;
+        if(!out_count)
+            return out.str();
+        if(out_count > 20)
+            out_count = 20;
         out << std::vector<std::string>({"double","float","unsigned int","short","unsigned short","unsigned char"})[type/10];
         if(out_count > 1)
         {
@@ -361,32 +363,28 @@ public:
                       std::ostream_iterator<unsigned short>(out," "));
             break;
         case 50://unsigned char
-            if(sub_data.empty() && out_count < 4096)
+            if(sub_data.empty() && out_count < 4096 && data_buf[0] >= '0' && data_buf[0] <= '~')
             {
                 std::string text(reinterpret_cast<const char*>(data_buf.data()));
                 std::replace(text.begin(),text.end(),'\n',' ');
-                info = out.str();
-                info += text;
-                return;
+                return out.str() + text;
             }
             else
             {
-                std::copy(reinterpret_cast<const unsigned char*>(data_buf.data()),
-                      reinterpret_cast<const unsigned char*>(data_buf.data())+out_count,
-                      std::ostream_iterator<unsigned short>(out," "));
+                for(size_t i = 0;i < out_count;++i)
+                    out << int(data_buf[i]) << " ";
             }
             break;
         }
-        info = out.str();
+        std::string info = out.str();
         if(size() > 10)
             info += "...";
         for(auto each : sub_data)
         {
-            std::string sub_info;
-            each->get_info(sub_info);
             info += "\n";
-            info += sub_info;
+            info += each->get_info();
         }
+        return info;
     }
 };
 
@@ -699,13 +697,18 @@ public:
     }
 };
 
-enum storage_type {regular,sloped} ;
+enum storage_type {regular = 0,sloped = 1,masked = 2,masked_sloped = 3} ;
 template<typename output_interface = std_ostream>
 class mat_write_base
 {
     output_interface out;
 public:
-    bool slope = false;
+    bool apply_slope = false;
+public:
+    unsigned int mask_rows = 0;
+    unsigned int mask_cols = 0;
+    std::vector<size_t> si2vi;
+public:
     mat_write_base(const std::string& file_name)
     {
         out.open(file_name);
@@ -715,9 +718,9 @@ public:
     template<storage_type stype = regular,typename T>
     bool write(mat_matrix& mat,const T* ptr)
     {
-        if constexpr(stype == sloped)
+        if constexpr(stype & sloped)
         {
-            if(slope && mat.size() > 4096)
+            if(apply_slope && mat.size() > 4096)
             {
                 T inter(ptr[0]),max_v(ptr[0]);
                 auto size = mat.size();
@@ -758,18 +761,41 @@ public:
     {
         return write<stype>(mat,mat.data_buf.data());
     }
-    template<storage_type stype = regular,typename T,typename size_type,typename size_type2>
-    bool write(const std::string& name,const T* ptr,size_type rows_,size_type2 cols_)
+    template<storage_type stype = regular,typename T>
+    bool write(const std::string& name,const T* ptr,unsigned int rows_,unsigned int cols_)
     {
         if(!rows_ || !cols_)
             return true;
+        std::vector<T> buf;
+        if constexpr(stype & masked)
+        {
+            if(!si2vi.empty() && rows_ == mask_rows && cols_ == mask_cols)
+            {
+                buf.resize(si2vi.size());
+                for(size_t index = 0;index < si2vi.size();++index)
+                    buf[index] = ptr[si2vi[index]];
+                ptr = buf.data();
+                rows_ = 1;
+                cols_ = si2vi.size();
+            }
+        }
         mat_matrix out_data(name);
-        out_data.type = mat_type_info<T>::type;
-        out_data.rows = uint32_t(rows_);
-        out_data.cols = uint32_t(cols_);
-        write<stype>(out_data,ptr);
+        out_data.cols = cols_;
+        out_data.rows = rows_;
+        if constexpr(std::is_class_v<T>)
+        {
+            out_data.type = mat_type_info<std::remove_const_t<std::remove_reference_t<decltype(*(ptr->data()))> > >::type;
+            out_data.rows *= T::dimension;
+            write<stype>(out_data,ptr->data());
+        }
+        else
+        {
+            out_data.type = mat_type_info<T>::type;
+            write<stype>(out_data,ptr);
+        }
         return out;
     }
+
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
     bool write(const std::string& name,T value)
     {
@@ -795,24 +821,6 @@ public:
         if(text.empty())
             return out;
         return write<regular>(name,text.c_str(),1,text.size()+1);
-    }
-    template<storage_type stype = regular,typename T>
-    bool write_sparse(const std::string& name,const T* data,size_t data_size,const std::vector<size_t>& si2vi)
-    {
-        if(!data || si2vi.empty() || si2vi.back() >= data_size)
-            return true;
-        std::vector<T> buf(si2vi.size());
-        for(size_t index = 0;index < si2vi.size();++index)
-            buf[index] = data[si2vi[index]];
-        if constexpr(std::is_class_v<T>)
-            return write<stype>(name,buf.data()->data(),T::dimension,buf.size());
-        else
-            return write<stype>(name,buf.data(),1,buf.size());
-    }
-    template<storage_type stype = regular,typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    bool write_sparse(const std::string& name,const T& data,const std::vector<size_t>& si2vi)
-    {
-        return write_sparse<stype>(name,data.data(),data.size(),si2vi);
     }
 public:
     template<typename image_type>
