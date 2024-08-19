@@ -710,6 +710,8 @@ void connected_component_labeling_pass(const ImageType& I,
                                        std::vector<std::vector<size_t> >& regions,
                                        size_t shift)
 {
+    if(I.empty())
+        return;
     typedef typename std::vector<size_t>::const_iterator region_iterator;
     if (shift == 1) // growing in one dimension
     {
@@ -872,6 +874,8 @@ void get_region_center(const LabelImageType& labels,
 template<typename ImageType>
 void defragment(ImageType& I)
 {
+    if(I.empty())
+        return;
     tipl::image<ImageType::dimension,unsigned int> labels(I.shape());
     std::vector<std::vector<size_t> > regions;
 
