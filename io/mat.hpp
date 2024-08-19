@@ -720,7 +720,7 @@ public:
     {
         if constexpr(stype & sloped)
         {
-            if(apply_slope && mat.size() > 4096)
+            if(apply_slope && mat.size() > 4096 && mat.sub_data.empty())
             {
                 T inter(ptr[0]),max_v(ptr[0]);
                 auto size = mat.size();
