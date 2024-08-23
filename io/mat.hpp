@@ -394,6 +394,7 @@ class mat_read_base
 private:
     std::vector<std::shared_ptr<mat_matrix> > dataset;
     std::map<std::string,size_t> name_table;
+    mutable std::mutex mat_load;
 private:
     void copy(const mat_read_base& rhs)
     {
@@ -474,6 +475,7 @@ public:
     template<typename T>
     T* read_as_type(unsigned int index) const
     {
+        std::lock_guard<std::mutex> lock(mat_load);
         // if type is not compatible, make sure all data are flushed before calling get_data);
         dataset[index]->flush(in,!dataset[index]->type_compatible<T>());
         return dataset[index]->template get_data<T>();
@@ -481,10 +483,18 @@ public:
     template<typename T>
     T* read_as_type(unsigned int index,const std::vector<size_t>& si2vi,size_t total_size) const
     {
+        if(index >= dataset.size())
+            return reinterpret_cast<T*>(nullptr);
         if(dataset[index]->cols != si2vi.size())
             return read_as_type<T>(index);
+        std::lock_guard<std::mutex> lock(mat_load);
         dataset[index]->flush(in,!dataset[index]->type_compatible<T>() || si2vi.size() == dataset[index]->cols);
         return dataset[index]->template get_data<T>(si2vi,total_size);
+    }
+    template<typename T>
+    T* read_as_type(const std::string& name,const std::vector<size_t>& si2vi,size_t total_size) const
+    {
+        return read_as_type<T>(index_of(name),si2vi,total_size);
     }
     template<typename T>
     const T* read_as_type(unsigned int index,unsigned int& rows,unsigned int& cols) const
@@ -767,7 +777,7 @@ public:
         if(!rows_ || !cols_)
             return true;
         std::vector<T> buf;
-        if constexpr(stype & masked)
+        if constexpr((stype & masked) > 0)
         {
             if(!si2vi.empty() && rows_ == mask_rows && cols_ == mask_cols)
             {
