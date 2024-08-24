@@ -484,7 +484,7 @@ public:
     T* read_as_type(unsigned int index,const std::vector<size_t>& si2vi,size_t total_size) const
     {
         if(index >= dataset.size())
-            return reinterpret_cast<T*>(nullptr);
+            return nullptr;
         if(dataset[index]->cols != si2vi.size())
             return read_as_type<T>(index);
         std::lock_guard<std::mutex> lock(mat_load);
