@@ -539,31 +539,38 @@ public:
     }
 
     template<typename T,typename std::enable_if<std::is_arithmetic<T>::value,bool>::type = true>
-    const T*& read(unsigned int index,unsigned int& rows,unsigned int& cols,const T*& out) const
+    auto read(unsigned int index,unsigned int& rows,unsigned int& cols,const T*& out) const
     {
         return out = read_as_type<T>(index,rows,cols);
     }
     template<typename T,typename std::enable_if<std::is_arithmetic<T>::value,bool>::type = true>
-    const T*& read(const std::string& name,unsigned int& rows,unsigned int& cols,const T*& out) const
+    auto read(const std::string& name,unsigned int& rows,unsigned int& cols,const T*& out) const
     {
         return out = read_as_type<T>(name,rows,cols);
     }
     template<typename T,typename std::enable_if<std::is_arithmetic<T>::value,bool>::type = true>
-    const T*& read(unsigned int index,const T*& out) const
+    auto read(unsigned int index,const T*& out) const
     {
         return out = read_as_type<T>(index);
     }
     template<typename T,typename std::enable_if<std::is_arithmetic<T>::value,bool>::type = true>
-    const T*& read(const std::string& name,const T*& out) const
+    auto read(const std::string& name,const T*& out) const
     {
         return out = read_as_type<T>(name);
     }
     template<typename T,typename std::enable_if<std::is_arithmetic<T>::value,bool>::type = true>
-    const T*& read(unsigned int index,const T*& out,const std::vector<size_t>& si2vi,size_t total_size) const
+    auto read(unsigned int index,const T*& out,const std::vector<size_t>& si2vi,size_t total_size) const
     {
         return out = read_as_type<T>(index,si2vi,total_size);
     }
-
+    template<typename T,typename std::enable_if<std::is_arithmetic<T>::value,bool>::type = true>
+    const T* read(const std::string& name,const T*& out,const std::vector<size_t>& si2vi,size_t total_size) const
+    {
+        auto iter = name_table.find(name);
+        if (iter == name_table.end())
+            return nullptr;
+        return read_as_type<T>(iter->second,si2vi,total_size);
+    }
     template<typename iterator>
     bool read(unsigned int index,iterator first,iterator last) const
     {
