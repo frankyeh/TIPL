@@ -482,8 +482,13 @@ public:
     {
         std::string str_name(name);
         for(size_t i = 0;i < names.size();++i)
+        {
             if(names[i] == str_name)
+            {
+                used[i] = true;
                 return true;
+            }
+        }
         not_found_names.insert(name);
         return false;
     }
