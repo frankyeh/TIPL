@@ -488,7 +488,7 @@ public:
         if(dataset[index]->cols != si2vi.size())
             return read_as_type<T>(index);
         std::lock_guard<std::mutex> lock(mat_load);
-        dataset[index]->flush(in,!dataset[index]->type_compatible<T>() || si2vi.size() == dataset[index]->cols);
+        dataset[index]->flush(in,true);
         return dataset[index]->template get_data<T>(si2vi,total_size);
     }
     template<typename T>
