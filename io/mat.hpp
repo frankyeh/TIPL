@@ -489,7 +489,10 @@ public:
             return read_as_type<T>(index);
         if(dataset[index]->cols != si2vi.size())
         {
-            error_msg = "matrix size does not match";
+            error_msg = "matrix size " +
+                        std::to_string(dataset[index]->rows) + "x" + std::to_string(dataset[index]->cols)+
+                        " does not match the total size " + std::to_string(total_size) + " or mask size " +
+                        std::to_string(si2vi.size());
             return nullptr;
         }
         std::lock_guard<std::mutex> lock(mat_load);
