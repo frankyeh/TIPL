@@ -569,7 +569,7 @@ public:
         auto iter = name_table.find(name);
         if (iter == name_table.end())
             return nullptr;
-        return read_as_type<T>(iter->second,si2vi,total_size);
+        return out = read_as_type<T>(iter->second,si2vi,total_size);
     }
     template<typename iterator>
     bool read(unsigned int index,iterator first,iterator last) const
