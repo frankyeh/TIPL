@@ -407,7 +407,7 @@ private:
         }
     }
 public:
-    std::string error_msg;
+    mutable std::string error_msg;
     mat_read_base(void):in(new input_interface){}
     mat_read_base(const mat_read_base& rhs){copy(rhs);}
     void remove(const std::string& name)
@@ -485,8 +485,13 @@ public:
     {
         if(index >= dataset.size())
             return nullptr;
-        if(dataset[index]->cols != si2vi.size())
+        if(dataset[index]->size() == total_size)
             return read_as_type<T>(index);
+        if(dataset[index]->cols != si2vi.size())
+        {
+            error_msg = "matrix size does not match";
+            return nullptr;
+        }
         std::lock_guard<std::mutex> lock(mat_load);
         dataset[index]->flush(in,true);
         return dataset[index]->template get_data<T>(si2vi,total_size);
