@@ -414,14 +414,15 @@ public:
     {
         remove(index_of(name));
     }
-    void remove(size_t remove_index)
+    bool remove(size_t remove_index)
     {
         if(remove_index >= dataset.size())
-            return;
+            return false;
         dataset.erase(dataset.begin()+remove_index);
         name_table.clear();
         for(size_t index = 0;index < dataset.size();++index)
             name_table[dataset[index]->name] = index;
+        return true;
     }
     void flush(unsigned int index)
     {
