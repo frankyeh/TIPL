@@ -489,10 +489,13 @@ public:
             return read_as_type<T>(index);
         if(dataset[index]->cols != si2vi.size())
         {
-            error_msg = "matrix size " +
+            if(dataset[index]->rows < 8)
+                error_msg = "mask mismatch: " + dataset[index]->name + " has " + std::to_string(dataset[index]->cols) +
+                            " values, but mask has " + si2vi.size();
+            else
+                error_msg = "matrix size mismatch: " + dataset[index]->name + " has " +
                         std::to_string(dataset[index]->rows) + "x" + std::to_string(dataset[index]->cols)+
-                        " does not match the total size " + std::to_string(total_size) + " or mask size " +
-                        std::to_string(si2vi.size());
+                        " . which does not match the total size of " + std::to_string(total_size);
             return nullptr;
         }
         std::lock_guard<std::mutex> lock(mat_load);
@@ -729,6 +732,7 @@ class mat_write_base
     output_interface out;
 public:
     bool apply_slope = false;
+    bool apply_mask = false;
 public:
     unsigned int mask_rows = 0;
     unsigned int mask_cols = 0;
@@ -743,7 +747,7 @@ public:
     template<storage_type stype = regular,typename T>
     bool write(mat_matrix& mat,const T* ptr)
     {
-        if constexpr(stype & sloped)
+        if constexpr(stype == sloped || stype == masked_sloped)
         {
             if(apply_slope && mat.size() > 4096 && mat.sub_data.empty())
             {
@@ -792,9 +796,9 @@ public:
         if(!rows_ || !cols_)
             return true;
         std::vector<T> buf;
-        if constexpr((stype & masked) > 0)
+        if constexpr(stype == masked || stype == masked_sloped)
         {
-            if(!si2vi.empty() && rows_ == mask_rows && cols_ == mask_cols)
+            if(apply_mask && !si2vi.empty() && rows_ == mask_rows && cols_ == mask_cols)
             {
                 buf.resize(si2vi.size());
                 for(size_t index = 0;index < si2vi.size();++index)
