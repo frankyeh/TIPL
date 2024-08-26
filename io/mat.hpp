@@ -477,7 +477,7 @@ public:
     {
         std::lock_guard<std::mutex> lock(mat_load);
         // if type is not compatible, make sure all data are flushed before calling get_data);
-        dataset[index]->flush(in,!dataset[index]->type_compatible<T>());
+        dataset[index]->flush(in,!dataset[index]->template type_compatible<T>());
         return dataset[index]->template get_data<T>();
     }
     template<typename T>
