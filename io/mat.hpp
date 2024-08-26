@@ -203,6 +203,8 @@ public:
     {
         if (type_compatible<T>())
             return const_cast<T*>(reinterpret_cast<const T*>(data_buf.data()));
+        if(!converted_data_buf.empty())
+            throw std::runtime_error(name + " matrix cannot be read twice");
         converted_data_buf.resize(get_total_size(mat_type_info<T>::type));
         auto new_data = const_cast<T*>(reinterpret_cast<const T*>(converted_data_buf.data()));
         copy_data(new_data);
@@ -223,6 +225,8 @@ public:
     template<typename T>
     T* get_data(const std::vector<size_t>& si2vi,size_t total_size) const
     {
+        if(!converted_data_buf.empty())
+            throw std::runtime_error(name + " matrix cannot be read twice under mask");
         auto ptr = get_data<T>();
         if(!ptr)
             return nullptr;
@@ -465,60 +469,56 @@ public:
             return false;
         return dataset[iter->second]->template type_compatible<T>();
     }
-    bool get_col_row(const std::string& name,unsigned int& rows,unsigned int& cols) const
+    size_t cols(size_t index) const
+    {
+        if(index >= dataset.size())
+            return 0;
+        if(dataset[index]->cols == si2vi.size())
+            return mask_cols;
+        return dataset[index]->cols;
+    }
+    size_t rows(size_t index) const
+    {
+        if(index >= dataset.size())
+            return 0;
+        if(dataset[index]->cols == si2vi.size())
+            return mask_rows*dataset[index]->rows;
+        return dataset[index]->rows;
+    }
+    bool get_col_row(const std::string& name,unsigned int& r,unsigned int& c) const
     {
         auto iter = name_table.find(name);
         if(iter == name_table.end())
             return false;
         else
         {
-            rows = dataset[iter->second]->rows;
-            cols = dataset[iter->second]->cols;
+            r = rows(iter->second);
+            c = cols(iter->second);
             return true;
         }
     }
     template<typename T>
     T* read_as_type(unsigned int index) const
     {
+        if(index >= dataset.size())
+            return nullptr;
         std::lock_guard<std::mutex> lock(mat_load);
+        if(dataset[index]->cols == si2vi.size())
+        {
+            dataset[index]->flush(in,true);
+            return dataset[index]->template get_data<T>(si2vi,mask_rows*mask_cols);
+        }
         // if type is not compatible, make sure all data are flushed before calling get_data);
         dataset[index]->flush(in,!dataset[index]->template type_compatible<T>());
         return dataset[index]->template get_data<T>();
     }
     template<typename T>
-    T* read_as_type(unsigned int index,const std::vector<size_t>& si2vi,size_t total_size) const
-    {
-        if(index >= dataset.size())
-            return nullptr;
-        if(dataset[index]->size() == total_size)
-            return read_as_type<T>(index);
-        if(dataset[index]->cols != si2vi.size())
-        {
-            if(dataset[index]->rows < 8)
-                error_msg = "mask mismatch: " + dataset[index]->name + " has " + std::to_string(dataset[index]->cols) +
-                            " values, but mask has " + std::to_string(si2vi.size());
-            else
-                error_msg = "matrix size mismatch: " + dataset[index]->name + " has " +
-                        std::to_string(dataset[index]->rows) + "x" + std::to_string(dataset[index]->cols)+
-                        " . which does not match the total size of " + std::to_string(total_size);
-            return nullptr;
-        }
-        std::lock_guard<std::mutex> lock(mat_load);
-        dataset[index]->flush(in,true);
-        return dataset[index]->template get_data<T>(si2vi,total_size);
-    }
-    template<typename T>
-    T* read_as_type(const std::string& name,const std::vector<size_t>& si2vi,size_t total_size) const
-    {
-        return read_as_type<T>(index_of(name),si2vi,total_size);
-    }
-    template<typename T>
-    const T* read_as_type(unsigned int index,unsigned int& rows,unsigned int& cols) const
+    const T* read_as_type(unsigned int index,unsigned int& r,unsigned int& c) const
     {
         if (index >= dataset.size())
             return nullptr;
-        rows = dataset[index]->rows;
-        cols = dataset[index]->cols;
+        r = rows(index);
+        c = cols(index);
         return read_as_type<T>(index);
     }
     template<typename T>
@@ -530,20 +530,19 @@ public:
         return read_as_type<T>(iter->second);
     }
     template<typename T>
-    const T* read_as_type(const std::string& name,unsigned int& rows,unsigned int& cols) const
+    const T* read_as_type(const std::string& name,unsigned int& r,unsigned int& c) const
     {
         auto iter = name_table.find(name);
         if (iter == name_table.end())
             return nullptr;
-        rows = dataset[iter->second]->rows;
-        cols = dataset[iter->second]->cols;
+        r = rows(iter->second);
+        c = cols(iter->second);
         return read_as_type<T>(iter->second);
     }
     template<typename T>
     T read_as_value(const std::string& name) const
     {
-        unsigned int rows,cols;
-        auto ptr = read_as_type<T>(name,rows,cols);
+        auto ptr = read_as_type<T>(name);
         return ptr ? *ptr : T();
     }
     template<typename T>
