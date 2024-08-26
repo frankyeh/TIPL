@@ -491,7 +491,7 @@ public:
         {
             if(dataset[index]->rows < 8)
                 error_msg = "mask mismatch: " + dataset[index]->name + " has " + std::to_string(dataset[index]->cols) +
-                            " values, but mask has " + si2vi.size();
+                            " values, but mask has " + std::to_string(si2vi.size());
             else
                 error_msg = "matrix size mismatch: " + dataset[index]->name + " has " +
                         std::to_string(dataset[index]->rows) + "x" + std::to_string(dataset[index]->cols)+
