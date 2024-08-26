@@ -407,6 +407,10 @@ private:
         }
     }
 public:
+    unsigned int mask_rows = 0;
+    unsigned int mask_cols = 0;
+    std::vector<size_t> si2vi;
+public:
     mutable std::string error_msg;
     mat_read_base(void):in(new input_interface){}
     mat_read_base(const mat_read_base& rhs){copy(rhs);}
