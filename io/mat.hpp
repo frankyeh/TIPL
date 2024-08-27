@@ -204,7 +204,11 @@ public:
         if (type_compatible<T>())
             return const_cast<T*>(reinterpret_cast<const T*>(data_buf.data()));
         if(!converted_data_buf.empty())
-            throw std::runtime_error(name + " matrix cannot be read twice");
+        {
+            if(get_total_size(mat_type_info<T>::type) == converted_data_buf.size())
+                return reinterpret_cast<T*>(converted_data_buf.data());
+            throw std::runtime_error(name + " matrix cannot be read twice in different type");
+        }
         converted_data_buf.resize(get_total_size(mat_type_info<T>::type));
         auto new_data = const_cast<T*>(reinterpret_cast<const T*>(converted_data_buf.data()));
         copy_data(new_data);
@@ -226,7 +230,11 @@ public:
     T* get_data(const std::vector<size_t>& si2vi,size_t total_size) const
     {
         if(!converted_data_buf.empty())
-            throw std::runtime_error(name + " matrix cannot be read twice under mask");
+        {
+            if(total_size*sizeof(T)*rows == converted_data_buf.size())
+                return reinterpret_cast<T*>(converted_data_buf.data());
+            throw std::runtime_error(name + " matrix cannot be read twice in different types under a mask");
+        }
         auto ptr = get_data<T>();
         if(!ptr)
             return nullptr;
