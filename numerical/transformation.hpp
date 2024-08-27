@@ -589,6 +589,8 @@ public:
     value_type* begin(void) {return data_;}
     value_type* end(void) {return data_+total_size;}
     unsigned int size(void) const{return total_size;}
+    value_type* data(void) {return data_;}
+    const value_type* data(void) const {return data_;}
     bool operator==(const affine_transform& rhs)
     {
         for(char i = 0;i < total_size;++i)
