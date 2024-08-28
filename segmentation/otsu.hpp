@@ -95,7 +95,8 @@ void normalize_otsu_median(image_type& I,float upper_limit = 1.0f)
         if(ot == 0.0f)
             return;
         tipl::multiply_constant(I,upper_limit*0.5f/ot);
-        tipl::minus_constant(I,upper_limit*0.1f);
+        if(std::count_if(I.begin(),I.end(),[&](auto v){return v > 0.0f;}) > 0.5f*I.size())
+            tipl::minus_constant(I,upper_limit*0.1f);
         tipl::upper_lower_threshold(I,0.0f,upper_limit);
     }
 }
