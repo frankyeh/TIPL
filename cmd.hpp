@@ -105,9 +105,7 @@ bool command(image_type& data,std::string cmd,std::string param1)
     }
     if(cmd == "normalize_otsu_median")
     {
-        float median = tipl::segmentation::otsu_median(data);
-        if(median != 0.0f)
-            tipl::multiply_constant(data,0.5f/median);
+        tipl::segmentation::normalize_otsu_median(data);
         return true;
     }
     if(cmd == "flip_x")
