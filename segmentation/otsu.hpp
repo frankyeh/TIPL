@@ -80,14 +80,24 @@ float otsu_median(const image_type& I)
 }
 
 template<typename image_type>
-void otsu_median_regulzried(image_type& I)
+void normalize_otsu_median(image_type& I,float upper_limit = 1.0f)
 {
-    float ot = otsu_median(I);
-    if(ot == 0.0f)
-        return;
-    tipl::multiply_constant(I,0.5f/ot);
-    tipl::minus_constant(I,0.1);
-    tipl::upper_lower_threshold(I,0.0f,1.0f);
+    if constexpr(std::is_integral<typename image_type::value_type>::value)
+    {
+        std::vector<float> buf(I.size());
+        std::copy(I.begin(),I.end(),buf.begin());
+        normalize_otsu_median(buf,255.99f);
+        std::copy(buf.begin(),buf.end(),I.begin());
+    }
+    else
+    {
+        float ot = otsu_median(I);
+        if(ot == 0.0f)
+            return;
+        tipl::multiply_constant(I,upper_limit*0.5f/ot);
+        tipl::minus_constant(I,upper_limit*0.1f);
+        tipl::upper_lower_threshold(I,0.0f,upper_limit);
+    }
 }
 
 template<typename ImageType,typename LabelImageType>
