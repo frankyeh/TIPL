@@ -134,7 +134,10 @@ template<tipl::interpolation itype,typename T1,typename T2,typename T3>
 __global__ void compose_mapping_cuda_kernel(T1 from,T2 mapping,T3 to)
 {
     TIPL_FOR(index,to.size())
-        tipl::estimate<itype>(from,mapping[index],to[index]);
+    {
+        if(!tipl::estimate<itype>(from,mapping[index],to[index]))
+            to[index] = typename T3::value_type();
+    }
 }
 
 #endif
@@ -144,7 +147,6 @@ template<tipl::interpolation itype = tipl::interpolation::linear,
 inline void compose_mapping(const T1& from,const T2& mapping,T3& to)
 
 {
-    to.clear();
     to.resize(mapping.shape());
     if constexpr(memory_location<T1>::at == CUDA)
     {
@@ -156,7 +158,8 @@ inline void compose_mapping(const T1& from,const T2& mapping,T3& to)
     else
     tipl::par_for(mapping.size(),[&](size_t index)
     {
-        estimate<itype>(from,mapping[index],to[index]);
+        if(!estimate<itype>(from,mapping[index],to[index]))
+            to[index] = typename T3::value_type();
     });
 }
 //---------------------------------------------------------------------------
