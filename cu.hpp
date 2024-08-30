@@ -422,6 +422,10 @@ public:
 public:
     __INLINE__ size_t size(void)                            const    {return sz;}
     __INLINE__ bool empty(void)                             const    {return sz == 0;}
+    __INLINE__ void clear(void)                             {sz = 0;}
+    __INLINE__ void resize(size_t s)                        {sz = s;}
+
+
 };
 
 template<int dim,typename vtype = float>
