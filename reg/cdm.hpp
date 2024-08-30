@@ -391,6 +391,94 @@ void cdm(const std::vector<pointer_image_type>& It,
 }
 
 
+
+// To use CUDA, need to include the following instantiation in a .cu file
+/*
+#include "TIPL/reg/cdm.hpp"
+namespace tipl::reg
+{
+template
+void cdm_cuda<void,unsigned char,3>(const std::vector<tipl::const_pointer_image<3,unsigned char> >& It,
+                   const std::vector<tipl::const_pointer_image<3,unsigned char> >& Is,
+                   tipl::image<3,tipl::vector<3> >& d,
+                   bool& terminated,
+                   const cdm_param& param); //forces instantiation
+}// tipl::reg
+*/
+
+#ifdef __CUDACC__
+#include "../cu.hpp"
+template<typename out_type = void,typename value_type,int dim>
+void cdm_cuda(const std::vector<tipl::const_pointer_image<dim,value_type> >& It,
+                   const std::vector<tipl::const_pointer_image<dim,value_type> >& Is,
+                   tipl::image<dim,tipl::vector<dim> >& d,
+                   bool& terminated,
+                   const cdm_param& param)
+{
+    tipl::device_image<dim,tipl::vector<dim> > dd(It[0].shape()),inv_dd(It[0].shape());
+    std::vector<tipl::device_image<dim,value_type> > dIt(It.size()),dIs(Is.size());
+    std::vector<tipl::const_pointer_device_image<dim,value_type> > pIt,pIs;
+    std::copy(It.begin(),It.end(),dIt.begin());
+    std::copy(Is.begin(),Is.end(),dIs.begin());
+    for(auto& each : dIt)
+        pIt.push_back(tipl::make_device_shared(each));
+    for(auto& each : dIs)
+        pIs.push_back(tipl::make_device_shared(each));
+
+    try{
+        cdm(pIt,pIs,dd,terminated,param);
+    }
+
+    catch(std::runtime_error& er)
+    {
+        if constexpr(!std::is_void<out_type>::value)
+            out_type() << "❌️" << er.what() << " ...switch to CPU";
+        cdm(It,Is,d,terminated,param);
+        return;
+    }
+    d.resize(It[0].shape());
+    dd.buf().copy_to(d);
+    cudaDeviceSynchronize();
+}
+#else
+template<typename out_type = void,typename value_type,int dim>
+void cdm_cuda(const std::vector<tipl::const_pointer_image<dim,value_type> >& It,
+                   const std::vector<tipl::const_pointer_image<dim,value_type> >& Is,
+                   tipl::image<dim,tipl::vector<dim> >& d,
+                   bool& terminated,
+                   const cdm_param& param);
+#endif//__CUDACC__
+
+
+template<typename out_type = void,typename value_type,int dim>
+void cdm_common(std::vector<tipl::const_pointer_image<dim,value_type> > It,
+                       std::vector<tipl::const_pointer_image<dim,value_type> > Is,
+                       tipl::image<dim,tipl::vector<dim> >& dis,
+                       bool& terminated,
+                       tipl::reg::cdm_param param = tipl::reg::cdm_param(),
+                       bool cuda = true)
+{
+    if(It.size() < Is.size())
+        Is.resize(It.size());
+    if(Is.size() < It.size())
+        It.resize(Is.size());
+    if(cuda)
+    {
+        if constexpr (tipl::use_cuda)
+        {
+            if constexpr(!std::is_void<out_type>::value)
+                out_type() << "nonlinear registration using gpu";
+            tipl::reg::cdm_cuda(It,Is,dis,terminated,param);
+            return;
+        }
+    }
+    if constexpr(!std::is_void<out_type>::value)
+        out_type() << "nonlinear registration using cpu";
+    tipl::reg::cdm(It,Is,dis,terminated,param);
+}
+
+
+
 }// namespace reg
 }// namespace image
 #endif // DMDM_HPP
