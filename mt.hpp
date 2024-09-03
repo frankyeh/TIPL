@@ -196,31 +196,31 @@ par_for(T& c, Func&& f)
     par_for<type>(c.begin(),c.end(),std::move(f));
 }
 
-template <typename T, typename Func>
+template <par_for_type type = sequential,typename T, typename Func>
 size_t adaptive_par_for(T from, T to, Func&& f)
 {
     int64_t size = to-from;
     int64_t block_size = std::max<int64_t>(1,size >> 6);
     if(size <= 8)
     {
-        par_for(from,to,std::forward<Func>(f),1);
+        par_for<type>(from,to,std::forward<Func>(f),1);
         return 1;
     }
 
 
     auto start = std::chrono::high_resolution_clock::now();
-    par_for(from,   T(from + block_size), std::forward<Func>(f),1);
+    par_for<type>(from,   T(from + block_size), std::forward<Func>(f),1);
     auto end = std::chrono::high_resolution_clock::now();
     double time1 = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
 
     start = std::chrono::high_resolution_clock::now();
-    par_for(T(from+block_size), T(from + block_size*3), std::forward<Func>(f),2);
+    par_for<type>(T(from+block_size), T(from + block_size*3), std::forward<Func>(f),2);
     end = std::chrono::high_resolution_clock::now();
     double time2 = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
 
     if(time1 > time2)
     {
-        par_for(T(from+block_size*3),to,std::forward<Func>(f),max_thread_count);
+        par_for<type>(T(from+block_size*3),to,std::forward<Func>(f),max_thread_count);
         return max_thread_count;
     }
     time2 -= time1;
@@ -239,15 +239,15 @@ size_t adaptive_par_for(T from, T to, Func&& f)
             optimal_threads = thread_count;
         }
     }
-    par_for(T(from+block_size*3), to,std::forward<Func>(f), optimal_threads);
+    par_for<type>(T(from+block_size*3), to,std::forward<Func>(f), optimal_threads);
     return optimal_threads;
 }
 
-template <typename T,typename Func,
+template <par_for_type type = sequential,typename T,typename Func,
           typename std::enable_if<std::is_integral<T>::value,bool>::type = true>
 inline size_t adaptive_par_for(T size, Func&& f)
 {
-    return adaptive_par_for(T(),size,std::move(f));
+    return adaptive_par_for<type>(T(),size,std::move(f));
 }
 
 template<typename T>
