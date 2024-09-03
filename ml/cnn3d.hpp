@@ -48,11 +48,9 @@ public:
     }
     virtual float* forward(float* in_ptr)
     {
-        tipl::par_for(output_size_,[=](size_t i)
-        {
+        for(size_t i = 0;i < output_size_;++i)
             if(in_ptr[i] < 0.0f)
                 in_ptr[i] = 0.0f;
-        });
         return in_ptr;
     }
     virtual void print(std::ostream& out) const {out << "relu " << out_channels_ << std::endl;}
@@ -73,11 +71,9 @@ public:
     }
     virtual float* forward(float* in_ptr)
     {
-        tipl::par_for(output_size_,[=](size_t i)
-        {
+        for(size_t i = 0;i < output_size_;++i)
             if(in_ptr[i] < 0.0f)
-                in_ptr[i] *= slope;
-        });
+                 in_ptr[i] *= slope;
         return in_ptr;
     }
     virtual void print(std::ostream& out) const {out << "leaky relu " << out_channels_ << std::endl;}
@@ -207,7 +203,7 @@ public:
             auto b = bias[outc];
             for(size_t i = 0;i < dim.size();++i)
                 in_ptr[i] = (in_ptr[i]-m)*v+b;
-        });
+        },out_channels_);
         return in;
     }
     virtual void print(std::ostream& out) const {out << "batch_norm_3d " << out_channels_ << std::endl;}
@@ -260,7 +256,7 @@ public:
                 }
                 out_ptr[i] = max_value;
             }
-        });
+        },out_channels_);
         return out.data();
     }
     virtual void print(std::ostream& out) const {out << "max_pool_3d " << out_channels_ << std::endl;    }
@@ -304,7 +300,7 @@ public:
             auto out_ptr = out.data()+c*out_dim.size();
             for(int i = 0; i < out_dim.size(); i++)
                 out_ptr[i] = in_ptr[o2i[i]];
-        });
+        },out_channels_);
         return out.data();
     }
     virtual void print(std::ostream& out) const {out << "upsample_3d " << out_channels_ << std::endl;}
