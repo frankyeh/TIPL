@@ -154,7 +154,14 @@ public:
     {
         return !(*this == rhs);
     }
-
+    friend std::ostream& operator<<(std::ostream& out,const shape& dim)
+    {
+        out << "(";
+        for(int i = 0;i < dimension;++i)
+            out << (i ? "," : "(") << dim[i];
+        out << ")";
+        return out;
+    }
 };
 
 
