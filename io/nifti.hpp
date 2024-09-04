@@ -643,7 +643,6 @@ public:
             nif_header.srow_z[2] = pixel_size_from[2];
         }
     }
-
     template<typename matrix_type>
     void set_image_transformation(matrix_type& R,bool mni = false)
     {
@@ -762,10 +761,10 @@ public:
                 rgb_write_buf[j+1] = c.g;
                 rgb_write_buf[j+2] = c.b;
             }
-            write_buf = &*rgb_write_buf.begin();
+            write_buf = rgb_write_buf.data();
         }
         else
-            write_buf = &*source.begin();
+            write_buf = source.data();
         is_nii = true;
     }
     template<tipl::interpolation interpotype = linear,typename image_type,typename srow_type>
