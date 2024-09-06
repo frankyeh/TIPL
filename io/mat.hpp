@@ -176,6 +176,7 @@ public:
         // same type or unsigned short v.s. short
         return mat_type_info<T>::type == type || (type == 40 && mat_type_info<T>::type == 30) || (type == 30 && mat_type_info<T>::type == 40);
     }
+
     template<typename stream_type>
     void flush(stream_type& in,bool flush)
     {
@@ -261,6 +262,7 @@ public:
         rows = s[0];
         cols = s[1];
         data_buf.resize(get_total_size(type));
+        converted_data_buf.clear();
     }
     size_t size(void) const{return size_t(rows)*size_t(cols);}
     void set_name(const std::string& new_name)
