@@ -377,7 +377,7 @@ public:
                       std::ostream_iterator<unsigned short>(out," "));
             break;
         case 50://unsigned char
-            if(sub_data.empty() && out_count < 4096 && data_buf[0] >= '0' && data_buf[0] <= '~')
+            if(sub_data.empty() && out_count < 4096 && data_buf[0])
             {
                 std::string text(reinterpret_cast<const char*>(data_buf.data()));
                 std::replace(text.begin(),text.end(),'\n',' ');
