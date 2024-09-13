@@ -423,7 +423,7 @@ public:
     float optimize(terminated_type&& is_terminated)
     {
         std::vector<std::shared_ptr<cost_type> > cost_fun;
-        auto size = (from.size() > to.size() ? to.size() : from.size());
+        auto size = std::min(from.size(),to.size());
         for(size_t i = 0;i < size;++i)
             cost_fun.push_back(std::make_shared<cost_type>());
         return optimize<cost_type>(cost_fun,std::forward<terminated_type>(is_terminated));
