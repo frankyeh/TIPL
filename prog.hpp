@@ -23,7 +23,8 @@ inline bool prog_aborted = false;
 inline bool show_prog = false;
 inline std::vector<std::chrono::high_resolution_clock::time_point> process_time,t_last;
 inline std::vector<std::string> status_list,at_list;
-inline std::mutex print_mutex;
+inline std::mutex print_mutex,msg_mutex;
+inline std::string last_msg;
 inline bool processing_time_less_than(int time)
 {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -59,6 +60,7 @@ inline void update_prog(std::string status,bool show_now = false,uint32_t now = 
     else
     {
         progressDialog->setLabelText(status.c_str());
+        progressDialog->adjustSize();
         if(progressDialog->wasCanceled())
         {
             prog_aborted = true;
@@ -100,26 +102,22 @@ private:
     static std::string get_status(void)
     {
         std::string result;
-        for(size_t i = 0;i < status_list.size();++i)
+        for(size_t i = 1;i < status_list.size();++i)
         {
             if(status_list[i].empty())
                 continue;
-            if(i && (result.empty() || result.back() != '\n'))
-                result += "\n";
-            {
-                std::string s;
-                std::getline(std::istringstream(status_list[i]),s);
-                result += s;
-            }
+            std::string s;
+            std::getline(std::istringstream(status_list[i]),s);
+            result += s;
             if(i < at_list.size())
-            {
-                result += " ";
-                result += at_list[i];
-            }
+                result += " " + at_list[i];
+            if(result.back() != '\n')
+                result += "\n";
         }
-        if(!result.empty() && result.back() == '\n')
+        std::scoped_lock<std::mutex> lock2(msg_mutex);
+        if(last_msg.empty() && !result.empty())
             result.pop_back();
-        return result;
+        return result+last_msg;
     }
 
     static bool check_prog(unsigned int now,unsigned int total)
@@ -214,18 +212,19 @@ public:
         std::scoped_lock<std::mutex> lock(print_mutex);
         std::istringstream in(status);
         std::string line;
+        bool is_main_thread = tipl::is_main_thread();
         while(std::getline(in,line))
         {
             if(line.empty())
                 continue;
-            line = get_color_line(line,head_node,error_code);
-            if(!tipl::is_main_thread())
+            auto new_line = get_color_line(line,head_node,error_code);
+            if(!is_main_thread)
             {
                 std::ostringstream out;
-                out << "[thread " << std::this_thread::get_id() << "]" << line;
-                line = out.str();
-            }
-            std::cout << get_head(head_node,tail_node) + line << std::endl;
+                out << "[thread " << std::this_thread::get_id() << "]" << new_line;
+                new_line = out.str();
+            }   
+            std::cout << get_head(head_node,tail_node) + new_line << std::endl;
             head_node = false;
         }
     }
@@ -255,7 +254,6 @@ public:
     {
         if(!tipl::is_main_thread() || temporary)
             return;
-
         std::ostringstream out;
 
         {
@@ -284,7 +282,12 @@ public:
         t_last.pop_back();
         if(status_list.empty())
             at_list.clear();
+        {
+            std::scoped_lock<std::mutex> lock2(msg_mutex);
+            last_msg.clear();
+        }
         update_prog(get_status());
+
     }
 };
 
@@ -311,11 +314,11 @@ bool run(const std::string& msg,fun_type fun)
             size_t i = 0;
             while(!ended)
             {
-                std::this_thread::yield();
                 prog(i,i+1);
                 if(prog.aborted())
                     return;
                 ++i;
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
             }
         }
     },2);
@@ -334,6 +337,8 @@ class output{
             if(out.back() == '\n')
                 out.pop_back();
             progress::print(out.c_str(),false,false,code);
+            std::scoped_lock<std::mutex> lock2(msg_mutex);
+            std::getline(std::istringstream(out),last_msg);
         }
         output& operator<<(std::ostream& (*var)(std::ostream&))
         {
