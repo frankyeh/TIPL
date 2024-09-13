@@ -41,14 +41,12 @@ inline void operator<<(QGraphicsScene& scene,QImage I)
 }
 inline QImage& operator << (QImage& image,const tipl::color_image& I)
 {
-   return image = QImage((unsigned char*)&*I.begin(),
-                  I.width(),I.height(),QImage::Format_RGB32).copy();
+   return image = QImage(reinterpret_cast<const unsigned char*>(I.data()),I.width(),I.height(),QImage::Format_RGB32).copy();
 
 }
 inline QImage operator << (QImage&&,const tipl::color_image& I)
 {
-   return QImage((unsigned char*)&*I.begin(),
-                  I.width(),I.height(),QImage::Format_RGB32).copy();
+   return QImage(reinterpret_cast<const unsigned char*>(I.data()),I.width(),I.height(),QImage::Format_RGB32).copy();
 
 }
 template<typename value_type>
