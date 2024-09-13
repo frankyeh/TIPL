@@ -163,6 +163,15 @@ inline void compose_mapping(const T1& from,const T2& mapping,T3& to)
     });
 }
 //---------------------------------------------------------------------------
+template<tipl::interpolation itype = tipl::interpolation::linear,typename T1,typename T2>
+inline auto compose_mapping(const T1& from,const T2& mapping) -> typename T1::buffer_type
+
+{
+    typename T1::buffer_type to(mapping.shape());
+    compose_mapping<itype>(from,mapping,to);
+    return to;
+}
+//---------------------------------------------------------------------------
 #ifdef __CUDACC__
 
 template<tipl::interpolation itype,typename T1,typename T2,typename T3>
