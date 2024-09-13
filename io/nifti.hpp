@@ -767,7 +767,7 @@ public:
             write_buf = source.data();
         is_nii = true;
     }
-    template<tipl::interpolation interpotype = linear,typename image_type,typename srow_type>
+    template<typename image_type,typename srow_type>
     static bool load_to_space(const std::string& file_name,image_type& I,const srow_type& I_T)
     {
         nifti_base nii;
@@ -780,7 +780,12 @@ public:
         if(I.shape() == J.shape() && I_T == J_T)
             I.swap(J);
         else
-            resample<interpotype>(J,I,from_space(I_T).to(J_T));
+        {
+            if(is_label_image(J))
+                resample<nearest>(J,I,from_space(I_T).to(J_T));
+            else
+                resample<linear>(J,I,from_space(I_T).to(J_T));
+        }
         return true;
     }
     template<typename image_type>
