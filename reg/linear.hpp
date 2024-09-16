@@ -597,8 +597,8 @@ size_t linear(std::vector<tipl::const_pointer_image<dim,unsigned char> > from,
         if(reg_type == tipl::reg::affine)
             new_to_vs = adjust_to_vs<out_type>(from[0],from_vs,to[0],to_vs);
         if(new_to_vs != to_vs)
-            tipl::transformation_matrix<float,dim>(arg,from[0],from_vs,to[0],to_vs).
-                    to_affine_transform(arg,from[0],from_vs,to[0],new_to_vs);
+            arg = tipl::transformation_matrix<float,dim>(arg,from[0],from_vs,to[0],to_vs).
+                    to_affine_transform(from[0],from_vs,to[0],new_to_vs);
     }
     float result = std::numeric_limits<float>::max();
 
@@ -636,7 +636,7 @@ size_t linear(std::vector<tipl::const_pointer_image<dim,unsigned char> > from,
     if constexpr(dim == 3)
     {
         if(new_to_vs != to_vs)
-            tipl::transformation_matrix<float,dim>(arg,from[0],from_vs,to[0],new_to_vs).to_affine_transform(arg,from[0],from_vs,to[0],to_vs);
+            arg = tipl::transformation_matrix<float,dim>(arg,from[0],from_vs,to[0],new_to_vs).to_affine_transform(from[0],from_vs,to[0],to_vs);
     }
     return linear_refine<out_type>(from,from_vs,to,to_vs,arg,reg_type,terminated,cost_type,use_cuda);
 }
