@@ -916,7 +916,7 @@ public:
 
     // new matrix = rhs * current matrix
     // when applying to vectors, they will be transformed by current matrix first, and then the rhs.
-    const transformation_matrix& accumulate(const transformation_matrix& rhs)
+    transformation_matrix& accumulate(const transformation_matrix& rhs)
     {
         tipl::matrix<dimension,dimension,value_type> sr_tmp(sr);
         tipl::mat::product(rhs.sr,sr_tmp.begin(),sr,tipl::dim<dimension,dimension>(),tipl::dim<dimension,dimension>());
