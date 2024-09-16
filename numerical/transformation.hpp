@@ -816,12 +816,13 @@ public:
     }
     // (Affine*Scaling*R1*R2*R3*vs*Translocation*shift_center)*from = (vs*shift_center*to;
     template<typename geo_type,typename vs_type>
-    void to_affine_transform(affine_transform<value_type,3>& rb,
+    auto to_affine_transform(
                           const geo_type& from,
                           const vs_type& from_vs,
                           const geo_type& to,
                           const vs_type& to_vs) const
     {
+        affine_transform<value_type,3> rb;
         tipl::matrix<3,3,float> R,iR;
         std::copy(sr,sr+9,R.begin());
 
@@ -867,6 +868,7 @@ public:
         rb.translocation[1] = (iR[3]*t[0]+iR[4]*t[1]+iR[5]*t[2])+float(from.height())*value_type(0.5)*from_vs[1];
         rb.translocation[2] = (iR[6]*t[0]+iR[7]*t[1]+iR[8]*t[2])+float(from.depth())*value_type(0.5)*from_vs[2];
         matrix_to_rotation_scaling_affine(R.begin(),rb.rotation,rb.scaling,rb.affine,vdim<dimension>());
+        return rb;
     }
 public:
     template<typename rhs_value_type>
@@ -912,7 +914,9 @@ public:
     }
 public:
 
-    const transformation_matrix& operator*=(const transformation_matrix& rhs)
+    // new matrix = rhs * current matrix
+    // when applying to vectors, they will be transformed by current matrix first, and then the rhs.
+    const transformation_matrix& accumulate(const transformation_matrix& rhs)
     {
         tipl::matrix<dimension,dimension,value_type> sr_tmp(sr);
         tipl::mat::product(rhs.sr,sr_tmp.begin(),sr,tipl::dim<dimension,dimension>(),tipl::dim<dimension,dimension>());
@@ -922,24 +926,55 @@ public:
         vector_transformation(shift_t,shift,rhs.sr,rhs.shift,vdim<dimension>());
         return *this;
     }
-    template<typename InputIterType>
-    void save_to_transform(InputIterType M)
+    void to(tipl::matrix<dimension+1,dimension+1,value_type>& M) const
     {
-        M[0] = data_[0];
-        M[1] = data_[1];
-        M[2] = data_[2];
+        if constexpr(dimension == 3)
+        {
+            M[0] = data_[0];
+            M[1] = data_[1];
+            M[2] = data_[2];
 
-        M[4] = data_[3];
-        M[5] = data_[4];
-        M[6] = data_[5];
+            M[4] = data_[3];
+            M[5] = data_[4];
+            M[6] = data_[5];
 
-        M[8] = data_[6];
-        M[9] = data_[7];
-        M[10] = data_[8];
+            M[8] = data_[6];
+            M[9] = data_[7];
+            M[10] = data_[8];
 
-        M[3] = data_[9];
-        M[7] = data_[10];
-        M[11] = data_[11];
+            M[3] = data_[9];
+            M[7] = data_[10];
+            M[11] = data_[11];
+
+            M[12] = 0.0f;
+            M[13] = 0.0f;
+            M[14] = 0.0f;
+            M[15] = 1.0f;
+        }
+        else
+        {
+            data_[0] = M[0];
+            data_[1] = M[1];
+
+            data_[2] = M[3];
+            data_[3] = M[4];
+
+            data_[4] = M[2];
+            data_[5] = M[5];
+
+            M[0] = data_[0];
+            M[1] = data_[1];
+
+            M[3] = data_[2];
+            M[4] = data_[3];
+
+            M[2] = data_[4];
+            M[5] = data_[5];
+
+            M[6] = 0.0f;
+            M[7] = 0.0f;
+            M[8] = 1.0f;
+        }
     }
 
     bool inverse(void)
@@ -1012,7 +1047,7 @@ void inverse(affine_transform<value_type,3>& arg,
 {
     auto T = tipl::transformation_matrix<value_type,3>(arg,from,from_vs,to,to_vs);
     T.inverse();
-    T.to_affine_transform(arg,to,to_vs,from,from_vs);
+    arg = T.to_affine_transform(to,to_vs,from,from_vs);
 }
 class from_space : public tipl::matrix<4,4,float>{
 private:
@@ -1029,6 +1064,14 @@ public:
     }
 };
 
+
+template<typename value_type>
+inline std::initializer_list<value_type> to_vs(const tipl::matrix<4,4,value_type>& trans)
+{
+    return {std::sqrt(trans[0]*trans[0]+trans[4]*trans[4]+trans[8]*trans[8]),
+            std::sqrt(trans[1]*trans[1]+trans[5]*trans[5]+trans[9]*trans[9]),
+            std::sqrt(trans[2]*trans[2]+trans[6]*trans[6]+trans[10]*trans[10])};
+}
 
 
 
