@@ -397,6 +397,14 @@ public:
     __INLINE__ vector(const rhs_type& rhs):x_(rhs[0]),y_(rhs[1]){}
     template<typename rhs_type,typename std::enable_if<std::is_fundamental<rhs_type>::value,bool>::type = true>
     __INLINE__ vector(const rhs_type* rhs):x_(rhs[0]),y_(rhs[1]){}
+
+    vector(std::initializer_list<data_type> rhs)
+    {
+        auto it = rhs.begin();
+        x_ = *it++;
+        y_ = *it++;
+    }
+
     template<typename rhs_type,typename std::enable_if<std::is_fundamental<rhs_type>::value,bool>::type = true>
     __INLINE__ vector& operator=(const rhs_type* rhs)
     {
@@ -412,6 +420,13 @@ public:
         return *this;
     }
 
+    vector& operator=(std::initializer_list<data_type> rhs)
+    {
+        auto it = rhs.begin();
+        x_ = *it++;
+        y_ = *it++;
+        return *this;
+    }
 public:
     __INLINE__ data_type operator[](unsigned int index) const
     {
@@ -641,6 +656,15 @@ public:
     __INLINE__ vector(const T& rhs):x_(data_type(rhs[0])),y_(data_type(rhs[1])),z_(data_type(rhs[2])){}
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
     __INLINE__ vector(const T* rhs):x_(data_type(rhs[0])),y_(data_type(rhs[1])),z_(data_type(rhs[2])){}
+
+    vector(std::initializer_list<data_type>  rhs)
+    {
+        auto it = rhs.begin();
+        x_ = *it++;
+        y_ = *it++;
+        z_ = *it++;
+    }
+
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
     __INLINE__ vector& operator=(T rhs)
     {
@@ -665,6 +689,15 @@ public:
         z_ = rhs[2];
         return *this;
     }
+    vector& operator=(std::initializer_list<data_type> rhs)
+    {
+        auto it = rhs.begin();
+        x_ = *it++;
+        y_ = *it++;
+        z_ = *it++;
+        return *this;
+    }
+
 public:
     __INLINE__ const data_type& operator[](unsigned int index) const
     {
