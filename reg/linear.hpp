@@ -490,8 +490,6 @@ tipl::vector<dim> adjust_to_vs(const image_type& from,
     to_max -= to_min;
     tipl::vector<dim> new_vs(to_vs);
     float r = (to_max[0] > 0.0f) ? from_max[0]*from_vs[0]/(to_max[0]*to_vs[0]) : 1.0f;
-    if constexpr(!std::is_void<out_type>::value)
-        out_type() << "fov ratio: " << r;
     if(r > 1.5f || r < 1.0f/1.5f)
     {
         new_vs *= r;
@@ -545,7 +543,7 @@ float optimize_mi_cuda(std::shared_ptr<tipl::reg::linear_reg_param<dim,value_typ
 
 
 template<typename out_type = void,int dim>
-inline size_t linear_refine(std::vector<tipl::const_pointer_image<dim,unsigned char> > from,
+inline float linear_refine(std::vector<tipl::const_pointer_image<dim,unsigned char> > from,
                             tipl::vector<dim> from_vs,
                             std::vector<tipl::const_pointer_image<dim,unsigned char> > to,
                             tipl::vector<dim> to_vs,
@@ -557,7 +555,7 @@ inline size_t linear_refine(std::vector<tipl::const_pointer_image<dim,unsigned c
 {
     auto reg = tipl::reg::linear_reg(from,from_vs,to,to_vs,arg);
     reg->set_bound(reg_type,tipl::reg::narrow_bound,false);
-    size_t result = 0;
+    float result = 0;
     if constexpr (tipl::use_cuda && dim == 3)
     {
         if(cuda)
@@ -573,7 +571,7 @@ inline size_t linear_refine(std::vector<tipl::const_pointer_image<dim,unsigned c
 }
 
 template<typename out_type = void,int dim>
-size_t linear(std::vector<tipl::const_pointer_image<dim,unsigned char> > from,
+float linear(std::vector<tipl::const_pointer_image<dim,unsigned char> > from,
                              tipl::vector<dim> from_vs,
                              std::vector<tipl::const_pointer_image<dim,unsigned char> > to,
                              tipl::vector<dim> to_vs,
