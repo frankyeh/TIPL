@@ -317,6 +317,17 @@ inline auto volume2points(const T& mask)
     return region;
 }
 
+template<typename T,typename U>
+inline auto points2volume(const T& s,const U& points)
+{
+    tipl::image<T::dimension,unsigned char> mask(s);
+    for(size_t i = 0;i < points.size();++i)
+        if(s.is_valid(points[i]))
+            mask.at(points[i]) = 1;
+    return mask;
+}
+
+
 
 template<typename ImageType3D,typename ImageType2D,typename dim_type,typename slice_pos_type,
          typename std::enable_if<ImageType3D::dimension==3,bool>::type = true>
