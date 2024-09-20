@@ -387,12 +387,12 @@ ImageType2D& volume2slice_scaled(const ImageType3D& slice,ImageType2D& I,dim_typ
     I.clear();
     I.resize(shape<2>(slice.shape()[0]*scale,slice.shape()[1]*scale));
     float ratio = 1.0f/scale;
-    tipl::par_for(tipl::begin_index(I.shape()),tipl::end_index(I.shape()),[&](const auto& pos)
+    for(pixel_index<2> pos(I.shape());pos < I.size();++pos)
     {
-        auto x = std::min<int>(slice.width()-1,std::floor(ratio*pos[0]));
-        auto y = std::min<int>(slice.height()-1,std::floor(ratio*pos[1]));
+        auto x = std::min<int>(slice.width()-1,std::round(ratio*pos[0]));
+        auto y = std::min<int>(slice.height()-1,std::round(ratio*pos[1]));
         I[pos.index()] = slice.at(vector<2,int>(x,y));
-    });
+    }
     return I;
 }
 
@@ -408,32 +408,32 @@ ImageType2D& volume2slice_scaled(const ImageType3D& slice,ImageType2D& I,dim_typ
     float ratio = 1.0f/scale;
     if (dim == 2)   //XY
     {
-        tipl::par_for(tipl::begin_index(I.shape()),tipl::end_index(I.shape()),[&](const auto& pos)
+        for(pixel_index<2> pos(I.shape());pos < I.size();++pos)
         {
-            auto x = std::min<int>(slice.width()-1,std::floor(ratio*pos[0]));
-            auto y = std::min<int>(slice.height()-1,std::floor(ratio*pos[1]));
+            auto x = std::min<int>(slice.width()-1,std::round(ratio*pos[0]));
+            auto y = std::min<int>(slice.height()-1,std::round(ratio*pos[1]));
             I[pos.index()] = slice.at(vector<3,int>(x,y,int(slice_index)));
-        });
+        }
     }
     else
         if (dim == 1)   //XZ
         {
-            tipl::par_for(tipl::begin_index(I.shape()),tipl::end_index(I.shape()),[&](const auto& pos)
+            for(pixel_index<2> pos(I.shape());pos < I.size();++pos)
             {
-                auto x = std::min<int>(slice.width()-1,std::floor(ratio*pos[0]));
-                auto z = std::min<int>(slice.depth()-1,std::floor(ratio*pos[1]));
+                auto x = std::min<int>(slice.width()-1,std::round(ratio*pos[0]));
+                auto z = std::min<int>(slice.depth()-1,std::round(ratio*pos[1]));
                 I[pos.index()] = slice.at(vector<3,int>(x,int(slice_index),z));
-            });
+            }
         }
         else
             if (dim == 0)    //YZ
             {
-                tipl::par_for(tipl::begin_index(I.shape()),tipl::end_index(I.shape()),[&](const auto& pos)
+                for(pixel_index<2> pos(I.shape());pos < I.size();++pos)
                 {
-                    auto y = std::min<int>(slice.height()-1,std::floor(ratio*pos[0]));
-                    auto z = std::min<int>(slice.depth()-1,std::floor(ratio*pos[1]));
+                    auto y = std::min<int>(slice.height()-1,std::round(ratio*pos[0]));
+                    auto z = std::min<int>(slice.depth()-1,std::round(ratio*pos[1]));
                     I[pos.index()] = slice.at(vector<3,int>(int(slice_index),y,z));
-                });
+                }
             }
     return I;
 }
