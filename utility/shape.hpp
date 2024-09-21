@@ -265,7 +265,7 @@ public:
     template<typename T>
     __INLINE__ bool is_valid(T& pos) const
     {
-        return pos[0] >= 0 && pos[0]+1 <= dim[0];
+        return pos[0] >= 0 && pos[0] < dim[0];
     }
     template<typename T>
     __INLINE__ bool is_edge(T& pos) const
@@ -390,7 +390,7 @@ public:
     template<typename T>
     __INLINE__ bool is_valid(const T& pos) const
     {
-        return pos[0] >= 0 && pos[1] >= 0 && pos[0]+1 <= dim[0] && pos[1]+1 <= dim[1];
+        return pos[0] >= 0 && pos[1] >= 0 && pos[0] < dim[0] && pos[1] < dim[1];
     }
     template<typename T>
     __INLINE__ bool is_edge(const T& pos) const
@@ -588,7 +588,7 @@ public:
     __INLINE__ bool is_valid(const T& pos) const
     {
         return pos[0] >= 0 && pos[1] >= 0 && pos[2] >= 0 &&
-               pos[0]+1 <= dim[0] && pos[1]+1 <= dim[1] && pos[2]+1 <= dim[2];
+               pos[0] < dim[0] && pos[1] < dim[1] && pos[2] < dim[2];
     }
     template<typename T>
     __INLINE__ bool is_edge(T x,T y,T z) const
