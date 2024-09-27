@@ -342,7 +342,7 @@ template<typename out = default_output>
 class program_option{
     std::vector<std::string> names;
     std::vector<std::string> values;
-    std::vector<char> used;
+    std::vector<char> used,printed;
     std::set<std::string> not_found_names;
     bool add_option(const std::string& str)
     {
@@ -355,6 +355,7 @@ class program_option{
         names.push_back(std::string(str.begin()+2,pos));
         values.push_back(pos == str.end() ? std::string() : std::string(pos+1,str.end()));
         used.push_back(0);
+        printed.push_back(0);
         if(values.back().front() == '\"' && values.back().back() == '\"')
         {
             values.back().pop_back();
@@ -413,6 +414,7 @@ public:
         names.clear();
         values.clear();
         used.clear();
+        printed.clear();
     }
 
     bool parse(int ac, char *av[])
@@ -512,11 +514,13 @@ public:
             {
                 values[i] = value;
                 used[i] = 0;
+                printed[i] = 0;
                 return;
             }
         names.push_back(name);
         values.push_back(value);
         used.push_back(0);
+        printed.push_back(0);
     }
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
     void set(const char* name,T value)
@@ -575,8 +579,10 @@ public:
             if(names[i] == str_name)
             {
                 if(!used[i])
-                {
                     used[i] = 1;
+                if(!printed[i])
+                {
+                    printed[i] = 1;
                     out() << name << "=" << values[i] << std::endl;
                 }
                 return convert_to<value_type>::from(values[i]);
