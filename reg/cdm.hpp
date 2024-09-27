@@ -113,26 +113,25 @@ __global__ void cdm_solve_poisson_cuda_kernel(T new_d,T solve_d,T new_solve_d)
     const int size_1 = new_d.size()-1;
     const int size_w = new_d.size()-w;
     const int size_wh = new_d.size()-wh;
-    constexpr float inv_d2 = 0.5f / float(T::dimension);
+    constexpr float inv_d2 = -0.5f / float(T::dimension);
     TIPL_FOR(pos,new_d.size())
     {
-        auto v = new_solve_d[pos];
+        auto v = new_d[pos];
         if(pos >= 1)
-           v += solve_d[pos-1];
+           v -= solve_d[pos-1];
         if(pos < size_1)
-           v += solve_d[pos+1];
+           v -= solve_d[pos+1];
         if(pos >= w)
-           v += solve_d[pos-w];
+           v -= solve_d[pos-w];
         if(pos < size_w)
-           v += solve_d[pos+w];
+           v -= solve_d[pos+w];
         if constexpr(T::dimension == 3)
         {
             if(pos >= wh)
-               v += solve_d[pos-wh];
+               v -= solve_d[pos-wh];
             if(pos < size_wh)
-               v += solve_d[pos+wh];
+               v -= solve_d[pos+wh];
         }
-        v -= new_d[pos];
         v *= inv_d2;
         new_solve_d[pos] = v;
     }
@@ -166,26 +165,25 @@ void cdm_solve_poisson(T& new_d,terminated_type& terminated)
             const int size_1 = new_d.size()-1;
             const int size_w = new_d.size()-w;
             const int size_wh = new_d.size()-wh;
-            constexpr float inv_d2 = 0.5f / float(T::dimension);
+            constexpr float inv_d2 = -0.5f / float(T::dimension);
             tipl::par_for(solve_d.size(),[&](int pos)
             {
-                auto v = new_solve_d[pos];
+                auto v = new_d[pos];
                 if(pos >= 1)
-                   v += solve_d[pos-1];
+                   v -= solve_d[pos-1];
                 if(pos < size_1)
-                   v += solve_d[pos+1];
+                   v -= solve_d[pos+1];
                 if(pos >= w)
-                   v += solve_d[pos-w];
+                   v -= solve_d[pos-w];
                 if(pos < size_w)
-                   v += solve_d[pos+w];
+                   v -= solve_d[pos+w];
                 if constexpr(T::dimension == 3)
                 {
                     if(pos >= wh)
-                        v += solve_d[pos-wh];
+                        v -= solve_d[pos-wh];
                     if(pos < size_wh)
-                        v += solve_d[pos+wh];
+                        v -= solve_d[pos+wh];
                 }
-                v -= new_d[pos];
                 v *= inv_d2;
                 new_solve_d[pos] = v;
             });
