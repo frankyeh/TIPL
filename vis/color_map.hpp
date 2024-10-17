@@ -20,7 +20,7 @@ inline unsigned char color_spectrum_value(unsigned char center, unsigned char va
 
 struct color_bar : public tipl::color_image{
 public:
-    color_bar(unsigned int width,unsigned int height)
+    color_bar(unsigned int width = 20,unsigned int height = 256)
     {
         resize(tipl::shape<2>(width,height));
     }
@@ -76,6 +76,12 @@ public:
     color_map(void):color(256){}
     size_t size(void)const{return color.size();}
     const tipl::vector<3,float>& operator[](unsigned int index) const{return color[index];}
+    const tipl::vector<3,float>& value2color(float v,float min,float r) const
+    {
+        if(r == 0.0f)
+            return color.front();
+        return color[uint32_t(std::floor(std::min(1.0f,(std::max<float>(v-min,0.0f))/r)*255.0+0.49))];
+    }
     tipl::vector<3,float> min_color(void)const{return color.front();}
     tipl::vector<3,float> max_color(void)const{return color.back();}
     void two_color(tipl::rgb from_color,tipl::rgb to_color)
@@ -120,6 +126,12 @@ public:
     color_map_rgb(void):color(256){}
     size_t size(void)const{return color.size();}
     const tipl::rgb& operator[](unsigned int index) const{return color[index];}
+    const tipl::rgb& value2color(float v,float min,float r) const
+    {
+        if(r == 0.0f)
+            return color.front();
+        return color[uint32_t(std::floor(std::min(1.0f,(std::max<float>(v-min,0.0f))/r)*255.0+0.49))];
+    }
     tipl::rgb min_color(void)const{return color.front();}
     tipl::rgb max_color(void)const{return color.back();}
     void two_color(tipl::rgb from_color,tipl::rgb to_color)
