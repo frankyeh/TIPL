@@ -20,14 +20,13 @@ inline unsigned char color_spectrum_value(unsigned char center, unsigned char va
 
 struct color_bar : public tipl::color_image{
 public:
-    color_bar(unsigned int width = 20,unsigned int height = 256)
+    color_bar(unsigned int width = 20,unsigned int height = 257)
     {
         resize(tipl::shape<2>(width,height));
     }
     void two_color(tipl::rgb from_color,tipl::rgb to_color)
     {
-        resize(tipl::shape<2>(20,256));
-        for(int index = 1;index < height();++index)
+        for(int index = 1;index < height()-1;++index)
         {
             float findex = float(index)/float(height());
             tipl::rgb color;
@@ -38,7 +37,7 @@ public:
     }
     void spectrum(void)
     {
-        for(int index = 1;index < height();++index)
+        for(int index = 1;index < height()-1;++index)
         {
             unsigned char findex = uint8_t(float(index)*255.0f/height());
             tipl::rgb color;
