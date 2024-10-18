@@ -208,7 +208,7 @@ par_for(T& c, Func&& f)
 template <par_for_type type = sequential,typename T, typename Func>
 size_t adaptive_par_for(T from, T to, Func&& f)
 {
-    if(to-from <= 8)
+    if(to-from <= 8 || !tipl::is_main_thread())
     {
         par_for<type>(from,to,std::forward<Func>(f),1);
         return 1;
