@@ -160,6 +160,14 @@ public:
         result.w = w;
         return result;
     }
+    template<typename T>
+    __INLINE__ pixel_index<2>& operator+=(T value)
+    {
+        index_ += value;
+        x_ = index_ % w;
+        y_ = index_ / w;
+        return *this;
+    }
 
 
     __INLINE__ int64_t operator-(const pixel_index& rhs) const
@@ -334,6 +342,16 @@ public:
         result.w = w;
         result.h = h;
         return result;
+    }
+    template<typename T>
+    __INLINE__ pixel_index<3>& operator+=(T value)
+    {
+        index_ += value;
+        x_ = int(index_ % w);
+        auto lines = index_ / w;
+        y_ = int(lines % h);
+        z_ = int(lines / h);
+        return *this;
     }
 
     __INLINE__ pixel_index<3>& operator++(void)
