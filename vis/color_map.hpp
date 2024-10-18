@@ -79,7 +79,7 @@ public:
     {
         if(r == 0.0f)
             return color.front();
-        return color[uint32_t(std::floor(std::min(1.0f,(std::max<float>(v-min,0.0f))/r)*255.0+0.49))];
+        return color[std::min<int>(255,(std::max<int>(int((v-min)*255.99f/r),0)))];
     }
     tipl::vector<3,float> min_color(void)const{return color.front();}
     tipl::vector<3,float> max_color(void)const{return color.back();}
@@ -129,7 +129,7 @@ public:
     {
         if(r == 0.0f)
             return color.front();
-        return color[uint32_t(std::floor(std::min(1.0f,(std::max<float>(v-min,0.0f))/r)*255.0+0.49))];
+        return color[std::min<int>(255,(std::max<int>(int((v-min)*255.99f/r),0)))];
     }
     tipl::rgb min_color(void)const{return color.front();}
     tipl::rgb max_color(void)const{return color.back();}
