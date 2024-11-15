@@ -223,7 +223,9 @@ struct rgb
     static rgb generate(int color_gen)
     {
         rgb color;
-        color.from_hsl(((color_gen)*1.1-std::floor((color_gen)*1.1/6)*6)*3.14159265358979323846/3.0,0.85,0.7);
+        double var1[9] = {0.0, 0.15,-0.15,0.15,-0.15,0.15,0.0,-0.15, 0.0};
+        double var2[9] = {0.0,-0.15, 0.15,0.15,-0.15,0.0,0.15, 0.0,-0.15};
+        color.from_hsl(((color_gen)*1.1-std::floor((color_gen)*1.1/6)*6)*3.14159265358979323846/3.0,0.8+var1[(color_gen/12)%9],0.7+var2[(color_gen/12)%9]);
         return color;
     }
     void operator|=(const rgb& rhs)
