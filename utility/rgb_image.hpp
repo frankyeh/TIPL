@@ -227,6 +227,12 @@ struct rgb
         color.from_hsl(std::fmod(color_gen*0.618033988749895, 2.0)*3.14159265358979323846,0.85+(((color_gen/13)%2)?-0.1:0.1),0.7+var2[(color_gen/13)%8]);
         return color;
     }
+    static rgb generate_hue(int color_gen)
+    {
+        tipl::rgb color;
+        color.from_hsl(std::fmod(color_gen*0.618033988749895, 2.0)*3.14159265358979323846,0.85,0.7);
+        return color;
+    }
     void operator|=(const rgb& rhs)
     {
         r = rhs.r | r;
