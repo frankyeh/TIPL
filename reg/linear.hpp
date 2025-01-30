@@ -247,17 +247,17 @@ public:
 
 
 enum reg_type {none = 0,translocation = 1,rotation = 2,rigid_body = 3,scaling = 4,translocation_scaling = 5,rigid_scaling = 7,tilt = 8,affine = 15};
-enum cost_type{corr,mutual_info};
+enum cost_type{corr = 0,mutual_info = 1};
 
-const float narrow_bound[3][8] = {{0.2f,-0.2f,      0.1f,-0.1f,    1.2f,0.8f,  0.05f,-0.05f},
+const float narrow_bound[3][8] = {{0.2f,-0.2f,      0.2f,-0.2f,    1.2f,0.8f,  0.05f,-0.05f},
                                   {0.2f,-0.2f,      0.1f,-0.1f,    1.2f,0.8f,  0.05f,-0.05f},
                                   {0.2f,-0.2f,      0.1f,-0.1f,    1.2f,0.8f,  0.05f,-0.05f}};
-const float reg_bound[3][8] =    {{0.75f,-0.75f,    0.75f,-0.75f,  1.5f,0.7f,  0.1f,-0.1f},
-                                  {0.75f,-0.75f,    0.2f,-0.2f,    1.5f,0.7f,  0.1f,-0.1f},
-                                  {0.75f,-0.75f,    0.2f,-0.2f,    1.5f,0.7f,  0.1f,-0.1f}};
-const float large_bound[3][8] =  {{1.0f,-1.0f,      1.5f,-1.5f,    2.0f,0.5f,  0.25f,-0.25f},
-                                  {1.0f,-1.0f,      0.5f,-0.5f,    2.0f,0.5f,  0.25f,-0.25f},
-                                  {1.0f,-1.0f,      0.5f,-0.5f,    2.0f,0.5f,  0.25f,-0.25f}};
+const float reg_bound[3][8] =    {{0.75f,-0.75f,    0.4f,-0.4f,    1.5f,0.7f,  0.1f,-0.1f},
+                                  {0.75f,-0.75f,    0.25f,-0.25f,  1.5f,0.7f,  0.1f,-0.1f},
+                                  {0.75f,-0.75f,    0.25f,-0.25f,  1.5f,0.7f,  0.1f,-0.1f}};
+const float large_bound[3][8] =  {{1.0f,-1.0f,      0.5f,-0.5f,    2.0f,0.5f,  0.25f,-0.25f},
+                                  {1.0f,-1.0f,      0.4f,-0.4f,    2.0f,0.5f,  0.25f,-0.25f},
+                                  {1.0f,-1.0f,      0.4f,-0.4f,    2.0f,0.5f,  0.25f,-0.25f}};
 
 template<int dim,typename value_type,typename out_type = void>
 class linear_reg_param{
@@ -375,8 +375,8 @@ public:
         {
             if (type & rotation)
             {
-                arg_upper.rotation[index] += 3.14159265358979323846f*bound[index][2]*(index == 0 ? 2.0f:1.0f);
-                arg_lower.rotation[index] += 3.14159265358979323846f*bound[index][3]*(index == 0 ? 2.0f:1.0f);
+                arg_upper.rotation[index] += 3.14159265358979323846f*bound[index][2];
+                arg_lower.rotation[index] += 3.14159265358979323846f*bound[index][3];
             }
             if (type & tilt)
             {
@@ -385,8 +385,9 @@ public:
             }
         }
     }
-    template<typename cost_type,typename terminated_type>
-    float optimize(std::vector<std::shared_ptr<cost_type> > cost_fun,terminated_type&& is_terminated)
+    template<bool line_search,typename cost_type,typename terminated_type>
+    float run_optimize(std::vector<std::shared_ptr<cost_type> > cost_fun,
+                   terminated_type&& is_terminated)
     {
         double optimal_value;
         auto fun = [&](const transform_type& new_param)
@@ -399,11 +400,6 @@ public:
                 cost += (*cost_fun[i].get())(from[i],to[i],trans);
             }
             cost /= cost_fun.size()*2;
-            if constexpr(!std::is_void<out_type>::value)
-            {
-                out_type() << new_param;
-                out_type() << "cost:" << optimal_value;
-            }
             return cost;
         };
         optimal_value = fun(arg_min);
@@ -411,22 +407,73 @@ public:
         for(size_t iter = 0;iter < reg_list.size() && !is_terminated();++iter)
         {
             auto cur_bound = get_current_bound(reg_list[iter]);
-            tipl::optimization::gradient_descent(arg_min.begin(),arg_min.end(),
-                cur_bound.first.begin(),cur_bound.second.begin(),fun,optimal_value,is_terminated,
-                precision,max_iterations);
-            if constexpr(!std::is_void<out_type>::value)
-                out_type() << "optimal cost:" << optimal_value;
+            if constexpr(line_search)
+            {
+                bool gradient_descent_ended = false;
+                auto arg_min2 = arg_min;
+                auto optimal_value2 = optimal_value;
+                std::mutex m;
+                size_t search_updated = 0;
+                auto check_terminated = [&](void)
+                {
+                    {
+                        std::lock_guard<std::mutex> lock(m);
+                        if(optimal_value2 < optimal_value)
+                        {
+                            optimal_value = optimal_value2;
+                            arg_min = arg_min2;
+                            ++search_updated;
+                        }
+                        if(optimal_value < optimal_value2)
+                        {
+                            optimal_value2 = optimal_value;
+                            arg_min2 = arg_min;
+                        }
+                    }
+                    return is_terminated();
+                };
+
+                std::thread thread([&](void)
+                    {
+                        tipl::optimization::line_search(
+                        arg_min2.begin(),arg_min2.end(),
+                        cur_bound.first.begin(),cur_bound.second.begin(),fun,optimal_value2,
+                                [&](){return gradient_descent_ended || check_terminated();});
+                    });
+
+                tipl::optimization::gradient_descent(
+                    arg_min.begin(),arg_min.end(),
+                    cur_bound.first.begin(),cur_bound.second.begin(),fun,optimal_value,check_terminated,
+                    precision,max_iterations);
+                gradient_descent_ended = true;
+                thread.join();
+
+                if constexpr(!std::is_void<out_type>::value)
+                    out_type() << "reg:" << int(reg_list[iter])
+                               << " search:" << search_updated
+                               << " cost:" << optimal_value << " " << arg_min;
+            }
+            else
+            {
+                tipl::optimization::gradient_descent(
+                    arg_min.begin(),arg_min.end(),
+                    cur_bound.first.begin(),cur_bound.second.begin(),fun,optimal_value,is_terminated,
+                    precision,max_iterations);
+                if constexpr(!std::is_void<out_type>::value)
+                    out_type() << "reg:" << int(reg_list[iter])
+                               << " cost:" << optimal_value << " " << arg_min;
+            }
         }
         return optimal_value;
     }
-    template<typename cost_type,typename terminated_type>
+    template<typename cost_type,bool line_search = false,typename terminated_type>
     float optimize(terminated_type&& is_terminated)
     {
         std::vector<std::shared_ptr<cost_type> > cost_fun;
         auto size = std::min(from.size(),to.size());
         for(size_t i = 0;i < size;++i)
             cost_fun.push_back(std::make_shared<cost_type>());
-        return optimize<cost_type>(cost_fun,std::forward<terminated_type>(is_terminated));
+        return run_optimize<line_search>(cost_fun,std::forward<terminated_type>(is_terminated));
     }
     template<typename cost_type>
     float optimize(bool& is_terminated)
@@ -438,16 +485,8 @@ public:
     template<typename cost_type,typename terminated_type>
     float optimize_mr(terminated_type&& terminated)
     {
-        if constexpr(!std::is_void<out_type>::value)
+        if(from[0].size() > (dim == 3 ? 128*128*128 : 128*128))
         {
-            out_type() << "resolution:" << from_vs;
-            out_type() << "size:" << from[0].shape();
-        }
-        if(from[0].size() > (dim == 3 ? 64*64*64 : 64*64))
-        {
-            if constexpr(!std::is_void<out_type>::value)
-                out_type() << "try lower resolution first";
-
             max_prog += reg_list.size();
             linear_reg_param low_reso_reg(*this);
             low_reso_reg.down_sampling();
@@ -455,7 +494,9 @@ public:
             max_prog = low_reso_reg.max_prog;
             prog = low_reso_reg.prog;
         }
-        return optimize<cost_type>(std::forward<terminated_type>(terminated));
+        if constexpr(!std::is_void<out_type>::value)
+            out_type() << "optimize at:" << from_vs << " size:" << from[0].shape();
+        return optimize<cost_type,true>(std::forward<terminated_type>(terminated));
     }
     template<typename cost_type>
     float optimize_mr(bool& is_terminated)
@@ -518,8 +559,8 @@ auto make_list(const image_type& I)
 
 #ifdef __CUDACC__
 #include "../cu.hpp"
-template<bool mr,typename value_type,int dim>
-float optimize_mi_cuda(std::shared_ptr<tipl::reg::linear_reg_param<dim,value_type> > reg,
+template<bool mr,typename out_type,typename value_type,int dim>
+float optimize_mi_cuda(std::shared_ptr<tipl::reg::linear_reg_param<dim,value_type,out_type> > reg,
                         tipl::reg::cost_type cost_type,
                         bool& terminated)
 {
@@ -533,8 +574,8 @@ float optimize_mi_cuda(std::shared_ptr<tipl::reg::linear_reg_param<dim,value_typ
                 reg->template optimize<tipl::reg::correlation_cuda<dim,tipl::device_vector> >(terminated);
 }
 #else
-template<bool mr,typename value_type,int dim>
-float optimize_mi_cuda(std::shared_ptr<tipl::reg::linear_reg_param<dim,value_type> > reg,
+template<bool mr,typename out_type,typename value_type,int dim>
+float optimize_mi_cuda(std::shared_ptr<tipl::reg::linear_reg_param<dim,value_type,out_type> > reg,
                         tipl::reg::cost_type cost_type,
                         bool& terminated);
 
@@ -542,7 +583,7 @@ float optimize_mi_cuda(std::shared_ptr<tipl::reg::linear_reg_param<dim,value_typ
 
 
 
-template<typename out_type = void,int dim>
+template<typename out_type,int dim>
 inline float linear_refine(std::vector<tipl::const_pointer_image<dim,unsigned char> > from,
                             tipl::vector<dim> from_vs,
                             std::vector<tipl::const_pointer_image<dim,unsigned char> > to,
@@ -553,24 +594,24 @@ inline float linear_refine(std::vector<tipl::const_pointer_image<dim,unsigned ch
                             tipl::reg::cost_type cost_type = tipl::reg::mutual_info,
                             bool cuda = true)
 {
-    auto reg = tipl::reg::linear_reg(from,from_vs,to,to_vs,arg);
+    auto reg = tipl::reg::linear_reg<out_type>(from,from_vs,to,to_vs,arg);
     reg->set_bound(reg_type,tipl::reg::narrow_bound,false);
     float result = 0;
     if constexpr (tipl::use_cuda && dim == 3)
     {
         if(cuda)
-            result = optimize_mi_cuda<false/*no mr*/>(reg,cost_type,terminated);
+            result = optimize_mi_cuda<false/*no mr*/,out_type>(reg,cost_type,terminated);
     }
     if(!result)
         result = (cost_type == tipl::reg::mutual_info ? reg->template optimize<tipl::reg::mutual_information<dim> >(terminated):
 
                                                         reg->template optimize<tipl::reg::correlation>(terminated));
     if constexpr(!std::is_void<out_type>::value)
-        out_type() << arg;
+        out_type() << "result: " << arg;
     return result;
 }
 
-template<typename out_type = void,int dim>
+template<typename out_type,int dim>
 float linear(std::vector<tipl::const_pointer_image<dim,unsigned char> > from,
                              tipl::vector<dim> from_vs,
                              std::vector<tipl::const_pointer_image<dim,unsigned char> > to,
@@ -600,7 +641,7 @@ float linear(std::vector<tipl::const_pointer_image<dim,unsigned char> > from,
     }
     float result = std::numeric_limits<float>::max();
 
-    auto reg = tipl::reg::linear_reg(from,from_vs,to,new_to_vs,arg);
+    auto reg = tipl::reg::linear_reg<out_type>(from,from_vs,to,new_to_vs,arg);
     reg->set_bound(reg_type,bound);
 
     if constexpr (tipl::use_cuda && dim == 3)
@@ -608,9 +649,11 @@ float linear(std::vector<tipl::const_pointer_image<dim,unsigned char> > from,
         if(cuda)
         {
             do{
-                auto cost = optimize_mi_cuda<true/*has mr*/>(reg,cost_type,terminated);
+                auto cost = (result == std::numeric_limits<float>::max()) ?
+                        optimize_mi_cuda<true/*has mr*/,out_type>(reg,cost_type,terminated):
+                        optimize_mi_cuda<false/*no mr*/,out_type>(reg,cost_type,terminated);
                 if constexpr(!std::is_void<out_type>::value)
-                    out_type() << "cost: " << cost;
+                    out_type() << "result cost: " << cost;
                 if(cost >= result)
                     break;
                 result = cost;
@@ -620,11 +663,16 @@ float linear(std::vector<tipl::const_pointer_image<dim,unsigned char> > from,
     if(result == std::numeric_limits<float>::max())
     {
         do{
-            auto cost = (cost_type == tipl::reg::mutual_info ? reg->template optimize_mr<tipl::reg::mutual_information<dim> >(terminated):
-                                                        reg->template optimize_mr<tipl::reg::correlation>(terminated));
+            auto cost =
+                    (result == std::numeric_limits<float>::max()) ?
+                    (cost_type == tipl::reg::mutual_info ? reg->template optimize_mr<tipl::reg::mutual_information<dim> >(terminated):
+                                                           reg->template optimize_mr<tipl::reg::correlation>(terminated))
+                    :
+                    (cost_type == tipl::reg::mutual_info ? reg->template optimize<tipl::reg::mutual_information<dim> >(terminated):
+                                                           reg->template optimize<tipl::reg::correlation>(terminated));
 
             if constexpr(!std::is_void<out_type>::value)
-                out_type() << "cost: " << cost;
+                out_type() << "result cost: " << cost;
             if(cost >= result)
                 break;
             result = cost;
