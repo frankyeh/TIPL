@@ -59,6 +59,17 @@ struct mat_type_info<char>
 {
     static const unsigned int type = 50;
 };
+template<>
+struct mat_type_info<uint64_t>
+{
+    static const unsigned int type = 60;
+};
+template<>
+struct mat_type_info<int64_t>
+{
+    static const unsigned int type = 60;
+};
+
 
 
 class mat_matrix
@@ -89,7 +100,7 @@ public:
     }
     size_t get_total_size(unsigned int ty) const
     {
-        unsigned int element_size_array[10] = {8,4,4,2,2,1,0,0,0,0};
+        unsigned int element_size_array[10] = {8,4,4,2,2,1,8,0,0,0};
         return size()*size_t(element_size_array[(ty%100)/10]);
     }
 public:
@@ -137,6 +148,9 @@ public:
         case 50://unsigned char
             value = *reinterpret_cast<const unsigned char*>(data_buf.data());
             return;
+        case 60://uint64
+            value = *reinterpret_cast<const uint64_t*>(data_buf.data());
+            return;
         }
     }
     template<typename T>
@@ -167,6 +181,10 @@ public:
         case 50://unsigned char
             std::copy(reinterpret_cast<const unsigned char*>(data_buf.data()),
                       reinterpret_cast<const unsigned char*>(data_buf.data())+size(),out);
+            return;
+        case 60://uint_64
+            std::copy(reinterpret_cast<const uint64_t*>(data_buf.data()),
+                      reinterpret_cast<const uint64_t*>(data_buf.data())+size(),out);
             return;
         }
     }
@@ -388,6 +406,11 @@ public:
                 for(size_t i = 0;i < out_count;++i)
                     out << int(data_buf[i]) << " ";
             }
+            break;
+        case 60://uint64_t
+            std::copy(reinterpret_cast<const uint64_t*>(data_buf.data()),
+                      reinterpret_cast<const uint64_t*>(data_buf.data())+out_count,
+                      std::ostream_iterator<uint64_t>(out," "));
             break;
         }
         std::string info = out.str();
