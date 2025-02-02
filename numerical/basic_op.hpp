@@ -242,8 +242,8 @@ template<typename ImageType>
 ImageType& threshold(ImageType& I,typename ImageType::value_type threshold_value,
                      typename ImageType::value_type foreground = 1,typename ImageType::value_type background = 0)
 {
-    typename ImageType::const_iterator iter = I.begin();
-    typename ImageType::const_iterator end = I.end();
+    typename ImageType::iterator iter = I.begin();
+    typename ImageType::iterator end = I.end();
     for(; iter!=end; ++iter)
         if(*iter > threshold_value)
             *iter = foreground;
