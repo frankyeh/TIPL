@@ -237,8 +237,8 @@ void inner_edge(const ImageType& I,LabelType& act)
         if (shift > 0)
         {
             typename LabelType::value_type* iter1 = act.data() + shift;
-            const auto iter2 = I.data();
-            const auto iter3 = I.data()+shift;
+            auto iter2 = I.data();
+            auto iter3 = I.data()+shift;
             typename LabelType::value_type* end = act.data() + act.size();
             for (;iter1 < end;++iter1,++iter2,++iter3)
                 if (*iter2 < *iter3)
@@ -247,8 +247,8 @@ void inner_edge(const ImageType& I,LabelType& act)
         if (shift < 0)
         {
             typename LabelType::value_type* iter1 = act.data();
-            const auto iter2 = I.data() - shift;
-            const auto iter3 = I.data();
+            auto iter2 = I.data() - shift;
+            auto iter3 = I.data();
             const auto end = I.data() + I.size();
             for (;iter2 < end;++iter1,++iter2,++iter3)
                 if (*iter2 < *iter3)
@@ -384,7 +384,7 @@ char get_neighbor_count(ImageType& I,std::vector<char>& act)
 {
     act.resize(I.size());
     neighbor_index_shift<ImageType::dimension> neighborhood(I.shape());
-    tipl::adaptive_par_for(neighborhood.index_shift.size(),[&](int index)
+    tipl::par_for(neighborhood.index_shift.size(),[&](int index)
     {
         int64_t shift = neighborhood.index_shift[index];
         if (shift > 0)
@@ -405,7 +405,7 @@ char get_neighbor_count(ImageType& I,std::vector<char>& act)
                 if (*iter2)
                     (++*iter1);
         }
-    });
+    },4);
     return char(neighborhood.index_shift.size());
 }
 
@@ -463,38 +463,32 @@ void smoothing(ImageType& I)
 }
 
 template<typename ImageType,typename RefImageType>
-void fit(ImageType& I,const RefImageType& ref)
+void fit(ImageType& I,const RefImageType& ref,char weight = 2)
 {
     std::vector<char> act;
     char threshold = get_neighbor_count(I,act) >> 1;
-
-    char upper_threshold = threshold+ImageType::dimension;
-    char lower_threshold = threshold-ImageType::dimension;
-    tipl::adaptive_par_for(begin_index(I.shape()),end_index(I.shape()),[&](auto pos)
+    char upper_threshold = threshold+ImageType::dimension+ImageType::dimension;
+    char lower_threshold = threshold-ImageType::dimension-ImageType::dimension;
+    tipl::par_for(begin_index(I.shape()),end_index(I.shape()),[&](auto pos)
     {
-        if(act[pos.index()] < lower_threshold ||
-           act[pos.index()] > upper_threshold)
+        if(act[pos.index()] < lower_threshold || act[pos.index()] > upper_threshold)
             return;
         typename ImageType::value_type Iv[get_window_size<1,ImageType::dimension>::value];
         float refv[get_window_size<1,RefImageType::dimension>::value];
         get_window_at_width<1>(pos,I,Iv);
         auto size = get_window_at_width<1>(pos,ref,refv);
-        float min_v = std::fabs(refv[1]-refv[0]);
-        auto min_label = Iv[1];
-        for(size_t i = 2;i < size;++i)
-        {
-            auto def = std::fabs(refv[i]-refv[0]);
-            if(def < min_v)
-            {
-                min_v = def;
-                min_label = Iv[i];
-            }
-        }
-        if(min_label)
-            act[pos.index()] += ImageType::dimension;
-        else
-            act[pos.index()] -= ImageType::dimension;
-    });
+        for(size_t i = 1;i < size;++i)
+            refv[i] = std::fabs(refv[i]-refv[0]);
+        std::vector<unsigned int> idx(size-1);
+        std::iota(idx.begin(), idx.end(), 1);
+        std::sort(idx.begin(), idx.end(),[&](size_t i1, size_t i2){return refv[i1] < refv[i2];});
+        size >>= 1;
+        for(size_t i = 1;i < size;++i)
+            if(Iv[idx[i]])
+                act[pos.index()] += weight;
+            else
+                act[pos.index()] -= weight;
+    },4);
 
     for (size_t index = 0;index < I.size();++index)
     {
