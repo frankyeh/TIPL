@@ -614,8 +614,10 @@ public:
                 << std::fixed << std::setprecision(3)
                 << " rx:" << T.rotation[0]
                 << " ry:" << T.rotation[1]
-                << " rz:" << T.rotation[2]
-                << std::fixed << std::setprecision(2)
+                << " rz:" << T.rotation[2];
+            if(T.scaling[0] != 1.0f || T.scaling[1] != 1.0f || T.scaling[2] != 1.0f ||
+               T.affine[0] != 0.0f || T.affine[1] != 0.0f || T.affine[2] != 0.0f)
+            out << std::fixed << std::setprecision(2)
                 << " sx:" << T.scaling[0]
                 << " sy:" << T.scaling[1]
                 << " sz:" << T.scaling[2]
@@ -631,8 +633,9 @@ public:
                 << " ty:" << T.translocation[1]
                 << std::fixed << std::setprecision(3)
                 << " r:" << T.rotation[0]
-                << std::fixed << std::setprecision(2)
-                << " sx:" << T.scaling[0]
+                << std::fixed << std::setprecision(2);
+            if(T.scaling[0] != 1.0f || T.scaling[1] != 1.0f || T.affine[0] != 0.0f)
+            out << " sx:" << T.scaling[0]
                 << " sy:" << T.scaling[1]
                 << std::fixed << std::setprecision(3)
                 << " a:" << T.affine[0] << std::endl;
