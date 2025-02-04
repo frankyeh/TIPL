@@ -33,10 +33,10 @@ bool cdm_improved(cost_type& cost)
 }
 
 struct cdm_param{
-    float resolution = 2.0f;
+    float resolution = 1.0f;
     float speed = 0.3f;
     float smoothing = 0.05f;
-    unsigned int min_dimension = 8;
+    unsigned int min_dimension = 16;
     enum {corr = 0,mi = 1} cost_type = corr;
 };
 
