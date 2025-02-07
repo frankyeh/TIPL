@@ -5,6 +5,7 @@
 #include <numeric>
 #include <algorithm>
 #include <iostream>
+#include <cstdint>
 #include "../def.hpp"
 //---------------------------------------------------------------------------
 namespace tipl
