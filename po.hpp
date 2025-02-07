@@ -114,6 +114,24 @@ bool match_strings(const T& str1,const T& str1_match,
         return true;
     }
 
+    if(str1.length() > 1)
+    {
+        size_t pos = str1_match.find(str1);
+        if(pos != std::string::npos)
+        {
+            str2_match = str1_match;
+            str2_match.replace(pos, str1.length(), str2);
+            return true;
+        }
+        pos = str2.find(str1);
+        if(pos != std::string::npos)
+        {
+            str2_match = str2;
+            str2_match.replace(pos, str1.length(), str1_match);
+            return true;
+        }
+    }
+
     // remove common prefix
     {
         auto cprefix = common_prefix(str1,str1_match,str2);
@@ -144,6 +162,8 @@ bool match_strings(const T& str1,const T& str1_match,
     }
 
 
+
+
     auto cp1_1 = common_prefix(str1,str1_match);
     auto cp1_2 = common_prefix(str1,str2);
 
@@ -170,8 +190,7 @@ bool match_strings(const T& str1,const T& str1_match,
             }
         }
 
-        if(match_strings(str1.substr(cp1_1.size()),str1_match.substr(cp1_1.size()),
-                         str2,str2_match))
+        if(match_strings(str1.substr(1),str1_match.substr(1),str2,str2_match))
             return true;
     }
     // try reversed
