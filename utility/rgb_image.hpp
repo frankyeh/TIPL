@@ -2,7 +2,6 @@
 #define PIXEL_VALUE_HPP
 #include <cmath>
 #include <algorithm>
-#include <cstdint>
 #include "basic_image.hpp"
 
 namespace tipl
