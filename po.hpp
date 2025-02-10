@@ -114,7 +114,7 @@ bool match_strings(const T& str1,const T& str1_match,
         return true;
     }
 
-    if(str1.length() > 1)
+    if(!str1.empty())
     {
         size_t pos = str1_match.find(str1);
         if(pos != std::string::npos)
