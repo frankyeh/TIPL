@@ -98,7 +98,6 @@ template<typename T>
 bool match_strings(const T& str1,const T& str1_match,
                    const T& str2,T& str2_match,bool try_reverse = true,bool try_swap = true)
 {
-
     // A->A
     // B->B
     if(str1 == str1_match)
@@ -138,7 +137,7 @@ bool match_strings(const T& str1,const T& str1_match,
         if(!cprefix.empty())
         {
             if(!match_strings(str1.substr(cprefix.length()),str1_match.substr(cprefix.length()),
-                              str2.substr(cprefix.length()),str2_match))
+                              str2.substr(cprefix.length()),str2_match,try_reverse,try_swap))
                 return false;
             str2_match = cprefix+str2_match;
             return true;
@@ -154,7 +153,7 @@ bool match_strings(const T& str1,const T& str1_match,
         {
             if(!match_strings(str1.substr(0,str1.length()-cpostfix.length()),
                               str1_match.substr(0,str1_match.length()-cpostfix.length()),
-                              str2.substr(0,str2.length()-cpostfix.length()),str2_match))
+                              str2.substr(0,str2.length()-cpostfix.length()),str2_match,try_reverse,try_swap))
                 return false;
             str2_match += T(cpostfix.rbegin(),cpostfix.rend());
             return true;
@@ -183,14 +182,14 @@ bool match_strings(const T& str1,const T& str1_match,
         if(str1.length() == str2.length())
         {
             if(match_strings(str1.substr(cp1_1.size()),str1_match.substr(cp1_1.size()),
-                             str2.substr(cp1_1.size()),str2_match))
+                             str2.substr(cp1_1.size()),str2_match,try_reverse,try_swap))
             {
                 str2_match = str2.substr(0,cp1_1.size()) + str2_match;
                 return true;
             }
         }
 
-        if(match_strings(str1.substr(1),str1_match.substr(1),str2,str2_match))
+        if(match_strings(str1.substr(1),str1_match.substr(1),str2,str2_match,try_reverse,try_swap))
             return true;
     }
     // try reversed
