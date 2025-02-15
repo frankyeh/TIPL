@@ -38,10 +38,11 @@ struct cdm_param{
     float smoothing = 0.05f;
     unsigned int min_dimension = 16;
     enum {corr = 0,mi = 1} cost_type = corr;
+    std::string gradient_type;
 };
 
 template<typename T,typename U,typename V,typename W>
-__INLINE__ void cdm_get_gradient_imp(const pixel_index<T::dimension>& index,
+__INLINE__ void cdm_get_gradient_r_imp(const pixel_index<T::dimension>& index,
                                      const T& Js,const U& It,V& new_d,W& cost_map)
 {
     auto pos = index.index();
@@ -61,42 +62,84 @@ __INLINE__ void cdm_get_gradient_imp(const pixel_index<T::dimension>& index,
         cost_map[pos] = -r2;
     }
 }
+template<typename T,typename U,typename V,typename W>
+__INLINE__ void cdm_get_gradient_d_imp(const pixel_index<T::dimension>& index,
+                                     const T& Js,const U& It,V& new_d,W& cost_map)
+{
+    auto pos = index.index();
+    auto g = gradient_at(Js,index);
+    auto dif = Js[pos]-It[pos];
+    g *= dif;
+    new_d[pos] += g;
+    cost_map[pos] = dif*dif;
+}
 //---------------------------------------------------------------------------
 #ifdef __CUDACC__
 template<typename T1,typename T2,typename T3>
-__global__ void cdm_get_gradient_cuda_kernel(T1 Js,T1 It,T2 new_d,T3 cost_map)
+__global__ void cdm_get_gradient_r_cuda_kernel(T1 Js,T1 It,T2 new_d,T3 cost_map)
 {
     TIPL_FOR(index,Js.size())
     {
-        cdm_get_gradient_imp(tipl::pixel_index<T1::dimension>(index,Js.shape()),Js,It,new_d,cost_map);
+        cdm_get_gradient_r_imp(tipl::pixel_index<T1::dimension>(index,Js.shape()),Js,It,new_d,cost_map);
+    }
+}
+template<typename T1,typename T2,typename T3>
+__global__ void cdm_get_gradient_d_cuda_kernel(T1 Js,T1 It,T2 new_d,T3 cost_map)
+{
+    TIPL_FOR(index,Js.size())
+    {
+        cdm_get_gradient_d_imp(tipl::pixel_index<T1::dimension>(index,Js.shape()),Js,It,new_d,cost_map);
     }
 }
 #endif
 
 // calculate dJ(cJ-I)
 template<typename image_type1,typename image_type2,typename dis_type>
-inline float cdm_get_gradient(const image_type1& Js,const image_type2& It,dis_type& new_d)
+inline float cdm_get_gradient(const image_type1& Js,const image_type2& It,dis_type& new_d,unsigned char gradient_type)
 {
     new_d.resize(It.shape());
     if constexpr(memory_location<image_type1>::at == CUDA)
     {
         #ifdef __CUDACC__
         device_vector<float> cost_map(Js.size());
-        TIPL_RUN(cdm_get_gradient_cuda_kernel,Js.size())
-                (tipl::make_shared(Js),
-                 tipl::make_shared(It),
-                 tipl::make_shared(new_d),
-                 tipl::make_shared(cost_map));
+        switch(gradient_type)
+        {
+        case 'r':
+            TIPL_RUN(cdm_get_gradient_r_cuda_kernel,Js.size())
+                    (tipl::make_shared(Js),
+                     tipl::make_shared(It),
+                     tipl::make_shared(new_d),
+                     tipl::make_shared(cost_map));
+            break;
+        case 'd':
+            TIPL_RUN(cdm_get_gradient_d_cuda_kernel,Js.size())
+                    (tipl::make_shared(Js),
+                     tipl::make_shared(It),
+                     tipl::make_shared(new_d),
+                     tipl::make_shared(cost_map));
+            break;
+        }
         return tipl::mean(cost_map);
         #endif
     }
     else
     {
         std::vector<float> cost_map(Js.size());
-        tipl::par_for(Js.size(),[&](size_t index)
+        switch(gradient_type)
         {
-            cdm_get_gradient_imp(tipl::pixel_index<image_type1::dimension>(index,Js.shape()),Js,It,new_d,cost_map);
-        });
+        case 'r':
+            tipl::adaptive_par_for(Js.size(),[&](size_t index)
+            {
+                cdm_get_gradient_r_imp(tipl::pixel_index<image_type1::dimension>(index,Js.shape()),Js,It,new_d,cost_map);
+            });
+            break;
+        case 'd':
+            tipl::adaptive_par_for(Js.size(),[&](size_t index)
+            {
+                cdm_get_gradient_d_imp(tipl::pixel_index<image_type1::dimension>(index,Js.shape()),Js,It,new_d,cost_map);
+            });
+            break;
+        }
         return tipl::mean(cost_map);
     }
 
@@ -340,7 +383,8 @@ void cdm(const std::vector<pointer_image_type>& It,
             tipl::par_for(It.size(),[&](size_t i)
             {
                 dist_type dd;
-                float c = cdm_get_gradient(compose_displacement(Is[i],cur_d),It[i],dd);
+                float c = cdm_get_gradient(compose_displacement(Is[i],cur_d),It[i],dd,
+                                           i < param.gradient_type.length() ? param.gradient_type[i] : 'r');
                 std::lock_guard<std::mutex> lock(mutex);
                 sum_cost += c;
                 if(new_d.empty())
