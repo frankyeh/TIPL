@@ -1,5 +1,6 @@
 #ifndef IMAGE_REG_HPP
 #define IMAGE_REG_HPP
+#include <thread>
 #include "../numerical/interpolation.hpp"
 #include "../numerical/numerical.hpp"
 #include "../numerical/basic_op.hpp"
