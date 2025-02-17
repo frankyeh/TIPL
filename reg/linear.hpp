@@ -635,11 +635,26 @@ float linear(std::vector<tipl::const_pointer_image<dim,unsigned char> > from,
     {
         if(reg_type == tipl::reg::affine)
             new_to_vs = adjust_to_vs<out_type>(from[0],from_vs,to[0],to_vs);
-
+    }
+    bool end = false;
+    tipl::affine_transform<float,dim> surrogate_arg;
+    std::shared_ptr<std::thread> update_arg;
+    if(new_to_vs != to_vs)
+    {
+        update_arg = std::make_shared<std::thread>([&](void)
+        {
+            while(!end)
+            {
+                std::this_thread::yield();
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                arg = tipl::transformation_matrix<float,dim>(surrogate_arg,from[0],from_vs,to[0],new_to_vs).to_affine_transform(from[0],from_vs,to[0],to_vs);
+            }
+            arg = tipl::transformation_matrix<float,dim>(surrogate_arg,from[0],from_vs,to[0],new_to_vs).to_affine_transform(from[0],from_vs,to[0],to_vs);
+        });
     }
     float result = std::numeric_limits<float>::max();
 
-    auto reg = tipl::reg::linear_reg<out_type>(from,from_vs,to,new_to_vs,arg);
+    auto reg = tipl::reg::linear_reg<out_type>(from,from_vs,to,new_to_vs,(new_to_vs == to_vs) ? arg : surrogate_arg);
     reg->set_bound(reg_type,bound);
 
     if constexpr (tipl::use_cuda && dim == 3)
@@ -677,12 +692,10 @@ float linear(std::vector<tipl::const_pointer_image<dim,unsigned char> > from,
         }while(1);
     }
 
-    result = linear_refine<out_type>(from,from_vs,to,new_to_vs,arg,reg_type,terminated,cost_type,use_cuda);
-    if constexpr(dim == 3)
-    {
-        if(new_to_vs != to_vs)
-            arg = tipl::transformation_matrix<float,dim>(arg,from[0],from_vs,to[0],new_to_vs).to_affine_transform(from[0],from_vs,to[0],to_vs);
-    }
+    result = linear_refine<out_type>(from,from_vs,to,new_to_vs,(new_to_vs == to_vs) ? arg : surrogate_arg,reg_type,terminated,cost_type,use_cuda);
+    end = true;
+    if(update_arg.get())
+        update_arg->join();
     return result;
 }
 template<typename out_type = void,int dim>
