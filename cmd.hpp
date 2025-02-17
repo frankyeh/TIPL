@@ -461,12 +461,24 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         }
         image_type new_data(tipl::shape<3>(w,h,d));
         auto shift = tipl::vector<3,int>(new_data.shape()) - tipl::vector<3,int>(data.shape());
-        shift /= 2;
-        tipl::draw(data,new_data,shift);
+        if((shift[0] & 1) || (shift[1] & 1) || (shift[2] & 1))
+        {
+            tipl::transformation_matrix<float,3> trans;
+            for(int i = 0;i < 3;++i)
+                trans.shift[i] = float(shift[i])*-0.5f;
+            tipl::resample(data,new_data,trans);
+            for(int i = 0;i < 3;++i)
+                T[3+i*4] -= T[i*5]*float(shift[i])*0.5f;
+        }
+        else
+        {
+            shift /= 2;
+            tipl::draw(data,new_data,shift);
+            T[3] -= T[0]*shift[0];
+            T[7] -= T[5]*shift[1];
+            T[11] -= T[10]*shift[2];
+        }
         data.swap(new_data);
-        T[3] -= T[0]*shift[0];
-        T[7] -= T[5]*shift[1];
-        T[11] -= T[10]*shift[2];
         return true;
     }
     if(cmd == "reshape")
