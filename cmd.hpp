@@ -536,7 +536,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     }
 
 
-    if(cmd == "multiply_image" || cmd == "add_image" || cmd == "minus_image" || cmd == "max_image" || cmd == "min_image")
+    if(cmd == "load_image" || cmd == "multiply_image" || cmd == "add_image" || cmd == "minus_image" || cmd == "max_image" || cmd == "min_image")
     {
         tipl::image<3,typename image_type::value_type> rhs(data.shape());
         if(!image_loader::load_to_space(param1.c_str(),rhs,T))
@@ -545,6 +545,8 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
             error_msg += param1;
             return false;
         }
+        if(cmd == "load_image")
+            data = std::move(rhs);
         if(cmd == "multiply_image")
             data *= rhs;
         if(cmd == "add_image")
