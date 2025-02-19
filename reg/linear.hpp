@@ -557,6 +557,18 @@ auto make_list(const image_type& I)
     auto pI = tipl::make_shared(I);
     return std::vector<decltype(pI)>({pI});
 }
+template<typename T>
+inline auto make_list(const std::vector<T>& data)
+{
+    std::vector<tipl::const_pointer_image<T::dimension, typename T::value_type>> ptr;
+    for (const auto& each : data)
+    {
+        if (each.empty())
+            break;
+        ptr.push_back(make_shared(each));
+    }
+    return ptr;
+}
 
 #ifdef __CUDACC__
 #include "../cu.hpp"
