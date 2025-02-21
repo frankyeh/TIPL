@@ -496,7 +496,7 @@ public:
             prog = low_reso_reg.prog;
         }
         if constexpr(!std::is_void<out_type>::value)
-            out_type() << "optimize at:" << from_vs << " size:" << from[0].shape();
+            out_type() << "registration at:" << from_vs << " size:" << from[0].shape();
         return optimize<cost_type,true>(std::forward<terminated_type>(terminated));
     }
     template<typename cost_type>
