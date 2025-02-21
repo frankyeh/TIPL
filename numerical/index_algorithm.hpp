@@ -16,7 +16,7 @@ namespace tipl
     0 1 0
 */
 template<typename T>
-inline void for_each_connected_neighbors(const pixel_index<2>& index,const shape<2>& geo,T&& fun)
+__INLINE__ void for_each_connected_neighbors(const pixel_index<2>& index,const shape<2>& geo,T&& fun)
 {
     if (index.x() >= 1)
         fun(pixel_index<2>(index.x()-1,index.y(),index.index()-1,geo));
@@ -38,7 +38,7 @@ inline void for_each_connected_neighbors(const pixel_index<2>& index,const shape
     0 1 0
 */
 template<typename T>
-inline void for_each_connected_neighbors(const pixel_index<3>& index,const shape<3>& geo,T&& fun)
+__INLINE__ void for_each_connected_neighbors(const pixel_index<3>& index,const shape<3>& geo,T&& fun)
 {
     if (index.x() >= 1)
         fun(pixel_index<3>(index.x()-1,index.y(),index.z(),index.index()-1,geo));
@@ -65,7 +65,7 @@ inline void for_each_connected_neighbors(const pixel_index<3>& index,const shape
     1 1 1
 */
 template<typename T>
-inline void for_each_neighbors(const pixel_index<2>& index,const shape<2>& geo,T&& fun)
+__INLINE__ void for_each_neighbors(const pixel_index<2>& index,const shape<2>& geo,T&& fun)
 {
     bool has_left = index.x() >= 1;
     bool has_right = index.x()+1 < geo.width();
@@ -108,7 +108,7 @@ inline void for_each_neighbors(const pixel_index<2>& index,const shape<2>& geo,T
 }
 
 template<typename T>
-inline void for_each_neighbors(const pixel_index<3>& index,const shape<3>& geo,T&& fun)
+__INLINE__ void for_each_neighbors(const pixel_index<3>& index,const shape<3>& geo,T&& fun)
 {
     auto z_offset = geo.plane_size();
     auto y_offset = geo.width();
@@ -236,7 +236,7 @@ inline void for_each_neighbors(const pixel_index<3>& index,const shape<3>& geo,T
 }
 
 template<typename T>
-inline void for_each_neighbors(const pixel_index<2>& index,const shape<2>& geo,int range,T&& fun)
+__INLINE__ void for_each_neighbors(const pixel_index<2>& index,const shape<2>& geo,int range,T&& fun)
 {
     int fx = (index.x() > range) ? index.x() - range:0;
     int fy = (index.y() > range) ? index.y() - range:0;
@@ -260,7 +260,7 @@ inline void for_each_neighbors(const pixel_index<2>& index,const shape<2>& geo,i
 }
 
 template<typename T>
-inline void for_each_neighbors(const pixel_index<3>& index,const shape<3>& geo,int range,T&& fun)
+__INLINE__ void for_each_neighbors(const pixel_index<3>& index,const shape<3>& geo,int range,T&& fun)
 {
     size_t wh = geo.plane_size();
     size_t fx = (index.x() > range) ? index.x() - range:0;
