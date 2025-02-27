@@ -7,6 +7,7 @@
 #include "../numerical/resampling.hpp"
 #include "../numerical/statistics.hpp"
 #include "../numerical/window.hpp"
+#include "../numerical/index_algorithm.hpp"
 #include <limits>
 #include <vector>
 
@@ -39,6 +40,7 @@ struct cdm_param{
     unsigned int min_dimension = 16;
     enum {corr = 0,mi = 1} cost_type = corr;
     std::string gradient_type;
+    std::vector<std::pair<tipl::vector<3>,tipl::vector<3> > > anchor;
 };
 
 template<typename T,typename U,typename V,typename W>
@@ -330,8 +332,6 @@ void cdm_smooth(const T& d,U& dd,float smoothing)
     });
 }
 
-
-
 template<typename out_type = void,typename pointer_image_type,typename dist_type,typename terminate_type>
 void cdm(const std::vector<pointer_image_type>& It,
          const std::vector<pointer_image_type>& Is,
@@ -340,6 +340,7 @@ void cdm(const std::vector<pointer_image_type>& It,
            cdm_param param = cdm_param())
 {
     best_d.resize(It[0].shape());
+    constexpr int dim = pointer_image_type::dimension;
     // multi resolution
     if (min_value(It[0].shape()) > param.min_dimension)
     {
@@ -354,6 +355,11 @@ void cdm(const std::vector<pointer_image_type>& It,
         },It.size());
         cdm_param param2 = param;
         param2.resolution /= 2.0f;
+        for(auto& each : param2.anchor)
+        {
+            each.first *= 0.5f;
+            each.second *= 0.5f;
+        }
         cdm<out_type>(rIt,rIs,best_d,terminated,param2);
         multiply_constant(best_d,2.0f);
         upsample_with_padding(best_d,It[0].shape());
@@ -363,9 +369,8 @@ void cdm(const std::vector<pointer_image_type>& It,
 
 
     float theta = 0.0;
-
     if constexpr(!std::is_void<out_type>::value)
-        out_type() << "size:" << It[0].shape();
+        out_type() << "deformation at dim:" << It[0].shape();
 
 
     std::vector<float> cost;
@@ -373,10 +378,10 @@ void cdm(const std::vector<pointer_image_type>& It,
     dist_type cur_d(best_d);
 
     float cur_smoothing = 0.8f;
+    std::string log;
     for (unsigned int index = 0;index < 200 && !terminated;++index)
     {
         dist_type new_d;
-
         {
             float sum_cost = 0.0f;
             std::mutex mutex;
@@ -397,7 +402,11 @@ void cdm(const std::vector<pointer_image_type>& It,
         }
 
         if constexpr(!std::is_void<out_type>::value)
-            out_type() << "cost:" << cost.back();
+        {
+            auto cost_str = std::to_string(cost.back());
+            cost_str.resize(5);
+            log += cost_str + " ";
+        }
 
         if(cost.back() < best_cost)
         {
@@ -412,8 +421,6 @@ void cdm(const std::vector<pointer_image_type>& It,
             cur_d = best_d;
             cur_smoothing *= 0.5f;
             cost.clear();
-            if constexpr(!std::is_void<out_type>::value)
-                out_type() << "smoothing:" << cur_smoothing;
         }
         // solving the poisson equation using Jacobi method
         cdm_solve_poisson(new_d,terminated);
@@ -423,13 +430,11 @@ void cdm(const std::vector<pointer_image_type>& It,
         if(theta == 0.0f)
             break;
         multiply_constant(new_d,param.speed/theta);
-        //cdm_constraint(new_d);
         accumulate_displacement(cur_d,new_d);
-
-        // optimize smoothing
         cdm_smooth(new_d,cur_d,cur_smoothing);
-
     }
+    if constexpr(!std::is_void<out_type>::value)
+        out_type() << "cost: " << log;
 }
 
 
@@ -468,14 +473,14 @@ void cdm_cuda(const std::vector<tipl::const_pointer_image<dim,value_type> >& It,
         pIs.push_back(tipl::make_device_shared(each));
 
     try{
-        cdm(pIt,pIs,dd,terminated,param);
+        cdm<out_type>(pIt,pIs,dd,terminated,param);
     }
 
     catch(std::runtime_error& er)
     {
         if constexpr(!std::is_void<out_type>::value)
             out_type() << "❌️" << er.what() << " ...switch to CPU";
-        cdm(It,Is,d,terminated,param);
+        cdm<out_type>(It,Is,d,terminated,param);
         return;
     }
     d.resize(It[0].shape());
@@ -510,13 +515,13 @@ void cdm_common(std::vector<tipl::const_pointer_image<dim,value_type> > It,
         {
             if constexpr(!std::is_void<out_type>::value)
                 out_type() << "nonlinear registration using gpu";
-            tipl::reg::cdm_cuda(It,Is,dis,terminated,param);
+            tipl::reg::cdm_cuda<out_type>(It,Is,dis,terminated,param);
             return;
         }
     }
     if constexpr(!std::is_void<out_type>::value)
         out_type() << "nonlinear registration using cpu";
-    tipl::reg::cdm(It,Is,dis,terminated,param);
+    tipl::reg::cdm<out_type>(It,Is,dis,terminated,param);
 }
 
 
