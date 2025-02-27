@@ -70,7 +70,7 @@ class device_vector{
         using value_type = vtype;
         using iterator          = value_type*;
         using const_iterator    = const value_type*;
-        using reference         = value_type&;
+        using reference         = value_type;
     private:
         value_type* buf = nullptr;
         size_t buf_size = 0;
@@ -78,6 +78,7 @@ class device_vector{
     public:
         device_vector(size_t new_size,bool init = true)                {resize(new_size,init);}
         device_vector(device_vector&& rhs)noexcept                     {swap(rhs);}
+        device_vector(const device_vector& rhs) {copy_from(rhs);}
         device_vector(void){}
         template<typename T,typename std::enable_if<std::is_class_v<T>,bool>::type = true>
         device_vector(const T& rhs)                                    {copy_from(rhs);}
@@ -202,6 +203,14 @@ class device_vector{
         __INLINE__ size_t size(void)    const       {return s;}
         __INLINE__ bool empty(void)     const       {return s==0;}
     public: // only in device memory
+        template<typename index_type>
+        value_type operator[](index_type index) const
+        {
+            value_type result;
+            cudaMemcpy(&result, &buf[index], sizeof(value_type), cudaMemcpyDeviceToHost);
+            return result;
+        }
+    public:
         __INLINE__ iterator data(void)                                       {return buf;}
         __INLINE__ const_iterator data(void) const                           {return buf;}
         __INLINE__ const void* begin(void)                          const   {return buf;}
