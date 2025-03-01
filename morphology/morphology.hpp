@@ -4,6 +4,8 @@
 #include <map>
 #include <list>
 #include <set>
+#include <unordered_map>
+
 #include "../numerical/basic_op.hpp"
 #include "../utility/basic_image.hpp"
 #include "../utility/pixel_index.hpp"
@@ -380,40 +382,47 @@ bool is_edge(ImageType& I,tipl::pixel_index<ImageType::dimension> index)
 }
 
 template<typename ImageType>
-char get_neighbor_count(ImageType& I,std::vector<char>& act)
+auto get_neighbor_count(ImageType& I)
 {
-    act.resize(I.size());
+    std::vector<char> region_count(I.size());
     neighbor_index_shift<ImageType::dimension> neighborhood(I.shape());
-    tipl::par_for(neighborhood.index_shift.size(),[&](int index)
+    tipl::adaptive_par_for(I.size(),[&](int64_t index)
     {
-        int64_t shift = neighborhood.index_shift[index];
-        if (shift > 0)
+        for(int64_t pos : neighborhood.index_shift)
         {
-            auto iter1 = act.data() + shift;
-            auto iter2 = I.data();
-            auto end = act.data() + act.size();
-            for (;iter1 < end;++iter1,++iter2)
-                if (*iter2)
-                    (++*iter1);
+            pos += index;
+            if(pos < 0 || pos >= I.size())
+                continue;
+            if(I[pos])
+                ++region_count[index];
         }
-        if (shift < 0)
-        {
-            auto iter1 = act.data();
-            auto iter2 = I.data() - shift;
-            auto end = I.data() + I.size();
-            for (;iter2 < end;++iter1,++iter2)
-                if (*iter2)
-                    (++*iter1);
-        }
-    },4);
-    return char(neighborhood.index_shift.size());
+    });
+    return region_count;
 }
+template<typename ImageType>
+auto get_neighbor_count_multiple_region(const ImageType& I)
+{
+    std::vector<std::unordered_map<int, char>> region_count(I.size());
+    neighbor_index_shift<ImageType::dimension> neighborhood(I.shape());
+    tipl::adaptive_par_for(I.size(),[&](int64_t index)
+    {
+        for(int64_t pos : neighborhood.index_shift)
+        {
+            pos += index;
+            if(pos < 0 || pos >= I.size())
+                continue;
+            ++region_count[index][I[pos]];
+        }
+    });
+    return region_count;
+}
+
 
 template<typename ImageType>
 size_t closing(ImageType& I,char threshold_shift = 0)
 {
-    std::vector<char> act;
-    char threshold = get_neighbor_count(I,act) >> 1;
+    auto act = get_neighbor_count(I);
+    char threshold = ((ImageType::dimension == 2) ? 9 : 27) >> 1;
     threshold += threshold_shift;
     size_t count = 0;
     for (size_t index = 0;index < I.size();++index)
@@ -428,8 +437,8 @@ size_t closing(ImageType& I,char threshold_shift = 0)
 template<typename ImageType>
 size_t opening(ImageType& I,char threshold_shift = 0)
 {
-    std::vector<char> act;
-    char threshold = get_neighbor_count(I,act) >> 1;
+    auto act = get_neighbor_count(I);
+    char threshold = ((ImageType::dimension == 2) ? 9 : 27) >> 1;
     threshold += threshold_shift;
     size_t count = 0;
     for (size_t index = 0;index < I.size();++index)
@@ -451,8 +460,8 @@ void negate(ImageType& I)
 template<typename ImageType>
 void smoothing(ImageType& I)
 {
-    std::vector<char> act;
-    char threshold = get_neighbor_count(I,act) >> 1;
+    auto act = get_neighbor_count(I);
+    constexpr char threshold = ((ImageType::dimension == 2) ? 9 : 27) >> 1;
     for (size_t index = 0;index < I.size();++index)
     {
         if (act[index] > threshold)
@@ -462,11 +471,37 @@ void smoothing(ImageType& I)
     }
 }
 
+
+
+
+template<typename ImageType>
+bool smoothing_multiple_region(ImageType& I)
+{
+    auto region_count = get_neighbor_count_multiple_region(I);
+    constexpr char threshold = ((ImageType::dimension == 2) ? 9 : 27) >> 1;
+
+    tipl::adaptive_par_for(I.size(),[&](size_t index)
+    {
+        int max_count = 0;
+        int dominant_region = I[index];
+        for (const auto& [region, count] : region_count[index])
+        {
+            if (count > max_count)
+            {
+                max_count = count;
+                dominant_region = region;
+            }
+        }
+        if (max_count > threshold)
+            I[index] = dominant_region;
+    });
+}
+
 template<typename ImageType,typename RefImageType>
 void fit(ImageType& I,const RefImageType& ref,char weight = 2)
 {
-    std::vector<char> act;
-    char threshold = get_neighbor_count(I,act) >> 1;
+    auto act = get_neighbor_count(I);
+    constexpr char threshold = ((ImageType::dimension == 2) ? 9 : 27) >> 1;
     char upper_threshold = threshold+ImageType::dimension+ImageType::dimension;
     char lower_threshold = threshold-ImageType::dimension-ImageType::dimension;
     tipl::par_for(begin_index(I.shape()),end_index(I.shape()),[&](auto pos)
@@ -503,8 +538,8 @@ template<typename ImageType>
 bool smoothing_fill(ImageType& I)
 {
     bool filled = false;
-    std::vector<char> act;
-    char threshold = get_neighbor_count(I,act) >> 1;
+    auto act = get_neighbor_count(I);
+    constexpr char threshold = ((ImageType::dimension == 2) ? 9 : 27) >> 1;
     for (size_t index = 0;index < I.size();++index)
         if (act[index] > threshold)
         {
@@ -523,8 +558,8 @@ void recursive_smoothing(ImageType& I,unsigned int max_iteration = 100)
     for(unsigned int iter = 0;iter < max_iteration;++iter)
     {
         bool has_change = false;
-        std::vector<char> act;
-        char threshold = get_neighbor_count(I,act) >> 1;
+        auto act = get_neighbor_count(I);
+        constexpr char threshold = ((ImageType::dimension == 2) ? 9 : 27) >> 1;
         for (size_t index = 0;index < I.size();++index)
         {
             if (act[index] > threshold)
