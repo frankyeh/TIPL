@@ -73,6 +73,28 @@ __INLINE__ void weighted_sum(const image_type& I,data_iterator_type from,data_it
     interpo_type<output_type>::assign(result_,result);
 }
 
+
+template<typename image_type, typename data_iterator_type, typename weighting_iterator, typename output_type>
+__INLINE__ void weight_majority(const image_type& I, data_iterator_type from, data_iterator_type to, weighting_iterator w, output_type& result_)
+{
+    std::vector<typename interpo_type<output_type>::type> unique_values;
+    std::vector<typename std::remove_reference<decltype(*w)>::type> weights;
+    for (; from != to; ++from, ++w)
+    {
+        auto val = I[*from];
+        auto it = std::find(unique_values.begin(), unique_values.end(), val);
+        if (it != unique_values.end())
+            weights[std::distance(unique_values.begin(), it)] += *w;
+        else
+        {
+            unique_values.push_back(val);
+            weights.push_back(*w);
+        }
+    }
+    interpo_type<output_type>::assign(result_, unique_values[std::distance(weights.begin(), std::max_element(weights.begin(), weights.end()))]);
+}
+
+
 template<unsigned int dimension>
 struct nearest{};
 
@@ -374,6 +396,30 @@ struct linear<3>
 };
 
 
+template<int dimension>
+struct majority : public linear<dimension>
+{
+    //---------------------------------------------------------------------------
+    template<typename ImageType,typename VTorType,typename PixelType>
+    __INLINE__ bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel)
+    {
+        if (linear<dimension>::get_location(source.shape(),location))
+        {
+            weight_majority(source,linear<dimension>::dindex,linear<dimension>::dindex+linear<dimension>::ref_count,linear<dimension>::ratio,pixel);
+            return true;
+        }
+        return false;
+    }
+
+    //---------------------------------------------------------------------------
+    template<typename ImageType,typename PixelType>
+    __INLINE__ void estimate(const ImageType& source,PixelType& pixel)
+    {
+        weight_majority(source,linear<dimension>::dindex,linear<dimension>::dindex+linear<dimension>::ref_count,linear<dimension>::ratio,pixel);
+    }
+};
+
+
 /** Interpolation on the unit interval without exact derivatives
  * p[0] sampled at floor(x)-1
  * p[1] sampled at floor(x)
@@ -647,13 +693,15 @@ struct cubic<3>{
 
 }//interpolation
 
-enum interpolation{nearest,linear,cubic};
+enum interpolation{nearest,majority,linear,cubic};
 
 template<interpolation type = linear,typename ImageType,typename VTorType,typename PixelType>
 __INLINE__ bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel)
 {
     if constexpr(type == nearest)
         return tipl::interpolator::nearest<ImageType::dimension>().estimate(source,location,pixel);
+    if constexpr(type == majority)
+        return tipl::interpolator::majority<ImageType::dimension>().estimate(source,location,pixel);
     if constexpr(type == linear)
         return tipl::interpolator::linear<ImageType::dimension>().estimate(source,location,pixel);
     if constexpr(type == cubic)
@@ -667,6 +715,8 @@ __INLINE__ auto estimate(const ImageType& source,const VTorType& location)
     auto result = typename ImageType::value_type();
     if constexpr(type == nearest)
         tipl::interpolator::nearest<ImageType::dimension>().estimate(source,location,result);
+    if constexpr(type == majority)
+        tipl::interpolator::majority<ImageType::dimension>().estimate(source,location,result);
     if constexpr(type == linear)
         tipl::interpolator::linear<ImageType::dimension>().estimate(source,location,result);
     if constexpr(type == cubic)
