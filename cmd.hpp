@@ -69,7 +69,10 @@ bool command(image_type& data,std::string cmd,std::string param1)
     }
     if(cmd == "morphology_smoothing")
     {
-        tipl::morphology::for_each_label(data,[](tipl::image<3,char>& mask){tipl::morphology::smoothing(mask);});
+        if(std::any_of(data.begin(), data.end(), [](auto val) { return val != 0 && val != 1; }))
+            tipl::morphology::smoothing_multiple_region(data);
+        else
+            tipl::morphology::smoothing(data);
         return true;
     }
     if(cmd == "sobel_filter")
