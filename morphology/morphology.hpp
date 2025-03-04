@@ -475,7 +475,7 @@ void smoothing(ImageType& I)
 
 
 template<typename ImageType>
-bool smoothing_multiple_region(ImageType& I)
+void smoothing_multiple_region(ImageType& I)
 {
     auto region_count = get_neighbor_count_multiple_region(I);
     constexpr char threshold = ((ImageType::dimension == 2) ? 9 : 27) >> 1;
