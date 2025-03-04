@@ -1,6 +1,7 @@
 #ifndef TRANSFORMATION_HPP_INCLUDED
 #define TRANSFORMATION_HPP_INCLUDED
 #include <iostream>
+#include <fstream>
 #include <iomanip>
 #include <string>
 #include "../numerical/matrix.hpp"
@@ -605,38 +606,57 @@ public:
     }
     friend std::ostream& operator<<(std::ostream& out, const affine_transform& T)
     {
+        if(typeid(out) == typeid(std::ofstream))
+        {
+            if constexpr(dimension == 3)
+            {
+                out << "translocation: " << T.translocation[0] << " " << T.translocation[1] << " " << T.translocation[2] << std::endl;
+                out << "rotation: " << T.rotation[0] << " " << T.rotation[1] << " " << T.rotation[2] << std::endl;
+                out << "scaling: " << T.scaling[0] << " " << T.scaling[1] << " " << T.scaling[2] << std::endl;
+                out << "affine: " << T.affine[0] << " " << T.affine[1] << " " << T.affine[2] << std::endl;
+            }
+            else
+            {
+                out << "translocation: " << T.translocation[0] << " " << T.translocation[1] << std::endl;
+                out << "rotation: " << T.rotation[0] << std::endl;
+                out << "scaling: " << T.scaling[0] << " " << T.scaling[1] << std::endl;
+                out << "affine: " << T.affine[0] << std::endl;
+            }
+            return out;
+        }
+
         if constexpr(dimension == 3)
         {
             out << std::fixed << std::setprecision(2)
-                <<  "tx:" << T.translocation[0]
-                << " ty:" << T.translocation[1]
-                << " tz:" << T.translocation[2]
+                <<  "t:" << T.translocation[0]
+                << " " << T.translocation[1]
+                << " " << T.translocation[2]
                 << std::fixed << std::setprecision(3)
-                << " rx:" << T.rotation[0]
-                << " ry:" << T.rotation[1]
-                << " rz:" << T.rotation[2];
+                << " r:" << T.rotation[0]
+                << " " << T.rotation[1]
+                << " " << T.rotation[2];
             if(T.scaling[0] != 1.0f || T.scaling[1] != 1.0f || T.scaling[2] != 1.0f ||
                T.affine[0] != 0.0f || T.affine[1] != 0.0f || T.affine[2] != 0.0f)
             out << std::fixed << std::setprecision(2)
-                << " sx:" << T.scaling[0]
-                << " sy:" << T.scaling[1]
-                << " sz:" << T.scaling[2]
+                << " s:" << T.scaling[0]
+                << " " << T.scaling[1]
+                << " " << T.scaling[2]
                 << std::fixed << std::setprecision(3)
-                << " ax:" << T.affine[0]
-                << " ay:" << T.affine[1]
-                << " az:" << T.affine[2] << std::endl;
+                << " a:" << T.affine[0]
+                << " " << T.affine[1]
+                << " " << T.affine[2] << std::endl;
         }
         else
         {
             out << std::fixed << std::setprecision(2)
-                <<  "tx:" << T.translocation[0]
-                << " ty:" << T.translocation[1]
+                <<  "t:" << T.translocation[0]
+                << " " << T.translocation[1]
                 << std::fixed << std::setprecision(3)
                 << " r:" << T.rotation[0]
                 << std::fixed << std::setprecision(2);
             if(T.scaling[0] != 1.0f || T.scaling[1] != 1.0f || T.affine[0] != 0.0f)
-            out << " sx:" << T.scaling[0]
-                << " sy:" << T.scaling[1]
+            out << " s:" << T.scaling[0]
+                << " " << T.scaling[1]
                 << std::fixed << std::setprecision(3)
                 << " a:" << T.affine[0] << std::endl;
         }
