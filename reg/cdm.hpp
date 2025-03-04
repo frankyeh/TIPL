@@ -378,7 +378,7 @@ void cdm(const std::vector<pointer_image_type>& It,
     dist_type cur_d(best_d);
 
     float cur_smoothing = 0.8f;
-    std::string log;
+    std::string log,last_cost;
     for (unsigned int index = 0;index < 200 && !terminated;++index)
     {
         dist_type new_d;
@@ -405,7 +405,10 @@ void cdm(const std::vector<pointer_image_type>& It,
         {
             auto cost_str = std::to_string(cost.back());
             cost_str.resize(5);
-            log += cost_str + " ";
+            if(cost_str == last_cost)
+                log += ".";
+            else
+                log += " " + (last_cost=cost_str);
         }
 
         if(cost.back() < best_cost)
