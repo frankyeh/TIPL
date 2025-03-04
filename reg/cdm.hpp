@@ -408,7 +408,7 @@ void cdm(const std::vector<pointer_image_type>& It,
             if(cost_str == last_cost)
                 log += ".";
             else
-                log += " " + (last_cost=cost_str);
+                log += (last_cost=cost_str);
         }
 
         if(cost.back() < best_cost)
