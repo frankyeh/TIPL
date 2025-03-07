@@ -125,18 +125,13 @@ bool is_label_image(const ImageType& I)
 {
     if(I.empty())
         return true;
-    auto max_value = I[0];
-    for(size_t i = 0;i < I.size();++i)
-    {
-        if constexpr (std::is_floating_point<typename ImageType::value_type>::value)
-        {
-            if(std::floor(I[i]) != I[i])
-                return false;
-        }
-        if(I[i] > max_value)
-            max_value = I[i];
-    }
-    if(max_value < 16)
+
+    // check if the image contains only integer values (for floating-point images)
+    if constexpr (std::is_floating_point_v<typename ImageType::value_type>)
+        if (std::any_of(I.begin(), I.end(), [](auto v) { return std::floor(v) != v; }))
+            return false;
+
+    if (*std::max_element(I.begin(), I.end()) < 12)
         return true;
 
     int shift_base = 1;
@@ -145,33 +140,38 @@ bool is_label_image(const ImageType& I)
     if constexpr(ImageType::dimension == 3)
         shift_base = I.plane_size();
 
-    size_t same_value_count = 0;
     size_t max_size = I.size()-shift_base;
     size_t thread_count = std::thread::hardware_concurrency();
-    size_t size_threshold = (I.size()-shift_base-shift_base-std::count(I.begin()+shift_base,I.end()-shift_base,0))/4;
+    std::vector<size_t> same(thread_count),diff(thread_count);
+
     par_for(thread_count,[&](int thread)
     {
-        for(size_t i = shift_base+thread;i < max_size && same_value_count <= size_threshold;i += thread_count)
+        for(size_t i = shift_base+thread;i < max_size;i += thread_count)
         {
             auto v = I[i];
             if(v == 0)
                 continue;
-            if(v != I[i+1] || v != I[i-1])
-                continue;
+            if(v == I[i+1])
+                ++same[thread];
+            else
+                ++diff[thread];
             if constexpr(ImageType::dimension >= 2)
             {
-                if(v != I[i+I.width()] || v != I[i-I.width()])
-                    continue;
+                if(v == I[i+I.width()])
+                    ++same[thread];
+                else
+                    ++diff[thread];
             }
             if constexpr(ImageType::dimension >= 3)
             {
-                if(v != I[i+I.plane_size()] || v != I[i-I.plane_size()])
-                    continue;
+                if(v == I[i+I.plane_size()])
+                    ++same[thread];
+                else
+                    ++diff[thread];
             }
-            ++same_value_count;
         }
     });
-    return same_value_count > size_threshold;
+    return std::accumulate(same.begin(),same.end(),0) > std::accumulate(diff.begin(),diff.end(),0);
 }
 
 template<typename T>
