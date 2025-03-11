@@ -1108,11 +1108,11 @@ public:
 
 
 template<typename value_type>
-inline std::initializer_list<value_type> to_vs(const tipl::matrix<4,4,value_type>& trans)
+inline std::vector<value_type> to_vs(const tipl::matrix<4,4,value_type>& trans)
 {
-    return {{std::sqrt(trans[0]*trans[0]+trans[4]*trans[4]+trans[8]*trans[8]),
+    return {std::sqrt(trans[0]*trans[0]+trans[4]*trans[4]+trans[8]*trans[8]),
             std::sqrt(trans[1]*trans[1]+trans[5]*trans[5]+trans[9]*trans[9]),
-            std::sqrt(trans[2]*trans[2]+trans[6]*trans[6]+trans[10]*trans[10])}};
+            std::sqrt(trans[2]*trans[2]+trans[6]*trans[6]+trans[10]*trans[10])};
 }
 
 
