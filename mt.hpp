@@ -1,5 +1,6 @@
 #ifndef MULTI_THREAD_HPP
 #define MULTI_THREAD_HPP
+#include <chrono>
 #include <future>
 #include <iostream>
 #include "def.hpp"
