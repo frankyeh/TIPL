@@ -171,7 +171,7 @@ bool is_label_image(const ImageType& I)
             }
         }
     });
-    return std::accumulate(same.begin(),same.end(),0) > std::accumulate(diff.begin(),diff.end(),0);
+    return std::accumulate(same.begin(),same.end(),size_t(0)) > std::accumulate(diff.begin(),diff.end(),size_t(0));
 }
 
 template<typename T>
