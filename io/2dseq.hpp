@@ -262,20 +262,33 @@ public:
         // read 2dseq and convert to float
         dim[2] = buffer.size()/word_size/dim[0]/dim[1];
         data.resize(dim);
-        if (info["RECO_wordtype"] == std::string("_8BIT_SGN_INT"))
-            std::copy((char*)&buffer[0],(char*)&buffer[0]+data.size(),data.begin());
-        if (info["RECO_wordtype"] == std::string("_8BIT_USGN_INT"))
-            std::copy((unsigned char*)&buffer[0],(unsigned char*)&buffer[0]+data.size(),data.begin());
-        if (info["RECO_wordtype"] == std::string("_16BIT_SGN_INT"))
-            std::copy((int16_t*)&buffer[0],(int16_t*)&buffer[0]+data.size(),data.begin());
-        if (info["RECO_wordtype"] == std::string("_16BIT_USGN_INT"))
-            std::copy((uint16_t*)&buffer[0],(uint16_t*)&buffer[0]+data.size(),data.begin());
-        if (info["RECO_wordtype"] == std::string("_32BIT_USGN_INT"))
-            std::copy((uint32_t*)&buffer[0],(uint32_t*)&buffer[0]+data.size(),data.begin());
-        if (info["RECO_wordtype"] == std::string("_32BIT_SGN_INT"))
-            std::copy((int32_t*)&buffer[0],(int32_t*)&buffer[0]+data.size(),data.begin());
-        if (info["RECO_wordtype"] == std::string("_32BIT_FLOAT"))
-            std::copy((float*)&buffer[0],(float*)&buffer[0]+data.size(),data.begin());
+        if (info["RECO_wordtype"] == "_8BIT_SGN_INT") {
+            std::transform(buffer.begin(), buffer.begin() + data.size(), data.begin(),
+                           [](char x) { return static_cast<float>(static_cast<int8_t>(x)); });
+        } else if (info["RECO_wordtype"] == "_8BIT_USGN_INT") {
+            std::transform(buffer.begin(), buffer.begin() + data.size(), data.begin(),
+                           [](unsigned char x) { return static_cast<float>(x); });
+        } else if (info["RECO_wordtype"] == "_16BIT_SGN_INT") {
+            const auto* src = reinterpret_cast<const int16_t*>(buffer.data());
+            std::transform(src, src + data.size(), data.begin(),
+                           [](int16_t x) { return static_cast<float>(x); });
+        } else if (info["RECO_wordtype"] == "_16BIT_USGN_INT") {
+            const auto* src = reinterpret_cast<const uint16_t*>(buffer.data());
+            std::transform(src, src + data.size(), data.begin(),
+                           [](uint16_t x) { return static_cast<float>(x); });
+        } else if (info["RECO_wordtype"] == "_32BIT_USGN_INT") {
+            const auto* src = reinterpret_cast<const uint32_t*>(buffer.data());
+            std::transform(src, src + data.size(), data.begin(),
+                           [](uint32_t x) { return static_cast<float>(x); });
+        } else if (info["RECO_wordtype"] == "_32BIT_SGN_INT") {
+            const auto* src = reinterpret_cast<const int32_t*>(buffer.data());
+            std::transform(src, src + data.size(), data.begin(),
+                           [](int32_t x) { return static_cast<float>(x); });
+        } else if (info["RECO_wordtype"] == "_32BIT_FLOAT") {
+            std::copy(reinterpret_cast<const float*>(buffer.data()),
+                      reinterpret_cast<const float*>(buffer.data()) + data.size(),
+                      data.begin());
+        }
 
         if(!slopes.empty())
         {
