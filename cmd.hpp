@@ -372,7 +372,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
             if(interpolation)
                 tipl::resample<tipl::interpolation::linear>(data,new_data,tipl::transformation_matrix<float>(tipl::from_space(U).to(T)));
             else
-                tipl::resample<tipl::interpolation::nearest>(data,new_data,tipl::transformation_matrix<float>(tipl::from_space(U).to(T)));
+                tipl::resample<tipl::interpolation::majority>(data,new_data,tipl::transformation_matrix<float>(tipl::from_space(U).to(T)));
             new_data.swap(data);
             vs = new_vs;
             return true;
@@ -439,7 +439,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
             if(interpolation)
                 tipl::resample<tipl::interpolation::linear>(data,new_data,m);
             else
-                tipl::resample<tipl::interpolation::nearest>(data,new_data,m);
+                tipl::resample<tipl::interpolation::majority>(data,new_data,m);
         }
         else
         {
@@ -531,7 +531,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         if(interpolation)
             tipl::resample<tipl::interpolation::linear>(data,J,T1);
         else
-            tipl::resample<tipl::interpolation::nearest>(data,J,T1);
+            tipl::resample<tipl::interpolation::majority>(data,J,T1);
         data.swap(J);
         vs = new_vs;
         T = T*nT;
