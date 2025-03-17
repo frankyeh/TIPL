@@ -468,19 +468,24 @@ public:
             in >> str;
             if(str.find('"') != std::string::npos)
             {
-                str.erase(str.find('"'),1);
-                while(in)
+                if(std::count(str.begin(),str.end(),'"') == 1)
                 {
-                    std::string other_str;
-                    in >> other_str;
-                    str += " ";
-                    str += other_str;
-                    if(other_str.find('"') != std::string::npos)
+                    str.erase(str.find('"'),1);
+                    while(in)
                     {
-                        str.erase(str.find('"'),1);
-                        break;
+                        std::string other_str;
+                        in >> other_str;
+                        str += " ";
+                        str += other_str;
+                        if(other_str.back() == '"')
+                        {
+                            str.pop_back();
+                            break;
+                        }
                     }
                 }
+                else
+                    str.erase(std::remove(str.begin(), str.end(), '"'), str.end());
             }
             if(!str.empty() && !add_option(str))
                 return false;
@@ -523,6 +528,16 @@ public:
     void set_used(char value)
     {
         std::fill(used.begin(),used.end(),value);
+    }
+    void mute(const char* name)
+    {
+        std::string str_name(name);
+        for(size_t i = 0;i < names.size();++i)
+            if(names[i] == str_name)
+            {
+                printed[i] = 1;
+                return;
+            }
     }
     void set(const char* name,const std::string& value)
     {
