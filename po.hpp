@@ -466,6 +466,8 @@ public:
         {
             std::string str;
             in >> str;
+            if(str.empty() || !in)
+                break;
             if(!values.empty() && str.find("--") != 0)
             {
                 values.back() += " " + str;
