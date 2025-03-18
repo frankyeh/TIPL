@@ -466,6 +466,11 @@ public:
         {
             std::string str;
             in >> str;
+            if(!values.empty() && str.find("--") != 0)
+            {
+                values.back() += " " + str;
+                continue;
+            }
             if(str.find('"') != std::string::npos)
             {
                 if(std::count(str.begin(),str.end(),'"') == 1)
