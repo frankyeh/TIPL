@@ -227,6 +227,8 @@ public:
     __INLINE__ iterator end(void)                                    {return beg+sz;}
     iterator data(void)                                   {return beg;}
 public:
+    auto& buf(void) {return buffer;}
+public:
     __INLINE__ size_t size(void)                            const    {return sz;}
     bool empty(void)                             const    {return buffer.empty();}
     void clear(void)                                      {buffer.clear();beg = nullptr;sz = 0;}
