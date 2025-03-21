@@ -29,6 +29,15 @@ auto split(const T& s,typename T::value_type delimiter)
     for (T token; std::getline(ss, token, delimiter); tokens.push_back(token));
     return tokens;
 }
+template<typename T>
+auto merge(const std::vector<T>& tokens, typename T::value_type delimiter)
+{
+    if (tokens.empty()) return T{};
+    T result = tokens[0];
+    for (size_t i = 1; i < tokens.size(); ++i)
+        result += delimiter + tokens[i];
+    return result;
+}
 
 inline bool contains(const std::string& str,const std::string& suffix)
 {
