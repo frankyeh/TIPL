@@ -24,8 +24,8 @@ public:
     {
         clear();
     }
-    template<typename T,typename U>
-    __INLINE__ shape(T x,T y,T z,U t)
+    template<typename T,typename U,typename V,typename W>
+    __INLINE__ shape(T x,U y,V z,W t)
     {
         dim[0] = uint32_t(x);
         dim[1] = uint32_t(y);
