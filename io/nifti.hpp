@@ -671,6 +671,13 @@ public:
     {
         std::copy(nif_header.pixdim+1,nif_header.pixdim+1+dim,pixel_size_from.begin());
     }
+    template<int dim>
+    tipl::vector<dim,float> get_voxel_size(void) const
+    {
+        tipl::vector<dim,float> vs;
+        std::copy(nif_header.pixdim+1,nif_header.pixdim+1+dim,vs.begin());
+        return vs;
+    }
 
     template<typename float_type>
     void get_image_orientation(float_type R)
@@ -734,6 +741,11 @@ public:
     void get_image_dimension(shape<dimension>& geo) const
     {
         std::copy(nif_header.dim+1,nif_header.dim+1+dimension,geo.begin());
+    }
+    template<int dimension>
+    shape<dimension> get_image_dimension(void) const
+    {
+        return shape<dimension>(nif_header.dim+1);
     }
     bool is_integer(void) const
     {
