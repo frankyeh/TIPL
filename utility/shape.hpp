@@ -158,8 +158,7 @@ public:
     friend std::ostream& operator<<(std::ostream& out,const shape& dim)
     {
         for(int i = 0;i < dimension;++i)
-            out << (i ? "," : "(") << dim[i];
-        out << ")";
+            out << (i ? " " : "") << dim[i];
         return out;
     }
 };
@@ -641,7 +640,7 @@ public:
     }
     friend std::ostream& operator<<(std::ostream& out,const shape& dim)
     {
-        out << "(" << dim[0] << "," << dim[1] << "," << dim[2] << ")";
+        out << dim[0] << " " << dim[1] << " " << dim[2];
         return out;
     }
 
