@@ -365,6 +365,13 @@ bool search_filesystem(std::string path,std::vector<std::string>& filenames,bool
     return true;
 }
 
+inline std::string complete_suffix(const std::string& file_name)
+{
+    std::filesystem::path p(file_name);
+    std::string ext = p.extension().string();
+    return (ext == ".gz") ? p.stem().extension().string() + ext : ext;
+}
+
 template<typename out = default_output>
 class program_option{
     std::vector<std::string> names;
