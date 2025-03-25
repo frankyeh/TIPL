@@ -689,11 +689,11 @@ public:
     }
     bool is_mni(void) const
     {
-        return nif_header.sform_code >= 4 &&
-               nif_header.srow_x[3] != 0.0f && nif_header.srow_y[3] != 0.0f && nif_header.srow_z[3] != 0.0f && // translocation is not zero
-               nif_header.srow_x[1] == 0.0f && nif_header.srow_x[2] == 0.0f && // off diagnonal is zero
-               nif_header.srow_y[0] == 0.0f && nif_header.srow_y[2] == 0.0f && // off diagnonal is zero
-               nif_header.srow_z[0] == 0.0f && nif_header.srow_z[1] == 0.0f;   // off diagnonal is zero
+        return nif_header.sform_code >= 4 ||
+               (nif_header.srow_x[3] != 0.0f && nif_header.srow_y[3] != 0.0f && nif_header.srow_z[3] != 0.0f && // translocation is not zero
+                nif_header.srow_x[1] == 0.0f && nif_header.srow_x[2] == 0.0f && // off diagnonal is zero
+                nif_header.srow_y[0] == 0.0f && nif_header.srow_y[2] == 0.0f && // off diagnonal is zero
+                nif_header.srow_z[0] == 0.0f && nif_header.srow_z[1] == 0.0f);   // off diagnonal is zero
     }
     const float* get_transformation(void)
     {
