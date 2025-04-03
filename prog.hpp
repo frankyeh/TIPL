@@ -336,7 +336,7 @@ class output{
                 return;
             if(out.back() == '\n')
                 out.pop_back();
-            progress::print(out.c_str(),false,false,code);
+            progress::print(out,false,false,code);
             std::scoped_lock<std::mutex> lock2(msg_mutex);
             std::getline(std::istringstream(out),last_msg);
         }
