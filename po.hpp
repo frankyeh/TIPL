@@ -371,6 +371,15 @@ inline std::string complete_suffix(const std::string& file_name)
     std::string ext = p.extension().string();
     return (ext == ".gz") ? p.stem().extension().string() + ext : ext;
 }
+inline auto read_file(const std::string& file_name)
+{
+    std::ifstream file(file_name);
+    std::vector<std::string> lines;
+    std::string line;
+    while (std::getline(file, line))
+        lines.push_back(line);
+    return lines;
+}
 
 template<typename out = default_output>
 class program_option{
