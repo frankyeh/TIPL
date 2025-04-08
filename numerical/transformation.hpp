@@ -968,6 +968,51 @@ public:
         vector_transformation(shift_t,shift,rhs.sr,rhs.shift,vdim<dimension>());
         return *this;
     }
+
+    auto to_matrix(void) const
+    {
+        tipl::matrix<dimension+1,dimension+1,value_type> M;
+        if constexpr(dimension == 3)
+        {
+            M[0] = data_[0];
+            M[1] = data_[1];
+            M[2] = data_[2];
+
+            M[4] = data_[3];
+            M[5] = data_[4];
+            M[6] = data_[5];
+
+            M[8] = data_[6];
+            M[9] = data_[7];
+            M[10] = data_[8];
+
+            M[3] = data_[9];
+            M[7] = data_[10];
+            M[11] = data_[11];
+
+            M[12] = 0.0f;
+            M[13] = 0.0f;
+            M[14] = 0.0f;
+            M[15] = 1.0f;
+        }
+        else
+        {
+            M[0] = data_[0];
+            M[1] = data_[1];
+
+            M[3] = data_[2];
+            M[4] = data_[3];
+
+            M[2] = data_[4];
+            M[5] = data_[5];
+
+            M[6] = 0.0f;
+            M[7] = 0.0f;
+            M[8] = 1.0f;
+        }
+        return M;
+    }
+
     void to(tipl::matrix<dimension+1,dimension+1,value_type>& M) const
     {
         if constexpr(dimension == 3)
@@ -995,15 +1040,6 @@ public:
         }
         else
         {
-            data_[0] = M[0];
-            data_[1] = M[1];
-
-            data_[2] = M[3];
-            data_[3] = M[4];
-
-            data_[4] = M[2];
-            data_[5] = M[5];
-
             M[0] = data_[0];
             M[1] = data_[1];
 
