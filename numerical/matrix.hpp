@@ -3314,6 +3314,7 @@ public:
         for(int i = 0;i < mat_size;++i)
             std::swap(value[i],rhs.value[i]);
     }
+
     friend std::ostream & operator<<(std::ostream& out, const matrix<r,c,value_type>& T)
     {
         for(int row = 0,index = 0;row < r;++row)
@@ -3324,10 +3325,11 @@ public:
                     out << " ";
                 out << T[index];
             }
-            out << std::endl;
+            out << "; ";
         }
         return out;
     }
+
 
 
 };
