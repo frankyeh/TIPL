@@ -1164,6 +1164,8 @@ public:
             flip_swap_seq.push_back(0);
             {
                 nif_header.srow_x[3] += nif_header.srow_x[0]*(nif_header.dim[1]-1);
+                nif_header.srow_y[3] += nif_header.srow_y[0]*(nif_header.dim[1]-1);
+                nif_header.srow_z[3] += nif_header.srow_z[0]*(nif_header.dim[1]-1);
                 nif_header.srow_x[0] = -nif_header.srow_x[0];
                 nif_header.srow_y[0] = -nif_header.srow_y[0];
                 nif_header.srow_z[0] = -nif_header.srow_z[0];
@@ -1174,7 +1176,9 @@ public:
         {
             flip_swap_seq.push_back(1);
             {
+                nif_header.srow_x[3] += nif_header.srow_x[1]*(nif_header.dim[2]-1);
                 nif_header.srow_y[3] += nif_header.srow_y[1]*(nif_header.dim[2]-1);
+                nif_header.srow_z[3] += nif_header.srow_z[1]*(nif_header.dim[2]-1);
                 nif_header.srow_x[1] = -nif_header.srow_x[1];
                 nif_header.srow_y[1] = -nif_header.srow_y[1];
                 nif_header.srow_z[1] = -nif_header.srow_z[1];
@@ -1185,6 +1189,8 @@ public:
         {
             flip_swap_seq.push_back(2);
             {
+                nif_header.srow_x[3] += nif_header.srow_x[2]*(nif_header.dim[3]-1);
+                nif_header.srow_y[3] += nif_header.srow_y[2]*(nif_header.dim[3]-1);
                 nif_header.srow_z[3] += nif_header.srow_z[2]*(nif_header.dim[3]-1);
                 nif_header.srow_x[2] = -nif_header.srow_x[2];
                 nif_header.srow_y[2] = -nif_header.srow_y[2];
