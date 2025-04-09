@@ -240,6 +240,8 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     if(cmd == "header_flip_x")
     {
         T[3] += T[0]*float(data.width()-1);
+        T[7] += T[4]*float(data.width()-1);
+        T[11] += T[8]*float(data.width()-1);
         T[0] = -T[0];
         T[4] = -T[4];
         T[8] = -T[8];
@@ -247,7 +249,9 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     }
     if(cmd == "header_flip_y")
     {
+        T[3] += T[1]*float(data.height()-1);
         T[7] += T[5]*float(data.height()-1);
+        T[11] += T[9]*float(data.height()-1);
         T[1] = -T[1];
         T[5] = -T[5];
         T[9] = -T[9];
@@ -256,6 +260,8 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
 
     if(cmd == "header_flip_z")
     {
+        T[3] += T[2]*float(data.depth()-1);
+        T[7] += T[6]*float(data.depth()-1);
         T[11] += T[10]*float(data.depth()-1);
         T[2] = -T[2];
         T[6] = -T[6];
