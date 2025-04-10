@@ -855,21 +855,9 @@ public:
         tipl::resample(I_,I,tipl::from_space(space_to).to(space_from));
         return true;
     }
-    template<typename image_type,typename vs_type,typename srow_type>
-    static bool save_to_file(const std::string& file_name,const image_type& I,const srow_type& T,
-                             bool is_mni_152 = false,const char* descript = nullptr)
-    {
-        nifti_base nii;
-        nii.set_voxel_size(tipl::to_vs(T));
-        nii.set_image_transformation(T,is_mni_152);
-        nii.load_from_image(I);
-        if(descript)
-            nii.set_descrip(descript);
-        return nii.save_to_file(file_name);
-    }
-    template<typename image_type,typename vs_type,typename srow_type>
+    template<typename image_type,typename vs_type,typename srow_type,typename prog_type = default_prog_type>
     static bool save_to_file(const std::string& file_name,const image_type& I,const vs_type& vs,const srow_type& T,
-                             bool is_mni_152 = false,const char* descript = nullptr)
+                             bool is_mni_152 = false,const char* descript = nullptr,prog_type&& prog = prog_type())
     {
         nifti_base nii;
         nii.set_voxel_size(vs);
@@ -877,7 +865,13 @@ public:
         nii.load_from_image(I);
         if(descript)
             nii.set_descrip(descript);
-        return nii.save_to_file(file_name);
+        return nii.save_to_file(file_name,std::forward<prog_type>(prog));
+    }
+    template<typename image_type,typename vs_type,typename srow_type,typename prog_type = default_prog_type>
+    inline static bool save_to_file(const std::string& file_name,const image_type& I,const srow_type& T,
+                             bool is_mni_152 = false,const char* descript = nullptr,prog_type&& prog = prog_type())
+    {
+        return save_to_file(file_name,I,tipl::to_vs(T),T,is_mni_152,descript,std::forward<prog_type>(prog));
     }
     template<typename prog_type = default_prog_type>
     bool save_to_file(const std::string& file_name,prog_type&& prog = prog_type())
