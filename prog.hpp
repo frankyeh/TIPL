@@ -96,6 +96,7 @@ private:
         process_time.back() = std::chrono::high_resolution_clock::now();
         t_last.resize(status_list.size());
         t_last.back() = std::chrono::high_resolution_clock::now()+std::chrono::milliseconds(200);
+        last_msg.clear();
         update_prog(get_status(),show_now);
     }
 
