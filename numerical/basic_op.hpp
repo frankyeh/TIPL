@@ -1046,7 +1046,8 @@ void reorder(const image_type1& volume,image_type2& volume_out,dim_order_type di
         return;
     }
     volume_out.resize(new_geo);
-    reorder(volume,volume_out,origin,shift,image_type1::dimension);
+    if(!volume_out.empty())
+        reorder(volume,volume_out,origin,shift,image_type1::dimension);
 }
 //---------------------------------------------------------------------------
 template<typename image_type,typename dim_order_type,typename flip_type>
