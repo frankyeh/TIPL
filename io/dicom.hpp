@@ -1329,15 +1329,15 @@ public:
         >> image_col_orientation[2];
         return true;
     }
-    template<typename vector_type>
-    bool get_left_upper_pos(vector_type lp_pos) const
+    tipl::vector<3> get_left_upper_pos(void) const
     {
+        tipl::vector<3> result;
         std::string pos;
         if (!get_text(0x0020,0x0032,pos))
-            return false;
+            return result;
         std::replace(pos.begin(),pos.end(),'\\',' ');
-        std::istringstream(pos) >> lp_pos[0] >> lp_pos[1] >> lp_pos[2];
-        return true;
+        std::istringstream(pos) >> result[0] >> result[1] >> result[2];
+        return result;
     }
 
     template<typename vector_type>
@@ -1357,13 +1357,6 @@ public:
             (orientation_matrix[0] * orientation_matrix[4])-
             (orientation_matrix[1] * orientation_matrix[3]);
 
-        // the slice ordering is always increamental
-        if (orientation_matrix[6] + orientation_matrix[7] + orientation_matrix[8] < 0) // no flip needed
-        {
-            orientation_matrix[6] = -orientation_matrix[6];
-            orientation_matrix[7] = -orientation_matrix[7];
-            orientation_matrix[8] = -orientation_matrix[8];
-        }
         return true;
     }
     float get_slice_location(void) const
@@ -1875,46 +1868,42 @@ public:
             dicom_reader.push_back(d);
         }
 
-        if(files.size() == 1)
+        // sort dicom and remove scout images
         {
-            dicom_reader.front()->get_image_dimension(dim);
-            dicom_reader.front()->get_voxel_size(vs);
-            dicom_reader.front()->get_image_orientation(orientation_matrix);
+            auto order = tipl::arg_sort(image_num.size(),[&](uint32_t i,uint32_t j){return image_num[i] < image_num[j];});
+            std::vector<std::shared_ptr<dicom> > new_dicom_reader(order.size());
+            for(size_t i = 0;i < order.size();++i)
+                new_dicom_reader[i] = dicom_reader[order[i]];
+            new_dicom_reader.swap(dicom_reader);
+
+            // remove scout/localizer
+            while(dicom_reader.size() >= 2 &&
+                  dicom_reader[0]->get_text(0x0020,0x0037) != dicom_reader[1]->get_text(0x0020,0x0037))
+                dicom_reader.erase(dicom_reader.begin());
         }
-        else
+
+        dicom_reader.front()->get_image_dimension(dim);
+        dicom_reader.front()->get_voxel_size(vs);
+        dicom_reader.front()->get_image_orientation(orientation_matrix);
+
+        if(files.size() > 1)
         {        // sort dicom according to the image num
-            {
-                auto order = tipl::arg_sort(image_num.size(),[&](uint32_t i,uint32_t j){return image_num[i] < image_num[j];});
-                std::vector<std::shared_ptr<dicom> > new_dicom_reader(order.size());
-                for(size_t i = 0;i < order.size();++i)
-                    new_dicom_reader[i] = dicom_reader[order[i]];
-                new_dicom_reader.swap(dicom_reader);
-            }
             dim = tipl::shape<3>(dicom_reader.front()->width(),
                                  dicom_reader.front()->height(),
                                  uint32_t(dicom_reader.size()));
-            dicom_reader.front()->get_voxel_size(vs);
-            dicom_reader.front()->get_image_orientation(orientation_matrix);
             if(vs[2] == 0.0f)
-                vs[2] = std::fabs(dicom_reader[1]->get_slice_location()-
-                                                  dicom_reader[0]->get_slice_location());
-            // the last row of the orientation matrix should be derived from slice location
-            // otherwise, could be flipped in the saggital slices
+                vs[2] = std::fabs(dicom_reader.front()->get_slice_location()-
+                                  dicom_reader.back()->get_slice_location())/(dicom_reader.size()-1);
+
+            if((dicom_reader.back()->get_left_upper_pos()-
+               dicom_reader.back()->get_left_upper_pos())*tipl::vector<3>(orientation_matrix+6) < 0)
             {
-                tipl::vector<3> pos1,pos2;
-                dicom_reader[0]->get_left_upper_pos(pos1.begin());
-                dicom_reader[1]->get_left_upper_pos(pos2.begin());
-                if(pos1 == pos2)
-                {
-                    error_msg = "duplicated slices found.";
-                    return false;
-                }
-                orientation_matrix[6] = pos2[0]-pos1[0];
-                orientation_matrix[7] = pos2[1]-pos1[1];
-                orientation_matrix[8] = pos2[2]-pos1[2];
+                orientation_matrix[6] = -orientation_matrix[6];
+                orientation_matrix[7] = -orientation_matrix[7];
+                orientation_matrix[8] = -orientation_matrix[8];
             }
         }
-        tipl::get_orientation(3,orientation_matrix,dim_order,flip);
+        tipl::get_orientation(orientation_matrix,dim_order,flip);
         tipl::reorient_vector(vs,dim_order);
         tipl::reorient_matrix(orientation_matrix,dim_order,flip);
         return true;
