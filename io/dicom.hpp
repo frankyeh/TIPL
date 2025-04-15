@@ -1472,13 +1472,16 @@ public:
         using namespace std;
         gender.erase(remove(gender.begin(),gender.end(),' '),gender.end());
         id.erase(remove(id.begin(),id.end(),' '),id.end());
-        clean_name(id);
         info = date;
         info += "_";
         info += gender;
         info += age;
-        info += "_";
-        info += id;
+        if(std::all_of(id.begin(), id.end(), [](unsigned char c){return (c >= ' ' && c <= '~');}))
+        {
+            clean_name(id);
+            info += "_";
+            info += id;
+        }
     }
     void get_sequence_id(std::string& seq)
     {
