@@ -777,6 +777,59 @@ bool bounding_box(const ImageType& I,DimensionType& range_min,DimensionType& ran
     }
     return has_bounding_box;
 }
+template<typename T,typename U>
+unsigned char long_axis(const T& I,const U& vs)
+{
+    tipl::vector<3> range_min,range_max;
+    if(!tipl::bounding_box(I,range_min,range_max))
+        return 1;
+    range_max -= range_min;
+    range_max.abs();
+    range_max[0] *= vs[0];
+    range_max[1] *= vs[1];
+    range_max[2] *= vs[2];
+    if(range_max[2] > range_max[1] && range_max[2] > range_max[0])
+        return 2;
+    if(range_max[1] > range_max[0])
+        return 1;
+    return 0;
+}
+template<typename T,typename U>
+unsigned char symmetric_axis(const T& I_,const U& vs)
+{
+    tipl::vector<3,int> range_min,range_max;
+    if(!tipl::bounding_box(I_,range_min,range_max))
+        return 0;
+    typename T::buffer_type I(I_);
+    tipl::crop(I,range_min,range_max);
+    size_t dif_x = 0,dif_y = 0,dif_z = 0;
+    for(tipl::pixel_index<3> pos(I.shape());pos < I.size();++pos)
+    {
+        if(pos.x() < (I.width() >> 1))
+        {
+            auto dx = int(I[pos.index()])-int(I[pos.index() + I.width() - 1 - pos.x() - pos.x()]);
+            dif_x += dx*dx;
+        }
+        if(pos.y() < (I.height() >> 1))
+        {
+            auto dy = int(I[pos.index()])-int(I[pos.index() + (I.height() - 1 - pos.y() - pos.y())*I.width()]);
+            dif_y += dy*dy;
+        }
+        if(pos.z() < (I.depth() >> 1))
+        {
+            auto dz = int(I[pos.index()])-int(I[pos.index() + (I.depth() - 1 - pos.z() - pos.z())*I.plane_size()]);
+            dif_z += dz*dz;
+        }
+    }
+    dif_x *= vs[0];
+    dif_y *= vs[1];
+    dif_z *= vs[2];
+    if(dif_z < dif_y && dif_z < dif_x)
+        return 2;
+    if(dif_y < dif_x)
+        return 1;
+    return 0;
+}
 
 // ---------------------------------------------------------------------------
 template<typename point_type>
