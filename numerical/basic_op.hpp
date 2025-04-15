@@ -886,14 +886,14 @@ ImageType& trim(ImageType& I,typename ImageType::value_type background = 0)
 */
 //---------------------------------------------------------------------------
 template<typename iterator_type,typename dim_order_type,typename flip_type>
-void get_orientation(int dim,iterator_type rotation_matrix,dim_order_type dim_order,flip_type flipped)
+void get_orientation(iterator_type rotation_matrix,dim_order_type dim_order,flip_type flipped)
 {
     iterator_type vec = rotation_matrix;
-    for (int index = 0; index < dim; ++index,vec += dim)
+    for (int index = 0; index < 3; ++index,vec += 3)
     {
         dim_order[index] = 0;
         flipped[index] = vec[0] < 0;
-        for(int j = 1; j < dim; ++j)
+        for(int j = 1; j < 3; ++j)
             if(std::abs(vec[j]) > std::abs(vec[dim_order[index]]))
             {
                 dim_order[index] = j;
@@ -901,6 +901,8 @@ void get_orientation(int dim,iterator_type rotation_matrix,dim_order_type dim_or
             }
     }
 }
+
+
 //---------------------------------------------------------------------------
 template<typename iterator_type,typename dim_order_type,typename flip_type>
 void get_inverse_orientation(int dim,iterator_type rotation_matrix,dim_order_type dim_order,flip_type flipped)
