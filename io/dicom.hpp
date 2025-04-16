@@ -1575,11 +1575,12 @@ public:
         }
         else
         {
-            if(get_bit_count() && geo[0] && geo[1])
+            if(image_size && get_bit_count() && geo[0] && geo[1])
                 geo[2] = image_size/geo[0]/geo[1]/(get_bit_count()/8);
             else
                 geo[2] = 1;
         }
+
     }
 
 
