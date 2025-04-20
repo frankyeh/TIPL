@@ -144,7 +144,7 @@ private:
             return read_as_type<double>(I);
         if(values["type"] == "int" || values["type"] == "unsigned int")
             return read_as_type<uint32_t>(I);
-        if(values["type"] == "short" || values["type"] == "unsigned short")
+        if(values["type"] == "short" || values["type"] == "unsigned short" || values["type"] == "int16")
             return read_as_type<uint16_t>(I);
         if(values["type"] == "uchar")
             return read_as_type<uint8_t>(I);
