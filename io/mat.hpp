@@ -465,6 +465,16 @@ public:
             name_table[dataset[index]->name] = index;
         return true;
     }
+    template<typename T>
+    void write(const std::string& name,const T* ptr,unsigned int rows,unsigned int cols)
+    {
+        std::shared_ptr<mat_matrix> mat(new mat_matrix(name,ptr,rows,cols));
+        auto iter = name_table.find(name);
+        if(iter == name_table.end())
+            push_back(mat);
+        else
+            dataset[iter->second] = mat;
+    }
     void flush(unsigned int index)
     {
         if(index >= dataset.size())
