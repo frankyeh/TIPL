@@ -328,25 +328,16 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         tipl::bounding_box(data,range_min,range_max,data[0]);
         std::istringstream in(param1);
         in >> margin[0] >> margin[1] >> margin[2];
-
         range_min[0] = std::max<int>(0,range_min[0]-margin[0]);
         range_min[1] = std::max<int>(0,range_min[1]-margin[1]);
         range_min[2] = std::max<int>(0,range_min[2]-margin[2]);
         range_max[0] = std::min<int>(data.width(),range_max[0]+margin[0]);
         range_max[1] = std::min<int>(data.height(),range_max[1]+margin[1]);
         range_max[2] = std::min<int>(data.depth(),range_max[2]+margin[2]);
-
         range_max -= range_min;
-        if(!command<out,image_loader>(data,vs,T,is_mni,"translocate",std::to_string(-range_min[0]) + " " +
-                                    std::to_string(-range_min[1]) + " " +
-                                    std::to_string(-range_min[2]),interpolation,error_msg))
-
-            return false;
-
-        if(!command<out,image_loader>(data,vs,T,is_mni,"resize",std::to_string(range_max[0]) + " " +
-                                    std::to_string(range_max[1]) + " " +
-                                    std::to_string(range_max[2]),interpolation,error_msg))
-            return false;
+        typename image_type::buffer_type original_data(data);
+        data.resize(tipl::shape<3>(range_max.begin()));
+        tipl::draw(original_data,data,range_min);
         return true;
     }
     if(cmd == "transform")
@@ -468,26 +459,9 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
             error_msg = "invalid size";
             return false;
         }
-        image_type new_data(tipl::shape<3>(w,h,d));
-        auto shift = tipl::vector<3,int>(new_data.shape()) - tipl::vector<3,int>(data.shape());
-        if((shift[0] & 1) || (shift[1] & 1) || (shift[2] & 1))
-        {
-            tipl::transformation_matrix<float,3> trans;
-            for(int i = 0;i < 3;++i)
-                trans.shift[i] = float(shift[i])*-0.5f;
-            tipl::resample(data,new_data,trans);
-            for(int i = 0;i < 3;++i)
-                T[3+i*4] -= T[i*5]*float(shift[i])*0.5f;
-        }
-        else
-        {
-            shift /= 2;
-            tipl::draw(data,new_data,shift);
-            T[3] -= T[0]*shift[0];
-            T[7] -= T[5]*shift[1];
-            T[11] -= T[10]*shift[2];
-        }
-        data.swap(new_data);
+        typename image_type::buffer_type original_data(data);
+        data.resize(tipl::shape<3>(w,h,d));
+        tipl::draw(original_data,data,tipl::vector<3,int>(0,0,0));
         return true;
     }
     if(cmd == "reshape")
