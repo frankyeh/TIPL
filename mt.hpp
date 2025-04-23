@@ -76,7 +76,7 @@ enum par_for_type{
     ranged = 2,
     ranged_with_id = 3
 };
-
+inline bool par_for_running = false;
 template <par_for_type type = sequential,typename T,
           typename Func,typename std::enable_if<
               std::is_integral<T>::value ||
@@ -88,7 +88,10 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
         return;
     size_t n = to-from;
     thread_count = std::max<int>(1,std::min<int>(thread_count,n));
-
+    if(par_for_running && thread_count > 1)
+        thread_count = 1;
+    else
+        par_for_running = true;
     #ifdef __CUDACC__
     int cur_device = 0;
     if constexpr(use_cuda)
@@ -135,6 +138,7 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
             threads.push_back(std::thread(run,from,end,id));
             from = end;
         }
+        par_for_running = false;
     }
     run(from,to,0);
     for(auto &thread : threads)
@@ -149,33 +153,12 @@ template <par_for_type type = sequential,typename T,
               std::is_pointer<T>::value,bool>::type = true>
 void par_for(T from,T to,Func&& f)
 {
-    static struct thread_opt{
-        std::vector<size_t> performance;
-        size_t cur_thread_count = 1;
-        size_t last_size = 0;
-        thread_opt(size_t max_thread = max_thread_count):performance(max_thread+1){}
-        std::chrono::high_resolution_clock::time_point beg;
-        void start()
-        {
-            beg = std::chrono::high_resolution_clock::now();
-        }
-        void end()
-        {
-            auto time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()-beg).count();
-            if(!performance[cur_thread_count])
-                performance[cur_thread_count] = time;
-            else
-                performance[cur_thread_count] = (performance[cur_thread_count]+time)/2;
-            if(cur_thread_count > 1 && time > performance[cur_thread_count-1])
-                --cur_thread_count;
-            if(time > performance[cur_thread_count+1] && cur_thread_count < performance.size()-1)
-                ++cur_thread_count;
-        }
-    } thread_optimizer;
-
-    thread_optimizer.start();
-    par_for<type>(from,to,std::forward<Func>(f),thread_optimizer.cur_thread_count);
-    thread_optimizer.end();
+    if(par_for_running)
+    {
+        par_for<type>(from,to,std::forward<Func>(f),1);
+        return;
+    }
+    par_for<type>(from,to,std::forward<Func>(f),max_thread_count);
 }
 
 template <par_for_type type = sequential,typename T,typename Func,
@@ -209,7 +192,7 @@ par_for(T& c, Func&& f)
 template <par_for_type type = sequential,typename T, typename Func>
 size_t adaptive_par_for(T from, T to, Func&& f)
 {
-    if(to-from <= 8 || !tipl::is_main_thread())
+    if(to-from <= 8 || !tipl::is_main_thread() || par_for_running)
     {
         par_for<type>(from,to,std::forward<Func>(f),1);
         return 1;
