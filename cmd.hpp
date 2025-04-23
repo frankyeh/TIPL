@@ -464,6 +464,21 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         tipl::draw(original_data,data,tipl::vector<3,int>(0,0,0));
         return true;
     }
+    if(cmd == "resize_at_center")
+    {
+        std::istringstream in(param1);
+        int w(0),h(0),d(0);
+        in >> w >> h >> d;
+        if(!w || !h || !d)
+        {
+            error_msg = "invalid size";
+            return false;
+        }
+        typename image_type::buffer_type odata(data);
+        data.resize(tipl::shape<3>(w,h,d));
+        tipl::draw(odata,data,tipl::vector<3,int>(w-odata.width(),h-odata.height(),d-odata.depth())/2);
+        return true;
+    }
     if(cmd == "reshape")
     {
         std::istringstream in(param1);
