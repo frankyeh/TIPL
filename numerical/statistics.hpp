@@ -414,6 +414,16 @@ __INLINE__ auto median_absolute_deviation(input_iterator from,input_iterator to,
     return median(from,to);
 }
 
+template<typename input_iterator,
+         typename value_type = typename std::iterator_traits<input_iterator>::value_type>
+__INLINE__ auto outlier_range(input_iterator from,input_iterator to,float dev = 3.0f*1.482602218505602f)
+{
+    std::vector<value_type> buf(from, to);
+    float m = tipl::median(buf.begin(),buf.end());
+    float mad_3 = dev*float(tipl::median_absolute_deviation(buf.begin(),buf.end(),double(m)));
+    return std::make_pair(m-mad_3,m+mad_3);
+}
+
 
 template <typename input_iterator,
           typename value_type = typename std::iterator_traits<input_iterator>::value_type>
