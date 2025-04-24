@@ -147,8 +147,10 @@ template<typename input_iterator,
          typename return_type = typename sum_result_type<value_type>::type>
 __INLINE__ return_type sum(input_iterator from,input_iterator to)
 {
-    return_type sum = return_type();
-    for(;from != to;++from)
+    if(from == to)
+        return return_type();
+    return_type sum(*from);
+    for(++from;from != to;++from)
         sum += *from;
     return sum;
 }
