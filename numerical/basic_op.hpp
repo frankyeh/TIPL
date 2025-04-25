@@ -1436,6 +1436,82 @@ void histogram(const ImageType& src,HisType& hist,
         ++hist[uint32_t(index)];
     }
 }
+
+template<typename ImageType>
+void histogram_sharpening(const ImageType& src,
+                       ImageType&       dst,
+                       unsigned int     resolution_count = 256,
+                       double           sigma            = 0.05,
+                       double           noise            = 1e-3)
+{
+    using value_type = typename ImageType::value_type;
+    // 1) find min/max via minmax_value
+    value_type mn, mx;
+    minmax_value(src.begin(), src.end(), mn, mx);
+    if (mn >= mx) return;  // flat
+
+    // 2) build histogram
+    std::vector<double> hist;
+    hist.reserve(resolution_count);
+    tipl::histogram(src, hist, mn, mx, resolution_count);
+
+    // 3) blur histogram with 1D Gaussian
+    std::vector<double> hist_blur(resolution_count);
+    int    rad       = int(std::ceil(3.0 * sigma * resolution_count));
+    double twoSigma2 = 2.0 * (sigma * resolution_count) * (sigma * resolution_count);
+
+    // build kernel
+    std::vector<double> kern(2*rad+1);
+    double kw = 0;
+    for (int k = -rad; k <= rad; ++k)
+        kw += (kern[k+rad] = std::exp(-k*k / twoSigma2));
+    for (auto &w : kern) w /= kw;
+
+    // convolve
+    for (int i = 0; i < int(resolution_count); ++i)
+    {
+        double v = 0;
+        for (int k = -rad; k <= rad; ++k)
+        {
+            int j = i + k;
+            if (j < 0 || j >= int(resolution_count)) continue;
+            v += hist[j] * kern[k+rad];
+        }
+        hist_blur[i] = v;
+    }
+
+    // 4) Wiener deconvolution weights
+    std::vector<double> wiener(resolution_count);
+    for (int i = 0; i < int(resolution_count); ++i)
+    {
+        double H = hist_blur[i];
+        H*=H;
+        wiener[i] = H / (H + noise);
+    }
+
+    // 5) sharpened histogram
+    std::vector<double> hist_sharp(resolution_count);
+    for (int i = 0; i < int(resolution_count); ++i)
+        hist_sharp[i] = hist[i] * wiener[i];
+
+    // 6) CDF
+    std::vector<double> cdf(resolution_count);
+    cdf[0] = hist_sharp[0];
+    for (int i = 1; i < int(resolution_count); ++i)
+        cdf[i] = cdf[i-1] + hist_sharp[i];
+    if (cdf.back() <= 0) return;
+    tipl::divide_constant(cdf.begin(),cdf.end(),cdf.back());
+    // 7) remap dst via CDF
+    double range = double(mx) - double(mn);
+    dst.resize(src.shape());
+    for(size_t i = 0;i < src.size();++i)
+    {
+        int bin = int((double(src[i]) - mn)/range * (resolution_count-1) + 0.5);
+        bin = std::clamp(bin, 0, int(resolution_count-1));
+        double p = cdf[bin];
+        dst[i] = value_type(double(mn) + p * range);
+    }
+}
 template<typename image_type1,typename image_type2>
 void hist_norm(const image_type1& I1,image_type2& I2,unsigned int bin_count)
 {
