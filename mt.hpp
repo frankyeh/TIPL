@@ -88,10 +88,13 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
         return;
     size_t n = to-from;
     thread_count = std::max<int>(1,std::min<int>(thread_count,n));
-    if(par_for_running && thread_count > 1)
+    if(par_for_running)
         thread_count = 1;
     else
-        par_for_running = true;
+    {
+        if(thread_count > 1)
+            par_for_running = true;
+    }
     #ifdef __CUDACC__
     int cur_device = 0;
     if constexpr(use_cuda)
