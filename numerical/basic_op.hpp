@@ -1438,8 +1438,8 @@ void histogram(const ImageType& src,HisType& hist,
 }
 
 template<typename ImageType>
-void histogram_sharpening(const ImageType& src,
-                       ImageType&       dst,
+void histogram_sharpening(
+                       ImageType&       src,
                        unsigned int     resolution_count = 256,
                        double           sigma            = 0.05,
                        double           noise            = 1e-3)
@@ -1503,13 +1503,12 @@ void histogram_sharpening(const ImageType& src,
     tipl::divide_constant(cdf.begin(),cdf.end(),cdf.back());
     // 7) remap dst via CDF
     double range = double(mx) - double(mn);
-    dst.resize(src.shape());
     for(size_t i = 0;i < src.size();++i)
     {
         int bin = int((double(src[i]) - mn)/range * (resolution_count-1) + 0.5);
         bin = std::clamp(bin, 0, int(resolution_count-1));
         double p = cdf[bin];
-        dst[i] = value_type(double(mn) + p * range);
+        src[i] = value_type(double(mn) + p * range);
     }
 }
 template<typename image_type1,typename image_type2>
