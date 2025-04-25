@@ -92,7 +92,7 @@ bool command(image_type& data,std::string cmd,std::string param1)
     }
     if(cmd == "histogram_sharpening")
     {
-        tipl::histogram_sharpening(data,data);
+        tipl::histogram_sharpening(data);
         return true;
     }
     if(cmd == "smoothing_filter")
