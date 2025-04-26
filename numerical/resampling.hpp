@@ -745,7 +745,7 @@ __global__ void upsample_with_padding_cuda_kernel(T1 from,T2 to)
     }
 }
 #endif
-template<typename T>
+template<interpolation type = linear,typename T>
 void upsample_with_padding(const T& in,T& out)
 {
     if constexpr(memory_location<T>::at == CUDA)
@@ -762,17 +762,17 @@ void upsample_with_padding(const T& in,T& out)
         {
             vector<T::dimension> v(pos);
             v *= 0.5f;
-            estimate(in,v,out[pos.index()]);
+            estimate<type>(in,v,out[pos.index()]);
         });
     }
 
 }
 
-template<typename T>
+template<interpolation type = linear,typename T>
 void upsample_with_padding(T& in,const shape<T::dimension>& geo)
 {
     T new_d(geo);
-    upsample_with_padding(in,new_d);
+    upsample_with_padding<type>(in,new_d);
     new_d.swap(in);
 }
 
