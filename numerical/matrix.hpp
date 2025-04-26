@@ -1420,6 +1420,15 @@ bool lu_solve(input_iterator1 A,piv_iterator piv,input_iterator2 B,output_iterat
     return result;
 }
 
+template<typename input_iterator1,typename input_iterator2,typename output_iterator,typename dim_type>
+bool lu_solve(input_iterator1 A,input_iterator2 B,output_iterator X,const dim_type& dim)
+{
+    std::vector<unsigned int> piv(row_count(dim));
+    if (!lu_decomposition(A, piv.begin(), dim))
+        return false;
+    return tipl::mat::lu_solve(A, piv.begin(), B, X, dim);
+}
+
 template<typename input_iterator>
 bool inverse(input_iterator iter,dim<1,1>)
 {
