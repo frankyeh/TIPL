@@ -9,21 +9,15 @@ namespace tipl{
 
 namespace segmentation{
 
-template<typename ImageType>
-float otsu_threshold(const ImageType& src,size_t skip = 1)
+
+template<typename hist_value_type,typename value_type>
+float otsu_threshold_from_hist(const std::vector<hist_value_type>& hist,
+                                    value_type min_v,value_type max_v)
 {
-    if(src.empty())
-        return 0.0f;
-    auto min_v = src[0];
-    auto max_v = src[0];
-    minmax_value(src,min_v,max_v);
-    std::vector<unsigned int> hist;
-    histogram(src,hist,min_v,max_v);
     if(hist.empty())
         return min_v;
-    std::vector<unsigned int> w(hist.size());
+    std::vector<hist_value_type> w(hist.size());
     std::vector<float> sum(hist.size());
-    std::fill(hist.begin(),hist.begin() + skip,0);
     w[0] = hist[0];
     sum[0] = 0.0;
     for (unsigned int index = 1,last_w = hist[0],last_sum = 0.0; index < hist.size(); ++index)
@@ -63,6 +57,33 @@ float otsu_threshold(const ImageType& src,size_t skip = 1)
     optimal_threshold_value *= max_v - min_v;
     optimal_threshold_value += min_v;
     return optimal_threshold_value;
+}
+
+template<typename ImageType>
+float otsu_threshold(const ImageType& src,size_t skip = 1)
+{
+    if(src.empty())
+        return 0.0f;
+    typename ImageType::value_type min_v,max_v;
+    minmax_value(src,min_v,max_v);
+    std::vector<unsigned int> hist;
+    histogram(src,hist,min_v,max_v);
+    if(hist.empty())
+        return min_v;
+    std::fill(hist.begin(),hist.begin() + skip,0);
+    return otsu_threshold_from_hist(hist,min_v,max_v);
+}
+
+template<typename ImageType>
+float otsu_threshold_sharpening(const ImageType& src)
+{
+    if(src.empty())
+        return 0.0f;
+    typename ImageType::value_type min_v,max_v;
+    minmax_value(src,min_v,max_v);
+    std::vector<double> hist;
+    histogram_sharpening(src,hist,min_v,max_v);
+    return otsu_threshold_from_hist(hist,min_v,max_v);
 }
 
 template<typename image_type>
