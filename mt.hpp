@@ -15,14 +15,14 @@ class time
         void start(){t1 = std::chrono::high_resolution_clock::now();}
         void stop(){t2 = std::chrono::high_resolution_clock::now();}
     public:
-        template<typename T>
-        auto elapsed(){return std::chrono::duration_cast<T>(std::chrono::high_resolution_clock::now() - t1).count();}
-        template<typename T>
+        template<typename T = std::chrono::milliseconds>
+        auto elapsed(){return std::chrono::duration_cast<T>(std::chrono::high_resolution_clock::now() - t1).count();restart();}
+        template<typename T = std::chrono::milliseconds>
         auto total(){stop();return std::chrono::duration_cast<T>(t2 - t1).count();}
         ~time()
         {
             if(!msg.empty())
-                std::cout << msg << elapsed<std::chrono::milliseconds>() << std::endl;
+                std::cout << msg << elapsed<>() << std::endl;
         }
     private:
         std::string msg;
