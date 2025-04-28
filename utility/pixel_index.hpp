@@ -1032,13 +1032,13 @@ template<typename value_type,
          typename std::enable_if<std::is_fundamental<value_type>::value,bool>::type = true>
 __INLINE__ auto v(value_type x,value_type y,value_type z)
 {
-    return vector<3>(x,y,z);
+    return vector<3,value_type>(x,y,z);
 }
 template<typename value_type,
          typename std::enable_if<std::is_fundamental<value_type>::value,bool>::type = true>
 __INLINE__ auto v(value_type x,value_type y)
 {
-    return vector<2>(x,y);
+    return vector<2,value_type>(x,y);
 }
 template<typename T,
          typename std::enable_if<std::is_class<T>::value,bool>::type = true>
