@@ -1436,26 +1436,22 @@ void histogram(const ImageType& src,HisType& hist,
         ++hist[uint32_t(index)];
     }
 }
-
-template<typename ImageType>
+template<typename ImageType,typename HistType>
 void histogram_sharpening(
-                       ImageType&       src,
+                       const ImageType& src,
+                       HistType& hist,
+                       typename ImageType::value_type mn,
+                       typename ImageType::value_type mx,
                        unsigned int     resolution_count = 256,
                        double           sigma            = 0.05,
                        double           noise            = 1e-3)
 {
-    using value_type = typename ImageType::value_type;
-    // 1) find min/max via minmax_value
-    value_type mn, mx;
-    minmax_value(src.begin(), src.end(), mn, mx);
-    if (mn >= mx) return;  // flat
+    if (mn >= mx)
+        return;  // flat
 
-    // 2) build histogram
-    std::vector<double> hist;
-    hist.reserve(resolution_count);
     tipl::histogram(src, hist, mn, mx, resolution_count);
 
-    // 3) blur histogram with 1D Gaussian
+    // blur histogram with 1D Gaussian
     std::vector<double> hist_blur(resolution_count);
     int    rad       = int(std::ceil(3.0 * sigma * resolution_count));
     double twoSigma2 = 2.0 * (sigma * resolution_count) * (sigma * resolution_count);
@@ -1474,27 +1470,21 @@ void histogram_sharpening(
         for (int k = -rad; k <= rad; ++k)
         {
             int j = i + k;
-            if (j < 0 || j >= int(resolution_count)) continue;
-            v += hist[j] * kern[k+rad];
+            if (j >= 0 && j < int(resolution_count))
+                v += hist[j] * kern[k+rad];
         }
         hist_blur[i] = v;
     }
 
-    // 4) Wiener deconvolution weights
-    std::vector<double> wiener(resolution_count);
+    // sharpened histogram
     for (int i = 0; i < int(resolution_count); ++i)
     {
         double H = hist_blur[i];
         H*=H;
-        wiener[i] = H / (H + noise);
+        hist[i] *= H / (H + noise); //Wiener deconvolution weights
     }
 
-    // 5) sharpened histogram
-    std::vector<double> hist_sharp(resolution_count);
-    for (int i = 0; i < int(resolution_count); ++i)
-        hist_sharp[i] = hist[i] * wiener[i];
-
-    // 6) CDF
+    /*
     std::vector<double> cdf(resolution_count);
     cdf[0] = hist_sharp[0];
     for (int i = 1; i < int(resolution_count); ++i)
@@ -1510,6 +1500,36 @@ void histogram_sharpening(
         double p = cdf[bin];
         src[i] = value_type(double(mn) + p * range);
     }
+    */
+}
+
+
+template<typename ImageType>
+void histogram_sharpening(
+                       ImageType&       src,
+                       unsigned int     resolution_count = 256,
+                       double           sigma            = 0.05,
+                       double           noise            = 1e-3)
+{
+    typename ImageType::value_type mn, mx;
+    minmax_value(src.begin(), src.end(), mn, mx);
+    if (mn >= mx)
+        return;
+
+    std::vector<double> hist_sharp;
+    tipl::histogram_sharpening(src, hist_sharp, mn, mx, resolution_count);
+
+    std::vector<double> cdf(resolution_count);
+    cdf[0] = hist_sharp[0];
+    for (int i = 1; i < int(resolution_count); ++i)
+        cdf[i] = cdf[i-1] + hist_sharp[i];
+    if (cdf.back() == 0)
+        return;
+    tipl::divide_constant(cdf.begin(),cdf.end(),cdf.back());
+    double range = double(mx) - double(mn);
+    for(size_t i = 0;i < src.size();++i)
+        src[i] = typename ImageType::value_type(double(mn) +
+             cdf[std::clamp(int((double(src[i]) - mn)/range * (resolution_count-1) + 0.5), 0, int(resolution_count-1))]*range);
 }
 template<typename image_type1,typename image_type2>
 void hist_norm(const image_type1& I1,image_type2& I2,unsigned int bin_count)
