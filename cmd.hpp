@@ -90,11 +90,6 @@ bool command(image_type& data,std::string cmd,std::string param1)
         tipl::filter::mean(data);
         return true;
     }
-    if(cmd == "histogram_sharpening")
-    {
-        tipl::histogram_sharpening(data);
-        return true;
-    }
     if(cmd == "smoothing_filter")
     {
         tipl::filter::anisotropic_diffusion(data);
