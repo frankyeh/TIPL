@@ -762,7 +762,9 @@ public:
     }
 
     auto& operator[](size_t index){return *dataset[index];}
-    const auto& operator[](size_t index) const {return *dataset[index];}
+    const auto& operator[](size_t index)const {return *dataset[index];}
+    auto& operator[](const std::string& name){return dataset[name_table.find(name)->second];}
+    const auto& operator[](const std::string& name)const {return dataset[name_table.find(name)->second];}
     template<typename image_type>
     const mat_read_base& operator>>(image_type& source) const
     {
