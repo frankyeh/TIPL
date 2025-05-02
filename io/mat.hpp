@@ -430,7 +430,7 @@ class mat_read_base
 {
 private:
     std::vector<std::shared_ptr<mat_matrix> > dataset;
-    std::map<std::string,size_t> name_table;
+    std::unordered_map <std::string,size_t> name_table;
     mutable std::mutex mat_load;
 private:
     void copy(const mat_read_base& rhs)
@@ -763,7 +763,6 @@ public:
 
     auto& operator[](size_t index){return *dataset[index];}
     const auto& operator[](size_t index) const {return *dataset[index];}
-
     template<typename image_type>
     const mat_read_base& operator>>(image_type& source) const
     {
