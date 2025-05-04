@@ -85,6 +85,7 @@ public:
     std::vector<std::shared_ptr<mat_matrix> > sub_data;
 public:
     mutable std::vector<unsigned char> data_buf,converted_data_buf;
+    mutable unsigned int converted_type = 0;
     mutable size_t delay_read_pos = 0;
 public:
     void copy(const mat_matrix& rhs)
@@ -96,6 +97,7 @@ public:
         namelen = rhs.namelen;
         data_buf = rhs.data_buf;
         converted_data_buf = rhs.converted_data_buf;
+        converted_type = rhs.converted_type;
         delay_read_pos = rhs.delay_read_pos;
     }
     size_t get_total_size(unsigned int ty) const
@@ -113,7 +115,13 @@ public:
         data_buf.resize(sizeof(T));
         *reinterpret_cast<T*>(data_buf.data()) = value;
     }
-    template<typename T>
+    template<typename T,typename std::enable_if<std::is_arithmetic<T>::value,bool>::type = true>
+    mat_matrix(const std::string& name_,T value,unsigned int rows_,unsigned int cols_):
+        type(mat_type_info<T>::type),rows(rows_),cols(cols_),namelen(name_.size()+1),name(name_)
+    {
+        data_buf.resize(size()*size_t(sizeof(T)));
+    }
+    template<typename T,typename std::enable_if<std::is_arithmetic<T>::value,bool>::type = true>
     mat_matrix(const std::string& name_,const T* ptr,unsigned int rows_,unsigned int cols_):
         type(mat_type_info<T>::type),rows(rows_),cols(cols_),namelen(name_.size()+1),name(name_)
     {
@@ -206,6 +214,27 @@ public:
                 in->flush();
         }
     }
+    bool is_scaled(void) const
+    {
+        for(auto each1 : sub_data)
+            if(each1->name == ".scale")
+                for(auto each2 : sub_data)
+                    if(each2->name == ".inter")
+                        return true;
+        return false;
+    }
+    template<typename T>
+    void convert_to(void)
+    {
+        get_data<T>();
+        if(!converted_data_buf.empty())
+        {
+            type = converted_type;
+            data_buf.swap(converted_data_buf);
+            sub_data.clear();
+            converted_data_buf.clear();
+        }
+    }
     template<typename T>
     bool get_sub_data(const std::string& name, T& value) const
     {
@@ -221,15 +250,13 @@ public:
     T* get_data(void) const
     {
         if (type_compatible<T>())
-            return const_cast<T*>(reinterpret_cast<const T*>(data_buf.data()));
-        if(!converted_data_buf.empty())
-        {
-            if(get_total_size(mat_type_info<T>::type) == converted_data_buf.size())
-                return reinterpret_cast<T*>(converted_data_buf.data());
-            throw std::runtime_error(name + " matrix cannot be read twice in different type");
-        }
+            return reinterpret_cast<T*>(data_buf.data());
+        if(converted_type == mat_type_info<T>::type &&
+           get_total_size(mat_type_info<T>::type) == converted_data_buf.size())
+            return reinterpret_cast<T*>(converted_data_buf.data());
         converted_data_buf.resize(get_total_size(mat_type_info<T>::type));
-        auto new_data = const_cast<T*>(reinterpret_cast<const T*>(converted_data_buf.data()));
+        converted_type = mat_type_info<T>::type;
+        auto new_data = reinterpret_cast<T*>(converted_data_buf.data());
         copy_data(new_data);
         if constexpr (sizeof(T) >= 2)
         {
@@ -237,7 +264,7 @@ public:
             {
                 float slope = 0.0f;
                 T inter = 0;
-                if(get_sub_data(name+".slope",slope) && get_sub_data(name+".inter",inter) && slope != 0.0f)
+                if(get_sub_data(name+".slope",slope) && get_sub_data(name+".inter",inter))
                     tipl::par_for(size(),[&](size_t i){
                             new_data[i] = new_data[i]*slope+inter;
                     });
@@ -248,12 +275,9 @@ public:
     template<typename T>
     T* get_data(const std::vector<size_t>& si2vi,size_t total_size) const
     {
-        if(!converted_data_buf.empty())
-        {
-            if(total_size*sizeof(T)*rows == converted_data_buf.size())
-                return reinterpret_cast<T*>(converted_data_buf.data());
-            throw std::runtime_error(name + " matrix cannot be read twice in different types under a mask");
-        }
+        if(converted_type == mat_type_info<T>::type &&
+           total_size*sizeof(T)*rows == converted_data_buf.size())
+            return reinterpret_cast<T*>(converted_data_buf.data());
         auto ptr = get_data<T>();
         if(!ptr)
             return nullptr;
@@ -273,12 +297,11 @@ public:
         }
         sparse_data.swap(converted_data_buf);
         return sparse_ptr;
-    }
-    template<typename T>
-    void resize(const T& s)
+    }    
+    void set_row_col(unsigned int new_row,unsigned int new_col)
     {
-        rows = s[0];
-        cols = s[1];
+        rows = new_row;
+        cols = new_col;
         data_buf.resize(get_total_size(type));
         converted_data_buf.clear();
     }
@@ -504,14 +527,6 @@ public:
             return dataset.size();
         return iter->second;
     }
-    template<typename T>
-    bool type_compatible(const std::string& name) const
-    {
-        auto iter = name_table.find(name);
-        if(iter == name_table.end())
-            return false;
-        return dataset[iter->second]->template type_compatible<T>();
-    }
     size_t cols(size_t index) const
     {
         if(index >= dataset.size())
@@ -714,6 +729,7 @@ public:
     }
     void push_back(std::shared_ptr<mat_matrix> mat)
     {
+        remove(mat->name);
         dataset.push_back(mat);
         name_table[mat->name] = dataset.size()-1;
     }
