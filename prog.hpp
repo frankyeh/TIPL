@@ -21,68 +21,62 @@ namespace tipl{
 
 inline bool prog_aborted = false;
 inline bool show_prog = false;
-inline std::vector<std::chrono::high_resolution_clock::time_point> process_time,t_last;
+inline std::vector<std::chrono::high_resolution_clock::time_point> process_time;
+inline std::chrono::high_resolution_clock::time_point next_update_time = std::chrono::high_resolution_clock::now();
 inline std::vector<std::string> status_list,at_list;
 inline std::mutex print_mutex,msg_mutex;
 inline std::string last_msg;
-inline bool processing_time_less_than(int time)
+#if defined(TIPL_USE_QT) && !defined(__CUDACC__)
+inline std::shared_ptr<QProgressDialog> progressDialog;
+#endif
+
+inline std::string get_prog_status(void)
 {
-    return std::chrono::duration_cast<std::chrono::milliseconds>(
-           std::chrono::high_resolution_clock::now() - process_time.back()).count() < time;
+    std::string result;
+    for(size_t i = 1;i < status_list.size();++i)
+    {
+        if(status_list[i].empty())
+            continue;
+        std::string s;
+        std::getline(std::istringstream(status_list[i]),s);
+        result += s;
+        if(i < at_list.size())
+            result += " " + at_list[i];
+        if(result.back() != '\n')
+            result += "\n";
+    }
+    std::scoped_lock<std::mutex> lock2(msg_mutex);
+    if(last_msg.empty() && !result.empty())
+        result.pop_back();
+    return result+last_msg;
 }
 
-inline void update_prog(std::string status,bool show_now = false,uint32_t now = 0,uint32_t total = 0)
+inline void create_prog(void)
 {
+    #if defined(TIPL_USE_QT) && !defined(__CUDACC__)
     if(!show_prog || !tipl::is_main_thread())
         return;
-    #if defined(TIPL_USE_QT) && !defined(__CUDACC__)
-    static std::shared_ptr<QProgressDialog> progressDialog;
-    if(status_list.size() <= 1)
-    {
-        if(progressDialog.get())
-        {
-            progressDialog->close();
-            progressDialog.reset();
-            QApplication::processEvents();
-        }
-        return;
-    }
-
-    if(!show_now && processing_time_less_than(250))
-        return;
-
-    if(!progressDialog.get())
-    {
-        progressDialog.reset(new QProgressDialog(status.c_str(),"Cancel",0,100));
-        progressDialog->setAttribute(Qt::WA_ShowWithoutActivating);
-        progressDialog->activateWindow();
-    }
-    else
-    {
-        progressDialog->setLabelText(status.c_str());
-        progressDialog->adjustSize();
-        if(progressDialog->wasCanceled())
-        {
-            prog_aborted = true;
-            return;
-        }
-
-    }
-
-    if(total != 0)
-    {
-        progressDialog->setRange(0, int(total));
-        progressDialog->setValue(int(now));
-
-    }
+    progressDialog.reset(new QProgressDialog(get_prog_status().c_str(),"Cancel",0,100));
+    progressDialog->setAttribute(Qt::WA_ShowWithoutActivating);
+    progressDialog->activateWindow();
     progressDialog->show();
     progressDialog->raise();
     QApplication::processEvents();
     #endif
-    return;
 }
-
-
+inline void close_prog(void)
+{
+    #if defined(TIPL_USE_QT) && !defined(__CUDACC__)
+    if(!show_prog || !tipl::is_main_thread() || status_list.size() > 1)
+        return;
+    if(progressDialog.get())
+    {
+        progressDialog->close();
+        progressDialog.reset();
+        QApplication::processEvents();
+    }
+    #endif
+}
 
 class progress{
 private:
@@ -94,33 +88,10 @@ private:
         status_list.push_back(status);
         process_time.resize(status_list.size());
         process_time.back() = std::chrono::high_resolution_clock::now();
-        t_last.resize(status_list.size());
-        t_last.back() = std::chrono::high_resolution_clock::now()+std::chrono::milliseconds(200);
         last_msg.clear();
-        update_prog(get_status(),show_now);
+        if(show_now)
+            create_prog();
     }
-
-    static std::string get_status(void)
-    {
-        std::string result;
-        for(size_t i = 1;i < status_list.size();++i)
-        {
-            if(status_list[i].empty())
-                continue;
-            std::string s;
-            std::getline(std::istringstream(status_list[i]),s);
-            result += s;
-            if(i < at_list.size())
-                result += " " + at_list[i];
-            if(result.back() != '\n')
-                result += "\n";
-        }
-        std::scoped_lock<std::mutex> lock2(msg_mutex);
-        if(last_msg.empty() && !result.empty())
-            result.pop_back();
-        return result+last_msg;
-    }
-
     static bool check_prog(unsigned int now,unsigned int total)
     {
         if(!show_prog || !tipl::is_main_thread() || status_list.empty())
@@ -129,30 +100,39 @@ private:
                 return false;
             return now < total;
         }
-        if(now >= total || aborted())
+        if(now >= total || prog_aborted)
         {
             if(at_list.size() == status_list.size())
                 at_list.back().clear();
             return false;
         }
-        if(std::chrono::high_resolution_clock::now() > t_last.back())
+        if(std::chrono::high_resolution_clock::now() < next_update_time)
+            return true;
+        next_update_time = std::chrono::high_resolution_clock::now()+std::chrono::milliseconds(500);
+        int expected_sec = (
+                    std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() -
+                            process_time.back()).count()*int(total-now)/int(now+1)/1000/60);
+        at_list.resize(status_list.size());
+        std::ostringstream outstr;
+        outstr << "(" << now << "/" << total << ")";
+        if(expected_sec)
+            outstr << " " << expected_sec << " min";
+        at_list.back() = outstr.str();
+        #if defined(TIPL_USE_QT) && !defined(__CUDACC__)
+        if(!progressDialog.get())
+            create_prog();
+        progressDialog->setLabelText(get_prog_status().c_str());
+        progressDialog->adjustSize();
+        progressDialog->setRange(0, int(total));
+        progressDialog->setValue(int(now));
+        if(progressDialog->wasCanceled())
         {
-            t_last.back() = std::chrono::high_resolution_clock::now()+std::chrono::milliseconds(200);
-            int expected_sec = (
-                        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() -
-                                process_time.back()).count()*int(total-now)/int(now+1)/1000/60);
-            at_list.resize(status_list.size());
-            std::ostringstream outstr;
-            outstr << "(" << now << "/" << total << ")";
-            if(expected_sec)
-                outstr << " " << expected_sec << " min";
-            at_list.back() = outstr.str();
-            update_prog(get_status(),false,now,total);
-            if(prog_aborted)
-                progress::print("operation aborted",false,false,0x008c9de2);
-            return !prog_aborted;
+            prog_aborted = true;
+            progress::print("operation aborted",false,false,0x008c9de2);
         }
-        return now < total;
+        QApplication::processEvents();
+        #endif
+        return !prog_aborted;
     }
     static std::string get_head(bool head_node, bool tail_node)
     {
@@ -280,14 +260,13 @@ public:
         status_list.pop_back();
         print(out.str().c_str(),false,true);
         process_time.pop_back();
-        t_last.pop_back();
         if(status_list.empty())
             at_list.clear();
         {
             std::scoped_lock<std::mutex> lock2(msg_mutex);
             last_msg.clear();
         }
-        update_prog(get_status());
+        close_prog();
 
     }
 };
