@@ -39,6 +39,12 @@ auto merge(const std::vector<T>& tokens, typename T::value_type delimiter)
     return result;
 }
 
+template<typename T>
+bool contains(const T& vs,const typename T::value_type& v)
+{
+    return std::find(vs.begin(),vs.end(),v) != vs.end();
+}
+
 inline bool contains(const std::string& str,const std::string& suffix)
 {
     return str.find(suffix) != std::string::npos;
