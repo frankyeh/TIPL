@@ -516,7 +516,7 @@ __INLINE__ double correlation(input_iterator1 x_from,input_iterator1 x_to,
     auto sd1 = standard_deviation(x_from,x_to,mean_x);
     auto sd2 = standard_deviation(y_from,y_from+(x_to-x_from),mean_y);
     if(sd1 == 0 || sd2 == 0)
-        return sd1;
+        return 0;
     return covariance(x_from,x_to,y_from,mean_x,mean_y)/sd1/sd2;
 }
 
