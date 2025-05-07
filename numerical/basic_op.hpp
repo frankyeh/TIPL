@@ -30,15 +30,6 @@ std::vector<unsigned int> arg_sort(const container_type& data,compare_type comp)
     return idx;
 }
 
-template <typename container_type>
-void reorder(container_type& data,const std::vector<unsigned int>& arg)
-{
-    container_type new_data(arg.size());
-    for(size_t i = 0;i < arg.size();++i)
-        new_data[i] = data[arg[i]];
-    new_data.swap(data);
-}
-
 template <typename container_type,typename compare_type>
 std::vector<unsigned int> rank(const container_type& data,compare_type comp)
 {
@@ -310,7 +301,7 @@ inline auto volume2points(const T& mask)
                    [&](const auto& index,unsigned int thread_id)
     {
         if (mask[index.index()])
-            points[thread_id].push_back(tipl::vector<3,short>(index.x(), index.y(),index.z()));
+            points[thread_id].push_back(tipl::vector<T::dimension,short>(index.begin()));
     });
     std::vector<tipl::vector<T::dimension,short> > region;
     tipl::aggregate_results(std::move(points),region);
