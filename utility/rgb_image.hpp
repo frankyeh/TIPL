@@ -61,24 +61,24 @@ struct rgb
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
     rgb& operator=(const T* v)
     {
-        data[0] = std::max(T(0),std::min(T(255),v[0]));
-        data[1] = std::max(T(0),std::min(T(255),v[1]));
-        data[2] = std::max(T(0),std::min(T(255),v[2]));
+        data[0] = std::clamp(v[0],T(0),T(255));
+        data[1] = std::clamp(v[1],T(0),T(255));
+        data[2] = std::clamp(v[2],T(0),T(255));
         return *this;
     }
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
     rgb& operator=(const T& v)
     {
         using U = typename T::value_type;
-        data[0] = std::max(U(0),std::min(U(255),v[0]));
-        data[1] = std::max(U(0),std::min(U(255),v[1]));
-        data[2] = std::max(U(0),std::min(U(255),v[2]));
+        data[0] = std::clamp(v[0],U(0),U(255));
+        data[1] = std::clamp(v[1],U(0),U(255));
+        data[2] = std::clamp(v[2],U(0),U(255));
         return *this;
     }
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
     rgb& operator=(T gray)
     {
-        r = g = b = uint8_t(std::max(T(0),std::min(T(255),gray)));
+        r = g = b = uint8_t(std::clamp(gray,T(0),T(255)));
         return *this;
     }
     rgb& operator=(const rgb& rhs)
