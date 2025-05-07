@@ -332,7 +332,7 @@ bool search_filesystem(std::string path,std::vector<std::string>& filenames,bool
         {
             if constexpr(!std::is_void<error_type>::value)
                 error_type() << "directory not exist: " << search_path;
-            return true;
+            return false;
         }
         std::vector<std::string> new_filenames;
 
