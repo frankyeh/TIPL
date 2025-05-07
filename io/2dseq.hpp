@@ -214,7 +214,7 @@ public:
             {
                 std::vector<float> sr;
                 method.read("PVM_SpatResol",sr);
-                std::copy(sr.begin(),sr.begin()+std::min<int>(3,sr.size()),vs.begin());
+                std::copy_n(sr.begin(),std::min<int>(3,sr.size()),vs.begin());
                 if(sr.size() == 2)
                 {
                     float slice_thickness;
@@ -285,9 +285,7 @@ public:
             std::transform(src, src + data.size(), data.begin(),
                            [](int32_t x) { return static_cast<float>(x); });
         } else if (info["RECO_wordtype"] == "_32BIT_FLOAT") {
-            std::copy(reinterpret_cast<const float*>(buffer.data()),
-                      reinterpret_cast<const float*>(buffer.data()) + data.size(),
-                      data.begin());
+            std::copy_n(reinterpret_cast<const float*>(buffer.data()),data.size(),data.begin());
         }
 
         if(!slopes.empty())
