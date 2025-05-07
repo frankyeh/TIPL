@@ -205,7 +205,7 @@ public:
         {
             buf.pop_back();
             auto in2 = up[level]->forward(in);
-            std::copy(in2,in2+up[level]->out_size(),buf.back()+encoding[level]->out_size());
+            std::copy_n(in2,up[level]->out_size(),buf.back()+encoding[level]->out_size());
             in=decoding[level]->forward(buf.back());
         }
         if(prog.aborted())
