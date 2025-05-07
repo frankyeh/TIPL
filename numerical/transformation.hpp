@@ -144,7 +144,7 @@ void rotation_matrix(angle_type theta,output_iter m,vdim<2>)
     float angle[3] = {1,2,3};// SPM use [1 -2 3]
     float result[9];
     tipl::rotation_matrix(angle,result,tipl::vdim<3>());
-    std::copy(result,result+9,std::ostream_iterator<float>(std::cout," "));
+    std::copy_n(result,9,std::ostream_iterator<float>(std::cout," "));
     return 0;
 
  */
@@ -494,9 +494,9 @@ void rotation_matrix_to_rotation_angle(input_rotation_iter rotation_matrix,outpu
 template<typename input_rotation_iter,typename input_shift_iter,typename output_iter>
 void create_affine_transformation_matrix(input_rotation_iter rotation_scaling,input_shift_iter shift,output_iter m,vdim<3>)
 {
-    std::copy(rotation_scaling,rotation_scaling+3,m);
-    std::copy(rotation_scaling+3,rotation_scaling+6,m+4);
-    std::copy(rotation_scaling+6,rotation_scaling+9,m+8);
+    std::copy_n(rotation_scaling,3,m);
+    std::copy_n(rotation_scaling+3,3,m+4);
+    std::copy_n(rotation_scaling+6,3,m+8);
     m[3] = shift[0];
     m[7] = shift[1];
     m[11] = shift[2];
@@ -866,7 +866,7 @@ public:
     {
         affine_transform<value_type,3> rb;
         tipl::matrix<3,3,float> R,iR;
-        std::copy(sr,sr+9,R.begin());
+        std::copy_n(sr,9,R.begin());
 
         value_type t[3];
         t[0] = shift[0]-float(to.width())*value_type(0.5);
