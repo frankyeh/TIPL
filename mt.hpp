@@ -140,11 +140,13 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
             threads.push_back(std::thread(run,from,end,id));
             from = end;
         }
-        par_for_running = false;
     }
     run(from,to,0);
     for(auto &thread : threads)
         thread.join();
+
+    if(thread_count > 1)
+        par_for_running = false;
 }
 
 
