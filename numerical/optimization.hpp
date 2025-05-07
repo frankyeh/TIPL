@@ -244,7 +244,7 @@ void quasi_newtons_minimize(
 }
 
 template<typename param_type,typename function_type,typename value_type,typename terminated_class>
-void graient_descent_1d(param_type& x,param_type upper,param_type lower,
+void gradient_descent_1d(param_type& x,param_type upper,param_type lower,
                      function_type&& fun,value_type& fun_x,terminated_class& terminated,double precision = 0.001)
 {
     param_type tol = (upper-lower)*precision;
