@@ -60,7 +60,7 @@ void gradient(iter_type1 x_beg,iter_type1 x_end,
               iter_type3 g_beg)
 {
     unsigned int size = x_end-x_beg;
-    std::copy(fun_x_ei,fun_x_ei+size,g_beg);
+    std::copy_n(fun_x_ei,size,g_beg);
     tipl::minus_constant(g_beg,g_beg+size,fun_x);
     for(unsigned int i = 0;i < size;++i)
         if(tol[i] == 0)
