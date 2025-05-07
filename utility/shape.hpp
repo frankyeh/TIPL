@@ -72,8 +72,7 @@ public:
     }
     __INLINE__ void swap(shape<dimension>& rhs) noexcept
     {
-        for (int index = 1;index < dimension;++index)
-            std::swap(dim[index],rhs.dim[index]);
+        std::swap_ranges(dim,dim+dimension,rhs.dim);
     }
 public:
     __INLINE__ const unsigned int* data(void) const
@@ -118,7 +117,7 @@ public:
     __INLINE__ bool is_valid(const T& pos) const
     {
         for (int index = 0;index < dimension;++index)
-            if (pos[index] >= 0 || pos[index] < dim[index])
+            if (pos[index] < 0 || pos[index] >= dim[index])
                 return false;
         return true;
     }
@@ -151,7 +150,7 @@ public:
                 return false;
         return true;
     }
-    __INLINE__ bool operator!=(const shape<3>& rhs) const
+    __INLINE__ bool operator!=(const shape<dimension>& rhs) const
     {
         return !(*this == rhs);
     }
