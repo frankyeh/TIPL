@@ -547,7 +547,7 @@ template<typename input_iterator1,typename input_iterator2>
 double t_statistics(input_iterator1 x_from,input_iterator1 x_to,input_iterator2 y_from,input_iterator2 y_to)
 {
     double n1 = x_to-x_from;
-    double n2 = y_to-x_from;
+    double n2 = y_to-y_from;
     double mean0 = tipl::mean(x_from,x_to);
     double mean1 = tipl::mean(y_from,y_to);
     double v = n1 + n2 - 2;
