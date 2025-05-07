@@ -55,11 +55,11 @@ struct ifd
         unsigned int buffer_size = count*sizeof_type[type];
         std::vector<unsigned char> buffer(buffer_size);
         if (buffer_size <= 4)
-            std::copy((const char*)&offset,((const char*)&offset)+buffer_size,buffer.begin());
+            std::copy_n((const char*)&offset,buffer_size,buffer.begin());
         else
         {
             in.seekg(offset,std::ios::beg);
-            in.read((char*)&*buffer.begin(),buffer.size());
+            in.read((char*)buffer.data(),buffer.size());
         }
         out.resize(count);
         switch (type)
@@ -69,28 +69,28 @@ struct ifd
             std::copy(buffer.begin(),buffer.end(),out.begin());
             break;
         case 3://SHORT 16-bit (2-byte) unsigned integer.
-            std::copy((const unsigned short*)&*buffer.begin(),(const unsigned short*)&*buffer.begin()+count,out.begin());
+            std::copy_n((const unsigned short*)buffer.data(),count,out.begin());
             break;
         case 4://LONG 32-bit (4-byte) unsigned integer.
         case 5://RATIONAL Two LONGs: the first represents the numerator of a fraction; the second, the denominator.
-            std::copy((const unsigned int*)&*buffer.begin(),(const unsigned int*)&*buffer.begin()+count,out.begin());
+            std::copy_n((const unsigned int*)buffer.data(),count,out.begin());
             break;
         case 6://SBYTE An 8-bit signed (twos-complement) integer.
         case 7://UNDEFINED An 8-bit byte that may contain anything, depending on the definition of the field.
-            std::copy((const char*)&*buffer.begin(),(const char*)&*buffer.begin()+count,out.begin());
+            std::copy_n((const char*)buffer.data(),count,out.begin());
             break;
         case 8://SHORT A 16-bit (2-byte) signed (twos-complement) integer.
-            std::copy((const short*)&*buffer.begin(),(const short*)&*buffer.begin()+count,out.begin());
+            std::copy_n((const short*)buffer.data(),count,out.begin());
             break;
         case 9://SLONG A 32-bit (4-byte) signed (twos-complement) integer.
         case 10://SRATIONAL Two SLONG¡¦s: the first represents the numerator of afraction, the second the denominator.
-            std::copy((const int*)&*buffer.begin(),(const int*)&*buffer.begin()+count,out.begin());
+            std::copy_n((const int*)buffer.data(),count,out.begin());
             break;
         case 11://FLOAT Single precision (4-byte) IEEE format.
-            std::copy((const float*)&*buffer.begin(),(const float*)&*buffer.begin()+count,out.begin());
+            std::copy_n((const float*)buffer.data(),count,out.begin());
             break;
         case 12://DOUBLE Double precision (8-byte) IEEE format.
-            std::copy((const double*)&*buffer.begin(),(const double*)&*buffer.begin()+count,out.begin());
+            std::copy_n((const double*)buffer.data(),count,out.begin());
             break;
         }
     }
