@@ -244,17 +244,13 @@ public:
         converted_type = mat_type_info<T>::type;
         auto new_data = reinterpret_cast<T*>(converted_data_buf.data());
         copy_data(new_data);
-        if constexpr (sizeof(T) >= 2)
+        if(!sub_data.empty())
         {
-            if(!sub_data.empty() && type == mat_type_info<char>::type)
-            {
-                float slope = 0.0f;
-                T inter = 0;
-                if(get_sub_data(name+".slope",slope) && get_sub_data(name+".inter",inter))
-                    tipl::par_for(size(),[&](size_t i){
-                            new_data[i] = new_data[i]*slope+inter;
-                    });
-            }
+            float slope = 0.0f;
+            T inter = 0;
+            if(get_sub_data(name+".slope",slope) && get_sub_data(name+".inter",inter))
+                for(auto beg = new_data,end = new_data + size();beg != end;++beg)
+                    *beg = (*beg)*slope+inter;
         }
         return new_data;
     }
@@ -267,8 +263,8 @@ public:
         auto ptr = get_data<T>();
         if(!ptr)
             return nullptr;
-        std::vector<unsigned char> sparse_data(total_size*sizeof(T)*rows);
-        auto sparse_ptr = reinterpret_cast<T*>(sparse_data.data());
+        converted_data_buf = std::move(std::vector<unsigned char>(total_size*sizeof(T)*rows));
+        auto sparse_ptr = reinterpret_cast<T*>(converted_data_buf.data());
         if constexpr(std::is_floating_point_v<T>)
             std::fill(sparse_ptr,sparse_ptr+total_size*rows,T());
         size_t total = std::min<size_t>(si2vi.size(),cols);
@@ -280,7 +276,6 @@ public:
             for(size_t index = 0,from = 0;index < total;++index,from += rows)
                 std::copy_n(ptr+from,rows,sparse_ptr + si2vi[index]*rows);
         }
-        sparse_data.swap(converted_data_buf);
         return sparse_ptr;
     }    
     void set_row_col(unsigned int new_row,unsigned int new_col)
