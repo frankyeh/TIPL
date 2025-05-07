@@ -6,12 +6,12 @@
 #include "numerical/matrix.hpp"
 #include "numerical/resampling.hpp"
 #include "numerical/transformation.hpp"
+#include "numerical/morphology.hpp"
+#include "numerical/otsu.hpp"
 #include "filter/mean.hpp"
 #include "filter/sobel.hpp"
 #include "filter/gaussian.hpp"
 #include "filter/anisotropic_diffusion.hpp"
-#include "morphology/morphology.hpp"
-#include "segmentation/otsu.hpp"
 
 namespace tipl{
 

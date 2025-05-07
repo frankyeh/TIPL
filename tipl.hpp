@@ -14,8 +14,7 @@ TIPL library is shared under one of the following licenses
 #include "utility/pixel_index.hpp"
 #include "utility/rgb_image.hpp"
 
-#include "morphology/morphology.hpp"
-#include "segmentation/segmentation.hpp"
+
 
 #include "numerical/transformation.hpp"
 #include "numerical/index_algorithm.hpp"
@@ -28,6 +27,8 @@ TIPL library is shared under one of the following licenses
 #include "numerical/optimization.hpp"
 #include "numerical/statistics.hpp"
 #include "numerical/dif.hpp"
+#include "numerical/morphology.hpp"
+#include "numerical/otsu.hpp"
 
 #include "io/gz_stream.hpp"
 #include "io/nrrd.hpp"

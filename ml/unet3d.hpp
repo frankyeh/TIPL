@@ -6,8 +6,8 @@
 #include "../numerical/basic_op.hpp"
 #include "../numerical/transformation.hpp"
 #include "../numerical/resampling.hpp"
+#include "../numerical/morphology.hpp"
 #include "../filter/gaussian.hpp"
-#include "../morphology/morphology.hpp"
 #include "../io/interface.hpp"
 
 
