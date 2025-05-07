@@ -62,7 +62,7 @@ public:
 public:
     __INLINE__ size_t size(void)                            const    {return sz;}
     bool empty(void)                             const    {return sz == 0;}
-    void clear(void)                                      {sz = 0;}
+    void clear(void)                                      {bg = nullptr;sz = 0;}
 public:
     void swap(pointer_container& rhs)
     {
