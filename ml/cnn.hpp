@@ -491,7 +491,7 @@ public:
                           float* dX,// input_size
                           const float* x) override
     {
-        std::copy(dOut,dOut+input_size,dX);
+        std::copy_n(dOut,input_size,dX);
         tipl::minus_constant(dX,dX+output_size,tipl::vec::dot(dOut,dOut+input_size,x));
         tipl::multiply(dX,dX+output_size,x);
     }
@@ -517,7 +517,7 @@ public:
                           float* dX,// input_size
                           const float*) override
     {
-        std::copy(dOut,dOut+input_size,dX);
+        std::copy_n(dOut,input_size,dX);
     }
 };
 
@@ -1295,7 +1295,7 @@ public:
                 nn.forward_propagation(data.get_data(data_index),in_out_ptr[thread_id]);
                 const float* out_ptr2 = in_out_ptr[thread_id] + output_pos;
                 float* df_ptr = back_df_ptr[thread_id] + output_pos;
-                std::copy(out_ptr2,out_ptr2+nn.output_size,df_ptr);
+                std::copy_n(out_ptr2,nn.output_size,df_ptr);
                 accumulate_error_table(data.get_label(data_index),out_ptr2,nn.output_size);
                 training_error_value += nn.calculate_error(data.get_label(data_index),df_ptr);
                 nn.back_propagation(out_ptr2,df_ptr);
@@ -1425,7 +1425,7 @@ void to_image(std::shared_ptr<layer_type> l,color_image& Is,int max_width)
             I.resize(shape<2>(width,b.size()));
             for(int row = 0,row_pos = 0,w_pos = 0;row < b.size();++row,row_pos += width,w_pos += in_dim.size())
             {
-                std::copy(&w[w_pos],&w[w_pos]+in_dim.size(),&I[row_pos]);
+                std::copy_n(&w[w_pos],in_dim.size(),&I[row_pos]);
                 I[row_pos+width-2] = b[row];
             }
         }
@@ -1517,7 +1517,7 @@ void to_image(network& nn,color_image& I,std::vector<float> in,label_type label,
     float* back_buf = back.data();
     float* in_buf = in.data();
     nn.forward_propagation(in_buf,out_buf);
-    std::copy(out_buf+end,out_buf+end+output_size,back_buf+end);
+    std::copy_n(out_buf+end,output_size,back_buf+end);
     nn.calculate_error(label,back_buf+end);
     nn.back_propagation(out_buf+end,back_buf+end);
 
