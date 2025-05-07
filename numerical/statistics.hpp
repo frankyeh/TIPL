@@ -680,7 +680,7 @@ public:
         if(feature_count > subject_count)
             return false;
         X.resize(feature_count*subject_count);
-        std::copy(X_,X_+X.size(),X.begin());
+        std::copy_n(X_,X.size(),X.begin());
         Xt.resize(X.size());
         tipl::mat::transpose(&*X.begin(),&*Xt.begin(),tipl::shape<2>(subject_count,feature_count));
 
@@ -706,7 +706,7 @@ public:
 
         // make l a squre matrix, get rid of the zero part
         for(unsigned int row = 1,pos = subject_count,pos2 = feature_count;row < feature_count;++row,pos += subject_count,pos2 += feature_count)
-            std::copy(X_cov.begin() + pos,X_cov.begin() + pos + feature_count,X_cov.begin() + pos2);
+            std::copy_n(X_cov.begin() + pos,feature_count,X_cov.begin() + pos2);
 
         tipl::mat::inverse_lower(&*X_cov.begin(),tipl::shape<2>(feature_count,feature_count));
 
