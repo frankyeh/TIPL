@@ -47,6 +47,7 @@ struct uniform_dist<int>{
     }
     void reset(int seed = 0)
     {
+        dst.reset();
         gen.seed(seed);
     }
 };
@@ -285,7 +286,7 @@ __INLINE__ void neg(image_type& I)
 }
 //---------------------------------------------------------------------------
 template<typename iterator>
-__INLINE__ void absolute_value(iterator lhs_from,iterator lhs_to)
+__INLINE__ void abs(iterator lhs_from,iterator lhs_to)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from = std::abs(*lhs_from);
