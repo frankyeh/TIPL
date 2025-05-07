@@ -1897,7 +1897,7 @@ public:
                                   dicom_reader.back()->get_slice_location())/(dicom_reader.size()-1);
 
             if((dicom_reader.back()->get_left_upper_pos()-
-               dicom_reader.back()->get_left_upper_pos())*tipl::vector<3>(orientation_matrix+6) < 0)
+                dicom_reader.front()->get_left_upper_pos())*tipl::vector<3>(orientation_matrix+6) < 0)
             {
                 orientation_matrix[6] = -orientation_matrix[6];
                 orientation_matrix[7] = -orientation_matrix[7];
