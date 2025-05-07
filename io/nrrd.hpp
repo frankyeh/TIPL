@@ -29,7 +29,7 @@ public:
     std::string data_file;
     std::string error_msg;
 public:
-    bool file_seris = false;
+    bool file_series = false;
     size_t from = 0,to = 0,step = 1;
 private:
     bool read_v3(std::istream& in,float& vx,float& vy,float& vz)   // read (x,y,z)
@@ -58,7 +58,7 @@ private:
     bool read_buffer(T& I)
     {       
         prog_type prog("read image data");
-        if(file_seris)
+        if(file_series)
         {
             for(size_t index = from,z = 0;index <= to;index += step)
             {
@@ -196,7 +196,7 @@ public:
                 in2 >> data_file;
                 if(data_file.find("%") != std::string::npos)
                 {
-                    file_seris = true;
+                    file_series = true;
                     in2 >> from >> to >> step;
                 }
                 data_file = std::filesystem::path(file_name).parent_path().u8string() + "/" + data_file;
