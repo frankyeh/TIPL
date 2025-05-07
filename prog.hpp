@@ -283,7 +283,7 @@ bool run(const std::string& msg,fun_type fun)
         return true;
     }
     progress prog(msg);
-    bool ended = false;
+    std::atomic_bool ended = false;
     tipl::par_for(2,[&](int i)
     {
         if(!i)
