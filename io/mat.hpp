@@ -126,7 +126,7 @@ public:
         type(mat_type_info<T>::type),rows(rows_),cols(cols_),namelen(name_.size()+1),name(name_)
     {
         data_buf.resize(size()*size_t(sizeof(T)));
-        std::copy(ptr,ptr+size(),reinterpret_cast<T*>(data_buf.data()));
+        std::copy_n(ptr,size(),reinterpret_cast<T*>(data_buf.data()));
     }
     const mat_matrix& operator=(const mat_matrix& rhs)
     {
@@ -167,33 +167,19 @@ public:
         switch (type)
         {
         case 0://double
-            std::copy(reinterpret_cast<const double*>(data_buf.data()),
-                      reinterpret_cast<const double*>(data_buf.data())+size(),out);
-            return;
+            std::copy_n(reinterpret_cast<const double*>(data_buf.data()),size(),out);return;
         case 10://float
-            std::copy(reinterpret_cast<const float*>(data_buf.data()),
-                      reinterpret_cast<const float*>(data_buf.data())+size(),out);
-            return;
+            std::copy_n(reinterpret_cast<const float*>(data_buf.data()),size(),out);return;
         case 20://unsigned int
-            std::copy(reinterpret_cast<const unsigned int*>(data_buf.data()),
-                      reinterpret_cast<const unsigned int*>(data_buf.data())+size(),out);
-            return;
+            std::copy_n(reinterpret_cast<const unsigned int*>(data_buf.data()),size(),out);return;
         case 30://short
-            std::copy(reinterpret_cast<const short*>(data_buf.data()),
-                      reinterpret_cast<const short*>(data_buf.data())+size(),out);
-            return;
+            std::copy_n(reinterpret_cast<const short*>(data_buf.data()),size(),out);return;
         case 40://unsigned short
-            std::copy(reinterpret_cast<const unsigned short*>(data_buf.data()),
-                      reinterpret_cast<const unsigned short*>(data_buf.data())+size(),out);
-            return;
+            std::copy_n(reinterpret_cast<const unsigned short*>(data_buf.data()),size(),out);return;
         case 50://unsigned char
-            std::copy(reinterpret_cast<const unsigned char*>(data_buf.data()),
-                      reinterpret_cast<const unsigned char*>(data_buf.data())+size(),out);
-            return;
+            std::copy_n(reinterpret_cast<const unsigned char*>(data_buf.data()),size(),out);return;
         case 60://uint_64
-            std::copy(reinterpret_cast<const uint64_t*>(data_buf.data()),
-                      reinterpret_cast<const uint64_t*>(data_buf.data())+size(),out);
-            return;
+            std::copy_n(reinterpret_cast<const uint64_t*>(data_buf.data()),size(),out);return;
         }
     }
     template<typename T>
@@ -292,8 +278,7 @@ public:
         else
         {
             for(size_t index = 0,from = 0;index < total;++index,from += rows)
-                std::copy(ptr+from,ptr+from+rows,
-                          sparse_ptr + si2vi[index]*rows);
+                std::copy_n(ptr+from,rows,sparse_ptr + si2vi[index]*rows);
         }
         sparse_data.swap(converted_data_buf);
         return sparse_ptr;
@@ -393,28 +378,23 @@ public:
         switch (type)
         {
         case 0://double
-            std::copy(reinterpret_cast<const double*>(data_buf.data()),
-                      reinterpret_cast<const double*>(data_buf.data())+out_count,
+            std::copy_n(reinterpret_cast<const double*>(data_buf.data()),out_count,
                       std::ostream_iterator<double>(out," "));
             break;
         case 10://float
-            std::copy(reinterpret_cast<const float*>(data_buf.data()),
-                      reinterpret_cast<const float*>(data_buf.data())+out_count,
+            std::copy_n(reinterpret_cast<const float*>(data_buf.data()),out_count,
                       std::ostream_iterator<float>(out," "));
             break;
         case 20://unsigned int
-            std::copy(reinterpret_cast<const unsigned int*>(data_buf.data()),
-                      reinterpret_cast<const unsigned int*>(data_buf.data())+out_count,
+            std::copy_n(reinterpret_cast<const unsigned int*>(data_buf.data()),out_count,
                       std::ostream_iterator<unsigned int>(out," "));
             break;
         case 30://short
-            std::copy(reinterpret_cast<const short*>(data_buf.data()),
-                      reinterpret_cast<const short*>(data_buf.data())+out_count,
+            std::copy_n(reinterpret_cast<const short*>(data_buf.data()),out_count,
                       std::ostream_iterator<short>(out," "));
             break;
         case 40://unsigned short
-            std::copy(reinterpret_cast<const unsigned short*>(data_buf.data()),
-                      reinterpret_cast<const unsigned short*>(data_buf.data())+out_count,
+            std::copy_n(reinterpret_cast<const unsigned short*>(data_buf.data()),out_count,
                       std::ostream_iterator<unsigned short>(out," "));
             break;
         case 50://unsigned char
@@ -431,8 +411,7 @@ public:
             }
             break;
         case 60://uint64_t
-            std::copy(reinterpret_cast<const uint64_t*>(data_buf.data()),
-                      reinterpret_cast<const uint64_t*>(data_buf.data())+out_count,
+            std::copy_n(reinterpret_cast<const uint64_t*>(data_buf.data()),out_count,
                       std::ostream_iterator<uint64_t>(out," "));
             break;
         }
@@ -651,7 +630,7 @@ public:
         const typename std::iterator_traits<iterator>::value_type* ptr = nullptr;
         if(read(index,rows,cols,ptr) == nullptr)
             return false;
-        std::copy(ptr,ptr+std::min<size_t>(size_t(rows)*size_t(cols),size),first);
+        std::copy_n(ptr,std::min<size_t>(size_t(rows)*size_t(cols),size),first);
         return true;
     }
     template<typename iterator>
@@ -745,7 +724,7 @@ public:
         read(image_name,r,c,buf);
         if(!buf || size_t(r)*size_t(c) != image_data.size())
             return false;
-        std::copy(buf,buf+image_data.size(),image_data.begin());
+        std::copy_n(buf,image_data.size(),image_data.begin());
         return true;
     }
     template<typename dim_type>
