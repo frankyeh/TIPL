@@ -508,11 +508,11 @@ public:
             // convert NIFTI2 to NIFTI1
             nif_header.datatype         = nif_header2.datatype;
             nif_header.bitpix           = nif_header2.bitpix;
-            std::copy(nif_header2.dim,nif_header2.dim+8,nif_header.dim);
+            std::copy_n(nif_header2.dim,8,nif_header.dim);
             nif_header.intent_p1        = nif_header2.intent_p1;
             nif_header.intent_p2        = nif_header2.intent_p2;
             nif_header.intent_p3        = nif_header2.intent_p3;
-            std::copy(nif_header2.pixdim,nif_header2.pixdim+8,nif_header.pixdim);
+            std::copy_n(nif_header2.pixdim,8,nif_header.pixdim);
 
             nif_header.vox_offset      = nif_header2.vox_offset;
             nif_header.scl_slope       = nif_header2.scl_slope;
@@ -523,8 +523,8 @@ public:
             nif_header.toffset         = nif_header2.toffset;
             nif_header.slice_start     = nif_header2.slice_start;
             nif_header.slice_end       = nif_header2.slice_end;
-            std::copy(nif_header2.descrip,nif_header2.descrip+80,nif_header.descrip);
-            std::copy(nif_header2.aux_file,nif_header2.aux_file+24,nif_header.aux_file);
+            std::copy_n(nif_header2.descrip,80,nif_header.descrip);
+            std::copy_n(nif_header2.aux_file,24,nif_header.aux_file);
             nif_header.qform_code      = nif_header2.qform_code;
             nif_header.sform_code      = nif_header2.sform_code;
             nif_header.quatern_b       = nif_header2.quatern_b;
@@ -535,15 +535,15 @@ public:
             nif_header.qoffset_y       = nif_header2.qoffset_y;
             nif_header.qoffset_z       = nif_header2.qoffset_z;
 
-            std::copy(nif_header2.srow_x,nif_header2.srow_x+4,nif_header.srow_x);
-            std::copy(nif_header2.srow_y,nif_header2.srow_y+4,nif_header.srow_y);
-            std::copy(nif_header2.srow_z,nif_header2.srow_z+4,nif_header.srow_z);
+            std::copy_n(nif_header2.srow_x,4,nif_header.srow_x);
+            std::copy_n(nif_header2.srow_y,4,nif_header.srow_y);
+            std::copy_n(nif_header2.srow_z,4,nif_header.srow_z);
 
             nif_header.slice_code       = nif_header2.slice_code;
             nif_header.xyzt_units       = nif_header2.xyzt_units;
             nif_header.intent_code      = nif_header2.intent_code;
 
-            std::copy(nif_header2.intent_name,nif_header2.intent_name+16,nif_header.intent_name);
+            std::copy_n(nif_header2.intent_name,16,nif_header.intent_name);
             nif_header.dim_info         = nif_header2.dim_info;
 
             return (*input_stream);
@@ -593,7 +593,7 @@ public:
     const char* get_descrip(void) const{return nif_header.descrip;}
     void set_descrip(const char* des)
     {
-        std::copy(des,des+80,nif_header.descrip);
+        std::copy_n(des,80,nif_header.descrip);
     }
     unsigned short width(void) const
     {
@@ -635,7 +635,7 @@ public:
         std::fill(pixdim,pixdim+8,1);
         std::copy(pixel_size_from.begin(),pixel_size_from.end(),pixdim+1);
         pixdim[0] = dim;
-        std::copy(pixdim,pixdim+8,nif_header.pixdim);
+        std::copy_n(pixdim,8,nif_header.pixdim);
         if(nif_header.srow_x[0] == 1.0f)
         {
             nif_header.srow_x[0] = pixel_size_from[0];
@@ -648,9 +648,9 @@ public:
     {
         nif_header.sform_code = mni ? 4:1;
         nif_header.qform_code = 0;
-        std::copy(R.begin(),R.begin()+4,nif_header.srow_x);
-        std::copy(R.begin()+4,R.begin()+8,nif_header.srow_y);
-        std::copy(R.begin()+8,R.begin()+12,nif_header.srow_z);
+        std::copy_n(R.begin(),4,nif_header.srow_x);
+        std::copy_n(R.begin()+4,4,nif_header.srow_y);
+        std::copy_n(R.begin()+8,4,nif_header.srow_z);
     }
     template<typename matrix_type,typename geo_type>
     void set_LPS_transformation(matrix_type& R,const geo_type& out)
@@ -669,13 +669,13 @@ public:
     template<int dim>
     void get_voxel_size(tipl::vector<dim,float>& pixel_size_from) const
     {
-        std::copy(nif_header.pixdim+1,nif_header.pixdim+1+dim,pixel_size_from.begin());
+        std::copy_n(nif_header.pixdim+1,dim,pixel_size_from.begin());
     }
     template<int dim>
     tipl::vector<dim,float> get_voxel_size(void) const
     {
         tipl::vector<dim,float> vs;
-        std::copy(nif_header.pixdim+1,nif_header.pixdim+1+dim,vs.begin());
+        std::copy_n(nif_header.pixdim+1,dim,vs.begin());
         return vs;
     }
 
@@ -683,16 +683,16 @@ public:
     void get_image_orientation(float_type R)
     {
         handle_qform();
-        std::copy(nif_header.srow_x,nif_header.srow_x+3,R);
-        std::copy(nif_header.srow_y,nif_header.srow_y+3,R+3);
-        std::copy(nif_header.srow_z,nif_header.srow_z+3,R+6);
+        std::copy_n(nif_header.srow_x,3,R);
+        std::copy_n(nif_header.srow_y,3,R+3);
+        std::copy_n(nif_header.srow_z,3,R+6);
     }
     template<typename matrix_type>
     void get_image_transformation(matrix_type& R)
     {
         handle_qform();
         R.identity();
-        std::copy(nif_header.srow_x,nif_header.srow_x+12,R.begin());
+        std::copy_n(nif_header.srow_x,12,R.begin());
     }
     bool is_mni(void) const
     {
@@ -737,10 +737,10 @@ public:
         set_voxel_size(tipl::vector<3>(1.0f,1.0f,1.0f));
     }
 public:
-    template<int dimension>
-    void get_image_dimension(shape<dimension>& geo) const
+    template<int d>
+    void get_image_dimension(shape<d>& geo) const
     {
-        std::copy(nif_header.dim+1,nif_header.dim+1+dimension,geo.begin());
+        std::copy_n(nif_header.dim+1,d,geo.begin());
     }
     template<int dimension>
     shape<dimension> get_image_dimension(void) const
