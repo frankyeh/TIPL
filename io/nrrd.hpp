@@ -39,7 +39,7 @@ private:
         auto sep1 = value.find_first_of(',');
         auto sep2 = value.find_last_of(',');
         if(sep1 == std::string::npos ||
-           sep1 == std::string::npos)
+           sep2 == std::string::npos)
             return false;
         try{
             vx = std::stof(std::string(value.begin()+1,value.begin()+sep1));
