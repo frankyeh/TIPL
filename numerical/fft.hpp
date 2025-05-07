@@ -402,8 +402,8 @@ public:
         typename ImageType::iterator img_iter = img.begin();
         for(;iter != end;iter += (block_size << 1),real_iter+=block_size,img_iter+=block_size)
         {
-            std::copy(iter,iter+block_size,real_iter);
-            std::copy(iter+block_size,iter + (block_size << 1),img_iter);
+            std::copy_n(iter,block_size,real_iter);
+            std::copy_n(iter+block_size,block_size,img_iter);
         }
         real.resize(geo);
         fft(real,img,false);
@@ -412,8 +412,8 @@ public:
         real.resize(ext_geo);
         img.resize(ext_geo);
         int size = ext_geo.size()-geo.size();
-        std::copy(real.begin(),real.begin()+size,real.end()-size);
-        std::copy(img.begin(),img.begin()+size,img.end()-size);
+        std::copy_n(real.begin(),size,real.end()-size);
+        std::copy_n(img.begin(),size,img.end()-size);
         realfftn_rotate_real(real,img,fftn<dimension,float_type>::geo,false);
     }
     template<typename ImageType>
@@ -434,8 +434,8 @@ public:
         typename ImageType::iterator img_iter = img.begin();
         for(;iter != end;iter += (block_size << 1),real_iter+=block_size,img_iter+=block_size)
         {
-            std::copy(real_iter,real_iter+block_size,iter);
-            std::copy(img_iter,img_iter+block_size,iter+block_size);
+            std::copy_n(real_iter,block_size,iter);
+            std::copy_n(img_iter,block_size,iter+block_size);
         }
 
         real.swap(new_real);
