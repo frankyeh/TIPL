@@ -161,7 +161,7 @@ private:
             head += "└──";
         return head;
     }
-    static std::string get_color_line(std::string line,bool head_node,unsigned int error_code)
+    static std::string get_color_line(std::string line,bool head_node,int error_code)
     {
         std::string color_end = "\033[0m";
         std::string color31 = "\033[1;31m";
@@ -169,8 +169,10 @@ private:
         std::string color33 = "\033[0;33m";
         std::string color34 = "\033[1;34m";
         std::string color35 = "\033[1;35m";
-        if(error_code)
-            return color31 + reinterpret_cast<const char*>(&error_code) + line + color_end;
+        if(error_code == 1) // ❌
+            return color31 + "❌" + line + color_end;
+        if(error_code == 2) // ❗
+            return color31 + "❗" + line + color_end;
         if(tipl::begins_with(line,"sav"))
             return color35 + "💾" + line + color_end;
         if(tipl::begins_with(line,"open"))
@@ -188,7 +190,7 @@ private:
         return line;
     }
 public:
-    static void print(const std::string& status,bool head_node, bool tail_node,unsigned int error_code = 0)
+    static void print(const std::string& status,bool head_node, bool tail_node,int error_code = 0)
     {
         std::scoped_lock<std::mutex> lock(print_mutex);
         std::istringstream in(status);
@@ -305,7 +307,7 @@ bool run(const std::string& msg,fun_type fun)
     return !prog.aborted();
 }
 
-template<unsigned int code = 0>
+template<int code>
 class output{
     std::ostringstream s;
     public:
@@ -333,9 +335,9 @@ class output{
         }
 };
 
-using out = output<>;
-using error = output<0x008c9de2>;   //❌ (U+274C)
-using warning = output<0x00979de2>; //❗ (U+2757)
+using out = output<0>;
+using error = output<1>;   //❌
+using warning = output<2>; //❗
 
 
 
