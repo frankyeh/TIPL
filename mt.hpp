@@ -76,7 +76,7 @@ enum par_for_type{
     ranged = 2,
     ranged_with_id = 3
 };
-inline bool par_for_running = false;
+inline std::atomic<bool> par_for_running = false;
 template <par_for_type type = sequential,typename T,
           typename Func,typename std::enable_if<
               std::is_integral<T>::value ||
@@ -94,10 +94,11 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
         par_for_running = true;
     #ifdef __CUDACC__
     int cur_device = 0;
+    bool has_cuda = true;
     if constexpr(use_cuda)
     {
         if(thread_count > 1 && cudaGetDevice(&cur_device) != cudaSuccess)
-            throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+            has_cuda = false;
     }
     #endif
 
@@ -106,8 +107,8 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
         #ifdef __CUDACC__
         if constexpr(use_cuda)
         {
-            if(id && cudaSetDevice(cur_device) != cudaSuccess)
-                throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+            if(id && has_cuda)
+                cudaSetDevice(cur_device);
         }
         #endif
         if constexpr(type >= ranged)
