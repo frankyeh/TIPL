@@ -24,12 +24,14 @@ inline bool show_prog = false;
 inline std::vector<std::chrono::high_resolution_clock::time_point> process_time;
 inline std::chrono::high_resolution_clock::time_point next_update_time = std::chrono::high_resolution_clock::now();
 inline std::vector<std::string> status_list,at_list;
+inline std::atomic_int status_count = 0;
 inline std::mutex print_mutex,msg_mutex;
 inline std::string last_msg;
 #if defined(TIPL_USE_QT) && !defined(__CUDACC__)
 inline std::shared_ptr<QProgressDialog> progressDialog;
 #endif
 
+// can only called in main thread
 inline std::string get_prog_status(void)
 {
     std::string result;
@@ -37,9 +39,7 @@ inline std::string get_prog_status(void)
     {
         if(status_list[i].empty())
             continue;
-        std::string s;
-        std::getline(std::istringstream(status_list[i]),s);
-        result += s;
+        result += tipl::split(status_list[i],'\n').front();
         if(i < at_list.size())
             result += " " + at_list[i];
         if(result.back() != '\n')
@@ -67,7 +67,7 @@ inline void create_prog(void)
 inline void close_prog(void)
 {
     #if defined(TIPL_USE_QT) && !defined(__CUDACC__)
-    if(!show_prog || !tipl::is_main_thread() || status_list.size() > 1)
+    if(!show_prog || !tipl::is_main_thread() || status_count > 1)
         return;
     if(progressDialog.get())
     {
@@ -86,6 +86,7 @@ private:
             return;
         prog_aborted = false;
         status_list.push_back(status);
+        ++status_count;
         process_time.resize(status_list.size());
         process_time.back() = std::chrono::high_resolution_clock::now();
         last_msg.clear();
@@ -94,7 +95,7 @@ private:
     }
     static bool check_prog(unsigned int now,unsigned int total)
     {
-        if(!show_prog || !tipl::is_main_thread() || status_list.empty())
+        if(!show_prog || !tipl::is_main_thread() || !status_count)
         {
             if(prog_aborted)
                 return false;
@@ -109,14 +110,15 @@ private:
         if(std::chrono::high_resolution_clock::now() < next_update_time)
             return true;
         next_update_time = std::chrono::high_resolution_clock::now()+std::chrono::milliseconds(500);
-        int expected_sec = (
-                    std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() -
-                            process_time.back()).count()*int(total-now)/int(now+1)/1000/60);
         at_list.resize(status_list.size());
         std::ostringstream outstr;
         outstr << "(" << now << "/" << total << ")";
-        if(expected_sec)
-            outstr << " " << expected_sec << " min";
+        {
+            int exp_min = (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() -
+                       process_time.back()).count()*(total-now)/(now+1)/1000/60);
+            if(exp_min)
+                outstr << " " << exp_min << " min";
+        }
         at_list.back() = outstr.str();
         #if defined(TIPL_USE_QT) && !defined(__CUDACC__)
         if(!progressDialog.get())
@@ -137,14 +139,14 @@ private:
     static std::string get_head(bool head_node, bool tail_node)
     {
         std::string head;
-        for(size_t i = 1;i < status_list.size();++i)
+        for(size_t i = 1;i < status_count;++i)
             head += "│  ";
         if(!tipl::is_main_thread())
         {
             head += "│  ";
             return head;
         }
-        if(!status_list.empty())
+        if(status_count)
         {
             if(head_node)
                 head += "├──┬──";
@@ -195,13 +197,12 @@ public:
         std::scoped_lock<std::mutex> lock(print_mutex);
         std::istringstream in(status);
         std::string line;
-        bool is_main_thread = tipl::is_main_thread();
         while(std::getline(in,line))
         {
             if(line.empty())
                 continue;
             auto new_line = get_color_line(line,head_node,error_code);
-            if(!is_main_thread)
+            if(!tipl::is_main_thread())
             {
                 std::ostringstream out;
                 out << "[thread " << std::this_thread::get_id() << "]" << new_line;
@@ -226,7 +227,7 @@ public:
         print(s.c_str(),true,false);
         begin_prog(s.c_str(),show_now);
     }
-    static bool is_running(void) {return status_list.size() > 1;}
+    static bool is_running(void) {return status_count > 1;}
     static bool aborted(void) { return prog_aborted;}
     template<typename value_type1,typename value_type2>
     bool operator()(value_type1 now,value_type2 total)
@@ -260,6 +261,7 @@ public:
             out << "⏱" << count << unit;
         }
         status_list.pop_back();
+        --status_count;
         print(out.str().c_str(),false,true);
         process_time.pop_back();
         if(status_list.empty())
