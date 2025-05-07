@@ -123,7 +123,7 @@ public:
         int line_width = image.width();
         tipl::rgb* out_line = (rgb*)&*data.begin() + image.size() - line_width;
         for (;iter != end;iter += line_width,out_line -= line_width)
-            std::copy(iter,iter+line_width,out_line);
+            std::copy_n(iter,line_width,out_line);
     }
 
     template<typename image_type>
@@ -138,12 +138,10 @@ public:
         switch (bmih.biBitCount)
         {
         case 8:
-            std::copy(reinterpret_cast<const unsigned char*>(&*data.begin()),
-                      reinterpret_cast<const unsigned char*>(&*data.begin())+image.size(),image.begin());
+            std::copy_n(reinterpret_cast<const unsigned char*>(data.data()),image.size(),image.begin());
             break;
         case 32:
-            std::copy(reinterpret_cast<const tipl::rgb*>(&*data.begin()),
-                      reinterpret_cast<const tipl::rgb*>(&*data.begin())+image.size(),image.begin());
+            std::copy_n(reinterpret_cast<const tipl::rgb*>(data.data()),image.size(),image.begin());
             break;
         case 24:
         {
