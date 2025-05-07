@@ -45,13 +45,13 @@ public:
     {
         if(this == &rhs)
             return *this;
-        std::copy(rhs.dim,rhs.dim+dimension,dim);
+        std::copy_n(rhs.dim,dimension,dim);
         return *this;
     }
     template<typename pointer_type>
     __INLINE__ const shape<dimension>& operator=(const pointer_type* rhs)
     {
-        std::copy(rhs,rhs+dimension,dim);
+        std::copy_n(rhs,dimension,dim);
         return *this;
     }
 public:
