@@ -531,7 +531,7 @@ public:
 private:
     void assign(const dicom_group_element& rhs)
     {
-        std::copy(rhs.gel,rhs.gel+8,gel);
+        std::copy_n(rhs.gel,8,gel);
         data = rhs.data;
         sq_data = rhs.sq_data;
     }
@@ -924,8 +924,8 @@ private:
     std::vector<std::string> vals;
     void assign(const dicom_csa_data& rhs)
     {
-        std::copy(rhs.header.name,rhs.header.name+64,header.name);
-        std::copy(rhs.header.vr,rhs.header.vr+4,header.vr);
+        std::copy_n(rhs.header.name,64,header.name);
+        std::copy_n(rhs.header.vr,4,header.vr);
         header.vm = rhs.header.vm;
         header.syngodt = rhs.header.syngodt;
         header.nitems = rhs.header.nitems;
@@ -947,14 +947,14 @@ public:
     {
         if (from + sizeof(dicom_csa_header) >= data.size())
             return false;
-        std::copy(data.begin() + from,data.begin() + from + sizeof(dicom_csa_header),(char*)&header);
+        std::copy_n(data.data() + from,sizeof(dicom_csa_header),(char*)&header);
         from += sizeof(dicom_csa_header);
         int xx[4];
         for (int index = 0; index < header.nitems; ++index)
         {
             if (from + sizeof(xx) >= data.size())
                 return false;
-            std::copy(data.begin() + from,data.begin() + from + sizeof(xx),(char*)xx);
+            std::copy_n(data.data() + from,sizeof(xx),(char*)xx);
             from += sizeof(xx);
             if (from + xx[1] >= data.size())
                 return false;
@@ -1024,7 +1024,7 @@ private:
         // number of image in mosaic
         unsigned int mosaic_size = mosaic_width*mosaic_height;
         std::vector<pixel_type> data(w*h);
-        std::copy(image_buffer,image_buffer+data.size(),data.begin());
+        std::copy_n(image_buffer,data.size(),data.begin());
         // rearrange mosaic
 
         unsigned int mosaic_col_count = w/mosaic_width;
@@ -1039,7 +1039,7 @@ private:
             {
                 const pixel_type* slice_line_end = slice_pos + mosaic_line_size;
                 for (const pixel_type* slice_line = slice_pos; slice_line < slice_line_end; slice_line += w,image_buffer += mosaic_width)
-                    std::copy(slice_line,slice_line+mosaic_width,image_buffer);
+                    std::copy_n(slice_line,mosaic_width,image_buffer);
             }
         }
     }
@@ -1599,10 +1599,9 @@ public:
                 if(decode_1_2_840_10008_1_2_4_70((unsigned char*)&*(compressed_buf.begin()),buf_size,buf,&X,&Y,&bits,&frames))
                 {
                     if(bits == 8)
-                        std::copy(buf.begin(),buf.begin()+std::min<size_t>(pixel_count,buf.size()),ptr);
+                        std::copy_n(buf.begin(),std::min<size_t>(pixel_count,buf.size()),ptr);
                     if(bits == 16)
-                        std::copy(reinterpret_cast<const short*>(buf.data()),
-                                  reinterpret_cast<const short*>(buf.data()) + +std::min<size_t>(pixel_count,buf.size() >> 1),ptr);
+                        std::copy_n(reinterpret_cast<const short*>(buf.data()),std::min<size_t>(pixel_count,buf.size() >> 1),ptr);
                     compressed_buf.clear();
                     is_compressed = false;
                 }
@@ -1615,32 +1614,32 @@ public:
         else
         {
             std::vector<char> data(pixel_count*get_bit_count()/8);
-            input_io->read((char*)&(data[0]),data.size());
+            input_io->read(data.data(),data.size());
             switch (get_bit_count()) //bit count
             {
             case 8://DT_UNSIGNED_CHAR 2
-                std::copy((const unsigned char*)&(data[0]),(const unsigned char*)&(data[0])+pixel_count,ptr);
+                std::copy_n((const unsigned char*)data.data(),pixel_count,ptr);
                 return;
             case 16://DT_SIGNED_SHORT 4
                 if(is_big_endian)
-                    change_endian((unsigned short*)&(data[0]),pixel_count);
+                    change_endian((unsigned short*)data.data(),pixel_count);
                 if(is_signed())
-                    std::copy((const short*)&(data[0]),(const short*)&(data[0])+pixel_count,ptr);
+                    std::copy_n((const short*)data.data(),pixel_count,ptr);
                 else
-                    std::copy((const unsigned short*)&(data[0]),(const unsigned short*)&(data[0])+pixel_count,ptr);
+                    std::copy_n((const unsigned short*)data.data(),pixel_count,ptr);
                 return;
             case 32://DT_SIGNED_INT 8
                 if(is_big_endian)
-                    change_endian((unsigned int*)&(data[0]),pixel_count);
+                    change_endian((unsigned int*)data.data(),pixel_count);
                 if(is_signed())
-                    std::copy((const int*)&(data[0]),(const int*)&(data[0])+pixel_count,ptr);
+                    std::copy_n((const int*)data.data(),pixel_count,ptr);
                 else
-                    std::copy((const unsigned int*)&(data[0]),(const unsigned int*)&(data[0])+pixel_count,ptr);
+                    std::copy_n((const unsigned int*)data.data(),pixel_count,ptr);
                 return;
             case 64://DT_DOUBLE 64
                 if(is_big_endian)
-                    change_endian((double*)&(data[0]),pixel_count);
-                std::copy((const double*)&(data[0]),(const double*)&(data[0])+pixel_count,ptr);
+                    change_endian((double*)data.data(),pixel_count);
+                std::copy_n((const double*)data.data(),pixel_count,ptr);
                 return;
             }
         }
