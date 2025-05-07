@@ -2,6 +2,8 @@
 #define BRUKER2DSEQ_HPP
 #include <string>
 #include <map>
+#include <fstream>
+#include <iostream>
 #include <sstream>
 #include <iterator>
 #include <memory>
@@ -45,11 +47,10 @@ private:
             if(*(sep+1) == '(')
             {
                 std::string accumulated_info;
-                while(in && in.peek() != '#')
+                while(std::getline(in,line))
                 {
-		    std::getline(in,line);
-		    if(line[0] == '$')
-    			continue;
+                    if(!line.empty() && (line[0] == '$' || line[0] == '#'))
+                        continue;
                     accumulated_info += line;
                     accumulated_info += " ";
                 }
@@ -124,7 +125,7 @@ class bruker_2dseq
     float orientation[9];
     bool slice_2d = true;
 private:
-    std::string tmp;
+    std::string tmp,error_msg;
     std::wstring wtmp;
 
     bool check_name(const std::string& filename)
@@ -178,14 +179,20 @@ public:
     bool load_from_file(const std::string& file_name)
     {
         if(!check_name(file_name))
+        {
+            error_msg = "invalid file name";
             return false;
+        }
 
         // read image dimension
         bool no_visu = false;
         bool no_method = false;
         bruker_info visu,info,method;
         if(!info.load_from_file(load_reco(file_name)))
+        {
+            error_msg = "cannot read reco file";
             return false;
+        }
         if(!visu.load_from_file(load_visu(file_name)))
             no_visu = true;
         if(!method.load_from_file(load_method(file_name)))
@@ -203,7 +210,10 @@ public:
         // get image slope
         {
             if(!info.read("RECO_map_slope",slopes))
+            {
+                error_msg = "cannot find slope information";
                 return false;
+            }
             float max_slope = *std::max_element(slopes.begin(),slopes.end());
             for(unsigned int i = 0;i < slopes.size();++i)
                 slopes[i] /= max_slope;
@@ -255,10 +265,17 @@ public:
         if(info["RECO_byte_order"] == std::string("bigEndian"))
         {
             if (word_size == 2)
-                change_endian((short*)&buffer[0],buffer.size()/word_size);
+                change_endian((short*)buffer.data(),buffer.size()/word_size);
             if (word_size == 4)
-                change_endian((int*)&buffer[0],buffer.size()/word_size);
+                change_endian((int*)buffer.data(),buffer.size()/word_size);
         }
+
+        if(!dim[0] || !dim[1])
+        {
+            error_msg = "invalid image dimension";
+            return false;
+        }
+
         // read 2dseq and convert to float
         dim[2] = buffer.size()/word_size/dim[0]/dim[1];
         data.resize(dim);
@@ -290,6 +307,11 @@ public:
 
         if(!slopes.empty())
         {
+            if(slopes.size() != dim[2])
+            {
+                error_msg = "invalid slope count";
+                return false;
+            }
             size_t plane_size = dim.plane_size();
             std::vector<float>::iterator iter = data.begin();
             for(unsigned int z = 0;z < dim[2];++z)
@@ -303,7 +325,7 @@ public:
             }
         }
 
-        slice_2d = (dim[2] == 0);
+        slice_2d = (dim[2] <= 1);
         return true;
     }
     const tipl::image<3,float>& get_image(void) const{return data;}
