@@ -384,6 +384,7 @@ class host_vector{
         void swap(host_vector& rhs)
         {
             std::swap(buf,rhs.buf);
+            std::swap(buf_size,rhs.buf.size);
             std::swap(s,rhs.s);
         }
         size_t size(void)    const       {return s;}
