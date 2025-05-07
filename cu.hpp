@@ -245,7 +245,7 @@ public:
     shared_device_vector(iterator buf_,size_t s_):buf(buf_),s(s_)                                        {}
     shared_device_vector(const_iterator buf_,size_t s_):const_buf(buf_),s(s_)                            {}
 public:
-    const shared_device_vector& operator=(const shared_device_vector<value_type>& rhs) const{const_buf = rhs.const_buf;s=rhs.s;return *this;}
+    shared_device_vector& operator=(const shared_device_vector<value_type>& rhs) const{const_buf = rhs.const_buf;s=rhs.s;return *this;}
     shared_device_vector& operator=(shared_device_vector<value_type>& rhs) {buf = rhs.buf;s=rhs.s;return *this;}
 public:
     __INLINE__ size_t size(void)    const       {return s;}
@@ -384,7 +384,7 @@ class host_vector{
         void swap(host_vector& rhs)
         {
             std::swap(buf,rhs.buf);
-            std::swap(buf_size,rhs.buf.size);
+            std::swap(buf_size,rhs.buf_size);
             std::swap(s,rhs.s);
         }
         size_t size(void)    const       {return s;}
