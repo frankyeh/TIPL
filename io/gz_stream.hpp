@@ -33,7 +33,7 @@ struct access_point {
     access_point(uint64_t up,uint64_t cp,const unsigned char* dict32k_):
         uncompressed_pos(up),compressed_pos(cp)
     {
-        std::copy(dict32k_,dict32k_+WINSIZE,dict32k);
+        std::copy_n(dict32k_,WINSIZE,dict32k);
     }
 };
 
