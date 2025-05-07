@@ -315,15 +315,9 @@ void rotation_x_matrix(typename std::iterator_traits<output_iter>::value_type th
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
     value_type cos_theta = std::cos(theta);
     value_type sin_theta = std::sin(theta);
-    m[0] = 1.0;
-    m[1] = 0.0;
-    m[2] = 0.0;
-    m[3] = 0.0;
-    m[4] = cos_theta;
-    m[5] = sin_theta;
-    m[7] = -sin_theta;
-    m[6] = 0.0;
-    m[8] = cos_theta;
+    m[0] = 1.0;    m[1] = 0.0;    m[2] = 0.0;
+    m[3] = 0.0;    m[4] = cos_theta;    m[5] = sin_theta;
+    m[6] = 0.0;    m[7] = -sin_theta;    m[8] = cos_theta;
 }
 
 template<typename output_iter>
@@ -332,15 +326,9 @@ void rotation_y_matrix(typename std::iterator_traits<output_iter>::value_type th
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
     value_type cos_theta = std::cos(theta);
     value_type sin_theta = std::sin(theta);
-    m[0] = cos_theta;
-    m[1] = 0.0;
-    m[2] = -sin_theta;
-    m[3] = 0.0;
-    m[4] = 1.0;
-    m[5] = 0.0;
-    m[6] = sin_theta;
-    m[7] = 0.0;
-    m[8] = cos_theta;
+    m[0] = cos_theta;    m[1] = 0.0;    m[2] = -sin_theta;
+    m[3] = 0.0;    m[4] = 1.0;    m[5] = 0.0;
+    m[6] = sin_theta;    m[7] = 0.0;    m[8] = cos_theta;
 }
 
 template<typename output_iter>
@@ -349,15 +337,9 @@ void rotation_z_matrix(typename std::iterator_traits<output_iter>::value_type th
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
     value_type cos_theta = std::cos(theta);
     value_type sin_theta = std::sin(theta);
-    m[0] = cos_theta;
-    m[1] = sin_theta;
-    m[2] = 0.0;
-    m[3] = -sin_theta;
-    m[4] = cos_theta;
-    m[5] = 0.0;
-    m[6] = 0.0;
-    m[7] = 0.0;
-    m[8] = 1.0;
+    m[0] = cos_theta;    m[1] = sin_theta;    m[2] = 0.0;
+    m[3] = -sin_theta;    m[4] = cos_theta;    m[5] = 0.0;
+    m[6] = 0.0;    m[7] = 0.0;    m[8] = 1.0;
 }
 
 /**
