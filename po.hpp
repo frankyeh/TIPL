@@ -395,21 +395,23 @@ class program_option{
     std::set<std::string> not_found_names;
     bool add_option(const std::string& str)
     {
-        if(str.length() < 3 || str[0] != '-' || str[1] != '-')
+        if(!tipl::begins_with(str,"--"))
         {
             error_msg = std::string("invalid argument ") + str + " did you forget to put double dash '--' in front of the argument?";
             return false;
         }
         auto pos = std::find(str.begin(),str.end(),'=');
         names.push_back(std::string(str.begin()+2,pos));
-        values.push_back(pos == str.end() ? std::string() : std::string(pos+1,str.end()));
-        used.push_back(0);
-        printed.push_back(0);
-        if(values.back().front() == '\"' && values.back().back() == '\"')
+        if(pos == str.end())
+            values.push_back(std::string());
+        else
         {
-            values.back().pop_back();
-            values.back() = values.back().substr(1);
+            auto v = std::string(pos+1,str.end());
+            v.erase(std::remove(v.begin(),v.end(),'\"'));
+            values.push_back(v);
         }
+        used.push_back(0);
+        printed.push_back(0);        
         return true;
     }
 public:
