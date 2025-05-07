@@ -128,7 +128,7 @@ private:
         if(progressDialog->wasCanceled())
         {
             prog_aborted = true;
-            progress::print("operation aborted",false,false,0x008c9de2);
+            progress::print("operation aborted",false,false,1);
         }
         QApplication::processEvents();
         #endif
