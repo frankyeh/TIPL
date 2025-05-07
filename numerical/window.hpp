@@ -8,15 +8,15 @@
 namespace tipl
 {
 
-template<int width,int dim>
+template<size_t width,int dim>
 struct get_window_size;
 
-template<int width>
+template<size_t width>
 struct get_window_size<width,2>{
     static constexpr size_t value = (width+width+1)*(width+width+1);
 };
 
-template<int width>
+template<size_t width>
 struct get_window_size<width,3>{
     static constexpr size_t value = (width+width+1)*(width+width+1)*(width+width+1);
 };
@@ -108,9 +108,11 @@ __INLINE__ int get_window_at_width(const pixel_index<3>& index,const ImageType& 
 
 
 //---------------------------------------------------------------------------
-template<typename ImageType,typename PixelType>
-void get_window(const pixel_index<2>& index,const ImageType& image,unsigned int width,std::vector<PixelType>& pixels)
+template<typename T>
+auto get_window(const pixel_index<2>& index,const T& image,unsigned int width)
 {
+    std::vector<typename T::value_type> pixels;
+    pixels.reserve(9);
     unsigned int fx = (index.x() > width) ? index.x() - width:0;
     unsigned int fy = (index.y() > width) ? index.y() - width:0;
     unsigned int tx = std::min<size_t>(index.x() + width,image.width()-1);
@@ -122,11 +124,14 @@ void get_window(const pixel_index<2>& index,const ImageType& image,unsigned int 
         for (unsigned int x = fx;x <= tx;++x,++x_index)
             pixels.push_back(image[x_index]);
     }
+    return pixels;
 }
 //---------------------------------------------------------------------------
-template<typename ImageType,typename PixelType>
-void get_window(const pixel_index<2>& index,const ImageType& image,std::vector<PixelType>& pixels)
+template<typename T>
+auto get_window(const pixel_index<2>& index,const T& image)
 {
+    std::vector<typename T::value_type> pixels;
+    pixels.reserve(9);
     unsigned int width = image.width();
     unsigned int height = image.height();
     bool have_left = index.x() >= 1;
@@ -164,11 +169,14 @@ void get_window(const pixel_index<2>& index,const ImageType& image,std::vector<P
         if (have_right)
             pixels.push_back(image[base_index+1]);
     }
+    return pixels;
 }
 //---------------------------------------------------------------------------
-template<typename ImageType,typename PixelType>
-void get_window(const pixel_index<3>& index,const ImageType& image,unsigned int width,std::vector<PixelType>& pixels)
+template<typename T>
+auto get_window(const pixel_index<3>& index,const T& image,unsigned int width)
 {
+    std::vector<typename T::value_type> pixels;
+    pixels.reserve(27);
     unsigned int wh = image.width()*image.height();
     unsigned int fx = (index.x() > width) ? index.x() - width:0;
     unsigned int fy = (index.y() > width) ? index.y() - width:0;
@@ -187,12 +195,13 @@ void get_window(const pixel_index<3>& index,const ImageType& image,unsigned int 
                 pixels.push_back(image[x_index]);
         }
     }
+    return pixels;
 }
 //---------------------------------------------------------------------------
-template<typename ImageType,typename PixelType>
-void get_window(const pixel_index<3>& index,const ImageType& image,std::vector<PixelType>& pixels)
+template<typename T>
+auto get_window(const pixel_index<3>& index,const T& image)
 {
-    pixels.clear();
+    std::vector<typename T::value_type> pixels;
     pixels.reserve(27);
     unsigned int z_offset = image.shape().plane_size();
     unsigned int y_offset = image.width();
@@ -297,7 +306,7 @@ void get_window(const pixel_index<3>& index,const ImageType& image,std::vector<P
                 pixels.push_back(image[index.index()+1+y_offset+z_offset]);
         }
     }
-
+    return pixels;
 }
 }
 #endif
