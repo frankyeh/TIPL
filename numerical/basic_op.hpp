@@ -340,9 +340,7 @@ ImageType2D& volume2slice(const ImageType3D& slice,ImageType2D& I,dim_type dim,s
         I.resize(shape<2>(geo[0],geo[1]));
         if(slice_index >= slice.depth())
             return I;
-        std::copy(slice.begin() + I.size()*slice_index,
-                  slice.begin() + I.size()*(slice_index+1),
-                  I.begin());
+        std::copy_n(slice.begin() + I.size()*slice_index,I.size(),I.begin());
 
     }
     else
@@ -354,9 +352,7 @@ ImageType2D& volume2slice(const ImageType3D& slice,ImageType2D& I,dim_type dim,s
             size_t wh = geo.plane_size();
             size_t sindex = size_t(slice_index)*size_t(geo[0]);
             for (size_t index = 0;index < I.size();index += geo[0],sindex += wh)
-                std::copy(slice.begin() + sindex,
-                          slice.begin() + sindex+geo[0],
-                          I.begin() + index);
+                std::copy_n(slice.begin() + sindex,geo[0],I.begin() + index);
         }
         else
             if (dim == 0)    //YZ
@@ -528,7 +524,7 @@ void draw(const T1& from_image,T2&& to_image,PosType pos)
     auto end = iter + (y_height-1)*from_image.width();
     auto out = to_image.begin() + pos[1]*to_image.width()+pos[0];
     do{
-        std::copy(iter,iter+x_width,out);
+        std::copy_n(iter,x_width,out);
         if(iter == end)
             return;
         iter += from_image.width();
@@ -555,7 +551,7 @@ void draw(const T1& from_image,T2&& to_image,PosType pos)
                 ((int64_t(pos[2])+z)*int64_t(to_image.height()) + int64_t(pos[1]))*int64_t(to_image.width())+int64_t(pos[0]);
         do{
             if constexpr(copy)
-                std::copy(iter,iter+x_width,out);
+                std::copy_n(iter,x_width,out);
             else
                 tipl::add(out,out+x_width,iter);
             if(iter >= end)
@@ -976,7 +972,7 @@ template<typename iterator_type2,typename dim_order_type,typename flip_type>
 void reorient_matrix(iterator_type2 orientation_matrix,dim_order_type dim_order,flip_type flip)
 {
     float orientation_matrix_[9];
-    std::copy(orientation_matrix,orientation_matrix+9,orientation_matrix_);
+    std::copy_n(orientation_matrix,9,orientation_matrix_);
     for(unsigned int index = 0,ptr = 0;index < 3;++index,ptr += 3)
         if(flip[index])
         {
@@ -985,9 +981,7 @@ void reorient_matrix(iterator_type2 orientation_matrix,dim_order_type dim_order,
             orientation_matrix_[ptr+2] = -orientation_matrix_[ptr+2];
         }
     for(unsigned int index = 0;index < 3;++index)
-    std::copy(orientation_matrix_+index*3,
-              orientation_matrix_+index*3+3,
-              orientation_matrix+dim_order[index]*3);
+    std::copy_n(orientation_matrix_+index*3,3,orientation_matrix+dim_order[index]*3);
 }
 //---------------------------------------------------------------------------
 template<typename geo_type,typename dim_order_type,typename flip_type,typename origin_type,typename shift_type>
@@ -1163,7 +1157,7 @@ ImageType& swap_xy(ImageType& I)
     for(size_t i = 0;i < I.size();i += plane.size())
     {
         auto plane_ptr = &I[i];
-        std::copy(plane_ptr,plane_ptr+I.plane_size(),&plane[0]);
+        std::copy_n(plane_ptr,I.plane_size(),&plane[0]);
         for(size_t y = 0,p1 = 0;y < I.height();++y)
             for(size_t x = 0,p2 = y;x < I.width();++x,++p1,p2+=I.height())
                 plane_ptr[p2] = plane[p1];
