@@ -1196,7 +1196,7 @@ void lq_get_l(io_iterator1 A,io_iterator2 d,output_iterator L,const dim_type& di
     int n = col_count(dim);
     int min = std::min(m,n);
     if(A != L)
-        std::copy(A,A+m*n,L);
+        std::copy_n(A,m*n,L);
     for(int i = 0,pos = 0;i < min;++i,pos += n+1)
     {
         L[pos] = d[i];
@@ -1603,7 +1603,7 @@ bool inverse(input_iterator A_,dim_type dim)
 template<typename input_iterator,typename output_iterator,typename dim_type>
 bool inverse(input_iterator A_,output_iterator A,dim_type dim)
 {
-    std::copy(A_,A_+size(dim),A);
+    std::copy_n(A_,size(dim),A);
     return inverse(A,dim);
 }
 
@@ -1974,7 +1974,7 @@ void eigenvalue(input_iterator A,output_iterator d,const dym_type& dimension)
     value_type* V = &*V_.begin();
     value_type* e = &*e_.begin();
 
-    std::copy(A,A+size_dim,V);
+    std::copy_n(A,size_dim,V);
     std::fill(d,d+dim,value_type(0));
 
     //void tridiagonalize(void)
@@ -2155,7 +2155,7 @@ void eigen_decomposition_sym(input_iterator A,
     std::vector<value_type> e_(dim+1);
     value_type* e = &*e_.begin();
 
-    std::copy(A,A+s,V);
+    std::copy_n(A,s,V);
     std::fill(d,d+dim,value_type(0));
 
     //void tridiagonalize(void)
@@ -3046,7 +3046,7 @@ void pseudo_inverse(input_iterator A_,output_iterator A,dim_type dim)
 	std::vector<value_type> U_buffer(n*n);
 	value_type* U = &*U_buffer.begin();
 	std::vector<value_type> s(n);
-        std::copy(A_,A_+l,A);
+        std::copy_n(A_,l,A);
     svd(A,U,&*s.begin(),dim);
 
 	value_type threshold = std::numeric_limits<value_type>::epsilon()*(value_type)m*s[0];
@@ -3065,7 +3065,7 @@ void pseudo_inverse(input_iterator A_,output_iterator A,dim_type dim)
 			U += n;
 		}
 
-        std::copy(At,At+l,out);
+        std::copy_n(At,l,out);
 }
 
 
@@ -3123,7 +3123,7 @@ private:
             constexpr size_t s = row*c;
             value_type buf[s];
             for(size_t i = 0;i < s;++i)
-                std::copy(left,left+s,buf);
+                std::copy_n(left,s,buf);
             tipl::mat::product(buf,right,value,dim<row,c>(),dim<c,col>());
             return;
         }
@@ -3133,7 +3133,7 @@ private:
             constexpr size_t s = c*col;
             value_type buf[s];
             for(size_t i = 0;i < s;++i)
-                std::copy(right,right+s,buf);
+                std::copy_n(right,s,buf);
             tipl::mat::product(left,buf,value,dim<row,c>(),dim<c,col>());
             return;
         }
@@ -3230,7 +3230,7 @@ public:
     template<typename rhs_type>
     const matrix& operator=(const rhs_type* rhs)
     {
-        std::copy(rhs,rhs+mat_size,value);
+        std::copy_n(rhs,mat_size,value);
         return *this;
     }
     template<int cc,typename lhs_type,typename rhs_type>
@@ -3250,7 +3250,7 @@ public:
     const matrix& operator*=(const rhs_type& rhs)
     {
         value_type old_value[mat_size];
-        std::copy(value,value+mat_size,old_value);
+        std::copy_n(value,mat_size,old_value);
         tipl::mat::product(old_value,rhs.begin(),value,dim_type(),dim_type());
         return *this;
     }
