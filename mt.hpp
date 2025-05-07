@@ -38,7 +38,8 @@ public:
     estimate_time(const char* name_):name(name_){}
     ~estimate_time()
     {
-        std::cout << name << time_total/double(n) << " microseconds" << std::endl;
+        if(n)
+            std::cout << name << time_total/double(n) << " microseconds" << std::endl;
     }
     void start(void)
     {
@@ -218,7 +219,11 @@ size_t adaptive_par_for(T from, T to, Func&& f)
     while(run_time_per_block >= thread_overhead);
 
     thread_overhead -= run_time_per_block;
-
+    if(thread_overhead <= 0)
+    {
+        par_for<type>(from,to,f,1);
+        return 1;
+    }
     int64_t num_block = (to-from)/block_size;
 
     // optimize estimated_time = (num_block / thread_count) * run_time_per_block + (thread_count-1)*thread_overhead;
