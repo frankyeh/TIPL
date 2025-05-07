@@ -592,21 +592,6 @@ double least_square_fitting_slop(input_iterator x_from,input_iterator x_to,
         co /= x_to-x_from;
     return (co-mean_x*mean_y)/var_x;
 }
-// first nx elements are from distribution x, whereas the rest is from another
-template<typename input_iterator>
-double permutation_test(input_iterator from,input_iterator to,unsigned int nx,unsigned int permutation_count = 2000,unsigned int seed = std::random_device()())
-{
-    double m_dif = mean(from,from+nx)-mean(from+nx,to);
-    unsigned int count = 0;
-    std::mt19937 g(seed);
-    for(unsigned int i = 0;i < permutation_count;++i)
-    {
-        std::shuffle(from,to,g);
-        if(mean(from,from+nx)-mean(from+nx,to) > m_dif)
-            count++;
-    }
-    return (double)count/(double)permutation_count;
-}
 
 // fitting equation y=ax+b
 // return (a,b)
