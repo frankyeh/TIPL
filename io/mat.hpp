@@ -263,8 +263,8 @@ public:
         auto ptr = get_data<T>();
         if(!ptr)
             return nullptr;
-        converted_data_buf = std::move(std::vector<unsigned char>(total_size*sizeof(T)*rows));
-        auto sparse_ptr = reinterpret_cast<T*>(converted_data_buf.data());
+        std::vector<unsigned char> sparse_data(total_size*sizeof(T)*rows);
+        auto sparse_ptr = reinterpret_cast<T*>(sparse_data.data());
         if constexpr(std::is_floating_point_v<T>)
             std::fill(sparse_ptr,sparse_ptr+total_size*rows,T());
         size_t total = std::min<size_t>(si2vi.size(),cols);
@@ -276,6 +276,7 @@ public:
             for(size_t index = 0,from = 0;index < total;++index,from += rows)
                 std::copy_n(ptr+from,rows,sparse_ptr + si2vi[index]*rows);
         }
+        sparse_data.swap(converted_data_buf);
         return sparse_ptr;
     }    
     void set_row_col(unsigned int new_row,unsigned int new_col)
