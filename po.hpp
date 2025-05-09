@@ -407,7 +407,7 @@ class program_option{
         else
         {
             auto v = std::string(pos+1,str.end());
-            v.erase(std::remove(v.begin(),v.end(),'\"'));
+            v.erase(std::remove(v.begin(),v.end(),'\"'),v.end());
             values.push_back(v);
         }
         used.push_back(0);
