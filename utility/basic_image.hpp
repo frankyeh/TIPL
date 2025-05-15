@@ -291,7 +291,7 @@ public:
     template<typename T,typename std::enable_if<T::dimension==dimension && !std::is_same<storage_type,typename T::storage_type>::value,bool>::type = true>
     image(const T& rhs)              {operator=(rhs);}
     image(const image& rhs)          {operator=(rhs);}
-    image(image&& rhs) noexcept      {operator=(rhs);}
+    image(image&& rhs) noexcept      {operator=(std::move(rhs));}
 public:
     template<typename T>
     image(std::initializer_list<T> rhs):sp(rhs)      {alloc.resize(sp.size());}
