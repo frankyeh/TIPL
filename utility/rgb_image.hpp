@@ -38,19 +38,19 @@ struct rgb
         b(uint8_t(gray)), g(uint8_t(gray)), r(uint8_t(gray)), a(0) {}
     rgb(double gray):
         b(uint8_t(gray)), g(uint8_t(gray)), r(uint8_t(gray)), a(0) {}
-    operator unsigned char() const
+    explicit operator unsigned char() const
     {
         return (unsigned char)((((short)r) + ((short)g) + ((short)b)) / 3);
     }
-    operator short() const
+    explicit operator short() const
     {
         return (((short)r) + ((short)g) + ((short)b)) / 3;
     }
-    operator int() const
+    explicit operator int() const
     {
         return (((int)r) + ((int)g) + ((int)b)) / 3;
     }
-    operator float() const
+    explicit operator float() const
     {
         return (((float)r) + ((float)g) + ((float)b)) / 3.0f;
     }
