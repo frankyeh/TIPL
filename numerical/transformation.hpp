@@ -493,7 +493,7 @@ void create_affine_transformation_matrix(input_scaling_iter scaling,input_rotati
     typedef typename std::iterator_traits<output_iter>::value_type value_type;
     value_type M[9];
     sr_matrix(scaling,rotation,M);
-    create_transformation_matrixation_matrix(M,shift,m,vdim<3>());
+    create_affine_transformation_matrix(M,shift,m,vdim<3>());
 }
 
 template<typename value_type_ = float,int dim = 3>
