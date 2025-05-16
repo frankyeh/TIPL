@@ -71,7 +71,6 @@ __DEVICE_HOST__ void vector_transformation(input_iter1 vec_in,output_iter vec_ou
 template<typename input_iter1,typename input_iter2,typename output_iter>
 void vector_rotation(input_iter1 vec_in,output_iter vec_out,input_iter2 rotation,vdim<2>)
 {
-    typedef typename std::iterator_traits<output_iter>::value_type value_type;
     vec_out[0] = vec_in[0]*rotation[0] +
                  vec_in[1]*rotation[1];
     vec_out[1] = vec_in[0]*rotation[2] +
@@ -129,9 +128,8 @@ void matrix_product(input_iterator1 A,input_iterator2 B,output_iterator C,vdim<3
 template<typename angle_type,typename output_iter>
 void rotation_matrix(angle_type theta,output_iter m,vdim<2>)
 {
-    typedef typename std::iterator_traits<output_iter>::value_type value_type;
-    value_type cos_theta = std::cos(theta);
-    value_type sin_theta = std::sin(theta);
+    auto cos_theta = std::cos(theta);
+    auto sin_theta = std::sin(theta);
     m[0] = cos_theta;
     m[1] = -sin_theta;
     m[2] = sin_theta;
@@ -152,17 +150,16 @@ void rotation_matrix(angle_type theta,output_iter m,vdim<2>)
 template<typename angle_type,typename output_type>
 void rotation_matrix(angle_type theta,output_type m,vdim<3>)
 {
-    typedef typename std::iterator_traits<angle_type>::value_type value_type;
-    value_type sin_x = std::sin(theta[0]);
-    value_type cos_x = std::cos(theta[0]);
-    value_type sin_y = std::sin(theta[1]);
-    value_type cos_y = std::cos(theta[1]);
-    value_type sin_z = std::sin(theta[2]);
-    value_type cos_z = std::cos(theta[2]);
-    value_type cos_x_sin_z = cos_x*sin_z;
-    value_type cos_x_cos_z = cos_x*cos_z;
-    value_type sin_x_sin_z = sin_x*sin_z;
-    value_type sin_x_cos_z = sin_x*cos_z;
+    auto sin_x = std::sin(theta[0]);
+    auto cos_x = std::cos(theta[0]);
+    auto sin_y = std::sin(theta[1]);
+    auto cos_y = std::cos(theta[1]);
+    auto sin_z = std::sin(theta[2]);
+    auto cos_z = std::cos(theta[2]);
+    auto cos_x_sin_z = cos_x*sin_z;
+    auto cos_x_cos_z = cos_x*cos_z;
+    auto sin_x_sin_z = sin_x*sin_z;
+    auto sin_x_cos_z = sin_x*cos_z;
     m[0] = cos_y*cos_z;
     m[1] = cos_y*sin_z;
     m[2] = -sin_y;
@@ -188,7 +185,7 @@ void rotation_matrix(angle_type theta,output_type m,vdim<3>)
 template<typename iterator_type1,typename iterator_type2>
 void rotation_matrix_to_angles(iterator_type1 m,iterator_type2 theta,vdim<3>)
 {
-    float sy = std::sqrt(m[0]*m[0]+m[1]*m[1]);
+    double sy = std::sqrt(m[0]*m[0]+m[1]*m[1]);
     if (sy > 1.0e-6f)
     {
         theta[0] = atan2(m[5],m[8]);
@@ -270,8 +267,7 @@ void rotation_scaling_affine_matrix(angle_type theta,scale_type s,affine_type a,
 template<typename intput_type,typename angle_type,typename scale_type,typename affine_type>
 void matrix_to_rotation_scaling_affine(intput_type m,angle_type theta,scale_type s,affine_type a,vdim<3>)
 {
-    typedef typename std::iterator_traits<intput_type>::value_type value_type;
-    value_type Q[9];
+    double Q[9];
     tipl::mat::inverse(m,tipl::dim<3,3>());
     tipl::mat::qr_decomposition(m,Q,tipl::dim<3,3>());
     tipl::mat::inverse_upper(m,tipl::dim<3,3>());
@@ -310,33 +306,30 @@ void matrix_to_rotation_scaling_affine(intput_type m,angle_type theta,scale_type
 }
 
 template<typename output_iter>
-void rotation_x_matrix(typename std::iterator_traits<output_iter>::value_type theta,output_iter m/*a 3x3 matrix*/)
+void rotation_x_matrix(double theta,output_iter m/*a 3x3 matrix*/)
 {
-    typedef typename std::iterator_traits<output_iter>::value_type value_type;
-    value_type cos_theta = std::cos(theta);
-    value_type sin_theta = std::sin(theta);
+    auto cos_theta = std::cos(theta);
+    auto sin_theta = std::sin(theta);
     m[0] = 1.0;    m[1] = 0.0;    m[2] = 0.0;
     m[3] = 0.0;    m[4] = cos_theta;    m[5] = sin_theta;
     m[6] = 0.0;    m[7] = -sin_theta;    m[8] = cos_theta;
 }
 
 template<typename output_iter>
-void rotation_y_matrix(typename std::iterator_traits<output_iter>::value_type theta,output_iter m/*a 3x3 matrix*/)
+void rotation_y_matrix(double theta,output_iter m/*a 3x3 matrix*/)
 {
-    typedef typename std::iterator_traits<output_iter>::value_type value_type;
-    value_type cos_theta = std::cos(theta);
-    value_type sin_theta = std::sin(theta);
+    auto cos_theta = std::cos(theta);
+    auto sin_theta = std::sin(theta);
     m[0] = cos_theta;    m[1] = 0.0;    m[2] = -sin_theta;
     m[3] = 0.0;    m[4] = 1.0;    m[5] = 0.0;
     m[6] = sin_theta;    m[7] = 0.0;    m[8] = cos_theta;
 }
 
 template<typename output_iter>
-void rotation_z_matrix(typename std::iterator_traits<output_iter>::value_type theta,output_iter m/*a 3x3 matrix*/)
+void rotation_z_matrix(double theta,output_iter m/*a 3x3 matrix*/)
 {
-    typedef typename std::iterator_traits<output_iter>::value_type value_type;
-    value_type cos_theta = std::cos(theta);
-    value_type sin_theta = std::sin(theta);
+    auto cos_theta = std::cos(theta);
+    auto sin_theta = std::sin(theta);
     m[0] = cos_theta;    m[1] = sin_theta;    m[2] = 0.0;
     m[3] = -sin_theta;    m[4] = cos_theta;    m[5] = 0.0;
     m[6] = 0.0;    m[7] = 0.0;    m[8] = 1.0;
@@ -350,16 +343,14 @@ void rotation_z_matrix(typename std::iterator_traits<output_iter>::value_type th
 template<typename input_iter1,typename input_iter2,typename output_iter>
 void rotation_vector_matrix(output_iter r,input_iter1 u,input_iter2 v)
 {
-    typedef typename std::iterator_traits<output_iter>::value_type value_type;
-
-    value_type value = u[0]*v[0]+u[1]*v[1]+u[2]*v[2]+ 1.0;
+    double value = u[0]*v[0]+u[1]*v[1]+u[2]*v[2]+ 1.0;
     if (value == 0.0)
     {
         r[0] = r[4] = r[8] = -1.0;
         r[1] = r[2] = r[3] = r[5] = r[6] = r[7] = 0.0;
         return;
     }
-    value_type uv[3];
+    double uv[3];
     uv[0] = u[0] + v[0];
     uv[1] = u[1] + v[1];
     uv[2] = u[2] + v[2];
@@ -377,16 +368,14 @@ void rotation_vector_matrix(output_iter r,input_iter1 u,input_iter2 v)
 
 
 template<typename input_iter,typename output_iter>
-void rotation_matrix(input_iter uv/*a 3d unit vector as the axis*/,
-                     typename std::iterator_traits<input_iter>::value_type theta,output_iter m/*a 3x3 matrix*/,vdim<3>)
+void rotation_matrix(input_iter uv/*a 3d unit vector as the axis*/,double theta,output_iter m/*a 3x3 matrix*/,vdim<3>)
 {
-    typedef typename std::iterator_traits<output_iter>::value_type value_type;
-    value_type cos_theta = std::cos(theta);
-    value_type sin_theta = std::sin(theta);
-    value_type cos_theta_1 = (1-cos_theta);
-    value_type zs = uv[2]*sin_theta;
-    value_type ys = uv[1]*sin_theta;
-    value_type xs = uv[0]*sin_theta;
+    auto cos_theta = std::cos(theta);
+    auto sin_theta = std::sin(theta);
+    auto cos_theta_1 = (1-cos_theta);
+    auto zs = uv[2]*sin_theta;
+    auto ys = uv[1]*sin_theta;
+    auto xs = uv[0]*sin_theta;
     m[0] = uv[0]*uv[0]*cos_theta_1+cos_theta;
     m[1] = uv[1]*uv[0]*cos_theta_1-zs;
     m[2] = uv[2]*uv[0]*cos_theta_1+ys;
@@ -426,8 +415,7 @@ void scaling_matrix(input_iter scaling,output_iter m,vdim<3>)
 template<typename input_scaling_iter,typename angle_type,typename output_iter>
 void rotation_angle_to_rotation_matrix(input_scaling_iter scaling,angle_type rotation,output_iter m,vdim<2>)
 {
-    typedef typename std::iterator_traits<output_iter>::value_type value_type;
-    value_type S[4],R[4];
+    double S[4],R[4];
     scaling_matrix(scaling,S,vdim<2>());
     rotation_matrix(rotation[0],R,vdim<2>());
     matrix_product(R,S,m,vdim<2>());
@@ -437,8 +425,7 @@ void rotation_angle_to_rotation_matrix(input_scaling_iter scaling,angle_type rot
 template<typename input_scaling_iter,typename input_rotation_iter,typename output_iter>
 void rotation_angle_to_rotation_matrix(input_scaling_iter scaling,input_rotation_iter rotation,output_iter m,vdim<3>)
 {
-    typedef typename std::iterator_traits<output_iter>::value_type value_type;
-    value_type S[9],R[9],M[9];
+    double S[9],R[9],M[9];
     scaling_matrix(scaling,S,vdim<3>());
     rotation_z_matrix(rotation[0],R);
     matrix_product(R,S,M,vdim<3>());
@@ -453,8 +440,7 @@ void rotation_angle_to_rotation_matrix(input_scaling_iter scaling,input_rotation
 template<typename input_rotation_iter,typename output_iter>
 void rotation_angle_to_rotation_matrix(input_rotation_iter rotation,output_iter m)
 {
-    typedef typename std::iterator_traits<output_iter>::value_type value_type;
-    value_type S[9],R[9],M[9];
+    double S[9],R[9],M[9];
     rotation_z_matrix(rotation[0],M);
     rotation_x_matrix(rotation[1],R);
     matrix_product(R,M,S,vdim<3>());
@@ -490,8 +476,7 @@ void create_affine_transformation_matrix(input_rotation_iter rotation_scaling,in
 template<typename input_scaling_iter,typename input_rotation_iter,typename input_shift_iter,typename output_iter>
 void create_affine_transformation_matrix(input_scaling_iter scaling,input_rotation_iter rotation,input_shift_iter shift,output_iter m,vdim<3>)
 {
-    typedef typename std::iterator_traits<output_iter>::value_type value_type;
-    value_type M[9];
+    double M[9];
     sr_matrix(scaling,rotation,M);
     create_affine_transformation_matrix(M,shift,m,vdim<3>());
 }
@@ -798,9 +783,9 @@ public:
                 shift[2] /= to_vs[2];
             }
             // inv(shift_center) ... = inv(shift_center)(shift_center)...
-            shift[0] += float(to.width())*value_type(0.5);
-            shift[1] += float(to.height())*value_type(0.5);
-            shift[2] += float(to.depth())*value_type(0.5);
+            shift[0] += value_type(to.width())*value_type(0.5);
+            shift[1] += value_type(to.height())*value_type(0.5);
+            shift[2] += value_type(to.depth())*value_type(0.5);
         }
 
         else
@@ -834,8 +819,8 @@ public:
                 shift[1] /= to_vs[1];
             }
             // inv(shift_center) ... = inv(shift_center)(shift_center)...
-            shift[0] += float(to.width())*value_type(0.5);
-            shift[1] += float(to.height())*value_type(0.5);
+            shift[0] += value_type(to.width())*value_type(0.5);
+            shift[1] += value_type(to.height())*value_type(0.5);
         }
     }
     // (Affine*Scaling*R1*R2*R3*vs*Translocation*shift_center)*from = (vs*shift_center*to;
@@ -847,13 +832,13 @@ public:
                           const vs_type& to_vs) const
     {
         affine_transform<value_type,3> rb;
-        tipl::matrix<3,3,float> R,iR;
+        tipl::matrix<3,3,value_type> R,iR;
         std::copy_n(sr,9,R.begin());
 
         value_type t[3];
-        t[0] = shift[0]-float(to.width())*value_type(0.5);
-        t[1] = shift[1]-float(to.height())*value_type(0.5);
-        t[2] = shift[2]-float(to.depth())*value_type(0.5);
+        t[0] = shift[0]-value_type(to.width())*value_type(0.5);
+        t[1] = shift[1]-value_type(to.height())*value_type(0.5);
+        t[2] = shift[2]-value_type(to.depth())*value_type(0.5);
 
         if(to_vs[2] != value_type(1))
         {
@@ -888,9 +873,9 @@ public:
         R[7] /= from_vs[1];
         R[8] /= from_vs[2];
         iR = tipl::inverse(R);
-        rb.translocation[0] = (iR[0]*t[0]+iR[1]*t[1]+iR[2]*t[2])+float(from.width())*value_type(0.5)*from_vs[0];
-        rb.translocation[1] = (iR[3]*t[0]+iR[4]*t[1]+iR[5]*t[2])+float(from.height())*value_type(0.5)*from_vs[1];
-        rb.translocation[2] = (iR[6]*t[0]+iR[7]*t[1]+iR[8]*t[2])+float(from.depth())*value_type(0.5)*from_vs[2];
+        rb.translocation[0] = (iR[0]*t[0]+iR[1]*t[1]+iR[2]*t[2])+value_type(from.width())*value_type(0.5)*from_vs[0];
+        rb.translocation[1] = (iR[3]*t[0]+iR[4]*t[1]+iR[5]*t[2])+value_type(from.height())*value_type(0.5)*from_vs[1];
+        rb.translocation[2] = (iR[6]*t[0]+iR[7]*t[1]+iR[8]*t[2])+value_type(from.depth())*value_type(0.5)*from_vs[2];
         matrix_to_rotation_scaling_affine(R.begin(),rb.rotation,rb.scaling,rb.affine,vdim<dimension>());
         return rb;
     }
