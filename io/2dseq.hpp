@@ -124,8 +124,10 @@ class bruker_2dseq
     tipl::vector<3> vs;
     float orientation[9];
     bool slice_2d = true;
+public:
+    std::string error_msg;
 private:
-    std::string tmp,error_msg;
+    std::string tmp;
     std::wstring wtmp;
 
     bool check_name(const std::string& filename)
