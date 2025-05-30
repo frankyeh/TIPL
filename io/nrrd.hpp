@@ -1,6 +1,6 @@
 #ifndef NRRD_HPP
 #define NRRD_HPP
-#include <map>
+#include <unordered_map>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -9,6 +9,7 @@
 #include "../numerical/basic_op.hpp"
 #include "../numerical/matrix.hpp"
 #include "../utility/shape.hpp"
+#include "../po.hpp"
 
 namespace tipl
 {
@@ -22,10 +23,11 @@ template<typename prog_type = default_prog_type>
 class nrrd
 {
 public:
-    std::map<std::string,std::string> values;
+    std::unordered_map<std::string,std::string> values;
     tipl::matrix<4,4,float> T;
     tipl::vector<3> vs;
     tipl::shape<3> size;
+    int dim4 = 1;
     std::string data_file;
     std::string error_msg;
 public:
@@ -89,8 +91,10 @@ private:
                 error_msg = "data file not found";
                 return false;
             }
-            std::ifstream in(data_file.c_str(),std::ios::binary);
-            if(!read_stream_with_prog(prog,in,&I[0],I.size()*sizeof(typename T::value_type),error_msg))
+            int64_t total_size = I.size()*sizeof(typename T::value_type);
+            std::ifstream in(data_file,std::ios::binary);
+            in.seekg(-total_size,std::ios_base::end);
+            if(!read_stream_with_prog(prog,in,I.data(),total_size,error_msg))
                 return false;
         }
 
@@ -105,27 +109,17 @@ private:
     bool read_as_type(T& I)
     {
         try{
-            if constexpr (std::is_same<as_type,typename T::value_type>::value ||
-                          (!std::is_floating_point<as_type>::value && sizeof(as_type) == sizeof(typename T::value_type)))
-            {
-                T buf(size);
-                if(!read_buffer(buf))
-                {
-                    error_msg = "error reading data file";
-                    return false;
-                }
-                I.swap(buf);
-            }
+            tipl::image<T::dimension,as_type> buf;
+            if constexpr (T::dimension == 3)
+                buf.resize(size);
             else
-            {
-                tipl::image<3,as_type> buf(size);
-                if(!read_buffer(buf))
-                {
-                    error_msg = "error reading image buffer file";
-                    return false;
-                }
+                buf.resize(tipl::shape<4>(size[0],size[1],size[2],dim4));
+            if(!read_buffer(buf))
+                return false;
+            if constexpr (std::is_same<std::remove_reference_t<decltype(I)>,std::remove_reference_t<decltype(buf)>>::value)
+                I.swap(buf);
+            else
                 I = buf;
-            }
         }
         catch(const std::bad_alloc&)
         {
@@ -169,15 +163,19 @@ public:
             return false;
         }
         T.identity();
-        while(std::getline(in,line))
+        data_file = file_name;
+        while(std::getline(in,line) && !line.empty())
         {
+            if (line[0] == '#')
+                continue;
             auto sep = line.find(':');
             if(sep == std::string::npos || line.front() == '#')
                 continue;
             std::string name = line.substr(0,sep);
-            while(line[sep+1] == ' ' && sep+1 < line.length())
+            while((line[sep+1] == ' ' || line[sep+1] == '=' ) && sep+1 < line.length())
                 ++sep;
-            std::istringstream in2(values[name] = line.substr(sep+1));
+            auto v = line.substr(sep+1);
+            std::istringstream in2(values[name] = v);
             if(name == "space directions")
             {
                 read_v3(in2,T[0],T[1],T[2]);
@@ -190,7 +188,12 @@ public:
             if(name == "space origin")
                 read_v3(in2,T[3],T[7],T[11]);
             if(name == "sizes")
-                in2 >> size[0] >> size[1] >> size[2];
+                in2 >> size[0] >> size[1] >> size[2] >> dim4;
+            if(name == "encoding" && v != "raw")
+            {
+                error_msg = "unsupported encoding type: " + v;
+                return false;
+            }
             if(name == "data file")
             {
                 in2 >> data_file;
@@ -215,11 +218,12 @@ public:
     {
         if(!read_image(out))
             return false;
-        if(values["space"].find("right") != std::string::npos)
+        auto space_text = values["space"];
+        if(tipl::contains(space_text,"right"))
             tipl::flip_x(out);
-        if(values["space"].find("anterior") != std::string::npos)
+        if(tipl::contains(space_text,"anterior"))
             tipl::flip_y(out);
-        if(values["space"].find("inferior") != std::string::npos)
+        if(tipl::contains(space_text,"inferior"))
             tipl::flip_z(out);
         return true;
     }
