@@ -8,6 +8,8 @@
 #include <iterator>
 #include <memory>
 #include "../numerical/basic_op.hpp"
+#include "../po.hpp"
+
 
 namespace tipl
 {
@@ -47,9 +49,10 @@ private:
             if(*(sep+1) == '(')
             {
                 std::string accumulated_info;
-                while(std::getline(in,line))
+                while(in && in.peek() != '#')
                 {
-                    if(!line.empty() && (line[0] == '$' || line[0] == '#'))
+                    std::getline(in,line);
+                    if(!line.empty() && line[0] == '$')
                         continue;
                     accumulated_info += line;
                     accumulated_info += " ";
@@ -132,13 +135,7 @@ private:
 
     bool check_name(const std::string& filename)
     {
-        std::string str = filename;
-        if(str.length() < 5)
-            return false;
-        std::string name(str.end()-5,str.end());
-        if(name[0] != '2' || name[1] != 'd' || name[2] != 's' || name[3] != 'e' || name[4] != 'q')
-            return false;
-        return true;
+        return tipl::ends_with(filename,"2dseq");
     }
     const char* load_method(const std::string& filename)
     {
@@ -281,39 +278,23 @@ public:
         // read 2dseq and convert to float
         dim[2] = buffer.size()/word_size/dim[0]/dim[1];
         data.resize(dim);
-        if (info["RECO_wordtype"] == "_8BIT_SGN_INT") {
-            std::transform(buffer.begin(), buffer.begin() + data.size(), data.begin(),
-                           [](char x) { return static_cast<float>(static_cast<int8_t>(x)); });
-        } else if (info["RECO_wordtype"] == "_8BIT_USGN_INT") {
-            std::transform(buffer.begin(), buffer.begin() + data.size(), data.begin(),
-                           [](unsigned char x) { return static_cast<float>(x); });
-        } else if (info["RECO_wordtype"] == "_16BIT_SGN_INT") {
-            const auto* src = reinterpret_cast<const int16_t*>(buffer.data());
-            std::transform(src, src + data.size(), data.begin(),
-                           [](int16_t x) { return static_cast<float>(x); });
-        } else if (info["RECO_wordtype"] == "_16BIT_USGN_INT") {
-            const auto* src = reinterpret_cast<const uint16_t*>(buffer.data());
-            std::transform(src, src + data.size(), data.begin(),
-                           [](uint16_t x) { return static_cast<float>(x); });
-        } else if (info["RECO_wordtype"] == "_32BIT_USGN_INT") {
-            const auto* src = reinterpret_cast<const uint32_t*>(buffer.data());
-            std::transform(src, src + data.size(), data.begin(),
-                           [](uint32_t x) { return static_cast<float>(x); });
-        } else if (info["RECO_wordtype"] == "_32BIT_SGN_INT") {
-            const auto* src = reinterpret_cast<const int32_t*>(buffer.data());
-            std::transform(src, src + data.size(), data.begin(),
-                           [](int32_t x) { return static_cast<float>(x); });
-        } else if (info["RECO_wordtype"] == "_32BIT_FLOAT") {
+        if (info["RECO_wordtype"] == std::string("_8BIT_SGN_INT"))
+            std::copy_n(buffer.begin(), data.size(), data.begin());
+        else if (info["RECO_wordtype"] == std::string("_8BIT_USGN_INT"))
+            std::copy_n(buffer.begin(), data.size(), data.begin());
+        else if (info["RECO_wordtype"] == std::string("_16BIT_SGN_INT"))
+            std::copy_n(reinterpret_cast<const int16_t*>(buffer.data()),data.size(), data.begin());
+        else if (info["RECO_wordtype"] == std::string("_16BIT_USGN_INT"))
+            std::copy_n(reinterpret_cast<const uint16_t*>(buffer.data()),data.size(), data.begin());
+        else if (info["RECO_wordtype"] == std::string("_32BIT_USGN_INT"))
+            std::copy_n(reinterpret_cast<const uint32_t*>(buffer.data()),data.size(), data.begin());
+        else if (info["RECO_wordtype"] == std::string("_32BIT_SGN_INT"))
+            std::copy_n(reinterpret_cast<const int32_t*>(buffer.data()),data.size(), data.begin());
+        else if (info["RECO_wordtype"] == std::string("_32BIT_FLOAT"))
             std::copy_n(reinterpret_cast<const float*>(buffer.data()),data.size(),data.begin());
-        }
 
-        if(!slopes.empty())
+        if(!slopes.empty() && slopes.size() == dim[2])
         {
-            if(slopes.size() != dim[2])
-            {
-                error_msg = "invalid slope count";
-                return false;
-            }
             size_t plane_size = dim.plane_size();
             std::vector<float>::iterator iter = data.begin();
             for(unsigned int z = 0;z < dim[2];++z)
