@@ -254,7 +254,7 @@ public:
         in.seekg(0, std::ifstream::end);
         buffer.resize(in.tellg());
         in.seekg(0, std::ifstream::beg);
-        in.read((char*)&*buffer.begin(),buffer.size());
+        in.read(buffer.data(),buffer.size());
 
         int word_size = 1;
         if (info["RECO_wordtype"].find("16BIT") != std::string::npos)
