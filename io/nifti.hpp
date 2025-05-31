@@ -581,7 +581,7 @@ public:
                 auto data_file = file_name_no_ext;
                 data_file += ".img";
                 input_stream.reset(new input_interface);
-                if(!input_stream->open(data_file.c_str()))
+                if(!input_stream->open(data_file))
                 {
                     error_msg = "Failed to open the img file.";
                     return false;
