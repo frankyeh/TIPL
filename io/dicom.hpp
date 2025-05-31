@@ -655,7 +655,7 @@ public:
             else
             {
                 data.resize(read_length);
-                in.read((char*)&*(data.begin()),read_length);
+                in.read(reinterpret_cast<char*>(data.data()),read_length);
             }
             if(transfer_syntax == bee)
             {
