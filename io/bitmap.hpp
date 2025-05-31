@@ -101,7 +101,7 @@ public:
             return false;
         }
         in.seekg(bmfh.bfOffBits,std::ios::beg);
-        in.read(reinterpret_cast<char*>(&*data.begin()),int64_t(data.size()));
+        in.read(reinterpret_cast<char*>(data.data()),int64_t(data.size()));
         if (!in)
             return false;
         return true;
