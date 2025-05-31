@@ -10,6 +10,7 @@
 #include "../numerical/matrix.hpp"
 #include "../utility/shape.hpp"
 #include "../po.hpp"
+#include "gz_stream.hpp"
 
 namespace tipl
 {
@@ -19,7 +20,7 @@ namespace tipl
 namespace io
 {
 
-template<typename prog_type = default_prog_type>
+template<typename gz_stream_type = void>
 class nrrd
 {
 public:
@@ -33,6 +34,7 @@ public:
 public:
     bool file_series = false;
     size_t from = 0,to = 0,step = 1;
+    size_t header_size = 0;
 private:
     bool read_v3(std::istream& in,float& vx,float& vy,float& vz)   // read (x,y,z)
     {
@@ -59,13 +61,10 @@ private:
     template<typename T>
     bool read_buffer(T& I)
     {       
-        prog_type prog("read image data");
         if(file_series)
         {
             for(size_t index = from,z = 0;index <= to;index += step)
             {
-                if(!prog(z,I.depth()))
-                    break;
                 std::string file_name;
                 file_name.resize(data_file.length()+2);
                 sprintf(&file_name[0],data_file.c_str(),index);
@@ -76,7 +75,7 @@ private:
                     return false;
                 }
                 std::ifstream in(file_name,std::ios::binary);
-                if(!in.read(reinterpret_cast<char*>(&*(I.begin() + I.plane_size()*z)),I.plane_size()*sizeof(typename T::value_type)))
+                if(!in.read(reinterpret_cast<char*>(I.data() + I.plane_size()*z),I.plane_size()*sizeof(typename T::value_type)))
                 {
                     error_msg = "error reading image data ";
                     error_msg += file_name;
@@ -91,13 +90,45 @@ private:
                 error_msg = "data file not found";
                 return false;
             }
-            int64_t total_size = I.size()*sizeof(typename T::value_type);
-            std::ifstream in(data_file,std::ios::binary);
-            in.seekg(-total_size,std::ios_base::end);
-            if(!read_stream_with_prog(prog,in,I.data(),total_size,error_msg))
-                return false;
+            if(values["encoding"] == "raw")
+            {
+                std::ifstream in(data_file,std::ios::binary);
+                in.seekg(header_size,std::ios_base::beg);
+                if(!in.read(reinterpret_cast<char*>(I.data()),I.size()*sizeof(typename T::value_type)))
+                {
+                    error_msg = "error reading image data " + data_file;
+                    return false;
+                }
+                goto check_endian;
+            }
+            if(values["encoding"] == "gzip")
+            {
+                if constexpr(!std::is_void_v<gz_stream_type>)
+                {
+                    std::ifstream in(data_file,std::ios::binary);
+                    in.seekg(0,std::ios_base::end);
+                    std::vector<unsigned char> buf(size_t(in.tellg())-header_size);
+                    in.seekg(header_size,std::ios_base::beg);
+                    if(!in.read(reinterpret_cast<char*>(buf.data()),buf.size()))
+                    {
+                        error_msg = "error reading image data: " + data_file;
+                        return false;
+                    }
+                    gz_stream_type istrm;
+                    istrm.input(std::move(buf));
+                    istrm.output(I.data(),I.size()*sizeof(typename T::value_type));
+                    if(istrm.process() > 1) // != Z_OK(0) or Z_STREAM_END(1)
+                    {
+                        error_msg = "corrupted gzip encoding: " + data_file;
+                        return false;
+                    }
+                    goto check_endian;
+                }
+            }
+            error_msg = "unsupported encoding type: " + values["encoding"];
+            return false;
         }
-
+        check_endian:
         if(values["endian"] == "big")
         {
             for(size_t i = 0;i < I.size();++i)
@@ -149,15 +180,14 @@ private:
 public:
     bool load_from_file(const std::string& file_name)
     {
-        prog_type prog((std::string("opening ")+std::filesystem::path(file_name).filename().u8string()).c_str());
-        std::ifstream in(file_name);
+        std::ifstream in(file_name,std::ios::binary);
         if(!in)
         {
             error_msg = "cannot open file";
             return false;
         }
         std::string line;
-        if(!std::getline(in,line) || line.substr(0,7) != "NRRD000")
+        if(!std::getline(in,line) || !tipl::begins_with(line,"NRRD000"))
         {
             error_msg = "invalid nrrd file format";
             return false;
@@ -166,8 +196,6 @@ public:
         data_file = file_name;
         while(std::getline(in,line) && !line.empty())
         {
-            if (line[0] == '#')
-                continue;
             auto sep = line.find(':');
             if(sep == std::string::npos || line.front() == '#')
                 continue;
@@ -189,11 +217,6 @@ public:
                 read_v3(in2,T[3],T[7],T[11]);
             if(name == "sizes")
                 in2 >> size[0] >> size[1] >> size[2] >> dim4;
-            if(name == "encoding" && v != "raw")
-            {
-                error_msg = "unsupported encoding type: " + v;
-                return false;
-            }
             if(name == "data file")
             {
                 in2 >> data_file;
@@ -205,6 +228,8 @@ public:
                 data_file = std::filesystem::path(file_name).parent_path().u8string() + "/" + data_file;
             }
         }
+        if(data_file == file_name)
+            header_size = in.tellg();
         if(!size.size())
         {
             error_msg = "invalid nrrd header size zero";
@@ -246,19 +271,13 @@ public:
 };
 
 }//io
-
 }//tipl
 
-
-
-
-
-
-
-
-
-
-
-
-
 #endif//NRRD_HPP
+
+#ifdef TIPL_GZ_STREAM_HPP
+namespace tipl{namespace io{
+typedef nrrd<tipl::io::inflate_stream> gz_nrrd;
+}}
+#endif
+
