@@ -930,9 +930,17 @@ public:
             return false;
         }
         const size_t byte_per_pixel = nif_header.bitpix/8;
-        if(byte_per_pixel == 0 || pixel_count == 0)
+        if(byte_per_pixel == 0)
         {
-            error_msg = "invalid pixel count.";
+            error_msg = "invalid bitpix value: " + std::to_string(nif_header.bitpix);
+            return false;
+        }
+        if(pixel_count == 0)
+        {
+            error_msg = "invalid dim value: " +
+                        std::to_string(nif_header.dim[1]) +
+                        std::to_string(nif_header.dim[2]) +
+                        std::to_string(nif_header.dim[3]);
             return false;
         }
         typedef typename std::iterator_traits<pointer_type>::value_type value_type;
