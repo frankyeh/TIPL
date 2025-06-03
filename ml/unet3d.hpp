@@ -241,6 +241,26 @@ public:
         sum = tipl::ml3d::defragment4d(J,0.5f);
         return true;
     }
+    auto get_label(void)
+    {
+        tipl::image<3,unsigned char> I(sum.shape());
+        size_t s = sum.size();
+        for(size_t pos = 0;pos < s;++pos)
+        {
+            if(sum[pos] <= 0.5f)
+                continue;
+            float m = out[pos];
+            unsigned char max_label = 1;
+            for(size_t i = pos+s,label = 2;i < out.size();i += s,++label)
+                if(out[i] > m)
+                {
+                    m = out[i];
+                    max_label = label;
+                }
+            I[pos] = max_label;
+        }
+        return I;
+    }
     template<typename reader>
     static std::shared_ptr<unet3d> load_model(const std::string& file_name)
     {
