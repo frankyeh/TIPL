@@ -1,7 +1,7 @@
 #ifndef UNET3D_HPP
 #define UNET3D_HPP
-#include "../po.hpp"
 #include "cnn3d.hpp"
+#include "../po.hpp"
 #include "../numerical/statistics.hpp"
 #include "../numerical/basic_op.hpp"
 #include "../numerical/transformation.hpp"
@@ -9,6 +9,9 @@
 #include "../numerical/morphology.hpp"
 #include "../filter/gaussian.hpp"
 #include "../io/interface.hpp"
+#include "../utility/basic_image.hpp"
+#include "../utility/shape.hpp"
+#include "../reg/linear.hpp"
 
 
 namespace tipl
@@ -51,7 +54,7 @@ inline void preproc_actions(tipl::image<3>& images,
     tipl::affine_transform<float> arg;
     trans = tipl::transformation_matrix<float,3>(arg,target_dim,target_vs,image_dim,image_vs);
 
-    tipl::adaptive_par_for(in_channel,[&](int c)
+    tipl::par_for(in_channel,[&](int c)
     {
         auto image = images.alias(image_dim.size()*c,image_dim);
         auto target_image = target_images.alias(target_dim.size()*c,target_dim);
@@ -62,10 +65,12 @@ inline void preproc_actions(tipl::image<3>& images,
             tipl::resample(image,target_image,trans);
 
         tipl::normalize(target_image);
-    });
+    },in_channel);
 
     target_images.swap(images);
+    tipl::lower_threshold(images,0.0f);
 }
+
 /*
  * calculate the 3d sum and use it to defragment each frame
  */
@@ -100,6 +105,39 @@ tipl::image<3> defragment4d(image_type& this_image,float prob_threshold)
     });
 
     return sum;
+}
+
+template<typename T,typename U,typename V>
+inline void postproc_actions(T& label_prob,
+                             T& fg_prob,
+                             const U& eval_output,
+                             const V& raw_image_mask,
+                             tipl::transformation_matrix<float,3> trans,
+                             size_t model_out_count,
+                             bool match_resolution,bool match_fov,float prob_threshold)
+{
+    tipl::shape<3> dim_from(eval_output.shape().divide(tipl::shape<3>::z,model_out_count)),
+                   dim_to(raw_image_mask.shape());
+    label_prob.resize(dim_to.multiply(tipl::shape<3>::z,model_out_count));
+    trans.inverse();
+    tipl::par_for(model_out_count,[&](int i)
+    {
+        auto from = eval_output.alias(dim_from.size()*i,dim_from);
+        auto to = label_prob.alias(dim_to.size()*i,dim_to);
+        if(!match_fov && !match_resolution)
+        {
+            auto shift = tipl::vector<3,int>(to.shape())-tipl::vector<3,int>(from.shape());
+            shift[0] /= 2;
+            shift[1] /= 2;
+            tipl::draw(from,to,shift);
+        }
+        else
+            tipl::resample(from,to,trans);
+        tipl::preserve(to.begin(),to.end(),raw_image_mask.begin());
+
+    },model_out_count);
+    auto I = tipl::make_image(label_prob.data(),dim_to.expand(label_prob.depth()/dim_to[2]));
+    fg_prob = tipl::ml3d::defragment4d(I,prob_threshold);
 }
 
 class unet3d : public network {
@@ -213,53 +251,63 @@ public:
         return output->forward(in);
     }
 public:
-    tipl::image<3> out,sum;
+    bool match_resolution = true;
+    bool match_fov = true;
+    float prob_threshold = 0.5f;
+public:
+    tipl::image<3> label_prob,fg_prob;
     template<typename image_type,typename prog_type = tipl::io::default_prog_type>
-    bool forward(const image_type& I,tipl::vector<3> I_vs,prog_type&& prog = prog_type())
+    bool forward(const image_type& raw_image,
+                 const tipl::vector<3>& raw_image_vs,
+                                        prog_type&& prog = prog_type())
     {
-        tipl::affine_transform<float> arg;
-        // align top so that the T1W bottom is trancated
-        arg.translocation[2] = (float(I.depth())*I_vs[2]-float(dim[2])*vs[2])*0.5f;
-        tipl::transformation_matrix<float,3> trans(arg,dim,vs,I.shape(),I_vs);
-        tipl::image<3> input_image(dim);
-        tipl::resample(I,input_image,trans);
-        tipl::normalize(input_image);
-        auto ptr = forward_with_prog(&input_image[0],prog);
+        tipl::transformation_matrix<float,3> trans;
+        tipl::image<3> input_image(raw_image);
+        tipl::ml3d::preproc_actions(input_image,input_image.shape(),raw_image_vs,
+                                        dim,vs,trans,match_resolution,match_fov);
+        auto old_dim = dim;
+        dim = input_image.shape();
+        auto ptr = forward_with_prog(input_image.data(),prog);
+        dim = old_dim;
         if(ptr == nullptr)
             return false;
-        trans.inverse();
-        out.resize(I.shape().multiply(tipl::shape<3>::z,out_channels_));
-        tipl::adaptive_par_for(out_channels_,[&](int i)
-        {
-            auto J = out.alias(I.size()*i,I.shape());
-            tipl::resample(tipl::make_image(ptr+i*dim.size(),dim),J,trans);
-            for(size_t j = 0;j < J.size();++j)
-                if(I[j] == 0)
-                    J[j] = 0.0f;
-        });
-        auto J = tipl::make_image(&out[0],I.shape().expand(out_channels_));
-        sum = tipl::ml3d::defragment4d(J,0.5f);
+        auto evaluate_output = tipl::make_image(ptr,input_image.shape().multiply(tipl::shape<3>::z,out_channels_).divide(tipl::shape<3>::z,in_channels_));
+        postproc_actions(label_prob,fg_prob,
+                         evaluate_output,
+                         raw_image,trans,
+                         out_channels_,
+                         match_resolution,
+                         match_fov,
+                         prob_threshold);
         return true;
     }
-    auto get_label(void)
+    auto get_label(void) const
     {
-        tipl::image<3,unsigned char> I(sum.shape());
-        size_t s = sum.size();
+        tipl::image<3,unsigned char> I(fg_prob.shape());
+        size_t s = fg_prob.size();
         for(size_t pos = 0;pos < s;++pos)
         {
-            if(sum[pos] <= 0.5f)
+            if(fg_prob[pos] <= 0.5f)
                 continue;
-            float m = out[pos];
+            float m = label_prob[pos];
             unsigned char max_label = 1;
-            for(size_t i = pos+s,label = 2;i < out.size();i += s,++label)
-                if(out[i] > m)
+            for(size_t i = pos+s,label = 2;i < label_prob.size();i += s,++label)
+                if(label_prob[i] > m)
                 {
-                    m = out[i];
+                    m = label_prob[i];
                     max_label = label;
                 }
             I[pos] = max_label;
         }
         return I;
+    }
+    auto get_mask(void) const
+    {
+        tipl::image<3> foreground_mask;
+        tipl::threshold(fg_prob,foreground_mask,prob_threshold,1,0);
+        tipl::filter::gaussian(foreground_mask);
+        tipl::normalize(foreground_mask);
+        return foreground_mask;
     }
     template<typename reader>
     static std::shared_ptr<unet3d> load_model(const std::string& file_name)
