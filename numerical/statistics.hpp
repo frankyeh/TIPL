@@ -537,6 +537,26 @@ __INLINE__ double correlation(input_iterator1 x_from,input_iterator1 x_to,
     return correlation(x_from,x_to,y_from,mean(x_from,x_to),mean(y_from,y_from+(x_to-x_from)));
 }
 
+template<typename input_iterator1,typename input_iterator2>
+__INLINE__ double correlation_ygz(input_iterator1 x_from,input_iterator1 x_to,
+                  input_iterator2 y_from)
+{
+    auto s = x_to-x_from;
+    if(!s)
+        return 0.0;
+    std::vector<typename std::iterator_traits<input_iterator1>::value_type> nx(s);
+    std::vector<typename std::iterator_traits<input_iterator2>::value_type> ny(s);
+    size_t pos = 0;
+    for(size_t i = 0;i < s;++i)
+        if(y_from[i] > 0)
+        {
+            nx[pos] = x_from[i];
+            ny[pos] = y_from[i];
+            ++pos;
+        }
+    return tipl::correlation(nx.begin(),nx.begin()+pos,ny.begin());
+}
+
 template<typename T,typename U>
 inline double correlation(const T& x,const U& y)
 {
