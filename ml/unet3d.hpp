@@ -111,13 +111,13 @@ template<typename T,typename U,typename V>
 inline void postproc_actions(T& label_prob,
                              T& fg_prob,
                              const U& eval_output,
-                             const V& raw_image_mask,
+                             const V& raw_image,
                              tipl::transformation_matrix<float,3> trans,
                              size_t model_out_count,
                              bool match_resolution,bool match_fov,float prob_threshold)
 {
     tipl::shape<3> dim_from(eval_output.shape().divide(tipl::shape<3>::z,model_out_count)),
-                   dim_to(raw_image_mask.shape());
+                   dim_to(raw_image.shape());
     label_prob.resize(dim_to.multiply(tipl::shape<3>::z,model_out_count));
     trans.inverse();
     tipl::par_for(model_out_count,[&](int i)
@@ -133,7 +133,7 @@ inline void postproc_actions(T& label_prob,
         }
         else
             tipl::resample(from,to,trans);
-        tipl::preserve(to.begin(),to.end(),raw_image_mask.begin());
+        tipl::preserve(to.begin(),to.end(),raw_image.begin());
 
     },model_out_count);
     auto I = tipl::make_image(label_prob.data(),dim_to.expand(label_prob.depth()/dim_to[2]));
