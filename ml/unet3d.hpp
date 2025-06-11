@@ -264,7 +264,7 @@ public:
         dim = old_dim;
         if(ptr == nullptr)
             return false;
-        auto evaluate_output = tipl::make_image(ptr,dim.multiply(tipl::shape<3>::z,out_channels_).divide(tipl::shape<3>::z,in_channels_));
+        auto evaluate_output = tipl::make_image(ptr,dim.multiply(tipl::shape<3>::z,out_channels_));
         postproc_actions(label_prob,
                          evaluate_output,
                          raw_image,trans,
