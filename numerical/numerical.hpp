@@ -940,8 +940,8 @@ template<typename iterator1,typename iterator2>
 __INLINE__ void preserve(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
     for (; lhs_from != lhs_to; ++lhs_from,++rhs_from)
-        if(*rhs_from == std::iterator_traits<iterator2>::value_type(0))
-            *lhs_from = std::iterator_traits<iterator1>::value_type(0);
+        if(*rhs_from == typename std::iterator_traits<iterator2>::value_type(0))
+            *lhs_from = typename std::iterator_traits<iterator1>::value_type(0);
 }
 //---------------------------------------------------------------------------
 #ifdef __CUDACC__
