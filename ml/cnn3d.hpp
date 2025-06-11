@@ -121,10 +121,10 @@ public:
         size_t plane_size = dim.plane_size();
         size_t image_width = dim.width();
 
-        size_t thread_count = std::thread::hardware_concurrency();
+        size_t thread_count = tipl::max_thread_count;
         size_t thread_plane_size = dim.plane_size()*thread_count;
         // z dimensioni stratified multi-thread
-        tipl::par_for(std::thread::hardware_concurrency(),[=](size_t thread)
+        tipl::par_for(thread_count,[=](size_t thread)
         {
             size_t thread_base = plane_size*thread;
             auto out_ptr = out.data() + thread_base;
@@ -167,7 +167,7 @@ public:
                             }
                 }
             }
-        },std::thread::hardware_concurrency());
+        },thread_count);
         return out.data();
     }
     virtual void print(std::ostream& out) const {out << "conv3d " << in_channels_ << " " << out_channels_ << std::endl;}
