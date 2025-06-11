@@ -37,7 +37,6 @@ inline void preproc_actions(tipl::image<3>& images,
     if(model_dim == image_dim && image_vs == model_vs)
     {
         trans = tipl::transformation_matrix<float,3>();
-        tipl::normalize(images);
         return;
     }
     int in_channel = images.depth()/image_dim[2];
@@ -64,11 +63,8 @@ inline void preproc_actions(tipl::image<3>& images,
         else
             tipl::resample(image,target_image,trans);
 
-        tipl::normalize(target_image);
     },in_channel);
-
     target_images.swap(images);
-    tipl::lower_threshold(images,0.0f);
 }
 
 /*
@@ -263,6 +259,7 @@ public:
     {
         tipl::transformation_matrix<float,3> trans;
         tipl::image<3> input_image(raw_image);
+        tipl::segmentation::normalize_otsu_median(input_image);
         tipl::ml3d::preproc_actions(input_image,input_image.shape(),raw_image_vs,
                                         dim,vs,trans,match_resolution,match_fov);
         auto old_dim = dim;
