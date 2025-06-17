@@ -545,7 +545,7 @@ public:
         handle = gzopen(file_name.c_str(), "wb");
         std::string idx_name(file_name);
         idx_name += ".idx";
-        if(std::ifstream(idx_name,std::ios::binary))
+        if(std::filesystem::exexists(idx_name))
             ::remove(idx_name.c_str());
         return handle;
     }
@@ -587,7 +587,7 @@ public:
         handle = nullptr;
     }
 
-    bool good(void) const   {return gzeof(handle);}
+    bool good(void) const   {return !gzeof(handle);}
     operator bool() const	{return good();}
     bool operator!() const	{return !good();}
 
