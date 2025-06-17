@@ -545,7 +545,7 @@ public:
         handle = gzopen(file_name.c_str(), "wb");
         std::string idx_name(file_name);
         idx_name += ".idx";
-        if(std::filesystem::exexists(idx_name))
+        if(std::filesystem::exists(idx_name))
             ::remove(idx_name.c_str());
         return handle;
     }
