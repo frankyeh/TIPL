@@ -10,6 +10,7 @@
 #include <chrono>
 #include <stdio.h>
 #include <thread>
+#include <filesystem>
 
 #define SPAN 8388608L       /* 8MB as the desired distance between access points */
 #define WINSIZE 32768U      /* sliding window size */
@@ -546,7 +547,7 @@ public:
         std::string idx_name(file_name);
         idx_name += ".idx";
         if(std::filesystem::exists(idx_name))
-            ::remove(idx_name.c_str());
+            std::filesystem::::remove(idx_name);
         return handle;
     }
 
