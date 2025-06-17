@@ -322,21 +322,18 @@ public:
         in.open(file_name,std::ios::binary);
         if(!in)
             return false;
-
+        // check gz
+        {
+            unsigned char magic[2];
+            in.read(reinterpret_cast<char*>(magic), 2);
+            is_gz = (magic[0] == 0x1F && magic[1] == 0x8B);
+        }
         // get file size
         {
             in.seekg(0,std::ios::end);
             file_size = size_t(in.tellg());
             in.clear();
             in.seekg(0,std::ios::beg);
-        }
-
-        {
-            std::string filename = file_name;
-            if (filename.length() > 3 &&
-                filename[filename.length()-3] == '.' &&
-                filename[filename.length()-1] == 'z')
-                is_gz = true;
         }
 
         if(!is_gz)
@@ -532,17 +529,7 @@ public:
 };
 
 class gz_ostream{
-    std::ofstream out;
     gzFile handle;
-    bool is_gz(const std::string& file_name)
-    {
-        std::string filename = file_name;
-        if (filename.length() > 3 &&
-                filename[filename.length()-3] == '.' &&
-                filename[filename.length()-1] == 'z')
-            return true;
-        return false;
-    }
 public:
     gz_ostream(void):handle(nullptr){}
     ~gz_ostream(void)
@@ -552,25 +539,20 @@ public:
 public:
     bool open(const std::string& file_name)
     {
-        if(is_gz(file_name))
-        {
-            handle = gzopen(file_name.c_str(), "wb");
-            std::string idx_name(file_name);
-            idx_name += ".idx";
-            if(std::ifstream(idx_name,std::ios::binary))
-                ::remove(idx_name.c_str());
-            return handle;
-        }
-        out.open(file_name,std::ios::binary);
-        return out.good();
+        handle = gzopen(file_name.c_str(), "wb");
+        std::string idx_name(file_name);
+        idx_name += ".idx";
+        if(std::ifstream(idx_name,std::ios::binary))
+            ::remove(idx_name.c_str());
+        return handle;
     }
 
     bool write(const void* buf_,size_t size)
     {
-        const char* buf = reinterpret_cast<const char*>(buf_);
         if(!handle)
-            return out.write(buf,uint32_t(size)).good();
+            return false;
 
+        const char* buf = reinterpret_cast<const char*>(buf_);
         const size_t block_size = 104857600;// 100mb
         while(size > block_size)
         {
@@ -594,23 +576,15 @@ public:
     {
         if(handle)
             gzflush(handle,Z_FULL_FLUSH);
-        else
-        if(out)
-            out.flush();
     }
 
     void close(void)
     {
-        if(handle)
-        {
-            gzclose(handle);
-            handle = nullptr;
-        }
-        if(out)
-            out.close();
+        gzclose(handle);
+        handle = nullptr;
     }
 
-    bool good(void) const   {return handle ? !gzeof(handle):out.good();}
+    bool good(void) const   {return gzeof(handle);}
     operator bool() const	{return good();}
     bool operator!() const	{return !good();}
 
