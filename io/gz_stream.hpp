@@ -323,6 +323,9 @@ public:
         if(!in)
             return false;
         // check gz
+        if(file_name.back() == 'z')
+            is_gz = true;
+        else
         {
             unsigned char magic[2];
             in.read(reinterpret_cast<char*>(magic), 2);
