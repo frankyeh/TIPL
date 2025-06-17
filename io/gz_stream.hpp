@@ -547,7 +547,7 @@ public:
         std::string idx_name(file_name);
         idx_name += ".idx";
         if(std::filesystem::exists(idx_name))
-            std::filesystem::::remove(idx_name);
+            std::filesystem::remove(idx_name);
         return handle;
     }
 
