@@ -544,10 +544,7 @@ public:
     bool open(const std::string& file_name)
     {
         handle = gzopen(file_name.c_str(), "wb");
-        std::string idx_name(file_name);
-        idx_name += ".idx";
-        if(std::filesystem::exists(idx_name))
-            std::filesystem::remove(idx_name);
+        std::filesystem::remove(file_name + ".idx");
         return handle;
     }
 
