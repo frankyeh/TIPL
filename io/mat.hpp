@@ -680,8 +680,7 @@ public:
     {
         if(!in->open(file_name))
         {
-            error_msg = "cannot open file at ";
-            error_msg += file_name;
+            error_msg = "cannot open file at " + file_name;
             return false;
         }
         dataset.clear();
@@ -700,7 +699,12 @@ public:
                 dataset.push_back(matrix);
             }
         }    
-        return !dataset.empty();
+        if(dataset.empty())
+        {
+            error_msg = "invalid format";
+            return false;
+        }
+        return true;
     }
     void push_back(std::shared_ptr<mat_matrix> mat)
     {
