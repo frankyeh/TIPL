@@ -262,28 +262,28 @@ __INLINE__ void for_each_neighbors(const pixel_index<2>& index,const shape<2>& g
 template<typename T>
 __INLINE__ void for_each_neighbors(const pixel_index<3>& index,const shape<3>& geo,int range,T&& fun)
 {
-    size_t wh = geo.plane_size();
-    size_t fx = (index.x() > range) ? index.x() - range:0;
-    size_t fy = (index.y() > range) ? index.y() - range:0;
-    size_t fz = (index.z() > range) ? index.z() - range:0;
-    size_t tx = std::min<int>(index.x() + range,int(geo.width())-1);
-    size_t ty = std::min<int>(index.y() + range,int(geo.height())-1);
-    size_t tz = std::min<int>(index.z() + range,int(geo.depth())-1);
-    size_t z_index = size_t((fz*size_t(geo.height())+fy)*size_t(geo.width())+fx);
-    size_t radius2 = range*range;
-    for (size_t z = fz;z <= tz;++z,z_index += wh)
+    int64_t wh = geo.plane_size();
+    int fx = (index.x() > range) ? index.x() - range:0;
+    int fy = (index.y() > range) ? index.y() - range:0;
+    int fz = (index.z() > range) ? index.z() - range:0;
+    int tx = std::min<int>(index.x() + range,int(geo.width())-1);
+    int ty = std::min<int>(index.y() + range,int(geo.height())-1);
+    int tz = std::min<int>(index.z() + range,int(geo.depth())-1);
+    int64_t z_index = int64_t((fz*int64_t(geo.height())+fy)*int64_t(geo.width())+fx);
+    int64_t radius2 = range*range;
+    for (int z = fz;z <= tz;++z,z_index += wh)
     {
-        size_t y_index = z_index;
-        size_t dz = size_t(index.z())-z;
-        size_t dz2 = dz*dz;
-        for (size_t y = fy;y <= ty;++y,y_index += geo.width())
+        int64_t y_index = z_index;
+        int64_t dz = int(index.z())-z;
+        int64_t dz2 = dz*dz;
+        for (int y = fy;y <= ty;++y,y_index += geo.width())
         {
-            size_t x_index = y_index;
-            size_t dy = int(index.y())-y;
-            size_t dyz2 = dy*dy+dz2;
-            for (size_t x = fx;x <= tx;++x,++x_index)
+            int64_t x_index = y_index;
+            int64_t dy = int(index.y())-y;
+            int64_t dyz2 = dy*dy+dz2;
+            for (int x = fx;x <= tx;++x,++x_index)
             {
-                size_t dx = size_t(index.x())-x;
+                int64_t dx = int(index.x())-x;
                 if(dx*dx+dyz2 <= radius2)
                     fun(pixel_index<3>(x,y,z,x_index,geo));
             }
