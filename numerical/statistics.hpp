@@ -76,7 +76,7 @@ public:
 
 public:
     // return (mean,variance)
-    std::pair<double,double> get_mean_variance(void)
+    auto get_mean_variance(void)
     {
         double mean = sum;
         mean /= (double)size_;
