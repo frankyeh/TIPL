@@ -876,6 +876,21 @@ public:
         return x_*rhs.x_+y_*rhs.y_+z_*rhs.z_;
     }
 
+    __INLINE__ auto& elem_mul(const vector<3,data_type>& rhs)
+    {
+        x_*=rhs.x_;
+        y_*=rhs.y_;
+        z_*=rhs.z_;
+        return *this;
+    }
+    __INLINE__ auto& elem_div(const vector<3,data_type>& rhs)
+    {
+        x_/=rhs.x_;
+        y_/=rhs.y_;
+        z_/=rhs.z_;
+        return *this;
+    }
+
     template<typename rhs_type>
     __INLINE__ data_type operator*(const vector<3,rhs_type>& rhs) const
     {
