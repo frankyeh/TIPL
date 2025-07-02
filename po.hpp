@@ -54,9 +54,24 @@ inline bool ends_with(const std::string& str,const std::string& suffix)
 {
     return (str.size() >= suffix.size()) ? (0 == str.compare(str.size() - suffix.size(), suffix.size(), suffix)) : false;
 }
+
+inline bool ends_with(const std::string& str, const std::initializer_list<std::string>& suffixes)
+{
+    for (const auto& suffix : suffixes)
+        if(ends_with(str,suffix))
+            return true;
+    return false;
+}
 inline bool begins_with(const std::string& str,const std::string& suffix)
 {
     return (str.size() >= suffix.size()) ? (0 == str.compare(0, suffix.size(), suffix)) : false;
+}
+inline bool begins_with(const std::string& str, const std::initializer_list<std::string>& prefixes)
+{
+    for (const auto& prefix : prefixes)
+        if(begins_with(str,prefix))
+            return true;
+    return false;
 }
 inline bool remove_suffix(std::string& str,const std::string& suffix)
 {
@@ -669,7 +684,7 @@ public:
                     printed[i] = 1;
                     out() << name << "=" << values[i] << std::endl;
                 }
-                return convert_to<value_type>::from(values[i]);
+                return values[i].empty() ? df : convert_to<value_type>::from(values[i]);
             }
         not_found_names.insert(name);
         out() << name << "=" << df << std::endl;
