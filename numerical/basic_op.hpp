@@ -7,6 +7,8 @@
 #include "../utility/pixel_index.hpp"
 #include "../utility/basic_image.hpp"
 #include "../mt.hpp"
+#include <algorithm>
+#include <numeric>
 namespace tipl
 {
 
