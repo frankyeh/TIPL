@@ -253,7 +253,7 @@ bool match_files(const T& file_path1,const T& file_path2,
     {
         if(!match_strings(file_path1,file_path2,file_path1_others,file_path2_gen))
         {
-            if(path1 == path2)
+            if(path2 == path1 && path2 != path1_others)
             {
                 file_path2_gen = (std::filesystem::path(file_path1_others).parent_path()/
                                  std::filesystem::path(file_path2).filename()).u8string();
