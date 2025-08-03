@@ -81,7 +81,7 @@ public:
         if (!bmfh.write(out))
             return false;
         out.write(reinterpret_cast<const char*>(&bmih),sizeof(bitmap_info_header));
-        out.write(reinterpret_cast<const char*>(&*data.begin()),int64_t(data.size()));
+        out.write(reinterpret_cast<const char*>(data.data()),int64_t(data.size()));
         return true;
     }
     bool load_from_file(const std::string& file_name)
@@ -121,7 +121,7 @@ public:
         typename image_type::const_iterator iter = image.begin();
         typename image_type::const_iterator end = image.end();
         int line_width = image.width();
-        tipl::rgb* out_line = (rgb*)&*data.begin() + image.size() - line_width;
+        tipl::rgb* out_line = reinterpret_cast<rgb*>(data.data()) + image.size() - line_width;
         for (;iter != end;iter += line_width,out_line -= line_width)
             std::copy_n(iter,line_width,out_line);
     }
@@ -146,7 +146,7 @@ public:
         case 24:
         {
             unsigned int width = bmih.biWidth;
-            const unsigned char* iter = &*data.begin();
+            const unsigned char* iter = data.data();
             unsigned char r,g,b;
             pixel_type* beg = &*image.begin();
             pixel_type* line = beg + image.size()-width;
