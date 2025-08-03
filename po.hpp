@@ -1,5 +1,7 @@
 #ifndef TIPL_PO_HPP
 #define TIPL_PO_HPP
+#include <algorithm>
+#include <cctype>
 #include <sstream>
 #include <fstream>
 #include <vector>
