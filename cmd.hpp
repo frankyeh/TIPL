@@ -337,9 +337,9 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         typename image_type::buffer_type original_data(data);
         data.resize(tipl::shape<3>(range_max.begin()));
         tipl::draw(original_data,data,range_min);
-        T[3] -= range_min[0];
-        T[7] -= range_min[1];
-        T[11] -= range_min[2];
+        T[3] += range_min[0];
+        T[7] += range_min[1];
+        T[11] += range_min[2];
         return true;
     }
     if(cmd == "transform")
