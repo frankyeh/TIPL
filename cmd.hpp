@@ -333,13 +333,11 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         range_max[0] = std::min<int>(data.width(),range_max[0]+margin[0]);
         range_max[1] = std::min<int>(data.height(),range_max[1]+margin[1]);
         range_max[2] = std::min<int>(data.depth(),range_max[2]+margin[2]);
-        range_max -= range_min;
         typename image_type::buffer_type original_data(data);
-        data.resize(tipl::shape<3>(range_max.begin()));
-        tipl::draw(original_data,data,range_min);
-        T[3] += range_min[0];
-        T[7] += range_min[1];
-        T[11] += range_min[2];
+        tipl::crop(original_data,data,range_min,range_max);
+        T[3] -= range_min[0];
+        T[7] -= range_min[1];
+        T[11] -= range_min[2];
         return true;
     }
     if(cmd == "transform")
