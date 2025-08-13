@@ -257,13 +257,13 @@ public:
     template<typename T>
     T* get_data(const std::vector<size_t>& si2vi,size_t total_size) const
     {
-        if(converted_type == mat_type_info<T>::type &&
-           total_size*sizeof(T)*rows == converted_data_buf.size())
+        size_t buffer_size = total_size*sizeof(T)*rows;
+        if(buffer_size == converted_data_buf.size())
             return reinterpret_cast<T*>(converted_data_buf.data());
         auto ptr = get_data<T>();
         if(!ptr)
             return nullptr;
-        std::vector<unsigned char> sparse_data(total_size*sizeof(T)*rows);
+        std::vector<unsigned char> sparse_data(buffer_size);
         auto sparse_ptr = reinterpret_cast<T*>(sparse_data.data());
         if constexpr(std::is_floating_point_v<T>)
             std::fill(sparse_ptr,sparse_ptr+total_size*rows,T());
