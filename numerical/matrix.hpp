@@ -3200,10 +3200,11 @@ public:
     template<typename T>
     const value_type& operator[](T index) const{return value[index];}
     value_type* begin(void){return value;}
-    const value_type* data(void) const{return value;}
     const value_type* begin(void) const{return value;}
-    value_type* end(void){return value+mat_size;}
+    const value_type* data(void) const{return value;}
+    value_type* data(void) {return value;}
     const value_type* end(void) const{return value+mat_size;}
+    value_type* end(void){return value+mat_size;}
 public:
     const matrix& operator=(identity_matrix)
     {
