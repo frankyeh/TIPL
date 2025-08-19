@@ -351,78 +351,90 @@ void decompose_displacement(const ComposeImageType& v,const ComposeImageType& vx
     }
 }
 //---------------------------------------------------------------------------
-template<typename VectorType,typename DetType>
-void jacobian_determinant(const image<3,VectorType>& src,DetType& dest)
+template<typename mapping_type, typename det_type>
+void jacobian_determinant(const mapping_type& src, det_type& dest)
 {
-    typedef typename DetType::value_type value_type;
-    shape<3> geo(src.shape());
+    auto geo = src.shape();
     dest.resize(geo);
+
+    constexpr int D = decltype(geo)::dimension;
+    static_assert(D == 2 || D == 3, "This function only supports 2D and 3D inputs.");
+
     auto w = src.width();
-    auto wh = src.plane_size();
-    for (tipl::pixel_index<3> index(geo); index < geo.size();++index)
+    size_t wh = 0;
+    // Conditionally get the plane size only for 3D data
+    if constexpr (D == 3)
+        wh = src.plane_size();
+
+    tipl::adaptive_par_for(tipl::begin_index(geo), tipl::end_index(geo),
+                           [&, w, wh](const auto& index)
     {
         if (geo.is_edge(index))
+            return;
+
+        // Columns of the Jacobian matrix, approximated using central differences
+        auto dv_dx = src[index.index() + 1] - src[index.index() - 1];
+        auto dv_dy = src[index.index() + w] - src[index.index() - w];
+
+        if constexpr (D == 3)
         {
-            dest[index.index()] = 1;
-            continue;
+            auto dv_dz = src[index.index() + wh] - src[index.index() - wh];
+            dest[index.index()] = dv_dx[0] * (dv_dy[1] * dv_dz[2] - dv_dy[2] * dv_dz[1]) +
+                                  dv_dx[1] * (dv_dy[2] * dv_dz[0] - dv_dy[0] * dv_dz[2]) +
+                                  dv_dx[2] * (dv_dy[0] * dv_dz[1] - dv_dy[1] * dv_dz[0])*0.125;
         }
-        const VectorType& v1_0 = src[index.index()+1];
-        const VectorType& v1_1 = src[index.index()-1];
-        const VectorType& v2_0 = src[index.index()+w];
-        const VectorType& v2_1 = src[index.index()-w];
-        const VectorType& v3_0 = src[index.index()+wh];
-        const VectorType& v3_1 = src[index.index()-wh];
-
-        value_type d2_0 = v2_0[0] - v2_1[0];
-        value_type d2_1 = v2_0[1] - v2_1[1];
-        value_type d2_2 = v2_0[2] - v2_1[2];
-
-        value_type d3_0 = v3_0[0] - v3_1[0];
-        value_type d3_1 = v3_0[1] - v3_1[1];
-        value_type d3_2 = v3_0[2] - v3_1[2];
-
-        dest[index.index()] = (v1_0[0] - v1_1[0])*(d2_1*d3_2-d2_2*d3_1)+
-                                       (v1_0[1] - v1_1[1])*(d2_2*d3_0-d2_0*d3_2)+
-                                       (v1_0[2] - v1_1[2])*(d2_0*d3_1-d2_1*d3_0);
-    }
+        else // D == 2
+            dest[index.index()] = (dv_dx[0] * dv_dy[1] - dv_dx[1] * dv_dy[0])*0.25;
+    });
 }
-template<typename VectorType>
-double jacobian_determinant_dis_at(const image<3,VectorType>& src,const tipl::pixel_index<3>& index)
+
+template<typename mapping_type>
+inline auto jacobian_determinant(const mapping_type& src)
 {
-    auto w = src.width();
-    auto wh = src.plane_size();
+    using vector_type = typename mapping_type::value_type;
+    using scalar_type = typename vector_type::value_type;
+    tipl::image<mapping_type::dimension, scalar_type> J;
+    jacobian_determinant(src, J);
+    return J;
+}
 
-    const VectorType& v1_0 = src[index.index()+1];
-    const VectorType& v1_1 = src[index.index()-1];
-    const VectorType& v2_0 = src[index.index()+w];
-    const VectorType& v2_1 = src[index.index()-w];
-    const VectorType& v3_0 = src[index.index()+wh];
-    const VectorType& v3_1 = src[index.index()-wh];
+template<typename VectorType>
+double jacobian_determinant_dis_at(const image<3,VectorType>& displacement,const tipl::pixel_index<3>& index)
+{
+    auto w = displacement.width();
+    auto wh = displacement.plane_size();
 
-    double d2_0 = v2_0[0] - v2_1[0];
-    double d2_1 = v2_0[1] - v2_1[1]+1.0;
-    double d2_2 = v2_0[2] - v2_1[2];
+    const auto& v1_0 = displacement[index.index()+1];
+    const auto& v1_1 = displacement[index.index()-1];
+    const auto& v2_0 = displacement[index.index()+w];
+    const auto& v2_1 = displacement[index.index()-w];
+    const auto& v3_0 = displacement[index.index()+wh];
+    const auto& v3_1 = displacement[index.index()-wh];
 
-    double d3_0 = v3_0[0] - v3_1[0];
-    double d3_1 = v3_0[1] - v3_1[1];
-    double d3_2 = v3_0[2] - v3_1[2]+1.0;
+    auto d2_0 = v2_0[0] - v2_1[0];
+    auto d2_1 = v2_0[1] - v2_1[1]+1.0;
+    auto d2_2 = v2_0[2] - v2_1[2];
+
+    auto d3_0 = v3_0[0] - v3_1[0];
+    auto d3_1 = v3_0[1] - v3_1[1];
+    auto d3_2 = v3_0[2] - v3_1[2]+1.0;
 
     return (v1_0[0] - v1_1[0]+1.0)*(d2_1*d3_2-d2_2*d3_1)+
                                    (v1_0[1] - v1_1[1])*(d2_2*d3_0-d2_0*d3_2)+
                                    (v1_0[2] - v1_1[2])*(d2_0*d3_1-d2_1*d3_0);
 }
 template<typename VectorType,typename out_type>
-void jacobian_dis_at(const image<3,VectorType>& src,const tipl::pixel_index<3>& index,out_type* J)
+void jacobian_dis_at(const image<3,VectorType>& displacement,const tipl::pixel_index<3>& index,out_type* J)
 {
-    auto w = src.width();
-    auto wh = src.plane_size();
+    auto w = displacement.width();
+    auto wh = displacement.plane_size();
 
-    VectorType vx = src[index.index()+1];
-    vx -= src[index.index()-1];
-    VectorType vy = src[index.index()+w];
-    vy -= src[index.index()-w];
-    VectorType vz = src[index.index()+wh];
-    vz -= src[index.index()-wh];
+    auto vx = displacement[index.index()+1];
+    vx -= displacement[index.index()-1];
+    auto vy = displacement[index.index()+w];
+    vy -= displacement[index.index()-w];
+    auto vz = displacement[index.index()+wh];
+    vz -= displacement[index.index()-wh];
 
     J[0] = vx[0]*0.5+1.0;
     J[1] = vx[1]*0.5;
@@ -437,9 +449,9 @@ void jacobian_dis_at(const image<3,VectorType>& src,const tipl::pixel_index<3>& 
     J[8] = vz[2]*0.5+1.0;
 }
 template<typename VectorType,typename DetType>
-void jacobian_determinant_dis(const image<3,VectorType>& src,DetType& dest)
+void jacobian_determinant_dis(const image<3,VectorType>& displacement,DetType& dest)
 {
-    shape<3> geo(src.shape());
+    shape<3> geo(displacement.shape());
     dest.resize(geo);
     for (tipl::pixel_index<3> index(geo); index < geo.size();++index)
     {
@@ -448,47 +460,25 @@ void jacobian_determinant_dis(const image<3,VectorType>& src,DetType& dest)
             dest[index.index()] = 1;
             continue;
         }
-        dest[index.index()] = jacobian_determinant_dis_at(src,index);
-    }
-}
-
-//---------------------------------------------------------------------------
-template<typename VectorType,typename PixelType>
-void jacobian_determinant(const image<2,VectorType>& src,image<2,PixelType>& dest)
-{
-    shape<2> geo(src.shape());
-    dest.resize(geo);
-    auto w = src.width();
-    for (tipl::pixel_index<2> index(geo); index < geo.size();++index)
-    {
-        if (geo.is_edge(index))
-        {
-            dest[index.index()] = 1;
-            continue;
-        }
-        const VectorType& v1_0 = src[index.index()+1];
-        const VectorType& v1_1 = src[index.index()-1];
-        const VectorType& v2_0 = src[index.index()+w];
-        const VectorType& v2_1 = src[index.index()-w];
-        dest[index.index()] = (v1_0[0] - v1_1[0])*(v2_0[1] - v2_1[1])-(v1_0[1] - v1_1[1])*(v2_0[0] - v2_1[0]);
+        dest[index.index()] = jacobian_determinant_dis_at(displacement,index);
     }
 }
 
 template<typename VectorType>
-double jacobian_determinant_dis_at(const image<2,VectorType>& src,const tipl::pixel_index<2>& index)
+double jacobian_determinant_dis_at(const image<2,VectorType>& displacement,const tipl::pixel_index<2>& index)
 {
-    auto w = src.width();
-    const VectorType& v1_0 = src[index.index()+1];
-    const VectorType& v1_1 = src[index.index()];
-    const VectorType& v2_0 = src[index.index()+w];
-    const VectorType& v2_1 = src[index.index()];
+    auto w = displacement.width();
+    const VectorType& v1_0 = displacement[index.index()+1];
+    const VectorType& v1_1 = displacement[index.index()];
+    const VectorType& v2_0 = displacement[index.index()+w];
+    const VectorType& v2_1 = displacement[index.index()];
     return (v1_0[0] - v1_1[0]+1.0)*(v2_0[1] - v2_1[1]+1.0)-(v1_0[1] - v1_1[1])*(v2_0[0] - v2_1[0]);
 }
 
 template<typename VectorType,typename PixelType>
-void jacobian_determinant_dis(const image<2,VectorType>& src,image<2,PixelType>& dest)
+void jacobian_determinant_dis(const image<2,VectorType>& displacement,image<2,PixelType>& dest)
 {
-    shape<2> geo(src.shape());
+    shape<2> geo(displacement.shape());
     dest.resize(geo);
     for (tipl::pixel_index<2> index(geo); index < geo.size();++index)
     {
@@ -497,7 +487,7 @@ void jacobian_determinant_dis(const image<2,VectorType>& src,image<2,PixelType>&
             dest[index.index()] = 1;
             continue;
         }
-        dest[index.index()] = jacobian_determinant_dis_at(src,index);
+        dest[index.index()] = jacobian_determinant_dis_at(displacement,index);
     }
 }
 
