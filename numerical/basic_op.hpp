@@ -32,18 +32,34 @@ std::vector<unsigned int> arg_sort(const container_type& data,compare_type comp)
     return idx;
 }
 
-template <typename container_type,typename compare_type>
-std::vector<unsigned int> rank(const container_type& data,compare_type comp)
+template <typename container_type, typename compare_type>
+auto rank(const container_type& data, compare_type comp)
 {
-    std::vector<unsigned int> idx(data.size()),r(data.size());
+    std::vector<unsigned int> idx(data.size());
     std::iota(idx.begin(), idx.end(), 0);
-    std::sort(idx.begin(), idx.end(),
-    [&data,comp](size_t i1, size_t i2)
-    {
-        return comp(data[i1], data[i2]);
-    });
-    for(unsigned int i = 0;i < r.size();++i)
+std::sort(idx.begin(), idx.end(), [&](size_t a,size_t b){ return less(data[a], data[b]); });
+    std::vector<unsigned int> r(data.size());
+    for (unsigned int i = 0; i < r.size(); ++i)
         r[idx[i]] = i;
+    return r;
+}
+template <typename container_type, typename compare_type>
+auto rank_avg_tie(const container_type& data, compare_type comp)
+{
+    std::vector<size_t> idx(data.size());
+    std::iota(idx.begin(), idx.end(), 0);
+    std::sort(idx.begin(), idx.end(), [&](size_t a,size_t b){ return comp(data[a], data[b]); });
+    std::vector<float> r(data.size());
+    for(size_t i=0;i<idx.size();)
+    {
+        size_t j=i+1;
+        while(j<idx.size() && !comp(data[idx[i]],data[idx[j]]) && !comp(data[idx[j]],data[idx[i]]))
+            ++j;
+        float avg = 0.5f*(i + (j-1));              // zero-based average rank; add +1 if you want 1-based
+        for(size_t k=i;k<j;++k)
+            r[idx[k]] = avg;   // write back to original positions
+        i=j;
+    }
     return r;
 }
 
