@@ -107,12 +107,12 @@ tipl::image<3> defragment4d(image_type& this_image,float prob_threshold)
 template<typename T,typename U,typename V>
 inline void postproc_actions(T& label_prob,
                              const U& eval_output,
-                             const V& raw_image,
+                             const V& raw_image_shape,
                              tipl::transformation_matrix<float,3> trans,
                              size_t model_out_count,bool shift)
 {
     tipl::shape<3> dim_from(eval_output.shape().divide(tipl::shape<3>::z,model_out_count)),
-                   dim_to(raw_image.shape());
+                   dim_to(raw_image_shape);
     label_prob.resize(dim_to.multiply(tipl::shape<3>::z,model_out_count));
     trans.inverse();
     tipl::par_for(model_out_count,[&](int i)
@@ -267,7 +267,7 @@ public:
         auto evaluate_output = tipl::make_image(ptr,dim.multiply(tipl::shape<3>::z,out_channels_));
         postproc_actions(label_prob,
                          evaluate_output,
-                         raw_image,trans,
+                         raw_image.shape(),trans,
                          out_channels_,!match_fov && !match_resolution);
         auto label_prob_4d = tipl::make_image(label_prob.data(),raw_image.shape().expand(out_channels_));
         fg_prob = tipl::ml3d::defragment4d(label_prob_4d,prob_threshold);
