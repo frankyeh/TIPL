@@ -312,91 +312,94 @@ inline std::vector<std::string> search_dirs(const std::string& search_path,const
     return results;
 }
 
-template<typename out_type = void,typename error_type = void>
-bool search_filesystem(std::string path,std::vector<std::string>& filenames,bool file = true)
+
+template<typename out_type = void>
+bool search_filesystem(std::string path_str, std::vector<std::string>& filenames, bool file = true)
 {
-    if constexpr(!std::is_void<out_type>::value)
+    filenames.clear();
+    if (path_str.empty())
+        return false;
+
+    // Wildcard matching logic is defined as a local lambda for encapsulation.
+    auto wildcard_match = [](const std::string& pattern, const std::string& text) -> bool
     {
-        if(file)
-            out_type() << "searching file(s) at: " << path;
-        else
-            out_type() << "searching directories at: " << path;
-    }
-    if (path.find('*') == std::string::npos)
-    {
-        if (std::filesystem::exists(path))
+        const char* p = pattern.c_str();
+        const char* t = text.c_str();
+        const char* star_p = nullptr;
+        const char* star_t = nullptr;
+
+        while (*t)
         {
-            filenames.push_back(path);
-            return true;
+            if (*p == '?' || *p == *t) { p++; t++; }
+            else if (*p == '*') { star_p = p++; star_t = t; }
+            else if (star_p) { p = star_p + 1; t = ++star_t; }
+            else return false;
         }
-        else
+        while (*p == '*') p++;
+        return !*p;
+    };
+
+    // 1. Initial path parsing and setup.
+    std::filesystem::path p(path_str);
+    auto first_wildcard = p.end();
+    for (auto it = p.begin(); it != p.end(); ++it)
+    {
+        if (it->string().find_first_of("*?") != std::string::npos)
         {
-            if constexpr(!std::is_void<error_type>::value)
-                error_type() << "file not exist: " << path;
-            return false;
+            first_wildcard = it;
+            break;
         }
     }
 
-    auto search_path = std::filesystem::current_path().u8string();
-    bool no_path = true;
-    if (path.find('/') != std::string::npos)
+    // 2. Handle the case with no wildcards.
+    if (first_wildcard == p.end())
     {
-        no_path = false;
-        search_path = path.substr(0, path.find_last_of('/'));
-        path = path.substr(path.find_last_of('/') + 1);
-        if(search_path.find('*') != std::string::npos)
+        if (std::filesystem::exists(p))
         {
-            std::vector<std::string> dirs;
-            search_filesystem<out_type,error_type>(search_path,dirs,false);
-            bool result = false;
-            for(auto dir : dirs)
-                result |= search_filesystem<out_type,error_type>(dir + "/" + path,filenames);
-            return result;
+            if ((file && std::filesystem::is_regular_file(p)) || (!file && std::filesystem::is_directory(p)))
+                filenames.push_back(std::filesystem::weakly_canonical(p).string());
         }
+        return !filenames.empty();
     }
 
-    try{
-        if(!std::filesystem::exists(search_path) || !std::filesystem::is_directory(search_path))
-        {
-            if constexpr(!std::is_void<error_type>::value)
-                error_type() << "directory not exist: " << search_path;
-            return false;
-        }
-        std::vector<std::string> new_filenames;
+    // 3. Separate the base path from the wildcard patterns.
+    std::filesystem::path base_path;
+    for (auto it = p.begin(); it != first_wildcard; ++it)
+        base_path /= *it;
 
-        for (const auto& entry : std::filesystem::directory_iterator(search_path))
+    std::vector<std::filesystem::path> patterns(first_wildcard, p.end());
+
+    if (base_path.empty())
+        base_path = std::filesystem::current_path();
+    else if (!std::filesystem::exists(base_path) || !std::filesystem::is_directory(base_path))
+        return false;
+
+    std::filesystem::path current_dir = base_path;
+    for(size_t pattern_idx = 0;pattern_idx < patterns.size();++pattern_idx)
+    {
+        const auto& pattern = patterns[pattern_idx].string();
+        bool is_last_pattern = (pattern_idx == patterns.size() - 1);
+
+        if constexpr (!std::is_void<out_type>::value)
+            out_type() << "searching " << std::quoted(pattern) << " in " << std::quoted(current_dir.string());
+        try
         {
-            if (file && !std::filesystem::is_regular_file(entry))
-                continue;
-            if (!file && !std::filesystem::is_directory(entry))
-                continue;
-            if (tipl::match_wildcard(entry.path().filename().u8string(),path))
-                new_filenames.push_back(no_path ? entry.path().filename().u8string() : entry.path().u8string());
+            for (const auto& entry : std::filesystem::directory_iterator(current_dir))
+            {
+                if (!wildcard_match(pattern, entry.path().filename().string())) continue;
+
+                if (is_last_pattern)
+                {
+                    if ((file && entry.is_regular_file()) || (!file && entry.is_directory()))
+                        filenames.push_back(std::filesystem::weakly_canonical(entry.path()).string());
+                }
+                else if (entry.is_directory())
+                    patterns.push_back(entry.path());
+            }
         }
-        if constexpr(!std::is_void<out_type>::value)
-            out_type() << new_filenames.size() << " files matching " << path;
-        std::sort(new_filenames.begin(),new_filenames.end());
-        filenames.insert(filenames.end(),new_filenames.begin(),new_filenames.end());
-    }
-    catch (const std::filesystem::filesystem_error& e)
-    {
-        if constexpr(!std::is_void<error_type>::value)
-            error_type() << e.what();
-        return false;
-    }
-    catch(const std::runtime_error& e)
-    {
-        if constexpr(!std::is_void<error_type>::value)
-            error_type() << e.what();
-        return false;
-    }
-    catch(...)
-    {
-        if constexpr(!std::is_void<error_type>::value)
-            error_type() << "unknown error when searching files";
-        return false;
-    }
-    return true;
+        catch (const std::filesystem::filesystem_error&) { /* Ignore inaccessible directories */ }
+    };
+    return !filenames.empty();
 }
 
 inline std::string complete_suffix(const std::string& file_name)
@@ -676,6 +679,7 @@ public:
     value_type get(const char* name,value_type df)
     {
         std::string str_name(name);
+
         for(size_t i = 0;i < names.size();++i)
             if(names[i] == str_name)
             {
@@ -712,7 +716,7 @@ public:
             else
             {
                 size_t old_size = filenames.size();
-                if(search_filesystem(file_list[index],filenames))
+                if(search_filesystem<out>(file_list[index],filenames))
                     out() << file_list[index] << ": " << filenames.size()-old_size << " file(s) specified." << std::endl;
             }
         }
