@@ -243,6 +243,20 @@ template<typename T>
 bool match_files(const T& file_path1,const T& file_path2,
                  const T& file_path1_others,T& file_path2_gen)
 {
+    #ifdef _WIN32
+    if(file_path1.find('\\') != std::string::npos ||
+       file_path2.find('\\') != std::string::npos ||
+       file_path1_others.find('\\') != std::string::npos)
+    {
+        auto replace_slash = [](auto path)
+        {
+            std::replace(path.begin(), path.end(), '\\', '/');
+            return path;
+        };
+        return match_files(replace_slash(file_path1),replace_slash(file_path2),replace_slash(file_path1_others),file_path2_gen);
+    }
+    #endif
+
     auto name1 = std::filesystem::path(file_path1).filename().u8string();
     auto name2 = std::filesystem::path(file_path2).filename().u8string();
     auto name1_others = std::filesystem::path(file_path1_others).filename().u8string();
