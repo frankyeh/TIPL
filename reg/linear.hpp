@@ -496,27 +496,26 @@ public:
             prog = low_reso_reg.prog;
         }
         if constexpr(!std::is_void<out_type>::value)
-            out_type() << "registration at:" << from_vs << " size:" << from[0].shape();
+            out_type() << "multiresolution registration at:" << from_vs << " size:" << from[0].shape();
         return optimize<cost_type,true>(std::forward<terminated_type>(terminated));
     }
     template<typename cost_type>
     float optimize_mr(bool& is_terminated)
     {
-        return optimize_mr<cost_type>([&](void){return is_terminated;});
+        float cost = optimize_mr<cost_type>([&](void){return is_terminated;});
+        do{
+            if constexpr(!std::is_void<out_type>::value)
+                out_type() << "cost: " << cost;
+            float new_cost = optimize<cost_type>(is_terminated);
+            if(new_cost >= cost)
+                break;
+            cost = new_cost;
+        }while(!is_terminated);
+        return cost;
     }
 };
 
 
-template<typename out_type = void,typename T,typename U>
-inline auto linear_reg(const std::vector<T>& template_image,tipl::vector<T::dimension> template_vs,
-                       const std::vector<U>& subject_image,tipl::vector<T::dimension> subject_vs,
-                       affine_transform<float,T::dimension>& arg_min)
-{
-    auto reg = std::make_shared<linear_reg_param<T::dimension,typename U::value_type,out_type> >(template_image,subject_image,arg_min);
-    reg->from_vs = template_vs;
-    reg->to_vs = subject_vs;
-    return reg;
-}
 
 
 template<typename out_type = void,typename image_type,int dim>
@@ -572,7 +571,7 @@ inline auto make_list(const std::vector<T>& data)
 
 #ifdef __CUDACC__
 #include "../cu.hpp"
-template<bool mr,typename out_type,typename value_type,int dim>
+template<typename out_type = void,bool mr,typename value_type,int dim>
 float optimize_mi_cuda(std::shared_ptr<tipl::reg::linear_reg_param<dim,value_type,out_type> > reg,
                         tipl::reg::cost_type cost_type,
                         bool& terminated)
@@ -587,13 +586,46 @@ float optimize_mi_cuda(std::shared_ptr<tipl::reg::linear_reg_param<dim,value_typ
                 reg->template optimize<tipl::reg::correlation_cuda<dim,tipl::device_vector> >(terminated);
 }
 #else
-template<bool mr,typename out_type,typename value_type,int dim>
+template<typename out_type,bool mr,typename value_type,int dim>
 float optimize_mi_cuda(std::shared_ptr<tipl::reg::linear_reg_param<dim,value_type,out_type> > reg,
-                        tipl::reg::cost_type cost_type,
-                        bool& terminated);
+                       tipl::reg::cost_type cost_type,bool& terminated);
 
 #endif//__CUDACC__
 
+template<typename out_type = void,bool mr,typename T,typename U>
+inline float linear_reg(const std::vector<T>& template_image,tipl::vector<T::dimension> template_vs,
+                        const std::vector<U>& subject_image,tipl::vector<T::dimension> subject_vs,
+                        affine_transform<float,T::dimension>& arg,
+                        const float bound[3][8],
+                        tipl::reg::reg_type reg_type,
+                        tipl::reg::cost_type cost_type,
+                        bool absolute_bound,bool cuda,
+                        bool& terminated)
+{
+    auto reg = std::make_shared<linear_reg_param<T::dimension,typename U::value_type,out_type> >(template_image,subject_image,arg);
+    reg->from_vs = template_vs;
+    reg->to_vs = subject_vs;
+    reg->set_bound(reg_type,bound,absolute_bound);
+    float result = std::numeric_limits<float>::max();
+    if constexpr (tipl::use_cuda && T::dimension == 3)
+    {
+        if(cuda)
+            result = optimize_mi_cuda<out_type,mr>(reg,cost_type,terminated);
+    }
+    if(result == std::numeric_limits<float>::max())
+    {
+        if constexpr (mr)
+            result = (cost_type == tipl::reg::mutual_info ? reg->template optimize_mr<tipl::reg::mutual_information<T::dimension> >(terminated):
+                                                                reg->template optimize_mr<tipl::reg::correlation>(terminated));
+        else
+            result = (cost_type == tipl::reg::mutual_info ? reg->template optimize<tipl::reg::mutual_information<T::dimension> >(terminated):
+                                                        reg->template optimize<tipl::reg::correlation>(terminated));
+    }
+    if constexpr(!std::is_void<out_type>::value)
+        out_type() << "cost: " << arg;
+    return result;
+
+}
 
 
 template<typename out_type,int dim>
@@ -607,21 +639,8 @@ inline float linear_refine(std::vector<tipl::const_pointer_image<dim,unsigned ch
                             tipl::reg::cost_type cost_type = tipl::reg::mutual_info,
                             bool cuda = true)
 {
-    auto reg = tipl::reg::linear_reg<out_type>(from,from_vs,to,to_vs,arg);
-    reg->set_bound(reg_type,tipl::reg::narrow_bound,false);
-    float result = 0;
-    if constexpr (tipl::use_cuda && dim == 3)
-    {
-        if(cuda)
-            result = optimize_mi_cuda<false/*no mr*/,out_type>(reg,cost_type,terminated);
-    }
-    if(!result)
-        result = (cost_type == tipl::reg::mutual_info ? reg->template optimize<tipl::reg::mutual_information<dim> >(terminated):
-
-                                                        reg->template optimize<tipl::reg::correlation>(terminated));
-    if constexpr(!std::is_void<out_type>::value)
-        out_type() << "result: " << arg;
-    return result;
+    return tipl::reg::linear_reg<out_type,false/*no mr*/>(from,from_vs,to,to_vs,arg,
+                                                          tipl::reg::narrow_bound,reg_type,cost_type,false,cuda,terminated);
 }
 
 template<typename out_type,int dim>
@@ -631,7 +650,7 @@ float linear(std::vector<tipl::const_pointer_image<dim,unsigned char> > from,
                              tipl::vector<dim> to_vs,
                               tipl::affine_transform<float,dim>& arg,
                               tipl::reg::reg_type reg_type,
-                              bool& terminated,
+                              bool& terminated = tipl::prog_aborted,
                               const float bound[3][8] = tipl::reg::reg_bound,
                               tipl::reg::cost_type cost_type = tipl::reg::mutual_info,
                               bool cuda = true)
@@ -665,47 +684,10 @@ float linear(std::vector<tipl::const_pointer_image<dim,unsigned char> > from,
             arg = tipl::transformation_matrix<float,dim>(surrogate_arg,from[0],from_vs,to[0],new_to_vs).to_affine_transform(from[0],from_vs,to[0],to_vs);
         });
     }
-    float result = std::numeric_limits<float>::max();
-
-    auto reg = tipl::reg::linear_reg<out_type>(from,from_vs,to,new_to_vs,(new_to_vs == to_vs) ? arg : surrogate_arg);
-    reg->set_bound(reg_type,bound);
-
-    if constexpr (tipl::use_cuda && dim == 3)
-    {
-        if(cuda)
-        {
-            do{
-                auto cost = (result == std::numeric_limits<float>::max()) ?
-                        optimize_mi_cuda<true/*has mr*/,out_type>(reg,cost_type,terminated):
-                        optimize_mi_cuda<false/*no mr*/,out_type>(reg,cost_type,terminated);
-                if constexpr(!std::is_void<out_type>::value)
-                    out_type() << "result cost: " << cost;
-                if(cost >= result)
-                    break;
-                result = cost;
-            }while(1);
-        }
-    }
-    if(result == std::numeric_limits<float>::max())
-    {
-        do{
-            auto cost =
-                    (result == std::numeric_limits<float>::max()) ?
-                    (cost_type == tipl::reg::mutual_info ? reg->template optimize_mr<tipl::reg::mutual_information<dim> >(terminated):
-                                                           reg->template optimize_mr<tipl::reg::correlation>(terminated))
-                    :
-                    (cost_type == tipl::reg::mutual_info ? reg->template optimize<tipl::reg::mutual_information<dim> >(terminated):
-                                                           reg->template optimize<tipl::reg::correlation>(terminated));
-
-            if constexpr(!std::is_void<out_type>::value)
-                out_type() << "result cost: " << cost;
-            if(cost >= result)
-                break;
-            result = cost;
-        }while(1);
-    }
-
-    result = linear_refine<out_type>(from,from_vs,to,new_to_vs,(new_to_vs == to_vs) ? arg : surrogate_arg,reg_type,terminated,cost_type,use_cuda);
+    tipl::reg::linear_reg<out_type,true/* mr*/>(from,from_vs,to,new_to_vs,(new_to_vs == to_vs) ? arg : surrogate_arg,
+                                                bound,reg_type,cost_type,true /*absolute bound*/,cuda,terminated);
+    float result = tipl::reg::linear_reg<out_type,false/* mr*/>(from,from_vs,to,new_to_vs,(new_to_vs == to_vs) ? arg : surrogate_arg,
+                                                tipl::reg::narrow_bound,reg_type,cost_type,false/*no absolute bound*/,cuda,terminated);
     end = true;
     if(update_arg.get())
         update_arg->join();
@@ -717,7 +699,7 @@ auto linear(std::vector<tipl::const_pointer_image<dim,unsigned char> > from,
                                           std::vector<tipl::const_pointer_image<dim,unsigned char> > to,
                                           tipl::vector<dim> to_vs,
                                           tipl::reg::reg_type reg_type,
-                                          bool& terminated,
+                                          bool& terminated = tipl::prog_aborted,
                                           const float bound[3][8] = tipl::reg::reg_bound,
                                           tipl::reg::cost_type cost_type = tipl::reg::mutual_info,
                                           bool use_cuda = true)
