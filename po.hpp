@@ -330,10 +330,9 @@ inline std::vector<std::string> search_dirs(const std::string& search_path,const
 template<typename out_type = void>
 bool search_filesystem(std::string path_str, std::vector<std::string>& filenames, bool file = true)
 {
-    filenames.clear();
     if (path_str.empty())
         return false;
-
+    bool found = false;
     // Wildcard matching logic is defined as a local lambda for encapsulation.
     auto wildcard_match = [](const std::string& pattern, const std::string& text) -> bool
     {
@@ -371,9 +370,12 @@ bool search_filesystem(std::string path_str, std::vector<std::string>& filenames
         if (std::filesystem::exists(p))
         {
             if ((file && std::filesystem::is_regular_file(p)) || (!file && std::filesystem::is_directory(p)))
+            {
                 filenames.push_back(std::filesystem::weakly_canonical(p).string());
+                found = true;
+            }
         }
-        return !filenames.empty();
+        return found;
     }
 
     // 3. Separate the base path from the wildcard patterns.
@@ -405,7 +407,10 @@ bool search_filesystem(std::string path_str, std::vector<std::string>& filenames
                 if (is_last_pattern)
                 {
                     if ((file && entry.is_regular_file()) || (!file && entry.is_directory()))
+                    {
                         filenames.push_back(std::filesystem::weakly_canonical(entry.path()).string());
+                        found = true;
+                    }
                 }
                 else if (entry.is_directory())
                     patterns.push_back(entry.path());
@@ -413,7 +418,7 @@ bool search_filesystem(std::string path_str, std::vector<std::string>& filenames
         }
         catch (const std::filesystem::filesystem_error&) { /* Ignore inaccessible directories */ }
     };
-    return !filenames.empty();
+    return found;
 }
 
 inline std::string complete_suffix(const std::string& file_name)
@@ -731,7 +736,9 @@ public:
             {
                 size_t old_size = filenames.size();
                 if(search_filesystem<out>(file_list[index],filenames))
-                    out() << file_list[index] << ": " << filenames.size()-old_size << " file(s) specified." << std::endl;
+                    out() << file_list[index] << ": " << filenames.size()-old_size << " file(s) specified by " << file_list[index];
+                else
+                    out() << "could not find files matching " << file_list[index];
             }
         }
         return true;
