@@ -669,11 +669,6 @@ public:
     }
 
     template<int dim>
-    void get(tipl::vector<dim,float>& pixel_size_from) const
-    {
-        get_voxel_size(pixel_size_from);
-    }
-    template<int dim>
     void get_voxel_size(tipl::vector<dim,float>& pixel_size_from) const
     {
         std::copy_n(nif_header.pixdim+1,dim,pixel_size_from.begin());
@@ -684,13 +679,6 @@ public:
         tipl::vector<dim,float> vs;
         std::copy_n(nif_header.pixdim+1,dim,vs.begin());
         return vs;
-    }
-
-
-    template<typename T>
-    void get(tipl::matrix<4,4,T>& R)
-    {
-        get_image_transformation(R);
     }
     void get_image_orientation(float* R)
     {
@@ -750,11 +738,6 @@ public:
         set_voxel_size(tipl::vector<3>(1.0f,1.0f,1.0f));
     }
 public:
-    template<int d>
-    void get(shape<d>& geo) const
-    {
-        get_image_dimension(geo);
-    }
     template<int d>
     void get_image_dimension(shape<d>& geo) const
     {
@@ -1071,6 +1054,31 @@ public:
     {
         return toLPS(out);
     }
+private:
+    template<int dim,typename T>
+    bool read(tipl::image<dim,T>& out)
+    {
+        return toLPS(out);
+    }
+    template<int dim>
+    bool read(tipl::vector<dim,float>& pixel_size_from) const
+    {
+        get_voxel_size(pixel_size_from);
+        return true;
+    }
+    template<typename T>
+    bool read(tipl::matrix<4,4,T>& R)
+    {
+        get_image_transformation(R);
+        return true;
+    }
+    template<int d>
+    bool read(shape<d>& geo) const
+    {
+        get_image_dimension(geo);
+        return true;
+    }
+public:
     template<typename T>
     bool operator>>(T&& source)
     {
@@ -1078,15 +1086,16 @@ public:
         if constexpr (is_tuple<U>::value)
         {
             auto&& t = std::forward<T>(source);
+            bool result = true;
             if constexpr (std::tuple_size_v<U> > 0)
-                get(std::get<0>(t));
+                result &= read(std::get<0>(t));
             if constexpr (std::tuple_size_v<U> > 1)
-                get(std::get<1>(t));
+                result &= read(std::get<1>(t));
             if constexpr (std::tuple_size_v<U> > 2)
-                get(std::get<2>(t));
+                result &= read(std::get<2>(t));
             if constexpr (std::tuple_size_v<U> > 3)
-                get(std::get<3>(t));
-            return true;
+                result &= read(std::get<3>(t));
+            return result;
         }
         else
             return toLPS(std::forward<T>(source));
@@ -1242,11 +1251,6 @@ public:
                 nif_header.srow_z[2] = -nif_header.srow_z[2];
             }
         }
-    }
-    template<int dim,typename T>
-    bool get(tipl::image<dim,T>& out)
-    {
-        return toLPS(out);
     }
     template<typename image_type>
     bool toLPS(image_type& out)
