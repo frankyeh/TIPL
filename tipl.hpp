@@ -9,11 +9,14 @@ TIPL library is shared under one of the following licenses
 */
 
 #include "def.hpp"
+#include "cmd.hpp"
+#include "prog.hpp"
+#include "po.hpp"
+
 
 #include "utility/basic_image.hpp"
 #include "utility/pixel_index.hpp"
 #include "utility/rgb_image.hpp"
-
 
 
 #include "numerical/transformation.hpp"
@@ -51,11 +54,6 @@ TIPL library is shared under one of the following licenses
 #include "reg/linear.hpp"
 #include "reg/cdm.hpp"
 #include "reg/bfnorm.hpp"
-
-#include "cmd.hpp"
-#include "prog.hpp"
-#include "po.hpp"
-
 
 #include "ml/utility.hpp"
 #include "ml/nb.hpp"
