@@ -751,6 +751,11 @@ public:
     }
 public:
     template<int d>
+    void get(shape<d>& geo) const
+    {
+        get_image_dimension(geo);
+    }
+    template<int d>
     void get_image_dimension(shape<d>& geo) const
     {
         std::copy_n(nif_header.dim+1,d,geo.begin());
@@ -1073,7 +1078,8 @@ public:
         if constexpr (is_tuple<U>::value)
         {
             auto&& t = std::forward<T>(source); // bind once; ok for lvalue or rvalue
-            toLPS(std::get<0>(t));
+            if constexpr (std::tuple_size_v<U> > 0)
+                get(std::get<0>(t));
             if constexpr (std::tuple_size_v<U> > 1)
                 get(std::get<1>(t));
             if constexpr (std::tuple_size_v<U> > 2)
@@ -1236,6 +1242,11 @@ public:
                 nif_header.srow_z[2] = -nif_header.srow_z[2];
             }
         }
+    }
+    template<int dim,typename T>
+    bool get(tipl::image<dim,T>& out)
+    {
+        return toLPS(out);
     }
     template<typename image_type>
     bool toLPS(image_type& out)
