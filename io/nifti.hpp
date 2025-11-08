@@ -1074,10 +1074,10 @@ public:
     template<typename T>
     bool operator>>(T&& source)
     {
-        using U = std::decay_t<T>; // strip ref/const so temporaries & const tuples work
+        using U = std::decay_t<T>;
         if constexpr (is_tuple<U>::value)
         {
-            auto&& t = std::forward<T>(source); // bind once; ok for lvalue or rvalue
+            auto&& t = std::forward<T>(source);
             if constexpr (std::tuple_size_v<U> > 0)
                 get(std::get<0>(t));
             if constexpr (std::tuple_size_v<U> > 1)
