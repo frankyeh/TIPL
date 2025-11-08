@@ -38,6 +38,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "../numerical/basic_op.hpp"
 #include "../numerical/numerical.hpp"
 #include "../numerical/resampling.hpp"
+#include "../prog.hpp"
 
 namespace tipl
 {
@@ -331,6 +332,7 @@ public:
         struct nifti_1_header nif_header;
     };
     bool is_nii; // backward compatibility to ANALYE 7.5
+    tipl::progress* cur_prog = nullptr;
     mutable std::string error_msg;
 public:
     std::shared_ptr<input_interface> input_stream;
@@ -667,6 +669,11 @@ public:
     }
 
     template<int dim>
+    void get(tipl::vector<dim,float>& pixel_size_from) const
+    {
+        get_voxel_size(pixel_size_from);
+    }
+    template<int dim>
     void get_voxel_size(tipl::vector<dim,float>& pixel_size_from) const
     {
         std::copy_n(nif_header.pixdim+1,dim,pixel_size_from.begin());
@@ -679,21 +686,27 @@ public:
         return vs;
     }
 
-    template<typename float_type>
-    void get_image_orientation(float_type R)
+
+    template<typename T>
+    void get(tipl::matrix<4,4,T>& R)
+    {
+        get_image_transformation(R);
+    }
+    void get_image_orientation(float* R)
     {
         handle_qform();
         std::copy_n(nif_header.srow_x,3,R);
         std::copy_n(nif_header.srow_y,3,R+3);
         std::copy_n(nif_header.srow_z,3,R+6);
     }
-    template<typename matrix_type>
-    void get_image_transformation(matrix_type& R)
+    template<typename T>
+    void get_image_transformation(tipl::matrix<4,4,T>& R)
     {
         handle_qform();
         R.identity();
         std::copy_n(nif_header.srow_x,12,R.begin());
     }
+
     bool is_mni(void) const
     {
         return nif_header.sform_code >= 4 &&
@@ -1013,8 +1026,8 @@ public:
             return true;
         }
     }
-    template<typename image_type,typename prog_type = tipl::io::default_prog_type>
-    bool get_untouched_image(image_type& out,prog_type&& prog = prog_type()) const
+    template<typename image_type>
+    bool get_untouched_image(image_type& out) const
     {
         try{
             if(untouched_dim.empty())
@@ -1027,8 +1040,17 @@ public:
             error_msg = "insufficient memory";
             return false;
         }
-        if(!save_to_buffer(out.begin(),out.size(),prog))
-            return false;
+        if(cur_prog)
+        {
+            if(!save_to_buffer(out.begin(),out.size(),*cur_prog))
+                return false;
+        }
+        else
+        {
+            tipl::io::default_prog_type prog;
+            if(!save_to_buffer(out.begin(),out.size(),prog))
+                return false;
+        }
         if(nif_header.scl_slope != 0)
         {
             if(nif_header.scl_slope != 1.0f)
@@ -1044,11 +1066,26 @@ public:
     {
         return toLPS(out);
     }
-    template<typename image_type>
-    bool operator>>(image_type& source)
+    template<typename T>
+    bool operator>>(T&& source)
     {
-        return toLPS(source);
+        using U = std::decay_t<T>; // strip ref/const so temporaries & const tuples work
+        if constexpr (is_tuple<U>::value)
+        {
+            auto&& t = std::forward<T>(source); // bind once; ok for lvalue or rvalue
+            toLPS(std::get<0>(t));
+            if constexpr (std::tuple_size_v<U> > 1)
+                get(std::get<1>(t));
+            if constexpr (std::tuple_size_v<U> > 2)
+                get(std::get<2>(t));
+            if constexpr (std::tuple_size_v<U> > 3)
+                get(std::get<3>(t));
+            return true;
+        }
+        else
+            return toLPS(std::forward<T>(source));
     }
+
     template<typename image_type>
     const image_type& operator<<(const image_type& source)
     {
@@ -1200,12 +1237,12 @@ public:
             }
         }
     }
-    template<typename image_type,typename prog_type = tipl::io::default_prog_type>
-    bool toLPS(image_type& out,prog_type&& prog = prog_type())
+    template<typename image_type>
+    bool toLPS(image_type& out)
     {
         if(!write_buf)
         {
-            if(!get_untouched_image(out,prog))
+            if(!get_untouched_image(out))
                 return false;
         }
         if(flip_swap_seq.empty())
