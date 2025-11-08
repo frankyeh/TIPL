@@ -2,6 +2,9 @@
 #ifndef basic_imageH
 #define basic_imageH
 #include <vector>
+#include <tuple>
+#include <type_traits>
+
 #include "../def.hpp"
 #include "shape.hpp"
 
@@ -9,7 +12,8 @@
 namespace tipl
 {
 
-
+template<typename T> struct is_tuple : std::false_type {};
+template<typename... Ts> struct is_tuple<std::tuple<Ts...>> : std::true_type {};
 template<typename vtype>
 class pointer_container
 {
