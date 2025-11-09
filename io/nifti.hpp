@@ -949,8 +949,7 @@ public:
             return false;
         }
         out.write(reinterpret_cast<const char*>(&nif_header), sizeof(nifti_1_header));
-        int32_t padding = 0;
-        out.write(reinterpret_cast<const char*>(&padding), sizeof(padding));
+        out.write(std::array<char,sizeof(int32_t)>().data(), sizeof(int32_t));
         if(!save_stream_with_prog(prog,out,write_buf,write_size,error_msg))
         {
             out.close();
