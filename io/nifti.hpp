@@ -629,7 +629,6 @@ public:
         std::copy(geo.begin(),geo.end(),nif_header.dim+1);
         nif_header.dim[0] = shape_type::dimension;
     }
-
     template<int dim>
     void set_voxel_size(const tipl::vector<dim,float>& pixel_size_from)
     {
@@ -645,6 +644,7 @@ public:
             nif_header.srow_z[2] = pixel_size_from[2];
         }
     }
+
     template<typename matrix_type>
     void set_image_transformation(matrix_type& R,bool mni = false)
     {
@@ -856,9 +856,51 @@ public:
         tipl::resample(I_,I,tipl::from_space(space_to).to(space_from));
         return true;
     }
-    template<typename image_type,typename vs_type,typename srow_type,typename prog_type = default_prog_type>
+private:
+    void write(const std::string& des)
+    {
+        set_descrip(des.c_str());
+    }
+    template<int dim>
+    void write(const tipl::vector<dim,float>& pixel_size_from)
+    {
+        set_voxel_size(pixel_size_from);
+    }
+    void write(const tipl::matrix<4,4>& R)
+    {
+        set_image_transformation(R);
+    }
+    template<int dim, typename vtype, template<typename...> class stype>
+    void write(const tipl::image<dim, vtype, stype>& in)
+    {
+        load_from_image(in);
+    }
+    void write(bool is_mni)
+    {
+        nif_header.sform_code = is_mni ? 4:1;
+    }
+public:
+    template<typename prog_type = default_prog_type,typename T>
+    static bool save_to_file(const std::string& file_name,const T& s)
+    {
+        nifti_base nii;
+        using U = std::decay_t<T>;
+        if constexpr (is_tuple<U>::value)
+        {
+            if constexpr (std::tuple_size_v<U> > 0)
+                nii.write(std::get<0>(s));
+            if constexpr (std::tuple_size_v<U> > 1)
+                nii.write(std::get<1>(s));
+            if constexpr (std::tuple_size_v<U> > 2)
+                nii.write(std::get<2>(s));
+            if constexpr (std::tuple_size_v<U> > 3)
+                nii.write(std::get<3>(s));
+        }
+        return nii.save_to_file(file_name,std::move(prog_type("save " + file_name)));
+    }
+    template<typename prog_type = default_prog_type,typename image_type,typename vs_type,typename srow_type>
     static bool save_to_file(const std::string& file_name,const image_type& I,const vs_type& vs,const srow_type& T,
-                             bool is_mni_152 = false,const char* descript = nullptr,prog_type&& prog = prog_type())
+                             bool is_mni_152 = false,const char* descript = nullptr)
     {
         nifti_base nii;
         nii.set_voxel_size(vs);
@@ -866,13 +908,7 @@ public:
         nii.load_from_image(I);
         if(descript)
             nii.set_descrip(descript);
-        return nii.save_to_file(file_name,std::forward<prog_type>(prog));
-    }
-    template<typename image_type,typename vs_type,typename srow_type,typename prog_type = default_prog_type>
-    inline static bool save_to_file(const std::string& file_name,const image_type& I,const srow_type& T,
-                             bool is_mni_152 = false,const char* descript = nullptr,prog_type&& prog = prog_type())
-    {
-        return save_to_file(file_name,I,tipl::to_vs(T),T,is_mni_152,descript,std::forward<prog_type>(prog));
+        return nii.save_to_file(file_name,std::move(prog_type("save " + file_name)));
     }
     template<typename prog_type = default_prog_type>
     bool save_to_file(const std::string& file_name,prog_type&& prog = prog_type())
