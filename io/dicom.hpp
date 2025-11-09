@@ -36,6 +36,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <memory>
 #include <locale>
 #include "../numerical/basic_op.hpp"
+#include "../numerical/numerical.hpp"
 //---------------------------------------------------------------------------
 namespace tipl
 {
@@ -1719,12 +1720,44 @@ public:
             save_to_buffer(out.begin(),(unsigned int)out.size());
         }
     }
-
-    template<typename image_type>
-    image_type& operator>>(image_type& source) const
+private:
+    template<int dim, typename vtype, template<typename...> class stype>
+    void read(tipl::image<dim, vtype, stype>& out)
     {
-        save_to_image(source);
-        return source;
+        save_to_image(out);
+    }
+    template<int dim>
+    void read(tipl::vector<dim,float>& pixel_size_from) const
+    {
+        get_voxel_size(pixel_size_from);
+    }
+    template<int d>
+    void read(shape<d>& geo) const
+    {
+        get_image_dimension(geo);
+    }
+
+    void read(std::string& info) const
+    {
+        *this >> info;
+    }
+public:
+    template<typename T>
+    void operator>>(T&& source)
+    {
+        using U = std::decay_t<T>;
+        if constexpr (is_tuple<U>::value)
+        {
+            auto&& t = std::forward<T>(source);
+            if constexpr (std::tuple_size_v<U> > 0)
+                read(std::get<0>(t));
+            if constexpr (std::tuple_size_v<U> > 1)
+                read(std::get<1>(t));
+            if constexpr (std::tuple_size_v<U> > 2)
+                read(std::get<2>(t));
+        }
+        else
+            save_to_image(std::forward<T>(source));
     }
     template<typename image_type>
     image_type& operator<<(const image_type& source)
