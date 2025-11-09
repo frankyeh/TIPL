@@ -1137,6 +1137,11 @@ private:
         get_image_dimension(geo);
         return true;
     }
+    bool read(bool& is_mni_) const
+    {
+        is_mni_ = is_mni();
+        return true;
+    }
 public:
     template<typename T>
     bool operator>>(T&& source)
