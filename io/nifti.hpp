@@ -1055,8 +1055,8 @@ public:
         return toLPS(out);
     }
 private:
-    template<int dim,typename T>
-    bool read(tipl::image<dim,T>& out)
+    template<int dim, typename vtype, template<typename...> class stype>
+    bool read(tipl::image<dim, vtype, stype>& out)
     {
         return toLPS(out);
     }
