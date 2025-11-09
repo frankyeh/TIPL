@@ -17,6 +17,12 @@ struct default_prog_type{
     bool aborted(void){return false;}
 };
 
+struct default_error_type{
+    default_error_type(void){}
+    template<typename T>
+    void operator<<(T){return;}
+};
+
 template<typename prog_type,typename stream_type,typename ptr_type>
 bool read_stream_with_prog(prog_type& prog,
                            stream_type& in,
