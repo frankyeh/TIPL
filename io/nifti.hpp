@@ -880,8 +880,11 @@ private:
         nif_header.sform_code = is_mni ? 4:1;
     }
 public:
-    template<typename prog_type = default_prog_type,typename error_type = default_error_type,typename T>
-    static bool save_to_file(const std::string& file_name,const T& s)
+    template<typename prog_type = default_prog_type,typename error_type = default_error_type,
+             typename E = std::function<void(const std::string&)>,typename T>
+    static bool save_to_file(const std::string& file_name,
+                             const T& s,
+                             E error_handle = [](const std::string& error_msg){error_type() << error_msg;})
     {
         nifti_base nii;
         using U = std::decay_t<T>;
@@ -900,7 +903,7 @@ public:
         }
         if(!nii.save_to_file<prog_type>(file_name))
         {
-            error_type() << nii.error_msg;
+            error_handle(nii.error_msg);
             return false;
         }
         return true;
