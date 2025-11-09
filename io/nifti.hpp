@@ -880,7 +880,7 @@ private:
         nif_header.sform_code = is_mni ? 4:1;
     }
 public:
-    template<typename prog_type = default_prog_type,typename T>
+    template<typename prog_type = default_prog_type,typename error_type = default_error_type,typename T>
     static bool save_to_file(const std::string& file_name,const T& s)
     {
         nifti_base nii;
@@ -895,27 +895,35 @@ public:
                 nii.write(std::get<2>(s));
             if constexpr (std::tuple_size_v<U> > 3)
                 nii.write(std::get<3>(s));
+            if constexpr (std::tuple_size_v<U> > 4)
+                nii.write(std::get<4>(s));
         }
-        return nii.save_to_file(file_name,std::move(prog_type("save " + file_name)));
+        if(!nii.save_to_file<prog_type>(file_name))
+        {
+            error_type() << nii.error_msg;
+            return false;
+        }
+        return true;
     }
-    template<typename prog_type = default_prog_type,typename image_type,typename vs_type,typename srow_type>
-    static bool save_to_file(const std::string& file_name,const image_type& I,const vs_type& vs,const srow_type& T,
-                             bool is_mni_152 = false,const char* descript = nullptr)
+    template<typename prog_type = default_prog_type,typename error_type = default_error_type,
+             typename image_type,typename vs_type,typename srow_type>
+    static inline bool save_to_file(const std::string& file_name,const image_type& I,const vs_type& vs,const srow_type& T,
+                             bool is_mni_152 = false,const char* desc = nullptr)
     {
-        nifti_base nii;
-        nii.set_voxel_size(vs);
-        nii.set_image_transformation(T,is_mni_152);
-        nii.load_from_image(I);
-        if(descript)
-            nii.set_descrip(descript);
-        return nii.save_to_file(file_name,std::move(prog_type("save " + file_name)));
+        if(desc)
+        {
+            std::string s(desc);
+            return save_to_file<prog_type,error_type>(file_name,std::tie(I,vs,T,is_mni_152,s));
+        }
+        return save_to_file<prog_type,error_type>(file_name,std::tie(I,vs,T,is_mni_152));
     }
     template<typename prog_type = default_prog_type>
-    bool save_to_file(const std::string& file_name,prog_type&& prog = prog_type())
+    bool save_to_file(const std::string& file_name)
     {
+        prog_type prog("save " + file_name);
         if(!write_buf)
         {
-            error_msg = "no image data for saving";
+            error_msg = "no image data to save to " + file_name;
             return false;
         }
         if (!is_nii)// is the header from the analyze format?
@@ -930,21 +938,33 @@ public:
             nif_header.magic[3] = 0;
         }
         output_interface out;
-        if(!out.open(file_name))
+        auto tmp_name = (file_name.back() == 'z' ? file_name + ".tmp.gz" : file_name + ".tmp");
+        if(!out.open(tmp_name))
         {
-            error_msg = "Could not open the file ";
-            error_msg += file_name;
-            error_msg += ". Please check if the file path is correct and you have the necessary permissions to write to this file.";
+            error_msg = "could not write image data to " + tmp_name +
+                        " please check file path and access permissions.";
             return false;
         }
-        out.write((const char*)&nif_header,sizeof(nif_header));
-        int padding = 0;
-        out.write((const char*)&padding,4);
-
+        out.write(reinterpret_cast<const char*>(&nif_header), sizeof(nifti_1_header));
+        int32_t padding = 0;
+        out.write(reinterpret_cast<const char*>(&padding), sizeof(padding));
         if(!save_stream_with_prog(prog,out,write_buf,write_size,error_msg))
+        {
+            out.close();
+            std::filesystem::remove(tmp_name);
             return false;
+        }
+        out.close();
+        std::filesystem::remove(file_name);
+        std::error_code error;
+        std::filesystem::rename(tmp_name,file_name,error);
+        if(error)
+        {
+            error_msg = "cannot rename temp file " + tmp_name + " to " + file_name + ": " + error.message();
+            return false;
+        }
         write_buf = nullptr;
-        return out;
+        return true;
     }
     template<typename iterator_type1,typename iterator_type2,typename int_type>
     static void copy_ptr(iterator_type1 iter1,iterator_type2 iter2,int_type size)
