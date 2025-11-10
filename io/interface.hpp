@@ -8,30 +8,15 @@ namespace tipl
 namespace io
 {
 
-struct default_prog_type{
-    template<typename T>
-    default_prog_type(T){}
-    default_prog_type(void){}
-    template<typename T>
-    bool operator()(T a,T b){return a < b;}
-    bool aborted(void){return false;}
-};
-
-struct default_error_type{
-    default_error_type(void){}
-    template<typename T>
-    void operator<<(T){return;}
-};
-
 template<typename prog_type,typename stream_type,typename ptr_type>
-bool read_stream_with_prog(prog_type& prog,
+bool read_stream_with_prog(prog_type&& prog,
                            stream_type& in,
                            ptr_type* ptr,
                            size_t size_in_byte,
                            std::string& error_msg,
                            size_t buf_size = 1000000)
 {
-    if(size_in_byte < buf_size || std::is_same<prog_type,default_prog_type>::value)
+    if(size_in_byte < buf_size || prog.temporary)
     {
         if(!in.read(reinterpret_cast<char*>(ptr),size_in_byte))
         {
@@ -42,7 +27,6 @@ bool read_stream_with_prog(prog_type& prog,
         }
         return true;
     }
-    if constexpr(!std::is_same<prog_type,default_prog_type>::value)
     {
         auto buf = reinterpret_cast<char*>(ptr);
         size_t pos = 0;
@@ -75,7 +59,7 @@ bool save_stream_with_prog(prog_type& prog,
                            std::string& error_msg,
                            size_t buf_size = 1000000)
 {
-    if(size_in_byte < buf_size || std::is_same<prog_type,default_prog_type>::value)
+    if(size_in_byte < buf_size || prog.temporary)
     {
         if(!out.write(reinterpret_cast<const char*>(ptr),size_in_byte))
         {
@@ -85,7 +69,6 @@ bool save_stream_with_prog(prog_type& prog,
         return true;
     }
 
-    if constexpr(!std::is_same<prog_type,default_prog_type>::value)
     {
         auto buf = reinterpret_cast<const char*>(ptr);
         size_t pos = 0;
