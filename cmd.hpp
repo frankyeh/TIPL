@@ -537,7 +537,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     if(cmd == "load_image" || cmd == "multiply_image" || cmd == "add_image" || cmd == "minus_image" || cmd == "max_image" || cmd == "min_image")
     {
         tipl::image<3,typename image_type::value_type> rhs(data.shape());
-        if(!image_loader::load_to_space(param1.c_str(),rhs,T))
+        if(!image_loader(param1,std::ios::in).to_space(rhs,T))
         {
             error_msg = "cannot open file:";
             error_msg += param1;
@@ -565,8 +565,8 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     }
     if(cmd == "concatenate_image")
     {
-        image_loader nii;
-        if(!nii.load_from_file(param1.c_str()))
+        image_loader nii(param1,std::ios::in);
+        if(!nii)
             return false;
         if(nii.width() != data.width() ||
            nii.height() != data.height())
@@ -582,30 +582,12 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     }
     if(cmd == "save")
     {
-        image_loader nii;
-        nii.set_image_transformation(T,is_mni);
-        nii.set_voxel_size(vs);
-        nii << data;
-        if(!nii.save_to_file(param1.c_str()))
-        {
-            error_msg = nii.error_msg;
-            return false;
-        }
-        return true;
+        return image_loader(param1,std::ios::out) << T << vs << is_mni << data << [&](const std::string& e){error_msg = e;};
     }
     if(cmd == "open")
     {
-        image_loader nii;
-        if(!nii.load_from_file(param1.c_str()))
-        {
-            error_msg = nii.error_msg;
-            return false;
-        }
-        nii.get_image_transformation(T);
-        nii.get_voxel_size(vs);
-        is_mni = nii.is_mni();
-        nii >> data;
-        return true;
+        return image_loader(param1,std::ios::in) >> data >> T >> vs >> is_mni >>
+                        [&](const std::string& error){error_msg = error;};
     }
     error_msg = "unknown command:";
     error_msg += cmd;
