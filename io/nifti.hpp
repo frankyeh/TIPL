@@ -32,6 +32,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sstream>
 #include <string>
 #include <memory>
+#include <tuple>
+#include <type_traits>
 #include <filesystem>
 #include <stdint.h>
 #include "interface.hpp"
@@ -332,16 +334,16 @@ public:
         struct nifti_1_header nif_header;
     };
     bool is_nii; // backward compatibility to ANALYE 7.5
-    tipl::progress* cur_prog = nullptr;
     mutable std::string error_msg;
+    std::string file_name,tmp_file_name;
 public:
     std::shared_ptr<input_interface> input_stream;
+    std::shared_ptr<output_interface> output_stream;
 private:
     bool big_endian;
-private:
-    std::vector<char> rgb_write_buf;
-    const void* write_buf = nullptr;
-    size_t write_size = 0;
+
+public:
+    tipl::progress prog;
 private:
     bool compatible(long type1,long type2) const
     {
@@ -467,11 +469,41 @@ private:
     nifti_base(const nifti_base&) = delete;
     nifti_base& operator=(const nifti_base&) = delete;
 public:
-    bool load_from_file(const std::string& file_name)
+    bool operator!(void) const
     {
-        if (!input_stream->open(file_name))
+        return !error_msg.empty();
+    }
+    operator bool() const
+    {
+        return error_msg.empty();
+    }
+    template<typename T>
+    bool open(const std::string& file_name_,T type)
+    {
+        if(type == std::ios::out)
         {
-            error_msg = "Cannot read the file. No reading privilege or the file does not exist.";
+            prog = tipl::progress("save " + (file_name = file_name_));
+            tmp_file_name = (file_name.back() == 'z' ? file_name + ".tmp.gz" : file_name + ".tmp");
+            output_stream.reset(new output_interface);
+            if(!output_stream->open(tmp_file_name))
+            {
+                error_msg = "cannot write to " + tmp_file_name +
+                            " please check file path and access permissions.";
+                return false;
+            }
+            return true;
+        }
+        prog = tipl::progress("open " + (file_name = file_name_));
+        if(!std::filesystem::exists(file_name))
+        {
+            error_msg = "file does not exist";
+            return false;
+        }
+        if(!input_stream.get())
+            input_stream.reset(new input_interface);
+        if(!input_stream->open(file_name))
+        {
+            error_msg = "cannot open file";
             return false;
         }
         int size_of_header = 0;
@@ -481,7 +513,7 @@ public:
             change_endian(size_of_header);
             if(size_of_header != 540 && size_of_header != 348)
             {
-                error_msg = "Invalid NIFTI format. Size of header is not 540 or 348";
+                error_msg = "invalid NIFTI format: size of header is not 540 or 348";
                 return false;
             }
             big_endian = true;
@@ -500,7 +532,7 @@ public:
                 nif_header2.magic[1] != '+' ||
                     nif_header2.magic[2] != '2')
             {
-                error_msg = "Invalid NIFTI format. No NIFTI tag found.";
+                error_msg = "invalid NIFTI format: no NIFTI tag found.";
                 return false;
             }
             input_stream->seek(size_t(nif_header2.vox_offset));
@@ -576,7 +608,7 @@ public:
                 // find the img file
                 if (file_name.size() < 4)
                 {
-                    error_msg = "Failed to find the img file.";
+                    error_msg = "failed to find the img file.";
                     return false;
                 }
                 auto file_name_no_ext = std::string(file_name.begin(),file_name.end()-4);
@@ -585,7 +617,7 @@ public:
                 input_stream.reset(new input_interface);
                 if(!input_stream->open(data_file))
                 {
-                    error_msg = "Failed to open the img file.";
+                    error_msg = "failed to open the img file.";
                     return false;
                 }
             }
@@ -714,9 +746,15 @@ public:
         return nif_header.bitpix;
     }
 public:
-    nifti_base(void):input_stream(new input_interface)
+    nifti_base(void)
     {
         init_header();
+    }
+    template<typename T>
+    nifti_base(const std::string& file_name_,T type)
+    {
+        init_header();
+        open(file_name_,type);
     }
     void init_header(void)
     {
@@ -756,40 +794,14 @@ public:
     {
         return nif_header.datatype == 2;
     }
-    template<typename image_type>
-    void load_from_image(const image_type& source)
-    {
-        nif_header.datatype = nifti_type_info<typename image_type::value_type>::data_type;
-        nif_header.bitpix = nifti_type_info<typename image_type::value_type>::bit_pix;
 
-        set_dim(source.shape());
-        write_size = source.size()*(size_t)(nif_header.bitpix/8);
-        if(nif_header.datatype == 128 && nif_header.bitpix == 24)
-        {
-            rgb_write_buf.resize(source.size()*3);
-            for(size_t i = 0,j = 0; i < source.size();++i,j += 3)
-            {
-                tipl::rgb c = source[i];
-                rgb_write_buf[j] = c.r;
-                rgb_write_buf[j+1] = c.g;
-                rgb_write_buf[j+2] = c.b;
-            }
-            write_buf = rgb_write_buf.data();
-        }
-        else
-            write_buf = source.data();
-        is_nii = true;
-    }
-    template<typename image_type,typename srow_type>
-    static bool load_to_space(const std::string& file_name,image_type& I,const srow_type& I_T)
+    template<typename image_type>
+    auto& to_space(image_type& I,const tipl::matrix<4,4>& I_T)
     {
-        nifti_base nii;
         image_type J;
-        if(!nii.load_from_file(file_name) ||
-           !nii.toLPS(J))
-            return false;
-        srow_type J_T;
-        nii.get_image_transformation(J_T);
+        tipl::matrix<4,4> J_T;
+        if(!((*this) >> J_T >> J))
+            return *this;
         if(I.shape() == J.shape() && I_T == J_T)
             I.swap(J);
         else
@@ -799,62 +811,7 @@ public:
             else
                 resample<linear>(J,I,from_space(I_T).to(J_T));
         }
-        return true;
-    }
-    template<typename image_type>
-    static bool load_from_file(const std::string& file_name,image_type& I)
-    {
-        nifti_base nii;
-        if(!nii.load_from_file(file_name) ||
-           !nii.toLPS(I))
-            return false;
-        return true;
-    }
-    template<typename image_type,typename vs_type>
-    static bool load_from_file(const std::string& file_name,image_type& I,vs_type& vs)
-    {
-        nifti_base nii;
-        if(!nii.load_from_file(file_name) ||
-           !nii.toLPS(I))
-            return false;
-        nii.get_voxel_size(vs);
-        return true;
-    }
-    template<typename image_type,typename vs_type,typename srow_type>
-    static bool load_from_file(const std::string& file_name,image_type& I,vs_type& vs,srow_type& T,bool& is_mni)
-    {
-        nifti_base nii;
-        if(!nii.load_from_file(file_name) ||
-           !nii.toLPS(I))
-            return false;
-        nii.get_voxel_size(vs);
-        nii.get_image_transformation(T);
-        is_mni = nii.is_mni(); // NIFTI_XFORM_MNI_152
-        return true;
-    }
-    template<typename image_type,typename vs_type,typename srow_type>
-    static inline bool load_from_file(const std::string& file_name,image_type& I,vs_type& vs,srow_type& T)
-    {
-        bool is_mni = false;
-        return load_from_file(file_name,I,vs,T,is_mni);
-    }
-    template<typename image_type,typename vs_type,typename srow_type>
-    static inline bool load_to_space(const std::string& file_name,image_type& I,tipl::matrix<4,4>& space_to)
-    {
-        nifti_base nii;
-        image_type I_;
-        if(!nii.load_from_file(file_name) ||
-           !nii.toLPS(I_))
-            return false;
-        tipl::matrix<4,4> space_from;
-        nii.get_image_transformation(space_from);
-        if(space_from == space_to && I.shape() == I_.shape())
-        {
-            I.swap(I_);
-            return true;
-        }
-        tipl::resample(I_,I,tipl::from_space(space_to).to(space_from));
-        return true;
+        return *this;
     }
 private:
     void write(const std::string& des)
@@ -870,104 +827,55 @@ private:
     {
         set_image_transformation(R);
     }
-    template<int dim, typename vtype, template<typename...> class stype>
-    void write(const tipl::image<dim, vtype, stype>& in)
-    {
-        load_from_image(in);
-    }
     void write(bool is_mni)
     {
         nif_header.sform_code = is_mni ? 4:1;
     }
-public:
-    template<typename prog_type = default_prog_type,typename error_type = default_error_type,
-             typename E = std::function<void(const std::string&)>,typename T>
-    static bool save_to_file(const std::string& file_name,
-                             const T& s,
-                             E error_handle = [](const std::string& error_msg){error_type() << error_msg;})
+    template<int dim, typename vtype, template<typename...> class stype>
+    void write(const tipl::image<dim, vtype, stype>& source)
     {
-        nifti_base nii;
-        using U = std::decay_t<T>;
-        if constexpr (is_tuple<U>::value)
+        if(!output_stream.get())
         {
-            if constexpr (std::tuple_size_v<U> > 0)
-                nii.write(std::get<0>(s));
-            if constexpr (std::tuple_size_v<U> > 1)
-                nii.write(std::get<1>(s));
-            if constexpr (std::tuple_size_v<U> > 2)
-                nii.write(std::get<2>(s));
-            if constexpr (std::tuple_size_v<U> > 3)
-                nii.write(std::get<3>(s));
-            if constexpr (std::tuple_size_v<U> > 4)
-                nii.write(std::get<4>(s));
+            error_msg = "cannot write to " + file_name;
+            return;
         }
-        if(!nii.save_to_file<prog_type>(file_name))
+        nif_header.datatype = nifti_type_info<vtype>::data_type;
+        nif_header.bitpix = nifti_type_info<vtype>::bit_pix;
+        set_dim(source.shape());
+        size_t write_size = source.size()*(size_t)(nif_header.bitpix/8);
+        std::vector<char> rgb_write_buf;
+        const void* write_buf = source.data();
+        if(nif_header.datatype == 128 && nif_header.bitpix == 24)
         {
-            error_handle(nii.error_msg);
-            return false;
+            rgb_write_buf.resize(source.size()*3);
+            for(size_t i = 0,j = 0; i < source.size();++i,j += 3)
+            {
+                tipl::rgb c = source[i];
+                rgb_write_buf[j] = c.r;
+                rgb_write_buf[j+1] = c.g;
+                rgb_write_buf[j+2] = c.b;
+            }
+            write_buf = rgb_write_buf.data();
         }
-        return true;
-    }
-    template<typename prog_type = default_prog_type,typename error_type = default_error_type,
-             typename image_type,typename vs_type,typename srow_type>
-    static inline bool save_to_file(const std::string& file_name,const image_type& I,const vs_type& vs,const srow_type& T,
-                             bool is_mni_152 = false,const char* desc = nullptr)
-    {
-        if(desc)
+
+        output_stream->write(reinterpret_cast<const char*>(&nif_header), sizeof(nifti_1_header));
+        output_stream->write(std::array<char,sizeof(int32_t)>().data(), sizeof(int32_t));
+        if(!save_stream_with_prog(prog,*output_stream.get(),write_buf,write_size,error_msg))
         {
-            std::string s(desc);
-            return save_to_file<prog_type,error_type>(file_name,std::tie(I,vs,T,is_mni_152,s));
+            output_stream.reset();
+            std::filesystem::remove(tmp_file_name);
+            if(error_msg.empty())
+                error_msg = "aborted";
+            return;
         }
-        return save_to_file<prog_type,error_type>(file_name,std::tie(I,vs,T,is_mni_152));
-    }
-    template<typename prog_type = default_prog_type>
-    bool save_to_file(const std::string& file_name)
-    {
-        prog_type prog("save " + file_name);
-        if(!write_buf)
-        {
-            error_msg = "no image data to save to " + file_name;
-            return false;
-        }
-        if (!is_nii)// is the header from the analyze format?
-        {
-            //yes, then change the header to the NIFTI format
-            nif_header.sizeof_hdr = 348;
-            nif_header.vox_offset = 352;
-            nif_header.sform_code = 1;
-            nif_header.magic[0] = 'n';
-            nif_header.magic[1] = '+';
-            nif_header.magic[2] = '1';
-            nif_header.magic[3] = 0;
-        }
-        output_interface out;
-        auto tmp_name = (file_name.back() == 'z' ? file_name + ".tmp.gz" : file_name + ".tmp");
-        if(!out.open(tmp_name))
-        {
-            error_msg = "could not write image data to " + tmp_name +
-                        " please check file path and access permissions.";
-            return false;
-        }
-        out.write(reinterpret_cast<const char*>(&nif_header), sizeof(nifti_1_header));
-        out.write(std::array<char,sizeof(int32_t)>().data(), sizeof(int32_t));
-        if(!save_stream_with_prog(prog,out,write_buf,write_size,error_msg))
-        {
-            out.close();
-            std::filesystem::remove(tmp_name);
-            return false;
-        }
-        out.close();
+        output_stream.reset();
         std::filesystem::remove(file_name);
         std::error_code error;
-        std::filesystem::rename(tmp_name,file_name,error);
+        std::filesystem::rename(tmp_file_name,file_name,error);
         if(error)
-        {
-            error_msg = "cannot rename temp file " + tmp_name + " to " + file_name + ": " + error.message();
-            return false;
-        }
-        write_buf = nullptr;
-        return true;
+            error_msg = "cannot rename temp file " + tmp_file_name + " to " + file_name + ": " + error.message();
     }
+public:
     template<typename iterator_type1,typename iterator_type2,typename int_type>
     static void copy_ptr(iterator_type1 iter1,iterator_type2 iter2,int_type size)
     {
@@ -980,8 +888,8 @@ public:
         copy_ptr(reinterpret_cast<const lhs_type*>(lhs),rhs,size);
     }
 public:
-    template<typename pointer_type,typename prog_type>
-    bool save_to_buffer(pointer_type ptr,size_t pixel_count,prog_type& prog) const
+    template<typename pointer_type>
+    bool save_to_buffer(pointer_type ptr,size_t pixel_count) const
     {
         if(!input_stream.get() || !(*input_stream))
         {
@@ -1072,31 +980,22 @@ public:
             return true;
         }
     }
-    template<typename image_type>
-    bool get_untouched_image(image_type& out) const
+    template<int dim, typename vtype, template<typename...> class stype>
+    bool get_untouched_image(tipl::image<dim, vtype, stype>& out) const
     {
         try{
             if(untouched_dim.empty())
-                out.resize(tipl::shape<image_type::dimension>(nif_header.dim+1));
+                out.resize(tipl::shape<dim>(nif_header.dim+1));
             else
-                out.resize(tipl::shape<image_type::dimension>(untouched_dim.data()+1));
+                out.resize(tipl::shape<dim>(untouched_dim.data()+1));
         }
         catch(...)
         {
             error_msg = "insufficient memory";
             return false;
         }
-        if(cur_prog)
-        {
-            if(!save_to_buffer(out.begin(),out.size(),*cur_prog))
-                return false;
-        }
-        else
-        {
-            tipl::io::default_prog_type prog;
-            if(!save_to_buffer(out.begin(),out.size(),prog))
-                return false;
-        }
+        if(!save_to_buffer(out.begin(),out.size()))
+            return false;
         if(nif_header.scl_slope != 0)
         {
             if(nif_header.scl_slope != 1.0f)
@@ -1106,69 +1005,76 @@ public:
         }
         return true;
     }
-
-    template<typename image_type>
-    bool save_to_image(image_type& out)
-    {
-        return toLPS(out);
-    }
 private:
     template<int dim, typename vtype, template<typename...> class stype>
     bool read(tipl::image<dim, vtype, stype>& out)
     {
-        return toLPS(out);
+        if(!get_untouched_image(out))
+            return false;
+        if(flip_swap_seq.empty())
+            toLPS();
+        apply_flip_swap_seq(out);
+        return true;
     }
     template<int dim>
-    bool read(tipl::vector<dim,float>& pixel_size_from) const
+    void read(tipl::vector<dim,float>& pixel_size_from) const
     {
         get_voxel_size(pixel_size_from);
-        return true;
     }
     template<typename T>
-    bool read(tipl::matrix<4,4,T>& R)
+    void read(tipl::matrix<4,4,T>& R)
     {
         get_image_transformation(R);
-        return true;
     }
     template<int d>
-    bool read(shape<d>& geo) const
+    void read(shape<d>& geo) const
     {
         get_image_dimension(geo);
-        return true;
     }
-    bool read(bool& is_mni_) const
+    void read(bool& is_mni_) const
     {
         is_mni_ = is_mni();
-        return true;
     }
 public:
     template<typename T>
-    bool operator>>(T&& source)
+    auto& operator>>(T&& source)
     {
-        using U = std::decay_t<T>;
-        if constexpr (is_tuple<U>::value)
+        if constexpr (std::is_invocable_r_v<void, T, const std::string&>)
         {
-            auto&& t = std::forward<T>(source);
-            bool result = true;
-            if constexpr (std::tuple_size_v<U> > 0)
-                result &= read(std::get<0>(t));
-            if constexpr (std::tuple_size_v<U> > 1)
-                result &= read(std::get<1>(t));
-            if constexpr (std::tuple_size_v<U> > 2)
-                result &= read(std::get<2>(t));
-            if constexpr (std::tuple_size_v<U> > 3)
-                result &= read(std::get<3>(t));
-            return result;
+            if(!error_msg.empty())
+                source(error_msg);
         }
         else
-            return toLPS(std::forward<T>(source));
+        {
+            if(error_msg.empty())
+            {
+                if constexpr (is_tuple<std::decay_t<T>>::value)
+                    std::apply([&](auto&&... args){ (read(args), ...); }, source);
+                else
+                    read(std::forward<T>(source));
+            }
+        }
+        return *this;
     }
-
-    template<typename image_type>
-    const image_type& operator<<(const image_type& source)
+    template<typename T>
+    auto& operator<<(const T& source)
     {
-        load_from_image(source);
-        return source;
+        if constexpr (std::is_invocable_r_v<void, T, const std::string&>)
+        {
+            if(!error_msg.empty())
+                source(error_msg);
+        }
+        else
+        {
+            if(error_msg.empty())
+            {
+                if constexpr (is_tuple<std::decay_t<T>>::value)
+                    std::apply([&](auto&&... args){ (write(args), ...); }, source);
+                else
+                    write(source);
+            }
+        }
+        return *this;
     }
 
     void handle_qform(void)
@@ -1314,19 +1220,6 @@ public:
                 nif_header.srow_z[2] = -nif_header.srow_z[2];
             }
         }
-    }
-    template<typename image_type>
-    bool toLPS(image_type& out)
-    {
-        if(!write_buf)
-        {
-            if(!get_untouched_image(out))
-                return false;
-        }
-        if(flip_swap_seq.empty())
-            toLPS();
-        apply_flip_swap_seq(out);
-        return true;
     }
     friend std::ostream& operator<<(std::ostream& out,const nifti_base& nii)
     {
