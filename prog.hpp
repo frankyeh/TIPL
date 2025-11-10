@@ -215,6 +215,14 @@ public:
 public:
     bool temporary = false;
     progress(void):temporary(true){}
+    void operator=(progress&& rhs)
+    {
+        if(temporary && !rhs.temporary)
+        {
+            temporary = false;
+            rhs.temporary = true;
+        }
+    }
     progress(const std::string& status,bool show_now = false)
     {
         print(status,true,false);
@@ -230,8 +238,10 @@ public:
     static bool is_running(void) {return status_count > 1;}
     static bool aborted(void) { return prog_aborted;}
     template<typename value_type1,typename value_type2>
-    bool operator()(value_type1 now,value_type2 total)
+    bool operator()(value_type1 now,value_type2 total) const
     {
+        if(temporary)
+            return now < total;
         return check_prog(uint32_t(now),uint32_t(total));
     }
     ~progress(void)
