@@ -2,6 +2,7 @@
 #define UNET3D_HPP
 #include "cnn3d.hpp"
 #include "../po.hpp"
+#include "../prog.hpp"
 #include "../numerical/statistics.hpp"
 #include "../numerical/basic_op.hpp"
 #include "../numerical/transformation.hpp"
@@ -221,10 +222,10 @@ public:
     }
     virtual float* forward(float* in)
     {
-        return forward_with_prog(in,tipl::io::default_prog_type());
+        return forward_with_prog(in);
     }
-    template<typename prog_type = tipl::io::default_prog_type>
-    float* forward_with_prog(float* in,prog_type&& prog = prog_type())
+    template<typename prog_type = tipl::progress>
+    float* forward_with_prog(float* in,prog_type&& prog = tipl::progress())
     {
         std::vector<float*> buf;
         for(int level=0; level < encoding.size() && prog(int(level),int(encoding.size()*2)); level++)
@@ -248,10 +249,10 @@ public:
     float prob_threshold = 0.5f;
 public:
     tipl::image<3> label_prob,fg_prob;
-    template<typename image_type,typename prog_type = tipl::io::default_prog_type>
+    template<typename image_type,typename prog_type = tipl::progress>
     bool forward(const image_type& raw_image,
                  const tipl::vector<3>& raw_image_vs,
-                                        prog_type&& prog = prog_type())
+                 prog_type&& prog = prog_type())
     {
         tipl::transformation_matrix<float,3> trans;
         tipl::image<3> input_image(raw_image);
