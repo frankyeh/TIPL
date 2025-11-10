@@ -12,8 +12,7 @@
 namespace tipl
 {
 
-template<typename T> struct is_tuple : std::false_type {};
-template<typename... Ts> struct is_tuple<std::tuple<Ts...>> : std::true_type {};
+
 template<typename vtype>
 class pointer_container
 {
@@ -565,6 +564,13 @@ inline auto make_image(const value_type* pointer,const shape_type& sp)
 {
     return const_pointer_image<shape_type::dimension,value_type>(pointer,sp);
 }
+
+template<typename T> struct is_tuple : std::false_type {};
+template<typename... Ts> struct is_tuple<std::tuple<Ts...>> : std::true_type {};
+template<typename T> struct is_image : std::false_type {};
+template<int dim, typename vtype, template<typename...> class stype>
+struct is_image<tipl::image<dim,vtype,stype>> : std::true_type {};
+
 
 }
 #endif
