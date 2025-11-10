@@ -8,6 +8,7 @@
 #include <map>
 #include "interface.hpp"
 #include "../mt.hpp"
+#include "../prog.hpp"
 namespace tipl
 {
 
@@ -675,7 +676,7 @@ public:
 public:
     std::shared_ptr<input_interface> in;
     bool delay_read = false;
-    template<typename prog_type = tipl::io::default_prog_type>
+    template<typename prog_type = tipl::progress>
     bool load_from_file(const std::string& file_name,prog_type&& prog = prog_type())
     {
         if(!in->open(file_name))
