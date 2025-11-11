@@ -133,7 +133,7 @@ private:
     unsigned int data_length_pos = 0;
 public:
     avi(void){}
-    bool open(const char *filename, unsigned int width, unsigned int height,
+    bool open(const std::string& filename, unsigned int width, unsigned int height,
               fourcc codec, unsigned int fps)
     {
         out.reset(new std::ofstream(filename,std::ios::binary));
