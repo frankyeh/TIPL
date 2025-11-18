@@ -328,98 +328,97 @@ inline std::vector<std::string> search_dirs(const std::string& search_path,const
 
 
 template<typename out_type = void>
-bool search_filesystem(std::string path_str, std::vector<std::string>& filenames, bool file = true)
+bool search_filesystem(std::string pat, std::vector<std::string>& out, bool want_file = true)
 {
-    if (path_str.empty())
-        return false;
-    bool found = false;
-    // Wildcard matching logic is defined as a local lambda for encapsulation.
-    auto wildcard_match = [](const std::string& pattern, const std::string& text) -> bool
-    {
-        const char* p = pattern.c_str();
-        const char* t = text.c_str();
-        const char* star_p = nullptr;
-        const char* star_t = nullptr;
+    if (pat.empty()) return false;
 
-        while (*t)
-        {
-            if (*p == '?' || *p == *t) { p++; t++; }
-            else if (*p == '*') { star_p = p++; star_t = t; }
-            else if (star_p) { p = star_p + 1; t = ++star_t; }
+    const bool strip_dir = (pat.find_first_of("/\\") == std::string::npos);
+
+    auto match = [](const std::string& p, const std::string& s)
+    {
+        const char *a=p.c_str(), *b=s.c_str(), *sa=nullptr, *sb=nullptr;
+        while (*b)
+            if (*a=='?' || *a==*b) a++, b++;
+            else if (*a=='*') sa=a++, sb=b;
+            else if (sa) a=sa+1, b=++sb;
             else return false;
-        }
-        while (*p == '*') p++;
-        return !*p;
+        while (*a=='*') a++;
+        return !*a;
     };
 
-    // 1. Initial path parsing and setup.
-    std::filesystem::path p(path_str);
-    auto first_wildcard = p.end();
-    for (auto it = p.begin(); it != p.end(); ++it)
+    std::filesystem::path p(pat), base;
+    std::vector<std::string> parts;
+
+    for (auto& c : p)
     {
-        if (it->string().find_first_of("*?") != std::string::npos)
-        {
-            first_wildcard = it;
-            break;
-        }
+        auto s = c.string();
+        if (s.find_first_of("*?") != std::string::npos)
+            parts.push_back(s);
+        else if (parts.empty())
+            base /= c;
+        else
+            parts.push_back(s);
     }
 
-    // 2. Handle the case with no wildcards.
-    if (first_wildcard == p.end())
+    // No wildcard pattern at all
+    if (parts.empty())
     {
-        if (std::filesystem::exists(p))
-        {
-            if ((file && std::filesystem::is_regular_file(p)) || (!file && std::filesystem::is_directory(p)))
-            {
-                filenames.push_back(std::filesystem::weakly_canonical(p).string());
-                found = true;
-            }
-        }
-        return found;
+        std::error_code ec;
+        bool ok = want_file ?
+            std::filesystem::is_regular_file(p,ec) :
+            std::filesystem::is_directory(p,ec);
+        if (!ok || ec) return false;
+
+        out.push_back(strip_dir ? p.filename().string()
+                                : std::filesystem::weakly_canonical(p,ec).string());
+        return true;
     }
 
-    // 3. Separate the base path from the wildcard patterns.
-    std::filesystem::path base_path;
-    for (auto it = p.begin(); it != first_wildcard; ++it)
-        base_path /= *it;
+    if (base.empty()) base = std::filesystem::current_path();
 
-    std::vector<std::filesystem::path> patterns(first_wildcard, p.end());
-
-    if (base_path.empty())
-        base_path = std::filesystem::current_path();
-    else if (!std::filesystem::exists(base_path) || !std::filesystem::is_directory(base_path))
+    std::error_code ec;
+    if (!std::filesystem::exists(base,ec) || !std::filesystem::is_directory(base,ec))
         return false;
 
-    std::filesystem::path current_dir = base_path;
-    for(size_t pattern_idx = 0;pattern_idx < patterns.size();++pattern_idx)
+    std::vector<std::filesystem::path> dirs { base };
+
+    for (size_t i = 0; i < parts.size(); ++i)
     {
-        const auto& pattern = patterns[pattern_idx].string();
-        bool is_last_pattern = (pattern_idx == patterns.size() - 1);
+        std::vector<std::filesystem::path> next;
 
-        if constexpr (!std::is_void<out_type>::value)
-            out_type() << "searching " << std::quoted(pattern) << " in " << std::quoted(current_dir.string());
-        try
+        for (const auto& d : dirs)
         {
-            for (const auto& entry : std::filesystem::directory_iterator(current_dir))
-            {
-                if (!wildcard_match(pattern, entry.path().filename().string())) continue;
+            std::filesystem::directory_iterator it(d, ec), end;
+            if (ec) continue;
 
-                if (is_last_pattern)
+            for (; it != end; ++it)
+            {
+                const auto& e = *it;
+                auto name = e.path().filename().string();
+                if (!match(parts[i], name)) continue;
+
+                bool is_file = e.is_regular_file(ec);
+                bool is_dir  = e.is_directory(ec);
+
+                if (i + 1 == parts.size())
                 {
-                    if ((file && entry.is_regular_file()) || (!file && entry.is_directory()))
-                    {
-                        filenames.push_back(std::filesystem::weakly_canonical(entry.path()).string());
-                        found = true;
-                    }
+                    if ((want_file && is_file) || (!want_file && is_dir))
+                        out.push_back(strip_dir ? name
+                                                : std::filesystem::weakly_canonical(e.path(),ec).string());
                 }
-                else if (entry.is_directory())
-                    patterns.push_back(entry.path());
+                else if (is_dir)
+                    next.push_back(e.path());
             }
         }
-        catch (const std::filesystem::filesystem_error&) { /* Ignore inaccessible directories */ }
-    };
-    return found;
+
+        dirs.swap(next);
+    }
+
+    return !out.empty();
 }
+
+
+
 
 inline std::string complete_suffix(const std::string& file_name)
 {
