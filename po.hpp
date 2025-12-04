@@ -349,7 +349,7 @@ bool search_filesystem(std::string pat, std::vector<std::string>& out, bool want
     std::filesystem::path p(pat), base;
     std::vector<std::string> parts;
 
-    for (auto& c : p)
+    for (const auto& c : p)
     {
         auto s = c.string();
         if (s.find_first_of("*?") != std::string::npos)
