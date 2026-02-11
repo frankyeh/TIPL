@@ -1101,7 +1101,9 @@ public:
                 {
                     std::string image_type;
                     is_multi_frame = get_int(0x0028,0x0008) > 1 || (image_size > width()*height());   // multiple frame (new version)
-                    is_mosaic = get_int(0x0019,0x100A) > 1 || (get_text(0x0008,0x0008,image_type) && image_type.find("MOSAIC") != std::string::npos);
+                    is_mosaic = get_int(0x0019,0x100A) > 1 ||
+                                get_text(0x0008,0x0008).find("MOSAIC") != std::string::npos ||
+                                (width() > 896 || height() > 896);
                 }
                 if(is_compressed)
                 {
@@ -1662,53 +1664,39 @@ public:
 
             if(geo[2] == 1)// find mosaic pattern by numerical approach
             {
-                unsigned int mosaic_factor = 0;
+                unsigned int mfx = 0, mfy = 0;
+                // Approach 1: separator check with modulo safety
+                for(int y = 10, y_pos = 10*geo[0]; y < geo[1]; ++y, y_pos += geo[0])
+                {
+                    int my = std::round((float)geo[1]/y);
+                    if(my >= 5 && my <= 10 && geo[1] % my == 0)
+                        if(std::accumulate(out.begin()+y_pos, out.begin()+y_pos+geo[0], 0) == 0) { mfy = my; break; }
+                }
+                for(int x = 10; x < geo[0]; ++x)
+                {
+                    int mx = std::round((float)geo[0]/x);
+                    if(mx >= 5 && mx <= 10 && geo[0] % mx == 0)
+                    {
+                        int sum_y = 0;
+                        for(int i = x; i < out.size(); i += geo[0]) sum_y += out[i];
+                        if(sum_y == 0) { mfx = mx; break; }
+                    }
+                }
+                // Fallback: Divider approach + range check
+                auto find_valid_m = [](int length, unsigned int& m_target) {
+                    if(m_target > 0) return;
+                    for(int m = 10; m >= 5; --m)
+                        if(length % m == 0 && (length/m >= 64 && length/m <= 128)) { m_target = m; return; }
+                    for(int m = 10; m >= 5; --m)
+                        if(length % m == 0) { m_target = m; return; }
+                    m_target = 1; // Absolute fallback to avoid div by zero
+                };
+                find_valid_m(geo[0], mfx);
+                find_valid_m(geo[1], mfy);
 
-                // approach 1: row sum = 0 is the separator
-                for(int y = 10,y_pos = 10*geo[0];y < geo[1];++y,y_pos += geo[0])
-                {
-                    int m = std::round((float)geo[1]/(float)y);
-                    if(m > 20 || m < 4 || width() % m != 0)
-                        continue;
-                    int sum_x = std::accumulate(out.begin()+y_pos,out.begin()+y_pos+geo[0],(int)0);
-                    int sum_y = 0;
-                    for(int i = y;i < out.size();i += geo[0])
-                        sum_y += out[i];
-                    if(sum_x == 0 || sum_y == 0)
-                    {
-                        mosaic_factor = m;
-                        break;
-                    }
-                }
-                // approach 2: column sum smoothed peaks.
-                if(!mosaic_factor)
-                {
-                    std::vector<float> profile_x(geo[0]),new_profile_x(geo[0]);
-                    for(int x = 0;x < profile_x.size();++x)
-                    {
-                        for(int y = 0,y_pos = 0;y < geo[1];++y,y_pos +=geo[0])
-                            profile_x[x] += out[x+y_pos];
-                    }
-                    for(int iter = 0;iter < 128;++iter)
-                    {
-                        new_profile_x[0] = profile_x[0];
-                        new_profile_x.back() = profile_x.back();
-                        for(int x = 1;x+1 < profile_x.size();++x)
-                            new_profile_x[x] = (profile_x[x-1] + profile_x[x] + profile_x[x+1])*0.333f;
-                        new_profile_x.swap(profile_x);
-                    }
-                    for(int x = 1;x+1 < profile_x.size();++x)
-                        if(profile_x[x-1] < profile_x[x] &&
-                           profile_x[x+1] < profile_x[x])
-                            ++mosaic_factor;
-                    if(geo[0] % (mosaic_factor + 1) == 0)
-                        mosaic_factor = mosaic_factor + 1;
-                    if(geo[0] % (mosaic_factor - 1) == 0)
-                        mosaic_factor = mosaic_factor - 1;
-                }
-                geo[0] /= mosaic_factor;
-                geo[1] /= mosaic_factor;
-                slice_num = mosaic_factor*mosaic_factor;
+                geo[0] /= mfx;
+                geo[1] /= mfy;
+                slice_num = mfx * mfy;
             }
             handle_mosaic(out.begin(),geo[0],geo[1],width(),height());
             geo[2] = slice_num;
