@@ -218,7 +218,10 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     }
     if(cmd == "upsampling")
     {
-        tipl::upsampling(data);
+        if(is_label_image(data))
+            tipl::upsample_label(data);
+        else
+            tipl::upsampling(data);
         vs *= 0.5f;
         T = T*tipl::matrix<4,4>({0.5f,0.0f,0.0f,0.0f,
                                  0.0f,0.5f,0.0f,0.0f,
@@ -229,7 +232,10 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     }
     if(cmd == "downsampling")
     {
-        tipl::downsample_with_padding(data);
+        if(is_label_image(data))
+            tipl::downsample_label(data);
+        else
+            tipl::downsample_with_padding(data);
         vs *= 2.0f;
         T = T*tipl::matrix<4,4>({2,0,0,0,
                                  0,2,0,0,
