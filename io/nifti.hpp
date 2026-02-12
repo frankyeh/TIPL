@@ -799,9 +799,10 @@ public:
     auto& to_space(image_type& I,const tipl::matrix<4,4>& I_T)
     {
         image_type J;
-        tipl::matrix<4,4> J_T;
-        if(!((*this) >> J_T >> J))
+        if(!((*this) >> J))
             return *this;
+        tipl::matrix<4,4> J_T;
+        *this >> J_T;
         if(I.shape() == J.shape() && I_T == J_T)
             I.swap(J);
         else
