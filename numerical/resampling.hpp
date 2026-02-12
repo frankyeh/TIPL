@@ -674,65 +674,145 @@ void downsample_with_padding(ImageType& in)
     in.swap(out);
 }
 
+#ifdef __CUDACC__
 
-
-template<typename IteratorType,typename OutputIterator>
-OutputIterator downsampling_no_average_x(IteratorType from,IteratorType to,OutputIterator out,int width)
+template<typename T, typename U, typename V>
+__global__ void downsample_label_cuda_kernel(T in, U out, V shift)
 {
-    int half_width = width >> 1;
-    for(;from != to;from += width)
+    TIPL_FOR(index, out.size())
     {
-        IteratorType read_end = from + (half_width << 1);
-        for(IteratorType read = from;read != read_end;++out,read += 2)
-            *out = *read;
-        if(width & 1) // the padding x dimension by 1
+        using value_type = typename T::value_type;
+        tipl::pixel_index<T::dimension> pos1(index, out.shape());
+        constexpr int buf_count = (T::dimension == 3 ? 8 : 4);
+
+        tipl::pixel_index<T::dimension> pos2((v(pos1)*2).begin(), in.shape());
+        char has = 0;
+        if(pos2[0]+1 < in.width()) has += 1;
+        if(pos2[1]+1 < in.height()) has += 2;
+        if constexpr(T::dimension == 3)
+            if(pos2[2]+1 < in.depth()) has += 4;
+
+        value_type labels[buf_count];
+        int counts[buf_count] = {0};
+        int unique_count = 0;
+
+        for(int i = 0; i < buf_count; ++i)
         {
-            *out = *read_end;
-            ++out;
+            auto h = has & i;
+            value_type label = (h == i) ? in[pos2.index() + shift[i]] : in[pos2.index()];
+
+            int j = 0;
+            for(; j < unique_count; ++j)
+                if(labels[j] == label)
+                {
+                    counts[j]++;
+                    break;
+                }
+            if(j == unique_count)
+            {
+                labels[unique_count] = label;
+                counts[unique_count] = 1;
+                ++unique_count;
+            }
+        }
+
+        int max_idx = 0;
+        for(int i = 1; i < unique_count; ++i)
+            if(counts[i] > counts[max_idx])
+                max_idx = i;
+
+        out[pos1.index()] = labels[max_idx];
+    }
+}
+#endif
+
+template<typename T, typename U, typename V>
+void downsample_label_imp(const pixel_index<T::dimension>& pos1,
+                          T& in, U& out, V& shift)
+{
+    constexpr int buf_count = (T::dimension == 3 ? 8 : 4);
+    using value_type = typename T::value_type;
+    pixel_index<T::dimension> pos2((v(pos1)*2).begin(), in.shape());
+
+    char has = 0;
+    if(pos2[0]+1 < in.width()) has += 1;
+    if(pos2[1]+1 < in.height()) has += 2;
+    if constexpr(T::dimension == 3)
+        if(pos2[2]+1 < in.depth()) has += 4;
+
+    value_type b[8];
+    for(int i = 0; i < buf_count; ++i)
+    {
+        auto h = has & i;
+        b[i] = (h == i) ? in[pos2.index() + shift[i]] : in[pos2.index()];
+    }
+
+    value_type winner = b[0];
+    int max_c = 0;
+    for(int i = 0; i < buf_count; ++i)
+    {
+        if (max_c > (buf_count - i)) break;
+
+        int c = 1;
+        for(int j = i + 1; j < buf_count; ++j)
+            if(b[i] == b[j]) ++c;
+
+        if(c > max_c) {
+            max_c = c;
+            winner = b[i];
         }
     }
-    return out;
+    out[pos1.index()] = winner;
 }
 
-template<typename IteratorType,typename OutputIterator>
-OutputIterator downsampling_no_average_y(IteratorType from,IteratorType to,OutputIterator out,int width,int height)
+template<typename T, typename U>
+void downsample_label(const T& in, U& out)
 {
-    int half_height = height >> 1;
-    size_t plane_size = size_t(width)*size_t(height);
-    size_t plane_size2 = (size_t(half_height) << 1 )*size_t(width);
-    for(;from != to;from += plane_size)
+    shape<T::dimension> out_shape(((v(in.shape())+1)/2).begin());
+    if(out.size() < out_shape.size())
+        out.resize(out_shape);
+
+    size_t shift_data[8];
+    shift_data[0] = 0;
+    shift_data[1] = 1;
+    shift_data[2] = in.width();
+    shift_data[3] = 1 + in.width();
+    if constexpr(T::dimension == 3)
     {
-        IteratorType line_end = from+plane_size2;
-        for(IteratorType line = from;line != line_end;line += width)
-        {
-            for(IteratorType end_line = line + width;line != end_line;++line,++out)
-                *out = *line;
-        }
-        if(height & 1) // padding y dimension by 1
-        {
-            for(IteratorType plane_end = line_end + width;line_end != plane_end;++line_end,++out)
-                *out = *line_end;
-        }
+        shift_data[4] = in.plane_size();
+        shift_data[5] = in.plane_size() + 1;
+        shift_data[6] = in.plane_size() + in.width();
+        shift_data[7] = in.plane_size() + 1 + in.width();
     }
-    return out;
+
+    if constexpr(memory_location<T>::at == CUDA)
+    {
+#ifdef __CUDACC__
+        tipl::device_vector<size_t> d_shift(T::dimension == 3 ? 8 : 4);
+        std::copy(shift_data, shift_data + (T::dimension == 3 ? 8 : 4), d_shift.begin());
+
+        TIPL_RUN(downsample_label_cuda_kernel, out.size())
+                (tipl::make_shared(in), tipl::make_shared(out), tipl::make_shared(d_shift));
+#endif
+    }
+    else
+    {
+        par_for(tipl::begin_index(out_shape), tipl::end_index(out_shape), [&](const auto& pos1)
+        {
+            downsample_label_imp(pos1, in, out, shift_data);
+        });
+    }
+    out.resize(out_shape);
 }
 
-template<typename ImageType1,typename ImageType2>
-void downsample_no_average(const ImageType1& in,ImageType2& out)
+template<typename ImageType>
+void downsample_label(ImageType& in)
 {
-    out.resize(in.shape());
-    tipl::shape<ImageType1::dimension> new_geo(in.shape());
-    typename ImageType2::iterator end_iter = downsampling_no_average_x(in.begin(),in.end(),out.begin(),in.width());
-    new_geo[0] = ((new_geo[0]+1) >> 1);
-    size_t plane_size = new_geo[0];
-    for(int dim = 1;dim < ImageType1::dimension;++dim)
-    {
-        end_iter = downsampling_no_average_y(out.begin(),end_iter,out.begin(),plane_size,in.shape()[dim]);
-        new_geo[dim] = ((in.shape()[dim]+1) >> 1);
-        plane_size *= new_geo[dim];
-    }
-    out.resize(new_geo);
+    ImageType out;
+    downsample_label(in, out);
+    in.swap(out);
 }
+
 #ifdef __CUDACC__
 template<tipl::interpolation itype,typename T1,typename T2>
 __global__ void upsample_with_padding_cuda_kernel(T1 from,T2 to)
@@ -776,6 +856,106 @@ void upsample_with_padding(T& in,const shape<T::dimension>& geo)
     new_d.swap(in);
 }
 
+template<typename IteratorType, typename OutputIterator>
+OutputIterator upsampling_label_x(IteratorType from, IteratorType to, OutputIterator out, int width)
+{
+    out += (to - from) << 1;
+    OutputIterator result = out;
+    do {
+        to -= width;
+        IteratorType line_end = to + width;
+        do {
+            --line_end;
+            *(--out) = *line_end;
+            *(--out) = *line_end;
+        } while (line_end != to);
+    } while (to != from);
+    return result;
+}
+
+template<typename IteratorType, typename OutputIterator>
+OutputIterator upsampling_label_y(IteratorType from, IteratorType to, OutputIterator out, int width, int height)
+{
+    size_t plane_size = size_t(width) * height;
+    out += (to - from) << 1;
+    OutputIterator result = out;
+    do {
+        to -= plane_size;
+        IteratorType plane_end = to + plane_size;
+        do {
+            plane_end -= width;
+            out -= width;
+            std::copy(plane_end, plane_end + width, out);
+            out -= width;
+            std::copy(plane_end, plane_end + width, out);
+        } while (plane_end != to);
+    } while (to != from);
+    return result;
+}
+
+template<typename ImageType1, typename ImageType2>
+void upsample_label_cpu(const ImageType1& in, ImageType2& out)
+{
+    shape<ImageType1::dimension> geo(in.shape());
+    shape<ImageType1::dimension> new_geo(in.shape());
+    for(int dim = 0; dim < ImageType1::dimension; ++dim)
+        new_geo[dim] <<= 1;
+    out.resize(new_geo);
+
+    auto end_iter = upsampling_label_x(in.begin(), in.begin() + geo.size(), out.begin(), geo.width());
+
+    size_t current_width = new_geo[0];
+    for(int dim = 1; dim < ImageType1::dimension; ++dim)
+    {
+        end_iter = upsampling_label_y(out.begin(), end_iter, out.begin(), current_width, geo[dim]);
+        current_width *= new_geo[dim];
+    }
+}
+
+#ifdef __CUDACC__
+template<typename T1, typename T2>
+__global__ void upsample_label_cuda_kernel(T1 from, T2 to)
+{
+    TIPL_FOR(index, to.size())
+    {
+        tipl::pixel_index<T1::dimension> pos_to(index, to.shape());
+        tipl::pixel_index<T1::dimension> pos_from;
+        for(int i = 0; i < T1::dimension; ++i)
+            pos_from[i] = pos_to[i] >> 1; // 相當於 floor(pos/2)
+
+        to[index] = from[pos_from.index()];
+    }
+}
+#endif
+
+template<typename T>
+void upsample_label(const T& in, T& out)
+{
+    if constexpr(memory_location<T>::at == CUDA)
+    {
+        #ifdef __CUDACC__
+        shape<T::dimension> new_geo(in.shape());
+        for(int i = 0; i < T::dimension; ++i) new_geo[i] <<= 1;
+        out.resize(new_geo);
+
+        TIPL_RUN(upsample_label_cuda_kernel, out.size())
+                (tipl::make_shared(in), tipl::make_shared(out));
+        #endif
+    }
+    else
+    {
+        upsample_label_cpu(in, out);
+    }
+}
+
+
+template<typename T>
+void upsample_label(T& in)
+{
+    T out;
+    upsample_label(in, out);
+    in.swap(out);
+}
 
 template<typename PixelType>
 void shrink(const tipl::image<3,PixelType>& image,
