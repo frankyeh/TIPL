@@ -8,6 +8,7 @@
 #include "../numerical/optimization.hpp"
 #include "../numerical/statistics.hpp"
 #include "../numerical/resampling.hpp"
+#include "../prog.hpp"
 #ifdef __CUDACC__
 #include "../cu.hpp"
 #endif
