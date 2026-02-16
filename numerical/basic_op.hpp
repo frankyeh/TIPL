@@ -182,26 +182,28 @@ bool is_label_image(const ImageType& I)
     });
     return std::accumulate(same.begin(),same.end(),size_t(0)) > std::accumulate(diff.begin(),diff.end(),size_t(0));
 }
-
 template<typename T>
-void expand_label_to_dimension(T& label,size_t label_count)
+void expand_label_to_dimension(T& label,size_t label_count,bool skip_background = true)
 {
-    std::vector<size_t> base_pos(label_count);
-    for(int i = 1;i < base_pos.size();++i)
-        base_pos[i] = base_pos[i-1]+label.size();
+    size_t size = label.size();
+    T out(label.shape().multiply(tipl::shape<3>::z,label_count));
 
-    T labels(label.shape().multiply(tipl::shape<3>::z,label_count));
-    for(size_t j = 0;j < label.size();++j)
+    std::vector<size_t> offset(label_count);
+    for(size_t i = 0;i < label_count;++i)
+        offset[i] = i*size;
+
+    auto it = label.begin();
+    auto end = label.end();
+    auto out_it = out.begin(); // Running pointer for out[0 + j]
+
+    for(;it != end; ++it, ++out_it)
     {
-        int cur_label = label[j];
-        if(cur_label < 1 || cur_label > label_count)
-            continue;
-        --cur_label;
-        labels[base_pos[cur_label] + j] = 1;
+        int v = *it - skip_background;
+        if(v >= 0 && v < label_count)
+            *(out_it + offset[v]) = 1;
     }
-    label.swap(labels);
+    label.swap(out);
 }
-
 template<typename ImageType,typename LabelImageType,typename fun_type>
 void binary(const ImageType& I,LabelImageType& out,fun_type fun)
 {
@@ -1277,6 +1279,13 @@ ImageType& flip(ImageType&& I,unsigned char dim)
     break;
     }
     return I;
+}
+//---------------------------------------------------------------------------
+template<typename iterator_type,typename value_type>
+void negate(iterator_type iter,iterator_type end,value_type maximum)
+{
+    for (; iter != end; ++iter)
+        *iter = maximum - *iter;
 }
 //---------------------------------------------------------------------------
 template<typename ImageType,typename value_type>
