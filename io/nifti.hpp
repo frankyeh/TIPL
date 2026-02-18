@@ -1040,6 +1040,8 @@ public:
     template<typename T>
     auto& operator>>(T&& source)
     {
+        if(flip_swap_seq.empty())
+            toLPS();
         if constexpr (std::is_invocable_r_v<void, T, const std::string&>)
         {
             if(!error_msg.empty())
