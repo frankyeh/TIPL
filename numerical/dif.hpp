@@ -357,13 +357,13 @@ void jacobian_determinant(const mapping_type& src, det_type& dest)
     auto geo = src.shape();
     dest.resize(geo);
 
-    constexpr int D = decltype(geo)::dimension;
-    static_assert(D == 2 || D == 3, "This function only supports 2D and 3D inputs.");
+    static constexpr int dim = decltype(geo)::dimension;
+    static_assert(dim == 2 || dim == 3, "This function only supports 2D and 3D inputs.");
 
     auto w = src.width();
     size_t wh = 0;
     // Conditionally get the plane size only for 3D data
-    if constexpr (D == 3)
+    if constexpr (dim == 3)
         wh = src.plane_size();
 
     tipl::adaptive_par_for(tipl::begin_index(geo), tipl::end_index(geo),
@@ -376,7 +376,7 @@ void jacobian_determinant(const mapping_type& src, det_type& dest)
         auto dv_dx = src[index.index() + 1] - src[index.index() - 1];
         auto dv_dy = src[index.index() + w] - src[index.index() - w];
 
-        if constexpr (D == 3)
+        if constexpr (dim == 3)
         {
             auto dv_dz = src[index.index() + wh] - src[index.index() - wh];
             dest[index.index()] = dv_dx[0] * (dv_dy[1] * dv_dz[2] - dv_dy[2] * dv_dz[1]) +
