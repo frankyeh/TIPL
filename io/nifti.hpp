@@ -48,6 +48,8 @@ namespace tipl
 namespace io
 {
 
+inline std::mutex nifti_do_not_show_process;
+
 struct header_key /* header key */
 {
     /* off + size */
@@ -480,9 +482,14 @@ public:
     template<typename T>
     bool open(const std::string& file_name_,T type)
     {
+        file_name = file_name_;
         if(type == std::ios::out)
         {
-            prog = tipl::progress("save " + (file_name = file_name_));
+            if(nifti_do_not_show_process.try_lock())
+            {
+                prog = tipl::progress("save " + file_name);
+                nifti_do_not_show_process.unlock();
+            }
             tmp_file_name = (file_name.back() == 'z' ? file_name + ".tmp.gz" : file_name + ".tmp");
             output_stream.reset(new output_interface);
             if(!output_stream->open(tmp_file_name))
@@ -493,17 +500,21 @@ public:
             }
             return true;
         }
-        prog = tipl::progress("open " + (file_name = file_name_));
+        if(nifti_do_not_show_process.try_lock())
+        {
+            prog = tipl::progress("open " + file_name);
+            nifti_do_not_show_process.unlock();
+        }
         if(!std::filesystem::exists(file_name))
         {
-            error_msg = "file does not exist";
+            error_msg = "file does not exist:" + file_name;
             return false;
         }
         if(!input_stream.get())
             input_stream.reset(new input_interface);
         if(!input_stream->open(file_name))
         {
-            error_msg = "cannot open file";
+            error_msg = "cannot open file:" + file_name;
             return false;
         }
         int size_of_header = 0;
