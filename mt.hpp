@@ -3,30 +3,56 @@
 #include <chrono>
 #include <future>
 #include <iostream>
+#include <string>
+#include <sstream>
+#include <iomanip>
+
 #include "def.hpp"
 namespace tipl{
 
+
+
 class time
 {
-    public:
-        time(const char* msg_):msg(msg_),t1(std::chrono::high_resolution_clock::now()){}
-        time():  t1(std::chrono::high_resolution_clock::now()){}
-        void restart(){t1 = std::chrono::high_resolution_clock::now();}
-        void start(){t1 = std::chrono::high_resolution_clock::now();}
-        void stop(){t2 = std::chrono::high_resolution_clock::now();}
-    public:
-        template<typename T = std::chrono::milliseconds>
-        auto elapsed(){return std::chrono::duration_cast<T>(std::chrono::high_resolution_clock::now() - t1).count();restart();}
-        template<typename T = std::chrono::milliseconds>
-        auto total(){stop();return std::chrono::duration_cast<T>(t2 - t1).count();}
-        ~time()
-        {
-            if(!msg.empty())
-                std::cout << msg << elapsed<>() << std::endl;
-        }
-    private:
-        std::string msg;
-        std::chrono::high_resolution_clock::time_point t1, t2;
+public:
+    // Constructor starts the timer immediately
+    time(const char* msg_) : msg(msg_), t1(std::chrono::high_resolution_clock::now()) {}
+    time() : t1(std::chrono::high_resolution_clock::now()) {}
+
+    void restart() { t1 = std::chrono::high_resolution_clock::now(); }
+    void start() { t1 = std::chrono::high_resolution_clock::now(); }
+    void stop() { t2 = std::chrono::high_resolution_clock::now(); }
+
+    template<typename T = std::chrono::milliseconds>
+    auto elapsed() {return std::chrono::duration_cast<T>(std::chrono::high_resolution_clock::now() - t1).count();}
+
+    template<typename T = std::chrono::milliseconds>
+    auto total() {stop();return std::chrono::duration_cast<T>(t2 - t1).count();}
+
+    std::string to_string() {
+        auto now = std::chrono::high_resolution_clock::now();
+        auto duration = now - t1;
+        auto hours = std::chrono::duration_cast<std::chrono::hours>(duration);
+        duration -= hours;
+        auto minutes = std::chrono::duration_cast<std::chrono::minutes>(duration);
+        duration -= minutes;
+        auto seconds = std::chrono::duration_cast<std::chrono::seconds>(duration);
+        std::ostringstream oss;
+        if (hours.count() > 0) oss << hours.count() << "h";
+        if (minutes.count() > 0) oss << minutes.count() << "m";
+        oss << seconds.count() << "s";
+        return oss.str();
+    }
+
+    ~time()
+    {
+        if (!msg.empty())
+            std::cout << msg << elapsed<>() << std::endl;
+    }
+
+private:
+    std::string msg;
+    std::chrono::high_resolution_clock::time_point t1, t2;
 };
 
 class estimate_time{
