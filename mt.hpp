@@ -95,130 +95,81 @@ inline bool is_main_thread(void)
 }
 
 inline int max_thread_count = std::thread::hardware_concurrency();
-
-
-enum par_for_type{
-    sequential = 0,
-    sequential_with_id = 1,
-    ranged = 2,
-    ranged_with_id = 3
+enum par_for_type {
+    sequential, sequential_with_id,
+    ranged, ranged_with_id,
+    dynamic, dynamic_with_id
 };
-inline std::atomic<bool> par_for_running = false;
-template <par_for_type type = sequential,typename T,
-          typename Func,typename std::enable_if<
-              std::is_integral<T>::value ||
-              std::is_class<T>::value ||
-              std::is_pointer<T>::value,bool>::type = true>
-__HOST__ void par_for(T from,T to,Func&& f,int thread_count)
-{
-    if(to == from)
-        return;
-    size_t n = to-from;
-    thread_count = std::max<int>(1,std::min<int>(thread_count,n));
-    if(par_for_running)
-        thread_count = 1;
-    if(thread_count > 1)
-        par_for_running = true;
-    #ifdef __CUDACC__
-    int cur_device = 0;
-    bool has_cuda = true;
-    if constexpr(use_cuda)
-    {
-        if(thread_count > 1 && cudaGetDevice(&cur_device) != cudaSuccess)
-            has_cuda = false;
-    }
-    #endif
 
-    auto run = [=,&f](T beg,T end,size_t id)
-    {
-        #ifdef __CUDACC__
-        if constexpr(use_cuda)
-        {
-            if(id && has_cuda)
-                cudaSetDevice(cur_device);
-        }
-        #endif
-        if constexpr(type >= ranged)
-        {
-            if constexpr(type == ranged_with_id)
-                f(beg,end,id);
-            else
-                f(beg,end);
-        }
-        else
-        {
-            for(;beg != end;++beg)
-                if constexpr(type == sequential_with_id)
-                    f(beg,id);
-                else
-                    f(beg);
+inline std::atomic<bool> par_for_running{false};
+template <par_for_type type = sequential, typename T, typename Func,
+          typename std::enable_if_t<std::is_integral_v<T> || std::is_class_v<T> || std::is_pointer_v<T>, int> = 0>
+void par_for(T from, T to, Func&& f, int thread_count) {
+    if (from == to) return;
+    size_t n = to - from;
+    bool is_root = !par_for_running.exchange(true);
+    int active = (is_root && n > 1) ? std::min<int>(thread_count, (int)n) : 1;
+
+#ifdef __CUDACC__
+    int dev = 0;
+    bool has_cuda = (active > 1 && cudaGetDevice(&dev) == 0);
+#endif
+
+    // Shared counter for dynamic types
+    std::atomic<size_t> next_idx{0};
+
+    auto run = [&](T b, T e, size_t id) {
+#ifdef __CUDACC__
+        if (id && has_cuda) cudaSetDevice(dev);
+#endif
+        if constexpr (type == dynamic || type == dynamic_with_id) {
+            for (size_t i = next_idx++; i < n; i = next_idx++) {
+                if constexpr (type == dynamic_with_id) f(from + i, id);
+                else f(from + i);
+            }
+        } else if constexpr (type >= ranged) {
+            if constexpr (type == ranged_with_id) f(b, e, id);
+            else f(b, e);
+        } else for (; b != e; ++b) {
+            if constexpr (type == sequential_with_id) f(b, id);
+            else f(b);
         }
     };
 
-    std::vector<std::thread> threads;
-    if(thread_count > 1)
-    {
-        size_t block_size = n / thread_count;
-        size_t remainder = n % thread_count;
-        for(size_t id = 1; id < thread_count; id++)
-        {
-            auto end = from + block_size + (id <= remainder ? 1 : 0);
-            threads.push_back(std::thread(run,from,end,id));
-            from = end;
+    if (active > 1) {
+        std::vector<std::thread> workers;
+        size_t block = n / active, rem = n % active;
+        T cursor = from;
+        for (int i = 1; i < active; ++i) {
+            T next = cursor + block + (i <= rem);
+            workers.emplace_back(run, cursor, next, i);
+            cursor = next;
         }
-    }
-    run(from,to,0);
-    for(auto &thread : threads)
-        thread.join();
+        run(cursor, to, 0);
+        for (auto& t : workers) t.join();
+    } else run(from, to, 0);
 
-    if(thread_count > 1)
-        par_for_running = false;
+    if (is_root) par_for_running = false;
+}
+// Overload: Automatic thread count
+template <par_for_type type = sequential, typename T, typename Func,
+          typename std::enable_if_t<std::is_integral_v<T> || std::is_class_v<T> || std::is_pointer_v<T>, int> = 0>
+void par_for(T from, T to, Func&& f) {
+    par_for<type>(from, to, std::forward<Func>(f), par_for_running ? 1 : max_thread_count);
 }
 
-
-template <par_for_type type = sequential,typename T,
-          typename Func,typename std::enable_if<
-              std::is_integral<T>::value ||
-              std::is_class<T>::value ||
-              std::is_pointer<T>::value,bool>::type = true>
-void par_for(T from,T to,Func&& f)
-{
-    if(par_for_running)
-    {
-        par_for<type>(from,to,std::forward<Func>(f),1);
-        return;
-    }
-    par_for<type>(from,to,std::forward<Func>(f),max_thread_count);
+// Overload: Single size (integral)
+template <par_for_type type = sequential, typename T, typename Func, typename std::enable_if_t<std::is_integral_v<T>, int> = 0>
+void par_for(T size, Func&& f, int tc = max_thread_count) {
+    par_for<type>(T(0), size, std::forward<Func>(f), tc);
 }
 
-template <par_for_type type = sequential,typename T,typename Func,
-          typename std::enable_if<std::is_integral<T>::value,bool>::type = true>
-inline void par_for(T size, Func&& f,unsigned int thread_count)
-{
-    par_for<type>(T(),size,std::forward<Func>(f),thread_count);
+// Overload: Containers
+template <par_for_type type = sequential, typename C, typename Func,
+          typename = decltype(std::declval<C>().begin())>
+void par_for(C& c, Func&& f, int tc = max_thread_count) {
+    par_for<type>(c.begin(), c.end(), std::forward<Func>(f), tc);
 }
-template <par_for_type type = sequential,typename T,typename Func,
-          typename std::enable_if<std::is_integral<T>::value,bool>::type = true>
-inline void par_for(T size, Func&& f)
-{
-    par_for<type>(T(),size,std::forward<Func>(f));
-}
-
-template <par_for_type type = sequential,typename T,typename Func>
-inline typename std::enable_if<
-    std::is_same<decltype(std::declval<T>().begin()), decltype(std::declval<T>().end())>::value>::type
-par_for(T& c, Func&& f,unsigned int thread_count)
-{
-    par_for<type>(c.begin(),c.end(),std::forward<Func>(f),thread_count);
-}
-template <par_for_type type = sequential,typename T,typename Func>
-inline typename std::enable_if<
-    std::is_same<decltype(std::declval<T>().begin()), decltype(std::declval<T>().end())>::value>::type
-par_for(T& c, Func&& f)
-{
-    par_for<type>(c.begin(),c.end(),std::forward<Func>(f));
-}
-
 template <par_for_type type = sequential,typename T, typename Func>
 size_t adaptive_par_for(T from, T to, Func&& f)
 {
