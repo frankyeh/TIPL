@@ -650,7 +650,7 @@ void downsample_with_padding(const T& in,U& out)
     }
     else
     {
-        par_for(tipl::begin_index(out_shape),tipl::end_index(out_shape),[&]
+        par_for<sequential>(tipl::begin_index(out_shape),tipl::end_index(out_shape),[&]
                 (const auto& pos1)
         {
             downsample_with_padding_imp(pos1,in,out,shift);
@@ -797,7 +797,7 @@ void downsample_label(const T& in, U& out)
     }
     else
     {
-        par_for(tipl::begin_index(out_shape), tipl::end_index(out_shape), [&](const auto& pos1)
+        par_for<sequential>(tipl::begin_index(out_shape), tipl::end_index(out_shape), [&](const auto& pos1)
         {
             downsample_label_imp(pos1, in, out, shift_data);
         });
@@ -837,7 +837,7 @@ void upsample_with_padding(const T& in,T& out)
     }
     else
     {
-        par_for(begin_index(out.shape()),end_index(out.shape()),[&]
+        par_for<sequential>(begin_index(out.shape()),end_index(out.shape()),[&]
                 (const pixel_index<T::dimension>& pos)
         {
             vector<T::dimension> v(pos);
@@ -1171,7 +1171,7 @@ void match_signal_kernel(const T& VG,T& VFF)
     for(unsigned int index = 1;index+1 < sum.size();++index)
         value[index] = (sum[index]+sum[index]+sum[index-1]+sum[index+1])*0.25;
 
-    tipl::par_for(VG.size(),[&](size_t index)
+    tipl::par_for<sequential>(VG.size(),[&](size_t index)
     {
         if(VG[index] > 0 && VFF[index] > 0)
         {
@@ -1191,7 +1191,7 @@ void match_signal_kernel(const T& VG,T& VFF)
 template<tipl::interpolation Type = linear,typename ImageType1,typename ImageType2,typename T>
 void scale(const ImageType1& from,ImageType2&& to,const tipl::vector<ImageType1::dimension>& s)
 {
-    par_for(begin_index(to.shape()),end_index(to.shape()),
+    par_for<sequential>(begin_index(to.shape()),end_index(to.shape()),
                 [&](const auto& index)
     {
         vector<ImageType1::dimension> pos(index);
@@ -1230,7 +1230,7 @@ void resample(const T& from,U&& to,const tipl::transformation_matrix<V,T::dimens
     }
     else
     {
-        tipl::par_for(tipl::begin_index(to.shape()),tipl::end_index(to.shape()),
+        tipl::par_for<sequential>(tipl::begin_index(to.shape()),tipl::end_index(to.shape()),
                     [&](const auto& index)
         {
             tipl::vector<T::dimension> pos;
