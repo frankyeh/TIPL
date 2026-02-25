@@ -108,7 +108,9 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
 
     #ifdef __CUDACC__
     int dev = 0;
-    bool has_cuda = (active > 1 && cudaGetDevice(&dev) == 0);
+    bool check_cuda = false;
+    if constexpr(use_cuda)
+        check_cuda = (active > 1 && cudaGetDevice(&dev) == 0);
     #endif
 
     auto run = [=,&f](T b,T e,size_t id)
@@ -116,8 +118,8 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
 #ifdef __CUDACC__
         if constexpr(use_cuda)
         {
-            if(id && has_cuda)
-                cudaSetDevice(cur_device);
+            if(id && check_cuda)
+                cudaSetDevice(dev);
         }
 #endif
 
