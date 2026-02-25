@@ -181,26 +181,26 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
 // Overload: Automatic thread count
 template <par_for_type type = sequential, typename T, typename Func,
           typename std::enable_if_t<std::is_integral_v<T> || std::is_class_v<T> || std::is_pointer_v<T>, int> = 0>
-void par_for(T from, T to, Func&& f) {
+inline void par_for(T from, T to, Func&& f) {
     par_for<type>(from, to, std::forward<Func>(f), par_for_running ? 1 : max_thread_count);
 }
 
 // Overload: Single size (integral)
 template <par_for_type type = sequential, typename T, typename Func, typename std::enable_if_t<std::is_integral_v<T>, int> = 0>
-void par_for(T size, Func&& f, int tc = max_thread_count) {
+inline void par_for(T size, Func&& f, int tc = max_thread_count) {
     par_for<type>(T(0), size, std::forward<Func>(f), tc);
 }
 
 // Overload: Containers
 template <par_for_type type = sequential, typename C, typename Func,
           typename = decltype(std::declval<C>().begin())>
-void par_for(C& c, Func&& f, int tc = max_thread_count) {
+inline void par_for(C& c, Func&& f, int tc = max_thread_count) {
     par_for<type>(c.begin(), c.end(), std::forward<Func>(f), tc);
 }
 
 
 template <typename T>
-double estimate_run_time(T&& fun)
+inline double estimate_run_time(T&& fun)
 {
     auto start = std::chrono::steady_clock::now();
     std::forward<T>(fun)();
@@ -210,7 +210,7 @@ double estimate_run_time(T&& fun)
 }
 
 template <par_for_type type = sequential, typename T, typename Func>
-size_t adaptive_par_for(T from, T to, Func&& f)
+__HOST__ size_t adaptive_par_for(T from, T to, Func&& f)
 {
     if (to - from <= 8 || !tipl::is_main_thread() || par_for_running.exchange(true))
     {
