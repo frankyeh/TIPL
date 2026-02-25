@@ -89,9 +89,10 @@ inline bool is_main_thread(void)
 inline int max_thread_count = std::thread::hardware_concurrency();
 
 enum par_for_type {
-    sequential, sequential_with_id,
-    ranged, ranged_with_id,
-    dynamic, dynamic_with_id
+    sequential = 0,
+    sequential_with_id = 1,
+    ranged = 2,
+    ranged_with_id = 3
 };
 inline std::atomic<bool> par_for_running = false;
 template <par_for_type type = sequential,typename T,
