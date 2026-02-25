@@ -325,7 +325,7 @@ void add(T& I,const U& I2)
         #endif
     }
     else
-        tipl::par_for(I.size(),[&I,&I2](size_t index)
+        tipl::par_for<sequential>(I.size(),[&I,&I2](size_t index)
         {
             I[index] += I2[index];
         });
@@ -341,7 +341,7 @@ __INLINE__ void minus(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 template<typename image_type1,typename image_type2>
 inline void minus(image_type1& I,const image_type2& I2)
 {
-    tipl::par_for(I.size(),[&I,&I2](size_t index)
+    tipl::par_for<sequential>(I.size(),[&I,&I2](size_t index)
     {
         I[index] -= I2[index];
     });
@@ -356,7 +356,7 @@ __INLINE__ void multiply(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 template<typename image_type1,typename image_type2>
 inline void multiply(image_type1& I,const image_type2& I2)
 {
-    tipl::par_for(I.size(),[&I,&I2](size_t index)
+    tipl::par_for<sequential>(I.size(),[&I,&I2](size_t index)
     {
         I[index] *= I2[index];
     });
@@ -371,7 +371,7 @@ __INLINE__ void divide(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 template<typename image_type1,typename image_type2>
 inline void divide(image_type1& I,const image_type2& I2)
 {
-    tipl::par_for(I.size(),[&I,&I2](size_t index)
+    tipl::par_for<sequential>(I.size(),[&I,&I2](size_t index)
     {
         I[index] /= I2[index];
     });
@@ -380,7 +380,7 @@ inline void divide(image_type1& I,const image_type2& I2)
 template<typename image_type1,typename image_type2>
 void greater(image_type1& I,const image_type2& I2)
 {
-    tipl::par_for(I.size(),[&I,&I2](size_t index)
+    tipl::par_for<sequential>(I.size(),[&I,&I2](size_t index)
     {
         I[index] = (I[index] > I2[index] ? 1 : 0);
     });
@@ -389,7 +389,7 @@ void greater(image_type1& I,const image_type2& I2)
 template<typename image_type1,typename image_type2>
 inline void lesser(image_type1& I,const image_type2& I2)
 {
-    tipl::par_for(I.size(),[&I,&I2](size_t index)
+    tipl::par_for<sequential>(I.size(),[&I,&I2](size_t index)
     {
         I[index] = (I[index] < I2[index] ? 1 : 0);
     });
@@ -398,7 +398,7 @@ inline void lesser(image_type1& I,const image_type2& I2)
 template<typename image_type1,typename image_type2>
 inline void equal(image_type1& I,const image_type2& I2)
 {
-    tipl::par_for(I.size(),[&I,&I2](size_t index)
+    tipl::par_for<sequential>(I.size(),[&I,&I2](size_t index)
     {
         I[index] = (I[index] == I2[index] ? 1 : 0);
     });
@@ -431,7 +431,7 @@ void add_constant(T& I,U v)
         #endif
     }
     else
-        tipl::par_for(I.size(),[&I,v](size_t index)
+        tipl::par_for<sequential>(I.size(),[&I,v](size_t index)
         {
            I[index] += v;
         });
@@ -447,7 +447,7 @@ __INLINE__ void mod_constant(iterator1 lhs_from,iterator1 lhs_to,value_type valu
 template<typename image_type,typename value_type>
 inline void mod_constant(image_type& I,value_type value)
 {
-    tipl::par_for(I.size(),[&I,value](size_t index)
+    tipl::par_for<sequential>(I.size(),[&I,value](size_t index)
     {
         I[index] %= value;
     });
@@ -463,7 +463,7 @@ __INLINE__ void minus_constant(iterator1 lhs_from,iterator1 lhs_to,value_type va
 template<typename image_type,typename value_type>
 inline void minus_constant(image_type& I,value_type value)
 {
-    tipl::par_for(I.size(),[&I,value](size_t index)
+    tipl::par_for<sequential>(I.size(),[&I,value](size_t index)
     {
         I[index] -= value;
     });
@@ -479,7 +479,7 @@ __INLINE__ void minus_by_constant(iterator1 lhs_from,iterator1 lhs_to,value_type
 template<typename image_type,typename value_type>
 inline void minus_by_constant(image_type& I,value_type value)
 {
-    tipl::par_for(I.size(),[&I,value](size_t index)
+    tipl::par_for<sequential>(I.size(),[&I,value](size_t index)
     {
         I[index] = value - I[index];
     });
@@ -513,7 +513,7 @@ void multiply_constant(T& I,U value)
         #endif
     }
     else
-        tipl::par_for(I.size(),[&I,value](size_t index){
+        tipl::par_for<sequential>(I.size(),[&I,value](size_t index){
            I[index] *= value;
         });
 }
@@ -528,7 +528,7 @@ __INLINE__ void divide_constant(iterator1 lhs_from,iterator1 lhs_to,value_type v
 template<typename image_type,typename value_type>
 inline void divide_constant(image_type& I,value_type value)
 {
-    tipl::par_for(I.size(),[&I,value](size_t index)
+    tipl::par_for<sequential>(I.size(),[&I,value](size_t index)
     {
         I[index] /= value;
     });
@@ -542,7 +542,7 @@ inline void divide_by_constant(iterator1 lhs_from,iterator1 lhs_to,value_type va
 template<typename image_type,typename value_type>
 inline void divide_by_constant(image_type& I,value_type value)
 {
-    tipl::par_for(I.size(),[&I,value](size_t index)
+    tipl::par_for<sequential>(I.size(),[&I,value](size_t index)
     {
         I[index] = value/I[index];
     });
@@ -550,7 +550,7 @@ inline void divide_by_constant(image_type& I,value_type value)
 template<typename image_type,typename value_type>
 inline void greater_constant(image_type& I,value_type value)
 {
-    tipl::par_for(I.size(),[&I,value](size_t index)
+    tipl::par_for<sequential>(I.size(),[&I,value](size_t index)
     {
        I[index] = (I[index] > value ? 1 : 0);
     });
@@ -558,7 +558,7 @@ inline void greater_constant(image_type& I,value_type value)
 template<typename image_type,typename value_type>
 inline void lesser_constant(image_type& I,value_type value)
 {
-    tipl::par_for(I.size(),[&I,value](size_t index)
+    tipl::par_for<sequential>(I.size(),[&I,value](size_t index)
     {
         I[index] = (I[index] < value ? 1 : 0);
     });
@@ -566,7 +566,7 @@ inline void lesser_constant(image_type& I,value_type value)
 template<typename image_type,typename value_type>
 inline void equal_constant(image_type& I,value_type value)
 {
-    tipl::par_for(I.size(),[&I,value](size_t index)
+    tipl::par_for<sequential>(I.size(),[&I,value](size_t index)
     {
         I[index] = (I[index] == value ? 1 : 0);
     });
@@ -930,7 +930,7 @@ void masking(T& I,const U& I2)
         #endif
     }
     else
-        tipl::par_for(I.size(),[&I,&I2](size_t index){
+        tipl::par_for<sequential>(I.size(),[&I,&I2](size_t index){
             if(I2[index])
                 I[index] = 0;
         });
@@ -965,7 +965,7 @@ void preserve(T& I,const U& I2)
         #endif
     }
     else
-        tipl::par_for(I.size(),[&I,&I2](size_t index){
+        tipl::par_for<sequential>(I.size(),[&I,&I2](size_t index){
             if(!I2[index])
                 I[index] = 0;
         });
@@ -1167,7 +1167,7 @@ __HOST__ void normalize_upper_lower2(const T& in,U& out,float upper_limit)
     }
     else
     {
-        par_for(in.size(),[&](size_t i)
+        tipl::par_for<sequential>(in.size(),[&](size_t i)
         {
             out[i] = (in[i]-min_v)*upper_limit;
         });
@@ -1252,7 +1252,7 @@ auto center_of_mass_binary(const T& Im)
 {
     std::vector<tipl::vector<T::dimension> > sum_mass(max_thread_count);
     std::vector<size_t> total_w(max_thread_count);
-    tipl::par_for(tipl::begin_index(Im.shape()),tipl::end_index(Im.shape()),
+    tipl::par_for<sequential>(tipl::begin_index(Im.shape()),tipl::end_index(Im.shape()),
                         [&](const auto& index,size_t id)
     {
         if(Im[index.index()])
