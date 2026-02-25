@@ -80,13 +80,6 @@ public:
 };
 
 
-template<typename T>
-auto estimate_run_time(T&& fun)
-{
-    auto start = std::chrono::high_resolution_clock::now();
-    fun();
-    return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count();
-}
 
 inline auto main_thread_id = std::this_thread::get_id();
 inline bool is_main_thread(void)
@@ -170,48 +163,63 @@ template <par_for_type type = sequential, typename C, typename Func,
 void par_for(C& c, Func&& f, int tc = max_thread_count) {
     par_for<type>(c.begin(), c.end(), std::forward<Func>(f), tc);
 }
-template <par_for_type type = sequential,typename T, typename Func>
+
+
+template <typename T>
+double estimate_run_time(T&& fun)
+{
+    auto start = std::chrono::steady_clock::now();
+    std::forward<T>(fun)();
+    auto end = std::chrono::steady_clock::now();
+
+    return std::chrono::duration<double, std::micro>(end - start).count();
+}
+
+template <par_for_type type = sequential, typename T, typename Func>
 size_t adaptive_par_for(T from, T to, Func&& f)
 {
-    if(to-from <= 8 || !tipl::is_main_thread() || par_for_running)
+    if (to - from <= 8 || !tipl::is_main_thread() || par_for_running.exchange(true))
     {
-        par_for<type>(from,to,std::forward<Func>(f),1);
+        par_for<type>(from, to, f, 1);
         return 1;
     }
-    auto block_size = std::max<decltype(to-from)>(1,(to-from) >> 6);
-    double run_time_per_block,thread_overhead;
-    do
+
+    struct scoped_flag
     {
-        if(from + block_size*6 > to)
+        ~scoped_flag()
         {
-            par_for<type>(from,to,std::forward<Func>(f),1);
-            return 1;
+            par_for_running = false;
         }
-        // estimate thread overhead burden
-        run_time_per_block = estimate_run_time([&](void){par_for<type>(from,from+block_size, std::forward<Func>(f),1);});
-        from += block_size;
+    } guard;
 
-        thread_overhead = estimate_run_time([&](void){par_for<type>(from,from+block_size+block_size, std::forward<Func>(f),2);});
-        from += block_size + block_size;
+    auto block_size = std::max<decltype(to - from)>(1, (to - from) >> 6);
 
-    }
-    while(run_time_per_block >= thread_overhead);
-
-    thread_overhead -= run_time_per_block;
-    if(thread_overhead <= 0)
+    if (from + block_size * 3 > to)
     {
-        par_for<type>(from,to,f,1);
+        par_for<type>(from, to, f, 1);
         return 1;
     }
-    int64_t num_block = (to-from)/block_size;
 
-    // optimize estimated_time = (num_block / thread_count) * run_time_per_block + (thread_count-1)*thread_overhead;
-    // solving a*(x-1)+b/x, where a=thread_overhead and b=num_block*run_time_per_block
-    // the x*=sqrt(b/a)
-    int optimal_threads = std::min<int>(std::max<int>(1,std::sqrt(num_block*run_time_per_block/thread_overhead)),max_thread_count);
+    double t1 = estimate_run_time([&]() { par_for<type>(from, from + block_size, f, 1); });
+    from += block_size;
 
-    par_for<type>(from, to,std::forward<Func>(f), optimal_threads);
-    return optimal_threads;
+    double t2 = estimate_run_time([&]() { par_for<type>(from, from + block_size * 2, f, 2); });
+    from += block_size * 2;
+
+    double overhead = t2 - t1;
+
+    if (overhead <= 0)
+    {
+        par_for<type>(from, to, std::forward<Func>(f), max_thread_count);
+        return max_thread_count;
+    }
+
+    int64_t num_block = (to - from) / block_size;
+    int opt_threads = std::max<int>(1, std::sqrt(num_block * t1 / overhead));
+    opt_threads = std::min<int>(opt_threads, max_thread_count);
+
+    par_for<type>(from, to, std::forward<Func>(f), opt_threads);
+    return opt_threads;
 }
 
 template <par_for_type type = sequential,typename T,typename Func,
@@ -237,23 +245,6 @@ void aggregate_results(std::vector<std::vector<T> >&& results,std::vector<T>& al
     all_result.swap(all_result_);
 }
 
-namespace backend {
-    struct seq{
-        template<typename Fun>
-        inline void operator()(size_t n,Fun&& f)
-        {
-            for(size_t i = 0;i < n;++i)
-                f(i);
-        }
-    };
-    struct mt{
-        template<typename Func>
-        inline void operator()(size_t n,Func&& f)
-        {
-            par_for(n,std::forward<Func>(f));
-        }
-    };
-}
 
 
 class thread{
