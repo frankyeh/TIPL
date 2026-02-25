@@ -111,7 +111,7 @@ void par_for(T from, T to, Func&& f, int thread_count) {
     // Shared counter for dynamic types
     std::atomic<size_t> next_idx{0};
 
-    auto run = [&](T b, T e, size_t id) -> void
+    auto run = [=, &f, &next_idx](T b, T e, size_t id)
     {
 #ifdef __CUDACC__
         if (id && has_cuda) cudaSetDevice(dev);
@@ -136,7 +136,7 @@ void par_for(T from, T to, Func&& f, int thread_count) {
         T cursor = from;
         for (int i = 1; i < active; ++i) {
             T next = cursor + block + (i <= rem);
-            workers.push_back(std::thread(run, cursor, next, i));
+            workers.emplace_back(run, cursor, next, i);
             cursor = next;
         }
         run(cursor, to, 0);
