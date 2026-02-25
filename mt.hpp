@@ -88,7 +88,8 @@ inline bool is_main_thread(void)
 
 inline int max_thread_count = std::thread::hardware_concurrency();
 
-enum par_for_type {
+
+enum par_for_type{
     sequential = 0,
     sequential_with_id = 1,
     ranged = 2,
@@ -102,55 +103,68 @@ template <par_for_type type = sequential,typename T,
               std::is_pointer<T>::value,bool>::type = true>
 __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
 {
-    if (from == to) return;
-        size_t n = to - from;
-    bool is_root = !par_for_running.exchange(true);
-    int active = (is_root && n > 1) ? std::min<int>(thread_count, (int)n) : 1;
-
+    if(to == from)
+        return;
+    size_t n = to-from;
+    thread_count = std::max<int>(1,std::min<int>(thread_count,n));
+    if(par_for_running)
+        thread_count = 1;
+    if(thread_count > 1)
+        par_for_running = true;
     #ifdef __CUDACC__
-    int dev = 0;
-    bool check_cuda = false;
+    int cur_device = 0;
+    bool has_cuda = true;
     if constexpr(use_cuda)
-        check_cuda = (active > 1 && cudaGetDevice(&dev) == 0);
+    {
+        if(thread_count > 1 && cudaGetDevice(&cur_device) != cudaSuccess)
+            has_cuda = false;
+    }
     #endif
 
-    auto run = [=,&f](T b,T e,size_t id)
+    auto run = [=,&f](T beg,T end,size_t id)
     {
-#ifdef __CUDACC__
+        #ifdef __CUDACC__
         if constexpr(use_cuda)
         {
-            if(id && check_cuda)
-                cudaSetDevice(dev);
+            if(id && has_cuda)
+                cudaSetDevice(cur_device);
         }
-#endif
-
-        if constexpr (type >= ranged) {
-            if constexpr (type == ranged_with_id) f(b, e, id);
-            else f(b, e);
-        } else for (; b != e; ++b) {
-            if constexpr (type == sequential_with_id) f(b, id);
-            else f(b);
+        #endif
+        if constexpr(type >= ranged)
+        {
+            if constexpr(type == ranged_with_id)
+                f(beg,end,id);
+            else
+                f(beg,end);
+        }
+        else
+        {
+            for(;beg != end;++beg)
+                if constexpr(type == sequential_with_id)
+                    f(beg,id);
+                else
+                    f(beg);
         }
     };
 
-    if (active > 1)
+    std::vector<std::thread> threads;
+    if(thread_count > 1)
     {
-        std::vector<std::thread> workers;
-        size_t block = n / active, rem = n % active;
-        T cursor = from;
-        for (int i = 1; i < active; ++i)
+        size_t block_size = n / thread_count;
+        size_t remainder = n % thread_count;
+        for(size_t id = 1; id < thread_count; id++)
         {
-            T next = cursor + block + (i <= rem);
-            workers.emplace_back(run, cursor, next, i);
-            cursor = next;
+            auto end = from + block_size + (id <= remainder ? 1 : 0);
+            threads.push_back(std::thread(run,from,end,id));
+            from = end;
         }
-        run(cursor, to, 0);
-        for (auto& t : workers) t.join();
     }
-    else
-        run(from, to, 0);
+    run(from,to,0);
+    for(auto &thread : threads)
+        thread.join();
 
-    if (is_root) par_for_running = false;
+    if(thread_count > 1)
+        par_for_running = false;
 }
 // Overload: Automatic thread count
 template <par_for_type type = sequential, typename T, typename Func,
