@@ -421,7 +421,7 @@ private:
     {
         normal_list.clear();
         normal_list.resize(point_list.size());
-        tipl::par_for (tri_list.size(),[&](unsigned int index)
+        tipl::par_for<sequential>(tri_list.size(),[&](unsigned int index)
         {
             unsigned int p1 = tri_list[index][0];
             unsigned int p2 = tri_list[index][1];
@@ -432,7 +432,7 @@ private:
             normal_list[p2] += n;
             normal_list[p3] += n;
         },std::min<int>(8,std::thread::hardware_concurrency()));
-        tipl::par_for (normal_list.size(),[&](unsigned int index)
+        tipl::par_for<sequential>(normal_list.size(),[&](unsigned int index)
         {
             normal_list[index].normalize();
         },std::min<int>(4,std::thread::hardware_concurrency()));
@@ -440,7 +440,7 @@ private:
     void get_sorted_indices(void)
     {
         sorted_index.resize(6);// 6 directions
-        tipl::par_for(3,[&](size_t view_index)
+        tipl::par_for<sequential>(3,[&](size_t view_index)
         {
             sorted_index[view_index].resize(tri_list.size()*3);
             sorted_index[view_index+3].resize(tri_list.size()*3);
