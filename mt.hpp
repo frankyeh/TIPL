@@ -147,13 +147,6 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
             else
                 f(beg,end);
         }
-        if constexpr(type == dynamic || type == dynamic_with_id)
-        {
-            if constexpr(type == dynamic_with_id)
-                f(beg,end,id);
-            else
-                f(beg,end);
-        }
         if constexpr (type == dynamic || type == dynamic_with_id)
         {
             for (size_t i = next_idx++; i < n; i = next_idx++)
