@@ -109,9 +109,10 @@ void par_for(T from, T to, Func&& f, int thread_count) {
 #endif
 
     // Shared counter for dynamic types
-    std::atomic<size_t> next_idx{0};
+    [[maybe_unused]] std::atomic<size_t> next_idx{0};
 
-    auto run = [&](T b, T e, size_t id) {
+    auto run = [&](T b, T e, size_t id) -> void
+    {
 #ifdef __CUDACC__
         if (id && has_cuda) cudaSetDevice(dev);
 #endif
