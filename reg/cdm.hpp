@@ -340,7 +340,6 @@ void cdm(const std::vector<pointer_image_type>& It,
            cdm_param param = cdm_param())
 {
     best_d.resize(It[0].shape());
-    constexpr int dim = pointer_image_type::dimension;
     // multi resolution
     if (min_value(It[0].shape()) > param.min_dimension)
     {
