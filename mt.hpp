@@ -109,7 +109,7 @@ void par_for(T from, T to, Func&& f, int thread_count) {
 #endif
 
     // Shared counter for dynamic types
-    [[maybe_unused]] std::atomic<size_t> next_idx{0};
+    std::atomic<size_t> next_idx{0};
 
     auto run = [&](T b, T e, size_t id) -> void
     {
