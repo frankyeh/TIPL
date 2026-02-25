@@ -93,7 +93,9 @@ enum par_for_type{
     sequential = 0,
     sequential_with_id = 1,
     ranged = 2,
-    ranged_with_id = 3
+    ranged_with_id = 3,
+    dynamic = 4,
+    dynamic_with_id = 5
 };
 inline std::atomic<bool> par_for_running = false;
 template <par_for_type type = sequential,typename T,
@@ -119,7 +121,9 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
     }
     #endif
 
-    auto run = [=,&f](T beg,T end,size_t id)
+    [[maybe_unused]] std::atomic<size_t> next_idx{0};
+
+    auto run = [=,&f,&next_idx](T beg,T end,size_t id)
     {
         #ifdef __CUDACC__
         if constexpr(use_cuda)
@@ -128,20 +132,35 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
                 cudaSetDevice(cur_device);
         }
         #endif
-        if constexpr(type >= ranged)
-        {
-            if constexpr(type == ranged_with_id)
-                f(beg,end,id);
-            else
-                f(beg,end);
-        }
-        else
+        if constexpr(type == sequential || type == sequential_with_id)
         {
             for(;beg != end;++beg)
                 if constexpr(type == sequential_with_id)
                     f(beg,id);
                 else
                     f(beg);
+        }
+        if constexpr(type == ranged || type == ranged_with_id)
+        {
+            if constexpr(type == ranged_with_id)
+                f(beg,end,id);
+            else
+                f(beg,end);
+        }
+        if constexpr(type == dynamic || type == dynamic_with_id)
+        {
+            if constexpr(type == dynamic_with_id)
+                f(beg,end,id);
+            else
+                f(beg,end);
+        }
+        if constexpr (type == dynamic || type == dynamic_with_id)
+        {
+            for (size_t i = next_idx++; i < n; i = next_idx++)
+            if constexpr (type == dynamic_with_id)
+                f(from + i, id);
+            else
+                f(from + i);
         }
     };
 
