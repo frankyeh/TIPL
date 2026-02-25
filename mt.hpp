@@ -79,6 +79,7 @@ public:
     }
 };
 
+
 inline auto main_thread_id = std::this_thread::get_id();
 inline bool is_main_thread(void)
 {
@@ -210,6 +211,14 @@ par_for(T& c, Func&& f)
     par_for<type>(c.begin(),c.end(),std::forward<Func>(f));
 }
 
+template<typename T>
+auto estimate_run_time(T&& fun)
+{
+    auto start = std::chrono::high_resolution_clock::now();
+    fun();
+    return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count();
+}
+
 template <par_for_type type = sequential,typename T, typename Func>
 size_t adaptive_par_for(T from, T to, Func&& f)
 {
@@ -276,7 +285,6 @@ void aggregate_results(std::vector<std::vector<T> >&& results,std::vector<T>& al
     });
     all_result.swap(all_result_);
 }
-
 
 
 class thread{
