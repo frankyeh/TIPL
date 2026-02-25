@@ -122,6 +122,7 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
     #endif
 
     [[maybe_unused]] std::atomic<size_t> next_idx{0};
+    T original_from = from;
 
     auto run = [=,&f,&next_idx](T beg,T end,size_t id)
     {
@@ -151,9 +152,9 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
         {
             for (size_t i = next_idx++; i < n; i = next_idx++)
                 if constexpr (type == dynamic_with_id)
-                    f(beg + i, id);
+                    f(original_from + i, id);
                 else
-                    f(beg + i);
+                    f(original_from + i);
         }
     };
 
