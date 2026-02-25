@@ -165,7 +165,7 @@ inline void get_mutual_info(T& mutual_hist_all,const U& to,const V& from,const W
         std::vector<T> mutual_hist(max_thread_count);
         for(auto& each : mutual_hist)
             each.resize(mutual_hist_all.shape());
-        tipl::par_for<sequential_with_id>(tipl::begin_index(from.shape()),tipl::end_index(from.shape()),
+        tipl::par_for<dynamic_with_id>(tipl::begin_index(from.shape()),tipl::end_index(from.shape()),
                                        [&](const auto& index,int id)
         {
             tipl::vector<U::dimension> pos;
@@ -284,7 +284,7 @@ private:
     {
         buffer.resize(from.size()+to.size());
         std::vector<pointer_image_type> from_to_list(buffer.size());
-        tipl::par_for(buffer.size(),[&](size_t id)
+        tipl::par_for<sequential>(buffer.size(),[&](size_t id)
         {
             downsample_with_padding(id < from.size() ? from[id]:to[id-from.size()],buffer[id]);
             from_to_list[id] = pointer_image_type(&buffer[id][0],buffer[id].shape());
