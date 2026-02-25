@@ -136,7 +136,7 @@ void par_for(T from, T to, Func&& f, int thread_count) {
         T cursor = from;
         for (int i = 1; i < active; ++i) {
             T next = cursor + block + (i <= rem);
-            workers.emplace_back(run, cursor, next, i);
+            workers.push_back(std::thread(run, cursor, next, i));
             cursor = next;
         }
         run(cursor, to, 0);
