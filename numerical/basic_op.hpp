@@ -302,7 +302,7 @@ template<typename T,typename U>
 inline auto volume2points(const T& shape,U&& fun)
 {
     std::vector<std::vector<tipl::vector<3,short> > > points(tipl::max_thread_count);
-    tipl::par_for<sequential_with_id>(tipl::begin_index(shape),tipl::end_index(shape),
+    tipl::par_for<dynamic_with_id>(tipl::begin_index(shape),tipl::end_index(shape),
                    [&](const auto& index,unsigned int thread_id)
     {
         if (fun(index))
@@ -317,7 +317,7 @@ template<typename T>
 inline auto volume2points(const T& mask)
 {
     std::vector<std::vector<tipl::vector<T::dimension,short> > > points(tipl::max_thread_count);
-    tipl::par_for<sequential_with_id>(tipl::begin_index(mask.shape()),tipl::end_index(mask.shape()),
+    tipl::par_for<dynamic_with_id>(tipl::begin_index(mask.shape()),tipl::end_index(mask.shape()),
                    [&](const auto& index,unsigned int thread_id)
     {
         if (mask[index.index()])
@@ -853,7 +853,7 @@ void bounding_box(const std::vector<point_type>& points,point_type& max_value,po
         min_values[i] = points[0];
     }
     unsigned char dim = points[0].size();
-    tipl::par_for<sequential_with_id>(points.size(),[&](unsigned int index,unsigned int id)
+    tipl::par_for<dynamic_with_id>(points.size(),[&](unsigned int index,unsigned int id)
     {
         for (unsigned char d = 0; d < dim; ++d)
             if (points[index][d] > max_values[id][d])
