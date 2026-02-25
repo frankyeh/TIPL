@@ -296,7 +296,7 @@ bool run(const std::string& msg,fun_type fun)
     }
     progress prog(msg);
     std::atomic_bool ended = false;
-    tipl::par_for(2,[&](int i)
+    tipl::par_for<sequential>(2,[&](int i)
     {
         if(!i)
         {
