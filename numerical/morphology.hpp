@@ -24,7 +24,7 @@ template<typename T,typename F>
 void for_each_label(T& data,F&& fun)
 {
     T result_data(data.shape());
-    tipl::adaptive_par_for(uint32_t(tipl::max_value(data))+1,[&](uint32_t index)
+    tipl::par_for<sequential>(uint32_t(tipl::max_value(data))+1,[&](uint32_t index)
     {
         if(!index)
             return;
@@ -89,7 +89,7 @@ template<typename ImageType>
 void dilation(ImageType& I,const std::vector<int64_t>& index_shift)
 {
     std::vector<typename ImageType::value_type> act(I.size());
-    tipl::adaptive_par_for(index_shift.size(),[&](unsigned int index)
+    tipl::par_for<sequential>(index_shift.size(),[&](unsigned int index)
     {
         int64_t shift = index_shift[index];
         if (shift > 0)
@@ -386,7 +386,7 @@ auto get_neighbor_count(ImageType& I)
 {
     std::vector<char> region_count(I.size());
     neighbor_index_shift<ImageType::dimension> neighborhood(I.shape());
-    tipl::adaptive_par_for(I.size(),[&](int64_t index)
+    tipl::par_for<sequential>(I.size(),[&](int64_t index)
     {
         for(int64_t pos : neighborhood.index_shift)
         {
@@ -404,7 +404,7 @@ auto get_neighbor_count_multiple_region(const ImageType& I)
 {
     std::vector<std::unordered_map<int, char>> region_count(I.size());
     neighbor_index_shift<ImageType::dimension> neighborhood(I.shape());
-    tipl::adaptive_par_for(I.size(),[&](int64_t index)
+    tipl::par_for<sequential>(I.size(),[&](int64_t index)
     {
         for(int64_t pos : neighborhood.index_shift)
         {
@@ -480,7 +480,7 @@ void smoothing_multiple_region(ImageType& I)
     auto region_count = get_neighbor_count_multiple_region(I);
     constexpr char threshold = ((ImageType::dimension == 2) ? 9 : 27) >> 1;
 
-    tipl::adaptive_par_for(I.size(),[&](size_t index)
+    tipl::par_for<sequential>(I.size(),[&](size_t index)
     {
         int max_count = 0;
         int dominant_region = I[index];
@@ -749,7 +749,7 @@ void connected_component_labeling_pass(const ImageType& I,
         std::mutex add_lock;
 
         size_t width = I.width();
-        tipl::adaptive_par_for(I.size()/width,[&,width](size_t y)
+        tipl::par_for(I.size()/width,[&,width](size_t y)
         {
             size_t index = size_t(y)*width;
             size_t end_index = index+width;
@@ -930,7 +930,7 @@ template<typename ImageType>
 void defragment_slice(ImageType& I)
 {
     tipl::morphology::negate(I);
-    tipl::adaptive_par_for(I.depth(),[&](size_t z)
+    tipl::par_for(I.depth(),[&](size_t z)
     {
         auto slice = I.slice_at(z);
         std::vector<std::vector<size_t> > regions;
