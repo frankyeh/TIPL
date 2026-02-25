@@ -810,10 +810,8 @@ public:
                 if(slope != 0.0f)
                 {
                     float scale = 1.0f/slope;
-                    tipl::par_for(new_data.size(),[&](size_t i)
-                    {
+                    for(size_t i = 0;i < new_data.size();++i)
                         new_data[i] = (ptr[i]-inter)*scale;
-                    });
                 }
                 mat.data_buf.swap(new_data);
                 ptr = reinterpret_cast<const T*>(mat.data_buf.data());
