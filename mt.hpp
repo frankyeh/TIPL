@@ -98,101 +98,118 @@ enum par_for_type{
     dynamic_with_id = 5
 };
 inline std::atomic<bool> par_for_running = false;
-template <par_for_type type = sequential,typename T,
+template <par_for_type type = dynamic,typename T,
           typename Func,typename std::enable_if<
               std::is_integral<T>::value ||
               std::is_class<T>::value ||
               std::is_pointer<T>::value,bool>::type = true>
 __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
 {
-    if (from == to) return;
+    if (from == to)
+            return;
+
     size_t n = to - from;
     bool is_root = !par_for_running.exchange(true);
     thread_count = (is_root && n > 1) ? std::min<int>(thread_count, (int)n) : 1;
 
-
-    #ifdef __CUDACC__
+#ifdef __CUDACC__
     int cur_device = 0;
     bool set_cuda_dev = false;
     if constexpr(use_cuda)
     {
-        if(thread_count > 1 && cudaGetDevice(&cur_device) == cudaSuccess)
-            set_cuda_dev = true;
+        set_cuda_dev = (thread_count > 1 && cudaGetDevice(&cur_device) == cudaSuccess);
     }
-    #endif
+#endif
 
-    [[maybe_unused]] std::atomic<size_t> next_idx{0};
-    T original_from = from;
+    std::vector<std::thread> workers;
 
-    auto run = [=,&f,&next_idx](T beg,T end,size_t id)
+    if constexpr(type == dynamic || type == dynamic_with_id)
     {
-        #ifdef __CUDACC__
-        if constexpr(use_cuda)
+        std::atomic<size_t> next_idx{0};
+        auto run = [=, &f, &next_idx](size_t id)
         {
-            if(id && set_cuda_dev)
-                cudaSetDevice(cur_device);
-        }
-        #endif
-        if constexpr(type == sequential || type == sequential_with_id)
-        {
-            for(;beg != end;++beg)
-                if constexpr(type == sequential_with_id)
-                    f(beg,id);
-                else
-                    f(beg);
-        }
-        if constexpr(type == ranged || type == ranged_with_id)
-        {
-            if constexpr(type == ranged_with_id)
-                f(beg,end,id);
-            else
-                f(beg,end);
-        }
-        if constexpr (type == dynamic || type == dynamic_with_id)
-        {
+#ifdef __CUDACC__
+            if constexpr(use_cuda)
+            {
+                if(id && set_cuda_dev)
+                    cudaSetDevice(cur_device);
+            }
+#endif
             for (size_t i = next_idx++; i < n; i = next_idx++)
+            {
                 if constexpr (type == dynamic_with_id)
-                    f(original_from + i, id);
+                    f(from + i, id);
                 else
-                    f(original_from + i);
-        }
-    };
+                    f(from + i);
+            }
+        };
 
-    if(thread_count > 1)
-    {
-        std::vector<std::thread> workers;
-        size_t block = n / thread_count, rem = n % thread_count;
         for (int i = 1; i < thread_count; ++i)
-        {
-            auto next = from + block + (i <= rem);
-            workers.emplace_back(run, from, next, i);
-            from = next;
-        }
-        run(from, to, 0);
-        for (auto& t : workers)
-            t.join();
+            workers.emplace_back(run, i);
+
+        run(0);
     }
     else
-        run(from,to,0);
+    {
+        auto run = [=, &f](size_t id)
+        {
+#ifdef __CUDACC__
+            if constexpr(use_cuda)
+            {
+                if(id && set_cuda_dev)
+                    cudaSetDevice(cur_device);
+            }
+#endif
+            size_t block = n / thread_count, rem = n % thread_count;
+            T beg = from + (id * block + std::min<size_t>(id, rem));
+            T end = beg + block + (id < rem);
+
+            if constexpr(type == sequential || type == sequential_with_id)
+            {
+                for(; beg != end; ++beg)
+                {
+                    if constexpr(type == sequential_with_id)
+                        f(beg, id);
+                    else
+                        f(beg);
+                }
+            }
+            else if constexpr(type == ranged || type == ranged_with_id)
+            {
+                if constexpr(type == ranged_with_id)
+                    f(beg, end, id);
+                else
+                    f(beg, end);
+            }
+        };
+
+        for (int i = 1; i < thread_count; ++i)
+            workers.emplace_back(run, i);
+
+        run(0);
+    }
+
+    for (auto& t : workers)
+        t.join();
 
     if(is_root)
         par_for_running = false;
 }
 // Overload: Automatic thread count
-template <par_for_type type = sequential, typename T, typename Func,
+template <par_for_type type = dynamic, typename T, typename Func,
           typename std::enable_if_t<std::is_integral_v<T> || std::is_class_v<T> || std::is_pointer_v<T>, int> = 0>
 inline void par_for(T from, T to, Func&& f) {
     par_for<type>(from, to, std::forward<Func>(f), par_for_running ? 1 : max_thread_count);
 }
 
 // Overload: Single size (integral)
-template <par_for_type type = sequential, typename T, typename Func, typename std::enable_if_t<std::is_integral_v<T>, int> = 0>
+template <par_for_type type = dynamic, typename T, typename Func, typename std::enable_if_t<std::is_integral_v<T>, int> = 0>
 inline void par_for(T size, Func&& f, int tc = max_thread_count) {
     par_for<type>(T(0), size, std::forward<Func>(f), tc);
 }
 
 // Overload: Containers
-template <par_for_type type = sequential, typename C, typename Func,
+template <par_for_type type = dynamic, typename C, typename Func,
           typename = decltype(std::declval<C>().begin())>
 inline void par_for(C& c, Func&& f, int tc = max_thread_count) {
     par_for<type>(c.begin(), c.end(), std::forward<Func>(f), tc);
@@ -209,7 +226,7 @@ inline double estimate_run_time(T&& fun)
     return std::chrono::duration<double, std::micro>(end - start).count();
 }
 
-template <par_for_type type = sequential, typename T, typename Func>
+template <par_for_type type = dynamic, typename T, typename Func>
 __HOST__ size_t adaptive_par_for(T from, T to, Func&& f)
 {
     if (to - from <= 8 || !tipl::is_main_thread() || par_for_running.exchange(true))
@@ -256,7 +273,7 @@ __HOST__ size_t adaptive_par_for(T from, T to, Func&& f)
     return opt_threads;
 }
 
-template <par_for_type type = sequential,typename T,typename Func,
+template <par_for_type type = dynamic,typename T,typename Func,
           typename std::enable_if<std::is_integral<T>::value,bool>::type = true>
 inline size_t adaptive_par_for(T size, Func&& f)
 {
