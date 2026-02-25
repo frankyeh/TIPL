@@ -6,15 +6,6 @@
 namespace tipl
 {
 
-template<typename MappingType>
-void make_identity(MappingType& s)
-{
-    tipl::par_for(tipl::begin_index(s.shape()),tipl::end_index(s.shape()),
-                [&](const auto& index)
-    {
-        s[index.index()] = index;
-    });
-}
 //---------------------------------------------------------------------------
 #ifdef __CUDACC__
 template<typename T>
@@ -37,7 +28,7 @@ void displacement_to_mapping(T& dis)
         #endif
     }
     else
-    tipl::par_for(tipl::begin_index(dis.shape()),tipl::end_index(dis.shape()),
+    tipl::par_for<sequential>(tipl::begin_index(dis.shape()),tipl::end_index(dis.shape()),
                 [&](const auto& index)
     {
         dis[index.index()] += index;
@@ -65,7 +56,7 @@ void displacement_to_mapping(const T& dis,U& mapping)
         #endif
     }
     else
-    tipl::par_for(tipl::begin_index(mapping.shape()),tipl::end_index(mapping.shape()),
+    tipl::par_for<sequential>(tipl::begin_index(mapping.shape()),tipl::end_index(mapping.shape()),
                             [&](const auto& index)
     {
         mapping[index.index()] += index;
@@ -92,7 +83,7 @@ void mapping_to_displacement(T& mapping)
         #endif
     }
     else
-    tipl::par_for(tipl::begin_index(mapping.shape()),tipl::end_index(mapping.shape()),
+    tipl::par_for<sequential>(tipl::begin_index(mapping.shape()),tipl::end_index(mapping.shape()),
                 [&](const auto& index)
     {
         mapping[index.index()] -= index;
@@ -104,7 +95,7 @@ template<typename DisType,typename MappingType,typename transform_type>
 void displacement_to_mapping(const DisType& dis,MappingType& mapping,const transform_type& T)
 {
     mapping = dis;
-    tipl::par_for(tipl::begin_index(mapping.shape()),tipl::end_index(mapping.shape()),
+    tipl::par_for<sequential>(tipl::begin_index(mapping.shape()),tipl::end_index(mapping.shape()),
                             [&](const auto& index)
     {
         typename MappingType::value_type vtor(index);
@@ -119,7 +110,7 @@ void inv_displacement_to_mapping(const DisType& inv_dis,MappingType& inv_mapping
 {
     auto iT = T;
     iT.inverse();
-    tipl::par_for(tipl::begin_index(inv_mapping.shape()),tipl::end_index(inv_mapping.shape()),
+    tipl::par_for<sequential>(tipl::begin_index(inv_mapping.shape()),tipl::end_index(inv_mapping.shape()),
         [&](const auto& index)
     {
         tipl::vector<DisType::dimension> p;
@@ -156,7 +147,7 @@ inline void compose_mapping(const T1& from,const T2& mapping,T3& to)
         #endif
     }
     else
-    tipl::par_for(mapping.size(),[&](size_t index)
+    tipl::par_for<sequential>(mapping.size(),[&](size_t index)
     {
         if(!estimate<itype>(from,mapping[index],to[index]))
             to[index] = typename T3::value_type();
@@ -204,7 +195,7 @@ void compose_displacement(const T& from,const U& dis,V& to)
     }
     else
     {
-        tipl::par_for(tipl::begin_index(from.shape()),tipl::end_index(from.shape()),
+        tipl::par_for<sequential>(tipl::begin_index(from.shape()),tipl::end_index(from.shape()),
             [&](const auto& index)
         {
             if(dis[index.index()] == typename U::value_type())
@@ -233,7 +224,7 @@ void compose_displacement_with_affine(const ImageType& src,OutImageType& dest,
 {
     dest.clear();
     dest.resize(displace.shape());
-    tipl::par_for(tipl::begin_index(displace.shape()),tipl::end_index(displace.shape()),
+    tipl::par_for<sequential>(tipl::begin_index(displace.shape()),tipl::end_index(displace.shape()),
         [&](const auto& index)
     {
         typename ComposeImageType::value_type vtor(index);
@@ -284,7 +275,7 @@ void invert_displacement(const T& v0,T& v1,size_t count = 8)
             #endif
         }
         else
-        tipl::par_for(tipl::begin_index(v1.shape()),tipl::end_index(v1.shape()),
+        tipl::par_for<sequential>(tipl::begin_index(v1.shape()),tipl::end_index(v1.shape()),
             [&](const auto& index)
         {
             invert_displacement_imp(index,v1,mapping);
@@ -327,7 +318,7 @@ void accumulate_displacement(const T& dis,T& new_dis)
         #endif
     }
     else
-    tipl::par_for(tipl::begin_index(dis.shape()),tipl::end_index(dis.shape()),[&](const auto& index)
+    tipl::par_for<sequential>(tipl::begin_index(dis.shape()),tipl::end_index(dis.shape()),[&](const auto& index)
     {
         accumulate_displacement_imp(index,dis,new_dis,mapping);
     });
@@ -366,7 +357,7 @@ void jacobian_determinant(const mapping_type& src, det_type& dest)
     if constexpr (dim == 3)
         wh = src.plane_size();
 
-    tipl::adaptive_par_for(tipl::begin_index(geo), tipl::end_index(geo),
+    tipl::par_for<sequential>(tipl::begin_index(geo), tipl::end_index(geo),
                            [&, w, wh](const auto& index)
     {
         if (geo.is_edge(index))
