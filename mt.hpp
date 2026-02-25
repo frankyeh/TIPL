@@ -114,7 +114,11 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
     auto run = [=,&f](T b,T e,size_t id)
     {
 #ifdef __CUDACC__
-        if (id && has_cuda) cudaSetDevice(dev);
+        if constexpr(use_cuda)
+        {
+            if(id && has_cuda)
+                cudaSetDevice(cur_device);
+        }
 #endif
 
         if constexpr (type >= ranged) {
