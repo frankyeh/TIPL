@@ -111,13 +111,14 @@ void par_for(T from, T to, Func&& f, int thread_count) {
     // Shared counter for dynamic types
     std::atomic<size_t> next_idx{0};
 
-    auto run = [=, &f, &next_idx](T b, T e, size_t id)
+    // nvcc has issue capturing next_idx by reference
+    auto run = [=, &f](T b, T e, size_t id, std::atomic<size_t>* p_idx)
     {
 #ifdef __CUDACC__
         if (id && has_cuda) cudaSetDevice(dev);
 #endif
         if constexpr (type == dynamic || type == dynamic_with_id) {
-            for (size_t i = next_idx++; i < n; i = next_idx++) {
+            for (size_t i = p_idx->fetch_add(1); i < n; i = p_idx->fetch_add(1)) {
                 if constexpr (type == dynamic_with_id) f(from + i, id);
                 else f(from + i);
             }
@@ -136,12 +137,12 @@ void par_for(T from, T to, Func&& f, int thread_count) {
         T cursor = from;
         for (int i = 1; i < active; ++i) {
             T next = cursor + block + (i <= rem);
-            workers.emplace_back(run, cursor, next, i);
+            workers.emplace_back(run, cursor, next, i, &next_idx);
             cursor = next;
         }
-        run(cursor, to, 0);
+        run(cursor, to, 0, &next_idx);
         for (auto& t : workers) t.join();
-    } else run(from, to, 0);
+    } else run(from, to, 0, &next_idx);
 
     if (is_root) par_for_running = false;
 }
