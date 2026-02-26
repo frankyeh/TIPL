@@ -67,14 +67,14 @@ inline void create_prog(void)
 inline void close_prog(void)
 {
     #if defined(TIPL_USE_QT) && !defined(__CUDACC__)
-    if(!show_prog || !tipl::is_main_thread() || status_count > 1)
+    if(!show_prog || !tipl::is_main_thread() || !progressDialog.get())
         return;
-    if(progressDialog.get())
+    if(status_count <= 1)
     {
         progressDialog->close();
         progressDialog.reset();
-        QApplication::processEvents();
     }
+    QApplication::processEvents();
     #endif
 }
 
@@ -211,6 +211,14 @@ public:
             std::cout << get_head(head_node,tail_node) + new_line << std::endl;
             head_node = false;
         }
+        #if defined(TIPL_USE_QT) && !defined(__CUDACC__)
+        if(tipl::is_main_thread() && progressDialog.get() &&
+           std::chrono::high_resolution_clock::now() > next_update_time)
+        {
+            next_update_time = std::chrono::high_resolution_clock::now()+std::chrono::milliseconds(500);
+            QApplication::processEvents();
+        }
+        #endif
     }
 public:
     bool temporary = false;
