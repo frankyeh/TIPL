@@ -276,7 +276,7 @@ public:
                     }
                 }
             }
-            out << "⏱" << count << unit;
+            out << "⏱" << count << unit << " at " << status_list.back();
         }
         status_list.pop_back();
         --status_count;
