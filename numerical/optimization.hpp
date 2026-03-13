@@ -294,37 +294,47 @@ void random_search(iter_type1 x_beg,iter_type1 x_end,
     });
 }
 
-template<typename iter_type1,typename iter_type2,typename function_type,typename teminated_class>
-void line_search(iter_type1 x_beg,iter_type1 x_end,
-                 iter_type2 x_upper,iter_type2 x_lower,
+template<typename iter_type1, typename iter_type2, typename function_type, typename teminated_class>
+void line_search(iter_type1 x_beg, iter_type1 x_end,
+                 iter_type2 x_upper, iter_type2 x_lower,
                  function_type&& fun,
                  double& optimal_value,
+                 int search_count,
                  teminated_class&& is_terminated)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
-    auto size = x_end-x_beg;
-    std::mutex m;
-    std::vector<float> shift = {0.51,0.49,0.52,0.48,0.53,0.47,0.54,0.46,
-                                0.61,0.59,0.62,0.58,0.63,0.57,0.64,0.56,
-                                0.41,0.39,0.42,0.38,0.43,0.37,0.44,0.36,
-                                0.71,0.69,0.72,0.68,0.73,0.67,0.74,0.66,
-                                0.31,0.29,0.32,0.28,0.33,0.27,0.34,0.26,
-                                0.81,0.79,0.82,0.78,0.83,0.77,0.84,0.76,
-                                0.21,0.19,0.22,0.18,0.23,0.17,0.24,0.16};
-    tipl::par_for(shift.size(),[&](int seg)
+    auto size = x_end - x_beg;
+
+    std::vector<float> shift;
+    shift.reserve(search_count);
+
+    std::mt19937 gen(0);
+    std::normal_distribution<float> dist(0.5f, 0.15f);
+
+    while(shift.size() < search_count)
     {
-        for(int cur_dim = 0;cur_dim < size && !is_terminated();++cur_dim)
+        float val = dist(gen);
+        if(val > 0.0f && val < 1.0f)
+            shift.push_back(val);
+    }
+
+    std::mutex m;
+    tipl::par_for(shift.size(), [&](int seg)
+    {
+        for(int cur_dim = 0; cur_dim < size && !is_terminated(); ++cur_dim)
         {
             if(x_upper[cur_dim] == x_lower[cur_dim])
                 continue;
-            std::vector<param_type> param(x_beg,x_end);
-            param[cur_dim] = (x_upper[cur_dim]-x_lower[cur_dim])*shift[seg]+x_lower[cur_dim];
+
+            std::vector<param_type> param(x_beg, x_end);
+            param[cur_dim] = (x_upper[cur_dim] - x_lower[cur_dim]) * shift[seg] + x_lower[cur_dim];
             double current_value = fun(param);
+
             std::lock_guard<std::mutex> lock(m);
             if(current_value < optimal_value)
             {
                 optimal_value = current_value;
-                std::copy(param.begin(),param.end(),x_beg);
+                std::copy(param.begin(), param.end(), x_beg);
             }
         }
     });
