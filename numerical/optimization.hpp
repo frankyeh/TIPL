@@ -313,12 +313,10 @@ void line_search(iter_type1 x_beg,iter_type1 x_end,
                                 0.21,0.19,0.22,0.18,0.23,0.17,0.24,0.16};
     tipl::par_for(shift.size(),[&](int seg)
     {
-        for(int cur_dim = 0;cur_dim < size;++cur_dim)
+        for(int cur_dim = 0;cur_dim < size && !is_terminated();++cur_dim)
         {
             if(x_upper[cur_dim] == x_lower[cur_dim])
                 continue;
-            if(is_terminated())
-                return;
             std::vector<param_type> param(x_beg,x_end);
             param[cur_dim] = (x_upper[cur_dim]-x_lower[cur_dim])*shift[seg]+x_lower[cur_dim];
             double current_value = fun(param);
@@ -329,7 +327,7 @@ void line_search(iter_type1 x_beg,iter_type1 x_end,
                 std::copy(param.begin(),param.end(),x_beg);
             }
         }
-    },4);
+    });
 }
 
 
