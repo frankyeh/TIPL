@@ -411,7 +411,6 @@ public:
             auto cur_bound = get_current_bound(reg_list[iter]);
             if constexpr(line_search)
             {
-                bool gradient_descent_ended = false;
                 auto arg_min2 = arg_min;
                 auto optimal_value2 = optimal_value;
                 std::mutex m;
@@ -435,19 +434,23 @@ public:
                     return is_terminated();
                 };
 
+                bool search_ended = false;
                 std::thread thread([&](void)
                     {
                         tipl::optimization::line_search(
                         arg_min2.begin(),arg_min2.end(),
                         cur_bound.first.begin(),cur_bound.second.begin(),fun,optimal_value2,
-                                [&](){return gradient_descent_ended || check_terminated();});
+                                [&](){return check_terminated();});
+                        search_ended = true;
                     });
 
-                tipl::optimization::gradient_descent(
-                    arg_min.begin(),arg_min.end(),
-                    cur_bound.first.begin(),cur_bound.second.begin(),fun,optimal_value,check_terminated,
-                    precision,max_iterations);
-                gradient_descent_ended = true;
+                do{
+                    tipl::optimization::gradient_descent(
+                        arg_min.begin(),arg_min.end(),
+                        cur_bound.first.begin(),cur_bound.second.begin(),fun,optimal_value,check_terminated,
+                        precision,max_iterations);
+                }
+                while(!search_ended);
                 thread.join();
 
                 if constexpr(!std::is_void<out_type>::value)
@@ -468,7 +471,7 @@ public:
         }
         return optimal_value;
     }
-    template<typename cost_type,bool line_search = false,typename terminated_type>
+    template<typename cost_type,bool line_search,typename terminated_type>
     float optimize(terminated_type&& is_terminated)
     {
         std::vector<std::shared_ptr<cost_type> > cost_fun;
@@ -477,17 +480,12 @@ public:
             cost_fun.push_back(std::make_shared<cost_type>());
         return run_optimize<line_search>(cost_fun,std::forward<terminated_type>(is_terminated));
     }
-    template<typename cost_type>
-    float optimize(bool& is_terminated)
-    {
-        max_prog += reg_list.size();
-        return optimize<cost_type>([&](void){return is_terminated;});
-    }
 
     template<typename cost_type,typename terminated_type>
     float optimize_mr(terminated_type&& terminated)
     {
-        if(from[0].size() > (dim == 3 ? 128*128*128 : 128*128))
+        bool is_base = from[0].size() <= (dim == 3 ? 128*128*128 : 128*128);
+        if(!is_base)
         {
             max_prog += reg_list.size();
             linear_reg_param low_reso_reg(*this);
@@ -496,9 +494,10 @@ public:
             max_prog = low_reso_reg.max_prog;
             prog = low_reso_reg.prog;
         }
-        if constexpr(!std::is_void<out_type>::value)
-            out_type() << "multiresolution registration at:" << from_vs << " size:" << from[0].shape();
-        return optimize<cost_type,true>(std::forward<terminated_type>(terminated));
+        if constexpr(!std::is_void_v<out_type>)
+            out_type() << "vs:" << from_vs << " size:" << from[0].shape();
+        return is_base ? optimize<cost_type, true>(std::forward<terminated_type>(terminated)) :
+                         optimize<cost_type, false>(std::forward<terminated_type>(terminated));
     }
     template<typename cost_type>
     float optimize_mr(bool& is_terminated)
@@ -514,6 +513,13 @@ public:
         }while(!is_terminated);
         return cost;
     }
+    template<typename cost_type>
+    float optimize(bool& is_terminated)
+    {
+        max_prog += reg_list.size();
+        return optimize<cost_type,false>([&](void){return is_terminated;});
+    }
+
 };
 
 
