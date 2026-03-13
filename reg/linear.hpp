@@ -273,8 +273,10 @@ struct linear_reg_param{
     {
         if constexpr(!std::is_void<out_type>::value)
         {
-            out_type() << (reg_type == tipl::reg::affine? "affine" : "rigid body") << " registration using "
-                    << (cost_type == tipl::reg::mutual_info? "mutual info" : "correlation") << " on " << (cuda ? "gpu":"cpu");
+            out_type() << (reg_type == tipl::reg::affine? "affine" : "rigid body")
+                       << " registration by " << (cost_type == tipl::reg::mutual_info? "mutual info" : "correlation")
+                       << " with " << search_count << " search "
+                       << " using " << (cuda ? "gpu":"cpu");
         }
     }
 };
