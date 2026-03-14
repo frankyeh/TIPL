@@ -259,22 +259,23 @@ public:
         std::ostringstream out;
 
         {
-            std::string unit("ms");
-            float count = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - process_time.back()).count();
-            if(count > 1000.0f)
+            auto duration = std::chrono::high_resolution_clock::now() - process_time.back();
+            float count = std::chrono::duration<float>(duration).count();
+            std::string unit = "s";
+            if (count < 1.0f)
             {
-                count /= 1000.0f;
-                unit = "s";
-                if(count > 60.0f)
-                {
-                    count /= 60.0;
-                    unit = "m";
-                    if(count > 60.0f)
-                    {
-                        count /= 60.0f;
-                        unit = "h";
-                    }
-                }
+                count *= 1000.0f;
+                unit = "ms";
+            }
+            else if (count > 3600.0f)
+            {
+                count /= 3600.0f;
+                unit = "h";
+            }
+            else if (count > 60.0f)
+            {
+                count /= 60.0f;
+                unit = "m";
             }
             out << "⏱" << count << unit;
         }
