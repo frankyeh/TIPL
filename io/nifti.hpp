@@ -1017,7 +1017,7 @@ public:
         }
         return true;
     }
-private:
+public:
     template<int dim, typename vtype, template<typename...> class stype>
     bool read(tipl::image<dim, vtype, stype>& out)
     {
