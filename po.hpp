@@ -663,58 +663,65 @@ public:
     }
 
 private:
-    template <typename T>
-    struct convert_to {
-        static T from(const std::string& value) {
-            T df;
-            std::istringstream(value) >> df;
-            return df;
-        }
-    };
-    template <typename T>
-    struct convert_to<std::basic_string<T> > {
-        static const std::basic_string<T>& from(const std::string& value) {
-            return value;
-        }
-    };
-    template <typename T>
-    struct convert_to<std::vector<T> > {
-        static std::vector<T> from(const std::string& value) {
-            std::vector<T> result;
-            std::istringstream stream(value);
-            std::string element;
-            while (std::getline(stream, element, ',')) {
-                T parsed_value;
-                std::istringstream(element) >> parsed_value;
-                result.push_back(parsed_value);
-            }
-            return result;
-        }
-    };
+    template<typename T> struct is_vector : std::false_type {};
+    template<typename T> struct is_vector<std::vector<T>> : std::true_type {};
 
 public:
     template<typename value_type>
-    value_type get(const char* name,value_type df)
+    value_type get(const char* name, value_type df)
     {
-        std::string str_name(name);
-
-        for(size_t i = 0;i < names.size();++i)
-            if(names[i] == str_name)
+        for(size_t i = 0; i < names.size(); ++i)
+        {
+            if(names[i] == name)
             {
-                if(!used[i])
-                    used[i] = 1;
+                used[i] = 1;
                 if(!printed[i])
                 {
                     printed[i] = 1;
                     out() << name << "=" << values[i] << std::endl;
                 }
-                return values[i].empty() ? df : convert_to<value_type>::from(values[i]);
+
+                if(values[i].empty())
+                    return df;
+
+                if constexpr(std::is_same_v<value_type, std::string>)
+                    return values[i];
+                else if constexpr(is_vector<value_type>::value)
+                {
+                    value_type result;
+                    std::istringstream stream(values[i]);
+                    std::string element;
+                    while(std::getline(stream, element, ','))
+                    {
+                        typename value_type::value_type parsed{};
+                        std::istringstream(element) >> parsed;
+                        result.push_back(parsed);
+                    }
+                    return result;
+                }
+                else
+                {
+                    value_type result{};
+                    std::istringstream(values[i]) >> result;
+                    return result;
+                }
             }
+        }
+
         not_found_names.insert(name);
-        out() << name << "=" << df << std::endl;
+
+        std::ostringstream stream;
+        if constexpr(is_vector<value_type>::value)
+        {
+            for(size_t i = 0; i < df.size(); ++i)
+                stream << (i ? "," : "") << df[i];
+        }
+        else
+            stream << df;
+
+        out() << name << "=" << stream.str() << std::endl;
         return df;
     }
-
     std::string get(const char* name,const char* df_ptr)
     {
         return get(name,std::string(df_ptr));
