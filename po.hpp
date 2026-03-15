@@ -747,6 +747,7 @@ public:
                     out() << "could not find files matching " << file_list[index];
             }
         }
+        std::sort(filenames.begin(),filenames.end());
         return true;
     }
 
