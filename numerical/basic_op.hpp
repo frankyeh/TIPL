@@ -876,6 +876,17 @@ void bounding_box(const std::vector<point_type>& points,point_type& max_value,po
     }
 }
 
+template<int dim, typename image_type>
+bool has_mask(const image_type& img)
+{
+    tipl::shape<dim> vmin, vmax;
+    tipl::bounding_box(img, vmin, vmax, 0);
+    for (int d = 0; d < dim; ++d)
+        if (vmin[d] > 0 || vmax[d] < img.shape()[d])
+            return true;
+    return false;
+}
+
 template<typename ImageType>
 ImageType& trim(ImageType& I,typename ImageType::value_type background = 0)
 {
