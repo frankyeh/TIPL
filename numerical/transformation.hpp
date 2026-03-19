@@ -6,6 +6,7 @@
 #include <string>
 #include "../numerical/matrix.hpp"
 #include "../def.hpp"
+#include "../utility/pixel_index.hpp"
 namespace tipl{
 
 template<unsigned int dim>
@@ -1172,26 +1173,19 @@ void estimate_affine_param(const image_type& source, const v_type& source_vs,
     if (compute_moments(source, source_vs, c_s, cov_s) <= 0 || compute_moments(target, target_vs, c_t, cov_t) <= 0)
         return;
 
-    tipl::matrix<3, 3, double> Vs, Vt;
-    tipl::vector<3, double> Ls, Lt;
-
-    tipl::mat::eigen_decomposition_sym(cov_s.begin(), Vs.begin(), Ls.begin(), tipl::dim<3, 3>());
-    tipl::mat::eigen_decomposition_sym(cov_t.begin(), Vt.begin(), Lt.begin(), tipl::dim<3, 3>());
+    double Vs[9] = {0}, Vt[9] = {0}, Ls[3] = {0}, Lt[3] = {0}, R[9] = {0};
+    tipl::mat::eigen_decomposition_sym(cov_s.begin(), Vs, Ls, tipl::dim<3, 3>());
+    tipl::mat::eigen_decomposition_sym(cov_t.begin(), Vt, Lt, tipl::dim<3, 3>());
 
     for (int i = 0; i < 3; ++i)
         arg.scaling[i] = (float)std::sqrt(std::max(Lt[i], 0.0) / std::max(Ls[i], 1e-6));
-
-    tipl::matrix<3, 3, double> R;
-    std::fill(R.begin(), R.end(), 0.0);
 
     for (int i = 0; i < 3; ++i)
         for (int j = 0; j < 3; ++j)
             for (int k = 0; k < 3; ++k)
                 R[i * 3 + j] += Vt[i + k * 3] * Vs[j + k * 3];
 
-    double det = R[0] * (R[4] * R[8] - R[5] * R[7]) - R[1] * (R[3] * R[8] - R[5] * R[6]) + R[2] * (R[3] * R[7] - R[4] * R[6]);
-
-    if (det < 0)
+    if (tipl::mat::determinant(R,tipl::dim<3, 3>()) < 0)
         for (int i = 0; i < 3; ++i)
             R[i * 3 + 2] = -R[i * 3 + 2];
 
@@ -1206,7 +1200,7 @@ void estimate_affine_param(const image_type& source, const v_type& source_vs,
         else if (arg.rotation[i] < -1.570796327f)
             arg.rotation[i] += 3.141592654f;
 
-    tipl::vector<3, double> dt;
+    double dt[3];
     for (int i = 0; i < 3; ++i)
         dt[i] = (c_t[i] - target.shape()[i] * target_vs[i] * 0.5) / std::max<double>(arg.scaling[i], 1e-6);
 
