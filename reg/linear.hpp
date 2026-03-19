@@ -1,6 +1,7 @@
 #ifndef IMAGE_REG_HPP
 #define IMAGE_REG_HPP
 #include <thread>
+#include <future>
 #include "../numerical/interpolation.hpp"
 #include "../numerical/numerical.hpp"
 #include "../numerical/basic_op.hpp"
@@ -402,8 +403,8 @@ public:
         {
             if (type & rotation)
             {
-                arg_upper.rotation[index] += 3.14159265358979323846f*bound[index][2];
-                arg_lower.rotation[index] += 3.14159265358979323846f*bound[index][3];
+                arg_upper.rotation[index] += 1.57079632679f*bound[index][2];
+                arg_lower.rotation[index] += 1.57079632679f*bound[index][3];
             }
             if (type & tilt)
             {
@@ -421,13 +422,19 @@ public:
         auto fun = [&](const transform_type& new_param)
         {
             ++count;
-            float cost = 0.0f;
-            for(size_t i = 0;i < cost_fun.size();++i)
-            {
-                tipl::transformation_matrix<float,dim> trans(new_param,from[i].shape(),from_vs,to[i].shape(),to_vs);
-                cost += (*cost_fun[i].get())(from[i],to[i],trans);
-            }
-            cost /= cost_fun.size()*2;
+            std::vector<std::future<double>> futures;
+            for(size_t i = 0; i < cost_fun.size(); ++i)
+                futures.push_back(std::async(std::launch::async, [&, i]()
+                {
+                    tipl::transformation_matrix<float,dim> trans(new_param,from[i].shape(),from_vs,to[i].shape(),to_vs);
+                    return (*cost_fun[i].get())(from[i],to[i],trans);
+                }));
+
+            double cost = 0.0f;
+            for(auto& f : futures)
+                cost += f.get();
+
+            cost /= cost_fun.size() * 2.0f;
             return cost;
         };
         optimal_value = fun(arg_min);
@@ -437,6 +444,13 @@ public:
             for(size_t iter = 0;iter < reg_list.size() && !is_terminated();++iter)
             {
                 auto cur_bound = get_current_bound(reg_list[iter]);
+                /*
+                if constexpr(!std::is_void<out_type>::value)
+                {
+                    out_type() << "cur_bound:" << cur_bound.first;
+                    out_type() << "cur_bound:" << cur_bound.second;
+                }
+                */
                 auto arg_min2 = arg_min;
                 auto optimal_value2 = optimal_value;
                 std::mutex m;
