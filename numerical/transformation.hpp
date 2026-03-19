@@ -1119,6 +1119,103 @@ inline std::vector<value_type> to_vs(const tipl::matrix<4,4,value_type>& trans)
 }
 
 
+template<typename image_type, typename v_type>
+void estimate_affine_transform(const image_type& source, const v_type& source_vs,
+                               const image_type& target, const v_type& target_vs,
+                               affine_transform<float, 3>& arg)
+{
+    arg.clear();
+    tipl::vector<3, double> c_s, c_t;
+    tipl::matrix<3, 3, double> cov_s, cov_t;
+
+    auto compute_moments = [&](const image_type& img, const v_type& vs,
+                               tipl::vector<3, double>& center, tipl::matrix<3, 3, double>& cov)
+    {
+        size_t sum(0);
+        center = {0, 0, 0};
+
+        for (tipl::pixel_index<3> i(img.shape()); i < img.size(); ++i)
+            if (img[i.index()] > 0)
+            {
+                center[0] += i[0] * vs[0];
+                center[1] += i[1] * vs[1];
+                center[2] += i[2] * vs[2];
+                ++sum;
+            }
+
+        if (sum == 0)
+            return sum;
+
+        center /= double(sum);
+        std::fill(cov.begin(), cov.end(), 0.0);
+
+        for (tipl::pixel_index<3> i(img.shape()); i < img.size(); ++i)
+            if (img[i.index()] > 0)
+            {
+                double d[3] = {i[0] * vs[0] - center[0], i[1] * vs[1] - center[1], i[2] * vs[2] - center[2]};
+                cov[0] += d[0] * d[0];
+                cov[1] += d[0] * d[1];
+                cov[2] += d[0] * d[2];
+                cov[4] += d[1] * d[1];
+                cov[5] += d[1] * d[2];
+                cov[8] += d[2] * d[2];
+            }
+
+        cov[3] = cov[1];
+        cov[6] = cov[2];
+        cov[7] = cov[5];
+
+        tipl::divide_constant(cov.begin(), cov.end(), double(sum));
+        return sum;
+    };
+
+    if (compute_moments(source, source_vs, c_s, cov_s) <= 0 || compute_moments(target, target_vs, c_t, cov_t) <= 0)
+        return;
+
+    tipl::matrix<3, 3, double> Vs, Vt;
+    tipl::vector<3, double> Ls, Lt;
+
+    tipl::mat::eigen_decomposition_sym(cov_s.begin(), Vs.begin(), Ls.begin(), tipl::dim<3, 3>());
+    tipl::mat::eigen_decomposition_sym(cov_t.begin(), Vt.begin(), Lt.begin(), tipl::dim<3, 3>());
+
+    for (int i = 0; i < 3; ++i)
+        arg.scaling[i] = (float)std::sqrt(std::max(Lt[i], 0.0) / std::max(Ls[i], 1e-6));
+
+    tipl::matrix<3, 3, double> R;
+    std::fill(R.begin(), R.end(), 0.0);
+
+    for (int i = 0; i < 3; ++i)
+        for (int j = 0; j < 3; ++j)
+            for (int k = 0; k < 3; ++k)
+                R[i * 3 + j] += Vt[i + k * 3] * Vs[j + k * 3];
+
+    double det = R[0] * (R[4] * R[8] - R[5] * R[7]) - R[1] * (R[3] * R[8] - R[5] * R[6]) + R[2] * (R[3] * R[7] - R[4] * R[6]);
+
+    if (det < 0)
+        for (int i = 0; i < 3; ++i)
+            R[i * 3 + 2] = -R[i * 3 + 2];
+
+    arg.rotation[0] = (float)std::atan2(R[7], R[8]);
+    arg.rotation[1] = (float)std::atan2(-R[6], std::sqrt(R[7] * R[7] + R[8] * R[8]));
+    arg.rotation[2] = (float)std::atan2(R[3], R[0]);
+
+    // Constrain rotation to [-pi/2, pi/2] to correct 180-degree flipped principal axes
+    for (int i = 0; i < 3; ++i)
+        if (arg.rotation[i] > 1.570796327f)
+            arg.rotation[i] -= 3.141592654f;
+        else if (arg.rotation[i] < -1.570796327f)
+            arg.rotation[i] += 3.141592654f;
+
+    tipl::vector<3, double> dt;
+    for (int i = 0; i < 3; ++i)
+        dt[i] = (c_t[i] - target.shape()[i] * target_vs[i] * 0.5) / std::max<double>(arg.scaling[i], 1e-6);
+
+    for (int i = 0; i < 3; ++i)
+    {
+        double dt_rot = R[0 * 3 + i] * dt[0] + R[1 * 3 + i] * dt[1] + R[2 * 3 + i] * dt[2];
+        arg.translocation[i] = (float)(dt_rot - (c_s[i] - source.shape()[i] * source_vs[i] * 0.5));
+    }
+}
 
 }
 
