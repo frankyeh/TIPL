@@ -284,7 +284,7 @@ struct linear_reg_param{
 template<int dim,typename value_type,typename out_type = void>
 class linear_reg_runner{
     static const int dimension = dim;
-    using transform_type = affine_transform<float,dimension>;
+    using transform_type = affine_param<float,dimension>;
     using vs_type = tipl::vector<dim>;
     using image_type = image<dim,value_type>;
     using pointer_image_type = const_pointer_image<dimension,value_type>;
@@ -613,12 +613,12 @@ float linear(std::vector<tipl::const_pointer_image<dim, unsigned char> > from,
              tipl::vector<dim> from_vs,
              std::vector<tipl::const_pointer_image<dim, unsigned char> > to,
              tipl::vector<dim> to_vs,
-             tipl::affine_transform<float, dim>& arg,
+             tipl::affine_param<float, dim>& arg,
              linear_reg_param param = linear_reg_param(),
              bool& terminated = tipl::prog_aborted)
 {
     tipl::vector<dim> new_to_vs = to_vs;
-    tipl::affine_transform<float, dim> surrogate_arg = arg;
+    tipl::affine_param<float, dim> surrogate_arg = arg;
     std::shared_ptr<std::thread> update_arg;
 
     bool is_narrow = (param.bound == tipl::reg::narrow_bound);
@@ -630,7 +630,7 @@ float linear(std::vector<tipl::const_pointer_image<dim, unsigned char> > from,
 
         if (from_has_mask && to_has_mask)
         {
-            estimate_affine_transform(from[0], from_vs, to[0], to_vs, surrogate_arg);
+            estimate_affine_param(from[0], from_vs, to[0], to_vs, surrogate_arg);
 
             if (param.reg_type == tipl::reg::affine)
                 for (int i = 0; i < dim; ++i)
@@ -658,9 +658,9 @@ float linear(std::vector<tipl::const_pointer_image<dim, unsigned char> > from,
             {
                 std::this_thread::yield();
                 std::this_thread::sleep_for(std::chrono::milliseconds(500));
-                arg = tipl::transformation_matrix<float, dim>(surrogate_arg, from[0], from_vs, to[0], new_to_vs).to_affine_transform(from[0], from_vs, to[0], to_vs);
+                arg = tipl::transformation_matrix<float, dim>(surrogate_arg, from[0], from_vs, to[0], new_to_vs).to_affine_param(from[0], from_vs, to[0], to_vs);
             }
-            arg = tipl::transformation_matrix<float, dim>(surrogate_arg, from[0], from_vs, to[0], new_to_vs).to_affine_transform(from[0], from_vs, to[0], to_vs);
+            arg = tipl::transformation_matrix<float, dim>(surrogate_arg, from[0], from_vs, to[0], new_to_vs).to_affine_param(from[0], from_vs, to[0], to_vs);
         });
     }
 
@@ -724,7 +724,7 @@ auto linear(std::vector<tipl::const_pointer_image<dim,unsigned char> > from,
                                           const linear_reg_param& param = linear_reg_param(),
                                           bool& terminated = tipl::prog_aborted)
 {
-    tipl::affine_transform<float,dim> arg;
+    tipl::affine_param<float,dim> arg;
     linear<out_type>(from,from_vs,to,to_vs,arg,param,terminated);
     return tipl::transformation_matrix<float,dim>(arg,from[0],from_vs,to[0],to_vs);
 }

@@ -460,7 +460,7 @@ void rotation_matrix_to_rotation_angle(input_rotation_iter rotation_matrix,outpu
 
 
 template<typename input_rotation_iter,typename input_shift_iter,typename output_iter>
-void create_affine_transformation_matrix(input_rotation_iter rotation_scaling,input_shift_iter shift,output_iter m,vdim<3>)
+void create_affine_param(input_rotation_iter rotation_scaling,input_shift_iter shift,output_iter m,vdim<3>)
 {
     std::copy_n(rotation_scaling,3,m);
     std::copy_n(rotation_scaling+3,3,m+4);
@@ -474,15 +474,15 @@ void create_affine_transformation_matrix(input_rotation_iter rotation_scaling,in
 }
 
 template<typename input_scaling_iter,typename input_rotation_iter,typename input_shift_iter,typename output_iter>
-void create_affine_transformation_matrix(input_scaling_iter scaling,input_rotation_iter rotation,input_shift_iter shift,output_iter m,vdim<3>)
+void create_affine_param(input_scaling_iter scaling,input_rotation_iter rotation,input_shift_iter shift,output_iter m,vdim<3>)
 {
     double M[9];
     sr_matrix(scaling,rotation,M);
-    create_affine_transformation_matrix(M,shift,m,vdim<3>());
+    create_affine_param(M,shift,m,vdim<3>());
 }
 
 template<typename value_type_ = float,int dim = 3>
-class affine_transform
+class affine_param
 {
 public:
     using value_type = value_type_;
@@ -500,32 +500,32 @@ public:
         value_type data_[total_size];
     };
 public:
-    affine_transform(void)
+    affine_param(void)
     {
         clear();
     }
-    affine_transform(std::initializer_list<value_type> rhs)
+    affine_param(std::initializer_list<value_type> rhs)
     {
         size_t i = 0;
         for(const auto& v : rhs)
             data_[i++] = v;
     }
-    affine_transform(const value_type* data__)
+    affine_param(const value_type* data__)
     {
         for(unsigned int i = 0;i < total_size;++i)
             data_[i] = data__[i];
     }
     template<typename rhs_type>
-    affine_transform(const rhs_type& rhs){operator=(rhs);}
+    affine_param(const rhs_type& rhs){operator=(rhs);}
     template<typename rhs_type>
-    affine_transform& operator=(const rhs_type& rhs)
+    affine_param& operator=(const rhs_type& rhs)
     {
         size_t i = 0;
         for(const auto& v : rhs)
             data_[i++] = v;
         return *this;
     }
-    affine_transform& operator=(std::initializer_list<value_type> rhs)
+    affine_param& operator=(std::initializer_list<value_type> rhs)
     {
         size_t i = 0;
         for(const auto& v : rhs)
@@ -560,18 +560,18 @@ public:
     unsigned int size(void) const{return total_size;}
     value_type* data(void) {return data_;}
     const value_type* data(void) const {return data_;}
-    bool operator==(const affine_transform& rhs)
+    bool operator==(const affine_param& rhs)
     {
         for(char i = 0;i < total_size;++i)
             if(data_[i] != rhs.data_[i])
                 return false;
         return true;
     }
-    bool operator!=(const affine_transform& rhs)
+    bool operator!=(const affine_param& rhs)
     {
         return !(*this == rhs);
     }
-    friend std::ostream& operator<<(std::ostream& out, const affine_transform& T)
+    friend std::ostream& operator<<(std::ostream& out, const affine_param& T)
     {
         if(typeid(out) == typeid(std::ofstream))
         {
@@ -629,7 +629,7 @@ public:
         }
         return out;
     }
-    friend std::istream& operator>>(std::istream& in, affine_transform& T)
+    friend std::istream& operator>>(std::istream& in, affine_param& T)
     {
         std::string text;
         if constexpr(dimension == 3)
@@ -730,7 +730,7 @@ public:
     template<typename rhs_value_type>
     transformation_matrix(const tipl::matrix<dimension+1,dimension+1,rhs_value_type>& M){*this = M;}
     template<typename geo_type,typename vs_type>
-    transformation_matrix(const affine_transform<value_type,dimension>& rb,
+    transformation_matrix(const affine_param<value_type,dimension>& rb,
                           const geo_type& from,
                           const vs_type& from_vs,
                           const geo_type& to,
@@ -825,13 +825,13 @@ public:
     }
     // (Affine*Scaling*R1*R2*R3*vs*Translocation*shift_center)*from = (vs*shift_center*to;
     template<typename geo_type,typename vs_type>
-    auto to_affine_transform(
+    auto to_affine_param(
                           const geo_type& from,
                           const vs_type& from_vs,
                           const geo_type& to,
                           const vs_type& to_vs) const
     {
-        affine_transform<value_type,3> rb;
+        affine_param<value_type,3> rb;
         tipl::matrix<3,3,value_type> R,iR;
         std::copy_n(sr,9,R.begin());
 
@@ -1084,7 +1084,7 @@ public:
 
 
 template<typename geo_type,typename vs_type,typename value_type>
-void inverse(affine_transform<value_type,3>& arg,
+void inverse(affine_param<value_type,3>& arg,
                       const geo_type& from,
                       const vs_type& from_vs,
                       const geo_type& to,
@@ -1092,7 +1092,7 @@ void inverse(affine_transform<value_type,3>& arg,
 {
     auto T = tipl::transformation_matrix<value_type,3>(arg,from,from_vs,to,to_vs);
     T.inverse();
-    arg = T.to_affine_transform(to,to_vs,from,from_vs);
+    arg = T.to_affine_param(to,to_vs,from,from_vs);
 }
 class from_space : public tipl::matrix<4,4,float>{
 private:
@@ -1120,9 +1120,9 @@ inline std::vector<value_type> to_vs(const tipl::matrix<4,4,value_type>& trans)
 
 
 template<typename image_type, typename v_type>
-void estimate_affine_transform(const image_type& source, const v_type& source_vs,
+void estimate_affine_param(const image_type& source, const v_type& source_vs,
                                const image_type& target, const v_type& target_vs,
-                               affine_transform<float, 3>& arg)
+                               affine_param<float, 3>& arg)
 {
     arg.clear();
     tipl::vector<3, double> c_s, c_t;

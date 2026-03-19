@@ -52,7 +52,7 @@ inline void preproc_actions(tipl::image<3>& images,
     auto shift = tipl::vector<3,int>(target_dim)-tipl::vector<3,int>(image_dim);
     shift[0] /= 2;
     shift[1] /= 2;
-    tipl::affine_transform<float> arg;
+    tipl::affine_param<float> arg;
     trans = tipl::transformation_matrix<float,3>(arg,target_dim,target_vs,image_dim,image_vs);
 
     tipl::par_for(in_channel,[&](int c)
