@@ -674,11 +674,15 @@ float linear(std::vector<tipl::const_pointer_image<dim, unsigned char> > from,
     tipl::vector<dim> new_to_vs = to_vs;
     tipl::affine_param<float, dim> surrogate_arg = arg;
     bool adjust_vs = false;
+    std::thread update_arg;
+    std::atomic<bool> end = false;
 
     if (param.reg_type == tipl::reg::affine)
     {
         if (has_mask(from[0]) && has_mask(to[0]))
         {
+            if constexpr (!std::is_void_v<out_type>)
+                out_type() << "initialize registration using mask";
             estimate_affine_param(from[0], from_vs, to[0], to_vs, surrogate_arg);
             arg = surrogate_arg;
             for (int i = 0; i < dim; ++i)
@@ -686,6 +690,16 @@ float linear(std::vector<tipl::const_pointer_image<dim, unsigned char> > from,
                 new_to_vs[i] = to_vs[i] / std::max<float>(surrogate_arg.scaling[i], 0.01f);
                 surrogate_arg.scaling[i] = 1.0f;
             }
+            update_arg = std::thread([&]()
+            {
+                while (!end)
+                {
+                    std::this_thread::yield();
+                    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                    arg = tipl::transformation_matrix<float, dim>(surrogate_arg, from[0], from_vs, to[0], new_to_vs).to_affine_param(from[0], from_vs, to[0], to_vs);
+                }
+                arg = tipl::transformation_matrix<float, dim>(surrogate_arg, from[0], from_vs, to[0], new_to_vs).to_affine_param(from[0], from_vs, to[0], to_vs);
+            });
             adjust_vs = true;
         }
         else if constexpr (!std::is_void_v<out_type>)
@@ -696,33 +710,14 @@ float linear(std::vector<tipl::const_pointer_image<dim, unsigned char> > from,
         out_type() << "initial arg:" << surrogate_arg;
 
     param.absolute_bound = true;
-
-    std::atomic<bool> end = false;
-    std::thread update_arg;
-
-    if (!adjust_vs)
-    {
-        param.report<out_type>();
-        run_linear_reg(from, from_vs, to, new_to_vs, arg, std::true_type{});
-    }
-    else
-        update_arg = std::thread([&]()
-        {
-            while (!end)
-            {
-                std::this_thread::yield();
-                std::this_thread::sleep_for(std::chrono::milliseconds(500));
-                arg = tipl::transformation_matrix<float, dim>(surrogate_arg, from[0], from_vs, to[0], new_to_vs).to_affine_param(from[0], from_vs, to[0], to_vs);
-            }
-            arg = tipl::transformation_matrix<float, dim>(surrogate_arg, from[0], from_vs, to[0], new_to_vs).to_affine_param(from[0], from_vs, to[0], to_vs);
-        });
+    param.report<out_type>();
+    float result = run_linear_reg(from, from_vs, to, new_to_vs, adjust_vs ? surrogate_arg : arg, std::true_type{});
 
     param.bound = tipl::reg::narrow_bound;
     param.absolute_bound = false;
     param.search_count = 0;
     param.report<out_type>();
-
-    float result = run_linear_reg(from, from_vs, to, new_to_vs, adjust_vs ? surrogate_arg : arg, std::false_type{});
+    result = run_linear_reg(from, from_vs, to, new_to_vs, adjust_vs ? surrogate_arg : arg, std::false_type{});
 
     end = true;
     if (update_arg.joinable())
