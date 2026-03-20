@@ -882,7 +882,7 @@ bool has_mask(const image_type& img)
     tipl::shape<dim> vmin, vmax;
     tipl::bounding_box(img, vmin, vmax, 0);
     for (int d = 0; d < dim; ++d)
-        if (vmin[d] > 0 || vmax[d] < img.shape()[d])
+        if (vmin[d] > 0 && vmax[d] < img.shape()[d])
             return true;
     return false;
 }
