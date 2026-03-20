@@ -677,7 +677,7 @@ float linear(std::vector<tipl::const_pointer_image<dim, unsigned char> > from,
 
     if (param.reg_type == tipl::reg::affine)
     {
-        if (has_mask<dim>(from[0]) && has_mask<dim>(to[0]))
+        if (has_mask(from[0]) && has_mask(to[0]))
         {
             estimate_affine_param(from[0], from_vs, to[0], to_vs, surrogate_arg);
             for (int i = 0; i < dim; ++i)
