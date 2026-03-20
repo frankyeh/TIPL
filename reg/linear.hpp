@@ -680,6 +680,7 @@ float linear(std::vector<tipl::const_pointer_image<dim, unsigned char> > from,
         if (has_mask(from[0]) && has_mask(to[0]))
         {
             estimate_affine_param(from[0], from_vs, to[0], to_vs, surrogate_arg);
+            arg = surrogate_arg;
             for (int i = 0; i < dim; ++i)
             {
                 new_to_vs[i] = to_vs[i] / std::max<float>(surrogate_arg.scaling[i], 0.01f);
@@ -692,7 +693,7 @@ float linear(std::vector<tipl::const_pointer_image<dim, unsigned char> > from,
     }
 
     if constexpr (!std::is_void_v<out_type>)
-        out_type() << "initial arg:" << arg;
+        out_type() << "initial arg:" << surrogate_arg;
 
     param.absolute_bound = true;
 
