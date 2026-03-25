@@ -739,9 +739,9 @@ public:
     {
         return get(name,std::string());
     }
-    bool get_files(const char* name,std::vector<std::string>& filenames)
+    std::vector<std::string> get_files(const char* name)
     {
-        std::vector<std::string> file_list = tipl::split(get(name),',');
+        std::vector<std::string> filenames,file_list(tipl::split(get(name),','));
         for(size_t index = 0;index < file_list.size();++index)
         {
             if(file_list[index].find('*') == std::string::npos)
@@ -756,7 +756,7 @@ public:
             }
         }
         std::sort(filenames.begin(),filenames.end());
-        return true;
+        return filenames;
     }
 
 };
