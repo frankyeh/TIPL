@@ -748,14 +748,17 @@ public:
                 filenames.push_back(file_list[index]);
             else
             {
-                size_t old_size = filenames.size();
-                if(search_filesystem<out>(file_list[index],filenames))
-                    out() << file_list[index] << ": " << filenames.size()-old_size << " file(s) specified by " << file_list[index];
+                std::vector<std::string> new_files;
+                if(search_filesystem<out>(file_list[index],new_files))
+                {
+                    out() << file_list[index] << ": " << new_files.size() << " file(s) specified by " << file_list[index];
+                    std::sort(new_files.begin(),new_files.end());
+                    filenames.insert(filenames.end(),new_files.begin(),new_files.end());
+                }
                 else
                     out() << "could not find files matching " << file_list[index];
             }
         }
-        std::sort(filenames.begin(),filenames.end());
         return filenames;
     }
 
