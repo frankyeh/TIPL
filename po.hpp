@@ -83,12 +83,22 @@ inline bool begins_with(const std::string& str, const std::initializer_list<std:
             return true;
     return false;
 }
-inline bool remove_suffix(std::string& str,const std::string& suffix)
+inline std::string remove_all_suffix(const std::string& str)
 {
-    if(!ends_with(str,suffix))
-        return false;
-    str.erase(str.size() - suffix.size());
-    return true;
+    std::string_view s(str);
+    while (true)
+    {
+        size_t pos = s.find_last_of('.');
+        if (pos == std::string::npos || pos == 0 || (s.size() - pos) > 6)
+            break;
+
+        size_t sep = s.find_last_of("/\\");
+        if (sep != std::string::npos && pos < sep)
+            break;
+
+        s = s.substr(0, pos);
+    }
+    return std::string(s);
 }
 
 inline std::string to_lower(const std::string& str)
@@ -102,6 +112,13 @@ inline std::string to_lower(const std::string& str)
 inline bool contains_case_insensitive(const std::string& str,const std::string& suffix)
 {
     return to_lower(str).find(to_lower(suffix)) != std::string::npos;
+}
+inline bool contains_case_insensitive(const std::string& str,const std::initializer_list<std::string>& suffix)
+{
+    for (const auto& each : suffix)
+        if(contains_case_insensitive(str,each))
+            return true;
+    return false;
 }
 inline bool equal_case_insensitive(const std::string& str,const std::string& suffix)
 {
