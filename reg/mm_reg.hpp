@@ -39,55 +39,7 @@ inline auto template_image_pre(const tipl::image<dim>& I)
     return template_image_pre(tipl::image<dim>(I));
 }
 
-template<typename io_loader,typename T>
-bool load_reg_image(size_t id,const std::string& file_name,
-                std::vector<T>& images,bool preprocess,
-                tipl::matrix<T::dimension+1,T::dimension+1>& ref_transform,
-                tipl::vector<T::dimension,float>& voxel_size,
-                tipl::shape<T::dimension>& image_shape,
-                bool& is_mni,
-                std::string& error_msg)
-{
-    if(id == 0)
-        std::fill(images.begin(),images.end(),T());
 
-    io_loader in;
-    if(!in.open(file_name,std::ios::in))
-    {
-        error_msg = in.error_msg;
-        return false;
-    }
-
-    for(size_t i = 0;i < in.dim(4);++i,++id)
-    {
-        if(id >= images.size())
-            images.resize(id+1);
-
-        if(in.is_int8())
-            in >> images[id];
-        else if(preprocess)
-            images[id] = subject_image_pre(in.template toImage<tipl::image<T::dimension>>());
-        else
-            images[id] = template_image_pre(in.template toImage<tipl::image<T::dimension>>());
-
-        if(id == 0)
-        {
-            in >> voxel_size >> image_shape >> ref_transform;
-            is_mni = in.is_mni();
-        }
-        else
-        {
-            tipl::matrix<T::dimension+1,T::dimension+1> curr_transform;
-            in.get_image_transformation(curr_transform);
-            if(images[id].shape() != image_shape || curr_transform != ref_transform)
-                images[id] = tipl::resample(images[id],image_shape,tipl::from_space(ref_transform).to(curr_transform));
-        }
-
-        if(tipl::max_value(images[id]) == 1)
-            images[id] *= 255;
-    }
-    return true;
-}
 
 
 template<typename out_type>
@@ -142,13 +94,62 @@ struct mm_reg{
         from2to.clear();
         arg.clear();
     }
+private:
+    template<typename io_loader,typename T,typename trans_type,typename vs_type,typename shape_type>
+    bool load_reg_image(size_t id,const std::string& file_name,
+                    std::vector<T>& images,bool preprocess,
+                    trans_type& ref_transform,
+                    vs_type& voxel_size,
+                    shape_type& image_shape,
+                    bool& is_mni)
+    {
+        if(id == 0)
+            std::fill(images.begin(),images.end(),T());
 
+        io_loader in;
+        if(!in.open(file_name,std::ios::in))
+        {
+            error_msg = in.error_msg;
+            return false;
+        }
+
+        for(size_t i = 0;i < in.dim(4);++i,++id)
+        {
+            if(id >= images.size())
+                images.resize(id+1);
+
+            if(in.is_int8())
+                in >> images[id];
+            else if(preprocess)
+                images[id] = subject_image_pre(in.template toImage<tipl::image<T::dimension>>());
+            else
+                images[id] = template_image_pre(in.template toImage<tipl::image<T::dimension>>());
+
+            if(id == 0)
+            {
+                in >> voxel_size >> image_shape >> ref_transform;
+                is_mni = in.is_mni();
+            }
+            else
+            {
+                trans_type curr_transform;
+                in.get_image_transformation(curr_transform);
+                if(images[id].shape() != image_shape || curr_transform != ref_transform)
+                    images[id] = tipl::resample(images[id],image_shape,tipl::from_space(ref_transform).to(curr_transform));
+            }
+
+            if(tipl::max_value(images[id]) == 1)
+                images[id] *= 255;
+        }
+        return true;
+    }
+public:
     template<typename io_loader>
     bool load_subject(size_t id,const std::string& file_name)
     {
         if(!id)
             clear_reg();
-        return load_reg_image<io_loader>(id,file_name,I,true,IR,Ivs,Is,Is_is_mni,error_msg);
+        return load_reg_image<io_loader>(id,file_name,I,true,IR,Ivs,Is,Is_is_mni);
     }
 
     template<typename io_loader>
@@ -156,7 +157,7 @@ struct mm_reg{
     {
         if(!id)
             clear_reg();
-        return load_reg_image<io_loader>(id,file_name,It,false,ItR,Itvs,Its,It_is_mni,error_msg);
+        return load_reg_image<io_loader>(id,file_name,It,false,ItR,Itvs,Its,It_is_mni);
     }
 
     void match_resolution(bool use_vs,float lr = 0.5f,float hr = 2.0f)
