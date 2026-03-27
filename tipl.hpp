@@ -54,6 +54,7 @@ TIPL library is shared under one of the following licenses
 #include "reg/linear.hpp"
 #include "reg/cdm.hpp"
 #include "reg/bfnorm.hpp"
+#include "reg/mm_reg.hpp"
 
 #include "ml/utility.hpp"
 #include "ml/nb.hpp"
