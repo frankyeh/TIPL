@@ -752,6 +752,19 @@ public:
         return get(name,std::string(df_ptr));
     }
 
+    size_t get(const char* name,const std::vector<std::string>& selections,size_t default_sel = 0)
+    {
+        if(!has(name))
+            return default_sel;
+        auto sel = get(name);
+        if(sel.empty())
+            return default_sel;
+        if(sel[0] >= '0' && sel[0] <= '9')
+            return size_t(sel[0]-'0'); // Note: This only handles single digits (0-9)
+        auto it = std::find_if(selections.begin(),selections.end(),[&](const auto& s){ return tipl::contains(s,sel); });
+        return it != selections.end() ? size_t(std::distance(selections.begin(),it)) : default_sel;
+    }
+
     std::string get(const char* name)
     {
         return get(name,std::string());
