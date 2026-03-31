@@ -22,6 +22,17 @@ struct default_output{
         }
 };
 
+inline auto get_directories(const std::filesystem::path& dir)
+{
+    std::vector<std::string> dir_list;
+    if(std::filesystem::exists(dir) && std::filesystem::is_directory(dir))
+        for(const auto& entry : std::filesystem::directory_iterator(dir))
+            if(entry.is_directory())
+                dir_list.push_back(entry.path().filename().string());
+
+    std::sort(dir_list.begin(),dir_list.end());
+    return dir_list;
+}
 
 template<typename T>
 auto split(const T& s,typename T::value_type delimiter)
@@ -488,6 +499,18 @@ class program_option{
         printed.push_back(0);        
         return true;
     }
+private:
+    void check_interact(void)
+    {
+        for(size_t i = 0;i < names.size();++i)
+            if(names[i] == "interact")
+            {
+                interact = (values[i].empty() || values[i] == "1" || values[i] == "true");
+                used[i] = 1;
+                printed[i] = 1;
+                break;
+            }
+    }
 public:
     struct program_option_assign{
         const char* name = nullptr;
@@ -503,6 +526,7 @@ public:
     inline program_option_assign operator[](const char* name)     {return program_option_assign(name,this);}
 public:
     std::string error_msg,exec_path;
+    bool interact = false;
     template<typename out_warning = out>
     void check_end_param(void)
     {
@@ -510,7 +534,7 @@ public:
             if(!used[i])
             {
                 const std::string& str1 = names[i];
-                std::map<int,std::string,std::greater<int> > candidate_list;
+                std::map<int,std::string,std::greater<int>> candidate_list;
                 for(const auto& str2 : not_found_names)
                 {
                     int c = -std::abs(int(str1.length())-int(str2.length()));
@@ -533,6 +557,14 @@ public:
                 }
                 out_warning() << "--" << str1 << " is not used/recognized. " << prompt_msg << std::endl;
             }
+
+        if(interact)
+        {
+            std::string assigned_param;
+            for(size_t i = 0;i < names.size();++i)
+                assigned_param += "--" + names[i] + "=" + values[i] + " ";
+            out() << "Assigned parameters: " << assigned_param;
+        }
     }
     void clear(void)
     {
@@ -563,6 +595,7 @@ public:
             if(!add_option(str))
                 return false;
         }
+        check_interact();
         return true;
     }
     bool parse(const std::string& av)
@@ -604,16 +637,14 @@ public:
             if(!str.empty() && !add_option(str))
                 return false;
         }
+        check_interact();
         return true;
     }
 
     bool check(const char* name)
     {
         if(!has(name))
-        {
-            out() << "please specify --" << name << std::endl;
-            return false;
-        }
+            return out() << (error_msg = "please specify --" + std::string(name)),false;
         return true;
     }
 
@@ -732,6 +763,27 @@ public:
                 }
             }
         }
+        if(interact)
+        {
+            std::ostringstream stream;
+            if constexpr(is_vector<value_type>::value)
+            {
+                for(size_t i = 0;i < df.size();++i)
+                    stream << (i ? "," : "") << df[i];
+            }
+            else
+                stream << df;
+
+            out() << "Please specify --" << name << " [" << stream.str() << "]: ";
+            std::string input;
+            std::getline(std::cin,input);
+            if(!input.empty())
+            {
+                set(name,input);
+                return get(name,df);
+            }
+        }
+
 
         not_found_names.insert(name);
 
@@ -752,15 +804,82 @@ public:
         return get(name,std::string(df_ptr));
     }
 
+    std::string get(const char* name,const std::vector<std::string>& selections,const std::string& default_sel)
+    {
+        if(!has(name))
+        {
+            if(interact)
+            {
+                out() << "Please specify --" << name << " (";
+                for(size_t i = 0;i < selections.size();++i)
+                    out() << (i ? "," : "") << selections[i];
+                out() << ") [" << default_sel << "]: ";
+
+                std::string input;
+                std::getline(std::cin,input);
+                if(!input.empty())
+                    set(name,input);
+                else
+                    return default_sel;
+            }
+            else
+                return default_sel;
+        }
+
+        auto sel = get(name);
+        if(sel.empty())
+            return default_sel;
+
+        std::string resolved_sel = sel;
+
+        if(sel[0] >= '0' && sel[0] <= '9')
+        {
+            size_t idx = size_t(sel[0]-'0');
+            if(idx < selections.size())
+                resolved_sel = selections[idx];
+        }
+        else
+        {
+            auto it = std::find_if(selections.begin(),selections.end(),[&](const auto& s){ return tipl::contains(s,sel); });
+            if(it != selections.end())
+                resolved_sel = *it;
+        }
+
+        // Update the internal value so downstream code gets the full resolved string
+        if(resolved_sel != sel)
+            set(name,resolved_sel);
+
+        return resolved_sel;
+    }
+
     size_t get(const char* name,const std::vector<std::string>& selections,size_t default_sel = 0)
     {
         if(!has(name))
-            return default_sel;
+        {
+            if(interact)
+            {
+                out() << "Please specify --" << name << " (";
+                for(size_t i = 0;i < selections.size();++i)
+                    out() << (i ? "," : "") << selections[i];
+                out() << ") [" << selections[default_sel] << "]: ";
+
+                std::string input;
+                std::getline(std::cin,input);
+                if(!input.empty())
+                    set(name,input);
+                else
+                    return default_sel;
+            }
+            else
+                return default_sel;
+        }
+
         auto sel = get(name);
         if(sel.empty())
             return default_sel;
         if(sel[0] >= '0' && sel[0] <= '9')
-            return size_t(sel[0]-'0'); // Note: This only handles single digits (0-9)
+            return size_t(sel[0]-'0');
+
         auto it = std::find_if(selections.begin(),selections.end(),[&](const auto& s){ return tipl::contains(s,sel); });
         return it != selections.end() ? size_t(std::distance(selections.begin(),it)) : default_sel;
     }
@@ -769,9 +888,11 @@ public:
     {
         return get(name,std::string());
     }
-    std::vector<std::string> get_files(const char* name)
+    template<typename out_warning = out>
+    std::vector<std::string> get_files(const char* name,const std::string& default_str = std::string())
     {
-        std::vector<std::string> filenames,file_list(tipl::split(get(name),','));
+        auto search_str = get(name,default_str);
+        std::vector<std::string> filenames,file_list(tipl::split(search_str,','));
         for(size_t index = 0;index < file_list.size();++index)
         {
             if(file_list[index].find('*') == std::string::npos)
@@ -786,9 +907,11 @@ public:
                     filenames.insert(filenames.end(),new_files.begin(),new_files.end());
                 }
                 else
-                    out() << "could not find files matching " << file_list[index];
+                    out_warning() << "could not find files matching " << file_list[index];
             }
         }
+        if(filenames.empty())
+            error_msg = "no file found matching " + search_str;
         return filenames;
     }
 
