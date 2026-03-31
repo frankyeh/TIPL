@@ -715,9 +715,9 @@ private:
 
 public:
     template<typename value_type>
-    value_type get(const char* name, value_type df)
+    value_type get(const char* name,value_type df)
     {
-        for(size_t i = 0; i < names.size(); ++i)
+        for(size_t i = 0;i < names.size();++i)
         {
             if(names[i] == name)
             {
@@ -731,14 +731,14 @@ public:
                 if(values[i].empty())
                     return df;
 
-                if constexpr(std::is_same_v<value_type, std::string>)
+                if constexpr(std::is_same_v<value_type,std::string>)
                     return values[i];
                 else if constexpr(is_vector<value_type>::value)
                 {
                     value_type result;
                     std::istringstream stream(values[i]);
                     std::string element;
-                    while(std::getline(stream, element, ','))
+                    while(std::getline(stream,element,','))
                     {
                         typename value_type::value_type parsed{};
                         std::istringstream(element) >> parsed;
@@ -754,65 +754,51 @@ public:
                 }
             }
         }
-        if(interact)
-        {
-            std::ostringstream stream;
-            if constexpr(is_vector<value_type>::value)
-            {
-                for(size_t i = 0;i < df.size();++i)
-                    stream << (i ? "," : "") << df[i];
-            }
-            else
-                stream << df;
 
-            std::cout << "Please specify --" << name << " [" << stream.str() << "]: ";
-            std::string input;
-            std::getline(std::cin,input);
-            if(!input.empty())
-            {
-                set(name,input);
-                return get(name,df);
-            }
-        }
-
-
-        not_found_names.insert(name);
-
+        // Convert default value to string exactly once
         std::ostringstream stream;
         if constexpr(is_vector<value_type>::value)
-        {
-            for(size_t i = 0; i < df.size(); ++i)
+            for(size_t i = 0;i < df.size();++i)
                 stream << (i ? "," : "") << df[i];
-        }
         else
             stream << df;
 
-        out() << name << "=" << stream.str() << std::endl;
+        std::string df_str = stream.str();
+
+        // Handle interaction if enabled
+        if(interact)
+        {
+            std::cout << "Please specify --" << name << " [" << df_str << "]: ";
+            std::string input;
+            std::getline(std::cin,input);
+
+            set(name,input.empty() ? df_str : input);
+            return get(name,df);
+        }
+
+        // Fallback for non-interactive mode
+        not_found_names.insert(name);
+        out() << name << "=" << df_str << std::endl;
         return df;
-    }
-    std::string get(const char* name,const char* df_ptr)
-    {
-        return get(name,std::string(df_ptr));
     }
 
     std::string get(const char* name,const std::vector<std::string>& selections,const std::string& default_sel)
     {
         if(!has(name))
         {
-            if(interact)
-            {
-                std::cout << "Please specify --" << name << " (";
-                for(size_t i = 0;i < selections.size();++i)
-                    std::cout << (i ? "," : "") << selections[i];
-                std::cout << ") [" << default_sel << "]: ";
+            if(!interact)
+                return default_sel;
 
-                std::string input;
-                std::getline(std::cin,input);
-                if(input.empty())
-                    input = default_sel;
-                set(name,default_sel);
-            }
-            return default_sel;
+            std::cout << "Please specify --" << name << " (";
+            for(size_t i = 0;i < selections.size();++i)
+                std::cout << (i ? "," : "") << selections[i];
+            std::cout << ") [" << default_sel << "]: ";
+
+            std::string input;
+            std::getline(std::cin,input);
+            if(input.empty())
+                input = default_sel;
+            set(name,input);
         }
 
         auto sel = get(name);
@@ -834,7 +820,6 @@ public:
                 resolved_sel = *it;
         }
 
-        // Update the internal value so downstream code gets the full resolved string
         if(resolved_sel != sel)
             set(name,resolved_sel);
 
@@ -843,34 +828,20 @@ public:
 
     size_t get(const char* name,const std::vector<std::string>& selections,size_t default_sel = 0)
     {
-        if(!has(name))
-        {
-            if(interact)
-            {
-                std::cout << "Please specify --" << name << " (";
-                for(size_t i = 0;i < selections.size();++i)
-                    out() << (i ? "," : "") << selections[i];
-                std::cout << ") [" << selections[default_sel] << "]: ";
+        // 1. Get the string equivalent of the default index
+        std::string default_str = default_sel < selections.size() ? selections[default_sel] : "";
 
-                std::string input;
-                std::getline(std::cin,input);
-                if(!input.empty())
-                    set(name,input);
-                else
-                    return default_sel;
-            }
-            else
-                return default_sel;
-        }
+        // 2. Route EVERYTHING through the std::string version
+        std::string resolved = get(name,selections,default_str);
 
-        auto sel = get(name);
-        if(sel.empty())
-            return default_sel;
-        if(sel[0] >= '0' && sel[0] <= '9')
-            return size_t(sel[0]-'0');
-
-        auto it = std::find_if(selections.begin(),selections.end(),[&](const auto& s){ return tipl::contains(s,sel); });
+        // 3. Map the resolved string back to its index
+        auto it = std::find(selections.begin(),selections.end(),resolved);
         return it != selections.end() ? size_t(std::distance(selections.begin(),it)) : default_sel;
+    }
+
+    std::string get(const char* name,const char* df_ptr)
+    {
+        return get(name,std::string(df_ptr));
     }
 
     std::string get(const char* name)
