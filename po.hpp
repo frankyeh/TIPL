@@ -578,17 +578,6 @@ public:
     {
         exec_path = std::filesystem::absolute(std::filesystem::path(av[0])).parent_path().u8string();
         clear();
-        if(ac == 2) // command from log file
-        {
-            std::ifstream in(av[1]);
-            std::string line;
-            while(std::getline(in,line))
-            {
-                line = std::string("--")+line;
-                add_option(line);
-            }
-        }
-        else
         for(int i = 1;i < ac;++i)
         {
             std::string str(av[i]);
