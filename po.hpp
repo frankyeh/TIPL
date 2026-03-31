@@ -660,7 +660,7 @@ public:
             }
         }
         if(interact)
-            out() << "skip optional parameter --" << name;
+            out() << "interact mode skips optional parameter --" << name;
         not_found_names.insert(name);
         return false;
     }
