@@ -564,7 +564,7 @@ public:
             for(size_t i = 0;i < names.size();++i)
                 if(names[i] != "interact")
                     assigned_param += "--" + names[i] + "=" + values[i] + " ";
-            out() << "parameters " << assigned_param;
+            out() << "parameters: dsi_studio " << assigned_param;
         }
     }
 
