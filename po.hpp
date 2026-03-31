@@ -803,18 +803,16 @@ public:
             {
                 std::cout << "Please specify --" << name << " (";
                 for(size_t i = 0;i < selections.size();++i)
-                    out() << (i ? "," : "") << selections[i];
+                    std::cout << (i ? "," : "") << selections[i];
                 std::cout << ") [" << default_sel << "]: ";
 
                 std::string input;
                 std::getline(std::cin,input);
-                if(!input.empty())
-                    set(name,input);
-                else
-                    return default_sel;
+                if(input.empty())
+                    input = default_sel;
+                set(name,default_sel);
             }
-            else
-                return default_sel;
+            return default_sel;
         }
 
         auto sel = get(name);
