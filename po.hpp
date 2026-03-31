@@ -643,8 +643,8 @@ public:
 
     bool check(const char* name)
     {
-        if(!has(name))
-            return out() << (error_msg = "please specify --" + std::string(name)),false;
+        if(!has(name) && (!interact || get(name).empty()))
+            return out() << (error_msg = "please specify --" + std::string(name)), false;
         return true;
     }
 
@@ -659,6 +659,8 @@ public:
                 return true;
             }
         }
+        if(interact)
+            out() << "skip optional parameter --" << name;
         not_found_names.insert(name);
         return false;
     }
