@@ -870,7 +870,7 @@ public:
             {
                 std::cout << "\navailable files for --" << name << ":\n";
                 for(size_t i = 0;i < local_files.size();++i)
-                    std::cout << "  [" << (i + 1) << "] " << local_files[i] << '\n';
+                    std::cout << "[" << (i + 1) << "] " << local_files[i] << (i % 5 == 4 ? '\n' : '\t');
                 if(default_sel.empty())
                     default_sel = local_files.front();
             }
