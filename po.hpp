@@ -776,7 +776,7 @@ public:
             else
                 stream << df;
 
-            out() << "Please specify --" << name << " [" << stream.str() << "]: ";
+            std::cout << "Please specify --" << name << " [" << stream.str() << "]: ";
             std::string input;
             std::getline(std::cin,input);
             if(!input.empty())
@@ -812,10 +812,10 @@ public:
         {
             if(interact)
             {
-                out() << "Please specify --" << name << " (";
+                std::cout << "Please specify --" << name << " (";
                 for(size_t i = 0;i < selections.size();++i)
                     out() << (i ? "," : "") << selections[i];
-                out() << ") [" << default_sel << "]: ";
+                std::cout << ") [" << default_sel << "]: ";
 
                 std::string input;
                 std::getline(std::cin,input);
@@ -860,10 +860,10 @@ public:
         {
             if(interact)
             {
-                out() << "Please specify --" << name << " (";
+                std::cout << "Please specify --" << name << " (";
                 for(size_t i = 0;i < selections.size();++i)
                     out() << (i ? "," : "") << selections[i];
-                out() << ") [" << selections[default_sel] << "]: ";
+                std::cout << ") [" << selections[default_sel] << "]: ";
 
                 std::string input;
                 std::getline(std::cin,input);
