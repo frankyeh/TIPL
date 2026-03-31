@@ -567,6 +567,7 @@ public:
             out() << "parameters " << assigned_param;
         }
     }
+
     void clear(void)
     {
         names.clear();
@@ -849,6 +850,59 @@ public:
     {
         return get(name,std::string());
     }
+
+    template<typename extension_type>
+    std::string get_file(const char* name,const extension_type& extension,std::string default_sel = "")
+    {
+        if(!has(name))
+        {
+            if(!interact)
+                return default_sel;
+
+            std::vector<std::string> local_files;
+            for(const auto& entry : std::filesystem::directory_iterator(std::filesystem::current_path()))
+                if(tipl::ends_with(entry.path().filename().string(),extension))
+                    local_files.push_back(entry.path().filename().string());
+
+            std::sort(local_files.begin(),local_files.end());
+
+            if(!local_files.empty())
+            {
+                std::cout << "\navailable files for --" << name << ":\n";
+                for(size_t i = 0;i < local_files.size();++i)
+                    std::cout << "  [" << (i + 1) << "] " << local_files[i] << '\n';
+                if(default_sel.empty())
+                    default_sel = local_files.front();
+            }
+
+            std::cout << "Please specify --" << name << (local_files.empty() ? "" : " (Enter 1-" + std::to_string(local_files.size()) + ", or type path)") << " [" << default_sel << "]: ";
+
+            std::string input;
+            std::getline(std::cin,input);
+
+            if(input.empty())
+                input = default_sel;
+            else if(std::all_of(input.begin(),input.end(),[](unsigned char c){ return std::isdigit(c); }))
+            {
+                try
+                {
+                    size_t idx = std::stoul(input);
+                    if(idx > 0 && idx <= local_files.size())
+                        input = local_files[idx - 1];
+                }
+                catch(...)
+                {
+                    // Ignore overflow, treat input as a raw file path
+                }
+            }
+
+            set(name,input);
+        }
+
+        auto sel = get(name);
+        return sel.empty() ? default_sel : sel;
+    }
+
     template<typename out_warning = out>
     std::vector<std::string> get_files(const char* name,const std::string& default_str = std::string())
     {
