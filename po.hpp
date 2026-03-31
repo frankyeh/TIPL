@@ -562,8 +562,9 @@ public:
         {
             std::string assigned_param;
             for(size_t i = 0;i < names.size();++i)
-                assigned_param += "--" + names[i] + "=" + values[i] + " ";
-            out() << "Assigned parameters: " << assigned_param;
+                if(names[i] != "interact")
+                    assigned_param += "--" + names[i] + "=" + values[i] + " ";
+            out() << "parameters " << assigned_param;
         }
     }
     void clear(void)
