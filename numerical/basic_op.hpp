@@ -204,6 +204,22 @@ void expand_label_to_dimension(T& label,size_t label_count,bool skip_background 
     }
     label.swap(out);
 }
+template<typename T>
+void expand_label_to_images(const T& label,std::vector<T>& images,size_t max_v)
+{
+    max_v = std::min<size_t>(images.size(),max_v);
+
+    for(size_t i = 0;i < max_v;++i)
+        images[i] = T(label.shape());
+
+    size_t image_size = label.size();
+    for(size_t pos = 0;pos < image_size;++pos)
+    {
+        auto v = label[pos];
+        if(v > 0 && v <= max_v)
+            images[v-1][pos] = 255;
+    }
+}
 template<typename ImageType,typename LabelImageType,typename fun_type>
 void binary(const ImageType& I,LabelImageType& out,fun_type fun)
 {
