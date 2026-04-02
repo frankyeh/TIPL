@@ -1230,6 +1230,38 @@ void resample(const T& from,U&& to,const tipl::transformation_matrix<V,T::dimens
     }
     else
     {
+        bool is_simple_crop = true;
+        for(int i = 0;i < T::dimension;++i)
+        {
+            if(trans.shift[i] != std::floor(trans.shift[i]))
+            {
+                is_simple_crop = false;
+                break;
+            }
+            for(int j = 0;j < T::dimension;++j)
+            {
+                if(trans.sr[i*T::dimension+j] != (i == j ? 1 : 0))
+                {
+                    is_simple_crop = false;
+                    break;
+                }
+            }
+            if(!is_simple_crop)
+                break;
+        }
+
+        if(is_simple_crop)
+        {
+            tipl::vector<T::dimension,int> from_pos,to_pos;
+            for(int i = 0;i < T::dimension;++i)
+            {
+                from_pos[i] = int(trans.shift[i]);
+                to_pos[i] = from_pos[i] + int(to.shape()[i]);
+            }
+            crop(from,to,from_pos,to_pos);
+            return;
+        }
+
         tipl::par_for(tipl::begin_index(to.shape()),tipl::end_index(to.shape()),
                     [&](const auto& index)
         {
