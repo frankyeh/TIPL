@@ -45,7 +45,7 @@ inline auto template_image_pre(const tipl::image<dim>& I)
 template<typename out_type>
 struct mm_reg{
     static constexpr int dimension = 3;
-    static constexpr int max_modality = 16;
+    static constexpr int max_modality = 12;
     using image_type = tipl::image<dimension,unsigned char>;
     using mapping_type = tipl::image<dimension,tipl::vector<dimension>>;
 
@@ -57,6 +57,7 @@ struct mm_reg{
     bool Is_is_mni = false;
     bool export_intermediate = false;
     bool use_cuda = true;
+    bool mm_linear = false;
     bool skip_linear = false;
     bool skip_nonlinear = false;
     bool match_fov = true;
@@ -95,6 +96,7 @@ struct mm_reg{
         arg.clear();
     }
 private:
+
     template<typename io_loader,typename T,typename trans_type,typename vs_type,typename shape_type>
     bool load_reg_image(size_t id,const std::string& file_name,
                     std::vector<T>& images,bool preprocess,
@@ -119,7 +121,15 @@ private:
                 images.resize(id+1);
 
             if(in.is_int8())
-                in >> images[id];
+            {
+                T label;
+                in >> label;
+                size_t max_v = tipl::max_value(label);
+                if(id == 0 && max_v <= images.size())
+                    tipl::expand_label_to_images(label,images,max_v);
+                else
+                    label.swap(images[id]);
+            }
             else if(preprocess)
                 images[id] = subject_image_pre(in.template toImage<tipl::image<T::dimension>>());
             else
@@ -137,9 +147,6 @@ private:
                 if(images[id].shape() != image_shape || curr_transform != ref_transform)
                     images[id] = tipl::resample(images[id],image_shape,tipl::from_space(ref_transform).to(curr_transform));
             }
-
-            if(tipl::max_value(images[id]) == 1)
-                images[id] *= 255;
         }
         return true;
     }
@@ -340,7 +347,13 @@ public:
         float cost = 0.0f;
         linear_param.cuda = use_cuda;
         if(!skip_linear)
-            cost = tipl::reg::linear<out_type>(tipl::reg::make_list(It),Itvs,tipl::reg::make_list(I),Ivs,arg,linear_param,terminated);
+        {
+            if(mm_linear)
+                cost = tipl::reg::linear<out_type>(tipl::reg::make_list(It),Itvs,tipl::reg::make_list(I),Ivs,arg,linear_param,terminated);
+            else
+                cost = tipl::reg::linear<out_type>(tipl::reg::make_list(It[0]),Itvs,tipl::reg::make_list(I[0]),Ivs,arg,linear_param,terminated);
+        }
+
 
         calculate_linear_r();
         return cost;
