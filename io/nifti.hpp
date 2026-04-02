@@ -806,23 +806,31 @@ public:
         return nif_header.datatype == 2;
     }
 
-    template<typename image_type>
+    template<tipl::interpolation itype = tipl::check,typename image_type>
     auto& to_space(image_type& I,const tipl::matrix<4,4>& I_T)
     {
         image_type J;
         if(!((*this) >> J))
             return *this;
+
         tipl::matrix<4,4> J_T;
         *this >> J_T;
+
         if(I.shape() == J.shape() && I_T == J_T)
             I.swap(J);
         else
         {
-            if(is_label_image(J))
-                resample<nearest>(J,I,from_space(I_T).to(J_T));
+            if constexpr(itype == tipl::check)
+            {
+                if(is_label_image(J))
+                    tipl::resample<tipl::majority>(J,I,tipl::from_space(I_T).to(J_T));
+                else
+                    tipl::resample<tipl::linear>(J,I,tipl::from_space(I_T).to(J_T));
+            }
             else
-                resample<linear>(J,I,from_space(I_T).to(J_T));
+                tipl::resample<itype>(J,I,tipl::from_space(I_T).to(J_T));
         }
+
         return *this;
     }
 private:
