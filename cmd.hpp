@@ -543,12 +543,16 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     if(cmd == "load_image" || cmd == "multiply_image" || cmd == "add_image" || cmd == "minus_image" || cmd == "max_image" || cmd == "min_image")
     {
         tipl::image<3,typename image_type::value_type> rhs(data.shape());
-        if(!image_loader(param1,std::ios::in).to_space(rhs,T))
-        {
-            error_msg = "cannot open file:";
-            error_msg += param1;
-            return false;
-        }
+        image_loader loader(param1,std::ios::in);
+
+        if(interpolation)
+            loader.to_space<tipl::interpolation::linear>(rhs,T);
+        else
+            loader.to_space<tipl::interpolation::majority>(rhs,T);
+
+        if(!loader)
+            return error_msg = "cannot open file:" + param1,false;
+
         if(cmd == "load_image")
             data = std::move(rhs);
         if(cmd == "multiply_image")
