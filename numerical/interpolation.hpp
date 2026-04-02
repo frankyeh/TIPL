@@ -693,7 +693,7 @@ struct cubic<3>{
 
 }//interpolation
 
-enum interpolation{nearest,majority,linear,cubic};
+enum interpolation{nearest,majority,linear,cubic,check};
 
 template<interpolation type = linear,typename ImageType,typename VTorType,typename PixelType>
 __INLINE__ bool estimate(const ImageType& source,const VTorType& location,PixelType& pixel)
