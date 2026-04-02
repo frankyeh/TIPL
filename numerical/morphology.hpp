@@ -5,6 +5,10 @@
 #include <list>
 #include <set>
 #include <unordered_map>
+#include <type_traits>
+#include <vector>
+#include <algorithm>
+#include <string>
 
 #include "../numerical/basic_op.hpp"
 #include "../utility/basic_image.hpp"
@@ -1021,6 +1025,215 @@ void fill(ImageType& I,PixelIndexType seed_point,ValueType new_value)
             I[pos.index()] = new_value;
         });
     }
+}
+
+
+
+template<typename out_type,typename template_type,typename image_type>
+void reclassify_labels_by_template(const template_type& template_I,image_type& atlas_I)
+{
+    size_t template_region_count = tipl::max_value(template_I) + 1;
+    size_t atlas_region_count = tipl::max_value(atlas_I);
+    std::vector<size_t> tissue_votes((atlas_region_count+1)*template_region_count,0);
+
+    for(size_t pos = 0;pos < atlas_I.size();++pos)
+    {
+        auto a = atlas_I[pos];
+        auto t = template_I[pos];
+        if(a > 0 && t < template_region_count)
+            tissue_votes[a*template_region_count + t]++;
+    }
+
+    std::vector<size_t> region_majority_tissue(atlas_region_count+1,0);
+    tipl::par_for(atlas_region_count,[&](size_t i)
+    {
+        ++i;
+        auto begin_it = tissue_votes.begin() + i*template_region_count;
+        auto best_tissue = std::max_element(begin_it,begin_it + template_region_count);
+        region_majority_tissue[i] = std::distance(begin_it,best_tissue);
+    });
+
+    std::vector<size_t> region_erased(atlas_region_count+1,0);
+    for(size_t pos = 0;pos < atlas_I.size();++pos)
+    {
+        auto a = atlas_I[pos];
+        if(a > 0 && template_I[pos] != region_majority_tissue[a])
+        {
+            atlas_I[pos] = 0;
+            region_erased[a]++;
+        }
+    }
+
+    if constexpr(!std::is_same_v<out_type,void>)
+    {
+        std::string erased_report;
+        for(size_t i = 1;i <= atlas_region_count;++i)
+            if(region_majority_tissue[i] > 0)
+            {
+                if(!erased_report.empty())
+                    erased_report += ", ";
+                erased_report += std::to_string(region_erased[i]);
+            }
+
+        if(!erased_report.empty())
+            out_type() << " voxel erased based on tissue classification: " << erased_report;
+    }
+}
+
+
+template<typename out_type,typename mask_type,typename image_type>
+void fill_and_smooth_labels(const mask_type& mask,image_type& atlas_I,size_t max_growing_iteration = 64,size_t max_smoothing_iteration = 12)
+{
+    std::vector<tipl::pixel_index<3>> missing_voxel;
+    for(size_t pos = 0;pos < mask.size();++pos)
+        if(mask[pos] && atlas_I[pos] == 0)
+            missing_voxel.push_back(tipl::pixel_index<3>(pos,mask.shape()));
+
+    std::string grow_report;
+    std::vector<unsigned short> updates;
+
+    for(size_t iter = 0;iter < max_growing_iteration;++iter)
+    {
+        if(missing_voxel.empty())
+            break;
+
+        if constexpr(!std::is_same_v<out_type,void>)
+        {
+            if(!grow_report.empty())
+                grow_report += ", ";
+            grow_report += std::to_string(missing_voxel.size());
+        }
+
+        updates.assign(missing_voxel.size(),0);
+
+        tipl::par_for(missing_voxel.size(),[&](size_t idx)
+        {
+            auto pos = missing_voxel[idx];
+            std::pair<unsigned short,size_t> candidates[27];
+            size_t cand_count = 0;
+
+            tipl::for_each_neighbors(pos,mask.shape(),[&](const tipl::pixel_index<3>& n_pos)
+            {
+                if(mask[n_pos.index()] && atlas_I[n_pos.index()] > 0)
+                {
+                    auto val = atlas_I[n_pos.index()];
+                    size_t c = 0;
+                    for(;c < cand_count;++c)
+                        if(candidates[c].first == val)
+                        {
+                            candidates[c].second++;
+                            break;
+                        }
+
+                    if(c == cand_count)
+                        candidates[cand_count++] = {val,1};
+                }
+            });
+
+            if(cand_count > 0)
+            {
+                size_t best_idx = 0;
+                for(size_t c = 1;c < cand_count;++c)
+                    if(candidates[c].second > candidates[best_idx].second)
+                        best_idx = c;
+                updates[idx] = candidates[best_idx].first;
+            }
+        });
+
+        std::vector<tipl::pixel_index<3>> next_missing;
+        next_missing.reserve(missing_voxel.size());
+        bool changed = false;
+
+        for(size_t idx = 0;idx < missing_voxel.size();++idx)
+            if(updates[idx] > 0)
+            {
+                atlas_I[missing_voxel[idx].index()] = updates[idx];
+                changed = true;
+            }
+            else
+                next_missing.push_back(missing_voxel[idx]);
+
+        if(!changed)
+            break;
+
+        missing_voxel.swap(next_missing);
+    }
+
+    if constexpr(!std::is_same_v<out_type,void>)
+        if(!grow_report.empty())
+            out_type() << "growing iterations (missing voxels): " << grow_report;
+
+    std::vector<size_t> tissue_voxels;
+    for(size_t pos = 0;pos < mask.size();++pos)
+        if(mask[pos] && atlas_I[pos] > 0)
+            tissue_voxels.push_back(pos);
+
+    std::string smooth_report;
+    for(size_t iter = 0;iter < max_smoothing_iteration;++iter)
+    {
+        updates.assign(tissue_voxels.size(),0);
+
+        tipl::par_for(tissue_voxels.size(),[&](size_t idx)
+        {
+            tipl::pixel_index<3> pos(tissue_voxels[idx],mask.shape());
+            unsigned short current_id = atlas_I[pos.index()];
+            std::pair<unsigned short,size_t> candidates[27];
+            size_t cand_count = 0;
+            size_t valid_neighbors = 0;
+
+            tipl::for_each_neighbors(pos,mask.shape(),[&](const tipl::pixel_index<3>& n_pos)
+            {
+                if(mask[n_pos.index()] && atlas_I[n_pos.index()] > 0)
+                {
+                    ++valid_neighbors;
+                    auto val = atlas_I[n_pos.index()];
+                    size_t c = 0;
+                    for(;c < cand_count;++c)
+                        if(candidates[c].first == val)
+                        {
+                            candidates[c].second++;
+                            break;
+                        }
+
+                    if(c == cand_count)
+                        candidates[cand_count++] = {val,1};
+                }
+            });
+
+            if(valid_neighbors > 0)
+            {
+                size_t best_idx = 0;
+                for(size_t c = 1;c < cand_count;++c)
+                    if(candidates[c].second > candidates[best_idx].second)
+                        best_idx = c;
+
+                if(candidates[best_idx].first != current_id && candidates[best_idx].second*2 > valid_neighbors)
+                    updates[idx] = candidates[best_idx].first;
+            }
+        });
+
+        size_t flipped_count = 0;
+        for(size_t idx = 0;idx < tissue_voxels.size();++idx)
+            if(updates[idx] > 0)
+            {
+                atlas_I[tissue_voxels[idx]] = updates[idx];
+                ++flipped_count;
+            }
+
+        if constexpr(!std::is_same_v<out_type,void>)
+        {
+            if(!smooth_report.empty())
+                smooth_report += ", ";
+            smooth_report += std::to_string(flipped_count);
+        }
+
+        if(flipped_count == 0)
+            break;
+    }
+
+    if constexpr(!std::is_same_v<out_type,void>)
+        if(!smooth_report.empty())
+            out_type() << "smoothing iterations (voxels flipped): " << smooth_report;
 }
 
 }
