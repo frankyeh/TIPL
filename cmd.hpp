@@ -467,6 +467,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         }
         typename image_type::buffer_type original_data(data);
         data.resize(tipl::shape<3>(w,h,d));
+        data = 0;
         tipl::draw(original_data,data,tipl::vector<3,int>(0,0,0));
         return true;
     }
@@ -482,6 +483,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         }
         typename image_type::buffer_type odata(data);
         data.resize(tipl::shape<3>(w,h,d));
+        data = 0;
         tipl::draw(odata,data,tipl::vector<3,int>(w-odata.width(),h-odata.height(),d-odata.depth())/2);
         return true;
     }
