@@ -806,7 +806,7 @@ public:
         return nif_header.datatype == 2;
     }
 
-    template<tipl::interpolation itype = tipl::check,typename image_type>
+    template<tipl::interpolation itype = tipl::interpolation::check,typename image_type>
     auto& to_space(image_type& I,const tipl::matrix<4,4>& I_T)
     {
         image_type J;
@@ -820,12 +820,12 @@ public:
             I.swap(J);
         else
         {
-            if constexpr(itype == tipl::check)
+            if constexpr(itype == tipl::interpolation::check)
             {
                 if(is_label_image(J))
-                    tipl::resample<tipl::majority>(J,I,tipl::from_space(I_T).to(J_T));
+                    tipl::resample<tipl::interpolation::majority>(J,I,tipl::from_space(I_T).to(J_T));
                 else
-                    tipl::resample<tipl::linear>(J,I,tipl::from_space(I_T).to(J_T));
+                    tipl::resample<tipl::interpolation::linear>(J,I,tipl::from_space(I_T).to(J_T));
             }
             else
                 tipl::resample<itype>(J,I,tipl::from_space(I_T).to(J_T));
