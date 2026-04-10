@@ -548,9 +548,9 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         image_loader loader(param1,std::ios::in);
 
         if(interpolation)
-            loader.to_space<tipl::interpolation::linear>(rhs,T);
+            loader.template to_space<tipl::interpolation::linear>(rhs,T);
         else
-            loader.to_space<tipl::interpolation::majority>(rhs,T);
+            loader.template to_space<tipl::interpolation::majority>(rhs,T);
 
         if(!loader)
             return error_msg = "cannot open file:" + param1,false;
