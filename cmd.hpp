@@ -373,9 +373,9 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         {
             image_type new_data(data.shape());
             if(interpolation)
-                tipl::resample<tipl::interpolation::linear>(data,new_data,tipl::transformation_matrix<float>(tipl::from_space(U).to(T)));
+                tipl::resample<linear>(data,new_data,tipl::transformation_matrix<float>(tipl::from_space(U).to(T)));
             else
-                tipl::resample<tipl::interpolation::majority>(data,new_data,tipl::transformation_matrix<float>(tipl::from_space(U).to(T)));
+                tipl::resample<majority>(data,new_data,tipl::transformation_matrix<float>(tipl::from_space(U).to(T)));
             new_data.swap(data);
             vs = new_vs;
             return true;
@@ -440,9 +440,9 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
             m.shift[1] = -m.shift[1];
             m.shift[2] = -m.shift[2];
             if(interpolation)
-                tipl::resample<tipl::interpolation::linear>(data,new_data,m);
+                tipl::resample<linear>(data,new_data,m);
             else
-                tipl::resample<tipl::interpolation::majority>(data,new_data,m);
+                tipl::resample<majority>(data,new_data,m);
         }
         else
         {
@@ -532,9 +532,9 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         nT[5] = T1.sr[4] = new_vs[1]/vs[1];
         nT[10] = T1.sr[8] = new_vs[2]/vs[2];
         if(interpolation)
-            tipl::resample<tipl::interpolation::linear>(data,J,T1);
+            tipl::resample<linear>(data,J,T1);
         else
-            tipl::resample<tipl::interpolation::majority>(data,J,T1);
+            tipl::resample<majority>(data,J,T1);
         data.swap(J);
         vs = new_vs;
         T = T*nT;
@@ -548,9 +548,9 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         image_loader loader(param1,std::ios::in);
 
         if(interpolation)
-            loader.to_space<tipl::interpolation::linear>(rhs,T);
+            loader.to_space<linear>(rhs,T);
         else
-            loader.to_space<tipl::interpolation::majority>(rhs,T);
+            loader.to_space<majority>(rhs,T);
 
         if(!loader)
             return error_msg = "cannot open file:" + param1,false;
