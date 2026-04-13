@@ -1193,12 +1193,10 @@ void estimate_affine_param(const image_type& source, const v_type& source_vs,
     arg.rotation[1] = (float)std::atan2(-R[6], std::sqrt(R[7] * R[7] + R[8] * R[8]));
     arg.rotation[2] = (float)std::atan2(R[3], R[0]);
 
-    // Constrain rotation to [-pi/2, pi/2] to correct 180-degree flipped principal axes
-    for (int i = 0; i < 3; ++i)
-        if (arg.rotation[i] > 1.570796327f)
-            arg.rotation[i] -= 3.141592654f;
-        else if (arg.rotation[i] < -1.570796327f)
-            arg.rotation[i] += 3.141592654f;
+    // Constrain rotation to [-pi/4, pi/4] to correct 90-degree flipped principal axes
+    const float pi_half = 1.570796327f;
+    for(int i = 0;i < 3;++i)
+        arg.rotation[i] = std::remainder(arg.rotation[i],pi_half);
 
     double dt[3];
     for (int i = 0; i < 3; ++i)
