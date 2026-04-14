@@ -21,51 +21,46 @@ namespace tipl
 namespace ml3d
 {
 
-inline tipl::shape<3> round_up_size(const tipl::shape<3>& s)
+inline auto round_up_size(const tipl::shape<3>& s)
 {
-    return tipl::shape<3>(int(std::ceil(float(s[0])/32.0f))*32,int(std::ceil(float(s[1])/32.0f))*32,int(std::ceil(float(s[2])/32.0f))*32);
+    return tipl::shape<3>((s[0]+31)&~31,(s[1]+31)&~31,(s[2]+31)&~31);
 }
 
-
 inline void preproc_actions(tipl::image<3>& images,
-                     const tipl::shape<3>& image_dim,
-                     const tipl::vector<3>& image_vs,
-                     const tipl::shape<3>& model_dim,
-                     const tipl::vector<3>& model_vs,
-                     tipl::transformation_matrix<float,3>& trans,
-                     bool match_resolution,
-                     bool match_fov)
+                            const tipl::shape<3>& image_dim,
+                            const tipl::vector<3>& image_vs,
+                            const tipl::shape<3>& model_dim,
+                            const tipl::vector<3>& model_vs,
+                            tipl::transformation_matrix<float,3>& trans,
+                            bool match_resolution,
+                            bool match_fov)
 {
     if(model_dim == image_dim && image_vs == model_vs)
     {
         trans = tipl::transformation_matrix<float,3>();
         return;
     }
+
     int in_channel = images.depth()/image_dim[2];
     auto target_vs = match_resolution ? model_vs : image_vs;
+
+
+
     auto target_dim = match_fov ? model_dim :
-                            tipl::ml3d::round_up_size(tipl::shape<3>(float(image_dim.width())*image_vs[0]/target_vs[0],
-                                float(image_dim.height())*image_vs[1]/target_vs[1],
-                                float(image_dim.depth())*image_vs[2]/target_vs[2]));
+        round_up_size(tipl::shape<3>(int(float(image_dim[0])*image_vs[0]/target_vs[0]),
+                                int(float(image_dim[1])*image_vs[1]/target_vs[1]),
+                                int(float(image_dim[2])*image_vs[2]/target_vs[2])));
 
     tipl::image<3> target_images(target_dim.multiply(tipl::shape<3>::z,in_channel));
-    auto shift = tipl::vector<3,int>(target_dim)-tipl::vector<3,int>(image_dim);
-    shift[0] /= 2;
-    shift[1] /= 2;
-    tipl::affine_param<float> arg;
-    trans = tipl::transformation_matrix<float,3>(arg,target_dim,target_vs,image_dim,image_vs);
+    trans = tipl::transformation_matrix<float,3>(tipl::affine_param<float>(),target_dim,target_vs,image_dim,image_vs);
 
     tipl::par_for(in_channel,[&](int c)
     {
         auto image = images.alias(image_dim.size()*c,image_dim);
         auto target_image = target_images.alias(target_dim.size()*c,target_dim);
+        tipl::resample(image,target_image,trans);
+    });
 
-        if(!match_fov && !match_resolution)
-            tipl::draw(image,target_image,shift);
-        else
-            tipl::resample(image,target_image,trans);
-
-    },in_channel);
     target_images.swap(images);
 }
 
@@ -110,7 +105,7 @@ inline void postproc_actions(T& label_prob,
                              const U& eval_output,
                              const V& raw_image_shape,
                              tipl::transformation_matrix<float,3> trans,
-                             size_t model_out_count,bool shift)
+                             size_t model_out_count)
 {
     tipl::shape<3> dim_from(eval_output.shape().divide(tipl::shape<3>::z,model_out_count)),
                    dim_to(raw_image_shape);
@@ -120,15 +115,7 @@ inline void postproc_actions(T& label_prob,
     {
         auto from = eval_output.alias(dim_from.size()*i,dim_from);
         auto to = label_prob.alias(dim_to.size()*i,dim_to);
-        if(shift)
-        {
-            auto shift = tipl::vector<3,int>(to.shape())-tipl::vector<3,int>(from.shape());
-            shift[0] /= 2;
-            shift[1] /= 2;
-            tipl::draw(from,to,shift);
-        }
-        else
-            tipl::resample(from,to,trans);
+        tipl::resample(from,to,trans);
     },model_out_count);
 
 }
@@ -198,7 +185,7 @@ public:
             {
                 n << add_layer(new conv_3d(count, next_count,ks));
                 n << add_layer(new leakyrelu(next_count));
-                n << add_layer(new batch_norm_3d(next_count));
+                n << add_layer(new instance_norm_3d(next_count));
             }
             count = next_count;
         }
@@ -268,8 +255,7 @@ public:
         auto evaluate_output = tipl::make_image(ptr,dim.multiply(tipl::shape<3>::z,out_channels_));
         postproc_actions(label_prob,
                          evaluate_output,
-                         raw_image.shape(),trans,
-                         out_channels_,!match_fov && !match_resolution);
+                         raw_image.shape(),trans,out_channels_);
         auto label_prob_4d = tipl::make_image(label_prob.data(),raw_image.shape().expand(out_channels_));
         fg_prob = tipl::ml3d::defragment4d(label_prob_4d,prob_threshold);
         return true;
