@@ -152,15 +152,36 @@ inline auto soft_mask(const T& label)
 class tissue_seg{
 public:
     std::shared_ptr<unet3d<tipl::progress>> unet;
-
+    std::string error_msg;
     tipl::vector<3> vs;
-    tissue_seg(int in_channels_v,int out_channels_v,std::string feature_string)
+    tipl::shape<3> dim;
+
+    template<typename reader>
+    bool load_model(const std::string& file_name)
     {
+        reader in;
+        std::string feature_string;
+        std::vector<int> param({1,1});
+        if(!in.load_from_file(file_name))
+            return error_msg = "cannot open file: " + file_name,false;
+        if(!in.read("param",param) || !in.read("feature_string",feature_string))
+            return error_msg = "invalid network file format",false;
+
         std::vector<std::vector<int> > features_down;
         std::vector<std::vector<int> > features_up;
         std::vector<int> kernel_size;
-        parse_feature_string(feature_string,in_channels_v,features_down,features_up,kernel_size);
-        unet.reset(new unet3d<tipl::progress>(features_down,features_up,kernel_size,in_channels_v,out_channels_v));
+        parse_feature_string(feature_string,param[0],features_down,features_up,kernel_size);
+        unet.reset(new unet3d<tipl::progress>(features_down,features_up,kernel_size,param[0],param[1]));
+
+        if(!in.read("dimension",dim) || !in.read("voxel_size",vs))
+            return error_msg = "cannot read dimension and voxel size",false;
+        unet->init_image(dim); // the dim value will be changed
+        dim = unet->dim;
+        int id = 0;
+        for(auto& param : unet->parameters())
+            if(!in.read((std::string("tensor")+std::to_string(id++)).c_str(),param.first,param.first+param.second))
+                return error_msg = "tensor structure mismatch",false;
+        return true;
     }
 public:
     template<typename image_type>
@@ -176,15 +197,14 @@ public:
         tipl::image<3> input_image(raw_image);
         tipl::segmentation::normalize_otsu_median(input_image);
         tipl::ml3d::preproc_actions(input_image,input_image.shape(),raw_image_vs,
-                                        unet->dim,vs,trans,match_resolution,match_fov);
-        auto old_dim = unet->dim;
-        unet->dim = input_image.shape();
+                                        dim,vs,trans,match_resolution,match_fov);
+        if(input_image.shape() != dim)
+            return false;
         unet->prog = &prog;
         auto ptr = unet->forward(input_image.data());
-        unet->dim = old_dim;
         if(ptr == nullptr)
             return false;
-        auto evaluate_output = tipl::make_image(ptr,unet->dim.multiply(tipl::shape<3>::z,unet->out_channels_));
+        auto evaluate_output = tipl::make_image(ptr,dim.multiply(tipl::shape<3>::z,unet->out_channels_));
         auto label_prob = postproc_actions(evaluate_output,raw_image.shape(),trans,unet->out_channels_);
         auto label_prob_4d = tipl::make_image(label_prob.data(),raw_image.shape().expand(unet->out_channels_));
         auto fg_prob = tipl::ml3d::defragment4d(label_prob_4d,prob_threshold);
@@ -209,29 +229,6 @@ public:
             I.swap(label);
         }
         return true;
-    }
-
-
-    template<typename reader>
-    static std::shared_ptr<tissue_seg> load_model(const std::string& file_name)
-    {
-        reader in;
-        std::string feature_string;
-        std::vector<int> param({1,1});
-        tipl::shape<3> d;
-        tipl::vector<3> vs;
-        if(!in.load_from_file(file_name) ||
-           !in.read("param",param) || !in.read("feature_string",feature_string) ||
-           !in.read("dimension",d) || !in.read("voxel_size",vs))
-            return nullptr;
-        std::shared_ptr<tissue_seg> un(new tissue_seg(param[0],param[1],feature_string));
-        un->unet->init_image(d);
-        un->vs = vs;
-        int id = 0;
-        for(auto& param : un->unet->parameters())
-            if(!in.read((std::string("tensor")+std::to_string(id++)).c_str(),param.first,param.first+param.second))
-                return nullptr;
-        return un;
     }
 };
 
