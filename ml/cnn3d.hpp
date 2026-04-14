@@ -459,7 +459,7 @@ public:
     {
         dim = dim_;
         for(auto& each_layer : layers)
-            each_layer->init_image(dim);
+            each_layer->init_image(dim_);
     }
     float* forward(float* in) override
     {
@@ -536,22 +536,23 @@ public:
             count = next_count;
         }
     }
-    virtual void init_image(tipl::shape<3>& dim)
+    virtual void init_image(tipl::shape<3>& dim_)
     {
+        dim = dim_;
         for(int level=0; level< encoding.size(); level++)
-            encoding[level]->init_image(dim);
+            encoding[level]->init_image(dim_);
 
         for(int level=encoding.size()-2; level>=0; level--)
         {
-            up[level]->init_image(dim);
+            up[level]->init_image(dim_);
             // create space for concatenation
             {
                 auto conv = dynamic_cast<conv_3d*>(encoding[level]->layers[encoding[level]->layers.size()-3].get());
                 conv->out.resize(up[level]->out_size()+encoding[level]->out_size());
             }
-            decoding[level]->init_image(dim);
+            decoding[level]->init_image(dim_);
         }
-        output->init_image(dim);
+        output->init_image(dim_);
     }
     virtual float* forward(float* in)
     {
