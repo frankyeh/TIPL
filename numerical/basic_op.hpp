@@ -468,41 +468,102 @@ auto volume2slice_scaled(const ImageType3D& slice,dim_type dim,slice_pos_type sl
     volume2slice_scaled(slice,I,dim,slice_index,scale);
     return I;
 }
-//--------------------------------------------------------------------------
-template<typename T1,typename T2,typename PosType,typename std::enable_if<T1::dimension==2,bool>::type = true>
-void crop(const T1& from_image,T2&& to_image,PosType from,PosType to)
-{
-    if (to[0] <= from[0] || to[1] <= from[1])
-        return;
-    tipl::shape<2> geo(to[0]-from[0],to[1]-from[1]);
-    to_image.resize(geo);
-    auto size = geo.size();
-    size_t from_index = size_t(from[1])*size_t(from_image.width()) + from[0];
-    int64_t shift = int64_t(from_image.width())-int64_t(geo.width());
-    for (size_t to_index = 0,step_index = geo.width();
-            to_index < size; from_index += shift,step_index += geo.width())
-        for (; to_index != step_index; ++to_index,++from_index)
-            to_image[to_index] = from_image[from_index];
 
+template<typename T,typename U>
+inline bool draw_range(T from_w,T to_w,U& pos,int64_t& shift,int64_t& draw_size)
+{
+    if(pos < 0)
+    {
+        shift = -int64_t(pos);
+        pos = 0;
+    }
+    else
+        shift = 0;
+    draw_size = std::min(int64_t(to_w)-int64_t(pos),int64_t(from_w)-shift);
+    return draw_size > 0;
 }
-//--------------------------------------------------------------------------
-template<typename T1,typename T2,typename PosType,typename std::enable_if<T1::dimension==3,bool>::type = true>
+
+template<bool copy = true,typename T1,typename T2,typename PosType>
+void draw(const T1& from_image,T2&& to_image,PosType pos)
+{
+    constexpr int dim = T1::dimension;
+    int64_t x_shift,y_shift,z_shift;
+    int64_t x_width,y_height,z_depth;
+
+    if(!draw_range(from_image.width(),to_image.width(),pos[0],x_shift,x_width) ||
+       !draw_range(from_image.height(),to_image.height(),pos[1],y_shift,y_height))
+        return;
+
+    if constexpr(dim == 3)
+    {
+        if(!draw_range(from_image.depth(),to_image.depth(),pos[2],z_shift,z_depth))
+            return;
+        for(int64_t z = 0;z < z_depth;++z)
+        {
+            int64_t f_y = (z_shift+z)*int64_t(from_image.height())+y_shift;
+            int64_t t_y = (int64_t(pos[2])+z)*int64_t(to_image.height())+int64_t(pos[1]);
+
+            auto iter = from_image.begin()+f_y*int64_t(from_image.width())+x_shift;
+            auto end = iter+int64_t(y_height-1)*int64_t(from_image.width());
+            auto out = to_image.begin()+t_y*int64_t(to_image.width())+int64_t(pos[0]);
+
+            do
+            {
+                if constexpr(copy)
+                    std::copy_n(iter,x_width,out);
+                else
+                    tipl::add(out,out+x_width,iter);
+                if(iter >= end)
+                    break;
+                iter += from_image.width();
+                out += to_image.width();
+            }while(1);
+        }
+    }
+    else
+    {
+        auto iter = from_image.begin()+y_shift*from_image.width()+x_shift;
+        auto end = iter+(y_height-1)*from_image.width();
+        auto out = to_image.begin()+pos[1]*to_image.width()+pos[0];
+
+        do
+        {
+            if constexpr(copy)
+                std::copy_n(iter,x_width,out);
+            else
+                tipl::add(out,out+x_width,iter);
+            if(iter >= end)
+                break;
+            iter += from_image.width();
+            out += to_image.width();
+        }while(1);
+    }
+}
+
+template<typename T1,typename T2,typename PosType>
 void crop(const T1& from_image,T2&& to_image,PosType from,PosType to)
 {
-    if (to[0] <= from[0] || to[1] <= from[1] ||
-            to[2] <= from[2])
-        return;
-    tipl::shape<3> geo(to[0]-from[0],to[1]-from[1],to[2]-from[2]);
-    to_image.resize(geo);
-    size_t from_index = (size_t(from[2])*size_t(from_image.height())+size_t(from[1]))*size_t(from_image.width())+size_t(from[0]);
-    int64_t y_shift = int64_t(from_image.width())-int64_t(geo.width());
-    int64_t z_shift = int64_t(from_image.width())*int64_t(from_image.height())-int64_t(geo.height())*int64_t(from_image.width());
-    size_t to_index = 0;
-    for (unsigned int z = from[2]; z < to[2]; ++z,from_index += z_shift)
-        for (unsigned int y = from[1]; y < to[1]; ++y,from_index += y_shift)
-            for (unsigned int x = from[0]; x < to[0]; ++x,++to_index,++from_index)
-                to_image[to_index] = from_image[from_index];
+    constexpr int dim = T1::dimension;
+
+    for(int i = 0;i < dim;++i)
+        if(from[i] >= to[i])
+            return;
+
+    if(to_image.empty())
+    {
+        if constexpr(dim == 3)
+            to_image.resize(tipl::shape<3>(to[0]-from[0],to[1]-from[1],to[2]-from[2]));
+        else
+            to_image.resize(tipl::shape<2>(to[0]-from[0],to[1]-from[1]));
+    }
+
+    PosType draw_pos;
+    for(int i = 0;i < dim;++i)
+        draw_pos[i] = -from[i];
+
+    draw(from_image,to_image,draw_pos);
 }
+
 //---------------------------------------------------------------------------
 template<typename T,typename U>
 T& crop(T&& I,const U& from,const U& to)
@@ -525,69 +586,6 @@ void fill_rect(image_type&& I,PosType from,PosType to,pixel_type value)
     }
 }
 
-//--------------------------------------------------------------------------
-template<typename T,typename U>
-__INLINE__ bool draw_range(T from_w,T to_w,U& pos,int64_t& shift,int64_t& draw_range)
-{
-    if (pos < 0)
-    {
-        shift = -int64_t(pos);
-        pos = 0;
-    }
-    else
-        shift = 0;
-    draw_range = std::min(int64_t(to_w) - int64_t(pos),int64_t(from_w)-shift);
-    return draw_range;
-}
-template<typename T1,typename T2,typename PosType,typename std::enable_if<T1::dimension==2,bool>::type = true>
-void draw(const T1& from_image,T2&& to_image,PosType pos)
-{
-    int64_t x_shift,y_shift;
-    int64_t x_width,y_height;
-    if(!draw_range(from_image.width(),to_image.width(),pos[0],x_shift,x_width) ||
-       !draw_range(from_image.height(),to_image.height(),pos[1],y_shift,y_height))
-        return;
-    auto iter = from_image.begin() + y_shift*from_image.width()+x_shift;
-    auto end = iter + (y_height-1)*from_image.width();
-    auto out = to_image.begin() + pos[1]*to_image.width()+pos[0];
-    do{
-        std::copy_n(iter,x_width,out);
-        if(iter == end)
-            return;
-        iter += from_image.width();
-        out += to_image.width();
-    }while(1);
-}
-//--------------------------------------------------------------------------
-template<bool copy = true,typename T1,typename T2,typename PosType,
-         typename std::enable_if<T1::dimension==3,bool>::type = true>
-void draw(const T1& from_image,T2&& to_image,PosType pos)
-{
-    int64_t x_shift,y_shift,z_shift;
-    int64_t x_width,y_height,z_depth;
-    if(!draw_range(from_image.width(),to_image.width(),pos[0],x_shift,x_width) ||
-       !draw_range(from_image.height(),to_image.height(),pos[1],y_shift,y_height) ||
-       !draw_range(from_image.depth(),to_image.depth(),pos[2],z_shift,z_depth))
-        return;
-    tipl::par_for (z_depth,[&](int64_t z)
-    {
-        auto iter = from_image.begin() +
-                ((z_shift+z)*int64_t(from_image.height()) + y_shift)*int64_t(from_image.width())+x_shift;
-        auto end = iter + int64_t(y_height-1)*int64_t(from_image.width());
-        auto out = to_image.begin() +
-                ((int64_t(pos[2])+z)*int64_t(to_image.height()) + int64_t(pos[1]))*int64_t(to_image.width())+int64_t(pos[0]);
-        do{
-            if constexpr(copy)
-                std::copy_n(iter,x_width,out);
-            else
-                tipl::add(out,out+x_width,iter);
-            if(iter >= end)
-                break;
-            iter += from_image.width();
-            out += to_image.width();
-        }while(1);
-    });
-}
 
 template<typename T,typename U,
          typename std::enable_if<!std::is_same_v<std::decay_t<U>,shape<T::dimension> >,bool>::type = true,
@@ -663,36 +661,51 @@ inline void draw(const T1& from_image,T2&& to_image)
          tipl::vector<T1::dimension,int>(to_image.shape()))/2);
 }
 
-template<bool copy = true,typename image_type,typename pos_type,typename shape_type,
-         typename std::enable_if<std::remove_reference<image_type>::dimension==3,bool>::type = true>
-void draw_rect(image_type&& to_image,
-               pos_type pos,
-               const shape_type& rect_sizes,
-               typename std::remove_reference<image_type>::value_type value)
+template<bool copy = true,typename image_type,typename pos_type,typename shape_type>
+void draw_rect(image_type&& to_image,pos_type pos,const shape_type& rect_sizes,typename std::remove_reference<image_type>::type::value_type value)
 {
+    using base_type = typename std::remove_reference<image_type>::type;
+    constexpr int dim = base_type::dimension;
     int64_t x_shift,y_shift,z_shift;
     int64_t x_width,y_height,z_depth;
+
     if(!draw_range(rect_sizes[0],to_image.width(),pos[0],x_shift,x_width) ||
-       !draw_range(rect_sizes[1],to_image.height(),pos[1],y_shift,y_height) ||
-       !draw_range(rect_sizes[2],to_image.depth(),pos[2],z_shift,z_depth))
+       !draw_range(rect_sizes[1],to_image.height(),pos[1],y_shift,y_height))
         return;
-    tipl::par_for (z_depth,[&](int64_t z)
+
+    if constexpr(dim == 3)
     {
-        auto iter = ((z_shift+z)*int64_t(rect_sizes[1]) + y_shift)*int64_t(rect_sizes[0])+x_shift;
-        auto end = iter + int64_t(y_height-1)*int64_t(rect_sizes[0]);
-        auto out = to_image.begin() +
-                ((int64_t(pos[2])+z)*int64_t(to_image.height()) + int64_t(pos[1]))*int64_t(to_image.width())+int64_t(pos[0]);
-        do{
+        if(!draw_range(rect_sizes[2],to_image.depth(),pos[2],z_shift,z_depth))
+            return;
+
+        for(int64_t z = 0;z < z_depth;++z)
+        {
+            int64_t t_y = (int64_t(pos[2])+z)*int64_t(to_image.height())+int64_t(pos[1]);
+            auto out = to_image.begin()+t_y*int64_t(to_image.width())+int64_t(pos[0]);
+
+            for(int64_t y = 0;y < y_height;++y)
+            {
+                if constexpr(copy)
+                    std::fill(out,out+x_width,value);
+                else
+                    tipl::add_constant(out,out+x_width,value);
+                out += to_image.width();
+            }
+        }
+    }
+    else
+    {
+        auto out = to_image.begin()+int64_t(pos[1])*int64_t(to_image.width())+int64_t(pos[0]);
+
+        for(int64_t y = 0;y < y_height;++y)
+        {
             if constexpr(copy)
                 std::fill(out,out+x_width,value);
             else
                 tipl::add_constant(out,out+x_width,value);
-            if(iter >= end)
-                break;
-            iter += rect_sizes[0];
             out += to_image.width();
-        }while(1);
-    });
+        }
+    }
 }
 //---------------------------------------------------------------------------
 template<typename fun_type>
