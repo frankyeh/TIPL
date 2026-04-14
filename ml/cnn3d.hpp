@@ -227,7 +227,7 @@ public:
     }
     void print(std::ostream& out) const override
     {
-        out << "batch_norm_3d " << out_channels_ << std::endl;
+        out << "norm_3d " << out_channels_ << std::endl;
     }
 };
 
