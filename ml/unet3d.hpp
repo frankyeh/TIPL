@@ -179,8 +179,18 @@ public:
         dim = unet->dim;
         int id = 0;
         for(auto& param : unet->parameters())
-            if(!in.read((std::string("tensor")+std::to_string(id++)).c_str(),param.first,param.first+param.second))
+        {
+            if(!param.second)
+                continue;
+            auto name = "tensor"+std::to_string(id++);
+            if(!in.has(name))
                 return error_msg = "tensor structure mismatch",false;
+            unsigned int r,c;
+            if(!in.get_col_row(name,r,c) || r*c != param.second)
+                return error_msg = "tensor size mismatch",false;
+            if(!in.read(name,param.first,param.first+param.second))
+                return error_msg = "error reading tensor structure",false;
+        }
         return true;
     }
 public:
@@ -198,36 +208,38 @@ public:
         tipl::segmentation::normalize_otsu_median(input_image);
         tipl::ml3d::preproc_actions(input_image,input_image.shape(),raw_image_vs,
                                         dim,vs,trans,match_resolution,match_fov);
-        if(input_image.shape() != dim)
+        if(dim != input_image.shape())
             return false;
         unet->prog = &prog;
         auto ptr = unet->forward(input_image.data());
         if(ptr == nullptr)
             return false;
-        auto evaluate_output = tipl::make_image(ptr,dim.multiply(tipl::shape<3>::z,unet->out_channels_));
+        prog(0,4);
+        auto evaluate_output = tipl::make_image(ptr,unet->dim.multiply(tipl::shape<3>::z,unet->out_channels_));
         auto label_prob = postproc_actions(evaluate_output,raw_image.shape(),trans,unet->out_channels_);
         auto label_prob_4d = tipl::make_image(label_prob.data(),raw_image.shape().expand(unet->out_channels_));
+        prog(2,4);
         auto fg_prob = tipl::ml3d::defragment4d(label_prob_4d,prob_threshold);
+        prog(3,4);
 
+        tipl::image<3,unsigned char> I(fg_prob.shape());
+        size_t s = fg_prob.size();
+        for(size_t pos = 0;pos < s;++pos)
         {
-            tipl::image<3,unsigned char> I(fg_prob.shape());
-            size_t s = fg_prob.size();
-            for(size_t pos = 0;pos < s;++pos)
-            {
-                if(fg_prob[pos] <= prob_threshold)
-                    continue;
-                float m = label_prob[pos];
-                unsigned char max_label = 1;
-                for(size_t i = pos+s,label = 2;i < label_prob.size();i += s,++label)
-                    if(label_prob[i] > m)
-                    {
-                        m = label_prob[i];
-                        max_label = label;
-                    }
-                I[pos] = max_label;
-            }
-            I.swap(label);
+            if(fg_prob[pos] <= prob_threshold)
+                continue;
+            float m = label_prob[pos];
+            unsigned char max_label = 1;
+            for(size_t i = pos+s,label = 2;i < label_prob.size();i += s,++label)
+                if(label_prob[i] > m)
+                {
+                    m = label_prob[i];
+                    max_label = label;
+                }
+            I[pos] = max_label;
         }
+        I.swap(label);
+        prog(4,4);
         return true;
     }
 };
