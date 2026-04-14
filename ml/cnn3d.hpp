@@ -42,10 +42,6 @@ public:
     }
     virtual float* forward(float* in_ptr) = 0;
     virtual void print(std::ostream& out) const = 0;
-    virtual size_t in_size() const
-    {
-        return dim.size()*in_channels_;
-    }
     virtual size_t out_size() const
     {
         return dim.size()*out_channels_;
@@ -57,7 +53,6 @@ class conv_3d : public layer
 {
 private:
     int kernel_size_,kernel_size3,range;
-    std::vector<int> kernel_shift;
     float slope_;
 public:
     std::vector<float> weight,bias,out;
@@ -80,11 +75,6 @@ public:
     void init_image(tipl::shape<3>& dim_) override
     {
         dim = dim_;
-        kernel_shift.resize(kernel_size3);
-        for(int kz = -range,index = 0;kz <= range;++kz)
-            for(int ky = -range;ky <= range;++ky)
-                for(int kx = -range;kx <= range;++kx,++index)
-                    kernel_shift[index] = (kz*int(dim.height())+ky)*int(dim.width())+kx;
         out.resize(dim.size()*out_channels_);
     }
     float* forward(float* in) override
@@ -422,10 +412,6 @@ public:
     {
         for(auto& each_layer : layers)
             each_layer->print(out);
-    }
-    size_t in_size() const override
-    {
-        return layers.front()->in_size();
     }
     size_t out_size() const override
     {
