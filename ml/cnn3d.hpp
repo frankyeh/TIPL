@@ -13,6 +13,12 @@ namespace tipl
 namespace ml3d
 {
 
+enum class activation_type {
+    none,
+    relu,
+    leaky_relu
+};
+
 class layer
 {
 public:
@@ -46,83 +52,18 @@ public:
     }
 };
 
-class relu : public layer
-{
-private:
-    size_t output_size_ = 0;
-public:
-    relu(int channels_v):layer(channels_v)
-    {}
-    void init_image(tipl::shape<3>& dim_) override
-    {
-        dim = dim_;
-        output_size_ = dim.size()*size_t(out_channels_);
-    }
-    float* forward(float* in_ptr) override
-    {
-        for(size_t i = 0;i < output_size_;++i)
-            if(in_ptr[i] < 0.0f)
-                in_ptr[i] = 0.0f;
-        return in_ptr;
-    }
-    void print(std::ostream& out) const override
-    {
-        out << "relu " << out_channels_ << std::endl;
-    }
-    size_t in_size() const override
-    {
-        return output_size_;
-    }
-    size_t out_size() const override
-    {
-        return output_size_;
-    }
-};
-
-class leakyrelu : public layer
-{
-private:
-    size_t output_size_ = 0;
-    float slope = 1e-2f;
-public:
-    leakyrelu(int channels_v,float slope_ = 1e-2f):layer(channels_v),slope(slope_)
-    {}
-    void init_image(tipl::shape<3>& dim_) override
-    {
-        dim = dim_;
-        output_size_ = dim.size()*size_t(out_channels_);
-    }
-    float* forward(float* in_ptr) override
-    {
-        for(size_t i = 0;i < output_size_;++i)
-            if(in_ptr[i] < 0.0f)
-                 in_ptr[i] *= slope;
-        return in_ptr;
-    }
-    void print(std::ostream& out) const override
-    {
-        out << "leaky relu " << out_channels_ << std::endl;
-    }
-    size_t in_size() const override
-    {
-        return output_size_;
-    }
-    size_t out_size() const override
-    {
-        return output_size_;
-    }
-};
-
+template <activation_type Act = activation_type::none>
 class conv_3d : public layer
 {
 private:
     int kernel_size_,kernel_size3,range;
     std::vector<int> kernel_shift;
+    float slope_;
 public:
     std::vector<float> weight,bias,out;
 
-    conv_3d(int in_channels_v,int out_channels_v,int kernel_size_v = 3):
-        layer(in_channels_v,out_channels_v),kernel_size_(kernel_size_v)
+    conv_3d(int in_channels_v,int out_channels_v,int kernel_size_v = 3, float slope_v = 1e-2f):
+        layer(in_channels_v,out_channels_v),kernel_size_(kernel_size_v),slope_(slope_v)
     {
         kernel_size3 = kernel_size_*kernel_size_*kernel_size_;
         range = (kernel_size_-1)/2;
@@ -194,7 +135,6 @@ public:
                                 float* out_row = out_slice + (y * w);
 
                                 // Inner-most loop: X-axis
-                                // Compilers can SIMD vectorize this much better than axpy calls
                                 for (int x = 0; x < w; ++x) {
                                     int sx = x + kx;
                                     if (sx >= 0 && sx < w) {
@@ -206,13 +146,33 @@ public:
                     }
                 }
             }
+
+            // Apply Template Activation In-Place
+            if constexpr (Act != activation_type::none) {
+                const int slice_size = w * h;
+                for (int i = 0; i < slice_size; ++i) {
+                    if (out_slice[i] < 0.0f) {
+                        if constexpr (Act == activation_type::relu) {
+                            out_slice[i] = 0.0f;
+                        } else if constexpr (Act == activation_type::leaky_relu) {
+                            out_slice[i] *= slope_;
+                        }
+                    }
+                }
+            }
         });
 
         return out.data();
     }
-    void print(std::ostream& out) const override
+    void print(std::ostream& out_stream) const override
     {
-        out << "conv3d " << in_channels_ << " " << out_channels_ << std::endl;
+        out_stream << "conv3d ";
+        if constexpr (Act == activation_type::relu) {
+            out_stream << "(relu) ";
+        } else if constexpr (Act == activation_type::leaky_relu) {
+            out_stream << "(leaky_relu) ";
+        }
+        out_stream << in_channels_ << " " << out_channels_ << std::endl;
     }
 };
 
@@ -254,8 +214,7 @@ public:
             if (variance < 0) variance = 0;
 
             // Pre-calculate scale and shift to minimize ops in the inner loop
-            // formula: out = (in - mean) * (weight / sqrt(var + eps)) + bias
-            float inv_std = 1.0f / std::sqrt(variance + 1e-5f); // 1e-5 is standard epsilon
+            float inv_std = 1.0f / std::sqrt(variance + 1e-5f);
             float scale = inv_std * weight[outc];
             float shift = bias[outc] - (mean * scale);
 
@@ -295,7 +254,6 @@ public:
         const size_t in_plane = (size_t)in_w * in_h;
         const size_t out_plane = (size_t)out_w * out_h;
 
-        // Parallelize over the combined space of channels and output depth
         tipl::par_for((size_t)out_channels_ * out_d, [&](size_t i)
         {
             const int c = i / out_d;
@@ -313,10 +271,9 @@ public:
                     const int from_x_base = x * pool_size;
                     float max_value = -std::numeric_limits<float>::max();
 
-                    // Spatial Pooling Block
                     for (int dz = 0; dz < pool_size; ++dz) {
                         int sz = from_z_base + dz;
-                        if (sz >= in_d) continue; // Boundary check
+                        if (sz >= in_d) continue;
 
                         const float* in_ptr_slice = in_ptr_c + (sz * in_plane);
 
@@ -376,12 +333,10 @@ public:
         const size_t in_plane = (size_t)in_w * in_h;
         const size_t out_plane = (size_t)out_w * out_h;
 
-        // Total number of 2D planes across all channels
         const size_t total_planes = (size_t)out_channels_ * in_d;
 
         tipl::par_for(total_planes, [&](size_t i)
         {
-            // Decode the collapsed index
             size_t c = i / in_d;
             size_t z = i % in_d;
 
@@ -396,14 +351,10 @@ public:
                     float val = in_row[x];
                     int out_x_start = x * pool_size;
 
-                    // Fill the pool_size^2 block for all 'dz' slices
                     for (int dz = 0; dz < pool_size; ++dz) {
                         float* out_line = out_ptr_base + (dz * out_plane) + (out_y_start * out_w);
-                        // Standard fill for the x-expansion
                         std::fill_n(out_line + out_x_start, pool_size, val);
 
-                        // If pool_size is large, adding another loop for dy here
-                        // is better than repeating the math.
                         for(int dy = 1; dy < pool_size; ++dy) {
                             std::copy_n(out_line + out_x_start, pool_size,
                                        out_line + out_x_start + (dy * out_w));
@@ -519,7 +470,7 @@ public:
             up.push_front(n_up);
             decoding.push_front(n_de);
         }
-        output = add_layer(new conv_3d(features_up[0].back(), out_channels_v, 1));
+        output = add_layer(new conv_3d<activation_type::none>(features_up[0].back(), out_channels_v, 1));
         out_channels_ = out_channels_v;
     }
     void add_conv_block(network& n,const std::vector<int>& rhs,size_t ks)
@@ -529,8 +480,7 @@ public:
         {
             if(count)
             {
-                n << add_layer(new conv_3d(count, next_count,ks));
-                n << add_layer(new leakyrelu(next_count));
+                n << add_layer(new conv_3d<activation_type::leaky_relu>(count, next_count,ks));
                 n << add_layer(new instance_norm_3d(next_count));
             }
             count = next_count;
@@ -547,7 +497,7 @@ public:
             up[level]->init_image(dim_);
             // create space for concatenation
             {
-                auto conv = dynamic_cast<conv_3d*>(encoding[level]->layers[encoding[level]->layers.size()-3].get());
+                auto conv = dynamic_cast<conv_3d<activation_type::leaky_relu>*>(encoding[level]->layers[encoding[level]->layers.size()-2].get());
                 conv->out.resize(up[level]->out_size()+encoding[level]->out_size());
             }
             decoding[level]->init_image(dim_);
