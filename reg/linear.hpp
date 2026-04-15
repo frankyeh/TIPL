@@ -37,10 +37,10 @@ struct correlation
 };
 #ifdef __CUDACC__
 
-template <int dim,template <typename...> typename stype = std::vector>
+template <int dim>
 struct correlation_cuda
 {
-    image<dim,unsigned char,stype> from,to;
+    device_image<dim,unsigned char> from,to;
     std::mutex init_mutex;
     template<typename T,typename U,typename V>
     double operator()(const T& from_,const U& to_,const V& transform)
@@ -64,10 +64,10 @@ struct correlation_cuda
                 {
                     using device_image_type = device_image<T::dimension,typename T::value_type>;
                     to.resize(to_.shape());
-                    normalize_upper_lower2(device_image_type(to_),to,255.99f);
-
                     from.resize(from_.shape());
-                    normalize_upper_lower2(device_image_type(from_),from_,255.99f);
+
+                    normalize_upper_lower2(device_image_type(to_),to,255.99f);
+                    normalize_upper_lower2(device_image_type(from_),from,255.99f);
 
                 }
             }
@@ -84,7 +84,26 @@ struct correlation_cuda
 constexpr unsigned int mi_band_width = 8;
 constexpr unsigned int mi_his_bandwidth = (1 << mi_band_width);
 
+template<typename T,typename U>
+inline std::enable_if_t<memory_location<T>::at != CUDA, double>
+get_mutual_info_mean(const T& mutual_hist,const U& from_hist)
+{
+    double sum = 0.0;
+    std::vector<uint32_t> to_hist(mi_his_bandwidth);
+    for (tipl::pixel_index<2> index(mutual_hist.shape());index < mutual_hist.size();++index)
+        to_hist[index.x()] += mutual_hist[index.index()];
+    for (tipl::pixel_index<2> index(mutual_hist.shape());index < mutual_hist.size();++index)
+    {
+        double mu = mutual_hist[index.index()];
+        if (mu == 0.0f)
+            continue;
+        sum += mu*std::log(mu/double(from_hist[index.y()])/double(to_hist[index.x()]));
+    }
+    return sum/float(mutual_hist.size());
+}
+
 #ifdef __CUDACC__
+
 template<typename T,typename U,typename V>
 __global__ void mutual_information_cuda_kernel2(T mutual_hist,U from8_hist,V mu_log_mu)
 {
@@ -100,36 +119,40 @@ __global__ void mutual_information_cuda_kernel2(T mutual_hist,U from8_hist,V mu_
             : 0.0;
 
 }
-#endif
+
 template<typename T,typename U>
-inline double get_mutual_info_mean(const T& mutual_hist,const U& from_hist)
+inline std::enable_if_t<memory_location<T>::at == CUDA, double>
+get_mutual_info_mean(const T& mutual_hist,const U& from_hist)
 {
-    if constexpr(memory_location<T>::at == CUDA)
+    device_vector<double> mu_log_mu(mi_his_bandwidth*mi_his_bandwidth);
+    mutual_information_cuda_kernel2<<<mi_his_bandwidth,mi_his_bandwidth>>>(
+                            tipl::make_shared(mutual_hist),
+                            tipl::make_shared(from_hist),
+                            tipl::make_shared(mu_log_mu));
+    return mean(mu_log_mu);
+}
+
+#endif
+
+template<typename T,typename U,typename V,typename W>
+inline std::enable_if_t<memory_location<T>::at != CUDA, void>
+get_mutual_info(T& mutual_hist_all,const U& to,const V& from,const W& trans)
+{
+    std::vector<T> mutual_hist(max_thread_count);
+    for(auto& each : mutual_hist)
+        each.resize(mutual_hist_all.shape());
+    tipl::par_for<dynamic_with_id>(tipl::begin_index(from.shape()),tipl::end_index(from.shape()),
+                                   [&](const auto& index,int id)
     {
-        #ifdef __CUDACC__
-        device_vector<double> mu_log_mu(mi_his_bandwidth*mi_his_bandwidth);
-        mutual_information_cuda_kernel2<<<mi_his_bandwidth,mi_his_bandwidth>>>(
-                                tipl::make_shared(mutual_hist),
-                                tipl::make_shared(from_hist),
-                                tipl::make_shared(mu_log_mu));
-        return mean(mu_log_mu);
-        #endif
-    }
-    else
-    {
-        double sum = 0.0;
-        std::vector<uint32_t> to_hist(mi_his_bandwidth);
-        for (tipl::pixel_index<2> index(mutual_hist.shape());index < mutual_hist.size();++index)
-            to_hist[index.x()] += mutual_hist[index.index()];
-        for (tipl::pixel_index<2> index(mutual_hist.shape());index < mutual_hist.size();++index)
-        {
-            double mu = mutual_hist[index.index()];
-            if (mu == 0.0f)
-                continue;
-            sum += mu*std::log(mu/double(from_hist[index.y()])/double(to_hist[index.x()]));
-        }
-        return sum/float(mutual_hist.size());
-    }
+        tipl::vector<U::dimension> pos;
+        trans(index,pos);
+        unsigned char to_index = 0;
+        tipl::estimate<tipl::interpolation::linear>(to,pos,to_index);
+        mutual_hist[id][(uint32_t(from[index.index()]) << mi_band_width) + uint32_t(to_index)]++;
+    });
+    for(int i = 1;i < mutual_hist.size();++i)
+        tipl::add(mutual_hist[0],mutual_hist[i]);
+    mutual_hist_all.swap(mutual_hist[0]);
 }
 
 #ifdef __CUDACC__
@@ -148,46 +171,23 @@ __global__ void mutual_information_cuda_kernel(T from,T to,V trans,U mutual_hist
     }
 }
 
-#endif
-
 template<typename T,typename U,typename V,typename W>
-inline void get_mutual_info(T& mutual_hist_all,const U& to,const V& from,const W& trans)
+inline std::enable_if_t<memory_location<T>::at == CUDA, void>
+get_mutual_info(T& mutual_hist_all,const U& to,const V& from,const W& trans)
 {
-    if constexpr(memory_location<T>::at == CUDA)
-    {
-        #ifdef __CUDACC__
-        TIPL_RUN(mutual_information_cuda_kernel,from.size())
-                                (from,to,trans,
-                                 tipl::make_shared(mutual_hist_all));
-        #endif
-    }
-    else
-    {
-        std::vector<T> mutual_hist(max_thread_count);
-        for(auto& each : mutual_hist)
-            each.resize(mutual_hist_all.shape());
-        tipl::par_for<dynamic_with_id>(tipl::begin_index(from.shape()),tipl::end_index(from.shape()),
-                                       [&](const auto& index,int id)
-        {
-            tipl::vector<U::dimension> pos;
-            trans(index,pos);
-            unsigned char to_index = 0;
-            tipl::estimate<tipl::interpolation::linear>(to,pos,to_index);
-            mutual_hist[id][(uint32_t(from[index.index()]) << mi_band_width) + uint32_t(to_index)]++;
-        });
-        for(int i = 1;i < mutual_hist.size();++i)
-            tipl::add(mutual_hist[0],mutual_hist[i]);
-        mutual_hist_all.swap(mutual_hist[0]);
-    }
+    TIPL_RUN(mutual_information_cuda_kernel,from.size())
+                            (from,to,trans,
+                             tipl::make_shared(mutual_hist_all));
 }
 
+#endif
 
-template <int dim,template <typename...> typename stype = std::vector>
+template <int dim>
 struct mutual_information
 {
     typedef double value_type;
-    stype<unsigned int> from_hist;
-    image<dim,unsigned char,stype> from,to;
+    std::vector<unsigned int> from_hist;
+    image<dim,unsigned char> from,to;
     std::mutex init_mutex;
 public:
     template<typename ImageType1,typename ImageType2,typename TransformType>
@@ -197,57 +197,74 @@ public:
             std::scoped_lock<std::mutex> lock(init_mutex);
             if (from_hist.empty() || to_.size() != to.size() || from_.size() != from.size())
             {
-                if constexpr(memory_location<stype<unsigned int> >::at == CUDA)
+                if constexpr(std::is_same_v<unsigned char,typename ImageType1::value_type>)
                 {
-                    #ifdef __CUDACC__
-                    if constexpr(std::is_same_v<unsigned char,typename ImageType1::value_type>)
-                    {
-                        host_vector<int32_t> host_from_hist;
-                        histogram(from_,host_from_hist,0,mi_his_bandwidth-1,mi_his_bandwidth);
-                        from_hist = host_from_hist;
-                        from = from_;
-                        to = to_;
-                    }
-                    else
-                    {
-                        using device_image_type = device_image<ImageType1::dimension,typename ImageType1::value_type>;
-                        to.resize(to_.shape());
-                        normalize_upper_lower2(device_image_type(to_),to,float(mi_his_bandwidth)-0.01f);
-
-                        host_image<dim,unsigned char> host_from;
-                        host_vector<int32_t> host_from_hist;
-
-                        host_from.resize(from_.shape());
-                        normalize_upper_lower2(from_,host_from,float(mi_his_bandwidth)-0.01f);
-                        histogram(host_from,host_from_hist,0,mi_his_bandwidth-1,mi_his_bandwidth);
-
-                        from_hist = host_from_hist;
-                        from = host_from;
-                    }
-                    #endif
+                    to = to_;
+                    from = from_;
                 }
                 else
                 {
-                    if constexpr(std::is_same_v<unsigned char,typename ImageType1::value_type>)
-                    {
-                        to = to_;
-                        from = from_;
-                    }
-                    else
-                    {
-                        normalize_upper_lower2(to_,to,float(mi_his_bandwidth)-0.01f);
-                        normalize_upper_lower2(from_,from,float(mi_his_bandwidth)-0.01f);
-                    }
-                    histogram(from,from_hist,0,mi_his_bandwidth-1,mi_his_bandwidth);
+                    normalize_upper_lower2(to_,to,float(mi_his_bandwidth)-0.01f);
+                    normalize_upper_lower2(from_,from,float(mi_his_bandwidth)-0.01f);
                 }
+                histogram(from,from_hist,0,mi_his_bandwidth-1,mi_his_bandwidth);
             }
         }
-        image<2,int32_t,stype> mutual_hist(shape<2>(mi_his_bandwidth,mi_his_bandwidth));
+        image<2,int32_t> mutual_hist(shape<2>(mi_his_bandwidth,mi_his_bandwidth));
         get_mutual_info(mutual_hist,make_shared(to),make_shared(from),transform);
         return -get_mutual_info_mean(mutual_hist,from_hist);
     }
 };
 
+#ifdef __CUDACC__
+
+template <int dim>
+struct mutual_information_cuda
+{
+    typedef double value_type;
+    tipl::device_vector<unsigned int> from_hist;
+    image<dim,unsigned char,tipl::device_vector> from,to;
+    std::mutex init_mutex;
+public:
+    template<typename ImageType1,typename ImageType2,typename TransformType>
+    double operator()(const ImageType1& from_,const ImageType2& to_,const TransformType& transform)
+    {
+        {
+            std::scoped_lock<std::mutex> lock(init_mutex);
+            if (from_hist.empty() || to_.size() != to.size() || from_.size() != from.size())
+            {
+                if constexpr(std::is_same_v<unsigned char,typename ImageType1::value_type>)
+                {
+                    host_vector<int32_t> host_from_hist;
+                    histogram(from_,host_from_hist,0,mi_his_bandwidth-1,mi_his_bandwidth);
+                    from_hist = host_from_hist;
+                    from = from_;
+                    to = to_;
+                }
+                else
+                {
+                    using device_image_type = device_image<ImageType1::dimension,typename ImageType1::value_type>;
+                    to.resize(to_.shape());
+                    normalize_upper_lower2(device_image_type(to_),to,float(mi_his_bandwidth)-0.01f);
+
+                    host_image<dim,unsigned char> host_from;
+                    host_vector<int32_t> host_from_hist;
+
+                    host_from.resize(from_.shape());
+                    normalize_upper_lower2(from_,host_from,float(mi_his_bandwidth)-0.01f);
+                    histogram(host_from,host_from_hist,0,mi_his_bandwidth-1,mi_his_bandwidth);
+
+                    from_hist = host_from_hist;
+                    from = host_from;
+                }
+            }
+        }
+        image<2,int32_t,tipl::device_vector> mutual_hist(shape<2>(mi_his_bandwidth,mi_his_bandwidth));
+        get_mutual_info(mutual_hist,make_shared(to),make_shared(from),transform);
+        return -get_mutual_info_mean(mutual_hist,from_hist);
+    }
+};
+#endif
 
 enum reg_type {none = 0,translocation = 1,rotation = 2,rigid_body = 3,scaling = 4,translocation_scaling = 5,rigid_scaling = 7,tilt = 8,affine = 15};
 enum cost_type{corr = 0,mutual_info = 1};
@@ -616,8 +633,8 @@ float linear_reg_imp(std::true_type, std::shared_ptr<tipl::reg::linear_reg_runne
                   tipl::reg::cost_type cost_type, bool& terminated)
 {
     return cost_type == tipl::reg::mutual_info ?
-                reg->template optimize<tipl::reg::mutual_information<dim, tipl::device_vector>, mr>(terminated) :
-                reg->template optimize<tipl::reg::correlation_cuda<dim, tipl::device_vector>, mr>(terminated);
+                reg->template optimize<tipl::reg::mutual_information_cuda<dim>, mr>(terminated) :
+                reg->template optimize<tipl::reg::correlation_cuda<dim>, mr>(terminated);
 }
 #else
 // Forward declaration to preserve linkage for the host compiler
