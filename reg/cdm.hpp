@@ -64,6 +64,7 @@ __INLINE__ void cdm_get_gradient_r_imp(const pixel_index<T::dimension>& index,
         cost_map[pos] = -r2;
     }
 }
+
 template<typename T,typename U,typename V,typename W>
 __INLINE__ void cdm_get_gradient_d_imp(const pixel_index<T::dimension>& index,
                                      const T& Js,const U& It,V& new_d,W& cost_map)
@@ -75,7 +76,35 @@ __INLINE__ void cdm_get_gradient_d_imp(const pixel_index<T::dimension>& index,
     new_d[pos] += g;
     cost_map[pos] = dif*dif;
 }
+
 //---------------------------------------------------------------------------
+// 1. cdm_get_gradient
+//---------------------------------------------------------------------------
+
+template<typename image_type1,typename image_type2,typename dis_type>
+inline std::enable_if_t<memory_location<image_type1>::at != CUDA, float>
+cdm_get_gradient(const image_type1& Js,const image_type2& It,dis_type& new_d,unsigned char gradient_type)
+{
+    new_d.resize(It.shape());
+    std::vector<float> cost_map(Js.size());
+    switch(gradient_type)
+    {
+    case 'r':
+        tipl::par_for(Js.size(),[&](size_t index)
+        {
+            cdm_get_gradient_r_imp(tipl::pixel_index<image_type1::dimension>(index,Js.shape()),Js,It,new_d,cost_map);
+        });
+        break;
+    case 'd':
+        tipl::par_for(Js.size(),[&](size_t index)
+        {
+            cdm_get_gradient_d_imp(tipl::pixel_index<image_type1::dimension>(index,Js.shape()),Js,It,new_d,cost_map);
+        });
+        break;
+    }
+    return tipl::mean(cost_map);
+}
+
 #ifdef __CUDACC__
 template<typename T1,typename T2,typename T3>
 __global__ void cdm_get_gradient_r_cuda_kernel(T1 Js,T1 It,T2 new_d,T3 cost_map)
@@ -85,6 +114,7 @@ __global__ void cdm_get_gradient_r_cuda_kernel(T1 Js,T1 It,T2 new_d,T3 cost_map)
         cdm_get_gradient_r_imp(tipl::pixel_index<T1::dimension>(index,Js.shape()),Js,It,new_d,cost_map);
     }
 }
+
 template<typename T1,typename T2,typename T3>
 __global__ void cdm_get_gradient_d_cuda_kernel(T1 Js,T1 It,T2 new_d,T3 cost_map)
 {
@@ -93,62 +123,81 @@ __global__ void cdm_get_gradient_d_cuda_kernel(T1 Js,T1 It,T2 new_d,T3 cost_map)
         cdm_get_gradient_d_imp(tipl::pixel_index<T1::dimension>(index,Js.shape()),Js,It,new_d,cost_map);
     }
 }
-#endif
 
-// calculate dJ(cJ-I)
 template<typename image_type1,typename image_type2,typename dis_type>
-inline float cdm_get_gradient(const image_type1& Js,const image_type2& It,dis_type& new_d,unsigned char gradient_type)
+inline std::enable_if_t<memory_location<image_type1>::at == CUDA, float>
+cdm_get_gradient(const image_type1& Js,const image_type2& It,dis_type& new_d,unsigned char gradient_type)
 {
     new_d.resize(It.shape());
-    if constexpr(memory_location<image_type1>::at == CUDA)
+    device_vector<float> cost_map(Js.size());
+    switch(gradient_type)
     {
-        #ifdef __CUDACC__
-        device_vector<float> cost_map(Js.size());
-        switch(gradient_type)
-        {
-        case 'r':
-            TIPL_RUN(cdm_get_gradient_r_cuda_kernel,Js.size())
-                    (tipl::make_shared(Js),
-                     tipl::make_shared(It),
-                     tipl::make_shared(new_d),
-                     tipl::make_shared(cost_map));
-            break;
-        case 'd':
-            TIPL_RUN(cdm_get_gradient_d_cuda_kernel,Js.size())
-                    (tipl::make_shared(Js),
-                     tipl::make_shared(It),
-                     tipl::make_shared(new_d),
-                     tipl::make_shared(cost_map));
-            break;
-        }
-        return tipl::mean(cost_map);
-        #endif
+    case 'r':
+        TIPL_RUN(cdm_get_gradient_r_cuda_kernel,Js.size())
+                (tipl::make_shared(Js),
+                 tipl::make_shared(It),
+                 tipl::make_shared(new_d),
+                 tipl::make_shared(cost_map));
+        break;
+    case 'd':
+        TIPL_RUN(cdm_get_gradient_d_cuda_kernel,Js.size())
+                (tipl::make_shared(Js),
+                 tipl::make_shared(It),
+                 tipl::make_shared(new_d),
+                 tipl::make_shared(cost_map));
+        break;
     }
-    else
-    {
-        std::vector<float> cost_map(Js.size());
-        switch(gradient_type)
-        {
-        case 'r':
-            tipl::par_for(Js.size(),[&](size_t index)
-            {
-                cdm_get_gradient_r_imp(tipl::pixel_index<image_type1::dimension>(index,Js.shape()),Js,It,new_d,cost_map);
-            });
-            break;
-        case 'd':
-            tipl::par_for(Js.size(),[&](size_t index)
-            {
-                cdm_get_gradient_d_imp(tipl::pixel_index<image_type1::dimension>(index,Js.shape()),Js,It,new_d,cost_map);
-            });
-            break;
-        }
-        return tipl::mean(cost_map);
-    }
-
+    return tipl::mean(cost_map);
 }
-//---------------------------------------------------------------------------
-#ifdef __CUDACC__
+#endif
 
+//---------------------------------------------------------------------------
+// 2. cdm_solve_poisson
+//---------------------------------------------------------------------------
+
+template<typename T,typename terminated_type>
+inline std::enable_if_t<memory_location<T>::at != CUDA, void>
+cdm_solve_poisson(T& new_d,terminated_type& terminated)
+{
+    T solve_d(new_d),new_solve_d(new_d.shape());
+    multiply_constant(solve_d,float(-0.5f/float(T::dimension)));
+
+    for(int iter = 0;iter < 12 && !terminated;++iter)
+    {
+        const int w = new_d.width();
+        const int wh = new_d.plane_size();
+        const int size = new_d.size();
+        const int size_1 = new_d.size()-1;
+        const int size_w = new_d.size()-w;
+        const int size_wh = new_d.size()-wh;
+        constexpr float inv_d2 = -0.5f / float(T::dimension);
+        tipl::par_for<sequential>(solve_d.size(),[&](int pos)
+        {
+            auto v = new_d[pos];
+            if(pos >= 1)
+               v -= solve_d[pos-1];
+            if(pos < size_1)
+               v -= solve_d[pos+1];
+            if(pos >= w)
+               v -= solve_d[pos-w];
+            if(pos < size_w)
+               v -= solve_d[pos+w];
+            if constexpr(T::dimension == 3)
+            {
+                if(pos >= wh)
+                    v -= solve_d[pos-wh];
+                if(pos < size_wh)
+                    v -= solve_d[pos+wh];
+            }
+            v *= inv_d2;
+            new_solve_d[pos] = v;
+        });
+        solve_d.swap(new_solve_d);
+    }
+    new_d.swap(solve_d);
+}
+
+#ifdef __CUDACC__
 template<typename T>
 __global__ void cdm_solve_poisson_cuda_kernel(T new_d,T solve_d,T new_solve_d)
 {
@@ -181,63 +230,32 @@ __global__ void cdm_solve_poisson_cuda_kernel(T new_d,T solve_d,T new_solve_d)
         new_solve_d[pos] = v;
     }
 }
-#endif
 
 template<typename T,typename terminated_type>
-void cdm_solve_poisson(T& new_d,terminated_type& terminated)
+inline std::enable_if_t<memory_location<T>::at == CUDA, void>
+cdm_solve_poisson(T& new_d,terminated_type& terminated)
 {
     T solve_d(new_d),new_solve_d(new_d.shape());
     multiply_constant(solve_d,float(-0.5f/float(T::dimension)));
 
     for(int iter = 0;iter < 12 && !terminated;++iter)
     {
-        if constexpr(memory_location<T>::at == CUDA)
-        {
-            #ifdef __CUDACC__
-            cdm_solve_poisson_cuda_kernel<<<std::min<int>((new_d.size()+255)/256,256),256>>>(
-                        tipl::make_shared(new_d),
-                        tipl::make_shared(solve_d),
-                        tipl::make_shared(new_solve_d));
-            if (cudaGetLastError() != cudaSuccess)
-                throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
-            #endif
-        }
-        else
-        {
-            const int w = new_d.width();
-            const int wh = new_d.plane_size();
-            const int size = new_d.size();
-            const int size_1 = new_d.size()-1;
-            const int size_w = new_d.size()-w;
-            const int size_wh = new_d.size()-wh;
-            constexpr float inv_d2 = -0.5f / float(T::dimension);
-            tipl::par_for<sequential>(solve_d.size(),[&](int pos)
-            {
-                auto v = new_d[pos];
-                if(pos >= 1)
-                   v -= solve_d[pos-1];
-                if(pos < size_1)
-                   v -= solve_d[pos+1];
-                if(pos >= w)
-                   v -= solve_d[pos-w];
-                if(pos < size_w)
-                   v -= solve_d[pos+w];
-                if constexpr(T::dimension == 3)
-                {
-                    if(pos >= wh)
-                        v -= solve_d[pos-wh];
-                    if(pos < size_wh)
-                        v -= solve_d[pos+wh];
-                }
-                v *= inv_d2;
-                new_solve_d[pos] = v;
-            });
-        }
+        cdm_solve_poisson_cuda_kernel<<<std::min<int>((new_d.size()+255)/256,256),256>>>(
+                    tipl::make_shared(new_d),
+                    tipl::make_shared(solve_d),
+                    tipl::make_shared(new_solve_d));
+        if (cudaGetLastError() != cudaSuccess)
+            throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+
         solve_d.swap(new_solve_d);
     }
     new_d.swap(solve_d);
 }
+#endif
 
+//---------------------------------------------------------------------------
+// 3. cdm_max_displacement_length
+//---------------------------------------------------------------------------
 
 struct cdm_vector_length
 {
@@ -247,32 +265,37 @@ struct cdm_vector_length
         return v.length();
     }
 };
-template<typename dist_type>
-inline float cdm_max_displacement_length(dist_type& new_d)
-{
-    if constexpr(memory_location<dist_type>::at == CUDA)
-    {
-        #ifdef __CUDACC__
 
-        return thrust::transform_reduce(thrust::device,
-                        new_d.data(),new_d.data()+new_d.size(),
-                        cdm_vector_length(),
-                            0.0f,thrust::maximum<float>());
-        #endif
-    }
-    else
+template<typename dist_type>
+inline std::enable_if_t<memory_location<dist_type>::at != CUDA, float>
+cdm_max_displacement_length(dist_type& new_d)
+{
+    float theta = 0.0f;
+    par_for<sequential>(new_d.size(),[&](int i)
     {
-        float theta = 0.0f;
-        par_for<sequential>(new_d.size(),[&](int i)
-        {
-            float l = new_d[i].length();
-            if(l > theta)
-               theta = l;
-        });
-        return theta;
-    }
+        float l = new_d[i].length();
+        if(l > theta)
+           theta = l;
+    });
+    return theta;
 }
+
+#ifdef __CUDACC__
+template<typename dist_type>
+inline std::enable_if_t<memory_location<dist_type>::at == CUDA, float>
+cdm_max_displacement_length(dist_type& new_d)
+{
+    return thrust::transform_reduce(thrust::device,
+                    new_d.data(),new_d.data()+new_d.size(),
+                    cdm_vector_length(),
+                        0.0f,thrust::maximum<float>());
+}
+#endif
+
 //---------------------------------------------------------------------------
+// 4. cdm_smooth
+//---------------------------------------------------------------------------
+
 template<typename T,typename U>
 __INLINE__ void cdm_smooth_imp(const T& d,U& dd,size_t cur_index,float w_6,float w_1)
 {
@@ -298,7 +321,23 @@ __INLINE__ void cdm_smooth_imp(const T& d,U& dd,size_t cur_index,float w_6,float
     v *= w_6;
     dd[cur_index] = d[cur_index]*w_1+v;
 }
-//---------------------------------------------------------------------------
+
+template<typename T,typename U>
+inline std::enable_if_t<memory_location<T>::at != CUDA, void>
+cdm_smooth(const T& d,U& dd,float smoothing)
+{
+    if(smoothing == 0.0f)
+        return;
+    dd.resize(d.shape());
+    float w_6 = smoothing/float(2.0f*T::dimension);
+    float w_1 = (1.0f-smoothing);
+
+    tipl::par_for<sequential>(d.size(),[&](size_t cur_index)
+    {
+        cdm_smooth_imp(d,dd,cur_index,w_6,w_1);
+    });
+}
+
 #ifdef __CUDACC__
 template<typename T,typename U>
 __global__ void cdm_smooth_cuda_kernel(T d,U dd,float w_6,float w_1)
@@ -309,28 +348,24 @@ __global__ void cdm_smooth_cuda_kernel(T d,U dd,float w_6,float w_1)
     }
 }
 
-#endif
 template<typename T,typename U>
-void cdm_smooth(const T& d,U& dd,float smoothing)
+inline std::enable_if_t<memory_location<T>::at == CUDA, void>
+cdm_smooth(const T& d,U& dd,float smoothing)
 {
     if(smoothing == 0.0f)
         return;
     dd.resize(d.shape());
     float w_6 = smoothing/float(2.0f*T::dimension);
     float w_1 = (1.0f-smoothing);
-    if constexpr(memory_location<T>::at == CUDA)
-    {
-        #ifdef __CUDACC__
-        TIPL_RUN(cdm_smooth_cuda_kernel,d.size())
-                (tipl::make_shared(d),tipl::make_shared(dd),w_6,w_1);
-        #endif
-    }
-    else
-    tipl::par_for<sequential>(d.size(),[&](size_t cur_index)
-    {
-        cdm_smooth_imp(d,dd,cur_index,w_6,w_1);
-    });
+
+    TIPL_RUN(cdm_smooth_cuda_kernel,d.size())
+            (tipl::make_shared(d),tipl::make_shared(dd),w_6,w_1);
 }
+#endif
+
+//---------------------------------------------------------------------------
+// Core Routine
+//---------------------------------------------------------------------------
 
 template<typename out_type = void,typename pointer_image_type,typename dist_type,typename terminate_type>
 void cdm(const std::vector<pointer_image_type>& It,
@@ -366,11 +401,9 @@ void cdm(const std::vector<pointer_image_type>& It,
             return;
     }
 
-
     float theta = 0.0;
     if constexpr(!std::is_void<out_type>::value)
         out_type() << "deformation at dim:" << It[0].shape();
-
 
     std::vector<float> cost;
     float best_cost = std::numeric_limits<float>::max();
@@ -439,8 +472,6 @@ void cdm(const std::vector<pointer_image_type>& It,
         out_type() << "cost: " << log;
 }
 
-
-
 // To use CUDA, need to include the following instantiation in a .cu file
 /*
 #include "TIPL/reg/cdm.hpp"
@@ -498,7 +529,6 @@ void cdm_cuda(const std::vector<tipl::const_pointer_image<dim,value_type> >& It,
                    const cdm_param& param);
 #endif//__CUDACC__
 
-
 template<typename out_type = void,typename value_type,int dim>
 void cdm_common(std::vector<tipl::const_pointer_image<dim,value_type> > It,
                        std::vector<tipl::const_pointer_image<dim,value_type> > Is,
@@ -526,8 +556,6 @@ void cdm_common(std::vector<tipl::const_pointer_image<dim,value_type> > It,
     tipl::reg::cdm<out_type>(It,Is,dis,terminated,param);
 }
 
-
-
 }// namespace reg
-}// namespace image
-#endif // DMDM_HPP
+}// namespace tipl
+#endif // CDM_HPP
