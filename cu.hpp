@@ -34,43 +34,53 @@ __global__ void cuda_for_kernel(size_t size,T from,Fun f)
         f(from+index);
 }
 
-template <typename T,typename Func,typename std::enable_if<
+template <typename T, typename Func, typename std::enable_if<
               std::is_integral<T>::value ||
-              std::is_class<T>::value,bool>::type = true>
-inline void cuda_for(T from,T to,Func&& f)
+              std::is_class<T>::value, bool>::type = true>
+inline void cuda_for(T from, T to, Func&& f)
 {
     if(to == from)
         return;
 
-    size_t size = to-from;
-    int min_grid_size = 0;
-    int optimal_block_size = 0;
+    size_t size = to - from;
 
-    // 讓 CUDA 動態計算該 Lambda 最佳的 Block Size
-    cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &optimal_block_size,
-        cuda_for_kernel<T, typename std::decay<Func>::type>, 0, 0);
+    // CACHE THE OCCUPANCY CALCULATION
+    // Because this function is templated on 'Func', each unique lambda/functor
+    // will generate its own static variable instance. The expensive API call
+    // only runs the very first time a specific kernel is launched.
+    static int optimal_block_size = 0;
+    if (optimal_block_size == 0) {
+        int min_grid_size = 0;
+        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &optimal_block_size,
+            cuda_for_kernel<T, typename std::decay<Func>::type>, 0, 0);
+    }
 
-    size_t grid_size = (size+optimal_block_size-1)/optimal_block_size;
+    size_t grid_size = (size + optimal_block_size - 1) / optimal_block_size;
+
+    // Assuming TIPL_FOR is a grid-stride loop, capping active blocks prevents
+    // scheduling overhead on massively large arrays.
     unsigned int active_blocks = std::min<size_t>(grid_size, 32768);
 
-    cuda_for_kernel<<<active_blocks,optimal_block_size>>>(size,from,std::forward<Func>(f));
+    cuda_for_kernel<<<active_blocks, optimal_block_size>>>(size, from, std::forward<Func>(f));
 
     if(cudaPeekAtLastError() != cudaSuccess)
         throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
 }
 
-template <typename T,typename Func,typename std::enable_if<std::is_integral<T>::value,bool>::type = true>
-inline void cuda_for(T size, Func&& f, unsigned int thread_count = 256)
+template <typename T, typename Func, typename std::enable_if<std::is_integral<T>::value, bool>::type = true>
+inline void cuda_for(T size, Func&& f)
 {
     if(!size)
         return;
-    cuda_for(T(),size,std::move(f),thread_count);
+    // Use std::forward instead of std::move for proper perfect forwarding
+    cuda_for(T(), size, std::forward<Func>(f));
 }
 
-template <typename T,typename Func,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-inline void cuda_for(T& c, Func&& f, unsigned int thread_count = 256)
+template <typename T, typename Func, typename std::enable_if<std::is_class<T>::value, bool>::type = true>
+inline void cuda_for(T& c, Func&& f)
 {
-    cuda_for(c.begin(),c.end(),std::move(f),thread_count);
+    // Use std::forward instead of std::move
+    cuda_for(c.begin(), c.end(), std::forward<Func>(f));
 }
 
 
