@@ -20,6 +20,7 @@ enum class activation_type { none, relu, leaky_relu };
 class layer {
 public:
     int in_channels_ = 1, out_channels_ = 1;
+    size_t out_size = 0;
     tipl::shape<3> dim;
 
     layer(int channels) : in_channels_(channels), out_channels_(channels) {}
@@ -27,11 +28,14 @@ public:
     virtual ~layer() = default;
 
     virtual std::vector<std::pair<float*, size_t>> parameters() { return {}; }
-    virtual void init_image(tipl::shape<3>& dim_) { dim = dim_; }
+    virtual void init_image(tipl::shape<3>& dim_)
+    {
+        dim = dim_;
+        out_size = dim.size() * out_channels_;
+    }
     virtual float* forward(float* in_ptr) = 0;
     virtual void print(std::ostream& out) const = 0;
-    virtual size_t out_size(void) const { return dim.size() * out_channels_; }
-    virtual size_t alloc_buffer_size(void) const { return out_size(); }
+    virtual size_t alloc_buffer_size() const { return out_size; }
     virtual void allocate(float*& ptr) {}
 };
 
@@ -43,7 +47,7 @@ public:
     float* weight = nullptr;
     float* bias = nullptr;
     float* out = nullptr;
-    size_t weight_size = 0, bias_size = 0, out_size_ = 0;
+    size_t weight_size = 0, bias_size = 0;
 
     conv_3d(int in_c, int out_c, int ks = 3, float slope = 1e-2f)
         : layer(in_c, out_c), kernel_size_(ks), kernel_size3(ks * ks * ks), range((ks - 1) / 2), slope_(slope) {
@@ -55,15 +59,10 @@ public:
         return {{weight, weight_size}, {bias, bias_size}};
     }
 
-    void init_image(tipl::shape<3>& dim_) override {
-        layer::init_image(dim_);
-        out_size_ = dim.size() * out_channels_;
-    }
-
     void allocate(float*& ptr) override {
         weight = ptr; ptr += weight_size;
         bias = ptr; ptr += bias_size;
-        out = ptr; ptr += out_size();
+        out = ptr; ptr += out_size;
     }
 
     float* forward(float* in) override {
@@ -125,7 +124,6 @@ public:
         });
         return out;
     }
-    size_t out_size(void) const override { return out_size_; }
     void print(std::ostream& os) const override {
         os << "conv3d " << (Act == activation_type::relu ? "(relu) " : Act == activation_type::leaky_relu ? "(leaky_relu) " : "")
            << in_channels_ << " " << out_channels_ << '\n';
@@ -192,7 +190,7 @@ public:
 
         return in;
     }
-    size_t alloc_buffer_size(void) const override { return 0; }
+    size_t alloc_buffer_size() const override { return 0; }
     void print(std::ostream& os) const override {
         os << "norm_3d "
            << (Act == activation_type::relu ? "(relu) " : Act == activation_type::leaky_relu ? "(leaky_relu) " : "")
@@ -211,10 +209,11 @@ public:
     void init_image(tipl::shape<3>& dim_) override {
         dim = dim_;
         out_dim = dim_ = {dim[0] / pool_size, dim[1] / pool_size, dim[2] / pool_size};
+        out_size = out_dim.size()*out_channels_;
     }
 
     void allocate(float*& ptr) override {
-        out = ptr; ptr += out_size();
+        out = ptr; ptr += out_size;
     }
 
     float* forward(float* in) override {
@@ -258,7 +257,6 @@ public:
     }
 
     void print(std::ostream& os) const override { os << "max_pool_3d " << out_channels_ << '\n'; }
-    size_t out_size(void) const override { return out_dim.size()*out_channels_; }
 };
 
 class upsample_3d : public layer {
@@ -272,11 +270,12 @@ public:
     void init_image(tipl::shape<3>& dim_) override {
         dim = dim_;
         out_dim = dim_ = {dim[0] * pool_size, dim[1] * pool_size, dim[2] * pool_size};
+        out_size = out_dim.size()*out_channels_;
     }
 
 
     void allocate(float*& ptr) override {
-        out = ptr; ptr += out_size();
+        out = ptr; ptr += out_size;
     }
 
     float* forward(float* in) override {
@@ -309,24 +308,12 @@ public:
     }
 
     void print(std::ostream& os) const override { os << "upsample_3d " << out_channels_ << '\n'; }
-    size_t out_size(void) const override { return out_dim.size() * out_channels_; }
 };
 
 class network : public layer {
 public:
     std::vector<std::shared_ptr<layer>> layers;
-    std::vector<float> memory;
-
     network() : layer(1, 1) {}
-
-    network& operator<<(layer* l) { return *this << std::shared_ptr<layer>(l); }
-    network& operator<<(std::shared_ptr<layer> l) {
-        layers.push_back(std::move(l));
-        in_channels_ = layers.front()->in_channels_;
-        out_channels_ = layers.back()->out_channels_;
-        return *this;
-    }
-
     std::vector<std::pair<float*, size_t>> parameters() override {
         std::vector<std::pair<float*, size_t>> param;
         for (auto& l : layers) {
@@ -339,21 +326,22 @@ public:
     void init_image(tipl::shape<3>& dim_) override {
         dim = dim_;
         for (auto& l : layers) l->init_image(dim_);
+        out_size = layers.back()->out_size;
+    }
 
+    void allocate_memory(std::vector<float>& memory)
+    {
         size_t total_size = 0;
         for (const auto& p : parameters()) total_size += p.second;
         for (auto& l : layers) total_size += l->alloc_buffer_size();
-
         memory.resize(total_size);
-
         float* ptr = memory.data();
         allocate(ptr);
     }
 
     void allocate(float*& ptr) override {
-        for (auto& l : layers) {
+        for (auto& l : layers)
             l->allocate(ptr);
-        }
     }
 
     float* forward(float* in) override {
@@ -362,7 +350,6 @@ public:
     }
 
     void print(std::ostream& os) const override { for (auto& l : layers) l->print(os); }
-    size_t out_size() const override { return layers.back()->out_size(); }
 };
 
 
@@ -381,13 +368,10 @@ class unet3d : public network {
         int count = 0;
         for (int next_c : rhs) {
             if (count) {
-                if constexpr (Version == unet_version::standard) {
-                    block.push_back(add_layer(new conv_3d<activation_type::leaky_relu>(count, next_c, ks)));
-                    block.push_back(add_layer(new instance_norm_3d<activation_type::none>(next_c)));
-                } else {
-                    block.push_back(add_layer(new conv_3d<activation_type::none>(count, next_c, ks)));
-                    block.push_back(add_layer(new instance_norm_3d<activation_type::leaky_relu>(next_c)));
-                }
+                constexpr auto conv_act = (Version == unet_version::standard) ? activation_type::leaky_relu : activation_type::none;
+                constexpr auto norm_act = (Version == unet_version::standard) ? activation_type::none : activation_type::leaky_relu;
+                block.push_back(add_layer(new conv_3d<conv_act>(count, next_c, ks)));
+                block.push_back(add_layer(new instance_norm_3d<norm_act>(next_c)));
             }
             count = next_c;
         }
@@ -434,32 +418,9 @@ public:
     }
 
     void init_image(tipl::shape<3>& dim_) override {
-        dim = dim_;
-
-        for (auto& l : layers) l->init_image(dim_);
-
-        for (int i = static_cast<int>(encoding.size()) - 2; i >= 0; --i) {
-            size_t extra_decoder_size = up[i].back()->out_size();
-
-            auto* raw_conv = encoding[i][encoding[i].size() - 2].get();
-
-            if constexpr (Version == unet_version::standard) {
-                auto conv = dynamic_cast<conv_3d<activation_type::leaky_relu>*>(raw_conv);
-                if (conv) conv->out_size_ += extra_decoder_size;
-            } else {
-                auto conv = dynamic_cast<conv_3d<activation_type::none>*>(raw_conv);
-                if (conv) conv->out_size_ += extra_decoder_size;
-            }
-        }
-
-        size_t total_size = 0;
-        for (const auto& p : parameters()) total_size += p.second;
-        for (auto& l : layers) total_size += l->alloc_buffer_size();
-
-        memory.resize(total_size);
-
-        float* ptr = memory.data();
-        network::allocate(ptr); // Safe to directly use inherited allocation behavior
+        network::init_image(dim_);
+        for (int i = static_cast<int>(encoding.size()) - 2; i >= 0; --i)
+            encoding[i][encoding[i].size() - 2]->out_size += up[i].back()->out_size;
     }
 
     float* forward(float* in) override {
@@ -478,16 +439,14 @@ public:
                 if (prog && !(*prog)(n_levels * 2 - i, n_levels * 2 + 1)) return nullptr;
             }
             buf.pop_back();
-
             float* encoder_skip = buf.back();
             float* decoder_up = forward_block(up[i], in);
 
-            size_t decoder_size = up[i].back()->out_size();
-            // Since instance_norm_3d falls back to the uninflated base layer::out_size(),
-            // it perfectly returns the original encoded data size!
-            size_t original_encoder_size = encoding[i].back()->out_size();
+            size_t copy_size = up[i].back()->out_size;
+            size_t skip_offset = encoding[i].back()->out_size;
 
-            std::copy_n(decoder_up, decoder_size, encoder_skip + original_encoder_size);
+            std::copy_n(decoder_up, copy_size, encoder_skip + skip_offset);
+
             in = forward_block(decoding[i], encoder_skip);
         }
         return output->forward(in);
