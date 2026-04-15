@@ -196,6 +196,7 @@ inline auto soft_mask(const T& label)
 class tissue_seg{
 public:
     bool deep_supervision = false;
+    std::vector<float> memory;
     std::shared_ptr<network> unet;
     std::string error_msg;
     tipl::vector<3> vs;
@@ -219,15 +220,16 @@ public:
         parse_feature_string(feature_string,param[0],features_down,features_up,kernel_size);
         if(in.has("errors"))
         {
-            unet.reset(new unet3d<tipl::progress,unet_version::deep_supervision>(features_down,features_up,kernel_size,param[0],param[1]));
+            unet.reset(new unet3d<unet_version::deep_supervision>(features_down,features_up,kernel_size,param[0],param[1]));
             deep_supervision = true;
         }
         else
-            unet.reset(new unet3d<tipl::progress>(features_down,features_up,kernel_size,param[0],param[1]));
+            unet.reset(new unet3d<unet_version::standard>(features_down,features_up,kernel_size,param[0],param[1]));
 
         if(!in.read("dimension",dim) || !in.read("voxel_size",vs))
             return error_msg = "cannot read dimension and voxel size",false;
         unet->init_image(dim); // the dim value will be changed
+        unet->allocate_memory(memory);
         dim = unet->dim;
         int id = 0;
         for(auto& p : unet->parameters())
@@ -269,22 +271,11 @@ public:
         if(dim != input_image.shape())
             return false;
 
-
-        if (deep_supervision)
-        {
-            if (auto* p = dynamic_cast<unet3d<tipl::progress, unet_version::deep_supervision>*>(unet.get()))
-                p->prog = &prog;
-        }
-        else
-        {
-            if (auto* p = dynamic_cast<unet3d<tipl::progress>*>(unet.get()))
-                p->prog = &prog;
-        }
-
+        unet->prog = [&](void){return prog(0,4);};
         auto ptr = unet->forward(input_image.data());
         if(ptr == nullptr)
             return false;
-        prog(0,4);
+        prog(1,4);
 
         auto evaluate_output = tipl::make_image(ptr,unet->dim.multiply(tipl::shape<3>::z,unet->out_channels_));
 
