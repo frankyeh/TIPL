@@ -367,9 +367,9 @@ public:
 
 
 enum class unet_version { standard, deep_supervision };
-template<typename prog_type = void,unet_version Version = unet_version::standard>
+template<typename prog_type = void, unet_version Version = unet_version::standard>
 class unet3d : public network {
-    std::deque<std::shared_ptr<network>> encoding, decoding, up;
+    std::deque<std::vector<std::shared_ptr<layer>>> encoding, decoding, up;
     std::shared_ptr<layer> output;
     std::vector<float*> skip_buffers;
     std::vector<size_t> skip_sizes;
@@ -379,20 +379,25 @@ class unet3d : public network {
         return layers.back();
     }
 
-    void add_conv_block(network& n, const std::vector<int>& rhs, size_t ks) {
+    void add_conv_block(std::vector<std::shared_ptr<layer>>& block, const std::vector<int>& rhs, size_t ks) {
         int count = 0;
         for (int next_c : rhs) {
             if (count) {
                 if constexpr (Version == unet_version::standard) {
-                    n << add_layer(new conv_3d<activation_type::leaky_relu>(count, next_c, ks))
-                      << add_layer(new instance_norm_3d<activation_type::none>(next_c));
+                    block.push_back(add_layer(new conv_3d<activation_type::leaky_relu>(count, next_c, ks)));
+                    block.push_back(add_layer(new instance_norm_3d<activation_type::none>(next_c)));
                 } else {
-                    n << add_layer(new conv_3d<activation_type::none>(count, next_c, ks))
-                      << add_layer(new instance_norm_3d<activation_type::leaky_relu>(next_c));
+                    block.push_back(add_layer(new conv_3d<activation_type::none>(count, next_c, ks)));
+                    block.push_back(add_layer(new instance_norm_3d<activation_type::leaky_relu>(next_c)));
                 }
             }
             count = next_c;
         }
+    }
+
+    float* forward_block(const std::vector<std::shared_ptr<layer>>& block, float* in_ptr) {
+        for (auto& l : block) in_ptr = l->forward(in_ptr);
+        return in_ptr;
     }
 
 public:
@@ -404,19 +409,20 @@ public:
         out_channels_ = out_c;
 
         for (size_t i = 0; i < f_down.size(); ++i) {
-            auto n_en = std::make_shared<network>();
-            if (i > 0) *n_en << add_layer(new max_pool_3d(f_down[i][0]));
-            add_conv_block(*n_en, f_down[i], ks[i]);
-            encoding.push_back(std::move(n_en));
+            std::vector<std::shared_ptr<layer>> en_block;
+            if (i > 0) en_block.push_back(add_layer(new max_pool_3d(f_down[i][0])));
+            add_conv_block(en_block, f_down[i], ks[i]);
+            encoding.push_back(std::move(en_block));
         }
 
         for (int i = static_cast<int>(f_down.size()) - 2; i >= 0; --i) {
-            auto n_up = std::make_shared<network>(), n_de = std::make_shared<network>();
-            *n_up << add_layer(new upsample_3d(f_up[i+1].back()));
-            add_conv_block(*n_up, {f_up[i+1].back(), f_down[i].back()}, ks[i]);
-            add_conv_block(*n_de, f_up[i], ks[i]);
-            up.push_front(std::move(n_up));
-            decoding.push_front(std::move(n_de));
+            std::vector<std::shared_ptr<layer>> up_block, de_block;
+            up_block.push_back(add_layer(new upsample_3d(f_up[i+1].back())));
+            add_conv_block(up_block, {f_up[i+1].back(), f_down[i].back()}, ks[i]);
+            add_conv_block(de_block, f_up[i], ks[i]);
+
+            up.push_front(std::move(up_block));
+            decoding.push_front(std::move(de_block));
 
             if constexpr (Version == unet_version::deep_supervision) {
                 auto ds_head = add_layer(new conv_3d<activation_type::none>(f_up[i].back(), out_c, 1));
@@ -442,10 +448,11 @@ public:
         // Modify sizes specific to skip connection configurations
         for (int i = static_cast<int>(encoding.size()) - 2; i >= 0; --i) {
             if constexpr (Version == unet_version::standard) {
-                auto conv = dynamic_cast<conv_3d<activation_type::leaky_relu>*>(encoding[i]->layers[encoding[i]->layers.size()-2].get());
-                if (conv) conv->out_size_ = up[i]->out_size() + encoding[i]->out_size();
+                // Accessing the second to last layer via block vector index
+                auto conv = dynamic_cast<conv_3d<activation_type::leaky_relu>*>(encoding[i][encoding[i].size()-2].get());
+                if (conv) conv->out_size_ = up[i].back()->out_size() + encoding[i].back()->out_size();
             } else {
-                skip_sizes[i] = up[i]->out_size() + encoding[i]->out_size();
+                skip_sizes[i] = up[i].back()->out_size() + encoding[i].back()->out_size();
             }
         }
 
@@ -480,7 +487,8 @@ public:
             if constexpr (!std::is_void_v<prog_type>) {
                 if (prog && !(*prog)(i, n_levels * 2)) return nullptr;
             }
-            buf.push_back(in = encoding[i]->forward(in));
+            // Route through layer pointers instead of sub-network
+            buf.push_back(in = forward_block(encoding[i], in));
         }
 
         for (int i = n_levels - 2; i >= 0; --i) {
@@ -490,16 +498,17 @@ public:
             buf.pop_back();
 
             float* encoder_skip = buf.back();
-            float* decoder_up = up[i]->forward(in);
+            float* decoder_up = forward_block(up[i], in);
 
+            // Fetch output sizes via .back() on the blocks
             if constexpr (Version == unet_version::standard) {
-                std::copy_n(decoder_up, up[i]->out_size(), encoder_skip + encoding[i]->out_size());
-                in = decoding[i]->forward(encoder_skip);
+                std::copy_n(decoder_up, up[i].back()->out_size(), encoder_skip + encoding[i].back()->out_size());
+                in = forward_block(decoding[i], encoder_skip);
             } else {
                 float* concat_ptr = skip_buffers[i];
-                std::copy_n(encoder_skip, encoding[i]->out_size(), concat_ptr);
-                std::copy_n(decoder_up, up[i]->out_size(), concat_ptr + encoding[i]->out_size());
-                in = decoding[i]->forward(concat_ptr);
+                std::copy_n(encoder_skip, encoding[i].back()->out_size(), concat_ptr);
+                std::copy_n(decoder_up, up[i].back()->out_size(), concat_ptr + encoding[i].back()->out_size());
+                in = forward_block(decoding[i], concat_ptr);
             }
         }
         return output->forward(in);
