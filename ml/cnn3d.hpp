@@ -371,8 +371,6 @@ template<typename prog_type = void, unet_version Version = unet_version::standar
 class unet3d : public network {
     std::deque<std::vector<std::shared_ptr<layer>>> encoding, decoding, up;
     std::shared_ptr<layer> output;
-    std::vector<float*> skip_buffers;
-    std::vector<size_t> skip_sizes;
 
     std::shared_ptr<layer> add_layer(layer* l) {
         layers.emplace_back(l);
@@ -437,46 +435,31 @@ public:
 
     void init_image(tipl::shape<3>& dim_) override {
         dim = dim_;
-        if constexpr (Version == unet_version::deep_supervision) {
-            skip_buffers.resize(encoding.size() - 1, nullptr);
-            skip_sizes.resize(encoding.size() - 1, 0);
-        }
 
-        // Propagate dimensions linearly through all underlying leaf layers
         for (auto& l : layers) l->init_image(dim_);
 
-        // Modify sizes specific to skip connection configurations
         for (int i = static_cast<int>(encoding.size()) - 2; i >= 0; --i) {
+            size_t extra_decoder_size = up[i].back()->out_size();
+
+            auto* raw_conv = encoding[i][encoding[i].size() - 2].get();
+
             if constexpr (Version == unet_version::standard) {
-                // Accessing the second to last layer via block vector index
-                auto conv = dynamic_cast<conv_3d<activation_type::leaky_relu>*>(encoding[i][encoding[i].size()-2].get());
-                if (conv) conv->out_size_ = up[i].back()->out_size() + encoding[i].back()->out_size();
+                auto conv = dynamic_cast<conv_3d<activation_type::leaky_relu>*>(raw_conv);
+                if (conv) conv->out_size_ += extra_decoder_size;
             } else {
-                skip_sizes[i] = up[i].back()->out_size() + encoding[i].back()->out_size();
+                auto conv = dynamic_cast<conv_3d<activation_type::none>*>(raw_conv);
+                if (conv) conv->out_size_ += extra_decoder_size;
             }
         }
 
-        // Single allocation for the entire unet3d architecture
         size_t total_size = 0;
         for (const auto& p : parameters()) total_size += p.second;
         for (auto& l : layers) total_size += l->alloc_buffer_size();
-        for (auto s : skip_sizes) total_size += s;
 
         memory.resize(total_size);
 
         float* ptr = memory.data();
-        allocate(ptr);
-    }
-
-    void allocate(float*& ptr) override {
-        network::allocate(ptr);
-        if constexpr (Version == unet_version::deep_supervision) {
-            for (size_t i = 0; i < skip_sizes.size(); ++i) {
-                skip_buffers[i] = ptr;
-                ptr += skip_sizes[i];
-                std::fill_n(skip_buffers[i], skip_sizes[i], 0.0f);
-            }
-        }
+        network::allocate(ptr); // Safe to directly use inherited allocation behavior
     }
 
     float* forward(float* in) override {
@@ -487,7 +470,6 @@ public:
             if constexpr (!std::is_void_v<prog_type>) {
                 if (prog && !(*prog)(i, n_levels * 2)) return nullptr;
             }
-            // Route through layer pointers instead of sub-network
             buf.push_back(in = forward_block(encoding[i], in));
         }
 
@@ -500,16 +482,13 @@ public:
             float* encoder_skip = buf.back();
             float* decoder_up = forward_block(up[i], in);
 
-            // Fetch output sizes via .back() on the blocks
-            if constexpr (Version == unet_version::standard) {
-                std::copy_n(decoder_up, up[i].back()->out_size(), encoder_skip + encoding[i].back()->out_size());
-                in = forward_block(decoding[i], encoder_skip);
-            } else {
-                float* concat_ptr = skip_buffers[i];
-                std::copy_n(encoder_skip, encoding[i].back()->out_size(), concat_ptr);
-                std::copy_n(decoder_up, up[i].back()->out_size(), concat_ptr + encoding[i].back()->out_size());
-                in = forward_block(decoding[i], concat_ptr);
-            }
+            size_t decoder_size = up[i].back()->out_size();
+            // Since instance_norm_3d falls back to the uninflated base layer::out_size(),
+            // it perfectly returns the original encoded data size!
+            size_t original_encoder_size = encoding[i].back()->out_size();
+
+            std::copy_n(decoder_up, decoder_size, encoder_skip + original_encoder_size);
+            in = forward_block(decoding[i], encoder_skip);
         }
         return output->forward(in);
     }
