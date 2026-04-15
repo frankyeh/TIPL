@@ -6,83 +6,33 @@
 namespace tipl
 {
 
-//---------------------------------------------------------------------------
-#ifdef __CUDACC__
 template<typename T>
-__global__ void displacement_to_mapping_cuda_kernel(T dis)
+inline std::enable_if_t<memory_location<T>::at != CUDA, void>
+displacement_to_mapping(T& dis)
 {
-    TIPL_FOR(index,dis.size())
-        dis[index] += tipl::pixel_index<T::dimension>(index,dis.shape());
-}
-
-#endif
-//---------------------------------------------------------------------------
-template<typename T>
-void displacement_to_mapping(T& dis)
-{
-    if constexpr(memory_location<T>::at == CUDA)
-    {
-        #ifdef __CUDACC__
-        TIPL_RUN(displacement_to_mapping_cuda_kernel,dis.size())
-                (tipl::make_shared(dis));
-        #endif
-    }
-    else
     tipl::par_for(tipl::begin_index(dis.shape()),tipl::end_index(dis.shape()),
                 [&](const auto& index)
     {
         dis[index.index()] += index;
     });
 }
-//---------------------------------------------------------------------------
-#ifdef __CUDACC__
+
 template<typename T,typename U>
-__global__ void displacement_to_mapping_cuda_kernel2(T dis,U mapping)
-{
-    TIPL_FOR(index,dis.size())
-        mapping[index] += tipl::pixel_index<T::dimension>(index,dis.shape());
-}
-#endif
-//---------------------------------------------------------------------------
-template<typename T,typename U>
-void displacement_to_mapping(const T& dis,U& mapping)
+inline std::enable_if_t<memory_location<T>::at != CUDA, void>
+displacement_to_mapping(const T& dis,U& mapping)
 {
     mapping = dis;
-    if constexpr(memory_location<T>::at == CUDA)
-    {
-        #ifdef __CUDACC__
-        TIPL_RUN(displacement_to_mapping_cuda_kernel2,dis.size())
-                (tipl::make_shared(dis),tipl::make_shared(mapping));
-        #endif
-    }
-    else
     tipl::par_for(tipl::begin_index(mapping.shape()),tipl::end_index(mapping.shape()),
                             [&](const auto& index)
     {
         mapping[index.index()] += index;
     });
 }
-//---------------------------------------------------------------------------
-#ifdef __CUDACC__
+
 template<typename T>
-__global__ void mapping_to_displacement_cuda_kernel(T mapping)
+inline std::enable_if_t<memory_location<T>::at != CUDA, void>
+mapping_to_displacement(T& mapping)
 {
-    TIPL_FOR(index,mapping.size())
-        mapping[index] -= tipl::pixel_index<T::dimension>(index,mapping.shape());
-}
-#endif
-//---------------------------------------------------------------------------
-template<typename T>
-void mapping_to_displacement(T& mapping)
-{
-    if constexpr(memory_location<T>::at == CUDA)
-    {
-        #ifdef __CUDACC__
-        TIPL_RUN(mapping_to_displacement_cuda_kernel,mapping.size())
-                (tipl::make_shared(mapping));
-        #endif
-    }
-    else
     tipl::par_for(tipl::begin_index(mapping.shape()),tipl::end_index(mapping.shape()),
                 [&](const auto& index)
     {
@@ -90,7 +40,8 @@ void mapping_to_displacement(T& mapping)
     });
 }
 
-//---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+
 template<typename DisType,typename MappingType,typename transform_type>
 void displacement_to_mapping(const DisType& dis,MappingType& mapping,const transform_type& T)
 {
@@ -104,7 +55,6 @@ void displacement_to_mapping(const DisType& dis,MappingType& mapping,const trans
     });
 }
 
-//---------------------------------------------------------------------------
 template<tipl::interpolation itype = linear,typename DisType,typename MappingType,typename transform_type>
 void inv_displacement_to_mapping(const DisType& inv_dis,MappingType& inv_mapping,const transform_type& T)
 {
@@ -119,96 +69,52 @@ void inv_displacement_to_mapping(const DisType& inv_dis,MappingType& inv_mapping
         inv_mapping[index.index()] = p;
     });
 }
-//---------------------------------------------------------------------------
-#ifdef __CUDACC__
-template<tipl::interpolation itype,typename T1,typename T2,typename T3>
-__global__ void compose_mapping_cuda_kernel(T1 from,T2 mapping,T3 to)
-{
-    TIPL_FOR(index,to.size())
-    {
-        if(!tipl::estimate<itype>(from,mapping[index],to[index]))
-            to[index] = typename T3::value_type();
-    }
-}
 
-#endif
-//---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+
 template<tipl::interpolation itype = tipl::interpolation::linear,
          typename T1,typename T2,typename T3>
-inline void compose_mapping(const T1& from,const T2& mapping,T3& to)
-
+inline std::enable_if_t<memory_location<T1>::at != CUDA, void>
+compose_mapping(const T1& from,const T2& mapping,T3& to)
 {
     to.resize(mapping.shape());
-    if constexpr(memory_location<T1>::at == CUDA)
-    {
-        #ifdef __CUDACC__
-        TIPL_RUN(compose_mapping_cuda_kernel<itype>,mapping.size())
-                (tipl::make_shared(from),tipl::make_shared(mapping),tipl::make_shared(to));
-        #endif
-    }
-    else
     tipl::par_for(mapping.size(),[&](size_t index)
     {
         if(!estimate<itype>(from,mapping[index],to[index]))
             to[index] = typename T3::value_type();
     });
 }
-//---------------------------------------------------------------------------
+
 template<tipl::interpolation itype = tipl::interpolation::linear,typename T1,typename T2>
 inline auto compose_mapping(const T1& from,const T2& mapping) -> typename T1::buffer_type
-
 {
     typename T1::buffer_type to(mapping.shape());
     compose_mapping<itype>(from,mapping,to);
     return to;
 }
-//---------------------------------------------------------------------------
-#ifdef __CUDACC__
 
-template<tipl::interpolation itype,typename T1,typename T2,typename T3>
-__global__ void compose_displacement_cuda_kernel(T1 from,T2 dis,T3 to)
-{
-    TIPL_FOR(index,to.size())
-    {
-        if(dis[index] == typename T2::value_type())
-            to[index] = from[index];
-        else
-        {
-            typename T2::value_type v(tipl::pixel_index<T1::dimension>(index,to.shape()));
-            v += dis[index];
-            tipl::estimate<itype>(from,v,to[index]);
-        }
-    }
-}
-#endif
+// ---------------------------------------------------------------------------
+
 template<tipl::interpolation itype = linear,typename T,typename U,typename V>
-void compose_displacement(const T& from,const U& dis,V& to)
+inline std::enable_if_t<memory_location<T>::at != CUDA, void>
+compose_displacement(const T& from,const U& dis,V& to)
 {
     to.clear();
     to.resize(from.shape());
-    if constexpr(memory_location<T>::at == CUDA)
+    tipl::par_for(tipl::begin_index(from.shape()),tipl::end_index(from.shape()),
+        [&](const auto& index)
     {
-        #ifdef __CUDACC__
-        TIPL_RUN(compose_displacement_cuda_kernel<itype>,to.size())
-                (tipl::make_shared(from),tipl::make_shared(dis),tipl::make_shared(to));
-        #endif
-    }
-    else
-    {
-        tipl::par_for(tipl::begin_index(from.shape()),tipl::end_index(from.shape()),
-            [&](const auto& index)
+        if(dis[index.index()] == typename U::value_type())
+            to[index.index()] = from[index.index()];
+        else
         {
-            if(dis[index.index()] == typename U::value_type())
-                to[index.index()] = from[index.index()];
-            else
-            {
-                typename U::value_type v(index);
-                v += dis[index.index()];
-                tipl::estimate<itype>(from,v,to[index.index()]);
-            }
-        });
-    }
+            typename U::value_type v(index);
+            v += dis[index.index()];
+            tipl::estimate<itype>(from,v,to[index.index()]);
+        }
+    });
 }
+
 template<tipl::interpolation itype = linear,typename T,typename U>
 inline auto compose_displacement(const T& from,const U& dis)
 {
@@ -216,7 +122,9 @@ inline auto compose_displacement(const T& from,const U& dis)
     compose_displacement<itype>(from,dis,to);
     return to;
 }
-//---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+
 template<tipl::interpolation Type = linear,typename ImageType,typename ComposeImageType,typename OutImageType,typename transform_type>
 void compose_displacement_with_affine(const ImageType& src,OutImageType& dest,
                           const transform_type& transform,
@@ -234,6 +142,7 @@ void compose_displacement_with_affine(const ImageType& src,OutImageType& dest,
         tipl::estimate<Type>(src,pos,dest[index.index()]);
     });
 }
+
 template<typename T,typename U,typename V>
 __INLINE__ void invert_displacement_imp(const V& index,T& v1,U& mapping)
 {
@@ -247,34 +156,16 @@ __INLINE__ void invert_displacement_imp(const V& index,T& v1,U& mapping)
     else
         v *= 0.5f;
 }
-//---------------------------------------------------------------------------
-#ifdef __CUDACC__
-template<typename T,typename U>
-__global__ void invert_displacement_cuda_kernel(T v1,U mapping)
-{
-    TIPL_FOR(index,v1.size())
-    {
-        invert_displacement_imp(tipl::pixel_index<T::dimension>(index,v1.shape()),v1,mapping);
-    }
-}
-#endif
-//---------------------------------------------------------------------------
+
 template<typename T>
-void invert_displacement(const T& v0,T& v1,size_t count = 8)
+inline std::enable_if_t<memory_location<T>::at != CUDA, void>
+invert_displacement(const T& v0,T& v1,size_t count = 8)
 {
     v1.resize(v0.shape());
     T mapping(v0);
     displacement_to_mapping(mapping);
     for(uint8_t i = 0;i < count;++i)
     {
-        if constexpr(memory_location<T>::at == CUDA)
-        {
-            #ifdef __CUDACC__
-            TIPL_RUN(invert_displacement_cuda_kernel,v1.size())
-                    (tipl::make_shared(v1),tipl::make_shared(mapping));
-            #endif
-        }
-        else
         tipl::par_for(tipl::begin_index(v1.shape()),tipl::end_index(v1.shape()),
             [&](const auto& index)
         {
@@ -282,7 +173,9 @@ void invert_displacement(const T& v0,T& v1,size_t count = 8)
         });
     }
 }
-//---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+
 template<typename T,typename U,typename V,typename W>
 __INLINE__ void accumulate_displacement_imp(const W& index,const T& dis,U& new_dis,const V& mapping)
 {
@@ -292,8 +185,136 @@ __INLINE__ void accumulate_displacement_imp(const W& index,const T& dis,U& new_d
     else
         new_dis[index.index()] = dis[index.index()];
 }
-//---------------------------------------------------------------------------
+
+template<typename T>
+inline std::enable_if_t<memory_location<T>::at != CUDA, void>
+accumulate_displacement(const T& dis,T& new_dis)
+{
+    T mapping;
+    displacement_to_mapping(dis,mapping);
+    tipl::par_for(tipl::begin_index(dis.shape()),tipl::end_index(dis.shape()),[&](const auto& index)
+    {
+        accumulate_displacement_imp(index,dis,new_dis,mapping);
+    });
+}
+
+
 #ifdef __CUDACC__
+
+template<typename T>
+__global__ void displacement_to_mapping_cuda_kernel(T dis)
+{
+    TIPL_FOR(index,dis.size())
+        dis[index] += tipl::pixel_index<T::dimension>(index,dis.shape());
+}
+
+template<typename T>
+inline std::enable_if_t<memory_location<T>::at == CUDA, void>
+displacement_to_mapping(T& dis)
+{
+    TIPL_RUN(displacement_to_mapping_cuda_kernel,dis.size())
+            (tipl::make_shared(dis));
+}
+
+template<typename T,typename U>
+__global__ void displacement_to_mapping_cuda_kernel2(T dis,U mapping)
+{
+    TIPL_FOR(index,dis.size())
+        mapping[index] += tipl::pixel_index<T::dimension>(index,dis.shape());
+}
+
+template<typename T,typename U>
+inline std::enable_if_t<memory_location<T>::at == CUDA, void>
+displacement_to_mapping(const T& dis,U& mapping)
+{
+    mapping = dis;
+    TIPL_RUN(displacement_to_mapping_cuda_kernel2,dis.size())
+            (tipl::make_shared(dis),tipl::make_shared(mapping));
+}
+
+template<typename T>
+__global__ void mapping_to_displacement_cuda_kernel(T mapping)
+{
+    TIPL_FOR(index,mapping.size())
+        mapping[index] -= tipl::pixel_index<T::dimension>(index,mapping.shape());
+}
+
+template<typename T>
+inline std::enable_if_t<memory_location<T>::at == CUDA, void>
+mapping_to_displacement(T& mapping)
+{
+    TIPL_RUN(mapping_to_displacement_cuda_kernel,mapping.size())
+            (tipl::make_shared(mapping));
+}
+
+template<tipl::interpolation itype,typename T1,typename T2,typename T3>
+__global__ void compose_mapping_cuda_kernel(T1 from,T2 mapping,T3 to)
+{
+    TIPL_FOR(index,to.size())
+    {
+        if(!tipl::estimate<itype>(from,mapping[index],to[index]))
+            to[index] = typename T3::value_type();
+    }
+}
+
+template<tipl::interpolation itype,typename T1,typename T2,typename T3>
+inline std::enable_if_t<memory_location<T1>::at == CUDA, void>
+compose_mapping(const T1& from,const T2& mapping,T3& to)
+{
+    to.resize(mapping.shape());
+    TIPL_RUN(compose_mapping_cuda_kernel<itype>,mapping.size())
+            (tipl::make_shared(from),tipl::make_shared(mapping),tipl::make_shared(to));
+}
+
+template<tipl::interpolation itype,typename T1,typename T2,typename T3>
+__global__ void compose_displacement_cuda_kernel(T1 from,T2 dis,T3 to)
+{
+    TIPL_FOR(index,to.size())
+    {
+        if(dis[index] == typename T2::value_type())
+            to[index] = from[index];
+        else
+        {
+            typename T2::value_type v(tipl::pixel_index<T1::dimension>(index,to.shape()));
+            v += dis[index];
+            tipl::estimate<itype>(from,v,to[index]);
+        }
+    }
+}
+
+template<tipl::interpolation itype,typename T,typename U,typename V>
+inline std::enable_if_t<memory_location<T>::at == CUDA, void>
+compose_displacement(const T& from,const U& dis,V& to)
+{
+    to.clear();
+    to.resize(from.shape());
+    TIPL_RUN(compose_displacement_cuda_kernel<itype>,to.size())
+            (tipl::make_shared(from),tipl::make_shared(dis),tipl::make_shared(to));
+}
+
+template<typename T,typename U>
+__global__ void invert_displacement_cuda_kernel(T v1,U mapping)
+{
+    TIPL_FOR(index,v1.size())
+    {
+        invert_displacement_imp(tipl::pixel_index<T::dimension>(index,v1.shape()),v1,mapping);
+    }
+}
+
+template<typename T>
+inline std::enable_if_t<memory_location<T>::at == CUDA, void>
+invert_displacement(const T& v0,T& v1,size_t count)
+{
+    v1.resize(v0.shape());
+    T mapping(v0);
+    displacement_to_mapping(mapping);
+    for(uint8_t i = 0;i < count;++i)
+    {
+        TIPL_RUN(invert_displacement_cuda_kernel,v1.size())
+                (tipl::make_shared(v1),tipl::make_shared(mapping));
+    }
+}
+
 template<typename T1,typename T2,typename T3>
 __global__ void accumulate_displacement_cuda_kernel(T1 dis,T2 new_dis,T3 mapping)
 {
@@ -303,34 +324,27 @@ __global__ void accumulate_displacement_cuda_kernel(T1 dis,T2 new_dis,T3 mapping
     }
 }
 
-#endif
-//---------------------------------------------------------------------------
 template<typename T>
-void accumulate_displacement(const T& dis,T& new_dis)
+inline std::enable_if_t<memory_location<T>::at == CUDA, void>
+accumulate_displacement(const T& dis,T& new_dis)
 {
     T mapping;
     displacement_to_mapping(dis,mapping);
-    if constexpr(memory_location<T>::at == CUDA)
-    {
-        #ifdef __CUDACC__
-        TIPL_RUN(accumulate_displacement_cuda_kernel,dis.size())
-                (tipl::make_shared(dis),tipl::make_shared(new_dis),tipl::make_shared(mapping));
-        #endif
-    }
-    else
-    tipl::par_for(tipl::begin_index(dis.shape()),tipl::end_index(dis.shape()),[&](const auto& index)
-    {
-        accumulate_displacement_imp(index,dis,new_dis,mapping);
-    });
+    TIPL_RUN(accumulate_displacement_cuda_kernel,dis.size())
+            (tipl::make_shared(dis),tipl::make_shared(new_dis),tipl::make_shared(mapping));
 }
-//---------------------------------------------------------------------------
+
+#endif // __CUDACC__
+
+
 // v = vx compose vy
 // use vy(x) = v(x)-vx(x+vy(x))
-template<typename ComposeImageType>
-void decompose_displacement(const ComposeImageType& v,const ComposeImageType& vx,
-                            ComposeImageType& vy)
+template<int dim, typename VectorType>
+void decompose_displacement(const tipl::image<dim, VectorType>& v,
+                            const tipl::image<dim, VectorType>& vx,
+                            tipl::image<dim, VectorType>& vy)
 {
-    ComposeImageType vtemp(vx);
+    tipl::image<dim, VectorType> vtemp(vx);
     vy.resize(v.shape());
     for (size_t index = 0;index < vy.size();++index)
         vy[index] = v[index]-vtemp[index];
@@ -341,14 +355,13 @@ void decompose_displacement(const ComposeImageType& v,const ComposeImageType& vx
             vy[index] = v[index]-vtemp[index];
     }
 }
-//---------------------------------------------------------------------------
-template<typename mapping_type, typename det_type>
-void jacobian_determinant(const mapping_type& src, det_type& dest)
+
+template<int dim, typename VectorType, typename DetPixelType>
+void jacobian_determinant(const tipl::image<dim, VectorType>& src, tipl::image<dim, DetPixelType>& dest)
 {
     auto geo = src.shape();
     dest.resize(geo);
 
-    static constexpr int dim = decltype(geo)::dimension;
     static_assert(dim == 2 || dim == 3, "This function only supports 2D and 3D inputs.");
 
     auto w = src.width();
@@ -379,18 +392,17 @@ void jacobian_determinant(const mapping_type& src, det_type& dest)
     });
 }
 
-template<typename mapping_type>
-inline auto jacobian_determinant(const mapping_type& src)
+template<int dim, typename VectorType>
+inline auto jacobian_determinant(const tipl::image<dim, VectorType>& src)
 {
-    using vector_type = typename mapping_type::value_type;
-    using scalar_type = typename vector_type::value_type;
-    tipl::image<mapping_type::dimension, scalar_type> J;
+    using scalar_type = typename VectorType::value_type;
+    tipl::image<dim, scalar_type> J;
     jacobian_determinant(src, J);
     return J;
 }
 
 template<typename VectorType>
-double jacobian_determinant_dis_at(const image<3,VectorType>& displacement,const tipl::pixel_index<3>& index)
+double jacobian_determinant_dis_at(const tipl::image<3,VectorType>& displacement,const tipl::pixel_index<3>& index)
 {
     auto w = displacement.width();
     auto wh = displacement.plane_size();
@@ -414,8 +426,9 @@ double jacobian_determinant_dis_at(const image<3,VectorType>& displacement,const
                                    (v1_0[1] - v1_1[1])*(d2_2*d3_0-d2_0*d3_2)+
                                    (v1_0[2] - v1_1[2])*(d2_0*d3_1-d2_1*d3_0);
 }
+
 template<typename VectorType,typename out_type>
-void jacobian_dis_at(const image<3,VectorType>& displacement,const tipl::pixel_index<3>& index,out_type* J)
+void jacobian_dis_at(const tipl::image<3,VectorType>& displacement,const tipl::pixel_index<3>& index,out_type* J)
 {
     auto w = displacement.width();
     auto wh = displacement.plane_size();
@@ -439,10 +452,11 @@ void jacobian_dis_at(const image<3,VectorType>& displacement,const tipl::pixel_i
     J[7] = vz[1]*0.5;
     J[8] = vz[2]*0.5+1.0;
 }
-template<typename VectorType,typename DetType>
-void jacobian_determinant_dis(const image<3,VectorType>& displacement,DetType& dest)
+
+template<typename VectorType,typename PixelType>
+void jacobian_determinant_dis(const tipl::image<3,VectorType>& displacement,tipl::image<3,PixelType>& dest)
 {
-    shape<3> geo(displacement.shape());
+    tipl::shape<3> geo(displacement.shape());
     dest.resize(geo);
     for (tipl::pixel_index<3> index(geo); index < geo.size();++index)
     {
@@ -456,7 +470,7 @@ void jacobian_determinant_dis(const image<3,VectorType>& displacement,DetType& d
 }
 
 template<typename VectorType>
-double jacobian_determinant_dis_at(const image<2,VectorType>& displacement,const tipl::pixel_index<2>& index)
+double jacobian_determinant_dis_at(const tipl::image<2,VectorType>& displacement,const tipl::pixel_index<2>& index)
 {
     auto w = displacement.width();
     const VectorType& v1_0 = displacement[index.index()+1];
@@ -467,9 +481,9 @@ double jacobian_determinant_dis_at(const image<2,VectorType>& displacement,const
 }
 
 template<typename VectorType,typename PixelType>
-void jacobian_determinant_dis(const image<2,VectorType>& displacement,image<2,PixelType>& dest)
+void jacobian_determinant_dis(const tipl::image<2,VectorType>& displacement,tipl::image<2,PixelType>& dest)
 {
-    shape<2> geo(displacement.shape());
+    tipl::shape<2> geo(displacement.shape());
     dest.resize(geo);
     for (tipl::pixel_index<2> index(geo); index < geo.size();++index)
     {
