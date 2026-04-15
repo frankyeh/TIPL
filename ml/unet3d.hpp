@@ -123,6 +123,9 @@ tipl::image<3> postproc_actions(const U& eval_output,
     },model_out_count);
 
     // 2. Normalize probabilities across all channels (tissue + potential bg)
+    if (!has_bg_channel)
+        return label_prob;
+
     size_t single_channel_size = dim_to.size();
     tipl::par_for(single_channel_size, [&](size_t i)
     {
@@ -142,7 +145,7 @@ tipl::image<3> postproc_actions(const U& eval_output,
     });
 
     // 3. Remove background channel if it exists
-    if (has_bg_channel && model_out_count > 1)
+    if (model_out_count > 1)
     {
         size_t new_total_size = single_channel_size * (model_out_count - 1);
         size_t shift = single_channel_size;
