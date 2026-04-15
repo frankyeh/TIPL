@@ -1,100 +1,71 @@
 #ifndef CNN3D_HPP
 #define CNN3D_HPP
+
 #include <vector>
 #include <memory>
 #include <limits>
+#include <cmath>
+#include <deque>
+#include <algorithm>
 #include "../utility/pixel_index.hpp"
 #include "../utility/basic_image.hpp"
 #include "../numerical/statistics.hpp"
 #include "../mt.hpp"
 
-namespace tipl
-{
-namespace ml3d
-{
+namespace tipl {
+namespace ml3d {
 
-enum class activation_type {
-    none,
-    relu,
-    leaky_relu
-};
+enum class activation_type { none, relu, leaky_relu };
 
-class layer
-{
+class layer {
 public:
-    int in_channels_ = 1;
-    int out_channels_ = 1;
+    int in_channels_ = 1, out_channels_ = 1;
     tipl::shape<3> dim;
-public:
-    layer(int channels_v):in_channels_(channels_v),out_channels_(channels_v)
-    {}
-    layer(int in_channels_v,int out_channels_v):in_channels_(in_channels_v),out_channels_(out_channels_v)
-    {}
-    virtual ~layer()
-    {}
-    virtual std::vector<std::pair<float*,size_t>> parameters()
-    {
-        return std::vector<std::pair<float*,size_t>>();
-    }
-    virtual void init_image(tipl::shape<3>& dim_)
-    {
-        dim = dim_;
-    }
+
+    layer(int channels) : in_channels_(channels), out_channels_(channels) {}
+    layer(int in_c, int out_c) : in_channels_(in_c), out_channels_(out_c) {}
+    virtual ~layer() = default;
+
+    virtual std::vector<std::pair<float*, size_t>> parameters() { return {}; }
+    virtual void init_image(tipl::shape<3>& dim_) { dim = dim_; }
     virtual float* forward(float* in_ptr) = 0;
     virtual void print(std::ostream& out) const = 0;
-    virtual size_t out_size() const
-    {
-        return dim.size()*out_channels_;
-    }
+    virtual size_t out_size() const { return dim.size() * out_channels_; }
 };
 
 template <activation_type Act = activation_type::none>
-class conv_3d : public layer
-{
-private:
-    int kernel_size_,kernel_size3,range;
+class conv_3d : public layer {
+    int kernel_size_, kernel_size3, range;
     float slope_;
 public:
-    std::vector<float> weight,bias,out;
+    std::vector<float> weight, bias, out;
 
-    conv_3d(int in_channels_v,int out_channels_v,int kernel_size_v = 3, float slope_v = 1e-2f):
-        layer(in_channels_v,out_channels_v),kernel_size_(kernel_size_v),slope_(slope_v)
-    {
-        kernel_size3 = kernel_size_*kernel_size_*kernel_size_;
-        range = (kernel_size_-1)/2;
-        weight.resize(kernel_size3*in_channels_*out_channels_);
+    conv_3d(int in_c, int out_c, int ks = 3, float slope = 1e-2f)
+        : layer(in_c, out_c), kernel_size_(ks), kernel_size3(ks * ks * ks), range((ks - 1) / 2), slope_(slope) {
+        weight.resize(kernel_size3 * in_channels_ * out_channels_);
         bias.resize(out_channels_);
     }
-    std::vector<std::pair<float*,size_t>> parameters() override
-    {
-        std::vector<std::pair<float*,size_t>> params;
-        params.push_back(std::make_pair(&weight[0],weight.size()));
-        params.push_back(std::make_pair(&bias[0],bias.size()));
-        return params;
+
+    std::vector<std::pair<float*, size_t>> parameters() override {
+        return {{weight.data(), weight.size()}, {bias.data(), bias.size()}};
     }
-    void init_image(tipl::shape<3>& dim_) override
-    {
-        dim = dim_;
-        out.resize(dim.size()*out_channels_);
+
+    void init_image(tipl::shape<3>& dim_) override {
+        layer::init_image(dim_);
+        out.resize(dim.size() * out_channels_);
     }
-    float* forward(float* in) override
-    {
+
+    float* forward(float* in) override {
         const size_t img_size = dim.size();
-        const int in_c = in_channels_;
-        const int out_c = out_channels_;
-        const int w = dim.width();
-        const int h = dim.height();
-        const int d = dim.depth();
+        const int in_c = in_channels_, out_c = out_channels_;
+        const int w = dim.width(), h = dim.height(), d = dim.depth();
 
         tipl::par_for(out_c, [&](size_t oc) {
-            float* out_ptr = out.data() + oc * img_size;
-            std::fill_n(out_ptr, img_size, bias[oc]);
+            std::fill_n(out.data() + oc * img_size, img_size, bias[oc]);
         });
 
-        tipl::par_for((size_t)out_c * d, [&](size_t job) {
-            const int oc = job / d;
-            const int z = job % d;
-
+        tipl::par_for(static_cast<size_t>(out_c) * d, [&](size_t job) {
+            const int oc = job / d, z = job % d;
             float* out_slice = out.data() + (oc * img_size) + (z * w * h);
             const float* weight_oc = weight.data() + (oc * in_c * kernel_size3);
 
@@ -105,7 +76,6 @@ public:
                 for (int kz = -range; kz <= range; ++kz) {
                     int sz = z + kz;
                     if (sz < 0 || sz >= d) continue;
-
                     const float* in_slice = in_channel_ptr + (sz * w * h);
                     const float* weight_kz = weight_ic + (kz + range) * (kernel_size_ * kernel_size_);
 
@@ -114,22 +84,17 @@ public:
 
                         for (int kx = -range; kx <= range; ++kx) {
                             float w_val = weight_ky[kx + range];
-                            if (w_val == 0.0f) continue; // Sparsity optimization
+                            if (w_val == 0.0f) continue;
 
-                            // Process the row with optimized boundary logic
                             for (int y = 0; y < h; ++y) {
                                 int sy = y + ky;
                                 if (sy < 0 || sy >= h) continue;
-
                                 const float* in_row = in_slice + (sy * w);
                                 float* out_row = out_slice + (y * w);
 
-                                // Inner-most loop: X-axis
                                 for (int x = 0; x < w; ++x) {
                                     int sx = x + kx;
-                                    if (sx >= 0 && sx < w) {
-                                        out_row[x] += w_val * in_row[sx];
-                                    }
+                                    if (sx >= 0 && sx < w) out_row[x] += w_val * in_row[sx];
                                 }
                             }
                         }
@@ -137,199 +102,162 @@ public:
                 }
             }
 
-            // Apply Template Activation In-Place
             if constexpr (Act != activation_type::none) {
                 const int slice_size = w * h;
                 for (int i = 0; i < slice_size; ++i) {
                     if (out_slice[i] < 0.0f) {
-                        if constexpr (Act == activation_type::relu) {
-                            out_slice[i] = 0.0f;
-                        } else if constexpr (Act == activation_type::leaky_relu) {
-                            out_slice[i] *= slope_;
-                        }
+                        if constexpr (Act == activation_type::relu) out_slice[i] = 0.0f;
+                        else if constexpr (Act == activation_type::leaky_relu) out_slice[i] *= slope_;
                     }
                 }
             }
         });
-
         return out.data();
     }
-    void print(std::ostream& out_stream) const override
-    {
-        out_stream << "conv3d ";
-        if constexpr (Act == activation_type::relu) {
-            out_stream << "(relu) ";
-        } else if constexpr (Act == activation_type::leaky_relu) {
-            out_stream << "(leaky_relu) ";
-        }
-        out_stream << in_channels_ << " " << out_channels_ << std::endl;
+
+    void print(std::ostream& os) const override {
+        os << "conv3d " << (Act == activation_type::relu ? "(relu) " : Act == activation_type::leaky_relu ? "(leaky_relu) " : "")
+           << in_channels_ << " " << out_channels_ << '\n';
     }
 };
 
-class instance_norm_3d : public layer
-{
+template <activation_type Act = activation_type::none>
+class instance_norm_3d : public layer {
+    float slope_;
 public:
-    std::vector<float> weight,bias;
-public:
-    instance_norm_3d(int channels_v):layer(channels_v)
-    {
-        weight.resize(out_channels_);
-        bias.resize(out_channels_);
-    }
-    std::vector<std::pair<float*,size_t>> parameters() override
-    {
-        std::vector<std::pair<float*,size_t>> params;
-        params.push_back(std::make_pair(&weight[0],weight.size()));
-        params.push_back(std::make_pair(&bias[0],bias.size()));
-        return params;
-    }
-    float* forward(float* in) override
-    {
-        const size_t plane_size = dim.size();
-        tipl::par_for(out_channels_, [&](size_t outc)
-        {
-            float* in_ptr = in + plane_size * outc;
+    std::vector<float> weight, bias;
 
-            double sum = 0.0;
-            double sq_sum = 0.0;
+    instance_norm_3d(int c, float slope = 1e-2f)
+        : layer(c), weight(c, 1.0f), bias(c, 0.0f), slope_(slope) {}
+
+    std::vector<std::pair<float*, size_t>> parameters() override {
+        return {{weight.data(), weight.size()}, {bias.data(), bias.size()}};
+    }
+
+    float* forward(float* in) override {
+        const size_t plane_size = dim.size();
+
+        tipl::par_for(out_channels_, [&](size_t outc) {
+            float* in_ptr = in + plane_size * outc;
+            double sum = 0.0, sq_sum = 0.0;
 
             for (size_t i = 0; i < plane_size; ++i) {
                 float val = in_ptr[i];
                 sum += val;
-                sq_sum += (double)val * val;
+                sq_sum += static_cast<double>(val) * val;
             }
 
-            float mean = (float)(sum / plane_size);
-            float variance = (float)(sq_sum / plane_size) - (mean * mean);
-            if (variance < 0) variance = 0;
+            float mean = static_cast<float>(sum / plane_size);
+            float var = std::max(0.0f, static_cast<float>(sq_sum / plane_size - mean * mean));
 
-            // Pre-calculate scale and shift to minimize ops in the inner loop
-            float inv_std = 1.0f / std::sqrt(variance + 1e-5f);
-            float scale = inv_std * weight[outc];
+            float scale = weight[outc] / std::sqrt(var + 1e-5f);
             float shift = bias[outc] - (mean * scale);
 
             for (size_t i = 0; i < plane_size; ++i) {
-                in_ptr[i] = in_ptr[i] * scale + shift;
+                float val = in_ptr[i] * scale + shift;
+
+                if constexpr (Act != activation_type::none) {
+                    if (val < 0.0f) {
+                        if constexpr (Act == activation_type::relu) {
+                            val = 0.0f;
+                        } else if constexpr (Act == activation_type::leaky_relu) {
+                            val *= slope_;
+                        }
+                    }
+                }
+                in_ptr[i] = val;
             }
         }, out_channels_);
 
         return in;
     }
-    void print(std::ostream& out) const override
-    {
-        out << "norm_3d " << out_channels_ << std::endl;
+
+    void print(std::ostream& os) const override {
+        os << "norm_3d "
+           << (Act == activation_type::relu ? "(relu) " : Act == activation_type::leaky_relu ? "(leaky_relu) " : "")
+           << out_channels_ << '\n';
     }
 };
 
-class max_pool_3d : public layer
-{
+class max_pool_3d : public layer {
 public:
     tipl::shape<3> out_dim;
     std::vector<float> out;
     int pool_size = 2;
-public:
-    max_pool_3d(int channels_v):layer(channels_v)
-    {}
-    void init_image(tipl::shape<3>& dim_) override
-    {
+
+    max_pool_3d(int c) : layer(c) {}
+
+    void init_image(tipl::shape<3>& dim_) override {
         dim = dim_;
-        out_dim = tipl::shape<3>(dim[0]/pool_size,dim[1]/pool_size,dim[2]/pool_size);
-        dim_ = out_dim;
-        out.resize(out_dim.size()*out_channels_);
+        out_dim = dim_ = {dim[0] / pool_size, dim[1] / pool_size, dim[2] / pool_size};
+        out.resize(out_dim.size() * out_channels_);
     }
-    float* forward(float* in) override
-    {
+
+    float* forward(float* in) override {
         const int in_w = dim.width(), in_h = dim.height(), in_d = dim.depth();
         const int out_w = out_dim.width(), out_h = out_dim.height(), out_d = out_dim.depth();
-        const size_t in_plane = (size_t)in_w * in_h;
-        const size_t out_plane = (size_t)out_w * out_h;
+        const size_t in_plane = static_cast<size_t>(in_w) * in_h, out_plane = static_cast<size_t>(out_w) * out_h;
 
-        tipl::par_for((size_t)out_channels_ * out_d, [&](size_t i)
-        {
-            const int c = i / out_d;
-            const int z = i % out_d;
-
+        tipl::par_for(static_cast<size_t>(out_channels_) * out_d, [&](size_t i) {
+            const int c = i / out_d, z = i % out_d;
             const float* in_ptr_c = in + (c * in_d * in_plane);
             float* out_ptr_slice = out.data() + (c * out_d * out_plane) + (z * out_plane);
-
             const int from_z_base = z * pool_size;
 
             for (int y = 0; y < out_h; ++y) {
                 const int from_y_base = y * pool_size;
-
                 for (int x = 0; x < out_w; ++x) {
                     const int from_x_base = x * pool_size;
-                    float max_value = -std::numeric_limits<float>::max();
+                    float max_val = -std::numeric_limits<float>::max();
 
                     for (int dz = 0; dz < pool_size; ++dz) {
                         int sz = from_z_base + dz;
                         if (sz >= in_d) continue;
-
                         const float* in_ptr_slice = in_ptr_c + (sz * in_plane);
 
                         for (int dy = 0; dy < pool_size; ++dy) {
                             int sy = from_y_base + dy;
                             if (sy >= in_h) continue;
-
                             const float* in_ptr_row = in_ptr_slice + (sy * in_w);
 
                             for (int dx = 0; dx < pool_size; ++dx) {
                                 int sx = from_x_base + dx;
-                                if (sx >= in_w) continue;
-
-                                float val = in_ptr_row[sx];
-                                if (val > max_value) {
-                                    max_value = val;
-                                }
+                                if (sx < in_w) max_val = std::max(max_val, in_ptr_row[sx]);
                             }
                         }
                     }
-                    out_ptr_slice[y * out_w + x] = max_value;
+                    out_ptr_slice[y * out_w + x] = max_val;
                 }
             }
         });
         return out.data();
     }
-    void print(std::ostream& out) const override
-    {
-        out << "max_pool_3d " << out_channels_ << std::endl;
-    }
-    size_t out_size() const override
-    {
-        return out_dim.size()*out_channels_;
-    }
+
+    void print(std::ostream& os) const override { os << "max_pool_3d " << out_channels_ << '\n'; }
+    size_t out_size() const override { return out_dim.size() * out_channels_; }
 };
 
-class upsample_3d : public layer
-{
+class upsample_3d : public layer {
 public:
     tipl::shape<3> out_dim;
     std::vector<float> out;
     int pool_size = 2;
-public:
-    upsample_3d(int channels_v):layer(channels_v)
-    {}
-    void init_image(tipl::shape<3>& dim_) override
-    {
+
+    upsample_3d(int c) : layer(c) {}
+
+    void init_image(tipl::shape<3>& dim_) override {
         dim = dim_;
-        out_dim = tipl::shape<3>(dim[0]*pool_size,dim[1]*pool_size,dim[2]*pool_size);
-        dim_ = out_dim;
-        out.resize(out_dim.size()*out_channels_);
+        out_dim = dim_ = {dim[0] * pool_size, dim[1] * pool_size, dim[2] * pool_size};
+        out.resize(out_dim.size() * out_channels_);
     }
-    float* forward(float* in) override
-    {
+
+    float* forward(float* in) override {
         const int in_w = dim.width(), in_h = dim.height(), in_d = dim.depth();
         const int out_w = out_dim.width(), out_h = out_dim.height();
-        const size_t in_plane = (size_t)in_w * in_h;
-        const size_t out_plane = (size_t)out_w * out_h;
+        const size_t in_plane = static_cast<size_t>(in_w) * in_h, out_plane = static_cast<size_t>(out_w) * out_h;
 
-        const size_t total_planes = (size_t)out_channels_ * in_d;
-
-        tipl::par_for(total_planes, [&](size_t i)
-        {
-            size_t c = i / in_d;
-            size_t z = i % in_d;
-
+        tipl::par_for(static_cast<size_t>(out_channels_) * in_d, [&](size_t i) {
+            size_t c = i / in_d, z = i % in_d;
             float* in_ptr_plane = in + (c * in_d + z) * in_plane;
             float* out_ptr_base = out.data() + (c * out_dim.depth() + z * pool_size) * out_plane;
 
@@ -338,16 +266,12 @@ public:
                 float* in_row = in_ptr_plane + (y * in_w);
 
                 for (int x = 0; x < in_w; ++x) {
-                    float val = in_row[x];
                     int out_x_start = x * pool_size;
-
                     for (int dz = 0; dz < pool_size; ++dz) {
                         float* out_line = out_ptr_base + (dz * out_plane) + (out_y_start * out_w);
-                        std::fill_n(out_line + out_x_start, pool_size, val);
-
+                        std::fill_n(out_line + out_x_start, pool_size, in_row[x]);
                         for(int dy = 1; dy < pool_size; ++dy) {
-                            std::copy_n(out_line + out_x_start, pool_size,
-                                       out_line + out_x_start + (dy * out_w));
+                            std::copy_n(out_line + out_x_start, pool_size, out_line + out_x_start + (dy * out_w));
                         }
                     }
                 }
@@ -355,168 +279,171 @@ public:
         });
         return out.data();
     }
-    void print(std::ostream& out) const override
-    {
-        out << "upsample_3d " << out_channels_ << std::endl;
-    }
-    size_t out_size() const override
-    {
-        return out_dim.size()*out_channels_;
-    }
+
+    void print(std::ostream& os) const override { os << "upsample_3d " << out_channels_ << '\n'; }
+    size_t out_size() const override { return out_dim.size() * out_channels_; }
 };
 
-class network : public layer
-{
+class network : public layer {
 public:
-    network():layer(1,1)
-    {}
     std::vector<std::shared_ptr<layer>> layers;
 
-    network& operator<<(layer* l)
-    {
-        layers.push_back(std::shared_ptr<layer>(l));
+    network() : layer(1, 1) {}
+
+    network& operator<<(layer* l) { return *this << std::shared_ptr<layer>(l); }
+    network& operator<<(std::shared_ptr<layer> l) {
+        layers.push_back(std::move(l));
         in_channels_ = layers.front()->in_channels_;
         out_channels_ = layers.back()->out_channels_;
         return *this;
     }
-    network& operator<<(std::shared_ptr<layer> l)
-    {
-        layers.push_back(l);
-        in_channels_ = layers.front()->in_channels_;
-        out_channels_ = layers.back()->out_channels_;
-        return *this;
-    }
-    std::vector<std::pair<float*,size_t>> parameters() override
-    {
-        std::vector<std::pair<float*,size_t>> param;
-        for(auto& each_layer : layers)
-        {
-            auto new_params = each_layer->parameters();
-            param.insert(param.end(),new_params.begin(),new_params.end());
+
+    std::vector<std::pair<float*, size_t>> parameters() override {
+        std::vector<std::pair<float*, size_t>> param;
+        for (auto& l : layers) {
+            auto p = l->parameters();
+            param.insert(param.end(), p.begin(), p.end());
         }
         return param;
     }
-    void init_image(tipl::shape<3>& dim_) override
-    {
+
+    void init_image(tipl::shape<3>& dim_) override {
         dim = dim_;
-        for(auto& each_layer : layers)
-            each_layer->init_image(dim_);
+        for (auto& l : layers) l->init_image(dim_);
     }
-    float* forward(float* in) override
-    {
-        for(auto& each_layer : layers)
-            in = each_layer->forward(in);
+
+    float* forward(float* in) override {
+        for (auto& l : layers) in = l->forward(in);
         return in;
     }
-    void print(std::ostream& out) const override
-    {
-        for(auto& each_layer : layers)
-            each_layer->print(out);
-    }
-    size_t out_size() const override
-    {
-        return layers.back()->out_size();
-    }
+
+    void print(std::ostream& os) const override { for (auto& l : layers) l->print(os); }
+    size_t out_size() const override { return layers.back()->out_size(); }
 };
 
-template<typename prog_type = void>
+
+enum class unet_version { standard, deep_supervision };
+template<typename prog_type = void,unet_version Version = unet_version::standard>
 class unet3d : public network {
-    std::deque<std::shared_ptr<network> > encoding,decoding,up;
+    std::deque<std::shared_ptr<network>> encoding, decoding, up;
     std::shared_ptr<layer> output;
-private:
-    std::shared_ptr<layer> add_layer(layer* l)
-    {
-        std::shared_ptr<layer> new_layer(l);
-        layers.push_back(new_layer);
-        return new_layer;
+    std::vector<std::vector<float>> skip_buffers;
+
+    std::shared_ptr<layer> add_layer(layer* l) {
+        layers.emplace_back(l);
+        return layers.back();
     }
+
+    void add_conv_block(network& n, const std::vector<int>& rhs, size_t ks) {
+        int count = 0;
+        for (int next_c : rhs) {
+            if (count) {
+                if constexpr (Version == unet_version::standard) {
+                    n << add_layer(new conv_3d<activation_type::leaky_relu>(count, next_c, ks))
+                      << add_layer(new instance_norm_3d<activation_type::none>(next_c));
+                } else {
+                    n << add_layer(new conv_3d<activation_type::none>(count, next_c, ks))
+                      << add_layer(new instance_norm_3d<activation_type::leaky_relu>(next_c));
+                }
+            }
+            count = next_c;
+        }
+    }
+
 public:
     prog_type* prog = nullptr;
-    unet3d(const std::vector<std::vector<int> >& features_down,
-           const std::vector<std::vector<int> >& features_up,
-           const std::vector<int>& kernel_size,
-            int in_channels_v,int out_channels_v)
-    {
-        in_channels_ = in_channels_v;
-        for(int level=0; level< features_down.size(); level++)
-        {
-            std::shared_ptr<network> n_en(new network);
-            if(level)
-                *n_en.get() << add_layer(new max_pool_3d(features_down[level][0]));
-            add_conv_block(*n_en.get(),features_down[level],kernel_size[level]);
-            encoding.push_back(n_en);
-        }
-        for(int level=features_down.size()-2; level>=0; level--)
-        {
-            std::shared_ptr<network> n_up(new network),n_de(new network);
-            *n_up.get() << add_layer(new upsample_3d(features_up[level+1].back()));
-            add_conv_block(*n_up.get(),{features_up[level+1].back(),features_down[level].back()},kernel_size[level]);
-            add_conv_block(*n_de.get(),features_up[level],kernel_size[level]);
 
-            up.push_front(n_up);
-            decoding.push_front(n_de);
+    unet3d(const std::vector<std::vector<int>>& f_down, const std::vector<std::vector<int>>& f_up,
+           const std::vector<int>& ks, int in_c, int out_c) {
+        in_channels_ = in_c;
+        out_channels_ = out_c;
+
+        for (size_t i = 0; i < f_down.size(); ++i) {
+            auto n_en = std::make_shared<network>();
+            if (i > 0) *n_en << add_layer(new max_pool_3d(f_down[i][0]));
+            add_conv_block(*n_en, f_down[i], ks[i]);
+            encoding.push_back(std::move(n_en));
         }
-        output = add_layer(new conv_3d<activation_type::none>(features_up[0].back(), out_channels_v, 1));
-        out_channels_ = out_channels_v;
-    }
-    void add_conv_block(network& n,const std::vector<int>& rhs,size_t ks)
-    {
-        int count = 0;
-        for(auto next_count : rhs)
-        {
-            if(count)
-            {
-                n << add_layer(new conv_3d<activation_type::leaky_relu>(count, next_count,ks));
-                n << add_layer(new instance_norm_3d(next_count));
+
+        for (int i = static_cast<int>(f_down.size()) - 2; i >= 0; --i) {
+            auto n_up = std::make_shared<network>(), n_de = std::make_shared<network>();
+            *n_up << add_layer(new upsample_3d(f_up[i+1].back()));
+            add_conv_block(*n_up, {f_up[i+1].back(), f_down[i].back()}, ks[i]);
+            add_conv_block(*n_de, f_up[i], ks[i]);
+            up.push_front(std::move(n_up));
+            decoding.push_front(std::move(n_de));
+
+            if constexpr (Version == unet_version::deep_supervision) {
+                // Absorb the intermediate deep supervision head from PyTorch so
+                // parameters() stays perfectly aligned with the file sequence.
+                auto ds_head = add_layer(new conv_3d<activation_type::none>(f_up[i].back(), out_c, 1));
+                // Only use the final, shallowest head for actual C++ inference
+                if (i == 0) output = ds_head;
             }
-            count = next_count;
+        }
+
+        if constexpr (Version == unet_version::standard) {
+            output = add_layer(new conv_3d<activation_type::none>(f_up[0].back(), out_c, 1));
         }
     }
-    virtual void init_image(tipl::shape<3>& dim_)
-    {
+
+    void init_image(tipl::shape<3>& dim_) override {
         dim = dim_;
-        for(int level=0; level< encoding.size(); level++)
-            encoding[level]->init_image(dim_);
+        if constexpr (Version == unet_version::deep_supervision) {
+            skip_buffers.resize(encoding.size() - 1);
+        }
 
-        for(int level=encoding.size()-2; level>=0; level--)
-        {
-            up[level]->init_image(dim_);
-            // create space for concatenation
-            {
-                auto conv = dynamic_cast<conv_3d<activation_type::leaky_relu>*>(encoding[level]->layers[encoding[level]->layers.size()-2].get());
-                conv->out.resize(up[level]->out_size()+encoding[level]->out_size());
+        for (size_t i = 0; i < encoding.size(); ++i) encoding[i]->init_image(dim_);
+
+        for (int i = static_cast<int>(encoding.size()) - 2; i >= 0; --i) {
+            up[i]->init_image(dim_);
+
+            if constexpr (Version == unet_version::standard) {
+                auto conv = dynamic_cast<conv_3d<activation_type::leaky_relu>*>(encoding[i]->layers[encoding[i]->layers.size()-2].get());
+                if (conv) conv->out.resize(up[i]->out_size() + encoding[i]->out_size());
+            } else {
+                skip_buffers[i].resize(up[i]->out_size() + encoding[i]->out_size());
             }
-            decoding[level]->init_image(dim_);
+            decoding[i]->init_image(dim_);
         }
         output->init_image(dim_);
     }
-    virtual float* forward(float* in)
-    {
+
+    float* forward(float* in) override {
         std::vector<float*> buf;
-        for(int level=0; level < encoding.size(); level++)
-        {
+        int n_levels = static_cast<int>(encoding.size());
+
+        for (int i = 0; i < n_levels; ++i) {
             if constexpr (!std::is_void_v<prog_type>) {
-                if(prog && !(*prog)(int(level),int(encoding.size()*2)))
-                    return nullptr;
+                if (prog && !(*prog)(i, n_levels * 2)) return nullptr;
             }
-            buf.push_back(in = encoding[level]->forward(in));
+            buf.push_back(in = encoding[i]->forward(in));
         }
-        for(int level=encoding.size()-2; level>=0; level--)
-        {
+
+        for (int i = n_levels - 2; i >= 0; --i) {
             if constexpr (!std::is_void_v<prog_type>) {
-                if(prog && !(*prog)(int(encoding.size()*2)-level,int(encoding.size()*2+1)))
-                    return nullptr;
+                if (prog && !(*prog)(n_levels * 2 - i, n_levels * 2 + 1)) return nullptr;
             }
             buf.pop_back();
-            auto in2 = up[level]->forward(in);
-            std::copy_n(in2,up[level]->out_size(),buf.back()+encoding[level]->out_size());
-            in=decoding[level]->forward(buf.back());
+
+            float* encoder_skip = buf.back();
+            float* decoder_up = up[i]->forward(in);
+
+            if constexpr (Version == unet_version::standard) {
+                std::copy_n(decoder_up, up[i]->out_size(), encoder_skip + encoding[i]->out_size());
+                in = decoding[i]->forward(encoder_skip);
+            } else {
+                float* concat_ptr = skip_buffers[i].data();
+                std::copy_n(encoder_skip, encoding[i]->out_size(), concat_ptr);
+                std::copy_n(decoder_up, up[i]->out_size(), concat_ptr + encoding[i]->out_size());
+                in = decoding[i]->forward(concat_ptr);
+            }
         }
         return output->forward(in);
     }
 };
 
-}//ml
-}//tipl
+} // namespace ml3d
+} // namespace tipl
 
-#endif//CNN3D_HPP
+#endif // CNN3D_HPP
