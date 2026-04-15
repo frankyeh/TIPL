@@ -52,7 +52,9 @@ inline void preproc_actions(tipl::image<3>& images,
                                 int(float(image_dim[2])*image_vs[2]/target_vs[2])));
 
     tipl::image<3> target_images(target_dim.multiply(tipl::shape<3>::z,in_channel));
-    trans = tipl::transformation_matrix<float,3>(tipl::affine_param<float>(),target_dim,target_vs,image_dim,image_vs);
+    tipl::affine_param<float> arg;
+    arg.translocation[2] = (image_dim[2]*image_vs[2]-target_dim[2]*target_vs[2])*0.5f; //align top
+    trans = tipl::transformation_matrix<float,3>(arg,target_dim,target_vs,image_dim,image_vs);
 
     for(int c = 0;c < in_channel;++c)
     {
@@ -263,7 +265,19 @@ public:
                                         dim,vs,trans,match_resolution,match_fov);
         if(dim != input_image.shape())
             return false;
-        //unet->prog = &prog;
+
+
+        if (deep_supervision)
+        {
+            if (auto* p = dynamic_cast<unet3d<tipl::progress, unet_version::deep_supervision>*>(unet.get()))
+                p->prog = &prog;
+        }
+        else
+        {
+            if (auto* p = dynamic_cast<unet3d<tipl::progress>*>(unet.get()))
+                p->prog = &prog;
+        }
+
         auto ptr = unet->forward(input_image.data());
         if(ptr == nullptr)
             return false;
