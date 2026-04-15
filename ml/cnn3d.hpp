@@ -312,6 +312,7 @@ public:
 
 class network : public layer {
 public:
+    std::function<bool(void)> prog = nullptr;
     std::vector<std::shared_ptr<layer>> layers;
     network() : layer(1, 1) {}
     std::vector<std::pair<float*, size_t>> parameters() override {
@@ -345,7 +346,11 @@ public:
     }
 
     float* forward(float* in) override {
-        for (auto& l : layers) in = l->forward(in);
+        for (auto& l : layers)
+        {
+            if (prog && !prog()) return nullptr;
+            in = l->forward(in);
+        }
         return in;
     }
 
@@ -354,7 +359,7 @@ public:
 
 
 enum class unet_version { standard, deep_supervision };
-template<typename prog_type = void, unet_version Version = unet_version::standard>
+template<unet_version Version>
 class unet3d : public network {
     std::deque<std::vector<std::shared_ptr<layer>>> encoding, decoding, up;
     std::shared_ptr<layer> output;
@@ -383,8 +388,6 @@ class unet3d : public network {
     }
 
 public:
-    prog_type* prog = nullptr;
-
     unet3d(const std::vector<std::vector<int>>& f_down, const std::vector<std::vector<int>>& f_up,
            const std::vector<int>& ks, int in_c, int out_c) {
         in_channels_ = in_c;
@@ -428,16 +431,13 @@ public:
         int n_levels = static_cast<int>(encoding.size());
 
         for (int i = 0; i < n_levels; ++i) {
-            if constexpr (!std::is_void_v<prog_type>) {
-                if (prog && !(*prog)(i, n_levels * 2)) return nullptr;
-            }
+            if (prog && !prog()) return nullptr;
+
             buf.push_back(in = forward_block(encoding[i], in));
         }
 
         for (int i = n_levels - 2; i >= 0; --i) {
-            if constexpr (!std::is_void_v<prog_type>) {
-                if (prog && !(*prog)(n_levels * 2 - i, n_levels * 2 + 1)) return nullptr;
-            }
+            if (prog && !prog()) return nullptr;
             buf.pop_back();
             float* encoder_skip = buf.back();
             float* decoder_up = forward_block(up[i], in);
