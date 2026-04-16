@@ -27,7 +27,7 @@ inline auto round_up_size(const tipl::shape<3>& s)
 }
 
 template<typename image_type>
-inline void preproc_actions(image_type& images,
+void preproc_actions(image_type& images,
                             const tipl::shape<3>& image_dim,
                             const tipl::vector<3>& image_vs,
                             const tipl::shape<3>& model_dim,
@@ -272,10 +272,7 @@ public:
         tipl::transformation_matrix<float,3> trans;
         tipl::shape<3> input_dim(input_image.shape());
         tipl::segmentation::normalize_otsu_median(input_image);
-        tipl::ml3d::preproc_actions(input_image,input_dim,image_vs,
-                                        dim,vs,trans,match_resolution,match_fov);
-        if(dim != input_image.shape())
-            return false;
+
 
         unet->prog = [&](void){return prog(0,4);};
         const float* ptr = nullptr;
@@ -283,6 +280,8 @@ public:
         if constexpr(tipl::use_cuda)
         {
             tipl::device_image<3,float> I = input_image;
+            tipl::ml3d::preproc_actions(I,input_dim,image_vs,
+                                            dim,vs,trans,match_resolution,match_fov);
             auto gpu_ptr = unet->forward(I.data());
             if (gpu_ptr == nullptr) return false;
             buffer.resize(unet->dim.size()*unet->out_channels_);
@@ -290,7 +289,11 @@ public:
             cu_copy_d2h<float,float>(buffer.data(),gpu_ptr,buffer.size());
         }
         else
+        {
+            tipl::ml3d::preproc_actions(input_image,input_dim,image_vs,
+                                            dim,vs,trans,match_resolution,match_fov);
             ptr = unet->forward(input_image.data());
+        }
         if(ptr == nullptr)
             return false;
         prog(1,4);
@@ -330,6 +333,18 @@ public:
     }
 };
 
+#ifdef __CUDACC__
+template void preproc_actions<tipl::device_image<3,float>>(
+    tipl::device_image<3,float>& images,
+    const tipl::shape<3>& image_dim,
+    const tipl::vector<3>& image_vs,
+    const tipl::shape<3>& model_dim,
+    const tipl::vector<3>& model_vs,
+    tipl::transformation_matrix<float, 3>& trans,
+    bool match_resolution,
+    bool match_fov
+);
+#endif
 
 }//ml3d
 }//tipl
