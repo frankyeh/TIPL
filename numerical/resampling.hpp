@@ -77,10 +77,6 @@ void thumb(const image<2,PixelType>& from,image<2,PixelType>& to)
     unsigned int tmp_rr_16;
     bool rr_buffer;
 
-    //std::vector<unsigned int> rbuffer_16(PixelAdapter<PixelType>::max);
-    //for (unsigned int index = 0;index < PixelAdapter<PixelType>::max;++index)
-    //    rbuffer_16[index] = rr_16*index;
-
     unsigned int next_from_y_16 = height_r_16;
     unsigned int next_to_y_16 = value_16;
     unsigned int from_y = 0;
@@ -393,7 +389,7 @@ void upsampling(const ImageType1& in,ImageType2& out)
     out.resize(new_geo);
     typename ImageType2::iterator end_iter =
             upsampling_x(in.begin(),in.begin()+geo.size(),out.begin(),geo.width());
-    
+
     size_t plane_size = new_geo[0];
     for(int dim = 1;dim < ImageType1::dimension;++dim)
     {
@@ -605,22 +601,7 @@ __INLINE__ void downsample_with_padding_imp(const pixel_index<T::dimension>& pos
         out[pos1.index()] = out_value/buf_count;
 }
 
-#ifdef __CUDACC__
-
-
-template<typename T,typename U,typename V>
-__global__ void downsample_with_padding_cuda_kernel(T in,U out,V shift)
-{
-    using value_type = typename T::value_type;
-    TIPL_FOR(index,out.size())
-    {
-        downsample_with_padding_imp(pixel_index<T::dimension>(index,out.shape()),in,out,shift);
-    }
-}
-
-#endif
-
-template<typename T,typename U>
+template<typename T,typename U, std::enable_if_t<memory_location<T>::at != CUDA, int> = 0>
 void downsample_with_padding(const T& in,U& out)
 {
     shape<T::dimension> out_shape(((v(in.shape())+1)/2).begin());
@@ -640,25 +621,56 @@ void downsample_with_padding(const T& in,U& out)
         shift[7] = in.plane_size()+1+in.width();
     }
 
-    if constexpr(memory_location<T>::at == CUDA)
+    par_for(tipl::begin_index(out_shape),tipl::end_index(out_shape),[&]
+            (const auto& pos1)
     {
-        #ifdef __CUDACC__
-        device_vector<size_t> shift_(shift.begin(),shift.end());
-        TIPL_RUN(downsample_with_padding_cuda_kernel,out.size())
-                (tipl::make_shared(in),tipl::make_shared(out),tipl::make_shared(shift_));
-        #endif
-    }
-    else
-    {
-        par_for(tipl::begin_index(out_shape),tipl::end_index(out_shape),[&]
-                (const auto& pos1)
-        {
-            downsample_with_padding_imp(pos1,in,out,shift);
-        });
-    }
-    out.resize(out_shape);
+        downsample_with_padding_imp(pos1,in,out,shift);
+    });
 
+    out.resize(out_shape);
 }
+
+#ifdef __CUDACC__
+
+template<typename T,typename U,typename V>
+__global__ void downsample_with_padding_cuda_kernel(T in,U out,V shift)
+{
+    using value_type = typename T::value_type;
+    TIPL_FOR(index,out.size())
+    {
+        downsample_with_padding_imp(pixel_index<T::dimension>(index,out.shape()),in,out,shift);
+    }
+}
+
+template<typename T,typename U, std::enable_if_t<memory_location<T>::at == CUDA, int> = 0>
+void downsample_with_padding(const T& in,U& out)
+{
+    shape<T::dimension> out_shape(((v(in.shape())+1)/2).begin());
+    if(out.size() < out_shape.size())
+        out.resize(out_shape);
+
+    std::vector<size_t> shift(T::dimension == 3 ? 8 : 4);
+    shift[0] = 0;
+    shift[1] = 1;
+    shift[2] = in.width();
+    shift[3] = 1+in.width();
+    if constexpr(T::dimension == 3)
+    {
+        shift[4] = in.plane_size();
+        shift[5] = in.plane_size()+1;
+        shift[6] = in.plane_size()+in.width();
+        shift[7] = in.plane_size()+1+in.width();
+    }
+
+    device_vector<size_t> shift_(shift.begin(),shift.end());
+    TIPL_RUN(downsample_with_padding_cuda_kernel,out.size())
+            (tipl::make_shared(in),tipl::make_shared(out),tipl::make_shared(shift_));
+
+    out.resize(out_shape);
+}
+
+#endif // __CUDACC__
+
 
 template<typename ImageType>
 void downsampling(ImageType& in)
@@ -674,8 +686,74 @@ void downsample_with_padding(ImageType& in)
     in.swap(out);
 }
 
-#ifdef __CUDACC__
+template<typename T, typename U, typename V>
+void downsample_label_imp(const pixel_index<T::dimension>& pos1,
+                          T& in, U& out, V& shift)
+{
+    constexpr int buf_count = (T::dimension == 3 ? 8 : 4);
+    using value_type = typename T::value_type;
+    pixel_index<T::dimension> pos2((v(pos1)*2).begin(), in.shape());
 
+    char has = 0;
+    if(pos2[0]+1 < in.width()) has += 1;
+    if(pos2[1]+1 < in.height()) has += 2;
+    if constexpr(T::dimension == 3)
+        if(pos2[2]+1 < in.depth()) has += 4;
+
+    value_type b[8];
+    for(int i = 0; i < buf_count; ++i)
+    {
+        auto h = has & i;
+        b[i] = (h == i) ? in[pos2.index() + shift[i]] : in[pos2.index()];
+    }
+
+    value_type winner = b[0];
+    int max_c = 0;
+    for(int i = 0; i < buf_count; ++i)
+    {
+        if (max_c > (buf_count - i)) break;
+
+        int c = 1;
+        for(int j = i + 1; j < buf_count; ++j)
+            if(b[i] == b[j]) ++c;
+
+        if(c > max_c) {
+            max_c = c;
+            winner = b[i];
+        }
+    }
+    out[pos1.index()] = winner;
+}
+
+template<typename T, typename U, std::enable_if_t<memory_location<T>::at != CUDA, int> = 0>
+void downsample_label(const T& in, U& out)
+{
+    shape<T::dimension> out_shape(((v(in.shape())+1)/2).begin());
+    if(out.size() < out_shape.size())
+        out.resize(out_shape);
+
+    size_t shift_data[8];
+    shift_data[0] = 0;
+    shift_data[1] = 1;
+    shift_data[2] = in.width();
+    shift_data[3] = 1 + in.width();
+    if constexpr(T::dimension == 3)
+    {
+        shift_data[4] = in.plane_size();
+        shift_data[5] = in.plane_size() + 1;
+        shift_data[6] = in.plane_size() + in.width();
+        shift_data[7] = in.plane_size() + 1 + in.width();
+    }
+
+    par_for(tipl::begin_index(out_shape), tipl::end_index(out_shape), [&](const auto& pos1)
+    {
+        downsample_label_imp(pos1, in, out, shift_data);
+    });
+
+    out.resize(out_shape);
+}
+
+#ifdef __CUDACC__
 template<typename T, typename U, typename V>
 __global__ void downsample_label_cuda_kernel(T in, U out, V shift)
 {
@@ -724,48 +802,8 @@ __global__ void downsample_label_cuda_kernel(T in, U out, V shift)
         out[pos1.index()] = labels[max_idx];
     }
 }
-#endif
 
-template<typename T, typename U, typename V>
-void downsample_label_imp(const pixel_index<T::dimension>& pos1,
-                          T& in, U& out, V& shift)
-{
-    constexpr int buf_count = (T::dimension == 3 ? 8 : 4);
-    using value_type = typename T::value_type;
-    pixel_index<T::dimension> pos2((v(pos1)*2).begin(), in.shape());
-
-    char has = 0;
-    if(pos2[0]+1 < in.width()) has += 1;
-    if(pos2[1]+1 < in.height()) has += 2;
-    if constexpr(T::dimension == 3)
-        if(pos2[2]+1 < in.depth()) has += 4;
-
-    value_type b[8];
-    for(int i = 0; i < buf_count; ++i)
-    {
-        auto h = has & i;
-        b[i] = (h == i) ? in[pos2.index() + shift[i]] : in[pos2.index()];
-    }
-
-    value_type winner = b[0];
-    int max_c = 0;
-    for(int i = 0; i < buf_count; ++i)
-    {
-        if (max_c > (buf_count - i)) break;
-
-        int c = 1;
-        for(int j = i + 1; j < buf_count; ++j)
-            if(b[i] == b[j]) ++c;
-
-        if(c > max_c) {
-            max_c = c;
-            winner = b[i];
-        }
-    }
-    out[pos1.index()] = winner;
-}
-
-template<typename T, typename U>
+template<typename T, typename U, std::enable_if_t<memory_location<T>::at == CUDA, int> = 0>
 void downsample_label(const T& in, U& out)
 {
     shape<T::dimension> out_shape(((v(in.shape())+1)/2).begin());
@@ -785,25 +823,17 @@ void downsample_label(const T& in, U& out)
         shift_data[7] = in.plane_size() + 1 + in.width();
     }
 
-    if constexpr(memory_location<T>::at == CUDA)
-    {
-#ifdef __CUDACC__
-        tipl::device_vector<size_t> d_shift(T::dimension == 3 ? 8 : 4);
-        std::copy(shift_data, shift_data + (T::dimension == 3 ? 8 : 4), d_shift.begin());
+    tipl::device_vector<size_t> d_shift(T::dimension == 3 ? 8 : 4);
+    std::copy(shift_data, shift_data + (T::dimension == 3 ? 8 : 4), d_shift.begin());
 
-        TIPL_RUN(downsample_label_cuda_kernel, out.size())
-                (tipl::make_shared(in), tipl::make_shared(out), tipl::make_shared(d_shift));
-#endif
-    }
-    else
-    {
-        par_for(tipl::begin_index(out_shape), tipl::end_index(out_shape), [&](const auto& pos1)
-        {
-            downsample_label_imp(pos1, in, out, shift_data);
-        });
-    }
+    TIPL_RUN(downsample_label_cuda_kernel, out.size())
+            (tipl::make_shared(in), tipl::make_shared(out), tipl::make_shared(d_shift));
+
     out.resize(out_shape);
 }
+
+#endif // __CUDACC__
+
 
 template<typename ImageType>
 void downsample_label(ImageType& in)
@@ -811,6 +841,18 @@ void downsample_label(ImageType& in)
     ImageType out;
     downsample_label(in, out);
     in.swap(out);
+}
+
+template<interpolation type = linear,typename T, std::enable_if_t<memory_location<T>::at != CUDA, int> = 0>
+void upsample_with_padding(const T& in,T& out)
+{
+    par_for(begin_index(out.shape()),end_index(out.shape()),[&]
+            (const pixel_index<T::dimension>& pos)
+    {
+        vector<T::dimension> v(pos);
+        v *= 0.5f;
+        estimate<type>(in,v,out[pos.index()]);
+    });
 }
 
 #ifdef __CUDACC__
@@ -824,29 +866,15 @@ __global__ void upsample_with_padding_cuda_kernel(T1 from,T2 to)
             to[index]);
     }
 }
-#endif
-template<interpolation type = linear,typename T>
+
+template<interpolation type = linear,typename T, std::enable_if_t<memory_location<T>::at == CUDA, int> = 0>
 void upsample_with_padding(const T& in,T& out)
 {
-    if constexpr(memory_location<T>::at == CUDA)
-    {
-        #ifdef __CUDACC__
-        TIPL_RUN(upsample_with_padding_cuda_kernel<linear>,out.size())
-                (tipl::make_shared(in),tipl::make_shared(out));
-        #endif
-    }
-    else
-    {
-        par_for(begin_index(out.shape()),end_index(out.shape()),[&]
-                (const pixel_index<T::dimension>& pos)
-        {
-            vector<T::dimension> v(pos);
-            v *= 0.5f;
-            estimate<type>(in,v,out[pos.index()]);
-        });
-    }
-
+    TIPL_RUN(upsample_with_padding_cuda_kernel<type>,out.size())
+            (tipl::make_shared(in),tipl::make_shared(out));
 }
+#endif // __CUDACC__
+
 
 template<interpolation type = linear,typename T>
 void upsample_with_padding(T& in,const shape<T::dimension>& geo)
@@ -893,24 +921,25 @@ OutputIterator upsampling_label_y(IteratorType from, IteratorType to, OutputIter
     return result;
 }
 
-template<typename ImageType1, typename ImageType2>
-void upsample_label_cpu(const ImageType1& in, ImageType2& out)
+template<typename T, std::enable_if_t<memory_location<T>::at != CUDA, int> = 0>
+void upsample_label(const T& in, T& out)
 {
-    shape<ImageType1::dimension> geo(in.shape());
-    shape<ImageType1::dimension> new_geo(in.shape());
-    for(int dim = 0; dim < ImageType1::dimension; ++dim)
+    shape<T::dimension> geo(in.shape());
+    shape<T::dimension> new_geo(in.shape());
+    for(int dim = 0; dim < T::dimension; ++dim)
         new_geo[dim] <<= 1;
     out.resize(new_geo);
 
     auto end_iter = upsampling_label_x(in.begin(), in.begin() + geo.size(), out.begin(), geo.width());
 
     size_t current_width = new_geo[0];
-    for(int dim = 1; dim < ImageType1::dimension; ++dim)
+    for(int dim = 1; dim < T::dimension; ++dim)
     {
         end_iter = upsampling_label_y(out.begin(), end_iter, out.begin(), current_width, geo[dim]);
         current_width *= new_geo[dim];
     }
 }
+
 
 #ifdef __CUDACC__
 template<typename T1, typename T2>
@@ -926,28 +955,18 @@ __global__ void upsample_label_cuda_kernel(T1 from, T2 to)
         to[index] = from[pos_from.index()];
     }
 }
-#endif
 
-template<typename T>
+template<typename T, std::enable_if_t<memory_location<T>::at == CUDA, int> = 0>
 void upsample_label(const T& in, T& out)
 {
-    if constexpr(memory_location<T>::at == CUDA)
-    {
-        #ifdef __CUDACC__
-        shape<T::dimension> new_geo(in.shape());
-        for(int i = 0; i < T::dimension; ++i) new_geo[i] <<= 1;
-        out.resize(new_geo);
+    shape<T::dimension> new_geo(in.shape());
+    for(int i = 0; i < T::dimension; ++i) new_geo[i] <<= 1;
+    out.resize(new_geo);
 
-        TIPL_RUN(upsample_label_cuda_kernel, out.size())
-                (tipl::make_shared(in), tipl::make_shared(out));
-        #endif
-    }
-    else
-    {
-        upsample_label_cpu(in, out);
-    }
+    TIPL_RUN(upsample_label_cuda_kernel, out.size())
+            (tipl::make_shared(in), tipl::make_shared(out));
 }
-
+#endif // __CUDACC__
 
 template<typename T>
 void upsample_label(T& in)
@@ -1199,7 +1218,53 @@ void scale(const ImageType1& from,ImageType2&& to,const tipl::vector<ImageType1:
         estimate<Type>(from,pos,to[index.index()]);
     });
 }
-//---------------------------------------------------------------------------
+
+template<tipl::interpolation itype = linear,
+         typename T,typename U,typename V,
+         typename std::enable_if<memory_location<T>::at != CUDA && !std::is_same_v<std::decay_t<U>,shape<T::dimension> >,bool>::type = true>
+void resample(const T& from,U&& to,const tipl::transformation_matrix<V,T::dimension>& trans)
+{
+    bool is_simple_crop = true;
+    for(int i = 0;i < T::dimension;++i)
+    {
+        if(trans.shift[i] != std::floor(trans.shift[i]))
+        {
+            is_simple_crop = false;
+            break;
+        }
+        for(int j = 0;j < T::dimension;++j)
+        {
+            if(trans.sr[i*T::dimension+j] != (i == j ? 1 : 0))
+            {
+                is_simple_crop = false;
+                break;
+            }
+        }
+        if(!is_simple_crop)
+            break;
+    }
+
+    if(is_simple_crop)
+    {
+        tipl::vector<T::dimension,int> from_pos,to_pos;
+        for(int i = 0;i < T::dimension;++i)
+        {
+            from_pos[i] = int(trans.shift[i]);
+            to_pos[i] = from_pos[i] + int(to.shape()[i]);
+        }
+        crop(from,to,from_pos,to_pos);
+        return;
+    }
+
+    tipl::par_for(tipl::begin_index(to.shape()),tipl::end_index(to.shape()),
+                [&](const auto& index)
+    {
+        tipl::vector<T::dimension> pos;
+        trans(index,pos);
+        estimate<itype>(from,pos,to[index.index()]);
+    });
+}
+
 #ifdef __CUDACC__
 template<tipl::interpolation itype,typename T1,typename T2,typename U>
 __global__ void resample_cuda_kernel(T1 from,T2 to,U trans)
@@ -1212,65 +1277,18 @@ __global__ void resample_cuda_kernel(T1 from,T2 to,U trans)
         tipl::estimate<itype>(from,v,to[index]);
     }
 }
-#endif
 
 template<tipl::interpolation itype = linear,
          typename T,typename U,typename V,
-         typename std::enable_if<!std::is_same_v<std::decay_t<U>,shape<T::dimension> >,bool>::type = true>
+         typename std::enable_if<memory_location<T>::at == CUDA && !std::is_same_v<std::decay_t<U>,shape<T::dimension> >,bool>::type = true>
 void resample(const T& from,U&& to,const tipl::transformation_matrix<V,T::dimension>& trans)
 {
-    if constexpr(memory_location<T>::at == CUDA)
-    {
-        #ifdef __CUDACC__
-        TIPL_RUN_STREAM(resample_cuda_kernel<itype>,to.size(),nullptr)
-                (tipl::make_shared(from),tipl::make_shared(to),trans);
-        if(cudaPeekAtLastError() != cudaSuccess)
-            throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
-        #endif
-    }
-    else
-    {
-        bool is_simple_crop = true;
-        for(int i = 0;i < T::dimension;++i)
-        {
-            if(trans.shift[i] != std::floor(trans.shift[i]))
-            {
-                is_simple_crop = false;
-                break;
-            }
-            for(int j = 0;j < T::dimension;++j)
-            {
-                if(trans.sr[i*T::dimension+j] != (i == j ? 1 : 0))
-                {
-                    is_simple_crop = false;
-                    break;
-                }
-            }
-            if(!is_simple_crop)
-                break;
-        }
-
-        if(is_simple_crop)
-        {
-            tipl::vector<T::dimension,int> from_pos,to_pos;
-            for(int i = 0;i < T::dimension;++i)
-            {
-                from_pos[i] = int(trans.shift[i]);
-                to_pos[i] = from_pos[i] + int(to.shape()[i]);
-            }
-            crop(from,to,from_pos,to_pos);
-            return;
-        }
-
-        tipl::par_for(tipl::begin_index(to.shape()),tipl::end_index(to.shape()),
-                    [&](const auto& index)
-        {
-            tipl::vector<T::dimension> pos;
-            trans(index,pos);
-            estimate<itype>(from,pos,to[index.index()]);
-        });
-    }
+    TIPL_RUN_STREAM(resample_cuda_kernel<itype>,to.size(),nullptr)
+            (tipl::make_shared(from),tipl::make_shared(to),trans);
+    if(cudaPeekAtLastError() != cudaSuccess)
+        throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
 }
+#endif // __CUDACC__
 
 template<tipl::interpolation itype = linear,typename T,typename U,typename V,
          typename std::enable_if<!std::is_same_v<std::decay_t<U>,shape<T::dimension> >,bool>::type = true>
@@ -1311,7 +1329,39 @@ void resample(ImageType& from,const tipl::transformation_matrix<value_type,Image
         estimate<Type>(from,pos,I[index.index()]);
     }
 }
-//---------------------------------------------------------------------------
+
+template<tipl::interpolation itype = linear,typename T1,typename T2,
+         typename std::enable_if<T1::dimension==3 && memory_location<T1>::at != CUDA,bool>::type = true>
+void scale(const T1& source_image,T2& des_image)
+{
+    double dx = double(source_image.width()-1)/double(des_image.width()-1);
+    double dy = double(source_image.height()-1)/double(des_image.height()-1);
+    double dz = double(source_image.depth()-1)/double(des_image.depth()-1);
+
+    double maxx = source_image.width()-1;
+    double maxy = source_image.height()-1;
+    double maxz = source_image.depth()-1;
+    double coord[3]={0.0,0.0,0.0};
+    for (unsigned int z = 0,index = 0;z < des_image.depth();++z,coord[2] += dz)
+    {
+        if (coord[2] > maxz)
+            coord[2] = maxz;
+        coord[1] = 0.0;
+        for (unsigned int y = 0;y < des_image.height();++y,coord[1] += dy)
+        {
+            if (coord[1] > maxy)
+                coord[1] = maxy;
+            coord[0] = 0.0;
+            for (unsigned int x = 0;x < des_image.width();++x,++index,coord[0] += dx)
+            {
+                if (coord[0] > maxx)
+                    coord[0] = maxx;
+                tipl::estimate<itype>(source_image,coord,des_image[index]);
+            }
+        }
+    }
+}
+
 #ifdef __CUDACC__
 template<tipl::interpolation itype,typename T1,typename T2>
 __global__ void scale_cuda_kernel(T1 from,T2 to,double dx,double dy,double dz)
@@ -1326,47 +1376,19 @@ __global__ void scale_cuda_kernel(T1 from,T2 to,double dx,double dy,double dz)
         tipl::estimate<itype>(from,v,to[index]);
     }
 }
-#endif
-template<tipl::interpolation itype = linear,typename T1,typename T2,typename std::enable_if<T1::dimension==3,bool>::type = true>
+
+template<tipl::interpolation itype = linear,typename T1,typename T2,
+         typename std::enable_if<T1::dimension==3 && memory_location<T1>::at == CUDA,bool>::type = true>
 void scale(const T1& source_image,T2& des_image)
 {
     double dx = double(source_image.width()-1)/double(des_image.width()-1);
     double dy = double(source_image.height()-1)/double(des_image.height()-1);
     double dz = double(source_image.depth()-1)/double(des_image.depth()-1);
-    if constexpr(memory_location<T1>::at == CUDA)
-    {
-        #ifdef __CUDACC__
-        TIPL_RUN(scale_cuda_kernel<itype>,des_image.size())
-                (tipl::make_shared(source_image),tipl::make_shared(des_image),dx,dy,dz);
-        #endif
-    }
-    else
-    {
-        double maxx = source_image.width()-1;
-        double maxy = source_image.height()-1;
-        double maxz = source_image.depth()-1;
-        double coord[3]={0.0,0.0,0.0};
-        for (unsigned int z = 0,index = 0;z < des_image.depth();++z,coord[2] += dz)
-        {
-            if (coord[2] > maxz)
-                coord[2] = maxz;
-            coord[1] = 0.0;
-            for (unsigned int y = 0;y < des_image.height();++y,coord[1] += dy)
-            {
-                if (coord[1] > maxy)
-                    coord[1] = maxy;
-                coord[0] = 0.0;
-                for (unsigned int x = 0;x < des_image.width();++x,++index,coord[0] += dx)
-                {
-                    if (coord[0] > maxx)
-                        coord[0] = maxx;
-                    tipl::estimate<itype>(source_image,coord,des_image[index]);
-                }
-            }
-        }
-    }
 
+    TIPL_RUN(scale_cuda_kernel<itype>,des_image.size())
+            (tipl::make_shared(source_image),tipl::make_shared(des_image),dx,dy,dz);
 }
+#endif // __CUDACC__
 
 template<tipl::interpolation Type = linear,typename T1,typename T2,typename std::enable_if<T1::dimension==2,bool>::type = true>
 void scale(const T1& source_image,T2& des_image)
@@ -1404,7 +1426,6 @@ void scale(const T1& source_image,T2& des_image,const T3& ratio)
     T.sr[8] = 1.0/double(ratio[2]);
     resample<Type>(source_image,des_image,T);
 }
-
 
 }
 #endif
