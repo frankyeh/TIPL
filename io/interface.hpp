@@ -2,11 +2,16 @@
 #define IMAGE_IO_INTERFACE_HPP
 #include <fstream>
 
+
 namespace tipl
 {
 
 namespace io
 {
+
+template<typename T> struct is_tuple : std::false_type {};
+template<typename... Ts> struct is_tuple<std::tuple<Ts...>> : std::true_type {};
+
 
 template<typename prog_type,typename stream_type,typename ptr_type>
 bool read_stream_with_prog(prog_type&& prog,
