@@ -13,146 +13,6 @@ namespace tipl
 {
 
 
-template<typename vtype>
-class pointer_container
-{
-public:
-    using value_type        = vtype;
-    using iterator          = vtype*;
-    using const_iterator    = const vtype*;
-    using reference         = vtype&;
-    using const_reference   = const vtype&;
-protected:
-    iterator bg = nullptr;
-    size_t sz = 0;
-public:
-    pointer_container(void){}
-    template<typename any_iterator_type>
-    pointer_container(any_iterator_type bg_,any_iterator_type ed_):
-        bg(bg_),sz(ed_-bg_){}
-    template<typename any_container_type>
-    pointer_container(any_container_type& rhs){operator=(rhs);}
-    template<typename any_container_type>
-    pointer_container& operator=(any_container_type& rhs)
-    {
-        sz = rhs.size();
-        if (sz)
-            bg = rhs.data();
-        return *this;
-    }
-public:
-    pointer_container(const pointer_container& rhs):bg(rhs.bg),sz(rhs.sz){}
-    pointer_container& operator=(const pointer_container& rhs)
-    {
-        if (this == &rhs)
-            return *this;
-        bg = rhs.bg;
-        sz = rhs.sz;
-        return *this;
-    }
-public:
-    template<typename index_type>
-    __INLINE__ const_reference operator[](index_type index) const    {return bg[index];}
-    __INLINE__ const_iterator begin(void)                   const    {return bg;}
-    const_iterator end(void)                     const    {return bg+sz;}
-    const_iterator data(void)                     const    {return bg;}
-public:
-    template<typename index_type>
-    __INLINE__ reference operator[](index_type index)                {return bg[index];}
-    __INLINE__ iterator begin(void)                                  {return bg;}
-    iterator end(void)                                    {return bg+sz;}
-    iterator data(void)                                    {return bg;}
-public:
-    __INLINE__ size_t size(void)                            const    {return sz;}
-    bool empty(void)                             const    {return sz == 0;}
-    void clear(void)                                      {bg = nullptr;sz = 0;}
-public:
-    void swap(pointer_container& rhs)
-    {
-        iterator temp_bg = rhs.bg;
-        size_t temp_sz = rhs.sz;
-        rhs.bg = bg;
-        rhs.sz = sz;
-        bg = temp_bg;
-        sz = temp_sz;
-    }
-    void resize(size_t new_size)                          {sz = new_size;}
-};
-
-
-
-template<typename vtype>
-class const_pointer_container
-{
-public:
-    using value_type        = vtype;
-    using iterator          = const vtype*;
-    using const_iterator    = const vtype*;
-    using reference         = const vtype&;
-    using const_reference   = const vtype&;
-protected:
-    iterator bg = nullptr;
-    size_t sz = 0;
-public:
-    const_pointer_container(void){}
-    template<typename any_iterator_type>
-    const_pointer_container(any_iterator_type bg_,any_iterator_type ed_):
-        bg(bg_),sz(ed_-bg_){}
-public:
-    template<typename any_container_type>
-    const_pointer_container(const any_container_type& rhs){operator=(rhs);}
-    template<typename any_container_type>
-    const_pointer_container& operator=(const any_container_type& rhs)
-    {
-        sz = rhs.size();
-        if (sz)
-            bg = rhs.data();
-        return *this;
-    }
-public:
-    const_pointer_container(const const_pointer_container& rhs):bg(rhs.bg),sz(rhs.sz){}
-    const_pointer_container& operator=(const const_pointer_container& rhs)
-    {
-        if (this == &rhs)
-            return *this;
-        bg = rhs.bg;
-        sz = rhs.sz;
-        return *this;
-    }
-public:
-    const_pointer_container(const pointer_container<value_type>& rhs):bg(rhs.begin()),sz(rhs.sz){}
-    const_pointer_container& operator=(const pointer_container<value_type>& rhs)
-    {
-        bg = rhs.begin();
-        sz = rhs.sz;
-        return *this;
-    }
-public:
-    template<typename index_type>
-    __INLINE__ const_reference operator[](index_type index) const    {return bg[index];}
-    __INLINE__ const_iterator begin(void)                   const    {return bg;}
-    __INLINE__ const_iterator end(void)                     const    {return bg+sz;}
-    const_iterator data(void)                     const    {return bg;}
-public:
-    template<typename index_type>
-    __INLINE__ reference operator[](index_type index)                {return bg[index];}
-    iterator begin(void)                                  {return bg;}
-    iterator end(void)                                    {return bg+sz;}
-    iterator data(void)                                    {return bg;}
-public:
-    __INLINE__ size_t size(void)                            const    {return sz;}
-    bool empty(void)                             const    {return sz == 0;}
-public:
-    void swap(const_pointer_container& rhs)
-    {
-        iterator temp_bg = rhs.bg;
-        size_t temp_sz = rhs.sz;
-        rhs.bg = bg;
-        rhs.sz = sz;
-        bg = temp_bg;
-        sz = temp_sz;
-    }
-};
 
 template<typename vtype>
 class buffer_container
@@ -231,6 +91,7 @@ public:
     iterator data(void)                                   {return beg;}
 public:
     auto& buf(void) {return buffer;}
+    const auto& buf(void) const {return buffer;}
 public:
     __INLINE__ size_t size(void)                            const    {return sz;}
     bool empty(void)                             const    {return buffer.empty();}
@@ -253,17 +114,23 @@ public:
     }
 };
 
+
+
+template<typename value_type,typename shape_type>
+auto make_image(value_type* pointer,const shape_type& sp);
+
+template<typename value_type,typename shape_type>
+auto make_image(const value_type* pointer,const shape_type& sp);
+
 template <int dim,typename vtype = float,template <typename...> typename stype = std::vector>
 class image
-{
+{    
 public:
     using value_type        = vtype;
     using storage_type      = stype<vtype>;
     using iterator          = typename storage_type::iterator;
     using const_iterator    = typename storage_type::const_iterator ;
     using reference         = typename storage_type::reference ;
-    using slice_type        = tipl::image<dim-1,value_type,pointer_container> ;
-    using const_slice_type  = tipl::image<dim-1,value_type,const_pointer_container>;
     using shape_type        = tipl::shape<dim>;
     using buffer_type       = image<dim,vtype,stype>;
     static constexpr int dimension = dim;
@@ -373,39 +240,30 @@ public:
     auto slice_at(unsigned int pos)
     {
         tipl::shape<dim-1> slice_sp(sp.begin());
-        if constexpr(std::is_same<storage_type,const_pointer_container<vtype> >::value)
-            return const_slice_type(alloc.data()+pos*slice_sp.size(),slice_sp);
-        else
-            return slice_type(alloc.data()+pos*slice_sp.size(),slice_sp);
+        return make_image(alloc.data()+pos*slice_sp.size(),slice_sp);
     }
     auto slice_at(unsigned int pos) const
     {
         tipl::shape<dim-1> slice_sp(sp.begin());
-        return const_slice_type(alloc.data()+pos*slice_sp.size(),slice_sp);
+        return make_image(alloc.data()+pos*slice_sp.size(),slice_sp);
     }
     template<typename shape_type>
     auto alias(size_t offset,const shape_type& new_shape)
     {
-        if constexpr(std::is_same<storage_type,const_pointer_container<vtype> >::value)
-            return tipl::image<shape_type::dimension,value_type,const_pointer_container>(alloc.data()+offset,new_shape);
-        else
-            return tipl::image<shape_type::dimension,value_type,pointer_container>(alloc.data()+offset,new_shape);
+        return make_image(alloc.data()+offset,new_shape);
     }
     template<typename shape_type>
     auto alias(size_t offset,const shape_type& new_shape) const
     {
-        return tipl::image<shape_type::dimension,value_type,const_pointer_container>(alloc.data()+offset,new_shape);
+        return make_image(alloc.data()+offset,new_shape);
     }
     auto alias(void)
     {
-        if constexpr(std::is_same<storage_type,const_pointer_container<vtype> >::value)
-            return tipl::image<dim,value_type,const_pointer_container>(alloc.data(),sp);
-        else
-            return tipl::image<dim,value_type,pointer_container>(alloc.data(),sp);
+        return make_image(alloc.data(),sp);
     }
     auto alias(void) const
     {
-        return tipl::image<dim,value_type,const_pointer_container>(alloc.data(),sp);
+        return make_image(alloc.data(),sp);
     }
 public:
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
@@ -476,6 +334,150 @@ inline V extract_pointer(T* p){return V(p);}
 template<typename V,typename T>
 inline V extract_pointer(T p){return V(&*p);}
 
+
+
+template<typename vtype>
+class pointer_container
+{
+public:
+    using value_type        = vtype;
+    using iterator          = vtype*;
+    using const_iterator    = const vtype*;
+    using reference         = vtype&;
+    using const_reference   = const vtype&;
+protected:
+    iterator bg = nullptr;
+    size_t sz = 0;
+public:
+    pointer_container(void){}
+    template<typename any_iterator_type>
+    pointer_container(any_iterator_type bg_,any_iterator_type ed_):
+        bg(bg_),sz(ed_-bg_){}
+    template<typename any_container_type>
+    pointer_container(any_container_type& rhs){operator=(rhs);}
+    template<typename any_container_type>
+    __INLINE__ pointer_container& operator=(any_container_type& rhs)
+    {
+        sz = rhs.size();
+        if (sz)
+            bg = rhs.data();
+        return *this;
+    }
+public:
+    pointer_container(const pointer_container& rhs):bg(rhs.bg),sz(rhs.sz){}
+    pointer_container& operator=(const pointer_container& rhs)
+    {
+        if (this == &rhs)
+            return *this;
+        bg = rhs.bg;
+        sz = rhs.sz;
+        return *this;
+    }
+public:
+    template<typename index_type>
+    __INLINE__ const_reference operator[](index_type index) const    {return bg[index];}
+    __INLINE__ const_iterator begin(void)                   const    {return bg;}
+    __INLINE__ const_iterator end(void)                     const    {return bg+sz;}
+    __INLINE__ const_iterator data(void)                     const    {return bg;}
+public:
+    template<typename index_type>
+    __INLINE__ reference operator[](index_type index)                {return bg[index];}
+    __INLINE__ iterator begin(void)                                  {return bg;}
+    __INLINE__ iterator end(void)                                    {return bg+sz;}
+    __INLINE__ iterator data(void)                                    {return bg;}
+public:
+    __INLINE__ size_t size(void)                            const    {return sz;}
+    __INLINE__ bool empty(void)                             const    {return sz == 0;}
+    __INLINE__ void clear(void)                                      {bg = nullptr;sz = 0;}
+public:
+    __INLINE__ void swap(pointer_container& rhs)
+    {
+        iterator temp_bg = rhs.bg;
+        size_t temp_sz = rhs.sz;
+        rhs.bg = bg;
+        rhs.sz = sz;
+        bg = temp_bg;
+        sz = temp_sz;
+    }
+    __INLINE__ void resize(size_t new_size)                          {sz = new_size;}
+};
+
+
+
+template<typename vtype>
+class const_pointer_container
+{
+public:
+    using value_type        = vtype;
+    using iterator          = const vtype*;
+    using const_iterator    = const vtype*;
+    using reference         = const vtype&;
+    using const_reference   = const vtype&;
+protected:
+    iterator bg = nullptr;
+    size_t sz = 0;
+public:
+    const_pointer_container(void){}
+    template<typename any_iterator_type>
+    const_pointer_container(any_iterator_type bg_,any_iterator_type ed_):
+        bg(bg_),sz(ed_-bg_){}
+public:
+    template<typename any_container_type>
+    const_pointer_container(const any_container_type& rhs){operator=(rhs);}
+    template<typename any_container_type>
+    __INLINE__ const_pointer_container& operator=(const any_container_type& rhs)
+    {
+        sz = rhs.size();
+        if (sz)
+            bg = rhs.data();
+        return *this;
+    }
+public:
+    const_pointer_container(const const_pointer_container& rhs):bg(rhs.bg),sz(rhs.sz){}
+    __INLINE__ const_pointer_container& operator=(const const_pointer_container& rhs)
+    {
+        if (this == &rhs)
+            return *this;
+        bg = rhs.bg;
+        sz = rhs.sz;
+        return *this;
+    }
+public:
+    const_pointer_container(const pointer_container<value_type>& rhs):bg(rhs.begin()),sz(rhs.sz){}
+    __INLINE__ const_pointer_container& operator=(const pointer_container<value_type>& rhs)
+    {
+        bg = rhs.begin();
+        sz = rhs.sz;
+        return *this;
+    }
+public:
+    template<typename index_type>
+    __INLINE__ const_reference operator[](index_type index) const    {return bg[index];}
+    __INLINE__ const_iterator begin(void)                   const    {return bg;}
+    __INLINE__ const_iterator end(void)                     const    {return bg+sz;}
+    __INLINE__ const_iterator data(void)                     const    {return bg;}
+public:
+    template<typename index_type>
+    __INLINE__ reference operator[](index_type index)                {return bg[index];}
+    __INLINE__ iterator begin(void)                                  {return bg;}
+    __INLINE__ iterator end(void)                                    {return bg+sz;}
+    __INLINE__ iterator data(void)                                    {return bg;}
+public:
+    __INLINE__ size_t size(void)                            const    {return sz;}
+    __INLINE__ bool empty(void)                             const    {return sz == 0;}
+public:
+    __INLINE__ void swap(const_pointer_container& rhs)
+    {
+        iterator temp_bg = rhs.bg;
+        size_t temp_sz = rhs.sz;
+        rhs.bg = bg;
+        rhs.sz = sz;
+        bg = temp_bg;
+        sz = temp_sz;
+    }
+};
+
+
 template<int dim,typename vtype = float>
 class pointer_image : public image<dim,vtype,pointer_container>
 {
@@ -540,19 +542,6 @@ public:
 
 };
 
-
-template<typename T>
-inline auto make_shared(T& I)
-{
-    return pointer_image<T::dimension,typename T::value_type>(I);
-}
-template<typename T>
-inline auto make_shared(const T& I)
-{
-    return const_pointer_image<T::dimension,typename T::value_type>(I);
-}
-
-
 template<typename value_type,typename shape_type>
 inline auto make_image(value_type* pointer,const shape_type& sp)
 {
@@ -565,11 +554,16 @@ inline auto make_image(const value_type* pointer,const shape_type& sp)
     return const_pointer_image<shape_type::dimension,value_type>(pointer,sp);
 }
 
-template<typename T> struct is_tuple : std::false_type {};
-template<typename... Ts> struct is_tuple<std::tuple<Ts...>> : std::true_type {};
-template<typename T> struct is_image : std::false_type {};
-template<int dim, typename vtype, template<typename...> class stype>
-struct is_image<tipl::image<dim,vtype,stype>> : std::true_type {};
+template<typename T, std::enable_if_t<memory_location<T>::at == CPU, int> = 0>
+inline auto make_shared(T& I)
+{
+    return pointer_image<T::dimension,typename T::value_type>(I);
+}
+template<typename T, std::enable_if_t<memory_location<T>::at == CPU, int> = 0>
+inline auto make_shared(const T& I)
+{
+    return const_pointer_image<T::dimension,typename T::value_type>(I);
+}
 
 
 }
