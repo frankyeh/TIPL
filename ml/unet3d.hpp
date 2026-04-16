@@ -14,7 +14,7 @@
 #include "../utility/basic_image.hpp"
 #include "../utility/shape.hpp"
 #include "../reg/linear.hpp"
-
+#include "../cu.hpp"
 
 namespace tipl
 {
@@ -195,6 +195,8 @@ inline auto soft_mask(const T& label)
 
 class tissue_seg{
 public:
+    tipl::device_vector<float> gpu_memory;
+public:
     bool deep_supervision = false;
     std::vector<float> memory;
     std::shared_ptr<network> unet;
@@ -250,6 +252,13 @@ public:
             if(!in.read(name.c_str(), p.first, p.first + p.second))
                 return error_msg = "error reading tensor structure " + name, false;
         }
+
+        if constexpr(tipl::use_cuda)
+        {
+            gpu_memory = memory;
+            auto ptr = gpu_memory.data();
+            unet->allocate(ptr,true /*is gpu*/);
+        }
         return true;
     }
 
@@ -272,7 +281,19 @@ public:
             return false;
 
         unet->prog = [&](void){return prog(0,4);};
-        auto ptr = unet->forward(input_image.data());
+        const float* ptr = nullptr;
+        std::vector<float> buffer;
+        if constexpr(tipl::use_cuda)
+        {
+            tipl::device_image<3,float> I = input_image;
+            auto gpu_ptr = unet->forward(I.data());
+            if (gpu_ptr == nullptr) return false;
+            buffer.resize(unet->dim.size()*unet->out_channels_);
+            ptr = buffer.data();
+            cu_copy_d2h<float,float>(buffer.data(),gpu_ptr,buffer.size());
+        }
+        else
+            ptr = unet->forward(input_image.data());
         if(ptr == nullptr)
             return false;
         prog(1,4);
