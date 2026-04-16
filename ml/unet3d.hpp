@@ -93,7 +93,7 @@ tipl::image<3> defragment4d(image_type& this_image,float prob_threshold)
 
     tipl::par_for(this_image_frames,[&](size_t label)
     {
-        auto I = this_image.alias(dim3d.size()*label,dim3d);
+        auto I = this_image.slice_at(label);
         for(size_t pos = 0;pos < dim3d.size();++pos)
             if(original_sum[pos] != 0.0f)
                 I[pos] *= sum[pos]/original_sum[pos];
@@ -260,9 +260,8 @@ public:
     }
 
 public:
-    template<typename image_type>
-    bool forward(const image_type& raw_image,
-                 const tipl::vector<3>& raw_image_vs,
+    bool forward(tipl::image<3> input_image,
+                 const tipl::vector<3>& image_vs,
                  tipl::image<3,unsigned char>& label,
                  tipl::progress& prog)
     {
@@ -270,9 +269,8 @@ public:
         const bool match_fov = true;
         const float prob_threshold = 0.5f;
         tipl::transformation_matrix<float,3> trans;
-        tipl::image<3> input_image(raw_image);
         tipl::segmentation::normalize_otsu_median(input_image);
-        tipl::ml3d::preproc_actions(input_image,input_image.shape(),raw_image_vs,
+        tipl::ml3d::preproc_actions(input_image,input_image.shape(),image_vs,
                                         dim,vs,trans,match_resolution,match_fov);
         if(dim != input_image.shape())
             return false;
@@ -297,11 +295,11 @@ public:
 
         auto evaluate_output = tipl::make_image(ptr,unet->dim.multiply(tipl::shape<3>::z,unet->out_channels_));
 
-        auto label_prob = postproc_actions(evaluate_output, raw_image.shape(), trans, unet->out_channels_, deep_supervision);
+        auto label_prob = postproc_actions(evaluate_output, input_image.shape(), trans, unet->out_channels_, deep_supervision);
 
         num_tissue_channels = deep_supervision ? (unet->out_channels_ - 1) : unet->out_channels_;
 
-        auto label_prob_4d = tipl::make_image(label_prob.data(), raw_image.shape().expand(num_tissue_channels));
+        auto label_prob_4d = tipl::make_image(label_prob.data(), input_image.shape().expand(num_tissue_channels));
         prog(2,4);
 
         tipl::image<3> fg_prob = tipl::ml3d::defragment4d(label_prob_4d, prob_threshold);
