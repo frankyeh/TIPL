@@ -1,4 +1,3 @@
-//---------------------------------------------------------------------------
 #ifndef NUMERICAL_HPP
 #define NUMERICAL_HPP
 #include <random>
@@ -61,7 +60,7 @@ struct bernoulli{
         return dst(gen) <= p;
     }
 };
-//---------------------------------------------------------------------------
+
 template<typename input_iterator,typename output_iterator>
 inline void gradient(input_iterator src_from,input_iterator src_to,
                      output_iterator dest_from,unsigned int src_shift,unsigned int dest_shift)
@@ -79,7 +78,7 @@ inline void gradient(input_iterator src_from,input_iterator src_to,
     if(dest_shift < src_shift)
         std::fill(dest_from,dest_from+(src_shift-dest_shift),0);
 }
-//---------------------------------------------------------------------------
+
 template<typename PixelImageType,typename VectorImageType>
 inline void gradient(const PixelImageType& src,VectorImageType& dest_,unsigned int src_shift,unsigned int dest_shift)
 {
@@ -87,7 +86,7 @@ inline void gradient(const PixelImageType& src,VectorImageType& dest_,unsigned i
     gradient(src.begin(),src.end(),dest.begin(),src_shift,dest_shift);
     dest.swap(dest_);
 }
-//---------------------------------------------------------------------------
+
 template<typename PixelImageType,typename VectorImageType>
 void gradient(const PixelImageType& src,VectorImageType& dest)
 {
@@ -105,7 +104,7 @@ void gradient(const PixelImageType& src,VectorImageType& dest)
         shift *= src.shape()[index];
     }
 }
-//---------------------------------------------------------------------------
+
 template<typename PixelImageType,typename VectorImageType>
 void gradient_sobel(const PixelImageType& src,VectorImageType& dest)
 {
@@ -123,7 +122,7 @@ void gradient_sobel(const PixelImageType& src,VectorImageType& dest)
         shift *= src.shape()[index];
     }
 }
-//---------------------------------------------------------------------------
+
 template<typename PixelImageType,typename GradientImageType>
 void gradient(const PixelImageType& src,std::vector<GradientImageType>& dest)
 {
@@ -136,7 +135,7 @@ void gradient(const PixelImageType& src,std::vector<GradientImageType>& dest)
         shift *= src.shape()[index];
     }
 }
-//---------------------------------------------------------------------------
+
 template<typename T,typename std::enable_if<T::dimension == 3,bool>::type = true>
 __INLINE__ tipl::vector<3> gradient_at(const T& I,const pixel_index<3>& index)
 {
@@ -145,7 +144,7 @@ __INLINE__ tipl::vector<3> gradient_at(const T& I,const pixel_index<3>& index)
                            index.y()+1 < I.height() && index.y() ? float(I[pos+I.width()]-I[pos-I.width()]) : 0.0f,
                            index.z()+1 < I.depth() && index.z() ? float(I[pos+I.plane_size()]-I[pos-I.plane_size()]) : 0.0f);
 }
-//---------------------------------------------------------------------------
+
 template<typename T,typename std::enable_if<T::dimension == 2,bool>::type = true>
 __INLINE__ tipl::vector<2> gradient_at(const T& I,const pixel_index<2>& index)
 {
@@ -153,29 +152,25 @@ __INLINE__ tipl::vector<2> gradient_at(const T& I,const pixel_index<2>& index)
     return tipl::vector<2>(index.x()+1 < I.width() && index.x() ? float(I[pos+1]-I[pos-1]) : 0.0f,
                            index.y()+1 < I.height() && index.y() ? float(I[pos+I.width()]-I[pos-I.width()]) : 0.0f);
 }
-//---------------------------------------------------------------------------
-// implement -1 0 1
+
 template<typename InputImageType,typename OutputImageType>
 void gradient_2x(const InputImageType& in,OutputImageType& out)
 {
     gradient(in,out,2,1);
 }
-//---------------------------------------------------------------------------
-// implement -1
-//            0
-//            1
+
 template<typename InputImageType,typename OutputImageType>
 void gradient_2y(const InputImageType& in,OutputImageType& out)
 {
     gradient(in,out,in.width() << 1,in.width());
 }
-//---------------------------------------------------------------------------
+
 template<typename InputImageType,typename OutputImageType>
 void gradient_2z(const InputImageType& in,OutputImageType& out)
 {
     gradient(in,out,in.shape().plane_size() << 1,in.shape().plane_size());
 }
-//---------------------------------------------------------------------------
+
 template<typename iterator1,typename iterator2>
 void pdf2cdf(iterator1 lhs_from,iterator1 lhs_to,iterator2 out)
 {
@@ -188,7 +183,7 @@ void pdf2cdf(iterator1 lhs_from,iterator1 lhs_to,iterator2 out)
         prev_out = out;
     }
 }
-//---------------------------------------------------------------------------
+
 template<typename iterator1,typename iterator2>
 void cdf2pdf(iterator1 lhs_from,iterator1 lhs_to,iterator2 out)
 {
@@ -201,7 +196,7 @@ void cdf2pdf(iterator1 lhs_from,iterator1 lhs_to,iterator2 out)
         prev_out = out;
     }
 }
-//---------------------------------------------------------------------------
+
 template<typename iterator>
 auto norm2(iterator lhs_from,iterator lhs_to)
 {
@@ -210,13 +205,13 @@ auto norm2(iterator lhs_from,iterator lhs_to)
         result += (*lhs_from)*(*lhs_from);
     return std::sqrt(result);
 }
-//---------------------------------------------------------------------------
+
 template<typename image_type>
 auto norm2(const image_type& I)
 {
     return norm2(I.begin(),I.end());
 }
-//---------------------------------------------------------------------------
+
 template<typename iterator>
 __INLINE__ void square(iterator lhs_from,iterator lhs_to)
 {
@@ -226,118 +221,96 @@ __INLINE__ void square(iterator lhs_from,iterator lhs_to)
         *lhs_from = tmp*tmp;
     }
 }
-//---------------------------------------------------------------------------
+
 template<typename image_type>
 __INLINE__ void square(image_type& I)
 {
     square(I.begin(),I.end());
 }
-//---------------------------------------------------------------------------
+
 template<typename iterator>
 __INLINE__ void square_root(iterator lhs_from,iterator lhs_to)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from = std::sqrt(*lhs_from);
 }
-//---------------------------------------------------------------------------
+
 template<typename image_type>
 __INLINE__ void square_root(image_type& I)
 {
     square_root(I.begin(),I.end());
 }
-//---------------------------------------------------------------------------
+
 template<typename iterator>
 __INLINE__ void log(iterator lhs_from,iterator lhs_to)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from = std::log(*lhs_from);
 }
-//---------------------------------------------------------------------------
+
 template<typename image_type>
 __INLINE__ void log(image_type& I)
 {
     log(I.begin(),I.end());
 }
-//---------------------------------------------------------------------------
+
 template<typename iterator>
 __INLINE__ void exp(iterator lhs_from,iterator lhs_to)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from = std::exp(*lhs_from);
 }
-//---------------------------------------------------------------------------
+
 template<typename image_type>
 __INLINE__ void exp(image_type& I)
 {
     exp(I.begin(),I.end());
 }
-//---------------------------------------------------------------------------
+
 template<typename iterator>
 __INLINE__ void neg(iterator lhs_from,iterator lhs_to)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from = -*lhs_from;
 }
-//---------------------------------------------------------------------------
+
 template<typename image_type>
 __INLINE__ void neg(image_type& I)
 {
     neg(I.begin(),I.end());
 }
-//---------------------------------------------------------------------------
+
 template<typename iterator>
 __INLINE__ void abs(iterator lhs_from,iterator lhs_to)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from = std::abs(*lhs_from);
 }
-//---------------------------------------------------------------------------
+
 template<typename image_type>
 __INLINE__ void abs(image_type& I)
 {
     abs(I.begin(),I.end());
 }
-//---------------------------------------------------------------------------
+
+// ===========================================================================
+// Operator Functions (Iterators & Pure CPU algorithms)
+// ===========================================================================
+
 template<typename iterator1,typename iterator2>
 __INLINE__ void add(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
     for (; lhs_from != lhs_to; ++lhs_from,++rhs_from)
         *lhs_from += *rhs_from;
 }
-//---------------------------------------------------------------------------
-#ifdef __CUDACC__
-template<typename T,typename U>
-__global__ void add_cuda_kernel(T I,U I2)
-{
-    TIPL_FOR(index,I.size())
-        I[index] += I2[index];
-}
-#endif
-//---------------------------------------------------------------------------
-template<typename T,typename U>
-void add(T& I,const U& I2)
-{
-    if constexpr(memory_location<T>::at == CUDA)
-    {
-        #ifdef __CUDACC__
-        TIPL_RUN(add_cuda_kernel,I.size())
-            (tipl::make_shared(I),tipl::make_shared(I2));
-        #endif
-    }
-    else
-        tipl::par_for<sequential>(I.size(),[&I,&I2](size_t index)
-        {
-            I[index] += I2[index];
-        });
-}
-//---------------------------------------------------------------------------
+
 template<typename iterator1,typename iterator2>
 __INLINE__ void minus(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
     for (; lhs_from != lhs_to; ++lhs_from,++rhs_from)
         *lhs_from -= *rhs_from;
 }
-//---------------------------------------------------------------------------
+
 template<typename image_type1,typename image_type2>
 inline void minus(image_type1& I,const image_type2& I2)
 {
@@ -346,6 +319,7 @@ inline void minus(image_type1& I,const image_type2& I2)
         I[index] -= I2[index];
     });
 }
+
 template<typename iterator1,typename iterator2>
 __INLINE__ void multiply(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
@@ -361,13 +335,14 @@ inline void multiply(image_type1& I,const image_type2& I2)
         I[index] *= I2[index];
     });
 }
+
 template<typename iterator1,typename iterator2>
 __INLINE__ void divide(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
     for (; lhs_from != lhs_to; ++lhs_from,++rhs_from)
         *lhs_from /= *rhs_from;
 }
-//---------------------------------------------------------------------------
+
 template<typename image_type1,typename image_type2>
 inline void divide(image_type1& I,const image_type2& I2)
 {
@@ -376,7 +351,7 @@ inline void divide(image_type1& I,const image_type2& I2)
         I[index] /= I2[index];
     });
 }
-//---------------------------------------------------------------------------
+
 template<typename image_type1,typename image_type2>
 void greater(image_type1& I,const image_type2& I2)
 {
@@ -385,7 +360,7 @@ void greater(image_type1& I,const image_type2& I2)
         I[index] = (I[index] > I2[index] ? 1 : 0);
     });
 }
-//---------------------------------------------------------------------------
+
 template<typename image_type1,typename image_type2>
 inline void lesser(image_type1& I,const image_type2& I2)
 {
@@ -394,7 +369,7 @@ inline void lesser(image_type1& I,const image_type2& I2)
         I[index] = (I[index] < I2[index] ? 1 : 0);
     });
 }
-//---------------------------------------------------------------------------
+
 template<typename image_type1,typename image_type2>
 inline void equal(image_type1& I,const image_type2& I2)
 {
@@ -403,47 +378,21 @@ inline void equal(image_type1& I,const image_type2& I2)
         I[index] = (I[index] == I2[index] ? 1 : 0);
     });
 }
-//---------------------------------------------------------------------------
+
 template<typename iterator1,typename value_type>
 __INLINE__ void add_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from += value;
 }
-//---------------------------------------------------------------------------
-#ifdef __CUDACC__
-template<typename T,typename U>
-__global__ void add_constant_cuda_kernel(T I,U v)
-{
-    TIPL_FOR(index,I.size())
-        I[index] += v;
-}
-#endif
-//---------------------------------------------------------------------------
-template<typename T,typename U>
-void add_constant(T& I,U v)
-{
-    if constexpr(memory_location<T>::at == CUDA)
-    {
-        #ifdef __CUDACC__
-        TIPL_RUN(add_constant_cuda_kernel,I.size())
-            (tipl::make_shared(I),v);
-        #endif
-    }
-    else
-        tipl::par_for<sequential>(I.size(),[&I,v](size_t index)
-        {
-           I[index] += v;
-        });
-}
-//---------------------------------------------------------------------------
+
 template<typename iterator1,typename value_type>
 __INLINE__ void mod_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from %= value;
 }
-//---------------------------------------------------------------------------
+
 template<typename image_type,typename value_type>
 inline void mod_constant(image_type& I,value_type value)
 {
@@ -452,14 +401,14 @@ inline void mod_constant(image_type& I,value_type value)
         I[index] %= value;
     });
 }
-//---------------------------------------------------------------------------
+
 template<typename iterator1,typename value_type>
 __INLINE__ void minus_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from -= value;
 }
-//---------------------------------------------------------------------------
+
 template<typename image_type,typename value_type>
 inline void minus_constant(image_type& I,value_type value)
 {
@@ -468,14 +417,14 @@ inline void minus_constant(image_type& I,value_type value)
         I[index] -= value;
     });
 }
-//---------------------------------------------------------------------------
+
 template<typename iterator1,typename value_type>
 __INLINE__ void minus_by_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from = value - *lhs_from;
 }
-//---------------------------------------------------------------------------
+
 template<typename image_type,typename value_type>
 inline void minus_by_constant(image_type& I,value_type value)
 {
@@ -485,37 +434,11 @@ inline void minus_by_constant(image_type& I,value_type value)
     });
 }
 
-//---------------------------------------------------------------------------
 template<typename iterator1,typename value_type>
 __INLINE__ void multiply_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from *= value;
-}
-//---------------------------------------------------------------------------
-#ifdef __CUDACC__
-template<typename T,typename U>
-__global__ void multiply_constant_cuda_kernel(T I,U v)
-{
-    TIPL_FOR(index,I.size())
-        I[index] *= v;
-}
-#endif
-//---------------------------------------------------------------------------
-template<typename T,typename U>
-void multiply_constant(T& I,U value)
-{
-    if constexpr(memory_location<T>::at == CUDA)
-    {
-        #ifdef __CUDACC__
-        TIPL_RUN(multiply_constant_cuda_kernel,I.size())
-            (tipl::make_shared(I),value);
-        #endif
-    }
-    else
-        tipl::par_for<sequential>(I.size(),[&I,value](size_t index){
-           I[index] *= value;
-        });
 }
 
 template<typename iterator1,typename value_type>
@@ -533,12 +456,14 @@ inline void divide_constant(image_type& I,value_type value)
         I[index] /= value;
     });
 }
+
 template<typename iterator1,typename value_type>
 inline void divide_by_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
     for (; lhs_from != lhs_to; ++lhs_from)
         *lhs_from = value/(*lhs_from);
 }
+
 template<typename image_type,typename value_type>
 inline void divide_by_constant(image_type& I,value_type value)
 {
@@ -547,6 +472,7 @@ inline void divide_by_constant(image_type& I,value_type value)
         I[index] = value/I[index];
     });
 }
+
 template<typename image_type,typename value_type>
 inline void greater_constant(image_type& I,value_type value)
 {
@@ -555,6 +481,7 @@ inline void greater_constant(image_type& I,value_type value)
        I[index] = (I[index] > value ? 1 : 0);
     });
 }
+
 template<typename image_type,typename value_type>
 inline void lesser_constant(image_type& I,value_type value)
 {
@@ -563,6 +490,7 @@ inline void lesser_constant(image_type& I,value_type value)
         I[index] = (I[index] < value ? 1 : 0);
     });
 }
+
 template<typename image_type,typename value_type>
 inline void equal_constant(image_type& I,value_type value)
 {
@@ -571,7 +499,7 @@ inline void equal_constant(image_type& I,value_type value)
         I[index] = (I[index] == value ? 1 : 0);
     });
 }
-// perform x <- x*pow(2,y)
+
 template<typename iterator1,typename iterator2>
 void multiply_pow(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
@@ -606,14 +534,13 @@ void multiply_pow(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
         }
     }
 }
-//---------------------------------------------------------------------------
+
 template<typename image_type1,typename image_type2>
 inline void multiply_pow(image_type1& I,const image_type2& I2)
 {
     multiply_pow(I.begin(),I.end(),I2.begin());
 }
-//---------------------------------------------------------------------------
-// perform x <- x*2^pow
+
 template<typename iterator1,typename value_type>
 void multiply_pow_constant(iterator1 lhs_from,iterator1 lhs_to,value_type pow)
 {
@@ -650,14 +577,13 @@ void multiply_pow_constant(iterator1 lhs_from,iterator1 lhs_to,value_type pow)
         }
     }
 }
-//---------------------------------------------------------------------------
+
 template<typename image_type,typename value_type>
 void multiply_pow_constant(image_type& I,value_type value)
 {
     multiply_pow_constant(I.begin(),I.end(),value);
 }
-//---------------------------------------------------------------------------
-// perform x <- x/pow(2,y)
+
 template<typename iterator1,typename iterator2>
 void divide_pow(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
@@ -692,14 +618,13 @@ void divide_pow(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
         }
     }
 }
-//---------------------------------------------------------------------------
+
 template<typename image_type1,typename image_type2>
 void divide_pow(image_type1& I,const image_type2& I2)
 {
     divide_pow(I.begin(),I.end(),I2.begin());
 }
-//---------------------------------------------------------------------------
-// perform x <- x/2^pow
+
 template<typename iterator1,typename value_type>
 void divide_pow_constant(iterator1 lhs_from,iterator1 lhs_to,value_type pow)
 {
@@ -755,33 +680,6 @@ __INLINE__ auto min_value(input_iterator from,input_iterator to)
     return m;
 }
 
-template<typename T>
-auto min_value(const T& data)
-{
-    if constexpr(memory_location<T>::at == CUDA)
-    {
-        #ifdef __CUDACC__
-            return device_eval(thrust::min_element(thrust::device,data.data(),data.data()+data.size()));
-        #endif
-    }
-    else
-    {
-        if(data.size() < 10000 || max_thread_count < 2)
-            return min_value(data.begin(),data.end());
-
-        std::mutex mutex;
-        auto min_v = data[0];
-        tipl::par_for<ranged>(data.begin(),data.end(),[&](auto beg,auto end)
-        {
-            auto v = min_value(beg,end);
-            std::lock_guard<std::mutex> lock(mutex);
-            if(v < min_v)
-                min_v = v;
-        });
-        return min_v;
-    }
-}
-
 template<typename input_iterator>
 __INLINE__ auto max_value(input_iterator from,input_iterator to)
 {
@@ -793,35 +691,6 @@ __INLINE__ auto max_value(input_iterator from,input_iterator to)
             m = *from;
     return m;
 }
-
-template<typename T>
-auto max_value(const T& data)
-{
-    if constexpr(memory_location<T>::at == CUDA)
-    {
-        #ifdef __CUDACC__
-            return device_eval(thrust::max_element(thrust::device,data.data(),data.data()+data.size()));
-        #endif
-    }
-    else
-    {
-        if(data.size() < 10000 || max_thread_count < 2)
-            return max_value(data.begin(),data.end());
-        std::mutex mutex;
-        auto max_v = data[0];
-
-        tipl::par_for<ranged>(data.begin(),data.end(),[&](auto beg,auto end)
-        {
-            auto v = max_value(beg,end);
-            std::lock_guard<std::mutex> lock(mutex);
-            if(v > max_v)
-                max_v = v;
-        });
-        return max_v;
-    }
-}
-
-
 
 template<typename container_type>
 __INLINE__ typename container_type::value_type max_abs_value(const container_type& image)
@@ -839,7 +708,6 @@ __INLINE__ typename container_type::value_type max_abs_value(const container_typ
     }
     return max_value;
 }
-
 
 template<typename iterator_type,typename value_type>
 __INLINE__ void minmax_value(iterator_type iter,iterator_type end,value_type& minv,value_type& maxv)
@@ -860,47 +728,6 @@ __INLINE__ void minmax_value(iterator_type iter,iterator_type end,value_type& mi
     maxv = max_value;
 }
 
-template<typename T,typename value_type>
-__HOST__
-void minmax_value(const T& data,value_type& minv,value_type& maxv)
-{
-    if(data.empty())
-        return;
-    if constexpr(memory_location<T>::at == CUDA)
-    {
-        #ifdef __CUDACC__
-        auto result = thrust::minmax_element(thrust::device,
-                                     data.data(),data.data()+data.size());
-        minv = device_eval(result.first);
-        maxv = device_eval(result.second);
-        #endif
-    }
-    else
-    {
-        if(data.size() < 10000 || max_thread_count < 2)
-        {
-            minmax_value(data.begin(),data.end(),minv,maxv);
-            return;
-        }
-
-        std::mutex mutex;
-        auto min_v = data[0];
-        auto max_v = data[0];
-        tipl::par_for<ranged>(data.begin(),data.end(),[&](auto beg,auto end)
-        {
-            value_type min_v_(data[0]),max_v_(data[0]);
-            minmax_value(beg,end,min_v_,max_v_);
-            std::lock_guard<std::mutex> lock(mutex);
-            if(min_v_ < min_v)
-                min_v = min_v_;
-            if(max_v_ > max_v)
-                max_v = max_v_;
-        });
-        minv = min_v;
-        maxv = max_v;
-    }
-}
-//---------------------------------------------------------------------------
 template<typename iterator1,typename iterator2>
 __INLINE__ void masking(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
@@ -908,34 +735,7 @@ __INLINE__ void masking(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
         if(*rhs_from)
             *lhs_from = 0;
 }
-//---------------------------------------------------------------------------
-#ifdef __CUDACC__
-template<typename T,typename U>
-__global__ void masking_kernel(T I,U I2)
-{
-    TIPL_FOR(index,I.size())
-        if(I2[index])
-            I[index] = 0;
-}
-#endif
-//---------------------------------------------------------------------------
-template<typename T,typename U>
-void masking(T& I,const U& I2)
-{
-    if constexpr(memory_location<T>::at == CUDA)
-    {
-        #ifdef __CUDACC__
-        TIPL_RUN(masking_kernel,I.size())
-            (tipl::make_shared(I),tipl::make_shared(I2));
-        #endif
-    }
-    else
-        tipl::par_for<sequential>(I.size(),[&I,&I2](size_t index){
-            if(I2[index])
-                I[index] = 0;
-        });
-}
-//---------------------------------------------------------------------------
+
 template<typename iterator1,typename iterator2>
 __INLINE__ void preserve(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
@@ -943,34 +743,7 @@ __INLINE__ void preserve(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
         if(*rhs_from == typename std::iterator_traits<iterator2>::value_type(0))
             *lhs_from = typename std::iterator_traits<iterator1>::value_type(0);
 }
-//---------------------------------------------------------------------------
-#ifdef __CUDACC__
-template<typename T,typename U>
-__global__ void preserve_kernel(T I,U I2)
-{
-    TIPL_FOR(index,I.size())
-        if(!I2[index])
-            I[index] = 0;
-}
-#endif
-//---------------------------------------------------------------------------
-template<typename T,typename U>
-void preserve(T& I,const U& I2)
-{
-    if constexpr(memory_location<T>::at == CUDA)
-    {
-        #ifdef __CUDACC__
-        TIPL_RUN(preserve_kernel,I.size())
-            (tipl::make_shared(I),tipl::make_shared(I2));
-        #endif
-    }
-    else
-        tipl::par_for<sequential>(I.size(),[&I,&I2](size_t index){
-            if(!I2[index])
-                I[index] = 0;
-        });
-}
-//---------------------------------------------------------------------------
+
 template<typename InputIter,typename value_type>
 __INLINE__ void upper_threshold(InputIter from,InputIter to,value_type upper)
 {
@@ -978,41 +751,7 @@ __INLINE__ void upper_threshold(InputIter from,InputIter to,value_type upper)
         if(*from > upper)
             *from = upper;
 }
-//---------------------------------------------------------------------------
-#ifdef __CUDACC__
-template<typename T1,typename U>
-__global__ void upper_threshold_cuda_kernel(T1 I,U v)
-{
-    TIPL_FOR(index,I.size())
-        if(I[index] > v)
-            I[index] = v;
-}
-#endif
-//---------------------------------------------------------------------------
-template<typename T,typename V>
-void upper_threshold(T& I,V value)
-{
-    if constexpr(memory_location<T>::at == CUDA)
-    {
-        #ifdef __CUDACC__
-        TIPL_RUN(upper_threshold_cuda_kernel,I.size())
-            (tipl::make_shared(I),value);
-        #endif
-    }
-    else
-    {
-        if(I.size() < 1000 || max_thread_count < 2)
-        {
-            upper_threshold(I.begin(),I.end(),value);
-            return;
-        }
-        tipl::par_for<ranged>(I.begin(),I.end(),[&](auto beg,auto end)
-        {
-            upper_threshold(beg,end,value);
-        });
-    }
-}
-//---------------------------------------------------------------------------
+
 template<typename InputIter,typename value_type>
 __INLINE__ void lower_threshold(InputIter from,InputIter to,value_type lower)
 {
@@ -1020,41 +759,7 @@ __INLINE__ void lower_threshold(InputIter from,InputIter to,value_type lower)
         if(*from < lower)
             *from = lower;
 }
-//---------------------------------------------------------------------------
-#ifdef __CUDACC__
-template<typename T1,typename U>
-__global__ void lower_threshold_cuda_kernel(T1 I,U v)
-{
-    TIPL_FOR(index,I.size())
-        if(I[index] < v)
-            I[index] = v;
-}
-#endif
-//---------------------------------------------------------------------------
-template<typename T,typename V>
-void lower_threshold(T& I,V value)
-{
-    if constexpr(memory_location<T>::at == CUDA)
-    {
-        #ifdef __CUDACC__
-        TIPL_RUN(lower_threshold_cuda_kernel,I.size())
-            (tipl::make_shared(I),value);
-        #endif
-    }
-    else
-    {
-        if(I.size() < 1000 || max_thread_count < 2)
-        {
-            lower_threshold(I.begin(),I.end(),value);
-            return;
-        }
-        tipl::par_for<ranged>(I.begin(),I.end(),[&](auto beg,auto end)
-        {
-            lower_threshold(beg,end,value);
-        });
-    }
-}
-//---------------------------------------------------------------------------
+
 template<typename T,typename V>
 __INLINE__ void upper_lower_threshold(T from,T to,V lower,V upper)
 {
@@ -1068,7 +773,7 @@ __INLINE__ void upper_lower_threshold(T from,T to,V lower,V upper)
                 *from = lower;
     }
 }
-//---------------------------------------------------------------------------
+
 template<typename T,typename U,typename V>
 __INLINE__ void upper_lower_threshold2(T from,T to,U out,V lower,V upper)
 {
@@ -1080,44 +785,6 @@ __INLINE__ void upper_lower_threshold2(T from,T to,U out,V lower,V upper)
         else
             if(v < lower)
                 *out = lower;
-    }
-}
-//---------------------------------------------------------------------------
-#ifdef __CUDACC__
-template<typename T1,typename U>
-__global__ void upper_lower_threshold_cuda_kernel(T1 I,U lower,U upper)
-{
-    TIPL_FOR(index,I.size())
-    {
-        if(I[index] > upper)
-            I[index] = upper;
-        else
-            if(I[index] < lower)
-                I[index] = lower;
-    }
-}
-#endif
-template<typename T>
-void upper_lower_threshold(T& I,typename T::value_type lower,typename T::value_type upper)
-{
-    if constexpr(memory_location<T>::at == CUDA)
-    {
-        #ifdef __CUDACC__
-        TIPL_RUN(upper_lower_threshold_cuda_kernel,I.size())
-            (tipl::make_shared(I),lower,upper);
-        #endif
-    }
-    else
-    {
-        if(I.size() < 1000 || max_thread_count < 2)
-        {
-            upper_lower_threshold(I.begin(),I.end(),lower,upper);
-            return;
-        }
-        tipl::par_for<ranged>(I.begin(),I.end(),[&](auto beg,auto end)
-        {
-            upper_lower_threshold(beg,end,lower,upper);
-        });
     }
 }
 
@@ -1136,18 +803,178 @@ __INLINE__ void normalize_upper_lower2(InputIter from,InputIter to,OutputIter ou
     for(;from != to;++from,++out)
         *out = (*from-min_v)*upper_limit;
 }
-//---------------------------------------------------------------------------
-#ifdef __CUDACC__
-template<typename T1, typename T2,typename value_type>
-__global__  void normalize_upper_lower2_cuda_kernel(T1 in,T2 out,value_type min,value_type coef)
-{
-    TIPL_FOR(index,in.size())
-        out[index] = value_type(in[index]-min)*coef;
-}
-#endif
-//---------------------------------------------------------------------------
+
+// ===========================================================================
+// Memory-Aware Functions (SFINAE CPU Dispatch)
+// ===========================================================================
+
 template<typename T,typename U>
-__HOST__ void normalize_upper_lower2(const T& in,U& out,float upper_limit)
+inline std::enable_if_t<memory_location<T>::at != CUDA, void>
+add(T& I,const U& I2)
+{
+    tipl::par_for<sequential>(I.size(),[&I,&I2](size_t index)
+    {
+        I[index] += I2[index];
+    });
+}
+
+template<typename T,typename U>
+inline std::enable_if_t<memory_location<T>::at != CUDA, void>
+add_constant(T& I,U v)
+{
+    tipl::par_for<sequential>(I.size(),[&I,v](size_t index)
+    {
+       I[index] += v;
+    });
+}
+
+template<typename T,typename U>
+inline std::enable_if_t<memory_location<T>::at != CUDA, void>
+multiply_constant(T& I,U value)
+{
+    tipl::par_for<sequential>(I.size(),[&I,value](size_t index)
+    {
+       I[index] *= value;
+    });
+}
+
+template<typename T, std::enable_if_t<memory_location<T>::at != CUDA, int> = 0>
+inline auto min_value(const T& data)
+{
+    if(data.size() < 10000 || max_thread_count < 2)
+        return min_value(data.begin(),data.end());
+
+    std::mutex mutex;
+    auto min_v = data[0];
+    tipl::par_for<ranged>(data.begin(),data.end(),[&](auto beg,auto end)
+    {
+        auto v = min_value(beg,end);
+        std::lock_guard<std::mutex> lock(mutex);
+        if(v < min_v)
+            min_v = v;
+    });
+    return min_v;
+}
+
+template<typename T, std::enable_if_t<memory_location<T>::at != CUDA, int> = 0>
+inline auto max_value(const T& data)
+{
+    if(data.size() < 10000 || max_thread_count < 2)
+        return max_value(data.begin(),data.end());
+
+    std::mutex mutex;
+    auto max_v = data[0];
+
+    tipl::par_for<ranged>(data.begin(),data.end(),[&](auto beg,auto end)
+    {
+        auto v = max_value(beg,end);
+        std::lock_guard<std::mutex> lock(mutex);
+        if(v > max_v)
+            max_v = v;
+    });
+    return max_v;
+}
+
+template<typename T,typename value_type>
+inline std::enable_if_t<memory_location<T>::at != CUDA, void>
+minmax_value(const T& data,value_type& minv,value_type& maxv)
+{
+    if(data.empty())
+        return;
+
+    if(data.size() < 10000 || max_thread_count < 2)
+    {
+        minmax_value(data.begin(),data.end(),minv,maxv);
+        return;
+    }
+
+    std::mutex mutex;
+    auto min_v = data[0];
+    auto max_v = data[0];
+    tipl::par_for<ranged>(data.begin(),data.end(),[&](auto beg,auto end)
+    {
+        value_type min_v_(data[0]),max_v_(data[0]);
+        minmax_value(beg,end,min_v_,max_v_);
+        std::lock_guard<std::mutex> lock(mutex);
+        if(min_v_ < min_v)
+            min_v = min_v_;
+        if(max_v_ > max_v)
+            max_v = max_v_;
+    });
+    minv = min_v;
+    maxv = max_v;
+}
+
+template<typename T,typename U>
+inline std::enable_if_t<memory_location<T>::at != CUDA, void>
+masking(T& I,const U& I2)
+{
+    tipl::par_for<sequential>(I.size(),[&I,&I2](size_t index)
+    {
+        if(I2[index])
+            I[index] = 0;
+    });
+}
+
+template<typename T,typename U>
+inline std::enable_if_t<memory_location<T>::at != CUDA, void>
+preserve(T& I,const U& I2)
+{
+    tipl::par_for<sequential>(I.size(),[&I,&I2](size_t index)
+    {
+        if(!I2[index])
+            I[index] = 0;
+    });
+}
+
+template<typename T,typename V>
+inline std::enable_if_t<memory_location<T>::at != CUDA, void>
+upper_threshold(T& I,V value)
+{
+    if(I.size() < 1000 || max_thread_count < 2)
+    {
+        upper_threshold(I.begin(),I.end(),value);
+        return;
+    }
+    tipl::par_for<ranged>(I.begin(),I.end(),[&](auto beg,auto end)
+    {
+        upper_threshold(beg,end,value);
+    });
+}
+
+template<typename T,typename V>
+inline std::enable_if_t<memory_location<T>::at != CUDA, void>
+lower_threshold(T& I,V value)
+{
+    if(I.size() < 1000 || max_thread_count < 2)
+    {
+        lower_threshold(I.begin(),I.end(),value);
+        return;
+    }
+    tipl::par_for<ranged>(I.begin(),I.end(),[&](auto beg,auto end)
+    {
+        lower_threshold(beg,end,value);
+    });
+}
+
+template<typename T>
+inline std::enable_if_t<memory_location<T>::at != CUDA, void>
+upper_lower_threshold(T& I,typename T::value_type lower,typename T::value_type upper)
+{
+    if(I.size() < 1000 || max_thread_count < 2)
+    {
+        upper_lower_threshold(I.begin(),I.end(),lower,upper);
+        return;
+    }
+    tipl::par_for<ranged>(I.begin(),I.end(),[&](auto beg,auto end)
+    {
+        upper_lower_threshold(beg,end,lower,upper);
+    });
+}
+
+template<typename T,typename U>
+inline std::enable_if_t<memory_location<T>::at != CUDA, void>
+normalize_upper_lower2(const T& in,U& out,float upper_limit)
 {
     if(in.empty())
         return;
@@ -1158,21 +985,196 @@ __HOST__ void normalize_upper_lower2(const T& in,U& out,float upper_limit)
         return;
     upper_limit /= range;
     out.resize(in.shape());
-    if constexpr(memory_location<T>::at == CUDA)
+
+    tipl::par_for<sequential>(in.size(),[&](size_t i)
     {
-        #ifdef __CUDACC__
-        TIPL_RUN(normalize_upper_lower2_cuda_kernel,in.size())
-            (tipl::make_shared(in),tipl::make_shared(out),min_v,upper_limit);
-        #endif
-    }
-    else
+        out[i] = (in[i]-min_v)*upper_limit;
+    });
+}
+
+#ifdef __CUDACC__
+
+template<typename T,typename U>
+__global__ void add_cuda_kernel(T I,U I2)
+{
+    TIPL_FOR(index,I.size())
+        I[index] += I2[index];
+}
+
+template<typename T,typename U>
+inline std::enable_if_t<memory_location<T>::at == CUDA, void>
+add(T& I,const U& I2)
+{
+    TIPL_RUN(add_cuda_kernel,I.size())
+        (tipl::make_shared(I),tipl::make_shared(I2));
+}
+
+template<typename T,typename U>
+__global__ void add_constant_cuda_kernel(T I,U v)
+{
+    TIPL_FOR(index,I.size())
+        I[index] += v;
+}
+
+template<typename T,typename U>
+inline std::enable_if_t<memory_location<T>::at == CUDA, void>
+add_constant(T& I,U v)
+{
+    TIPL_RUN(add_constant_cuda_kernel,I.size())
+        (tipl::make_shared(I),v);
+}
+
+template<typename T,typename U>
+__global__ void multiply_constant_cuda_kernel(T I,U v)
+{
+    TIPL_FOR(index,I.size())
+        I[index] *= v;
+}
+
+template<typename T,typename U>
+inline std::enable_if_t<memory_location<T>::at == CUDA, void>
+multiply_constant(T& I,U value)
+{
+    TIPL_RUN(multiply_constant_cuda_kernel,I.size())
+        (tipl::make_shared(I),value);
+}
+
+template<typename T, std::enable_if_t<memory_location<T>::at == CUDA, int> = 0>
+inline auto min_value(const T& data)
+{
+    return device_eval(thrust::min_element(thrust::device,data.data(),data.data()+data.size()));
+}
+
+template<typename T, std::enable_if_t<memory_location<T>::at == CUDA, int> = 0>
+inline auto max_value(const T& data)
+{
+    return device_eval(thrust::max_element(thrust::device,data.data(),data.data()+data.size()));
+}
+
+template<typename T,typename value_type>
+inline std::enable_if_t<memory_location<T>::at == CUDA, void>
+minmax_value(const T& data,value_type& minv,value_type& maxv)
+{
+    if(data.empty())
+        return;
+    auto result = thrust::minmax_element(thrust::device,
+                                 data.data(),data.data()+data.size());
+    minv = device_eval(result.first);
+    maxv = device_eval(result.second);
+}
+
+template<typename T,typename U>
+__global__ void masking_kernel(T I,U I2)
+{
+    TIPL_FOR(index,I.size())
+        if(I2[index])
+            I[index] = 0;
+}
+
+template<typename T,typename U>
+inline std::enable_if_t<memory_location<T>::at == CUDA, void>
+masking(T& I,const U& I2)
+{
+    TIPL_RUN(masking_kernel,I.size())
+        (tipl::make_shared(I),tipl::make_shared(I2));
+}
+
+template<typename T,typename U>
+__global__ void preserve_kernel(T I,U I2)
+{
+    TIPL_FOR(index,I.size())
+        if(!I2[index])
+            I[index] = 0;
+}
+
+template<typename T,typename U>
+inline std::enable_if_t<memory_location<T>::at == CUDA, void>
+preserve(T& I,const U& I2)
+{
+    TIPL_RUN(preserve_kernel,I.size())
+        (tipl::make_shared(I),tipl::make_shared(I2));
+}
+
+template<typename T1,typename U>
+__global__ void upper_threshold_cuda_kernel(T1 I,U v)
+{
+    TIPL_FOR(index,I.size())
+        if(I[index] > v)
+            I[index] = v;
+}
+
+template<typename T,typename V>
+inline std::enable_if_t<memory_location<T>::at == CUDA, void>
+upper_threshold(T& I,V value)
+{
+    TIPL_RUN(upper_threshold_cuda_kernel,I.size())
+        (tipl::make_shared(I),value);
+}
+
+template<typename T1,typename U>
+__global__ void lower_threshold_cuda_kernel(T1 I,U v)
+{
+    TIPL_FOR(index,I.size())
+        if(I[index] < v)
+            I[index] = v;
+}
+
+template<typename T,typename V>
+inline std::enable_if_t<memory_location<T>::at == CUDA, void>
+lower_threshold(T& I,V value)
+{
+    TIPL_RUN(lower_threshold_cuda_kernel,I.size())
+        (tipl::make_shared(I),value);
+}
+
+template<typename T1,typename U>
+__global__ void upper_lower_threshold_cuda_kernel(T1 I,U lower,U upper)
+{
+    TIPL_FOR(index,I.size())
     {
-        tipl::par_for<sequential>(in.size(),[&](size_t i)
-        {
-            out[i] = (in[i]-min_v)*upper_limit;
-        });
+        if(I[index] > upper)
+            I[index] = upper;
+        else
+            if(I[index] < lower)
+                I[index] = lower;
     }
 }
+
+template<typename T>
+inline std::enable_if_t<memory_location<T>::at == CUDA, void>
+upper_lower_threshold(T& I,typename T::value_type lower,typename T::value_type upper)
+{
+    TIPL_RUN(upper_lower_threshold_cuda_kernel,I.size())
+        (tipl::make_shared(I),lower,upper);
+}
+
+template<typename T1, typename T2,typename value_type>
+__global__  void normalize_upper_lower2_cuda_kernel(T1 in,T2 out,value_type min,value_type coef)
+{
+    TIPL_FOR(index,in.size())
+        out[index] = value_type(in[index]-min)*coef;
+}
+
+template<typename T,typename U>
+inline std::enable_if_t<memory_location<T>::at == CUDA, void>
+normalize_upper_lower2(const T& in,U& out,float upper_limit)
+{
+    if(in.empty())
+        return;
+    float min_v(0),max_v(0);
+    minmax_value(in,min_v,max_v);
+    float range = max_v-min_v;
+    if(range == 0.0f)
+        return;
+    upper_limit /= range;
+    out.resize(in.shape());
+
+    TIPL_RUN(normalize_upper_lower2_cuda_kernel,in.size())
+        (tipl::make_shared(in),tipl::make_shared(out),min_v,upper_limit);
+}
+
+#endif
+
 
 template<typename ImageType>
 inline void normalize_upper_lower(ImageType& I,float upper_limit)
@@ -1190,8 +1192,6 @@ void normalize(ImageType& I,float upper_limit = 1.0f)
         multiply_constant(I,upper_limit/m);
 }
 
-
-
 template<typename ImageType>
 void normalize_abs(ImageType& I,float upper_limit = 1.0f)
 {
@@ -1204,7 +1204,6 @@ void normalize_abs(ImageType& I,float upper_limit = 1.0f)
     if(scale != 0)
         multiply_constant(I,upper_limit/scale);
 }
-
 
 template<typename container_type,typename index_type>
 void get_sort_index(const container_type& c,std::vector<index_type>& idx)
