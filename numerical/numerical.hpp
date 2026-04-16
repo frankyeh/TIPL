@@ -1042,13 +1042,13 @@ multiply_constant(T& I,U value)
 template<typename T, std::enable_if_t<memory_location<T>::at == CUDA, int> = 0>
 inline auto min_value(const T& data)
 {
-    return device_eval(thrust::min_element(thrust::device,data.data(),data.data()+data.size()));
+    return cu_eval(thrust::min_element(thrust::device,data.data(),data.data()+data.size()));
 }
 
 template<typename T, std::enable_if_t<memory_location<T>::at == CUDA, int> = 0>
 inline auto max_value(const T& data)
 {
-    return device_eval(thrust::max_element(thrust::device,data.data(),data.data()+data.size()));
+    return cu_eval(thrust::max_element(thrust::device,data.data(),data.data()+data.size()));
 }
 
 template<typename T,typename value_type>
@@ -1059,8 +1059,8 @@ minmax_value(const T& data,value_type& minv,value_type& maxv)
         return;
     auto result = thrust::minmax_element(thrust::device,
                                  data.data(),data.data()+data.size());
-    minv = device_eval(result.first);
-    maxv = device_eval(result.second);
+    minv = cu_eval(result.first);
+    maxv = cu_eval(result.second);
 }
 
 template<typename T,typename U>
