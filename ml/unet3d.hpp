@@ -26,7 +26,8 @@ inline auto round_up_size(const tipl::shape<3>& s)
     return tipl::shape<3>((s[0]+31)&~31,(s[1]+31)&~31,(s[2]+31)&~31);
 }
 
-inline void preproc_actions(tipl::image<3>& images,
+template<typename image_type>
+inline void preproc_actions(image_type& images,
                             const tipl::shape<3>& image_dim,
                             const tipl::vector<3>& image_vs,
                             const tipl::shape<3>& model_dim,
@@ -51,7 +52,7 @@ inline void preproc_actions(tipl::image<3>& images,
                                 int(float(image_dim[1])*image_vs[1]/target_vs[1]),
                                 int(float(image_dim[2])*image_vs[2]/target_vs[2])));
 
-    tipl::image<3> target_images(target_dim.multiply(tipl::shape<3>::z,in_channel));
+    image_type target_images(target_dim.multiply(tipl::shape<3>::z,in_channel));
     tipl::affine_param<float> arg;
     arg.translocation[2] = (image_dim[2]*image_vs[2]-target_dim[2]*target_vs[2])*0.5f; //align top
     trans = tipl::transformation_matrix<float,3>(arg,target_dim,target_vs,image_dim,image_vs);
