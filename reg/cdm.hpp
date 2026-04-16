@@ -106,8 +106,8 @@ cdm_get_gradient(const image_type1& Js,const image_type2& It,dis_type& new_d,uns
 }
 
 #ifdef __CUDACC__
-template<typename T1,typename T2,typename T3>
-__global__ void cdm_get_gradient_r_cuda_kernel(T1 Js,T1 It,T2 new_d,T3 cost_map)
+template<typename T1,typename T2,typename T3,typename T4>
+__global__ void cdm_get_gradient_r_cuda_kernel(T1 Js,T2 It,T3 new_d,T4 cost_map)
 {
     TIPL_FOR(index,Js.size())
     {
@@ -115,8 +115,8 @@ __global__ void cdm_get_gradient_r_cuda_kernel(T1 Js,T1 It,T2 new_d,T3 cost_map)
     }
 }
 
-template<typename T1,typename T2,typename T3>
-__global__ void cdm_get_gradient_d_cuda_kernel(T1 Js,T1 It,T2 new_d,T3 cost_map)
+template<typename T1,typename T2,typename T3,typename T4>
+__global__ void cdm_get_gradient_d_cuda_kernel(T1 Js,T2 It,T3 new_d,T4 cost_map)
 {
     TIPL_FOR(index,Js.size())
     {
@@ -501,9 +501,9 @@ void cdm_cuda(const std::vector<tipl::const_pointer_image<dim,value_type> >& It,
     std::copy(It.begin(),It.end(),dIt.begin());
     std::copy(Is.begin(),Is.end(),dIs.begin());
     for(auto& each : dIt)
-        pIt.push_back(tipl::make_device_shared(each));
+        pIt.push_back(tipl::make_shared(each));
     for(auto& each : dIs)
-        pIs.push_back(tipl::make_device_shared(each));
+        pIs.push_back(tipl::make_shared(each));
 
     try{
         cdm<out_type>(pIt,pIs,dd,terminated,param);
