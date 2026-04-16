@@ -269,8 +269,9 @@ public:
         const bool match_fov = true;
         const float prob_threshold = 0.5f;
         tipl::transformation_matrix<float,3> trans;
+        tipl::shape<3> input_dim(input_image.shape());
         tipl::segmentation::normalize_otsu_median(input_image);
-        tipl::ml3d::preproc_actions(input_image,input_image.shape(),image_vs,
+        tipl::ml3d::preproc_actions(input_image,input_dim,image_vs,
                                         dim,vs,trans,match_resolution,match_fov);
         if(dim != input_image.shape())
             return false;
@@ -295,11 +296,11 @@ public:
 
         auto evaluate_output = tipl::make_image(ptr,unet->dim.multiply(tipl::shape<3>::z,unet->out_channels_));
 
-        auto label_prob = postproc_actions(evaluate_output, input_image.shape(), trans, unet->out_channels_, deep_supervision);
+        auto label_prob = postproc_actions(evaluate_output, input_dim, trans, unet->out_channels_, deep_supervision);
 
         num_tissue_channels = deep_supervision ? (unet->out_channels_ - 1) : unet->out_channels_;
 
-        auto label_prob_4d = tipl::make_image(label_prob.data(), input_image.shape().expand(num_tissue_channels));
+        auto label_prob_4d = tipl::make_image(label_prob.data(), input_dim.expand(num_tissue_channels));
         prog(2,4);
 
         tipl::image<3> fg_prob = tipl::ml3d::defragment4d(label_prob_4d, prob_threshold);
