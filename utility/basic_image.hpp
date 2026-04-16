@@ -116,12 +116,6 @@ public:
 
 
 
-template<typename value_type,typename shape_type>
-auto make_image(value_type* pointer,const shape_type& sp);
-
-template<typename value_type,typename shape_type>
-auto make_image(const value_type* pointer,const shape_type& sp);
-
 template <int dim,typename vtype = float,template <typename...> typename stype = std::vector>
 class image
 {    
@@ -240,30 +234,30 @@ public:
     auto slice_at(unsigned int pos)
     {
         tipl::shape<dim-1> slice_sp(sp.begin());
-        return make_image(alloc.data()+pos*slice_sp.size(),slice_sp);
+        return make_image(alloc,pos*slice_sp.size(),slice_sp);
     }
     auto slice_at(unsigned int pos) const
     {
         tipl::shape<dim-1> slice_sp(sp.begin());
-        return make_image(alloc.data()+pos*slice_sp.size(),slice_sp);
+        return make_image(alloc,pos*slice_sp.size(),slice_sp);
     }
     template<typename shape_type>
     auto alias(size_t offset,const shape_type& new_shape)
     {
-        return make_image(alloc.data()+offset,new_shape);
+        return make_image(alloc,offset,new_shape);
     }
     template<typename shape_type>
     auto alias(size_t offset,const shape_type& new_shape) const
     {
-        return make_image(alloc.data()+offset,new_shape);
+        return make_image(alloc,offset,new_shape);
     }
     auto alias(void)
     {
-        return make_image(alloc.data(),sp);
+        return make_image(alloc,0,sp);
     }
     auto alias(void) const
     {
-        return make_image(alloc.data(),sp);
+        return make_image(alloc,0,sp);
     }
 public:
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
@@ -541,6 +535,25 @@ public:
     }
 
 };
+
+template<typename container_type, typename shape_type,
+         std::enable_if_t<memory_location<container_type>::at == CPU, int> = 0>
+__INLINE__ auto make_image(const container_type& c, size_t offset, const shape_type& sp)
+{
+    return const_pointer_image<shape_type::dimension,typename container_type::value_type>(c.data() + offset, sp);
+}
+
+
+template<typename container_type, typename shape_type,
+         std::enable_if_t<memory_location<container_type>::at == CPU, int> = 0>
+__INLINE__ auto make_image(container_type& c, size_t offset, const shape_type& sp)
+{
+    if constexpr (std::is_const<std::remove_pointer_t<decltype(c.data())>>::value)
+        return make_image(static_cast<const container_type&>(c), offset, sp);
+    else
+        return pointer_image<shape_type::dimension,typename container_type::value_type>(c.data() + offset, sp);
+}
+
 
 template<typename value_type,typename shape_type>
 inline auto make_image(value_type* pointer,const shape_type& sp)
