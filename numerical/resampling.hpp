@@ -1265,6 +1265,12 @@ void resample(const T& from,U&& to,const tipl::transformation_matrix<V,T::dimens
     });
 }
 
+template<tipl::interpolation itype = linear,
+         typename T,typename U,typename V,
+         typename std::enable_if<memory_location<T>::at == CUDA && !std::is_same_v<std::decay_t<U>,shape<T::dimension> >,bool>::type = true>
+void resample(const T& from,U&& to,const tipl::transformation_matrix<V,T::dimension>& trans);
+
+
 #ifdef __CUDACC__
 template<tipl::interpolation itype,typename T1,typename T2,typename U>
 __global__ void resample_cuda_kernel(T1 from,T2 to,U trans)
@@ -1278,9 +1284,9 @@ __global__ void resample_cuda_kernel(T1 from,T2 to,U trans)
     }
 }
 
-template<tipl::interpolation itype = linear,
+template<tipl::interpolation itype,
          typename T,typename U,typename V,
-         typename std::enable_if<memory_location<T>::at == CUDA && !std::is_same_v<std::decay_t<U>,shape<T::dimension> >,bool>::type = true>
+         typename std::enable_if<memory_location<T>::at == CUDA && !std::is_same_v<std::decay_t<U>,shape<T::dimension> >,bool>::type>
 void resample(const T& from,U&& to,const tipl::transformation_matrix<V,T::dimension>& trans)
 {
     TIPL_RUN_STREAM(resample_cuda_kernel<itype>,to.size(),nullptr)
@@ -1290,11 +1296,18 @@ void resample(const T& from,U&& to,const tipl::transformation_matrix<V,T::dimens
 }
 #endif // __CUDACC__
 
-template<tipl::interpolation itype = linear,typename T,typename U,typename V,
-         typename std::enable_if<!std::is_same_v<std::decay_t<U>,shape<T::dimension> >,bool>::type = true>
-inline void resample(const T& from,U&& to,const V& trans)
+
+template <typename T>
+struct is_transformation_matrix : std::false_type {};
+template <typename ValType, int Dim>
+struct is_transformation_matrix<transformation_matrix<ValType, Dim>> : std::true_type {};
+
+template<tipl::interpolation itype = linear, typename T, typename U, typename V,
+         typename std::enable_if<!std::is_same_v<std::decay_t<U>, shape<T::dimension>> &&
+             !tipl::is_transformation_matrix<std::decay_t<V>>::value,bool>::type = true>
+inline void resample(const T& from, U&& to, const V& trans)
 {
-    resample<itype>(from,to,tipl::transformation_matrix<typename V::value_type,T::dimension>(trans));
+    resample<itype>(from, to, tipl::transformation_matrix<typename V::value_type, T::dimension>(trans));
 }
 
 template<tipl::interpolation itype = linear,typename T,typename U>
