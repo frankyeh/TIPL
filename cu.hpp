@@ -207,8 +207,9 @@ class device_vector{
         __INLINE__ void* begin(void)                                        {return buf;}
         __INLINE__ void* end(void)                                          {return buf+s;}
 };
+template<int dim,typename vtype = float>
+using device_image = image<dim,vtype,device_vector>;
 
-// ... (shared_device_vector remains fully header inline because it only manages pointers)
 
 template<typename vtype>
 struct shared_device_vector{
@@ -256,12 +257,6 @@ public:
 
 };
 
-template<typename T>
-__HOST__ auto device_eval(const T* p)
-{
-    if constexpr(tipl::use_cuda) return cu_eval(p);
-    else return *p;
-}
 
 template<typename T>
 __INLINE__ auto make_shared(device_vector<T>& I)
@@ -274,9 +269,6 @@ __INLINE__ const auto make_shared(const device_vector<T>& I)
     return shared_device_vector<T>(I);
 }
 
-// -------------------------------------------------------------------------
-// HOST VECTOR
-// -------------------------------------------------------------------------
 
 template<typename vtype>
 class host_vector{
@@ -403,57 +395,54 @@ class host_vector{
         const_iterator data(void)                       const   {return buf;}
         iterator data(void)                                     {return buf;}
 };
+template<int dim,typename vtype = float>
+using host_image = tipl::image<dim,vtype,host_vector>;
 
-
-template<typename vtype>
-class const_pointer_device_container
-{
-public:
-    using value_type        = vtype;
-    using iterator          = const vtype*;
-    using const_iterator    = const vtype*;
-    using reference         = const vtype&;
-    using const_reference   = const vtype&;
-protected:
-    iterator bg = nullptr;
-    size_t sz = 0;
-public:
-    const_pointer_device_container(void){}
-    const_pointer_device_container(const const_pointer_device_container& rhs):bg(rhs.bg),sz(rhs.sz){}
-    const_pointer_device_container(iterator from,iterator to):bg(from),sz(to-from){}
-    const_pointer_device_container& operator=(const const_pointer_device_container& rhs)
-    {
-        bg = rhs.bg;sz = rhs.sz;
-        return *this;
-    }
-public:
-    __INLINE__ const void* begin(void)                   const    {return bg;}
-    __INLINE__ const void* end(void)                     const    {return bg+sz;}
-    __INLINE__ const_iterator data(void)                     const    {return bg;}
-public:
-    __INLINE__ size_t size(void)                            const    {return sz;}
-    __INLINE__ bool empty(void)                             const    {return sz == 0;}
-    __INLINE__ void clear(void)                             {sz = 0;}
-    __INLINE__ void resize(size_t s)                        {sz = s;}
-
-};
 
 template<int dim,typename vtype = float>
-class const_pointer_device_image : public image<dim,vtype,const_pointer_device_container>
+class pointer_device_image : public image<dim,vtype,pointer_container>
 {
 public:
     using value_type        =   vtype;
-    using base_type         =   image<dim,value_type,const_pointer_device_container>;
+    using base_type         =   image<dim,value_type,pointer_container>;
     using iterator          =   typename base_type::iterator;
     using const_iterator    =   typename base_type::const_iterator;
-    using storage_type      =   typename image<dim,vtype,const_pointer_device_container>::storage_type;
+    using storage_type      =   typename image<dim,vtype,pointer_container>::storage_type;
+    using buffer_type       =   image<dim,vtype,device_vector>;
+    static constexpr int dimension = dim;
+public:
+    pointer_device_image(void) {}
+    pointer_device_image(const pointer_device_image& rhs):base_type(){operator=(rhs);}
+    pointer_device_image(device_image<dim,vtype>& rhs):
+                base_type(reinterpret_cast<vtype*>(rhs.data()),rhs.shape()){}
+public:
+    pointer_device_image& operator=(const pointer_device_image& rhs)
+    {
+        base_type::alloc = rhs.alloc;
+        base_type::sp = rhs.sp;
+        return *this;
+    }
+};
+
+
+template<int dim,typename vtype = float>
+class const_pointer_device_image : public image<dim,vtype,const_pointer_container>
+{
+public:
+    using value_type        =   vtype;
+    using base_type         =   image<dim,value_type,const_pointer_container>;
+    using iterator          =   typename base_type::iterator;
+    using const_iterator    =   typename base_type::const_iterator;
+    using storage_type      =   typename image<dim,vtype,const_pointer_container>::storage_type;
     using buffer_type       =   image<dim,vtype,device_vector>;
     static constexpr int dimension = dim;
 public:
     const_pointer_device_image(void) {}
     const_pointer_device_image(const const_pointer_device_image& rhs):base_type(){operator=(rhs);}
-    const_pointer_device_image(const image<dimension,vtype,device_vector>& rhs):
-                base_type(reinterpret_cast<const vtype*>(rhs.begin()),rhs.shape()){}
+    const_pointer_device_image(const device_image<dim,vtype>& rhs):
+                base_type(reinterpret_cast<const vtype*>(rhs.data()),rhs.shape()){}
+    const_pointer_device_image(const pointer_device_image<dim,vtype>& rhs):
+                base_type(reinterpret_cast<const vtype*>(rhs.data()),rhs.shape()){}
 public:
     const_pointer_device_image& operator=(const const_pointer_device_image& rhs)
     {
@@ -463,32 +452,31 @@ public:
     }
 };
 
-template<int dim,typename vtype = float>
-using device_image = image<dim,vtype,device_vector>;
+
 
 template<int dim,typename vtype>
-__INLINE__ auto make_device_shared(const device_image<dim,vtype>& I)
+__INLINE__ auto make_shared(const device_image<dim,vtype>& I)
 {
-    return const_pointer_device_image<dim,vtype>(I);
+    return const_pointer_device_image(I);
 }
 
-template<int dim,typename vtype = float>
-using host_image = tipl::image<dim,vtype,host_vector>;
-
-
 template<int dim,typename vtype>
-struct memory_location<device_image<dim,vtype> >{
-    static constexpr memory_location_type at = CUDA;
-};
-template<int dim,typename vtype>
-struct memory_location<const_pointer_device_image<dim,vtype> >{
-    static constexpr memory_location_type at = CUDA;
-};
+__INLINE__ auto make_shared(device_image<dim,vtype>& I)
+{
+    return pointer_device_image(I);
+}
+
 
 template<typename vtype>
-struct memory_location<device_vector<vtype> >{
-    static constexpr memory_location_type at = CUDA;
-};
+struct memory_location<device_vector<vtype> >                   {static constexpr memory_location_type at = CUDA;};
+template<typename vtype>
+struct memory_location<shared_device_vector<vtype> >            {static constexpr memory_location_type at = CUDA;};
+template<int dim,typename vtype>
+struct memory_location<device_image<dim,vtype> >                {static constexpr memory_location_type at = CUDA;};
+template<int dim,typename vtype>
+struct memory_location<const_pointer_device_image<dim,vtype> >  {static constexpr memory_location_type at = CUDA;};
+template<int dim,typename vtype>
+struct memory_location<pointer_device_image<dim,vtype> >        {static constexpr memory_location_type at = CUDA;};
 
 
 } //namespace tipl
