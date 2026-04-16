@@ -126,21 +126,23 @@ tipl::image<3> postproc_actions(const U& eval_output,
     if (!has_bg_channel)
         return label_prob;
 
-    size_t single_channel_size = dim_to.size();
-    tipl::par_for(single_channel_size, [&](size_t i)
+    const size_t single_channel_size = dim_to.size();
+    const size_t total_size = label_prob.size();
+    float* const prob_ptr = label_prob.data(); // Use raw pointer for zero overhead
+
+    // [=] capture forces total_size and single_channel_size into thread registers
+    tipl::par_for(single_channel_size, [=](size_t i)
     {
         float sum = 0.0f;
-        for(size_t c = 0; c < model_out_count; ++c) {
-            sum += label_prob[c * single_channel_size + i];
-        }
 
-        // Avoid division by zero in out-of-bounds padded regions
-        if(sum > 0.0f)
+        for(size_t pos = i; pos < total_size; pos += single_channel_size)
+            sum += prob_ptr[pos];
+
+        if(sum > 1e-7f)
         {
-            float inv_sum = 1.0f / sum;
-            for(size_t c = 0; c < model_out_count; ++c) {
-                label_prob[c * single_channel_size + i] *= inv_sum;
-            }
+            const float inv_sum = 1.0f / sum;
+            for(size_t pos = i; pos < total_size; pos += single_channel_size)
+                prob_ptr[pos] *= inv_sum;
         }
     });
 
@@ -149,13 +151,8 @@ tipl::image<3> postproc_actions(const U& eval_output,
     {
         size_t new_total_size = single_channel_size * (model_out_count - 1);
         size_t shift = single_channel_size;
-
-        // Shift memory left by one whole channel size
-        for(size_t i = 0; i < new_total_size; ++i) {
+        for(size_t i = 0; i < new_total_size; ++i)
             label_prob[i] = label_prob[i + shift];
-        }
-
-        // Resize to discard the trailing memory block
         label_prob.resize(dim_to.multiply(tipl::shape<3>::z, model_out_count - 1));
     }
 
