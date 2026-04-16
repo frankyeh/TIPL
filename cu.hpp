@@ -1,10 +1,15 @@
 #ifndef CU_HPP
 #define CU_HPP
+
 #include "utility/basic_image.hpp"
 #include "def.hpp"
 #include <iterator>
 #include <type_traits>
 #include <stdexcept>
+#include <cstring>
+#include <algorithm>
+
+#ifdef __CUDACC__
 #include <thrust/device_vector.h>
 #include <thrust/extrema.h>
 #include <thrust/transform.h>
@@ -12,78 +17,26 @@
 #include <thrust/execution_policy.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
-
-
-
-
-template<typename T>
-__global__ void device_vector_fill(T* buf,size_t size,T v)
-{
-    TIPL_FOR(index,size)
-        buf[index] = v;
-}
+#endif
 
 namespace tipl {
 
+// -------------------------------------------------------------------------
+// DECLARATIONS FOR CUDA API WRAPPERS
+// These tell g++ they exist elsewhere, preventing syntax/linking errors.
+// -------------------------------------------------------------------------
 
-
-template<typename T,typename Fun>
-__global__ void cuda_for_kernel(size_t size,T from,Fun f)
-{
-    TIPL_FOR(index,size)
-        f(from+index);
-}
-
-template <typename T, typename Func, typename std::enable_if<
-              std::is_integral<T>::value ||
-              std::is_class<T>::value, bool>::type = true>
-inline void cuda_for(T from, T to, Func&& f)
-{
-    if(to == from)
-        return;
-
-    size_t size = to - from;
-
-    // CACHE THE OCCUPANCY CALCULATION
-    // Because this function is templated on 'Func', each unique lambda/functor
-    // will generate its own static variable instance. The expensive API call
-    // only runs the very first time a specific kernel is launched.
-    static int optimal_block_size = 0;
-    if (optimal_block_size == 0) {
-        int min_grid_size = 0;
-        cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &optimal_block_size,
-            cuda_for_kernel<T, typename std::decay<Func>::type>, 0, 0);
-    }
-
-    size_t grid_size = (size + optimal_block_size - 1) / optimal_block_size;
-
-    // Assuming TIPL_FOR is a grid-stride loop, capping active blocks prevents
-    // scheduling overhead on massively large arrays.
-    unsigned int active_blocks = std::min<size_t>(grid_size, 32768);
-
-    cuda_for_kernel<<<active_blocks, optimal_block_size>>>(size, from, std::forward<Func>(f));
-
-    if(cudaPeekAtLastError() != cudaSuccess)
-        throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
-}
-
-template <typename T, typename Func, typename std::enable_if<std::is_integral<T>::value, bool>::type = true>
-inline void cuda_for(T size, Func&& f)
-{
-    if(!size)
-        return;
-    // Use std::forward instead of std::move for proper perfect forwarding
-    cuda_for(T(), size, std::forward<Func>(f));
-}
-
-template <typename T, typename Func, typename std::enable_if<std::is_class<T>::value, bool>::type = true>
-inline void cuda_for(T& c, Func&& f)
-{
-    // Use std::forward instead of std::move
-    cuda_for(c.begin(), c.end(), std::forward<Func>(f));
-}
-
-
+template<typename T> void cu_malloc(T** ptr, size_t count);
+template<typename T> void cu_free(T* ptr);
+template<typename T> void cu_malloc_host(T** ptr, size_t count);
+template<typename T> void cu_free_host(T* ptr);
+template<typename Dest, typename Src> void cu_copy_d2d(Dest* dest, const Src* src, size_t count);
+template<typename Dest, typename Src> void cu_copy_h2d(Dest* dest, const Src* src, size_t count);
+template<typename Dest, typename Src> void cu_copy_d2h(Dest* dest, const Src* src, size_t count);
+template<typename Dest, typename Src> void cu_copy_h2h(Dest* dest, const Src* src, size_t count);
+template<typename T> void cu_memset(T* dest, int val, size_t count);
+template<typename T> void cu_fill(T* dest, size_t count, T val);
+template<typename T> T cu_eval(const T* ptr);
 
 template<typename vtype>
 class device_vector{
@@ -99,7 +52,7 @@ class device_vector{
     public:
         device_vector(size_t new_size,bool init = true)                {resize(new_size,init);}
         device_vector(device_vector&& rhs)noexcept                     {swap(rhs);}
-        device_vector(const device_vector& rhs) {copy_from(rhs);}
+        device_vector(const device_vector& rhs)                        {copy_from(rhs);}
         device_vector(void){}
         template<typename T,typename std::enable_if<std::is_class_v<T>,bool>::type = true>
         device_vector(const T& rhs)                                    {copy_from(rhs);}
@@ -120,7 +73,9 @@ class device_vector{
         {
             if(buf)
             {
-                cudaFree(buf);
+                if constexpr (tipl::use_cuda) cu_free(buf);
+                else delete[] buf;
+
                 buf = nullptr;
                 buf_size = 0;
                 s = 0;
@@ -144,13 +99,16 @@ class device_vector{
         void copy_from(const T* from,size_t size)
         {
             resize(size,false);
-            enum cudaMemcpyKind device_host_setting;
-            if constexpr(std::is_same_v<T,void>)
-                device_host_setting = cudaMemcpyDeviceToDevice;
-            else
-                device_host_setting = cudaMemcpyHostToDevice;
-            if(s && cudaMemcpy(buf,from,size*sizeof(value_type),device_host_setting) != cudaSuccess)
-                throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+            if(s) {
+                if constexpr (tipl::use_cuda) {
+                    if constexpr(std::is_same_v<T,void>)
+                        cu_copy_d2d(buf, from, size);
+                    else
+                        cu_copy_h2d(buf, from, size);
+                } else {
+                    std::copy_n(reinterpret_cast<const value_type*>(from), size, buf);
+                }
+            }
         }
         template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
         void copy_from(T from,size_t size)
@@ -169,10 +127,12 @@ class device_vector{
         template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
         void copy_to(T& rhs)
         {
-            if(s)
-            {
-                if(cudaMemcpy(rhs.data(), buf, s*sizeof(value_type), cudaMemcpyDeviceToHost) != cudaSuccess)
-                    throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+            if(s) {
+                if constexpr (tipl::use_cuda) {
+                    cu_copy_d2h(rhs.data(), buf, s);
+                } else {
+                    std::copy_n(buf, s, rhs.data());
+                }
             }
         }
         void resize(size_t new_s,bool init = true)
@@ -182,19 +142,16 @@ class device_vector{
             if(new_s > buf_size) // need reallocation
             {
                 value_type* new_buf;
-                if(cudaMalloc(&new_buf,sizeof(value_type)*new_s) != cudaSuccess)
-                    throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
-                if(s)
-                {
-                    if(cudaMemcpy(new_buf,buf,s*sizeof(value_type),cudaMemcpyDeviceToDevice) != cudaSuccess)
-                    {
-                        cudaFree(new_buf);
-                        throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
-                    }
-
+                if constexpr (tipl::use_cuda) {
+                    cu_malloc(&new_buf, new_s);
+                    if(s) cu_copy_d2d(new_buf, buf, s);
+                    if(buf) cu_free(buf);
+                } else {
+                    new_buf = new value_type[new_s];
+                    if(s) std::copy_n(buf, s, new_buf);
+                    if(buf) delete[] buf;
                 }
-                if(buf)
-                    cudaFree(buf);
+
                 buf = new_buf;
                 buf_size = new_s;
             }
@@ -204,20 +161,22 @@ class device_vector{
                 if constexpr(std::is_integral<value_type>::value ||
                              std::is_pointer<value_type>::value)
                 {
-                    if(cudaMemset(buf+s,0,added_s*sizeof(value_type)) != cudaSuccess)
-                        throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+                    if constexpr(tipl::use_cuda) cu_memset(buf+s, 0, added_s);
+                    else std::memset(buf+s, 0, added_s*sizeof(value_type));
                 }
                 else
                 {
-                    #ifdef __CUDACC__
-                    if constexpr(std::is_class<value_type>::value)
-                        TIPL_RUN(device_vector_fill,added_s)
-                            (buf+s,added_s,value_type());
-                    else
-                    if constexpr(std::is_floating_point<value_type>::value)
-                        TIPL_RUN(device_vector_fill,added_s)
-                            (buf+s,added_s,value_type(0));
-                    #endif//__CUDACC__
+                    if constexpr(tipl::use_cuda) {
+                        if constexpr(std::is_class<value_type>::value)
+                            cu_fill(buf+s, added_s, value_type());
+                        else if constexpr(std::is_floating_point<value_type>::value)
+                            cu_fill(buf+s, added_s, value_type(0));
+                    } else {
+                        if constexpr(std::is_class<value_type>::value)
+                            std::fill(buf+s, buf+new_s, value_type());
+                        else if constexpr(std::is_floating_point<value_type>::value)
+                            std::fill(buf+s, buf+new_s, value_type(0));
+                    }
                 }
             }
             s = new_s;
@@ -236,7 +195,8 @@ class device_vector{
         value_type operator[](index_type index) const
         {
             value_type result;
-            cudaMemcpy(&result, &buf[index], sizeof(value_type), cudaMemcpyDeviceToHost);
+            if constexpr(tipl::use_cuda) cu_copy_d2h(&result, &buf[index], 1);
+            else result = buf[index];
             return result;
         }
     public:
@@ -247,6 +207,8 @@ class device_vector{
         __INLINE__ void* begin(void)                                        {return buf;}
         __INLINE__ void* end(void)                                          {return buf+s;}
 };
+
+// ... (shared_device_vector remains fully header inline because it only manages pointers)
 
 template<typename vtype>
 struct shared_device_vector{
@@ -297,9 +259,8 @@ public:
 template<typename T>
 __HOST__ auto device_eval(const T* p)
 {
-    T v;
-    cudaMemcpy(&v,p,sizeof(T),cudaMemcpyDeviceToHost);
-    return v;
+    if constexpr(tipl::use_cuda) return cu_eval(p);
+    else return *p;
 }
 
 template<typename T>
@@ -312,6 +273,10 @@ __INLINE__ const auto make_shared(const device_vector<T>& I)
 {
     return shared_device_vector<T>(I);
 }
+
+// -------------------------------------------------------------------------
+// HOST VECTOR
+// -------------------------------------------------------------------------
 
 template<typename vtype>
 class host_vector{
@@ -332,18 +297,19 @@ class host_vector{
             resize(to-from,false);
             if(s)
             {
-                if(cudaMemcpy(buf, &*from, s*sizeof(value_type),cudaMemcpyHostToHost) != cudaSuccess)
-                    throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+                if constexpr(tipl::use_cuda) cu_copy_h2h(buf, &*from, s);
+                else std::copy_n(&*from, s, buf);
             }
         }
         void copy_from(const void* from,const void* to)
         {
             size_t size_in_byte = reinterpret_cast<const char*>(to)-reinterpret_cast<const char*>(from);
-            resize(size_in_byte/sizeof(value_type),false);
+            size_t count = size_in_byte/sizeof(value_type);
+            resize(count,false);
             if(s)
             {
-                if(cudaMemcpy(buf, from, s*sizeof(value_type),cudaMemcpyDeviceToHost) != cudaSuccess)
-                    throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+                if constexpr(tipl::use_cuda) cu_copy_d2h(buf, from, count);
+                else std::memcpy(buf, from, size_in_byte);
             }
         }
     public:
@@ -359,7 +325,8 @@ class host_vector{
         {
             if(buf)
             {
-                cudaFreeHost(buf);
+                if constexpr(tipl::use_cuda) cu_free_host(buf);
+                else delete[] buf;
                 buf = nullptr;
                 buf_size = 0;
                 s = 0;
@@ -388,8 +355,8 @@ class host_vector{
             resize(rhs.size(),false);
             if(s)
             {
-                if(cudaMemcpy(buf, rhs.begin(), s*sizeof(value_type),cudaMemcpyDeviceToHost) != cudaSuccess)
-                    throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+                if constexpr(tipl::use_cuda) cu_copy_d2h(buf, rhs.begin(), s);
+                else std::copy_n(rhs.begin(), s, buf);
             }
         }
         void resize(size_t new_s, bool init = true)
@@ -397,19 +364,18 @@ class host_vector{
             if(new_s > buf_size) // need reallocation
             {
                 iterator new_buf;
-                if(cudaMallocHost(&new_buf,sizeof(value_type)*new_s) != cudaSuccess)
-                    throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
-                if(s)
-                {
-                    if(cudaMemcpy(new_buf, buf, s*sizeof(value_type), cudaMemcpyHostToHost) != cudaSuccess)
-                    {
-                        cudaFreeHost(new_buf);
-                        throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
-                    }
+                if constexpr(tipl::use_cuda) {
+                    cu_malloc_host(&new_buf, new_s);
+                    if(s) cu_copy_h2h(new_buf, buf, s);
+                    if(buf) cu_free_host(buf);
+                } else {
+                    new_buf = new value_type[new_s];
+                    if(s) std::copy_n(buf, s, new_buf);
+                    if(buf) delete[] buf;
                 }
-                if(buf)
-                    cudaFreeHost(buf);
+
                 buf = new_buf;
+                buf_size = new_s;
             }
             if(new_s > s && init)
                 std::fill(buf+s,buf+new_s,0);
@@ -470,7 +436,6 @@ public:
     __INLINE__ void clear(void)                             {sz = 0;}
     __INLINE__ void resize(size_t s)                        {sz = s;}
 
-
 };
 
 template<int dim,typename vtype = float>
@@ -497,7 +462,6 @@ public:
         return *this;
     }
 };
-
 
 template<int dim,typename vtype = float>
 using device_image = image<dim,vtype,device_vector>;
@@ -527,5 +491,88 @@ struct memory_location<device_vector<vtype> >{
 };
 
 
-}//namespace tipl
-#endif//MEM_HPP
+} //namespace tipl
+
+
+// -------------------------------------------------------------------------
+// CUDA EXPLICIT IMPLEMENTATIONS & INSTANTIATIONS
+// -------------------------------------------------------------------------
+#ifdef __CUDACC__
+
+namespace tipl {
+
+template<typename T>
+__global__ void device_vector_fill(T* buf,size_t size,T v)
+{
+    TIPL_FOR(index,size)
+        buf[index] = v;
+}
+
+// Wrapper Implementations
+template<typename T> void cu_malloc(T** ptr, size_t count) {
+    if(cudaMalloc(ptr, sizeof(T) * count) != cudaSuccess) throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+}
+template<typename T> void cu_free(T* ptr) {
+    if(ptr) cudaFree(ptr);
+}
+template<typename T> void cu_malloc_host(T** ptr, size_t count) {
+    if(cudaMallocHost(ptr, sizeof(T) * count) != cudaSuccess) throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+}
+template<typename T> void cu_free_host(T* ptr) {
+    if(ptr) cudaFreeHost(ptr);
+}
+template<typename Dest, typename Src> void cu_copy_d2d(Dest* dest, const Src* src, size_t count) {
+    if(cudaMemcpy(dest, src, count * sizeof(Dest), cudaMemcpyDeviceToDevice) != cudaSuccess) throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+}
+template<typename Dest, typename Src> void cu_copy_h2d(Dest* dest, const Src* src, size_t count) {
+    if(cudaMemcpy(dest, src, count * sizeof(Dest), cudaMemcpyHostToDevice) != cudaSuccess) throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+}
+template<typename Dest, typename Src> void cu_copy_d2h(Dest* dest, const Src* src, size_t count) {
+    if(cudaMemcpy(dest, src, count * sizeof(Dest), cudaMemcpyDeviceToHost) != cudaSuccess) throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+}
+template<typename Dest, typename Src> void cu_copy_h2h(Dest* dest, const Src* src, size_t count) {
+    if(cudaMemcpy(dest, src, count * sizeof(Dest), cudaMemcpyHostToHost) != cudaSuccess) throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+}
+template<typename T> void cu_memset(T* dest, int val, size_t count) {
+    if(cudaMemset(dest, val, count * sizeof(T)) != cudaSuccess) throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+}
+template<typename T> void cu_fill(T* dest, size_t count, T val) {
+    TIPL_RUN(device_vector_fill, count)(dest, count, val);
+}
+template<typename T> T cu_eval(const T* ptr) {
+    T v;
+    if(cudaMemcpy(&v, ptr, sizeof(T), cudaMemcpyDeviceToHost) != cudaSuccess) throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+    return v;
+}
+
+} // namespace tipl
+
+// Explicit template instantiations to solve ODR when linked to external object files
+#define INSTANTIATE_CU_WRAPPERS(T) \
+    template void tipl::cu_malloc<T>(T**, size_t); \
+    template void tipl::cu_free<T>(T*); \
+    template void tipl::cu_malloc_host<T>(T**, size_t); \
+    template void tipl::cu_free_host<T>(T*); \
+    template void tipl::cu_copy_d2d<T, void>(T*, const void*, size_t); \
+    template void tipl::cu_copy_d2d<T, T>(T*, const T*, size_t); \
+    template void tipl::cu_copy_h2d<T, void>(T*, const void*, size_t); \
+    template void tipl::cu_copy_h2d<T, T>(T*, const T*, size_t); \
+    template void tipl::cu_copy_d2h<T, void>(T*, const void*, size_t); \
+    template void tipl::cu_copy_d2h<T, T>(T*, const T*, size_t); \
+    template void tipl::cu_copy_h2h<T, void>(T*, const void*, size_t); \
+    template void tipl::cu_copy_h2h<T, T>(T*, const T*, size_t); \
+    template void tipl::cu_memset<T>(T*, int, size_t); \
+    template void tipl::cu_fill<T>(T*, size_t, T); \
+    template T tipl::cu_eval<T>(const T*);
+
+INSTANTIATE_CU_WRAPPERS(float)
+INSTANTIATE_CU_WRAPPERS(double)
+INSTANTIATE_CU_WRAPPERS(int)
+INSTANTIATE_CU_WRAPPERS(unsigned int)
+INSTANTIATE_CU_WRAPPERS(unsigned char)
+INSTANTIATE_CU_WRAPPERS(short)
+INSTANTIATE_CU_WRAPPERS(size_t)
+
+#endif // __CUDACC__
+
+#endif//CU_HPP
