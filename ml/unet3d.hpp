@@ -73,7 +73,6 @@ template<typename image_type>
 tipl::image<3> defragment4d(image_type& this_image,float prob_threshold)
 {
     tipl::shape<3> dim3d(this_image.shape().begin());
-    auto this_image_frames = *(this_image.shape().end()-1);
     tipl::image<3> sum(dim3d);
     if(this_image.empty())
         return sum;
@@ -91,7 +90,8 @@ tipl::image<3> defragment4d(image_type& this_image,float prob_threshold)
         tipl::upper_threshold(sum,1.0f);
     }
 
-    tipl::par_for(this_image_frames,[&](size_t label)
+
+    tipl::par_for(this_image.shape()[3],[&](size_t label)
     {
         auto I = this_image.slice_at(label);
         for(size_t pos = 0;pos < dim3d.size();++pos)
@@ -304,7 +304,6 @@ public:
 
         tipl::image<3> fg_prob = tipl::ml3d::defragment4d(label_prob_4d, prob_threshold);
         prog(3,4);
-
         tipl::image<3,unsigned char> I(fg_prob.shape());
         size_t s = fg_prob.size();
         for(size_t pos = 0; pos < s; ++pos)
