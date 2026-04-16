@@ -600,16 +600,16 @@ public:
 template<typename image_type>
 auto make_list(const image_type& I,const image_type& I2)
 {
-    auto pI = tipl::make_shared(I);
+    auto pI = I.alias();
     if(I2.empty())
         return std::vector<decltype(pI)>({pI});
-    auto pI2 = tipl::make_shared(I2);
+    auto pI2 = I2.alias();
     return std::vector<decltype(pI)>({pI,pI2});
 }
 template<typename image_type>
 auto make_list(const image_type& I)
 {
-    auto pI = tipl::make_shared(I);
+    auto pI = I.alias();
     return std::vector<decltype(pI)>({pI});
 }
 template<typename T>
