@@ -78,8 +78,7 @@ inline std::enable_if_t<memory_location<T1>::at != CUDA, void>
 compose_mapping(const T1& from,const T2& mapping,T3& to)
 {
     to.resize(mapping.shape());
-    const size_t sz = mapping.size();
-    tipl::par_for(sz,[&](size_t index)
+    tipl::par_for(mapping.size(),[&](size_t index)
     {
         if(!estimate<itype>(from,mapping[index],to[index]))
             to[index] = typename T3::value_type();
