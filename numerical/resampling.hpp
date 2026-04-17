@@ -555,7 +555,7 @@ IteratorType downsampling_z_with_padding(IteratorType from,IteratorType to,Outpu
 
 
 template<typename ImageType1,typename ImageType2>
-void downsampling(const ImageType1& in,ImageType2& out)
+__INLINE__ void downsampling(const ImageType1& in,ImageType2& out)
 {
     out.resize(in.shape());
     shape<ImageType1::dimension> new_geo(in.shape());
