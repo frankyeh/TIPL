@@ -23,11 +23,12 @@ bool command(image_type& data,std::string cmd,std::string param1)
         if(cmd.find("morphology") == 0)
         {
             tipl::image<image_type::dimension,char> mask(data.shape());
-            for(size_t pos = 0;pos < mask.size();++pos)
+            const size_t sz = mask.size();
+            for(size_t pos = 0; pos < sz; ++pos)
                 mask[pos] = data[pos] > typename image_type::value_type(0) ? 1 : 0;
             if(!command(mask,cmd,param1))
                 return false;
-            for(size_t pos = 0;pos < mask.size();++pos)
+            for(size_t pos = 0; pos < sz; ++pos)
                 data[pos] = typename image_type::value_type(mask[pos]);
             return true;
         }
@@ -134,9 +135,10 @@ bool command(image_type& data,std::string cmd,std::string param1)
 
     if(cmd == "select_value")
     {
-        typename image_type::value_type v = std::stof(param1);
-        for(size_t index = 0;index < data.size();++index)
-            data[index] = (data[index] == v ? 1:0);
+        typename image_type::value_type v = static_cast<typename image_type::value_type>(std::stof(param1));
+        const size_t sz = data.size();
+        for(size_t index = 0; index < sz; ++index)
+            data[index] = (data[index] == v ? typename image_type::value_type(1) : typename image_type::value_type(0));
         return true;
     }
     if(cmd == "add_value")
@@ -163,14 +165,16 @@ bool command(image_type& data,std::string cmd,std::string param1)
     if(cmd == "threshold")
     {
         float value = std::stof(param1);
-        for(size_t i = 0;i < data.size();++i)
+        const size_t sz = data.size();
+        for(size_t i = 0; i < sz; ++i)
             data[i] = data[i] > value ? 1.0f : 0.0f;
         return true;
     }
     if(cmd == "otsu_threshold")
     {
         float threshold = tipl::segmentation::otsu_threshold(data)*float(std::stof(param1));
-        for(size_t i = 0;i < data.size();++i)
+        const size_t sz = data.size();
+        for(size_t i = 0; i < sz; ++i)
             data[i] = data[i] > threshold ? 1.0f : 0.0f;
         return true;
     }
@@ -541,7 +545,6 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         return true;
     }
 
-
     if(cmd == "load_image" || cmd == "multiply_image" || cmd == "add_image" || cmd == "minus_image" || cmd == "max_image" || cmd == "min_image")
     {
         tipl::image<3,typename image_type::value_type> rhs(data.shape());
@@ -555,6 +558,8 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         if(!loader)
             return error_msg = "cannot open file:" + param1,false;
 
+        const size_t sz = data.size();
+
         if(cmd == "load_image")
             data = std::move(rhs);
         if(cmd == "multiply_image")
@@ -565,12 +570,12 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
             data -= rhs;
         if(cmd == "max_image")
         {
-            for(size_t i = 0;i < data.size();++i)
+            for(size_t i = 0; i < sz; ++i)
                 data[i] = std::max(data[i],rhs[i]);
         }
         if(cmd == "min_image")
         {
-            for(size_t i = 0;i < data.size();++i)
+            for(size_t i = 0; i < sz; ++i)
                 data[i] = std::min(data[i],rhs[i]);
         }
         return true;
@@ -605,9 +610,6 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     error_msg += cmd;
     return false;
 }
-
-
-
 
 template<typename image_type1,typename image_type2,
          typename std::enable_if<std::is_class<image_type1>::value,bool>::type = true,
@@ -689,7 +691,7 @@ bool equation(image_type& x,std::string eq,std::string& error_msg)
         op.push_back(ch);
     };
 
-    for (int i = 0;i < eq.size();++i)
+    for (size_t i = 0, n = eq.size(); i < n; ++i)
     {
         auto c = eq[i];
         if (!parentheses && !cur_token.empty())
@@ -715,7 +717,7 @@ bool equation(image_type& x,std::string eq,std::string& error_msg)
     {
         // handle function call
         auto pos = eq.find_first_of('(');
-        if(pos && pos != std::string::npos)
+        if(pos > 0 && pos != std::string::npos)
         {
             if(eq.back() != ')')
             {
@@ -757,7 +759,9 @@ bool equation(image_type& x,std::string eq,std::string& error_msg)
 
     std::vector<buf_image_type> operands(tokens.size());
     std::vector<float> values(tokens.size());
-    for(size_t i = 0;i < tokens.size();++i)
+    const size_t num_tokens = tokens.size();
+
+    for(size_t i = 0; i < num_tokens; ++i)
     {
         if(is_number(tokens[i]))
         {
