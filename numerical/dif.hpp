@@ -78,7 +78,8 @@ inline std::enable_if_t<memory_location<T1>::at != CUDA, void>
 compose_mapping(const T1& from,const T2& mapping,T3& to)
 {
     to.resize(mapping.shape());
-    tipl::par_for(mapping.size(),[&](size_t index)
+    const size_t sz = mapping.size();
+    tipl::par_for(sz,[&](size_t index)
     {
         if(!estimate<itype>(from,mapping[index],to[index]))
             to[index] = typename T3::value_type();
@@ -204,7 +205,8 @@ accumulate_displacement(const T& dis,T& new_dis)
 template<typename T>
 __global__ void displacement_to_mapping_cuda_kernel(T dis)
 {
-    TIPL_FOR(index,dis.size())
+    const size_t sz = dis.size();
+    TIPL_FOR(index,sz)
         dis[index] += tipl::pixel_index<T::dimension>(index,dis.shape());
 }
 
@@ -219,7 +221,8 @@ displacement_to_mapping(T& dis)
 template<typename T,typename U>
 __global__ void displacement_to_mapping_cuda_kernel2(T dis,U mapping)
 {
-    TIPL_FOR(index,dis.size())
+    const size_t sz = dis.size();
+    TIPL_FOR(index,sz)
         mapping[index] += tipl::pixel_index<T::dimension>(index,dis.shape());
 }
 
@@ -235,7 +238,8 @@ displacement_to_mapping(const T& dis,U& mapping)
 template<typename T>
 __global__ void mapping_to_displacement_cuda_kernel(T mapping)
 {
-    TIPL_FOR(index,mapping.size())
+    const size_t sz = mapping.size();
+    TIPL_FOR(index,sz)
         mapping[index] -= tipl::pixel_index<T::dimension>(index,mapping.shape());
 }
 
@@ -250,7 +254,8 @@ mapping_to_displacement(T& mapping)
 template<tipl::interpolation itype,typename T1,typename T2,typename T3>
 __global__ void compose_mapping_cuda_kernel(T1 from,T2 mapping,T3 to)
 {
-    TIPL_FOR(index,to.size())
+    const size_t sz = to.size();
+    TIPL_FOR(index,sz)
     {
         if(!tipl::estimate<itype>(from,mapping[index],to[index]))
             to[index] = typename T3::value_type();
@@ -269,7 +274,8 @@ compose_mapping(const T1& from,const T2& mapping,T3& to)
 template<tipl::interpolation itype,typename T1,typename T2,typename T3>
 __global__ void compose_displacement_cuda_kernel(T1 from,T2 dis,T3 to)
 {
-    TIPL_FOR(index,to.size())
+    const size_t sz = to.size();
+    TIPL_FOR(index,sz)
     {
         if(dis[index] == typename T2::value_type())
             to[index] = from[index];
@@ -295,7 +301,8 @@ compose_displacement(const T& from,const U& dis,V& to)
 template<typename T,typename U>
 __global__ void invert_displacement_cuda_kernel(T v1,U mapping)
 {
-    TIPL_FOR(index,v1.size())
+    const size_t sz = v1.size();
+    TIPL_FOR(index,sz)
     {
         invert_displacement_imp(tipl::pixel_index<T::dimension>(index,v1.shape()),v1,mapping);
     }
@@ -318,7 +325,8 @@ invert_displacement(const T& v0,T& v1,size_t count)
 template<typename T1,typename T2,typename T3>
 __global__ void accumulate_displacement_cuda_kernel(T1 dis,T2 new_dis,T3 mapping)
 {
-    TIPL_FOR(index,new_dis.size())
+    const size_t sz = new_dis.size();
+    TIPL_FOR(index,sz)
     {
         accumulate_displacement_imp(tipl::pixel_index<T1::dimension>(index,new_dis.shape()),dis,new_dis,mapping);
     }
@@ -346,12 +354,15 @@ void decompose_displacement(const tipl::image<dim, VectorType>& v,
 {
     tipl::image<dim, VectorType> vtemp(vx);
     vy.resize(v.shape());
-    for (size_t index = 0;index < vy.size();++index)
+
+    const size_t sz = vy.size();
+    for (size_t index = 0; index < sz; ++index)
         vy[index] = v[index]-vtemp[index];
-    for(int i = 0;i < 15;++i)
+
+    for(int i = 0; i < 15; ++i)
     {
         tipl::compose_displacement(vx,vy,vtemp);
-        for (size_t index = 0;index < vy.size();++index)
+        for (size_t index = 0; index < sz; ++index)
             vy[index] = v[index]-vtemp[index];
     }
 }
@@ -366,7 +377,6 @@ void jacobian_determinant(const tipl::image<dim, VectorType>& src, tipl::image<d
 
     auto w = src.width();
     size_t wh = 0;
-    // Conditionally get the plane size only for 3D data
     if constexpr (dim == 3)
         wh = src.plane_size();
 
@@ -385,10 +395,10 @@ void jacobian_determinant(const tipl::image<dim, VectorType>& src, tipl::image<d
             auto dv_dz = src[index.index() + wh] - src[index.index() - wh];
             dest[index.index()] = dv_dx[0] * (dv_dy[1] * dv_dz[2] - dv_dy[2] * dv_dz[1]) +
                                   dv_dx[1] * (dv_dy[2] * dv_dz[0] - dv_dy[0] * dv_dz[2]) +
-                                  dv_dx[2] * (dv_dy[0] * dv_dz[1] - dv_dy[1] * dv_dz[0])*0.125;
+                                  dv_dx[2] * (dv_dy[0] * dv_dz[1] - dv_dy[1] * dv_dz[0]) * 0.125f;
         }
         else // D == 2
-            dest[index.index()] = (dv_dx[0] * dv_dy[1] - dv_dx[1] * dv_dy[0])*0.25;
+            dest[index.index()] = (dv_dx[0] * dv_dy[1] - dv_dx[1] * dv_dy[0]) * 0.25f;
     });
 }
 
@@ -415,16 +425,16 @@ double jacobian_determinant_dis_at(const tipl::image<3,VectorType>& displacement
     const auto& v3_1 = displacement[index.index()-wh];
 
     auto d2_0 = v2_0[0] - v2_1[0];
-    auto d2_1 = v2_0[1] - v2_1[1]+1.0;
+    auto d2_1 = v2_0[1] - v2_1[1] + 1.0;
     auto d2_2 = v2_0[2] - v2_1[2];
 
     auto d3_0 = v3_0[0] - v3_1[0];
     auto d3_1 = v3_0[1] - v3_1[1];
-    auto d3_2 = v3_0[2] - v3_1[2]+1.0;
+    auto d3_2 = v3_0[2] - v3_1[2] + 1.0;
 
-    return (v1_0[0] - v1_1[0]+1.0)*(d2_1*d3_2-d2_2*d3_1)+
-                                   (v1_0[1] - v1_1[1])*(d2_2*d3_0-d2_0*d3_2)+
-                                   (v1_0[2] - v1_1[2])*(d2_0*d3_1-d2_1*d3_0);
+    return (v1_0[0] - v1_1[0] + 1.0) * (d2_1*d3_2 - d2_2*d3_1) +
+           (v1_0[1] - v1_1[1])       * (d2_2*d3_0 - d2_0*d3_2) +
+           (v1_0[2] - v1_1[2])       * (d2_0*d3_1 - d2_1*d3_0);
 }
 
 template<typename VectorType,typename out_type>
@@ -440,17 +450,17 @@ void jacobian_dis_at(const tipl::image<3,VectorType>& displacement,const tipl::p
     auto vz = displacement[index.index()+wh];
     vz -= displacement[index.index()-wh];
 
-    J[0] = vx[0]*0.5+1.0;
-    J[1] = vx[1]*0.5;
-    J[2] = vx[2]*0.5;
+    J[0] = vx[0] * 0.5f + 1.0f;
+    J[1] = vx[1] * 0.5f;
+    J[2] = vx[2] * 0.5f;
 
-    J[3] = vy[0]*0.5;
-    J[4] = vy[1]*0.5+1.0;
-    J[5] = vy[2]*0.5;
+    J[3] = vy[0] * 0.5f;
+    J[4] = vy[1] * 0.5f + 1.0f;
+    J[5] = vy[2] * 0.5f;
 
-    J[6] = vz[0]*0.5;
-    J[7] = vz[1]*0.5;
-    J[8] = vz[2]*0.5+1.0;
+    J[6] = vz[0] * 0.5f;
+    J[7] = vz[1] * 0.5f;
+    J[8] = vz[2] * 0.5f + 1.0f;
 }
 
 template<typename VectorType,typename PixelType>
@@ -458,14 +468,14 @@ void jacobian_determinant_dis(const tipl::image<3,VectorType>& displacement,tipl
 {
     tipl::shape<3> geo(displacement.shape());
     dest.resize(geo);
-    for (tipl::pixel_index<3> index(geo); index < geo.size();++index)
+
+    const size_t sz = geo.size();
+    for (tipl::pixel_index<3> index(geo); index < sz; ++index)
     {
         if (geo.is_edge(index))
-        {
             dest[index.index()] = 1;
-            continue;
-        }
-        dest[index.index()] = jacobian_determinant_dis_at(displacement,index);
+        else
+            dest[index.index()] = jacobian_determinant_dis_at(displacement,index);
     }
 }
 
@@ -477,7 +487,8 @@ double jacobian_determinant_dis_at(const tipl::image<2,VectorType>& displacement
     const VectorType& v1_1 = displacement[index.index()];
     const VectorType& v2_0 = displacement[index.index()+w];
     const VectorType& v2_1 = displacement[index.index()];
-    return (v1_0[0] - v1_1[0]+1.0)*(v2_0[1] - v2_1[1]+1.0)-(v1_0[1] - v1_1[1])*(v2_0[0] - v2_1[0]);
+
+    return (v1_0[0] - v1_1[0] + 1.0) * (v2_0[1] - v2_1[1] + 1.0) - (v1_0[1] - v1_1[1]) * (v2_0[0] - v2_1[0]);
 }
 
 template<typename VectorType,typename PixelType>
@@ -485,14 +496,14 @@ void jacobian_determinant_dis(const tipl::image<2,VectorType>& displacement,tipl
 {
     tipl::shape<2> geo(displacement.shape());
     dest.resize(geo);
-    for (tipl::pixel_index<2> index(geo); index < geo.size();++index)
+
+    const size_t sz = geo.size();
+    for (tipl::pixel_index<2> index(geo); index < sz; ++index)
     {
         if (geo.is_edge(index))
-        {
             dest[index.index()] = 1;
-            continue;
-        }
-        dest[index.index()] = jacobian_determinant_dis_at(displacement,index);
+        else
+            dest[index.index()] = jacobian_determinant_dis_at(displacement,index);
     }
 }
 
