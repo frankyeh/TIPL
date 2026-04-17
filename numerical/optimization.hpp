@@ -22,7 +22,8 @@ void plot_fun_2d(
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
     I.resize(tipl::shape<2>(sample_frequency,sample_frequency));
-    for(tipl::pixel_index<2> index(I.shape());index < I.size();++index)
+    size_t sz = I.size();
+    for(tipl::pixel_index<2> index(I.shape());index < sz;++index)
     {
         std::vector<param_type> x(x_beg,x_end);
         x[dim1] = (x_upper[dim1]-x_lower[dim1])*index[0]/(float)sample_frequency+x_lower[dim1];
