@@ -64,12 +64,14 @@ public:
 template<typename PixelType>
 void thumb(const image<2,PixelType>& from,image<2,PixelType>& to)
 {
-    std::vector<PixelAdapter<PixelType> > to_buffer(to.width());
+    unsigned int tw = to.width(), th = to.height();
+    unsigned int fw = from.width(), fh = from.height();
+    std::vector<PixelAdapter<PixelType> > to_buffer(tw);
     enum MoveType {MoveFrom,MoveTo};
 
     const unsigned int value_16 = 1 << 16;
-    unsigned int height_r_16 = ((double)to.height())/((double)from.height())*((double)((unsigned int)1 << 16));
-    unsigned int width_r_16 = ((double)to.width())/((double)from.width())*((double)((unsigned int)1 << 16));
+    unsigned int height_r_16 = ((double)th)/((double)fh)*((double)((unsigned int)1 << 16));
+    unsigned int width_r_16 = ((double)tw)/((double)fw)*((double)((unsigned int)1 << 16));
     unsigned int height_r_8 = height_r_16 >> 8;
     unsigned int width_r_8 = width_r_16 >> 8;
     unsigned int rr_16 = ((double)to.size())/((double)from.size())*((double)((unsigned int)1 << 16));
@@ -127,7 +129,7 @@ void thumb(const image<2,PixelType>& from,image<2,PixelType>& to)
                     x_16 = next_from_x_16;
                     ++from_x;
                     next_from_x_16 += width_r_16;
-                    if (from_x >= from.width())
+                    if (from_x >= fw)
                         break;
                 }
                 else
@@ -141,7 +143,7 @@ void thumb(const image<2,PixelType>& from,image<2,PixelType>& to)
                     x_16 = next_to_x_16;
                     ++to_x;
                     next_to_x_16 += value_16;
-                    if (to_x >= to.width())
+                    if (to_x >= tw)
                         break;
                 }
             }
@@ -151,9 +153,9 @@ void thumb(const image<2,PixelType>& from,image<2,PixelType>& to)
         {
             y_16 = next_from_y_16;
             ++from_y;
-            from_y_index += from.width();
+            from_y_index += fw;
             next_from_y_16 += height_r_16;
-            if (from_y >= from.height())
+            if (from_y >= fh)
                 break;
         }
         else
@@ -161,18 +163,17 @@ void thumb(const image<2,PixelType>& from,image<2,PixelType>& to)
             y_16 = next_to_y_16;
             ++to_y;
             next_to_y_16 += value_16;
-            if (to_y >= to.height())
+            if (to_y >= th)
                 break;
-            for (unsigned int index = 0;index < to.width();++index)
+            for (unsigned int index = 0;index < tw;++index)
                 to[to_y_index + index] = to_buffer[index].get();
             to_buffer.resize(0);
-            to_buffer.resize(to.width());
-            to_y_index += to.width();
+            to_buffer.resize(tw);
+            to_y_index += tw;
         }
     }
-    for (unsigned int index = 0;index < to.width();++index)
+    for (unsigned int index = 0;index < tw;++index)
         to[to_y_index + index] = to_buffer[index].get();
-
 }
 
 template<typename value_type>
@@ -396,7 +397,6 @@ void upsampling(const ImageType1& in,ImageType2& out)
         end_iter = upsampling_y(out.begin(),end_iter,out.begin(),plane_size,geo[dim]);
         plane_size *= new_geo[dim];
     }
-
 }
 
 template<typename ImageType1,typename ImageType2>
@@ -572,7 +572,7 @@ void downsampling(const ImageType1& in,ImageType2& out)
 }
 
 template<typename T,typename U,typename V>
-__INLINE__ void downsample_with_padding_imp(const pixel_index<T::dimension>& pos1,
+void downsample_with_padding_imp(const pixel_index<T::dimension>& pos1,
                                             T& in,U& out,V& shift)
 {
     constexpr int buf_count = (T::dimension == 3 ? 8 : 4);
@@ -635,8 +635,8 @@ void downsample_with_padding(const T& in,U& out)
 template<typename T,typename U,typename V>
 __global__ void downsample_with_padding_cuda_kernel(T in,U out,V shift)
 {
-    using value_type = typename T::value_type;
-    TIPL_FOR(index,out.size())
+    const size_t sz = out.size();
+    TIPL_FOR(index,sz)
     {
         downsample_with_padding_imp(pixel_index<T::dimension>(index,out.shape()),in,out,shift);
     }
@@ -757,7 +757,8 @@ void downsample_label(const T& in, U& out)
 template<typename T, typename U, typename V>
 __global__ void downsample_label_cuda_kernel(T in, U out, V shift)
 {
-    TIPL_FOR(index, out.size())
+    const size_t sz = out.size();
+    TIPL_FOR(index, sz)
     {
         using value_type = typename T::value_type;
         tipl::pixel_index<T::dimension> pos1(index, out.shape());
@@ -859,7 +860,8 @@ void upsample_with_padding(const T& in,T& out)
 template<tipl::interpolation itype,typename T1,typename T2>
 __global__ void upsample_with_padding_cuda_kernel(T1 from,T2 to)
 {
-    TIPL_FOR(index,to.size())
+    const size_t sz = to.size();
+    TIPL_FOR(index,sz)
     {
         tipl::estimate<itype>(from,
             tipl::vector<T1::dimension>(tipl::pixel_index<T1::dimension>(index,to.shape()))*=0.5,
@@ -945,7 +947,8 @@ void upsample_label(const T& in, T& out)
 template<typename T1, typename T2>
 __global__ void upsample_label_cuda_kernel(T1 from, T2 to)
 {
-    TIPL_FOR(index, to.size())
+    const size_t sz = to.size();
+    TIPL_FOR(index, sz)
     {
         tipl::pixel_index<T1::dimension> pos_to(index, to.shape());
         tipl::pixel_index<T1::dimension> pos_from;
@@ -982,46 +985,46 @@ void shrink(const tipl::image<3,PixelType>& image,
             unsigned int scale)
 {
     size_t slice_size = image.plane_size();
-    const PixelType* slice = image.begin();
-    buffer.resize(tipl::shape<3>(
-                      image.width()/scale,
-                      image.height()/scale,
-                      image.depth()/scale));
+    uint32_t w = image.width(), h = image.height(), d = image.depth();
+
+    buffer.resize(tipl::shape<3>(w/scale, h/scale, d/scale));
     std::fill(buffer.begin(),buffer.end(),0);
-    for (unsigned int index = 0;index < buffer.depth();++index)
+
+    uint32_t bw = buffer.width(), bh = buffer.height(), bd = buffer.depth();
+    size_t b_ps = buffer.plane_size();
+    size_t b_sz = buffer.size();
+
+    const PixelType* slice = image.begin();
+    for (unsigned int index = 0; index < bd; ++index)
     {
-        PixelType* buffer_iter = buffer.begin() + size_t(index)*buffer.plane_size();
-        tipl::image<2,PixelType> buffer_slice(
-            tipl::shape<2>(image.width() /scale,
-                               image.height() /scale));
-        for (unsigned int j = 0;j < scale;++j,slice += slice_size)
+        PixelType* buffer_iter = buffer.begin() + size_t(index)*b_ps;
+        tipl::image<2,PixelType> buffer_slice(tipl::shape<2>(bw, bh));
+        for (unsigned int j = 0; j < scale; ++j,slice += slice_size)
         {
             std::fill(buffer_slice.begin(),buffer_slice.end(),0);
 
             const PixelType* line = slice;
-            for (unsigned int k = 0;k < buffer_slice.height();++k)
+            for (unsigned int k = 0; k < bh; ++k)
             {
-                PixelType* buffer_slice_iter = buffer_slice.begin() +
-                                               k*buffer_slice.width();
+                PixelType* buffer_slice_iter = buffer_slice.begin() + k*bw;
 
-                for (unsigned int l = 0;l < scale;++l,line += image.width())
+                for (unsigned int l = 0; l < scale; ++l,line += w)
                 {
-
                     const PixelType* iter = line;
-                    for (unsigned int m = 0;m < buffer_slice.width();++m)
+                    for (unsigned int m = 0; m < bw; ++m)
                     {
                         PixelType sum = 0;
-                        for (unsigned int n = 0;n < scale;++n,++iter)
+                        for (unsigned int n = 0; n < scale; ++n,++iter)
                             sum += *iter > 0 ? *iter : 0;
                         buffer_slice_iter[m] += sum / scale;
                     }
                 }
             }
-            for (unsigned int k = 0;k < buffer_slice.size();++k)
+            for (unsigned int k = 0; k < b_ps; ++k)
                 buffer_iter[k] += buffer_slice[k] / scale;
         }
     }
-    for (unsigned int index = 0;index < buffer.size();++index)
+    for (unsigned int index = 0; index < b_sz; ++index)
         buffer[index] /= scale;
 }
 
@@ -1029,29 +1032,31 @@ template<typename PixelType>
 void fast_resample(const tipl::image<3,PixelType>& source_image,
                    tipl::image<3,PixelType>& des_image)
 {
-    double dx = (double)(source_image.width()-1)/(double)(des_image.width()-1);
-    double dy = (double)(source_image.height()-1)/(double)(des_image.height()-1);
-    double dz = (double)(source_image.depth()-1)/(double)(des_image.depth()-1);
-    double maxx = source_image.width()-1;
-    double maxy = source_image.height()-1;
-    double maxz = source_image.depth()-1;
+    uint32_t sw = source_image.width(), sh = source_image.height(), sd = source_image.depth();
+    uint32_t dw = des_image.width(), dh = des_image.height(), dd = des_image.depth();
+
+    double dx = (double)(sw-1)/(double)(dw-1);
+    double dy = (double)(sh-1)/(double)(dh-1);
+    double dz = (double)(sd-1)/(double)(dd-1);
+    double maxx = sw-1;
+    double maxy = sh-1;
+    double maxz = sd-1;
     double coord[3];
     coord[2] = 0.5;
     auto wh = source_image.plane_size();
-    auto w = source_image.width();
-    for (unsigned int z = 0,index = 0;z < des_image.depth();++z,coord[2] += dz)
+    for (unsigned int z = 0,index = 0; z < dd; ++z,coord[2] += dz)
     {
         if (coord[2] > maxz)
             coord[2] = maxz;
         size_t index_z = size_t(coord[2])*wh;
         coord[1] = 0.5;
-        for (unsigned int y = 0;y < des_image.height();++y,coord[1] += dy)
+        for (unsigned int y = 0; y < dh; ++y,coord[1] += dy)
         {
             if (coord[1] > maxy)
                 coord[1] = maxy;
-            size_t index_y = index_z + size_t(coord[1])*w;
+            size_t index_y = index_z + size_t(coord[1])*sw;
             coord[0] = 0.5;
-            for (unsigned int x = 0;x < des_image.width();++x,++index,coord[0] += dx)
+            for (unsigned int x = 0; x < dw; ++x,++index,coord[0] += dx)
             {
                 if (coord[0] > maxx)
                     coord[0] = maxx;
@@ -1066,20 +1071,22 @@ template<typename PixelType>
 void fast_resample(const tipl::image<2,PixelType>& source_image,
                    tipl::image<2,PixelType>& des_image)
 {
-    double dx = (double)(source_image.width()-1)/(double)(des_image.width()-1);
-    double dy = (double)(source_image.height()-1)/(double)(des_image.height()-1);
-    double maxx = source_image.width()-1;
-    double maxy = source_image.height()-1;
+    uint32_t sw = source_image.width(), sh = source_image.height();
+    uint32_t dw = des_image.width(), dh = des_image.height();
+
+    double dx = (double)(sw-1)/(double)(dw-1);
+    double dy = (double)(sh-1)/(double)(dh-1);
+    double maxx = sw-1;
+    double maxy = sh-1;
     double coord[2];
     coord[1] = 0.5;
-    unsigned int w = source_image.width();
-    for (unsigned int y = 0,index = 0;y < des_image.height();++y,coord[1] += dy)
+    for (unsigned int y = 0,index = 0; y < dh; ++y,coord[1] += dy)
     {
         if (coord[1] > maxy)
             coord[1] = maxy;
-        size_t index_y = size_t(coord[1])*w;
+        size_t index_y = size_t(coord[1])*sw;
         coord[0] = 0.5;
-        for (unsigned int x = 0;x < des_image.width();++x,++index,coord[0] += dx)
+        for (unsigned int x = 0; x < dw; ++x,++index,coord[0] += dx)
         {
             if (coord[0] > maxx)
                 coord[0] = maxx;
@@ -1088,7 +1095,6 @@ void fast_resample(const tipl::image<2,PixelType>& source_image,
         }
     }
 }
-
 
 template<typename pixel_type>
 void homogenize(tipl::image<3,pixel_type>& I,tipl::image<3,pixel_type>& J,int block_size = 20)
@@ -1101,15 +1107,19 @@ void homogenize(tipl::image<3,pixel_type>& I,tipl::image<3,pixel_type>& J,int bl
         tipl::normalize(I,max_value(J.begin(),J.end()));
         return;
     }
-    float distance_scale = 1.0/(float)block_size/(float)block_size;
+    float distance_scale = 1.0f/(float)(block_size*block_size);
     tipl::image<3,float> v_map(I.shape()),w_map(I.shape());
-    for(int z = block_size;z < J.depth()-block_size;z += block_size)
-        for(int y = block_size;y < J.height()-block_size;y += block_size)
-            for(int x = block_size;x < J.width()-block_size;x += block_size)
+
+    int j_w = J.width(), j_h = J.height(), j_d = J.depth();
+    auto shape = I.shape();
+
+    for(int z = block_size;z < j_d-block_size;z += block_size)
+        for(int y = block_size;y < j_h-block_size;y += block_size)
+            for(int x = block_size;x < j_w-block_size;x += block_size)
             {
                 std::vector<float> Iv,Jv,dis2;
                 std::vector<size_t> locations;
-                for_each_neighbors(tipl::pixel_index<3>(x,y,z,I.shape()),I.shape(),block_size,[&](const auto& pos)
+                for_each_neighbors(tipl::pixel_index<3>(x,y,z,shape),shape,block_size,[&](const auto& pos)
                 {
                     int dx = pos[0]-x;
                     int dy = pos[1]-y;
@@ -1121,11 +1131,12 @@ void homogenize(tipl::image<3,pixel_type>& I,tipl::image<3,pixel_type>& J,int bl
                 });
                 double a,b,r2;
                 tipl::linear_regression(Iv.begin(),Iv.end(),Jv.begin(),a,b,r2);
-                for(int i = 0; i < locations.size();++i)
+                size_t loc_size = locations.size();
+                for(size_t i = 0; i < loc_size;++i)
                 {
                     float v = Iv[i]*a+b;
-                    float w = std::exp(-dis2[i]*0.5)*r2;
-                    if(w == 0.0)
+                    float w = std::exp(-dis2[i]*0.5f)*r2;
+                    if(w == 0.0f)
                         continue;
                     auto index = locations[i];
                     v_map[index] = (v_map[index]*w_map[index] + v*w)/(w_map[index]+w);
@@ -1140,18 +1151,19 @@ template<typename T>
 void match_signal(const T& VG,T& VFF)
 {
     std::vector<float> x,y;
-    x.reserve(VG.size());
-    y.reserve(VG.size());
-    for(size_t index = 0;index < VG.size();++index)
+    size_t sz = VG.size();
+    x.reserve(sz);
+    y.reserve(sz);
+    for(size_t index = 0;index < sz;++index)
         if(VG[index] > 0 && VFF[index] > 0)
         {
             x.push_back(VFF[index]);
             y.push_back(VG[index]);
         }
     std::pair<double,double> r = tipl::linear_regression(x.begin(),x.end(),y.begin());
-    for(size_t index = 0;index < VG.size();++index)
+    for(size_t index = 0;index < sz;++index)
         if(VG[index] > 0 && VFF[index] > 0)
-            VFF[index] = std::max<float>(0,VFF[index]*r.first+r.second);
+            VFF[index] = std::max<float>(0.0f, VFF[index]*r.first+r.second);
         else
             VFF[index] = 0;
 }
@@ -1165,15 +1177,17 @@ void match_signal_kernel(const T& VG,T& VFF)
     std::vector<unsigned int> count(256);
     std::vector<float> sum(256);
 
-    for(size_t index = 0;index < VG.size();++index)
+    size_t sz = VG.size();
+    for(size_t index = 0;index < sz;++index)
         if(VG[index] > 0 && VFF[index] > 0)
         {
-            int v = std::min<int>(255,std::round((float)VFF[index]/(float)max_value*255.499f));
+            int v = std::min<int>(255,std::max<int>(0, std::round((float)VFF[index]/(float)max_value*255.499f)));
             sum[v] += VG[index];
             ++count[v];
         }
 
-    for(unsigned int index = 0;index < sum.size();++index)
+    size_t sum_sz = sum.size();
+    for(unsigned int index = 0;index < sum_sz;++index)
     {
         if(count[index] != 0)
         {
@@ -1187,10 +1201,10 @@ void match_signal_kernel(const T& VG,T& VFF)
     tipl::image<1,float> value(tipl::shape<1>(256));
     value[0] = sum[0];
     value[255] = sum[255];
-    for(unsigned int index = 1;index+1 < sum.size();++index)
-        value[index] = (sum[index]+sum[index]+sum[index-1]+sum[index+1])*0.25;
+    for(unsigned int index = 1;index+1 < sum_sz;++index)
+        value[index] = (sum[index]+sum[index]+sum[index-1]+sum[index+1])*0.25f;
 
-    tipl::par_for(VG.size(),[&](size_t index)
+    tipl::par_for(sz,[&](size_t index)
     {
         if(VG[index] > 0 && VFF[index] > 0)
         {
@@ -1202,8 +1216,8 @@ void match_signal_kernel(const T& VG,T& VFF)
             float floor_w = 1.0f-ceil_w;
             VFF[index] = value[floor_index]*floor_w+value[ceil_index]*ceil_w;
         }
-    else
-        VFF[index] = 0;
+        else
+            VFF[index] = 0;
     });
 }
 
@@ -1275,7 +1289,8 @@ void resample(const T& from,U&& to,const tipl::transformation_matrix<V,T::dimens
 template<tipl::interpolation itype,typename T1,typename T2,typename U>
 __global__ void resample_cuda_kernel(T1 from,T2 to,U trans)
 {
-    TIPL_FOR(index,to.size())
+    const size_t sz = to.size();
+    TIPL_FOR(index,sz)
     {
         tipl::pixel_index<3> pos(index,to.shape());
         tipl::vector<3> v;
@@ -1322,7 +1337,8 @@ template<tipl::interpolation Type = linear,typename ImageType1,typename ImageTyp
 void resample_dis(const ImageType1& from,ImageType2&& to,const transform_type& transform,const tipl::image<3,tipl::vector<3> >& dis)
 {
     tipl::shape<ImageType1::dimension> geo(to.shape());
-    for (tipl::pixel_index<ImageType1::dimension> index(geo);index < geo.size();++index)
+    const size_t sz = geo.size();
+    for (tipl::pixel_index<ImageType1::dimension> index(geo);index < sz;++index)
     {
         tipl::vector<ImageType1::dimension,double> pos;
         transform(index,pos);
@@ -1331,41 +1347,32 @@ void resample_dis(const ImageType1& from,ImageType2&& to,const transform_type& t
     }
 }
 
-template<tipl::interpolation Type = linear,typename ImageType,typename value_type>
-void resample(ImageType& from,const tipl::transformation_matrix<value_type,ImageType::dimension>& transform)
-{
-    tipl::image<ImageType::dimension,typename ImageType::value_type> I(from.shape());
-    for (tipl::pixel_index<ImageType::dimension> index(from.shape());index < from.size();++index)
-    {
-        tipl::vector<ImageType::dimension,value_type> pos;
-        transform(index,pos);
-        estimate<Type>(from,pos,I[index.index()]);
-    }
-}
-
 template<tipl::interpolation itype = linear,typename T1,typename T2,
          typename std::enable_if<T1::dimension==3 && memory_location<T1>::at != CUDA,bool>::type = true>
 void scale(const T1& source_image,T2& des_image)
 {
-    double dx = double(source_image.width()-1)/double(des_image.width()-1);
-    double dy = double(source_image.height()-1)/double(des_image.height()-1);
-    double dz = double(source_image.depth()-1)/double(des_image.depth()-1);
+    uint32_t sw = source_image.width(), sh = source_image.height(), sd = source_image.depth();
+    uint32_t dw = des_image.width(), dh = des_image.height(), dd = des_image.depth();
 
-    double maxx = source_image.width()-1;
-    double maxy = source_image.height()-1;
-    double maxz = source_image.depth()-1;
+    double dx = double(sw-1)/double(dw-1);
+    double dy = double(sh-1)/double(dh-1);
+    double dz = double(sd-1)/double(dd-1);
+
+    double maxx = sw-1;
+    double maxy = sh-1;
+    double maxz = sd-1;
     double coord[3]={0.0,0.0,0.0};
-    for (unsigned int z = 0,index = 0;z < des_image.depth();++z,coord[2] += dz)
+    for (unsigned int z = 0,index = 0;z < dd;++z,coord[2] += dz)
     {
         if (coord[2] > maxz)
             coord[2] = maxz;
         coord[1] = 0.0;
-        for (unsigned int y = 0;y < des_image.height();++y,coord[1] += dy)
+        for (unsigned int y = 0;y < dh;++y,coord[1] += dy)
         {
             if (coord[1] > maxy)
                 coord[1] = maxy;
             coord[0] = 0.0;
-            for (unsigned int x = 0;x < des_image.width();++x,++index,coord[0] += dx)
+            for (unsigned int x = 0;x < dw;++x,++index,coord[0] += dx)
             {
                 if (coord[0] > maxx)
                     coord[0] = maxx;
@@ -1379,7 +1386,8 @@ void scale(const T1& source_image,T2& des_image)
 template<tipl::interpolation itype,typename T1,typename T2>
 __global__ void scale_cuda_kernel(T1 from,T2 to,double dx,double dy,double dz)
 {
-    TIPL_FOR(index,to.size())
+    const size_t sz = to.size();
+    TIPL_FOR(index,sz)
     {
         tipl::pixel_index<3> pos(index,to.shape());
         tipl::vector<3> v(pos);
@@ -1406,17 +1414,20 @@ void scale(const T1& source_image,T2& des_image)
 template<tipl::interpolation Type = linear,typename T1,typename T2,typename std::enable_if<T1::dimension==2,bool>::type = true>
 void scale(const T1& source_image,T2& des_image)
 {
-    double dx = double(source_image.width()-1)/double(des_image.width()-1);
-    double dy = double(source_image.height()-1)/double(des_image.height()-1);
-    double maxx = source_image.width()-1;
-    double maxy = source_image.height()-1;
+    uint32_t sw = source_image.width(), sh = source_image.height();
+    uint32_t dw = des_image.width(), dh = des_image.height();
+
+    double dx = double(sw-1)/double(dw-1);
+    double dy = double(sh-1)/double(dh-1);
+    double maxx = sw-1;
+    double maxy = sh-1;
     double coord[2] ={0.0,0.0};
-    for (unsigned int y = 0,index = 0;y < des_image.height();++y,coord[1] += dy)
+    for (unsigned int y = 0,index = 0;y < dh;++y,coord[1] += dy)
     {
         if (coord[1] > maxy)
             coord[1] = maxy;
         coord[0] = 0.0;
-        for (unsigned int x = 0;x < des_image.width();++x,++index,coord[0] += dx)
+        for (unsigned int x = 0;x < dw;++x,++index,coord[0] += dx)
         {
             if (coord[0] > maxx)
                 coord[0] = maxx;
