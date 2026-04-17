@@ -1481,7 +1481,7 @@ void to_image(std::shared_ptr<layer_type> l,color_image& Is,int max_width)
         tipl::upsampling_nearest(I);
     Is.resize(I.shape());
     std::fill(Is.begin(),Is.end(),tipl::rgb(0xFFFFFFFF));
-    for(int j = 0;j < I.size();++j)
+    for(size_t j = 0,sz = I.size();j < sz;++j)
     {
         if(I[j] == 0)
             continue;
