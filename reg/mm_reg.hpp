@@ -417,13 +417,13 @@ public:
             if(d < dimension)
             {
                 size_t shift = d*f2t_dis.size();
-                for(size_t i = 0;i < f2t_dis.size();++i)
+                for(size_t i = 0,sz = f2t_dis.size();i < sz;++i)
                     buffer[i+shift] = f2t_dis[i][d];
             }
             else
             {
                 size_t shift = d*t2f_dis.size();
-                for(size_t i = 0;i < t2f_dis.size();++i)
+                for(size_t i = 0,sz = t2f_dis.size();i < sz;++i)
                     buffer[i+shift] = t2f_dis[i][d-dimension];
             }
         },2*dimension);
