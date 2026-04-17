@@ -97,7 +97,7 @@ float otsu_median(const image_type& I)
 {
     float ot = otsu_threshold(I);
     std::vector<float> buf;
-    size_t sz = I.size(); // HOISTED size to prevent dynamic evaluation
+    size_t sz = I.size();
     buf.reserve(sz);
     for(size_t i = 0; i < sz; ++i)
         if(I[i] > ot)
@@ -110,7 +110,7 @@ float otsu_median(const image_type& I)
 template<typename image_type>
 void normalize_otsu_median(image_type& I,float upper_limit = 1.0f)
 {
-    size_t sz = I.size(); // HOISTED size
+    size_t sz = I.size();
     if constexpr(std::is_integral<typename image_type::value_type>::value)
     {
         std::vector<float> buf(sz);
