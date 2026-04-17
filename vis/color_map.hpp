@@ -85,7 +85,7 @@ public:
     tipl::vector<3,float> max_color(void)const{return color.back();}
     void two_color(tipl::rgb from_color,tipl::rgb to_color)
     {
-        for(unsigned int index = 0;index < color.size();++index)
+        for(size_t index = 0,sz = color.size();index < sz;++index)
         {
             float findex = float(index)/255.0f;
             for(unsigned char rgb_index = 0;rgb_index < 3;++rgb_index)
@@ -94,7 +94,7 @@ public:
     }
     void spectrum(void)
     {
-        for(unsigned int index = 0;index < color.size();++index)
+        for(size_t index = 0,sz = color.size();index < sz;++index)
         {
             color[index][0] = float(tipl::color_spectrum_value(128+64,uint8_t(index)))/255.0f;
             color[index][1] = float(tipl::color_spectrum_value(128,uint8_t(index)))/255.0f;
@@ -160,12 +160,12 @@ public:
         std::copy(std::istream_iterator<float>(in),
                   std::istream_iterator<float>(),std::back_inserter(values));
         float max_value = *std::max_element(values.begin(),values.end());
-        for(unsigned int i = 0;i < values.size();++i)
+        for(size_t i = 0,sz = values.size();i < sz;++i)
             values[i] = float(std::max<int>(0,std::min<int>(255,int(std::floor(values[i]*256.0f/max_value)))));
         if(values.size() < 3)
             return false;
         color.clear();
-        for(size_t i = 0;i+2 < values.size();i += 3)
+        for(size_t i = 0,sz = values.size();i+2 < sz;i += 3)
             color.push_back(tipl::rgb(uint8_t(values[i]),uint8_t(values[i+1]),uint8_t(values[i+2])));
         return true;
     }
@@ -216,13 +216,13 @@ public:
     void convert(const value_image_type& I1,color_image_type& I2) const
     {
         I2.resize(I1.shape());
-        for(unsigned int i = 0;i < I1.size();++i)
+        for(size_t i = 0,sz = I1.size();i < sz;++i)
             I2[i] = (*this)[I1[i]];
     }
     tipl::color_image operator[](const tipl::image<2,value_type>& I1) const
     {
         tipl::color_image out(I1.shape());
-        for(unsigned int i = 0;i < I1.size();++i)
+        for(size_t i = 0,sz = I1.size();i < sz;++i)
             out[i] = (*this)[I1[i]];
         return out;
     }
