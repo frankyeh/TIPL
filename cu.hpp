@@ -459,41 +459,22 @@ public:
 
 template<typename container_type, typename shape_type,
          std::enable_if_t<memory_location<container_type>::at == CUDA, int> = 0>
-__INLINE__ auto make_image(const container_type& c, size_t offset, const shape_type& sp)
-{
-    return const_pointer_device_image<shape_type::dimension,typename container_type::value_type>(c.data() + offset, sp);
-}
-
-
-template<typename container_type, typename shape_type,
-         std::enable_if_t<memory_location<container_type>::at == CUDA, int> = 0>
 __INLINE__ auto make_image(container_type& c, size_t offset, const shape_type& sp)
 {
     if constexpr (std::is_const<std::remove_pointer_t<decltype(c.data())>>::value)
-        return make_image(static_cast<const container_type&>(c), offset, sp);
+        return const_pointer_device_image<shape_type::dimension,typename container_type::value_type>(c.data() + offset, sp);
     else
         return pointer_device_image<shape_type::dimension,typename container_type::value_type>(c.data() + offset, sp);
 }
 
-template<int dim,typename vtype>
-__INLINE__ auto make_shared(const device_image<dim,vtype>& I)
+template<typename container_type,
+         std::enable_if_t<memory_location<container_type>::at == CUDA, int> = 0>
+__INLINE__ auto make_shared(container_type& I)
 {
-    return const_pointer_device_image(I);
-}
-template<int dim,typename vtype>
-__INLINE__ auto make_shared(device_image<dim,vtype>& I)
-{
-    return pointer_device_image(I);
-}
-template<int dim, typename vtype>
-__INLINE__ auto make_shared(pointer_device_image<dim, vtype>& I)
-{
-    return I;
-}
-template<int dim, typename vtype>
-__INLINE__ auto make_shared(const const_pointer_device_image<dim, vtype>& I)
-{
-    return I;
+    if constexpr (std::is_const_v<std::remove_pointer_t<decltype(I.data())>>)
+        return const_pointer_device_image(I);
+    else
+        return pointer_device_image(I);
 }
 
 
