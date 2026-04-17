@@ -445,13 +445,13 @@ private:
             sorted_index[view_index].resize(tri_list.size()*3);
             sorted_index[view_index+3].resize(tri_list.size()*3);
             std::vector<std::pair<float,unsigned int> > index_weighting(tri_list.size());
-            for (unsigned int index = 0;index < tri_list.size();++index)
+            for (size_t index = 0,sz = tri_list.size();index < sz;++index)
                 index_weighting[index] =
                 std::make_pair(point_list[tri_list[index][0]][view_index],index);
 
             std::sort(index_weighting.begin(),index_weighting.end());
             auto indices = sorted_index[view_index].begin();
-            for (size_t index = 0;index < tri_list.size();++index,indices+=3)
+            for (size_t index = 0,sz = tri_list.size();index < sz;++index,indices+=3)
             {
                 auto new_index = index_weighting[index].second;
                 indices[0] = tri_list[new_index][0];
