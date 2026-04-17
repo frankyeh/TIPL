@@ -90,9 +90,10 @@ get_mutual_info_mean(const T& mutual_hist,const U& from_hist)
 {
     double sum = 0.0;
     std::vector<uint32_t> to_hist(mi_his_bandwidth);
-    for (tipl::pixel_index<2> index(mutual_hist.shape());index < mutual_hist.size();++index)
+    size_t sz = mutual_hist.size();
+    for (tipl::pixel_index<2> index(mutual_hist.shape());index < sz;++index)
         to_hist[index.x()] += mutual_hist[index.index()];
-    for (tipl::pixel_index<2> index(mutual_hist.shape());index < mutual_hist.size();++index)
+    for (tipl::pixel_index<2> index(mutual_hist.shape());index < sz;++index)
     {
         double mu = mutual_hist[index.index()];
         if (mu == 0.0f)
@@ -150,7 +151,7 @@ get_mutual_info(T& mutual_hist_all,const U& to,const V& from,const W& trans)
         tipl::estimate<tipl::interpolation::linear>(to,pos,to_index);
         mutual_hist[id][(uint32_t(from[index.index()]) << mi_band_width) + uint32_t(to_index)]++;
     });
-    for(int i = 1;i < mutual_hist.size();++i)
+    for(size_t i = 1,sz = mutual_hist.size();i < sz;++i)
         tipl::add(mutual_hist[0],mutual_hist[i]);
     mutual_hist_all.swap(mutual_hist[0]);
 }
