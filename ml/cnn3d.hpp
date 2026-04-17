@@ -108,7 +108,7 @@ public:
         const int w = dim.width(), h = dim.height(), d = dim.depth();
 
         tipl::par_for(out_c, [&](size_t oc) {
-            std::fill_n(out + oc * img_size, img_size, bias[oc]);
+            std::fill_n(this->out + oc * img_size, img_size, bias[oc]);
         });
 
         tipl::par_for(static_cast<size_t>(out_c) * d, [&](size_t job) {
@@ -278,7 +278,7 @@ public:
         tipl::par_for(static_cast<size_t>(out_channels_) * out_d, [&](size_t i) {
             const int c = i / out_d, z = i % out_d;
             const float* in_ptr_c = in + (c * in_d * in_plane);
-            float* out_ptr_slice = out + (c * out_d * out_plane) + (z * out_plane);
+            float* out_ptr_slice = this->out + (c * out_d * out_plane) + (z * out_plane);
             const int from_z_base = z * pool_size;
 
             for (int y = 0; y < out_h; ++y) {
@@ -349,7 +349,7 @@ public:
         tipl::par_for(static_cast<size_t>(out_channels_) * in_d, [&](size_t i) {
             size_t c = i / in_d, z = i % in_d;
             float* in_ptr_plane = in + (c * in_d + z) * in_plane;
-            float* out_ptr_base = out + (c * out_dim.depth() + z * pool_size) * out_plane;
+            float* out_ptr_base = this->out + (c * out_dim.depth() + z * pool_size) * out_plane;
 
             for (int y = 0; y < in_h; ++y) {
                 int out_y_start = y * pool_size;
