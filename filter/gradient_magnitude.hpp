@@ -43,7 +43,7 @@ public:
         image_buf_type gy;
         gradient_2y(src,gy);
 
-        for(size_t index = 0;index < src.size();++index)
+        for(size_t index = 0,sz = src.size();index < sz;++index)
         {
             float fx = gx[index];
             float fy = gy[index];
@@ -71,7 +71,7 @@ public:
         image_buf_type gz;
         gradient_2z(src,gz);
 
-        for(size_t index = 0;index < src.size();++index)
+        for(size_t index = 0,sz = src.size();index < sz;++index)
         {
             float fx = gx[index];
             float fy = gy[index];
