@@ -98,7 +98,7 @@ public:
         minus_weight<1>(gy,src,-w-1);
         minus_weight<1>(gy,src,-w+1);
         sobel_filter_abs_sum<value_type> sum;
-        for(size_t index = 0;index < src.size();++index)
+        for(size_t index = 0,sz = src.size();index < sz;++index)
             src[index] = sum(gx[index],gy[index]);
     }
 };
@@ -154,7 +154,7 @@ public:
 		minus_weight<1>(gy,src,-wh-w);
         minus_weight<1>(gy,src,-wh+w);
         sobel_filter_abs_sum<value_type> sum;
-        for(size_t index = 0;index < src.size();++index)
+        for(size_t index = 0,sz = src.size();index < sz;++index)
             src[index] = sum(gx[index],gy[index],gz[index]);
     }
 };
