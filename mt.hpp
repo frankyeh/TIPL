@@ -226,60 +226,6 @@ inline double estimate_run_time(T&& fun)
     return std::chrono::duration<double, std::micro>(end - start).count();
 }
 
-template <par_for_type type = dynamic, typename T, typename Func>
-__HOST__ size_t adaptive_par_for(T from, T to, Func&& f)
-{
-    if (to - from <= 8 || !tipl::is_main_thread() || par_for_running.exchange(true))
-    {
-        par_for<type>(from, to, f, 1);
-        return 1;
-    }
-
-    struct scoped_flag
-    {
-        ~scoped_flag()
-        {
-            par_for_running = false;
-        }
-    } guard;
-
-    auto block_size = std::max<decltype(to - from)>(1, (to - from) >> 6);
-
-    if (from + block_size * 3 > to)
-    {
-        par_for<type>(from, to, f, 1);
-        return 1;
-    }
-
-    double t1 = estimate_run_time([&]() { par_for<type>(from, from + block_size, f, 1); });
-    from += block_size;
-
-    double t2 = estimate_run_time([&]() { par_for<type>(from, from + block_size * 2, f, 2); });
-    from += block_size * 2;
-
-    double overhead = t2 - t1;
-
-    if (overhead <= 0)
-    {
-        par_for<type>(from, to, std::forward<Func>(f), max_thread_count);
-        return max_thread_count;
-    }
-
-    int64_t num_block = (to - from) / block_size;
-    int opt_threads = std::max<int>(1, std::sqrt(num_block * t1 / overhead));
-    opt_threads = std::min<int>(opt_threads, max_thread_count);
-
-    par_for<type>(from, to, std::forward<Func>(f), opt_threads);
-    return opt_threads;
-}
-
-template <par_for_type type = dynamic,typename T,typename Func,
-          typename std::enable_if<std::is_integral<T>::value,bool>::type = true>
-inline size_t adaptive_par_for(T size, Func&& f)
-{
-    return adaptive_par_for<type>(T(),size,std::forward<Func>(f));
-}
-
 template<typename T>
 void aggregate_results(std::vector<std::vector<T> >&& results,std::vector<T>& all_result_)
 {
