@@ -572,7 +572,7 @@ __INLINE__ void downsampling(const ImageType1& in,ImageType2& out)
 }
 
 template<typename T,typename U,typename V>
-void downsample_with_padding_imp(const pixel_index<T::dimension>& pos1,
+__INLINE__ void downsample_with_padding_imp(const pixel_index<T::dimension>& pos1,
                                             T& in,U& out,V& shift)
 {
     constexpr int buf_count = (T::dimension == 3 ? 8 : 4);
