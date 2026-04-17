@@ -313,7 +313,8 @@ public:
         while(max_It < It.size() && !It[max_It].empty())
             ++max_It;
 
-        for(tipl::pixel_index<dimension> index(Its);index < Its.size();++index)
+        size_t sz = Its.size();
+        for(tipl::pixel_index<dimension> index(Its);index < sz;++index)
         {
             tipl::vector<dimension> pos;
             trans(index,pos);
