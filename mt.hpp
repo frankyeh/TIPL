@@ -231,7 +231,7 @@ void aggregate_results(std::vector<std::vector<T> >&& results,std::vector<T>& al
 {
     std::vector<size_t> insert_pos;
     insert_pos.push_back(0);
-    for(size_t i = 0;i < results.size();++i)
+    for(size_t i = 0,sz = results.size();i < sz;++i)
         insert_pos.push_back(insert_pos.back() + results[i].size());
 
     std::vector<T> all_result(insert_pos.back());
