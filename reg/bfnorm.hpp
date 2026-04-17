@@ -287,7 +287,8 @@ public:
             }
             int ICO_ = mapping.k_base.size();
             value_type IC0_co = reg*std::pow(stabilise,6);
-            for(tipl::pixel_index<dim> pos(mapping.k_base);pos < mapping.k_base.size();++pos)
+            size_t sz = mapping.k_base.size();
+            for(tipl::pixel_index<dim> pos(mapping.k_base);pos < sz;++pos)
             {
                 int m = pos[0];
                 int j = pos[1];
