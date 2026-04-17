@@ -4,9 +4,11 @@
 #include <fstream>
 #include <iomanip>
 #include <string>
+#include <algorithm>
 #include "../numerical/matrix.hpp"
 #include "../def.hpp"
 #include "../utility/pixel_index.hpp"
+
 namespace tipl{
 
 template<unsigned int dim>
@@ -24,7 +26,7 @@ __DEVICE_HOST__ void vector_transformation(input_iter1 vec_in,output_iter vec_ou
 }
 
 template<typename input_iter1,typename input_iter2,typename output_iter>
-__DEVICE_HOST__  void vector_transformation(input_iter1 vec_in,output_iter vec_out,input_iter2 trans,vdim<3>)
+__DEVICE_HOST__ void vector_transformation(input_iter1 vec_in,output_iter vec_out,input_iter2 trans,vdim<3>)
 {
     vec_out[0] = vec_in[0]*trans[0] +
                  vec_in[1]*trans[1] +
@@ -50,7 +52,6 @@ __DEVICE_HOST__ void vector_transformation(input_iter1 vec_in,output_iter vec_ou
                  vec_in[1]*rotation[3] +
                  shift[1];
 }
-
 
 template<typename input_iter1,typename input_iter2,typename input_iter3,typename output_iter>
 __DEVICE_HOST__ void vector_transformation(input_iter1 vec_in,output_iter vec_out,input_iter2 rotation,input_iter3 shift,vdim<3>)
@@ -92,7 +93,6 @@ void vector_rotation(input_iter1 vec_in,output_iter vec_out,input_iter2 rotation
                  vec_in[2]*rotation[8];
 }
 
-
 /** Perform C= AB
     A,B,C are 2-by-2 matrices
 */
@@ -104,7 +104,6 @@ void matrix_product(input_iterator1 A,input_iterator2 B,output_iterator C,vdim<2
 
     C[2] = A[2] * B[0] + A[3] * B[2];
     C[3] = A[2] * B[1] + A[3] * B[3];
-
 }
 
 /** Perform C= AB
@@ -137,17 +136,7 @@ void rotation_matrix(angle_type theta,output_iter m,vdim<2>)
     m[3] = cos_theta;
 }
 
-/*
- example
-
-    float angle[3] = {1,2,3};// SPM use [1 -2 3]
-    float result[9];
-    tipl::rotation_matrix(angle,result,tipl::vdim<3>());
-    std::copy_n(result,9,std::ostream_iterator<float>(std::cout," "));
-    return 0;
-
- */
-//a clockwise/left-handed rotation with Euler angles
+// a clockwise/left-handed rotation with Euler angles
 template<typename angle_type,typename output_type>
 void rotation_matrix(angle_type theta,output_type m,vdim<3>)
 {
@@ -170,24 +159,13 @@ void rotation_matrix(angle_type theta,output_type m,vdim<3>)
     m[6] = sin_x_sin_z+cos_x_cos_z*sin_y;
     m[7] = -sin_x_cos_z+cos_x_sin_z*sin_y;
     m[8] = cos_x*cos_y;
-    /* Euler angle
-    m[0] = cos_x_cos_z - cos_y*sin_x_sin_z;
-    m[1] = sin_x_cos_z + cos_y*cos_x_sin_z;
-    m[2] = sin_z*sin_y;
-    m[3] = -cos_x_sin_z - cos_y*sin_x_cos_z;
-    m[4] = -sin_x_sin_z + cos_y*cos_x_cos_z;
-    m[5] = cos_z*sin_y;
-    m[6] = sin_y*sin_x;
-    m[7] = -sin_y*cos_x;
-    m[8] = cos_y;
-     */
 }
 
 template<typename iterator_type1,typename iterator_type2>
 void rotation_matrix_to_angles(iterator_type1 m,iterator_type2 theta,vdim<3>)
 {
     double sy = std::sqrt(m[0]*m[0]+m[1]*m[1]);
-    if (sy > 1.0e-6f)
+    if (sy > 1.0e-6)
     {
         theta[0] = atan2(m[5],m[8]);
         theta[2] = atan2(m[1],m[0]);
@@ -195,13 +173,12 @@ void rotation_matrix_to_angles(iterator_type1 m,iterator_type2 theta,vdim<3>)
     else
     {
         theta[0] = atan2(-m[7], m[4]);
-        theta[2] = 0;
+        theta[2] = 0.0;
     }
     theta[1] = atan2(-m[2], sy);
 }
-/*
- Scaling*Rotate
- */
+
+/* Scaling*Rotate */
 template<typename angle_type,typename scale_type,typename output_type>
 void rotation_scaling_matrix(angle_type theta,scale_type s,output_type m,vdim<2>)
 {
@@ -211,9 +188,8 @@ void rotation_scaling_matrix(angle_type theta,scale_type s,output_type m,vdim<2>
     m[2] *= s[1];
     m[3] *= s[1];
 }
-/*
- Scaling*Rx*Ry*Rz
- */
+
+/* Scaling*Rx*Ry*Rz */
 template<typename angle_type,typename scale_type,typename output_type>
 void rotation_scaling_matrix(angle_type theta,scale_type s,output_type m,vdim<3>)
 {
@@ -229,13 +205,7 @@ void rotation_scaling_matrix(angle_type theta,scale_type s,output_type m,vdim<3>
     m[8] *= s[2];
 }
 
-/*
- Affine*Scaling*R
-
-Affine   = [1   	a[0]    0;
-            0   	1 	    0;
-            0   	0   	1];
- */
+/* Affine*Scaling*R */
 template<typename angle_type,typename scale_type,typename affine_type,typename output_type>
 void rotation_scaling_affine_matrix(angle_type theta,scale_type s,affine_type a,output_type m,vdim<2>)
 {
@@ -244,14 +214,7 @@ void rotation_scaling_affine_matrix(angle_type theta,scale_type s,affine_type a,
     m[1] += m[3]*a;
 }
 
-/*
- Affine*Scaling*R1*R2*R3
-
-Affine   = [1   	a[0]    a[1]   0;
-            0   	1 	a[2]   0;
-            0   	0   	1      0;
-            0    	0    	0      1];
- */
+/* Affine*Scaling*R1*R2*R3 */
 template<typename angle_type,typename scale_type,typename affine_type,typename output_type>
 void rotation_scaling_affine_matrix(angle_type theta,scale_type s,affine_type a,output_type m,vdim<3>)
 {
@@ -311,9 +274,9 @@ void rotation_x_matrix(double theta,output_iter m/*a 3x3 matrix*/)
 {
     auto cos_theta = std::cos(theta);
     auto sin_theta = std::sin(theta);
-    m[0] = 1.0;    m[1] = 0.0;    m[2] = 0.0;
+    m[0] = 1.0;    m[1] = 0.0;          m[2] = 0.0;
     m[3] = 0.0;    m[4] = cos_theta;    m[5] = sin_theta;
-    m[6] = 0.0;    m[7] = -sin_theta;    m[8] = cos_theta;
+    m[6] = 0.0;    m[7] = -sin_theta;   m[8] = cos_theta;
 }
 
 template<typename output_iter>
@@ -322,7 +285,7 @@ void rotation_y_matrix(double theta,output_iter m/*a 3x3 matrix*/)
     auto cos_theta = std::cos(theta);
     auto sin_theta = std::sin(theta);
     m[0] = cos_theta;    m[1] = 0.0;    m[2] = -sin_theta;
-    m[3] = 0.0;    m[4] = 1.0;    m[5] = 0.0;
+    m[3] = 0.0;          m[4] = 1.0;    m[5] = 0.0;
     m[6] = sin_theta;    m[7] = 0.0;    m[8] = cos_theta;
 }
 
@@ -331,16 +294,12 @@ void rotation_z_matrix(double theta,output_iter m/*a 3x3 matrix*/)
 {
     auto cos_theta = std::cos(theta);
     auto sin_theta = std::sin(theta);
-    m[0] = cos_theta;    m[1] = sin_theta;    m[2] = 0.0;
+    m[0] = cos_theta;     m[1] = sin_theta;    m[2] = 0.0;
     m[3] = -sin_theta;    m[4] = cos_theta;    m[5] = 0.0;
-    m[6] = 0.0;    m[7] = 0.0;    m[8] = 1.0;
+    m[6] = 0.0;           m[7] = 0.0;          m[8] = 1.0;
 }
 
-/**
-    rotate from u to v
-    R : left roration matrix
-*/
-
+/** rotate from u to v. R : left roration matrix */
 template<typename input_iter1,typename input_iter2,typename output_iter>
 void rotation_vector_matrix(output_iter r,input_iter1 u,input_iter2 v)
 {
@@ -355,7 +314,7 @@ void rotation_vector_matrix(output_iter r,input_iter1 u,input_iter2 v)
     uv[0] = u[0] + v[0];
     uv[1] = u[1] + v[1];
     uv[2] = u[2] + v[2];
-    //R(u->v) = (u+v)*(u+v)T/(uT*v+1) - I
+    // R(u->v) = (u+v)*(u+v)T/(uT*v+1) - I
     r[0] = uv[0]*uv[0]/value-1;
     r[1] = uv[1]*uv[0]/value;
     r[2] = uv[2]*uv[0]/value;
@@ -367,13 +326,12 @@ void rotation_vector_matrix(output_iter r,input_iter1 u,input_iter2 v)
     r[8] = uv[2]*uv[2]/value-1;
 }
 
-
 template<typename input_iter,typename output_iter>
 void rotation_matrix(input_iter uv/*a 3d unit vector as the axis*/,double theta,output_iter m/*a 3x3 matrix*/,vdim<3>)
 {
     auto cos_theta = std::cos(theta);
     auto sin_theta = std::sin(theta);
-    auto cos_theta_1 = (1-cos_theta);
+    auto cos_theta_1 = (1.0 - cos_theta);
     auto zs = uv[2]*sin_theta;
     auto ys = uv[1]*sin_theta;
     auto xs = uv[0]*sin_theta;
@@ -400,18 +358,10 @@ void scaling_matrix(input_iter scaling,output_iter m,vdim<2>)
 template<typename input_iter,typename output_iter>
 void scaling_matrix(input_iter scaling,output_iter m,vdim<3>)
 {
-    m[0] = scaling[0];
-    m[1] = 0.0;
-    m[2] = 0.0;
-    m[3] = 0.0;
-    m[4] = scaling[1];
-    m[5] = 0.0;
-    m[6] = 0.0;
-    m[7] = 0.0;
-    m[8] = scaling[2];
+    m[0] = scaling[0];    m[1] = 0.0;           m[2] = 0.0;
+    m[3] = 0.0;           m[4] = scaling[1];    m[5] = 0.0;
+    m[6] = 0.0;           m[7] = 0.0;           m[8] = scaling[2];
 }
-
-
 
 template<typename input_scaling_iter,typename angle_type,typename output_iter>
 void rotation_angle_to_rotation_matrix(input_scaling_iter scaling,angle_type rotation,output_iter m,vdim<2>)
@@ -436,20 +386,6 @@ void rotation_angle_to_rotation_matrix(input_scaling_iter scaling,input_rotation
     matrix_product(R,S,m,vdim<3>());
 }
 
-// the rotation is the Euler angles, which has Z-X-Z configuration
-/*
-template<typename input_rotation_iter,typename output_iter>
-void rotation_angle_to_rotation_matrix(input_rotation_iter rotation,output_iter m)
-{
-    double S[9],R[9],M[9];
-    rotation_z_matrix(rotation[0],M);
-    rotation_x_matrix(rotation[1],R);
-    matrix_product(R,M,S,vdim<3>());
-    rotation_z_matrix(rotation[2],R);
-    matrix_product(R,S,m,vdim<3>());
-}
-*/
-
 // Output Euler angle from rotation matrix
 template<typename input_rotation_iter,typename output_iter>
 void rotation_matrix_to_rotation_angle(input_rotation_iter rotation_matrix,output_iter rotation_angle,vdim<3>)
@@ -458,7 +394,6 @@ void rotation_matrix_to_rotation_angle(input_rotation_iter rotation_matrix,outpu
     rotation_angle[1] = std::acos(rotation_matrix[8]);//X
     rotation_angle[2] = -std::atan2(rotation_matrix[2],rotation_matrix[5]);//Z
 }
-
 
 template<typename input_rotation_iter,typename input_shift_iter,typename output_iter>
 void create_affine_param(input_rotation_iter rotation_scaling,input_shift_iter shift,output_iter m,vdim<3>)
@@ -471,14 +406,13 @@ void create_affine_param(input_rotation_iter rotation_scaling,input_shift_iter s
     m[11] = shift[2];
     m[12] = m[13] = m[14] = 0;
     m[15] = 1;
-
 }
 
 template<typename input_scaling_iter,typename input_rotation_iter,typename input_shift_iter,typename output_iter>
 void create_affine_param(input_scaling_iter scaling,input_rotation_iter rotation,input_shift_iter shift,output_iter m,vdim<3>)
 {
     double M[9];
-    sr_matrix(scaling,rotation,M);
+    rotation_angle_to_rotation_matrix(scaling,rotation,M,vdim<3>());
     create_affine_param(M,shift,m,vdim<3>());
 }
 
@@ -508,70 +442,66 @@ public:
     affine_param(std::initializer_list<value_type> rhs)
     {
         size_t i = 0;
-        for(const auto& v : rhs)
+        for(const auto& v : rhs) {
+            if (i >= total_size) break;
             data_[i++] = v;
+        }
     }
     affine_param(const value_type* data__)
     {
-        for(unsigned int i = 0;i < total_size;++i)
-            data_[i] = data__[i];
+        std::copy_n(data__, total_size, data_);
     }
     template<typename rhs_type>
     affine_param(const rhs_type& rhs){operator=(rhs);}
+
     template<typename rhs_type>
     affine_param& operator=(const rhs_type& rhs)
     {
         size_t i = 0;
-        for(const auto& v : rhs)
+        for(const auto& v : rhs) {
+            if (i >= total_size) break;
             data_[i++] = v;
+        }
         return *this;
     }
+
     affine_param& operator=(std::initializer_list<value_type> rhs)
     {
         size_t i = 0;
-        for(const auto& v : rhs)
+        for(const auto& v : rhs) {
+            if (i >= total_size) break;
             data_[i++] = v;
+        }
         return *this;
     }
 public:
     void clear(void)
     {
-        translocation[0] = 0;
-        translocation[1] = 0;
+        std::fill_n(data_, total_size, value_type(0));
         scaling[0] = 1;
         scaling[1] = 1;
-        rotation[0] = 0;
-        affine[0] = 0;
         if constexpr(dimension == 3)
-        {
-            translocation[2] = 0;
             scaling[2] = 1;
-            rotation[1] = 0;
-            rotation[2] = 0;
-            affine[1] = 0;
-            affine[2] = 0;
-        }
     }
-    value_type operator[](unsigned int i) const{return data_[i];}
-    value_type& operator[](unsigned int i) {return data_[i];}
-    const value_type* begin(void) const{return data_;}
-    const value_type* end(void) const{return data_+total_size;}
-    value_type* begin(void) {return data_;}
-    value_type* end(void) {return data_+total_size;}
-    unsigned int size(void) const{return total_size;}
-    value_type* data(void) {return data_;}
-    const value_type* data(void) const {return data_;}
-    bool operator==(const affine_param& rhs)
+    value_type operator[](unsigned int i) const { return data_[i]; }
+    value_type& operator[](unsigned int i) { return data_[i]; }
+    const value_type* begin(void) const { return data_; }
+    const value_type* end(void) const { return data_ + total_size; }
+    value_type* begin(void) { return data_; }
+    value_type* end(void) { return data_ + total_size; }
+    unsigned int size(void) const { return total_size; }
+    value_type* data(void) { return data_; }
+    const value_type* data(void) const { return data_; }
+
+    bool operator==(const affine_param& rhs) const
     {
-        for(char i = 0;i < total_size;++i)
-            if(data_[i] != rhs.data_[i])
-                return false;
-        return true;
+        return std::equal(data_, data_ + total_size, rhs.data_);
     }
-    bool operator!=(const affine_param& rhs)
+    bool operator!=(const affine_param& rhs) const
     {
         return !(*this == rhs);
     }
+
     friend std::ostream& operator<<(std::ostream& out, const affine_param& T)
     {
         if(typeid(out) == typeid(std::ofstream))
@@ -635,25 +565,17 @@ public:
         std::string text;
         if constexpr(dimension == 3)
         {
-            if(in)
-                in >> text >> T.translocation[0] >> T.translocation[1] >> T.translocation[2];
-            if(in)
-                in >> text >> T.rotation[0] >> T.rotation[1] >> T.rotation[2];
-            if(in)
-                in >> text >> T.scaling[0] >> T.scaling[1] >>  T.scaling[2];
-            if(in)
-                in >> text >> T.affine[0] >> T.affine[1] >> T.affine[2];
+            if(in) in >> text >> T.translocation[0] >> T.translocation[1] >> T.translocation[2];
+            if(in) in >> text >> T.rotation[0] >> T.rotation[1] >> T.rotation[2];
+            if(in) in >> text >> T.scaling[0] >> T.scaling[1] >>  T.scaling[2];
+            if(in) in >> text >> T.affine[0] >> T.affine[1] >> T.affine[2];
         }
         else
         {
-            if(in)
-                in >> text >> T.translocation[0] >> T.translocation[1];
-            if(in)
-                in >> text >> T.rotation[0] >> T.rotation[1];
-            if(in)
-                in >> text >> T.scaling[0] >> T.scaling[1];
-            if(in)
-                in >> text >> T.affine[0];
+            if(in) in >> text >> T.translocation[0] >> T.translocation[1];
+            if(in) in >> text >> T.rotation[0] >> T.rotation[1];
+            if(in) in >> text >> T.scaling[0] >> T.scaling[1];
+            if(in) in >> text >> T.affine[0];
         }
         return in;
     }
@@ -678,43 +600,19 @@ public:
         value_type data_[total_size];
     };
 public:
-    __INLINE__ const value_type& operator[](unsigned int index) const
-    {
-        return data_[index];
-    }
-    __INLINE__ value_type& operator[](unsigned int index)
-    {
-        return data_[index];
-    }
-    __INLINE__ value_type* data(void)
-    {
-        return data_;
-    }
-    __INLINE__ value_type* begin(void)
-    {
-        return data_;
-    }
-    __INLINE__ value_type* end(void)
-    {
-        return data_+12;
-    }
-    __INLINE__ const value_type* data(void)const
-    {
-        return data_;
-    }
-    __INLINE__ const value_type* begin(void)const
-    {
-        return data_;
-    }
-    __INLINE__ const value_type* end(void)	const
-    {
-        return data_+total_size;
-    }
-    __INLINE__ size_t size(void) const{return total_size;}
+    __INLINE__ const value_type& operator[](unsigned int index) const { return data_[index]; }
+    __INLINE__ value_type& operator[](unsigned int index) { return data_[index]; }
+    __INLINE__ value_type* data(void) { return data_; }
+    __INLINE__ value_type* begin(void) { return data_; }
+    __INLINE__ value_type* end(void) { return data_ + total_size; }
+    __INLINE__ const value_type* data(void) const { return data_; }
+    __INLINE__ const value_type* begin(void) const { return data_; }
+    __INLINE__ const value_type* end(void) const { return data_ + total_size; }
+    __INLINE__ size_t size(void) const { return total_size; }
+
     __INLINE__ void identity(void)
     {
-        for(unsigned int i = 0;i < total_size;++i)
-            data_[i] = 0;
+        std::fill_n(data_, total_size, value_type(0));
         if constexpr(dimension == 3)
             sr[0] = sr[4] = sr[8] = 1;
         else
@@ -730,6 +628,7 @@ public:
     transformation_matrix(const transformation_matrix<rhs_value_type,dimension>& M){*this = M;}
     template<typename rhs_value_type>
     transformation_matrix(const tipl::matrix<dimension+1,dimension+1,rhs_value_type>& M){*this = M;}
+
     template<typename geo_type,typename vs_type>
     transformation_matrix(const affine_param<value_type,dimension>& rb,
                           const geo_type& from,
@@ -737,94 +636,66 @@ public:
                           const geo_type& to,
                           const vs_type& to_vs)
     {
-        //now sr = Affine*Scaling*R1*R2*R3
-        // calculate (vs*Translocation*shift_center)
         if constexpr(dimension==3)
         {
             rotation_scaling_affine_matrix(rb.rotation,rb.scaling,rb.affine,sr,vdim<dimension>());
             vs_type t(from.width(),from.height(),from.depth());
-            t *= -0.5;
+            t *= value_type(-0.5);
             t[0] *= from_vs[0];
             t[1] *= from_vs[1];
             t[2] *= from_vs[2];
             t += rb.translocation;
-            // (Affine*Scaling*R1*R2*R3)*(vs*Translocation*shift_center)
+
             shift[0] = sr[0]*t[0]+sr[1]*t[1]+sr[2]*t[2];
             shift[1] = sr[3]*t[0]+sr[4]*t[1]+sr[5]*t[2];
             shift[2] = sr[6]*t[0]+sr[7]*t[1]+sr[8]*t[2];
-            sr[0] *= from_vs[0];
-            sr[1] *= from_vs[1];
-            sr[2] *= from_vs[2];
-            sr[3] *= from_vs[0];
-            sr[4] *= from_vs[1];
-            sr[5] *= from_vs[2];
-            sr[6] *= from_vs[0];
-            sr[7] *= from_vs[1];
-            sr[8] *= from_vs[2];
-            // inv(vs) ... = inv(vs)(vs*shift_center)...
+            sr[0] *= from_vs[0];  sr[1] *= from_vs[1];  sr[2] *= from_vs[2];
+            sr[3] *= from_vs[0];  sr[4] *= from_vs[1];  sr[5] *= from_vs[2];
+            sr[6] *= from_vs[0];  sr[7] *= from_vs[1];  sr[8] *= from_vs[2];
+
             if(to_vs[0] != value_type(1))
             {
-                sr[0] /= to_vs[0];
-                sr[1] /= to_vs[0];
-                sr[2] /= to_vs[0];
-                shift[0] /= to_vs[0];
+                sr[0] /= to_vs[0]; sr[1] /= to_vs[0]; sr[2] /= to_vs[0]; shift[0] /= to_vs[0];
             }
             if(to_vs[1] != value_type(1))
             {
-                sr[3] /= to_vs[1];
-                sr[4] /= to_vs[1];
-                sr[5] /= to_vs[1];
-                shift[1] /= to_vs[1];
+                sr[3] /= to_vs[1]; sr[4] /= to_vs[1]; sr[5] /= to_vs[1]; shift[1] /= to_vs[1];
             }
             if(to_vs[2] != value_type(1))
             {
-                sr[6] /= to_vs[2];
-                sr[7] /= to_vs[2];
-                sr[8] /= to_vs[2];
-                shift[2] /= to_vs[2];
+                sr[6] /= to_vs[2]; sr[7] /= to_vs[2]; sr[8] /= to_vs[2]; shift[2] /= to_vs[2];
             }
-            // inv(shift_center) ... = inv(shift_center)(shift_center)...
             shift[0] += value_type(to.width())*value_type(0.5);
             shift[1] += value_type(to.height())*value_type(0.5);
             shift[2] += value_type(to.depth())*value_type(0.5);
         }
-
         else
         {
-            //now sr = Affine*Scaling*R1*R2
             rotation_scaling_affine_matrix(rb.rotation[0],rb.scaling,rb.affine[0],sr,vdim<2>());
-            // calculate (vs*Translocation*shift_center)
             vs_type t(from.width(),from.height());
-            t *= -0.5;
+            t *= value_type(-0.5);
             t[0] *= from_vs[0];
             t[1] *= from_vs[1];
             t += rb.translocation;
-            // (Affine*Scaling*R1*R2)*(vs*Translocation*shift_center)
+
             shift[0] = sr[0]*t[0]+sr[1]*t[1];
             shift[1] = sr[2]*t[0]+sr[3]*t[1];
-            sr[0] *= from_vs[0];
-            sr[1] *= from_vs[1];
-            sr[2] *= from_vs[0];
-            sr[3] *= from_vs[1];
-            // inv(vs) ... = inv(vs)(vs*shift_center)...
+            sr[0] *= from_vs[0]; sr[1] *= from_vs[1];
+            sr[2] *= from_vs[0]; sr[3] *= from_vs[1];
+
             if(to_vs[0] != value_type(1))
             {
-                sr[0] /= to_vs[0];
-                sr[1] /= to_vs[0];
-                shift[0] /= to_vs[0];
+                sr[0] /= to_vs[0]; sr[1] /= to_vs[0]; shift[0] /= to_vs[0];
             }
             if(to_vs[1] != value_type(1))
             {
-                sr[2] /= to_vs[1];
-                sr[3] /= to_vs[1];
-                shift[1] /= to_vs[1];
+                sr[2] /= to_vs[1]; sr[3] /= to_vs[1]; shift[1] /= to_vs[1];
             }
-            // inv(shift_center) ... = inv(shift_center)(shift_center)...
             shift[0] += value_type(to.width())*value_type(0.5);
             shift[1] += value_type(to.height())*value_type(0.5);
         }
     }
-    // (Affine*Scaling*R1*R2*R3*vs*Translocation*shift_center)*from = (vs*shift_center*to;
+
     template<typename geo_type,typename vs_type>
     auto to_affine_param(
                           const geo_type& from,
@@ -843,36 +714,20 @@ public:
 
         if(to_vs[2] != value_type(1))
         {
-            R[6] *= to_vs[2];
-            R[7] *= to_vs[2];
-            R[8] *= to_vs[2];
-            t[2] *= to_vs[2];
+            R[6] *= to_vs[2]; R[7] *= to_vs[2]; R[8] *= to_vs[2]; t[2] *= to_vs[2];
         }
-
         if(to_vs[1] != value_type(1))
         {
-            R[3] *= to_vs[1];
-            R[4] *= to_vs[1];
-            R[5] *= to_vs[1];
-            t[1] *= to_vs[1];
+            R[3] *= to_vs[1]; R[4] *= to_vs[1]; R[5] *= to_vs[1]; t[1] *= to_vs[1];
         }
-
         if(to_vs[0] != value_type(1))
         {
-            R[0] *= to_vs[0];
-            R[1] *= to_vs[0];
-            R[2] *= to_vs[0];
-            t[0] *= to_vs[0];
+            R[0] *= to_vs[0]; R[1] *= to_vs[0]; R[2] *= to_vs[0]; t[0] *= to_vs[0];
         }
-        R[0] /= from_vs[0];
-        R[1] /= from_vs[1];
-        R[2] /= from_vs[2];
-        R[3] /= from_vs[0];
-        R[4] /= from_vs[1];
-        R[5] /= from_vs[2];
-        R[6] /= from_vs[0];
-        R[7] /= from_vs[1];
-        R[8] /= from_vs[2];
+        R[0] /= from_vs[0]; R[1] /= from_vs[1]; R[2] /= from_vs[2];
+        R[3] /= from_vs[0]; R[4] /= from_vs[1]; R[5] /= from_vs[2];
+        R[6] /= from_vs[0]; R[7] /= from_vs[1]; R[8] /= from_vs[2];
+
         iR = tipl::inverse(R);
         rb.translocation[0] = (iR[0]*t[0]+iR[1]*t[1]+iR[2]*t[2])+value_type(from.width())*value_type(0.5)*from_vs[0];
         rb.translocation[1] = (iR[3]*t[0]+iR[4]*t[1]+iR[5]*t[2])+value_type(from.height())*value_type(0.5)*from_vs[1];
@@ -884,8 +739,7 @@ public:
     template<typename rhs_value_type>
     auto& operator=(const transformation_matrix<rhs_value_type,dimension>& M)
     {
-        for(unsigned int i = 0;i < total_size;++i)
-            data_[i] = M.data_[i];
+        std::copy_n(M.data_, total_size, data_);
         return *this;
     }
     template<typename rhs_value_type>
@@ -893,39 +747,21 @@ public:
     {
         if constexpr(dimension == 3)
         {
-            data_[0] = M[0];
-            data_[1] = M[1];
-            data_[2] = M[2];
-
-            data_[3] = M[4];
-            data_[4] = M[5];
-            data_[5] = M[6];
-
-            data_[6] = M[8];
-            data_[7] = M[9];
-            data_[8] = M[10];
-
-            data_[9] = M[3];
-            data_[10] = M[7];
-            data_[11] = M[11];
+            data_[0] = M[0];  data_[1] = M[1];  data_[2] = M[2];
+            data_[3] = M[4];  data_[4] = M[5];  data_[5] = M[6];
+            data_[6] = M[8];  data_[7] = M[9];  data_[8] = M[10];
+            data_[9] = M[3];  data_[10] = M[7]; data_[11] = M[11];
         }
         else
         {
-            data_[0] = M[0];
-            data_[1] = M[1];
-
-            data_[2] = M[3];
-            data_[3] = M[4];
-
-            data_[4] = M[2];
-            data_[5] = M[5];
+            data_[0] = M[0];  data_[1] = M[1];
+            data_[2] = M[3];  data_[3] = M[4];
+            data_[4] = M[2];  data_[5] = M[5];
         }
         return *this;
     }
 public:
 
-    // new matrix = rhs * current matrix
-    // when applying to vectors, they will be transformed by current matrix first, and then the rhs.
     transformation_matrix& accumulate(const transformation_matrix& rhs)
     {
         tipl::matrix<dimension,dimension,value_type> sr_tmp(sr);
@@ -942,41 +778,18 @@ public:
         tipl::matrix<dimension+1,dimension+1,value_type> M;
         if constexpr(dimension == 3)
         {
-            M[0] = data_[0];
-            M[1] = data_[1];
-            M[2] = data_[2];
-
-            M[4] = data_[3];
-            M[5] = data_[4];
-            M[6] = data_[5];
-
-            M[8] = data_[6];
-            M[9] = data_[7];
-            M[10] = data_[8];
-
-            M[3] = data_[9];
-            M[7] = data_[10];
-            M[11] = data_[11];
-
-            M[12] = 0.0f;
-            M[13] = 0.0f;
-            M[14] = 0.0f;
-            M[15] = 1.0f;
+            M[0] = data_[0];  M[1] = data_[1];   M[2] = data_[2];
+            M[4] = data_[3];  M[5] = data_[4];   M[6] = data_[5];
+            M[8] = data_[6];  M[9] = data_[7];   M[10] = data_[8];
+            M[3] = data_[9];  M[7] = data_[10];  M[11] = data_[11];
+            M[12] = 0.0f;     M[13] = 0.0f;      M[14] = 0.0f;     M[15] = 1.0f;
         }
         else
         {
-            M[0] = data_[0];
-            M[1] = data_[1];
-
-            M[3] = data_[2];
-            M[4] = data_[3];
-
-            M[2] = data_[4];
-            M[5] = data_[5];
-
-            M[6] = 0.0f;
-            M[7] = 0.0f;
-            M[8] = 1.0f;
+            M[0] = data_[0];  M[1] = data_[1];
+            M[3] = data_[2];  M[4] = data_[3];
+            M[2] = data_[4];  M[5] = data_[5];
+            M[6] = 0.0f;      M[7] = 0.0f;       M[8] = 1.0f;
         }
         return M;
     }
@@ -985,41 +798,18 @@ public:
     {
         if constexpr(dimension == 3)
         {
-            M[0] = data_[0];
-            M[1] = data_[1];
-            M[2] = data_[2];
-
-            M[4] = data_[3];
-            M[5] = data_[4];
-            M[6] = data_[5];
-
-            M[8] = data_[6];
-            M[9] = data_[7];
-            M[10] = data_[8];
-
-            M[3] = data_[9];
-            M[7] = data_[10];
-            M[11] = data_[11];
-
-            M[12] = 0.0f;
-            M[13] = 0.0f;
-            M[14] = 0.0f;
-            M[15] = 1.0f;
+            M[0] = data_[0];  M[1] = data_[1];   M[2] = data_[2];
+            M[4] = data_[3];  M[5] = data_[4];   M[6] = data_[5];
+            M[8] = data_[6];  M[9] = data_[7];   M[10] = data_[8];
+            M[3] = data_[9];  M[7] = data_[10];  M[11] = data_[11];
+            M[12] = 0.0f;     M[13] = 0.0f;      M[14] = 0.0f;     M[15] = 1.0f;
         }
         else
         {
-            M[0] = data_[0];
-            M[1] = data_[1];
-
-            M[3] = data_[2];
-            M[4] = data_[3];
-
-            M[2] = data_[4];
-            M[5] = data_[5];
-
-            M[6] = 0.0f;
-            M[7] = 0.0f;
-            M[8] = 1.0f;
+            M[0] = data_[0];  M[1] = data_[1];
+            M[3] = data_[2];  M[4] = data_[3];
+            M[2] = data_[4];  M[5] = data_[5];
+            M[6] = 0.0f;      M[7] = 0.0f;       M[8] = 1.0f;
         }
     }
 
@@ -1082,8 +872,6 @@ public:
     }
 };
 
-
-
 template<typename geo_type,typename vs_type,typename value_type>
 void inverse(affine_param<value_type,3>& arg,
                       const geo_type& from,
@@ -1095,6 +883,7 @@ void inverse(affine_param<value_type,3>& arg,
     T.inverse();
     arg = T.to_affine_param(to,to_vs,from,from_vs);
 }
+
 class from_space : public tipl::matrix<4,4,float>{
 private:
     const tipl::matrix<4,4,float>& origin;
@@ -1110,7 +899,6 @@ public:
     }
 };
 
-
 template<typename value_type>
 inline std::vector<value_type> to_vs(const tipl::matrix<4,4,value_type>& trans)
 {
@@ -1118,7 +906,6 @@ inline std::vector<value_type> to_vs(const tipl::matrix<4,4,value_type>& trans)
             std::sqrt(trans[1]*trans[1]+trans[5]*trans[5]+trans[9]*trans[9]),
             std::sqrt(trans[2]*trans[2]+trans[6]*trans[6]+trans[10]*trans[10])};
 }
-
 
 template<typename image_type, typename v_type>
 void estimate_affine_param(const image_type& source, const v_type& source_vs,
@@ -1133,9 +920,10 @@ void estimate_affine_param(const image_type& source, const v_type& source_vs,
                                tipl::vector<3, double>& center, tipl::matrix<3, 3, double>& cov)
     {
         size_t sum(0);
-        center = {0, 0, 0};
+        center = {0.0, 0.0, 0.0};
+        const size_t sz = img.size(); // HOISTED size evaluation out of loop
 
-        for (tipl::pixel_index<3> i(img.shape()); i < img.size(); ++i)
+        for (tipl::pixel_index<3> i(img.shape()); i < sz; ++i)
             if (img[i.index()] > 0)
             {
                 center[0] += i[0] * vs[0];
@@ -1150,7 +938,7 @@ void estimate_affine_param(const image_type& source, const v_type& source_vs,
         center /= double(sum);
         std::fill(cov.begin(), cov.end(), 0.0);
 
-        for (tipl::pixel_index<3> i(img.shape()); i < img.size(); ++i)
+        for (tipl::pixel_index<3> i(img.shape()); i < sz; ++i)
             if (img[i.index()] > 0)
             {
                 double d[3] = {i[0] * vs[0] - center[0], i[1] * vs[1] - center[1], i[2] * vs[2] - center[2]};
@@ -1185,7 +973,7 @@ void estimate_affine_param(const image_type& source, const v_type& source_vs,
             for (int k = 0; k < 3; ++k)
                 R[i * 3 + j] += Vt[i + k * 3] * Vs[j + k * 3];
 
-    if (tipl::mat::determinant(R,tipl::dim<3, 3>()) < 0)
+    if (tipl::mat::determinant(R,tipl::dim<3, 3>()) < 0.0)
         for (int i = 0; i < 3; ++i)
             R[i * 3 + 2] = -R[i * 3 + 2];
 
@@ -1195,8 +983,8 @@ void estimate_affine_param(const image_type& source, const v_type& source_vs,
 
     // Constrain rotation to [-pi/4, pi/4] to correct 90-degree flipped principal axes
     const float pi_half = 1.570796327f;
-    for(int i = 0;i < 3;++i)
-        arg.rotation[i] = std::remainder(arg.rotation[i],pi_half);
+    for(int i = 0; i < 3; ++i)
+        arg.rotation[i] = std::remainder(arg.rotation[i], pi_half);
 
     double dt[3];
     for (int i = 0; i < 3; ++i)
@@ -1210,6 +998,5 @@ void estimate_affine_param(const image_type& source, const v_type& source_vs,
 }
 
 }
-
 
 #endif // TRANSFORMATION_HPP_INCLUDED
