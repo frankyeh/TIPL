@@ -280,14 +280,7 @@ public:
 
 #ifdef __CUDACC__
 
-template void tipl::resample<(tipl::interpolation)2,
-                             tipl::pointer_device_image<3, float>,
-                             tipl::pointer_device_image<3, float>&,
-                             float>(
-    const tipl::pointer_device_image<3, float>& from,
-    tipl::pointer_device_image<3, float>& to,
-    const tipl::transformation_matrix<float, 3>& trans
-);
+
 
 template void preproc_actions<tipl::device_image<3,float>>(
     tipl::device_image<3,float>& images,
@@ -302,6 +295,18 @@ template void preproc_actions<tipl::device_image<3,float>>(
 #endif
 
 }//ml3d
+
+#ifdef __CUDACC__
+template void tipl::resample<(tipl::interpolation)2,
+                             tipl::pointer_device_image<3, float>,
+                             tipl::pointer_device_image<3, float>&,
+                             float>(
+    const tipl::pointer_device_image<3, float>& from,
+    tipl::pointer_device_image<3, float>& to,
+    const tipl::transformation_matrix<float, 3>& trans
+);
+#endif
+
 }//tipl
 
 #endif//UNET3D_HPP
