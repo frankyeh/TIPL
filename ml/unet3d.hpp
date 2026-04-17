@@ -1,5 +1,7 @@
 #ifndef UNET3D_HPP
 #define UNET3D_HPP
+
+#include <algorithm> // added for std::copy
 #include "cnn3d.hpp"
 #include "../po.hpp"
 #include "../prog.hpp"
@@ -23,18 +25,18 @@ namespace ml3d
 
 inline auto round_up_size(const tipl::shape<3>& s)
 {
-    return tipl::shape<3>((s[0]+31)&~31,(s[1]+31)&~31,(s[2]+31)&~31);
+    return tipl::shape<3>((s[0]+31)&~31, (s[1]+31)&~31, (s[2]+31)&~31);
 }
 
 template<typename image_type>
 void preproc_actions(image_type& images,
-                            const tipl::shape<3>& image_dim,
-                            const tipl::vector<3>& image_vs,
-                            const tipl::shape<3>& model_dim,
-                            const tipl::vector<3>& model_vs,
-                            tipl::transformation_matrix<float,3>& trans,
-                            bool match_resolution,
-                            bool match_fov)
+                     const tipl::shape<3>& image_dim,
+                     const tipl::vector<3>& image_vs,
+                     const tipl::shape<3>& model_dim,
+                     const tipl::vector<3>& model_vs,
+                     tipl::transformation_matrix<float,3>& trans,
+                     bool match_resolution,
+                     bool match_fov)
 {
     if(model_dim == image_dim && image_vs == model_vs)
     {
@@ -45,12 +47,10 @@ void preproc_actions(image_type& images,
     int in_channel = images.depth()/image_dim[2];
     auto target_vs = match_resolution ? model_vs : image_vs;
 
-
-
     auto target_dim = match_fov ? model_dim :
         round_up_size(tipl::shape<3>(int(float(image_dim[0])*image_vs[0]/target_vs[0]),
-                                int(float(image_dim[1])*image_vs[1]/target_vs[1]),
-                                int(float(image_dim[2])*image_vs[2]/target_vs[2])));
+                                     int(float(image_dim[1])*image_vs[1]/target_vs[1]),
+                                     int(float(image_dim[2])*image_vs[2]/target_vs[2])));
 
     image_type target_images(target_dim.multiply(tipl::shape<3>::z,in_channel));
     tipl::affine_param<float> arg;
@@ -63,101 +63,57 @@ void preproc_actions(image_type& images,
         auto target_image = target_images.alias(target_dim.size()*c,target_dim);
         tipl::resample(image,target_image,trans);
     }
-
     target_images.swap(images);
 }
 
-/*
- * calculate the 3d sum and use it to defragment each frame
- */
-template<typename image_type>
-tipl::image<3> defragment4d(image_type& this_image,float prob_threshold)
-{
-    tipl::shape<3> dim3d(this_image.shape().begin());
-    tipl::image<3> sum(dim3d);
-    if(this_image.empty())
-        return sum;
-
-    // hard threshold to make sure prob is between 0 and 1
-    tipl::upper_lower_threshold(this_image,0.0f,1.0f);
-    // 4d to 3d partial sum
-    tipl::sum_partial(this_image,sum);
-
-    auto original_sum = sum;
-    {
-        tipl::morphology::defragment_by_threshold(sum,prob_threshold);
-        tipl::filter::gaussian(sum);
-        tipl::filter::gaussian(sum);
-        tipl::upper_threshold(sum,1.0f);
-    }
-
-
-    tipl::par_for(this_image.shape()[3],[&](size_t label)
-    {
-        auto I = this_image.slice_at(label);
-        for(size_t pos = 0;pos < dim3d.size();++pos)
-            if(original_sum[pos] != 0.0f)
-                I[pos] *= sum[pos]/original_sum[pos];
-    });
-
-    return sum;
-}
-
 template<typename U,typename V>
-tipl::image<3> postproc_actions(const U& eval_output,
-                                const V& raw_image_shape,
-                                tipl::transformation_matrix<float,3> trans,
-                                size_t model_out_count,
-                                bool has_bg_channel)
+void postproc(const U& eval_output,
+              const shape<3>& raw_shape,
+              tipl::transformation_matrix<float,3> trans,
+              size_t model_out_count,
+              bool has_bg_channel,
+              float prob_threshold,
+              V& label_prob,
+              V& fg_prob)
 {
-    tipl::shape<3> dim_from(eval_output.shape().divide(tipl::shape<3>::z,model_out_count)),
-                   dim_to(raw_image_shape);
-    tipl::image<3> label_prob(dim_to.multiply(tipl::shape<3>::z,model_out_count));
+    tipl::shape<3> dim_from(eval_output.shape().divide(tipl::shape<3>::z,model_out_count));
+    label_prob.resize(raw_shape.multiply(tipl::shape<3>::z,model_out_count));
     trans.inverse();
 
-    // 1. Resample each channel to the raw image space
     tipl::par_for(model_out_count,[&](int i)
     {
         auto from = eval_output.alias(dim_from.size()*i,dim_from);
-        auto to = label_prob.alias(dim_to.size()*i,dim_to);
+        auto to = label_prob.alias(raw_shape.size()*i,raw_shape);
         tipl::resample(from,to,trans);
+        tipl::upper_lower_threshold(to, 0.0f, 1.0f);
     },model_out_count);
 
-    // 2. Normalize probabilities across all channels (tissue + potential bg)
-    if (!has_bg_channel)
-        return label_prob;
 
-    const size_t single_channel_size = dim_to.size();
-    const size_t total_size = label_prob.size();
-    float* const prob_ptr = label_prob.data(); // Use raw pointer for zero overhead
-
-    // [=] capture forces total_size and single_channel_size into thread registers
-    tipl::par_for(single_channel_size, [=](size_t i)
+    if(has_bg_channel)
     {
-        float sum = 0.0f;
-
-        for(size_t pos = i; pos < total_size; pos += single_channel_size)
-            sum += prob_ptr[pos];
-
-        if(sum > 1e-7f)
-        {
-            const float inv_sum = 1.0f / sum;
-            for(size_t pos = i; pos < total_size; pos += single_channel_size)
-                prob_ptr[pos] *= inv_sum;
-        }
-    });
-
-    // 3. Remove background channel if it exists
-    if (model_out_count > 1)
-    {
-        size_t new_total_size = single_channel_size * (model_out_count - 1);
-        size_t shift = single_channel_size;
-        for(size_t i = 0; i < new_total_size; ++i)
-            label_prob[i] = label_prob[i + shift];
-        label_prob.resize(dim_to.multiply(tipl::shape<3>::z, model_out_count - 1));
+        std::copy(label_prob.begin() + raw_shape.size(), label_prob.end(), label_prob.begin());
+        model_out_count -= 1;
+        label_prob.resize(raw_shape.multiply(tipl::shape<3>::z, model_out_count));
     }
 
-    return label_prob;
+    auto labels_4d = tipl::make_image(label_prob.data(), raw_shape.expand(model_out_count));
+
+    fg_prob.resize(raw_shape);
+    tipl::sum_partial(labels_4d, fg_prob);
+    auto original_sum = fg_prob;
+    tipl::upper_threshold(fg_prob,1.0f); // normalize label sum to 1
+    tipl::morphology::defragment_by_threshold(fg_prob, prob_threshold);
+    tipl::filter::gaussian(fg_prob);
+    tipl::filter::gaussian(fg_prob);
+
+    tipl::lower_threshold(original_sum,prob_threshold);
+
+    tipl::par_for(model_out_count, [&](size_t label)
+    {
+        auto I = labels_4d.slice_at(label);
+        tipl::multiply(I,fg_prob);
+        tipl::divide(I,original_sum);
+    });
 }
 
 template<typename feature_type,typename kernel_type>
@@ -170,13 +126,13 @@ void parse_feature_string(const std::string& feature_string,
     for(auto feature_string_per_level : tipl::split(feature_string,'+'))
     {
         auto level_feature_string = tipl::split(feature_string_per_level,',');
-        if(level_feature_string.size() == 2)
-            kernel_size.push_back(std::stoi(level_feature_string.back()));
-        else
-            kernel_size.push_back(3);
-        features_down.push_back(std::vector<int>({input_feature}));
+        // Condensed if/else logic using ternary operator
+        kernel_size.push_back(level_feature_string.size() == 2 ? std::stoi(level_feature_string.back()) : 3);
+
+        features_down.push_back({input_feature});
         for(auto s : tipl::split(feature_string_per_level,'x'))
             features_down.back().push_back(input_feature = std::stoi(s));
+
         features_up.push_back(std::vector<int>(features_down.back().rbegin(),features_down.back().rend()-1));
         features_up.back()[0] *= 2; // due to input concatenation
     }
@@ -194,7 +150,6 @@ inline auto soft_mask(const T& label)
 class tissue_seg{
 public:
     tipl::device_vector<float> gpu_memory;
-public:
     bool deep_supervision = false;
     std::vector<float> memory;
     std::shared_ptr<network> unet;
@@ -209,15 +164,14 @@ public:
         reader in;
         std::string feature_string;
         std::vector<int> param({1,1});
-        if(!in.load_from_file(file_name))
-            return error_msg = "cannot open file: " + file_name,false;
-        if(!in.read("param",param) || !in.read("feature_string",feature_string))
-            return error_msg = "invalid network file format",false;
+        if(!in.load_from_file(file_name)) return error_msg = "cannot open file: " + file_name,false;
+        if(!in.read("param",param) || !in.read("feature_string",feature_string)) return error_msg = "invalid network file format",false;
 
         std::vector<std::vector<int> > features_down;
         std::vector<std::vector<int> > features_up;
         std::vector<int> kernel_size;
         parse_feature_string(feature_string,param[0],features_down,features_up,kernel_size);
+
         if(in.has("errors"))
         {
             unet.reset(new unet3d<unet_version::deep_supervision>(features_down,features_up,kernel_size,param[0],param[1]));
@@ -228,24 +182,21 @@ public:
 
         if(!in.read("dimension",dim) || !in.read("voxel_size",vs))
             return error_msg = "cannot read dimension and voxel size",false;
-        unet->init_image(dim); // the dim value will be changed
+        unet->init_image(dim);
         unet->allocate_memory(memory);
         dim = unet->dim;
+
         int id = 0;
         for(auto& p : unet->parameters())
         {
-            if(!p.second)
-                continue;
+            if(!p.second) continue;
 
             std::string name = "tensor" + std::to_string(id++);
-
-            if(!in.has(name.c_str()))
-                return error_msg = "tensor structure mismatch (missing " + name + ")", false;
+            if(!in.has(name.c_str())) return error_msg = "tensor structure mismatch (missing " + name + ")", false;
 
             unsigned int tr, tc;
             if(!in.get_col_row(name.c_str(), tr, tc) || tr * tc != p.second)
-                return error_msg = "tensor size mismatch in " + name + " " +
-                        std::to_string(tr * tc) + " vs " + std::to_string(p.second), false;
+                return error_msg = "tensor size mismatch in " + name, false;
 
             if(!in.read(name.c_str(), p.first, p.first + p.second))
                 return error_msg = "error reading tensor structure " + name, false;
@@ -255,66 +206,59 @@ public:
         {
             gpu_memory = memory;
             auto ptr = gpu_memory.data();
-            unet->allocate(ptr,true /*is gpu*/);
+            unet->allocate(ptr, true /*is gpu*/);
         }
         return true;
     }
 
-public:
     bool forward(tipl::image<3> input_image,
                  const tipl::vector<3>& image_vs,
                  tipl::image<3,unsigned char>& label,
                  tipl::progress& prog)
     {
-        const bool match_resolution = true;
-        const bool match_fov = true;
         const float prob_threshold = 0.5f;
         tipl::transformation_matrix<float,3> trans;
         tipl::shape<3> input_dim(input_image.shape());
         tipl::segmentation::normalize_otsu_median(input_image);
 
-
         unet->prog = [&](void){return prog(0,4);};
         const float* ptr = nullptr;
         std::vector<float> buffer;
+
+        // 1. PRE-PROCESSING & INFERENCE
         if constexpr(tipl::use_cuda)
         {
             tipl::device_image<3,float> I = input_image;
-            tipl::ml3d::preproc_actions(I,input_dim,image_vs,
-                                            dim,vs,trans,match_resolution,match_fov);
+            tipl::ml3d::preproc_actions(I,input_dim,image_vs,dim,vs,trans,true,true);
             auto gpu_ptr = unet->forward(I.data());
-            if (gpu_ptr == nullptr) return false;
+            if (!gpu_ptr) return false;
             buffer.resize(unet->dim.size()*unet->out_channels_);
-            ptr = buffer.data();
             cu_copy_d2h<float,float>(buffer.data(),gpu_ptr,buffer.size());
+            ptr = buffer.data();
         }
         else
         {
-            tipl::ml3d::preproc_actions(input_image,input_dim,image_vs,
-                                            dim,vs,trans,match_resolution,match_fov);
+            tipl::ml3d::preproc_actions(input_image,input_dim,image_vs,dim,vs,trans,true,true);
             ptr = unet->forward(input_image.data());
         }
-        if(ptr == nullptr)
-            return false;
+
+        if(!ptr) return false;
         prog(1,4);
 
         auto evaluate_output = tipl::make_image(ptr,unet->dim.multiply(tipl::shape<3>::z,unet->out_channels_));
-
-        auto label_prob = postproc_actions(evaluate_output, input_dim, trans, unet->out_channels_, deep_supervision);
+        tipl::image<3> label_prob, fg_prob;
+        postproc(evaluate_output, input_dim, trans, unet->out_channels_, deep_supervision, prob_threshold, label_prob, fg_prob);
 
         num_tissue_channels = deep_supervision ? (unet->out_channels_ - 1) : unet->out_channels_;
-
-        auto label_prob_4d = tipl::make_image(label_prob.data(), input_dim.expand(num_tissue_channels));
-        prog(2,4);
-
-        tipl::image<3> fg_prob = tipl::ml3d::defragment4d(label_prob_4d, prob_threshold);
         prog(3,4);
+
         tipl::image<3,unsigned char> I(fg_prob.shape());
         size_t s = fg_prob.size();
         for(size_t pos = 0; pos < s; ++pos)
         {
             if(fg_prob[pos] <= prob_threshold)
                 continue;
+
             float m = label_prob[pos];
             unsigned char max_label = 1;
             for(size_t i = pos+s, label = 2; i < label_prob.size(); i += s, ++label)
@@ -327,6 +271,7 @@ public:
             }
             I[pos] = max_label;
         }
+
         I.swap(label);
         prog(4,4);
         return true;
