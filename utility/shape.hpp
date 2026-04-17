@@ -18,8 +18,6 @@ public:
     static constexpr int dimension = d_;
     unsigned int dim[dimension];
 public:
-
-public:
     __INLINE__ shape(void)
     {
         clear();
@@ -32,21 +30,10 @@ public:
         dim[2] = uint32_t(z);
         dim[3] = uint32_t(t);
     }
-    __INLINE__ shape(const shape<dimension>& rhs)
-    {
-        *this = rhs;
-    }
     template<typename pointer_type>
     __INLINE__ explicit shape(const pointer_type* rhs)
     {
         *this = rhs;
-    }
-    __INLINE__ const shape<dimension>& operator=(const shape<dimension>& rhs)
-    {
-        if(this == &rhs)
-            return *this;
-        std::copy_n(rhs.dim,dimension,dim);
-        return *this;
     }
     template<typename pointer_type>
     __INLINE__ const shape<dimension>& operator=(const pointer_type* rhs)
@@ -68,7 +55,7 @@ public:
     }
     __INLINE__ void clear(void)
     {
-        std::fill(dim,dim+dimension,0);
+        std::fill_n(dim,dimension,0);
     }
     __INLINE__ void swap(shape<dimension>& rhs) noexcept
     {
@@ -162,11 +149,10 @@ public:
     }
 };
 
-
-
 template<>
 class shape<1>
 {
+public:
     union
     {
         unsigned int dim[1];
@@ -175,33 +161,18 @@ class shape<1>
             unsigned int w;
         };
     };
-public:
     static constexpr int dimension = 1;
 public:
     __INLINE__ shape(void):w(0) {}
     __INLINE__ shape(unsigned int w_):w(w_) {}
 
-    __INLINE__ shape(const shape<1>& rhs)
-    {
-        *this = rhs;
-    }
     template<typename pointer_type>
     __INLINE__ explicit shape(const pointer_type* rhs)
     {
         *this = rhs;
     }
-    __INLINE__ const shape<1>& operator=(const shape<1>& rhs)
-    {
-        w = rhs.w;
-        return *this;
-    }
     template<typename pointer_type>
     __INLINE__ const shape<1>& operator=(const pointer_type* rhs)
-    {
-        w = rhs[0];
-        return *this;
-    }
-    __INLINE__ const shape<1>& operator=(const unsigned short* rhs)
     {
         w = rhs[0];
         return *this;
@@ -261,12 +232,12 @@ public:
         return x == 0 || x+1 == dim[0];
     }
     template<typename T>
-    __INLINE__ bool is_valid(T& pos) const
+    __INLINE__ bool is_valid(const T& pos) const
     {
         return pos[0] >= 0 && pos[0] < dim[0];
     }
     template<typename T>
-    __INLINE__ bool is_edge(T& pos) const
+    __INLINE__ bool is_edge(const T& pos) const
     {
         return pos[0] == 0 || pos[0]+1 == dim[0];
     }
@@ -288,12 +259,12 @@ public:
     {
         return !(*this == rhs);
     }
-
 };
 
 template<>
 class shape<2>
 {
+public:
     union
     {
         unsigned int dim[2];
@@ -303,24 +274,17 @@ class shape<2>
             unsigned int h;
         };
     };
-public:
     static constexpr int dimension = 2;
 public:
     __INLINE__ shape(void):w(0),h(0) {}
     __INLINE__ shape(unsigned int w_,unsigned int h_):w(w_),h(h_) {}
     template<typename T>
     __INLINE__ shape(std::initializer_list<T> arg):w(*arg.begin()),h(*(arg.begin()+1)){}
-    __INLINE__ shape(const shape<2>& rhs):w(rhs.w),h(rhs.h){}
+
     template<typename pointer_type>
     __INLINE__ explicit shape(const pointer_type* rhs)
     {
         *this = rhs;
-    }
-    __INLINE__ const shape<2>& operator=(const shape<2>& rhs)
-    {
-        w = rhs.w;
-        h = rhs.h;
-        return *this;
     }
     template<typename pointer_type>
     __INLINE__ const shape<2>& operator=(const pointer_type* rhs)
@@ -428,6 +392,7 @@ public:
         return out;
     }
 };
+
 template<>
 class shape<3>
 {
@@ -442,8 +407,6 @@ public:
             unsigned int d;
         };
     };
-    mutable size_t wh = 0;
-    mutable size_t size_ = 0;
 public:
     static constexpr int dimension = 3;
 public:
@@ -451,23 +414,11 @@ public:
     template<typename T>
     __INLINE__ shape(std::initializer_list<T> arg):w(*arg.begin()),h(*(arg.begin()+1)),d(*(arg.begin()+2)){}
     __INLINE__ shape(unsigned int w_,unsigned int h_,unsigned int d_):w(w_),h(h_),d(d_){}
-    __INLINE__ shape(const shape& rhs)
-    {
-        *this = rhs;
-    }
+
     template<typename pointer_type>
     __INLINE__ explicit shape(const pointer_type* rhs)
     {
         *this = rhs;
-    }
-    __INLINE__ const shape& operator=(const shape& rhs)
-    {
-        w = rhs.w;
-        h = rhs.h;
-        d = rhs.d;
-        wh = rhs.wh;
-        size_ = rhs.size_;
-        return *this;
     }
     template<typename pointer_type>
     __INLINE__ const shape& operator=(const pointer_type* rhs)
@@ -475,28 +426,22 @@ public:
         w = rhs[0];
         h = rhs[1];
         d = rhs[2];
-        wh = size_ = 0;
         return *this;
     }
 public:
     __INLINE__ size_t size(void) const
     {
-        if(w && !size_)
-            size_ = plane_size()*size_t(d);
-        return size_;
+        return size_t(w) * size_t(h) * size_t(d);
     }
     __INLINE__ void clear(void)
     {
         w = h = d = 0;
-        wh = size_ = 0;
     }
     __INLINE__ void swap(shape<3>& rhs)
     {
         std::swap(w,rhs.w);
         std::swap(h,rhs.h);
         std::swap(d,rhs.d);
-        std::swap(wh,rhs.wh);
-        std::swap(size_,rhs.size_);
     }
 public:
     enum axis_type {x=0,y=1,z=2};
@@ -504,28 +449,24 @@ public:
     {
         auto new_shape = *this;
         new_shape.dim[axis] *= v;
-        new_shape.wh = new_shape.size_ = 0;
         return new_shape;
     }
     auto add(axis_type axis,unsigned int v) const
     {
         auto new_shape = *this;
         new_shape.dim[axis] += v;
-        new_shape.wh = new_shape.size_ = 0;
         return new_shape;
     }
     auto divide(axis_type axis,unsigned int v) const
     {
         auto new_shape = *this;
         new_shape.dim[axis] /= v;
-        new_shape.wh = new_shape.size_ = 0;
         return new_shape;
     }
     auto minus(axis_type axis,unsigned int v) const
     {
         auto new_shape = *this;
         new_shape.dim[axis] -= v;
-        new_shape.wh = new_shape.size_ = 0;
         return new_shape;
     }
 public:
@@ -554,18 +495,15 @@ public:
 
     __INLINE__ unsigned int* begin(void)
     {
-        wh = size_ = 0;
         return dim;
     }
     __INLINE__ unsigned int* end(void)
     {
-        wh = size_ = 0;
         return dim+3;
     }
     template<typename index_type>
     __INLINE__ unsigned int& operator[](index_type index)
     {
-        wh = size_ = 0;
         return dim[index];
     }
     __INLINE__ shape<4> expand(unsigned int t) const
@@ -614,15 +552,7 @@ public:
     }
     __INLINE__ size_t plane_size(void) const
     {
-        if (!wh && w)
-            wh = size_t(w)*size_t(h);
-        return wh;
-    }
-public:
-    template<typename T>
-    __INLINE__ shape<3> operator*(T r)
-    {
-        return shape<3>(dim[0]*r,dim[1]*r,dim[2]*r);
+        return size_t(w) * size_t(h);
     }
 public:
     __INLINE__ bool operator==(const shape& rhs) const
@@ -631,7 +561,9 @@ public:
     }
     __INLINE__ bool operator<(const shape& rhs) const
     {
-        return dim[2] < rhs.dim[2] || dim[1] < rhs.dim[1] || dim[0] < rhs.dim[0];
+        if (dim[2] != rhs.dim[2]) return dim[2] < rhs.dim[2];
+        if (dim[1] != rhs.dim[1]) return dim[1] < rhs.dim[1];
+        return dim[0] < rhs.dim[0];
     }
     __INLINE__ bool operator!=(const shape& rhs) const
     {
