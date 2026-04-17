@@ -6,18 +6,17 @@
 #include <QGraphicsView>
 #include <QScrollBar>
 
-
-
 // show image on scene and keep the original scroll bar position if zoom in/out
 inline void operator<<(QGraphicsScene& scene,QImage I)
 {
     float vb_ratio(0),hb_ratio(0);
     QScrollBar* vb(nullptr),*hb(nullptr);
-    if(scene.views().size() && int(float(scene.sceneRect().width())/float(scene.sceneRect().height())*100.0f) ==
+    auto views = scene.views();
+    if(!views.empty() && int(float(scene.sceneRect().width())/float(scene.sceneRect().height())*100.0f) ==
            int(float(I.width())/float(I.height())*100.0f))
     {
-        vb = scene.views()[0]->verticalScrollBar();
-        hb = scene.views()[0]->horizontalScrollBar();
+        vb = views[0]->verticalScrollBar();
+        hb = views[0]->horizontalScrollBar();
         if(vb->isVisible())
             vb_ratio = float((vb->value()+vb->pageStep()/2))/float(vb->maximum()+vb->pageStep());
         if(hb->isVisible())
@@ -39,22 +38,23 @@ inline void operator<<(QGraphicsScene& scene,QImage I)
     if(hb_ratio != 0.0f)
         hb->setValue(int(hb_ratio*(hb->maximum()+hb->pageStep())-hb->pageStep()/2));
 }
+
 inline QImage& operator << (QImage& image,const tipl::color_image& I)
 {
    return image = QImage(reinterpret_cast<const unsigned char*>(I.data()),I.width(),I.height(),QImage::Format_RGB32).copy();
-
 }
+
 inline QImage operator << (QImage&&,const tipl::color_image& I)
 {
    return QImage(reinterpret_cast<const unsigned char*>(I.data()),I.width(),I.height(),QImage::Format_RGB32).copy();
-
 }
+
 template<typename value_type>
 inline tipl::image<2,value_type>& operator << (tipl::image<2,value_type>& image,const QImage& I)
 {
     QImage I2 = I.convertToFormat(QImage::Format_RGB32);
     const uchar* ptr = I2.bits();
-    size_t total_size = I2.width()*I2.height();
+    const size_t total_size = I2.width()*I2.height();
     image.resize(tipl::shape<2>(uint32_t(I2.width()),uint32_t(I2.height())));
     for(size_t j = 0;j < total_size;++j,ptr += 4)
         image[j] = value_type(tipl::rgb(*(ptr+2),*(ptr+1),*ptr));
@@ -74,8 +74,6 @@ inline QPixmap image2pixelmap(const QImage &I)
     #endif
 }
 
-
-
 inline void draw_ruler(QPainter& paint,
                 const tipl::shape<3>& shape,
                 const tipl::matrix<4,4>& trans,
@@ -85,9 +83,6 @@ inline void draw_ruler(QPainter& paint,
                 bool grid = false,
                 float tic_ratio = 1.0f)
 {
-
-
-
     tipl::vector<3> qsdr_scale(trans[0],trans[5],trans[10]);
     tipl::vector<3> qsdr_shift(trans[3],trans[7],trans[11]);
 
@@ -135,13 +130,11 @@ inline void draw_ruler(QPainter& paint,
     f2.setBold(true);
     paint.setFont(f1);
 
-
     std::vector<float> tic_pos_h,tic_pos_v;
     std::vector<float> tic_value_h,tic_value_v;
 
     uint8_t dim_h = (cur_dim == 0 ? 1:0);
     uint8_t dim_v = (cur_dim == 2 ? 1:2);
-
 
     auto get_tic_pos = [zoom,tic_dis](std::vector<float>& tic_pos,
                           std::vector<float>& tic_value,
@@ -177,15 +170,17 @@ inline void draw_ruler(QPainter& paint,
 
     if(tic_pos_h.empty() || tic_pos_v.empty())
         return;
+
     auto min_Y = std::min(tic_pos_v.front(),tic_pos_v.back());
     auto max_Y = std::max(tic_pos_v.front(),tic_pos_v.back());
     auto min_X = std::min(tic_pos_h.front(),tic_pos_h.back());
     auto max_X = std::max(tic_pos_h.front(),tic_pos_h.back());
 
+    const size_t sz_h = tic_pos_h.size();
     {
         auto Y = max_Y+zoom_2;
         paint.drawLine(int(min_X-zoom_2),int(Y),int(max_X+zoom_2),int(Y));
-        for(size_t i = 0;i < tic_pos_h.size();++i)
+        for(size_t i = 0;i < sz_h;++i)
         {
             bool is_tic = !(int(tic_value_h[i]) % tic);
             auto X = tic_pos_h[i]+zoom_2;
@@ -201,11 +196,12 @@ inline void draw_ruler(QPainter& paint,
                            Qt::AlignHCenter|Qt::AlignVCenter,QString::number(tic_value_h[i]));
         }
     }
-    {
 
+    const size_t sz_v = tic_pos_v.size();
+    {
         auto X = min_X+zoom_2;
         paint.drawLine(int(X),int(min_Y-zoom_2),int(X),int(max_Y+zoom_2));
-        for(size_t i = 0;i < tic_pos_v.size();++i)
+        for(size_t i = 0;i < sz_v;++i)
         {
             bool is_tic = !(int(tic_value_v[i]) % tic);
             auto Y = tic_pos_v[i]+zoom_2;
@@ -223,7 +219,6 @@ inline void draw_ruler(QPainter& paint,
     }
 }
 
-
 template<typename image_type>
 QImage draw_regions(const std::vector<image_type>& region_masks,
                   const std::vector<tipl::rgb>& colors,
@@ -234,15 +229,17 @@ QImage draw_regions(const std::vector<image_type>& region_masks,
     if(region_masks.empty())
         return QImage();
     auto dim = region_masks[0].shape();
-    int w = dim.width();
-    int h = dim.height();
+    const int w = dim.width();
+    const int h = dim.height();
+    const size_t dim_size = dim.size(); // HOISTED to avoid repeating W*H evaluation
+    const size_t rm_size = region_masks.size();
+
     // draw region colors on the image
     tipl::color_image slice_image_with_region(dim);  //original slices for adding regions pixels
     // draw regions and also derive where the edges are
-    std::vector<std::vector<tipl::vector<2,int> > > edge_x(region_masks.size()),
-                                                    edge_y(region_masks.size());
+    std::vector<std::vector<tipl::vector<2,int> > > edge_x(rm_size), edge_y(rm_size);
     {
-        tipl::par_for(region_masks.size(),[&](uint32_t roi_index)
+        tipl::par_for(rm_size,[&](uint32_t roi_index)
         {
             auto& region_mask = region_masks[roi_index];
             auto color = colors[roi_index];
@@ -250,31 +247,36 @@ QImage draw_regions(const std::vector<image_type>& region_masks,
             // detect edge
             auto& cur_edge_x = edge_x[roi_index];
             auto& cur_edge_y = edge_y[roi_index];
-            for(tipl::pixel_index<2> index(dim);index < dim.size();++index)
-                if(region_mask[index.index()])
+
+            for(tipl::pixel_index<2> index(dim); index < dim_size; ++index)
+            {
+                size_t idx = index.index();
+                if(region_mask[idx])
                 {
                     auto x = index[0];
                     auto y = index[1];
                     if(draw_roi)
-                        slice_image_with_region[index.index()] = color;
-                    if(y > 0 && !region_mask[index.index()-w])
+                        slice_image_with_region[idx] = color;
+                    if(y > 0 && !region_mask[idx-w])
                         cur_edge_x.push_back(tipl::vector<2,int>(x,y));
-                    if(y+1 < h &&!region_mask[index.index()+w])
+                    if(y+1 < h && !region_mask[idx+w])
                         cur_edge_x.push_back(tipl::vector<2,int>(x,y+1));
-                    if(x > 0 && !region_mask[index.index()-1])
+                    if(x > 0 && !region_mask[idx-1])
                         cur_edge_y.push_back(tipl::vector<2,int>(x,y));
-                    if(x+1 < w && !region_mask[index.index()+1])
+                    if(x+1 < w && !region_mask[idx+1])
                         cur_edge_y.push_back(tipl::vector<2,int>(x+1,y));
                 }
+            }
         });
     }
+
     // now apply image scaling to the slice image
     QImage scaled_image = (QImage() << slice_image_with_region).scaled(int(w*display_ratio),int(h*display_ratio));
     if(draw_edge)
     {
         unsigned int foreground_color = ((scaled_image.pixel(0,0) & 0x000000FF) < 128 ? 0xFFFFFFFF:0xFF000000);
         QPainter paint(&scaled_image);
-        for (uint32_t roi_index = 0;roi_index < region_masks.size();++roi_index)
+        for (uint32_t roi_index = 0; roi_index < rm_size; ++roi_index)
         {
             unsigned int cur_color = foreground_color;
             if(int(roi_index) != cur_roi_index)
@@ -300,12 +302,15 @@ QImage draw_regions(const std::vector<image_type>& region_masks,
 template<typename image_type>
 inline image_type get_bounding_box(image_type p,int margin = 5)
 {
-    int l =p.width(), r = 0, t = p.height(), b = 0;
+    const int w = p.width();
+    const int h = p.height();
+    int l = w, r = 0, t = h, b = 0;
+
     auto first_pixel = p.pixel(0,0);
-    for (int y = 0; y < p.height(); ++y) {
+    for (int y = 0; y < h; ++y) {
         auto row = reinterpret_cast<decltype(&first_pixel)>(p.scanLine(y));
         bool rowFilled = false;
-        for (int x = 0; x < p.width(); ++x)
+        for (int x = 0; x < w; ++x)
         {
             if (row[x] != first_pixel)
             {
@@ -323,28 +328,34 @@ inline image_type get_bounding_box(image_type p,int margin = 5)
         }
     }
     l = std::max(0,l-margin);
-    r = std::min(p.width()-1,r+margin);
+    r = std::min(w-1,r+margin);
     t = std::max(0,t-margin);
-    b = std::min(p.height()-1,b+margin);
+    b = std::min(h-1,b+margin);
     return p.copy(QRect(l,t,r-l,b-t));
 }
 
 inline QImage create_mosaic(const std::vector<QImage>& images,int col_size)
 {
+    const size_t num_images = images.size();
+    if(num_images == 0) return QImage();
+
     int height = 0,width = 0;
-    for (auto& I : images)
-        {
-            height = std::max<int>(I.height(),height);
-            width = std::max<int>(I.width(),width);
-        }
+    for (size_t i = 0; i < num_images; ++i)
+    {
+        height = std::max<int>(images[i].height(),height);
+        width = std::max<int>(images[i].width(),width);
+    }
     width += 5;
     height += 5;
-    QImage I(images.size() >= col_size ? width*int(col_size): width*int(images.size()),
-             height*int(1+images.size()/col_size),QImage::Format_RGB32);
+
+    QImage I(num_images >= static_cast<size_t>(col_size) ? width*col_size : width*int(num_images),
+             height*int(1+num_images/col_size),QImage::Format_RGB32);
     I.fill(images[0].pixel(0,0));
+
     QPainter painter(&I);
     painter.setCompositionMode(QPainter::CompositionMode_Source);
-    for (size_t i = 0,j = 0;i < images.size();++i,++j)
+
+    for (size_t i = 0, j = 0; i < num_images; ++i, ++j)
         painter.drawImage(int(j%col_size)*width+(width-images[i].width())/2,
                           int(i/col_size)*height+(height-images[i].height())/2,images[i]);
     return I;
@@ -352,8 +363,6 @@ inline QImage create_mosaic(const std::vector<QImage>& images,int col_size)
 
 }//qt
 }//tipl
-
-
 
 #endif//TIPL_QT_EXT_HPP
 #endif//QIMAGE_H
