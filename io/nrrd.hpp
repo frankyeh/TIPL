@@ -131,7 +131,7 @@ private:
         check_endian:
         if(values["endian"] == "big")
         {
-            for(size_t i = 0;i < I.size();++i)
+            for(size_t i = 0,sz = I.size();i < sz;++i)
                 change_endian(I[i]);
         }
         return true;
