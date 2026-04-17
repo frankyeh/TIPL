@@ -40,7 +40,7 @@ public:
         minus_weight<1>(gy,src,-w-1);
         minus_weight<1>(gy,src,-w+1);
 
-        for(size_t index = 0;index < src.size();++index)
+        for(size_t index = 0,sz = src.size();index < sz;++index)
         {
             float fx = gx[index];
             float fy = gy[index];
@@ -49,7 +49,7 @@ public:
 
         int64_t i1,i2;
         float abs_x,abs_y,fx,fy;
-        for(int64_t index = 0;index < src.size();++index)
+        for(int64_t index = 0,sz = src.size();index < sz;++index)
         {
             fx = gx[index];
             fy = gy[index];
@@ -142,7 +142,7 @@ public:
 		minus_weight<1>(gy,src,-wh-w);
         minus_weight<1>(gy,src,-wh+w);
 
-        for(size_t index = 0;index < src.size();++index)
+        for(size_t index = 0,sz = src.size();index < sz;++index)
         {
             float fx = gx[index];
             float fy = gy[index];
@@ -152,7 +152,7 @@ public:
 
         int64_t shift,i1,i2;
         float fx,fy,fz,max_value;
-        for(int64_t index = 0;index < src.size();++index)
+        for(int64_t index = 0,sz = src.size();index < sz;++index)
         {
             if(src[index] == 0)
                 continue;
