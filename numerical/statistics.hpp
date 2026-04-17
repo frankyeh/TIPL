@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <numeric>
 #include <utility>
+#include <vector>
+#include <mutex>
 #include "../def.hpp"
 #include "numerical.hpp"
 #include "matrix.hpp"
@@ -76,7 +78,7 @@ public:
 
 public:
     // return (mean,variance)
-    auto get_mean_variance(void)
+    auto get_mean_variance(void) const
     {
         double mean = sum;
         mean /= (double)size_;
@@ -149,10 +151,10 @@ __INLINE__ return_type sum(input_iterator from,input_iterator to)
 {
     if(from == to)
         return return_type();
-    return_type sum(*from);
+    return_type sum_val(*from);
     for(++from;from != to;++from)
-        sum += *from;
-    return sum;
+        sum_val += *from;
+    return sum_val;
 }
 
 template<typename T>
@@ -168,7 +170,8 @@ auto sum(const T& data)
     }
     else
     {
-        if(data.size() < 1000 || max_thread_count < 2)
+        const size_t sz = data.size();
+        if(sz < 1000 || max_thread_count < 2)
             return sum(data.begin(),data.end());
         std::mutex mutex;
         return_type sums = return_type();
@@ -186,11 +189,12 @@ auto sum(const T& data)
 template<typename image_type1,typename image_type2>
 __INLINE__ void sum_partial(const image_type1& in,image_type2& out)
 {
-    size_t size = out.size();
-    tipl::par_for(size,[&](size_t j)
+    const size_t out_size = out.size();
+    const size_t in_size = in.size();
+    tipl::par_for(out_size,[&](size_t j)
     {
         auto v = out[j];
-        for(size_t pos = j;pos < in.size();pos += size)
+        for(size_t pos = j; pos < in_size; pos += out_size)
             v += in[pos];
         out[j] = v;
     });
@@ -236,7 +240,8 @@ return_type square_sum(const T& data)
     }
     else
     {
-        if(data.size() < 1000 || max_thread_count < 2)
+        const size_t sz = data.size();
+        if(sz < 1000 || max_thread_count < 2)
             return square_sum(data.begin(),data.end());
         std::mutex mutex;
         return_type sums = return_type();
@@ -253,15 +258,15 @@ return_type square_sum(const T& data)
 template<typename input_iterator>
 __INLINE__ double mean(input_iterator from,input_iterator to)
 {
-    return (from == to) ? 0.0 :double(sum(from,to))/double(to-from);
+    return (from == to) ? 0.0 : double(sum(from,to))/double(std::distance(from, to));
 }
 
 template<typename T>
 inline double mean(const T& I)
 {
-    return (I.empty()) ? 0.0 :double(sum(I))/double(I.size());
+    const size_t sz = I.size();
+    return (sz == 0) ? 0.0 : double(sum(I))/double(sz);
 }
-
 
 
 template <typename input_iterator,
@@ -286,16 +291,16 @@ template<typename image_type,
          typename value_type = typename image_type::value_type>
 value_type median(const image_type& I)
 {
+    const size_t total_size = I.size();
     const size_t chunk_count = 256;
-    if(I.size() < 2048)
+    if(total_size < 2048)
         return median(I.begin(),I.end());
 
     std::vector<value_type> chunk(chunk_count);
-    size_t total_size = I.size();
-    size_t chunk_size = total_size / chunk_count;
-    size_t remainder = total_size % chunk_count;
+    const size_t chunk_size = total_size / chunk_count;
+    const size_t remainder = total_size % chunk_count;
 
-    tipl::par_for(chunk.size(),[&](size_t i)
+    tipl::par_for(chunk_count,[&](size_t i)
     {
         size_t start = i * chunk_size + std::min(i, remainder);
         size_t end = start + chunk_size + (i < remainder ? 1 : 0);
@@ -305,22 +310,21 @@ value_type median(const image_type& I)
 }
 
 
-
-
 template<typename input_iterator>
 __INLINE__ double mean_square(input_iterator from,input_iterator to)
 {
     if(from == to)
         return 0.0;
-    return square_sum(from,to)/double(to-from);
+    return square_sum(from,to)/double(std::distance(from, to));
 }
 
 template<typename container_type>
 inline double mean_square(const container_type& data)
 {
-    if(data.empty())
+    const size_t sz = data.size();
+    if(sz == 0)
         return 0.0;
-    return square_sum(data)/double(data.size());
+    return square_sum(data)/double(sz);
 }
 
 template<typename input_iterator>
@@ -333,7 +337,7 @@ template<typename input_iterator,typename input_iterator2>
 __INLINE__ double root_mean_suqare_error(input_iterator from,input_iterator to,input_iterator2 from2)
 {
     double rmse = 0.0;
-    size_t size = to-from;
+    const size_t size = std::distance(from, to);
     while (from != to)
     {
         double t = *from;
@@ -353,12 +357,12 @@ __INLINE__ double variance(input_iterator from,input_iterator to,double mean)
     return mean_square(from,to)-mean*mean;
 }
 template<typename T>
-inline double variance(T& data,double m)
+inline double variance(const T& data,double m)
 {
     return mean_square(data)-m*m;
 }
 template<typename T>
-inline double variance(T& data)
+inline double variance(const T& data)
 {
     return variance(data,mean(data));
 }
@@ -374,22 +378,22 @@ __INLINE__ double standard_deviation(input_iterator from,input_iterator to)
     return standard_deviation(from,to,mean(from,to));
 }
 template<typename T>
-inline double standard_deviation(T& data,double m)
+inline double standard_deviation(const T& data,double m)
 {
     auto var = variance(data,m);
     return var > 0.0 ? std::sqrt(var) : 0.0;
 }
 template<typename T>
-inline double standard_deviation(T& data)
+inline double standard_deviation(const T& data)
 {
     return standard_deviation(data,mean(data));
 }
+
 template<typename input_iterator>
 __INLINE__ auto median_absolute_deviation(input_iterator from,input_iterator to)
     -> typename std::enable_if<!std::is_const<typename std::remove_reference<decltype(*from)>::type>::value,typename std::iterator_traits<input_iterator>::value_type>::type
 {
-    auto size = std::distance(from,to);
-    size /= 2;
+    // HOISTED/FIX: Removed O(N) distance evaluation entirely, its output ("size") was completely unused here.
     auto m = median(from,to);
     for(auto iter = from;iter != to;++iter)
     {
@@ -404,8 +408,7 @@ template<typename input_iterator>
 __INLINE__ auto median_absolute_deviation(input_iterator from,input_iterator to,double median_value)
     -> typename std::enable_if<!std::is_const<typename std::remove_reference<decltype(*from)>::type>::value,typename std::iterator_traits<input_iterator>::value_type>::type
 {
-    auto size = std::distance(from,to);
-    size /= 2;
+    // HOISTED/FIX: Removed unused distance evaluation.
     for(auto iter = from;iter != to;++iter)
     {
         auto v = *iter;
@@ -454,14 +457,15 @@ template<typename T,typename U,
          typename return_type = typename sum_result_type<decltype(value_type1()*value_type2())>::type>
 __HOST__ auto inner_product(const T& x,const U& y)
 {
-    if(x.empty())
+    const size_t sz = x.size();
+    if(sz == 0)
         return return_type();
     if constexpr(memory_location<T>::at == CUDA)
     {
         #ifdef __CUDACC__
-        device_vector<return_type> xy(x.size());
+        device_vector<return_type> xy(sz);
         thrust::transform(thrust::device,
-                                 x.data(),x.data()+x.size(),
+                                 x.data(),x.data()+sz,
                                  y.data(),xy.data(),thrust::multiplies<return_type>());
         return thrust::reduce(thrust::device,xy.data(),xy.data()+xy.size(),return_type());
         #endif
@@ -470,7 +474,7 @@ __HOST__ auto inner_product(const T& x,const U& y)
     {
         std::mutex mutex;
         return_type sums = return_type();
-        tipl::par_for<ranged>(x.size(),[&](auto from,auto to)
+        tipl::par_for<ranged>(sz,[&](auto from,auto to)
         {
             auto v = inner_product(x.begin()+from,x.begin()+to,y.begin()+from);
             std::lock_guard<std::mutex> lock(mutex);
@@ -486,21 +490,23 @@ __INLINE__ double covariance(input_iterator1 x_from,input_iterator1 x_to,
 {
     if(x_to == x_from)
         return 0.0;
-    return inner_product(x_from,x_to,y_from)/double(x_to-x_from)-mean_x*mean_y;
+    return inner_product(x_from,x_to,y_from)/double(std::distance(x_from, x_to))-mean_x*mean_y;
 }
 template<typename input_iterator1,typename input_iterator2>
 __INLINE__ double covariance(input_iterator1 x_from,input_iterator1 x_to,
                              input_iterator2 y_from)
 {
-    return covariance(x_from,x_to,y_from,mean(x_from,x_to),mean(y_from,y_from+(x_to-x_from)));
+    const auto sz = std::distance(x_from, x_to);
+    return covariance(x_from,x_to,y_from,mean(x_from,x_to),mean(y_from,y_from+sz));
 }
 
 template<typename T,typename U>
 inline double covariance(const T& x,const U& y,double mean_x,double mean_y)
 {
-    if(x.empty())
+    const size_t sz = x.size();
+    if(sz == 0)
         return 0.0;
-    return inner_product(x,y)/double(x.size())-mean_x*mean_y;
+    return inner_product(x,y)/double(sz)-mean_x*mean_y;
 }
 
 template<typename T,typename U>
@@ -513,8 +519,9 @@ template<typename input_iterator1,typename input_iterator2>
 __INLINE__ double correlation(input_iterator1 x_from,input_iterator1 x_to,
                   input_iterator2 y_from,double mean_x,double mean_y)
 {
+    const auto sz = std::distance(x_from, x_to); // HOISTED to avoid multiple calculations
     auto sd1 = standard_deviation(x_from,x_to,mean_x);
-    auto sd2 = standard_deviation(y_from,y_from+(x_to-x_from),mean_y);
+    auto sd2 = standard_deviation(y_from,y_from+sz,mean_y);
     if(sd1 == 0 || sd2 == 0)
         return 0;
     return covariance(x_from,x_to,y_from,mean_x,mean_y)/sd1/sd2;
@@ -534,27 +541,30 @@ template<typename input_iterator1,typename input_iterator2>
 __INLINE__ double correlation(input_iterator1 x_from,input_iterator1 x_to,
                   input_iterator2 y_from)
 {
-    return correlation(x_from,x_to,y_from,mean(x_from,x_to),mean(y_from,y_from+(x_to-x_from)));
+    const auto sz = std::distance(x_from, x_to);
+    return correlation(x_from,x_to,y_from,mean(x_from,x_to),mean(y_from,y_from+sz));
 }
 
 template<typename input_iterator1,typename input_iterator2>
 __INLINE__ double correlation_ygz(input_iterator1 x_from,input_iterator1 x_to,
                   input_iterator2 y_from)
 {
-    auto s = x_to-x_from;
+    const size_t s = std::distance(x_from, x_to);
     if(!s)
         return 0.0;
-    std::vector<typename std::iterator_traits<input_iterator1>::value_type> nx(s);
-    std::vector<typename std::iterator_traits<input_iterator2>::value_type> ny(s);
-    size_t pos = 0;
+    std::vector<typename std::iterator_traits<input_iterator1>::value_type> nx;
+    std::vector<typename std::iterator_traits<input_iterator2>::value_type> ny;
+    nx.reserve(s); // Optimized Memory Allocation: Removed zero-initialization overhead
+    ny.reserve(s);
     for(size_t i = 0;i < s;++i)
+    {
         if(y_from[i] > 0)
         {
-            nx[pos] = x_from[i];
-            ny[pos] = y_from[i];
-            ++pos;
+            nx.push_back(x_from[i]);
+            ny.push_back(y_from[i]);
         }
-    return tipl::correlation(nx.begin(),nx.begin()+pos,ny.begin());
+    }
+    return tipl::correlation(nx.begin(), nx.end(), ny.begin());
 }
 
 template<typename T,typename U>
@@ -566,8 +576,8 @@ inline double correlation(const T& x,const U& y)
 template<typename input_iterator1,typename input_iterator2>
 double t_statistics(input_iterator1 x_from,input_iterator1 x_to,input_iterator2 y_from,input_iterator2 y_to)
 {
-    double n1 = x_to-x_from;
-    double n2 = y_to-y_from;
+    double n1 = std::distance(x_from, x_to);
+    double n2 = std::distance(y_from, y_to);
     double mean0 = tipl::mean(x_from,x_to);
     double mean1 = tipl::mean(y_from,y_to);
     double v = n1 + n2 - 2;
@@ -584,7 +594,7 @@ double t_statistics(input_iterator1 x_from,input_iterator1 x_to,input_iterator2 
 template<typename input_iterator>
 double t_statistics(input_iterator x_from,input_iterator x_to)
 {
-    double n = x_to-x_from;
+    double n = std::distance(x_from, x_to);
     double mean = tipl::mean(x_from,x_to);
     double var = tipl::variance(x_from,x_to,mean);
     if(var == 0.0)
@@ -602,14 +612,15 @@ double least_square_fitting_slop(input_iterator x_from,input_iterator x_to,
     if(var_x == 0)
         return 0;
     double co = 0.0;
+    const auto sz = std::distance(x_from, x_to);
     while (x_from != x_to)
     {
         co += *x_from*(*y_from);
         ++x_from;
         ++y_from;
     }
-    if(x_to != x_from)
-        co /= x_to-x_from;
+    if(sz != 0)
+        co /= sz;
     return (co-mean_x*mean_y)/var_x;
 }
 
@@ -618,8 +629,9 @@ double least_square_fitting_slop(input_iterator x_from,input_iterator x_to,
 template<typename input_iterator1,typename input_iterator2>
 __INLINE__ std::pair<double,double> linear_regression(input_iterator1 x_from,input_iterator1 x_to,input_iterator2 y_from)
 {
+    const auto sz = std::distance(x_from, x_to);
     auto mean_x = mean(x_from,x_to);
-    auto mean_y = mean(y_from,y_from+(x_to-x_from));
+    auto mean_y = mean(y_from,y_from+sz);
     auto x_var = variance(x_from,x_to,mean_x);
     if(x_var == 0.0)
         return std::pair<double,double>(0,mean_y);
@@ -631,10 +643,11 @@ __INLINE__ std::pair<double,double> linear_regression(input_iterator1 x_from,inp
 template<typename input_iterator1,typename input_iterator2,typename value_type>
 __INLINE__ void linear_regression(input_iterator1 x_from,input_iterator1 x_to,input_iterator2 y_from,value_type& a,value_type& b,value_type& r2)
 {
+    const auto sz = std::distance(x_from, x_to);
     auto mean_x = mean(x_from,x_to);
-    auto mean_y = mean(y_from,y_from+(x_to-x_from));
+    auto mean_y = mean(y_from,y_from+sz);
     auto x_var = variance(x_from,x_to,mean_x);
-    auto y_var = variance(y_from,y_from+(x_to-x_from),mean_y);
+    auto y_var = variance(y_from,y_from+sz,mean_y);
     if(x_var == 0 || y_var == 0)
     {
         a = 0;
@@ -647,7 +660,6 @@ __INLINE__ void linear_regression(input_iterator1 x_from,input_iterator1 x_to,in
     b = mean_y-a*mean_x;
     r2 = cov*cov/x_var/y_var;
 }
-
 
 /*
     float y[] = {1,2,2,2,3};
@@ -730,11 +742,11 @@ public:
 
 
     /*
-     *       y0       x00 ...x0p
-     *       y1       x10 ...x1p    b0
-     *     [ :  ] = [  :        ][  :  ]
-     *       :         :            bp
-     *       yn       xn0 ...xnp
+     * y0       x00 ...x0p
+     * y1       x10 ...x1p    b0
+     * [ :  ] = [  :        ][  :  ]
+     * :         :            bp
+     * yn       xn0 ...xnp
      *
      **/
     template<typename iterator1,typename iterator2,typename iterator3>
@@ -777,8 +789,6 @@ public:
     }
 
 };
-
-
 
 }
 #endif
