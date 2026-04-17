@@ -4,10 +4,10 @@
 #include <cmath>
 #include <cstdint>
 #include <type_traits>
+#include <algorithm>
 #include "../def.hpp"
 #include "../utility/pixel_index.hpp"
 #include "../utility/rgb_image.hpp"
-
 
 namespace tipl
 {
@@ -56,8 +56,6 @@ struct interpo_type<tipl::vector<dim,vtype> >{
 //---------------------------------------------------------------------------
 namespace interpolator{
 
-
-
 template<typename image_type,typename data_iterator_type,typename weighting_iterator,typename output_type>
 __INLINE__ void weighted_sum(const image_type& I,data_iterator_type from,data_iterator_type to,weighting_iterator w,output_type& result_)
 {
@@ -73,25 +71,42 @@ __INLINE__ void weighted_sum(const image_type& I,data_iterator_type from,data_it
     interpo_type<output_type>::assign(result_,result);
 }
 
-
 template<typename image_type, typename data_iterator_type, typename weighting_iterator, typename output_type>
 __INLINE__ void weight_majority(const image_type& I, data_iterator_type from, data_iterator_type to, weighting_iterator w, output_type& result_)
 {
-    std::vector<typename interpo_type<output_type>::type> unique_values;
-    std::vector<typename std::remove_reference<decltype(*w)>::type> weights;
+    using val_type = typename interpo_type<output_type>::type;
+    using weight_type = typename std::remove_reference<decltype(*w)>::type;
+
+    // Stack array eliminates massive heap allocations inside the interpolation loop.
+    // Max reference count is 8 (for 3D linear).
+    val_type unique_values[8];
+    weight_type weights[8];
+    int count = 0;
+
     for (; from != to; ++from, ++w)
     {
         auto val = I[*from];
-        auto it = std::find(unique_values.begin(), unique_values.end(), val);
-        if (it != unique_values.end())
-            weights[std::distance(unique_values.begin(), it)] += *w;
-        else
-        {
-            unique_values.push_back(val);
-            weights.push_back(*w);
+        int i = 0;
+        for (; i < count; ++i) {
+            if (unique_values[i] == val) {
+                weights[i] += *w;
+                break;
+            }
+        }
+        if (i == count && count < 8) {
+            unique_values[count] = val;
+            weights[count] = *w;
+            count++;
         }
     }
-    interpo_type<output_type>::assign(result_, unique_values[std::distance(weights.begin(), std::max_element(weights.begin(), weights.end()))]);
+
+    int best_idx = 0;
+    for (int i = 1; i < count; ++i) {
+        if (weights[i] > weights[best_idx])
+            best_idx = i;
+    }
+
+    interpo_type<output_type>::assign(result_, unique_values[best_idx]);
 }
 
 
@@ -219,21 +234,17 @@ struct linear<1>
     template<typename VTorType>
     __INLINE__ bool get_location(const shape<1>& geo,const VTorType& location)
     {
-        float p,n;
         float x = location;
         if (x < 0)
             return false;
-        float fx = std::floor(x);
-        size_t ix = fx;
+        size_t ix = size_t(x);
         if (ix + 1 >= geo[0])
             return false;
-        p = x-fx;
+        float p = x - float(ix);
         dindex[0] = ix;
         dindex[1] = dindex[0] + 1;
 
-        n = 1.0 - p;
-
-        ratio[0] = n;
+        ratio[0] = 1.0f - p;
         ratio[1] = p;
         return true;
     }
@@ -272,22 +283,21 @@ struct linear<2>
         float y = location[1];
         if (x < 0 || y < 0)
             return false;
-        float fx = std::floor(x);
-        float fy = std::floor(y);
-        size_t ix = fx;
-        size_t iy = fy;
-        if (ix + 1 >= geo[0] || iy + 1>= geo[1])
+        size_t ix = size_t(x);
+        size_t iy = size_t(y);
+        size_t w = geo[0];
+        if (ix + 1 >= w || iy + 1 >= geo[1])
             return false;
 
-        dindex[0] = iy*geo[0] + ix;
+        dindex[0] = iy * w + ix;
         dindex[1] = dindex[0] + 1;
-        dindex[2] = dindex[0] + geo[0];
+        dindex[2] = dindex[0] + w;
         dindex[3] = dindex[2] + 1;
 
-        float p0 = x-fx;
-        float p1 = y-fy;
-        float n0 = 1.0f-p0;
-        float n1 = 1.0f-p1;
+        float p0 = x - float(ix);
+        float p1 = y - float(iy);
+        float n0 = 1.0f - p0;
+        float n1 = 1.0f - p1;
         ratio[0] = n0*n1;
         ratio[1] = p0*n1;
         ratio[2] = n0*p1;
@@ -331,25 +341,24 @@ struct linear<3>
         float z = location[2];
         if (x < 0 || y < 0 || z < 0)
             return false;
-        float fx = std::floor(x);
-        float fy = std::floor(y);
-        float fz = std::floor(z);
-        size_t ix = size_t(fx);
-        size_t iy = size_t(fy);
-        size_t iz = size_t(fz);
-        if (ix + 1 >= geo[0] || iy + 1 >= geo[1] || iz + 1 >= geo[2])
+        size_t ix = size_t(x);
+        size_t iy = size_t(y);
+        size_t iz = size_t(z);
+        size_t w = geo[0];
+        if (ix + 1 >= w || iy + 1 >= geo[1] || iz + 1 >= geo[2])
             return false;
-        float p0 = x-fx;
-        float p1 = y-fy;
-        float p2 = z-fz;
-        float n0 = 1.0f-p0;
-        float n1 = 1.0f-p1;
-        float n2 = 1.0f-p2;
 
-        size_t wh = size_t(geo.plane_size());
-        dindex[0] = iz*wh + iy*geo[0] + ix;
+        float p0 = x - float(ix);
+        float p1 = y - float(iy);
+        float p2 = z - float(iz);
+        float n0 = 1.0f - p0;
+        float n1 = 1.0f - p1;
+        float n2 = 1.0f - p2;
+
+        size_t wh = geo.plane_size();
+        dindex[0] = iz * wh + iy * w + ix;
         dindex[1] = dindex[0] + 1;
-        dindex[2] = dindex[0] + geo[0];
+        dindex[2] = dindex[0] + w;
         dindex[3] = dindex[2] + 1;
         dindex[4] = dindex[0] + wh;
         dindex[5] = dindex[1] + wh;
@@ -382,7 +391,6 @@ struct linear<3>
         if (get_location(source.shape(),location))
         {
             weighted_sum(source,dindex,dindex+ref_count,ratio,pixel);
-
             return true;
         }
         return false;
@@ -426,10 +434,10 @@ struct majority : public linear<dimension>
  * p[2] sampled at floor(x)+1
  * p[3] sampled at floor(x)+2
  * value to estimate is at 0<x<1
- *                                      -1  2 -1  0    x^3
- *                                       3 -5  0  2    x^2
- * CINT(p,x) = [ p[0] p[1] p[2] [3] ] [ -3  4  1  0 ] [x  ]    *  0.5
- *                                       1 -1  0  0    1
+ * -1  2 -1  0    x^3
+ * 3 -5  0  2    x^2
+ * CINT(p,x) = [ p[0] p[1] p[2] [3] ] [ -3  4  1  0 ] [x  ]    * 0.5
+ * 1 -1  0  0    1
  *
  */
 
@@ -492,19 +500,18 @@ struct cubic<1>{
         float x = location;
         if (x < 0 || x > geo[0])
             return false;
-        float fx = std::floor(x);
         int64_t ix = x;
-        dx = x-fx;
+        dx = x - float(ix);
         dx2 = dx*dx;
         dx3 = dx2*dx;
         int64_t x_shift[4];
-        int64_t max_x = geo.width()-1;
-        x_shift[1] = std::min<int>(ix,max_x);
-        x_shift[0] = std::max<int>(0,ix-1);
-        x_shift[2] = std::min<int>(ix+1,max_x);
-        x_shift[3] = std::min<int>(ix+2,max_x);
-        for(int x = 0,index = 0;x <= 3;++x)
-            dindex[index] = x_shift[x];
+        int64_t max_x = geo[0] - 1;
+        x_shift[1] = std::min<int64_t>(ix,max_x);
+        x_shift[0] = std::max<int64_t>(0,ix-1);
+        x_shift[2] = std::min<int64_t>(ix+1,max_x);
+        x_shift[3] = std::min<int64_t>(ix+2,max_x);
+        for(int i = 0; i <= 3; ++i)
+            dindex[i] = x_shift[i];
         return true;
     }
 
@@ -553,32 +560,35 @@ struct cubic<2>{
         float y = location[1];
         if (x < 0 || y < 0 || x > geo[0] || y > geo[1])
             return false;
-        float fx = std::floor(x);
-        float fy = std::floor(y);
         int64_t ix = x;
         int64_t iy = y;
-        dx = x-fx;
-        dy = y-fy;
+        dx = x - float(ix);
+        dy = y - float(iy);
         dx2 = dx*dx;
         dy2 = dy*dy;
         dx3 = dx2*dx;
         dy3 = dy2*dy;
+
+        int64_t w = geo[0];
+        int64_t wh = geo.plane_size();
+        int64_t max_x = w - 1;
+        int64_t max_y = wh - w;
+
         int64_t x_shift[4],y_shift[4];
-        int64_t max_x = geo.width()-1;
         x_shift[1] = std::min<int64_t>(ix,max_x);
         x_shift[0] = std::max<int64_t>(0,ix-1);
         x_shift[2] = std::min<int64_t>(ix+1,max_x);
         x_shift[3] = std::min<int64_t>(ix+2,max_x);
 
-        int64_t max_y = geo.plane_size()-geo.width();
-        y_shift[1] = std::min<int64_t>(iy*geo.width(),max_y);
-        y_shift[0] = std::max<int64_t>(0,y_shift[1]-geo.width());
-        y_shift[2] = std::min<int64_t>(y_shift[1]+geo.width(),max_y);
-        y_shift[3] = std::min<int64_t>(y_shift[1]+geo.width()+geo.width(),max_y);
+        int64_t y_base = iy * w;
+        y_shift[1] = std::min<int64_t>(y_base,max_y);
+        y_shift[0] = std::max<int64_t>(0,y_shift[1]-w);
+        y_shift[2] = std::min<int64_t>(y_shift[1]+w,max_y);
+        y_shift[3] = std::min<int64_t>(y_shift[1]+(w << 1),max_y);
 
-        for(int x = 0,index = 0;x <= 3;++x)
-            for(int y = 0;y <= 3;++y,++index)
-                    dindex[index] = x_shift[x] + y_shift[y];
+        for(int i = 0, index = 0; i <= 3; ++i)
+            for(int j = 0; j <= 3; ++j, ++index)
+                    dindex[index] = x_shift[i] + y_shift[j];
         return true;
     }
 
@@ -628,44 +638,50 @@ struct cubic<3>{
         float z = location[2];
         if (x < 0 || y < 0 || z < 0 || x > geo[0] || y > geo[1] || z > geo[2])
             return false;
-        float fx = std::floor(x);
-        float fy = std::floor(y);
-        float fz = std::floor(z);
+
         int64_t ix = x;
         int64_t iy = y;
         int64_t iz = z;
-        dx = x-fx;
-        dy = y-fy;
-        dz = z-fz;
+        dx = x - float(ix);
+        dy = y - float(iy);
+        dz = z - float(iz);
         dx2 = dx*dx;
         dy2 = dy*dy;
         dz2 = dz*dz;
         dx3 = dx2*dx;
         dy3 = dy2*dy;
         dz3 = dz2*dz;
+
+        int64_t w = geo[0];
+        int64_t wh = geo.plane_size();
+        int64_t sz = geo.size();
+
+        int64_t max_x = w - 1;
+        int64_t max_y = wh - w;
+        int64_t max_z = sz - wh;
+
         int64_t x_shift[4],y_shift[4],z_shift[4];
-        int64_t max_x = geo.width()-1;
         x_shift[1] = std::min<int64_t>(ix,max_x);
         x_shift[0] = std::max<int64_t>(0,ix-1);
         x_shift[2] = std::min<int64_t>(ix+1,max_x);
         x_shift[3] = std::min<int64_t>(ix+2,max_x);
 
-        int64_t max_y = geo.plane_size()-geo.width();
-        y_shift[1] = std::min<int64_t>(iy*geo.width(),max_y);
-        y_shift[0] = std::max<int64_t>(0,y_shift[1]-geo.width());
-        y_shift[2] = std::min<int64_t>(y_shift[1]+geo.width(),max_y);
-        y_shift[3] = std::min<int64_t>(y_shift[1]+geo.width()+geo.width(),max_y);
+        int64_t y_base = iy * w;
+        y_shift[1] = std::min<int64_t>(y_base,max_y);
+        y_shift[0] = std::max<int64_t>(0,y_shift[1]-w);
+        y_shift[2] = std::min<int64_t>(y_shift[1]+w,max_y);
+        y_shift[3] = std::min<int64_t>(y_shift[1]+(w << 1),max_y);
 
-        int64_t max_z = geo.size()-geo.plane_size();
-        z_shift[1] = std::min<int64_t>(iz*geo.plane_size(),max_z);
-        z_shift[0] = std::max<int64_t>(0,z_shift[1]-geo.plane_size());
-        z_shift[2] = std::min<int64_t>(z_shift[1]+geo.plane_size(),max_z);
-        z_shift[3] = std::min<int64_t>(z_shift[1]+geo.plane_size()+geo.plane_size(),max_z);
+        int64_t z_base = iz * wh;
+        z_shift[1] = std::min<int64_t>(z_base,max_z);
+        z_shift[0] = std::max<int64_t>(0,z_shift[1]-wh);
+        z_shift[2] = std::min<int64_t>(z_shift[1]+wh,max_z);
+        z_shift[3] = std::min<int64_t>(z_shift[1]+(wh << 1),max_z);
 
-        for(int x = 0,index = 0;x <= 3;++x)
-            for(int y = 0;y <= 3;++y)
-                for(int z = 0;z <= 3;++z,++index)
-                    dindex[index] = x_shift[x] + y_shift[y] + z_shift[z];
+        for(int i = 0, index = 0; i <= 3; ++i)
+            for(int j = 0; j <= 3; ++j)
+                for(int k = 0; k <= 3; ++k, ++index)
+                    dindex[index] = x_shift[i] + y_shift[j] + z_shift[k];
         return true;
     }
 
@@ -723,10 +739,6 @@ __INLINE__ auto estimate(const ImageType& source,const VTorType& location)
         tipl::interpolator::cubic<ImageType::dimension>().estimate(source,location,result);
     return result;
 }
-
-
-
-
 
 }//tipl
 #endif
