@@ -1309,24 +1309,6 @@ void project_y(const image_type& I,output_type& P)
     });
 }
 
-template<typename ImageType>
-double variance(const ImageType& I)
-{
-    double sum = 0;
-    double sum_square = 0;
-    size_t sz = I.size();
-    auto iter = I.begin(), end = I.end();
-    for(; iter != end; ++iter)
-    {
-        double value = *iter;
-        sum += value;
-        sum_square += value*value;
-    }
-    sum_square /= sz;
-    sum /= sz;
-    return sum_square - sum*sum;
-}
-
 template<typename ImageType,typename HisType>
 void histogram(const ImageType& src,HisType& hist,
                typename ImageType::value_type min_value,
