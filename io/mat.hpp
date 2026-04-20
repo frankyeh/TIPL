@@ -323,6 +323,8 @@ public:
             goto read;
         }
         in.read(reinterpret_cast<char*>(&type),20);
+        if (type == 51)
+            type = 50;
         if (!in || type > 60 || type % 10 || size() == 0 || namelen == 0 || namelen > 255)
             return false;
         {
