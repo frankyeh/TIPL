@@ -500,12 +500,11 @@ template<typename ImageType,typename RefImageType>
 void fit(ImageType& I,const RefImageType& ref,char weight = 2)
 {
     auto act = get_neighbor_count(I);
-    auto shape = I.shape();
     size_t sz = I.size();
     constexpr char threshold = ((ImageType::dimension == 2) ? 9 : 27) >> 1;
     char upper_threshold = threshold+ImageType::dimension+ImageType::dimension;
     char lower_threshold = threshold-ImageType::dimension-ImageType::dimension;
-    tipl::par_for(begin_index(shape),end_index(shape),[&](auto pos)
+    tipl::par_for(I.shape(),[&](auto pos)
     {
         if(act[pos.index()] < lower_threshold || act[pos.index()] > upper_threshold)
             return;
