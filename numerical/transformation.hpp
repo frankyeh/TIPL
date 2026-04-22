@@ -827,17 +827,27 @@ public:
         return true;
     }
 
-    template<typename vtype1,typename vtype2>
-    __INLINE__ void operator()(const vtype1& from,vtype2& to) const
+    [[nodiscard]] __INLINE__ auto operator()(const pixel_index<dimension>& from) const
     {
+        vector<dimension> to;
         vector_transformation(from.begin(),to.begin(),sr,shift,vdim<dimension>());
+        return to;
     }
-    template<typename vtype>
-    __INLINE__ void operator()(vtype& pos) const
+    [[nodiscard]] __INLINE__ auto operator()(const vector<dimension>& from) const
     {
-        vtype result;
-        vector_transformation(pos.begin(),result.begin(),sr,shift,vdim<dimension>());
-        pos = result;
+        vector<dimension> to;
+        vector_transformation(from.begin(),to.begin(),sr,shift,vdim<dimension>());
+        return to;
+    }
+    __INLINE__ void operator()(vector<dimension>& pos) const
+    {
+        vector<dimension> result(pos);
+        vector_transformation(result.begin(),pos.begin(),sr,shift,vdim<dimension>());
+    }
+    __INLINE__ void operator()(value_type* pos) const
+    {
+        vector<dimension> result(pos);
+        vector_transformation(result.begin(),pos,sr,shift,vdim<dimension>());
     }
 
     friend std::ostream & operator<<(std::ostream& out, const transformation_matrix& T)
