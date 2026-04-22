@@ -1444,6 +1444,43 @@ image_type& hist_norm(image_type& I,unsigned int bin_count)
     return I;
 }
 
+template<typename container_type>
+void softmax(container_type&& eval_output, size_t spatial_size, size_t model_out_count)
+{
+    if (model_out_count <= 1 || spatial_size == 0)
+        return;
+
+    size_t sz = eval_output.size();
+    tipl::par_for(spatial_size, [&](size_t pos)
+    {
+        auto max_val = eval_output[pos];
+        for(size_t offset = pos + spatial_size; offset < sz; offset += spatial_size)
+            if(eval_output[offset] > max_val)
+                max_val = eval_output[offset];
+
+        double sum_exp(0);
+        for(size_t offset = pos; offset < sz; offset += spatial_size)
+        {
+            eval_output[offset] = std::exp(eval_output[offset] - max_val);
+            sum_exp += eval_output[offset];
+        }
+
+        sum_exp = 1.0/sum_exp;
+        for(size_t offset = pos; offset < sz; offset += spatial_size)
+            eval_output[offset] *= sum_exp;
+    });
+}
+
+template<typename container_type>
+void softmax(container_type&& img)
+{
+    size_t spatial_size = 1;
+    for(size_t i = 0; i < container_type::dimension - 1; ++i)
+        spatial_size *= img.shape()[i];
+
+    softmax(img, spatial_size, img.shape()[container_type::dimension - 1]);
+}
+
 template<typename type>
 void change_endian(type& value)
 {
