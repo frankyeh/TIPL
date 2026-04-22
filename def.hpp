@@ -17,9 +17,24 @@ enum memory_location_type{
 };
 
 template<typename container>
-struct memory_location{
-    static constexpr memory_location_type at = CPU;
+struct memory_location;
+
+template<typename container>
+struct memory_location<const container> {
+    static constexpr memory_location_type at = memory_location<container>::at;
 };
+
+template<typename container>
+struct memory_location<container&> {
+    static constexpr memory_location_type at = memory_location<container>::at;
+};
+
+template<typename container>
+struct memory_location<container&&> {
+    static constexpr memory_location_type at = memory_location<container>::at;
+};
+
+
 
 }
 
