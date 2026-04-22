@@ -12,7 +12,8 @@
 namespace tipl
 {
 
-
+template<typename vtype>
+struct memory_location<std::vector<vtype>> {static constexpr memory_location_type at = CPU;};
 
 template<typename vtype>
 class buffer_container
@@ -114,6 +115,8 @@ public:
     }
 };
 
+template<typename vtype>
+struct memory_location<buffer_container<vtype>> {static constexpr memory_location_type at = CPU;};
 
 
 template <int dim,typename vtype = float,template <typename...> typename stype = std::vector>
@@ -234,30 +237,30 @@ public:
     auto slice_at(unsigned int pos)
     {
         tipl::shape<dim-1> slice_sp(sp.begin());
-        return make_image(alloc,pos*slice_sp.size(),slice_sp);
+        return make_image(*this,pos*slice_sp.size(),slice_sp);
     }
     auto slice_at(unsigned int pos) const
     {
         tipl::shape<dim-1> slice_sp(sp.begin());
-        return make_image(alloc,pos*slice_sp.size(),slice_sp);
+        return make_image(*this,pos*slice_sp.size(),slice_sp);
     }
     template<typename shape_type>
     auto alias(size_t offset,const shape_type& new_shape)
     {
-        return make_image(alloc,offset,new_shape);
+        return make_image(*this,offset,new_shape);
     }
     template<typename shape_type>
     auto alias(size_t offset,const shape_type& new_shape) const
     {
-        return make_image(alloc,offset,new_shape);
+        return make_image(*this,offset,new_shape);
     }
     auto alias(void)
     {
-        return make_image(alloc,0,sp);
+        return make_image(*this,0,sp);
     }
     auto alias(void) const
     {
-        return make_image(alloc,0,sp);
+        return make_image(*this,0,sp);
     }
 public:
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
@@ -322,6 +325,10 @@ public:
         return true;
     }
 };
+
+template <int dim,typename vtype,template <typename...> typename stype>
+struct memory_location<image<dim,vtype,stype>> {static constexpr memory_location_type at = memory_location<stype<vtype>>::at;};
+
 
 template<typename V,typename T>
 inline V extract_pointer(T* p){return V(p);}
@@ -395,6 +402,8 @@ public:
     }
     __INLINE__ void resize(size_t new_size)                          {sz = new_size;}
 };
+template<typename vtype>
+struct memory_location<pointer_container<vtype>> {static constexpr memory_location_type at = CPU;};
 
 
 
@@ -470,6 +479,8 @@ public:
         sz = temp_sz;
     }
 };
+template<typename vtype>
+struct memory_location<const_pointer_container<vtype>> {static constexpr memory_location_type at = CPU;};
 
 
 template<int dim,typename vtype = float>
@@ -503,6 +514,9 @@ public:
         return *this;
     }
 };
+template<int dim,typename vtype>
+struct memory_location<pointer_image<dim,vtype>> {static constexpr memory_location_type at = CPU;};
+
 
 template<typename V,typename T>
 inline V extract_const_pointer(const T* p){return V(p);}
@@ -535,25 +549,116 @@ public:
     }
 
 };
+template<int dim,typename vtype>
+struct memory_location<const_pointer_image<dim,vtype>> {static constexpr memory_location_type at = CPU;};
 
-template<typename container_type, typename shape_type,
-         std::enable_if_t<memory_location<container_type>::at == CPU, int> = 0>
-__INLINE__ auto make_image(const container_type& c, size_t offset, const shape_type& sp)
+
+template<typename vtype>
+class device_vector;
+
+template<int dim,typename vtype = float>
+class pointer_device_image : public image<dim,vtype,pointer_container>
 {
-    return const_pointer_image<shape_type::dimension,typename container_type::value_type>(c.data() + offset, sp);
-}
+public:
+    using value_type        =   vtype;
+    using base_type         =   image<dim,value_type,pointer_container>;
+    using iterator          =   typename base_type::iterator;
+    using const_iterator    =   typename base_type::const_iterator;
+    using storage_type      =   typename image<dim,vtype,pointer_container>::storage_type;
+    using buffer_type       =   image<dim,vtype,device_vector>;
+    static constexpr int dimension = dim;
+public:
+    pointer_device_image(void) {}
+    pointer_device_image(const pointer_device_image& rhs):base_type(){operator=(rhs);}
+    pointer_device_image(vtype* ptr,const typename image<dim,vtype,pointer_container>::shape_type& s):
+                base_type(ptr,s){}
+template<typename T,typename std::enable_if<T::dimension==dimension && !std::is_same<storage_type,typename T::storage_type>::value,bool>::type = true>
+    pointer_device_image(T& rhs):
+                base_type(reinterpret_cast<vtype*>(rhs.data()),rhs.shape()){}
+public:
+    pointer_device_image& operator=(const pointer_device_image& rhs)
+    {
+        base_type::alloc = rhs.alloc;
+        base_type::sp = rhs.sp;
+        return *this;
+    }
+};
+template<int dim,typename vtype>
+struct memory_location<pointer_device_image<dim,vtype>> {static constexpr memory_location_type at = CUDA;};
 
 
-template<typename container_type, typename shape_type,
-         std::enable_if_t<memory_location<container_type>::at == CPU, int> = 0>
+
+template<int dim,typename vtype = float>
+class const_pointer_device_image : public image<dim,vtype,const_pointer_container>
+{
+public:
+    using value_type        =   vtype;
+    using base_type         =   image<dim,value_type,const_pointer_container>;
+    using iterator          =   typename base_type::iterator;
+    using const_iterator    =   typename base_type::const_iterator;
+    using storage_type      =   typename image<dim,vtype,const_pointer_container>::storage_type;
+    using buffer_type       =   image<dim,vtype,device_vector>;
+    static constexpr int dimension = dim;
+public:
+    const_pointer_device_image(void) {}
+    const_pointer_device_image(const const_pointer_device_image& rhs):base_type(){operator=(rhs);}
+    const_pointer_device_image(const vtype* ptr,const typename image<dim,vtype,const_pointer_container>::shape_type& s):
+                base_type(ptr,s){}
+template<typename T,typename std::enable_if<T::dimension==dimension && !std::is_same<storage_type,typename T::storage_type>::value,bool>::type = true>
+    const_pointer_device_image(const T& rhs):
+                base_type(reinterpret_cast<const vtype*>(rhs.data()),rhs.shape()){}
+    const_pointer_device_image(const pointer_device_image<dim,vtype>& rhs):
+                base_type(reinterpret_cast<const vtype*>(rhs.data()),rhs.shape()){}
+public:
+    const_pointer_device_image& operator=(const const_pointer_device_image& rhs)
+    {
+        base_type::alloc = rhs.alloc;
+        base_type::sp = rhs.sp;
+        return *this;
+    }
+};
+template<int dim,typename vtype>
+struct memory_location<const_pointer_device_image<dim,vtype> >  {static constexpr memory_location_type at = CUDA;};
+
+
+template<typename container_type, typename shape_type>
 __INLINE__ auto make_image(container_type& c, size_t offset, const shape_type& sp)
 {
-    if constexpr (std::is_const<std::remove_pointer_t<decltype(c.data())>>::value)
-        return make_image(static_cast<const container_type&>(c), offset, sp);
+    if constexpr(memory_location<std::remove_const_t<container_type>>::at == CPU)
+    {
+        if constexpr (std::is_const<std::remove_pointer_t<decltype(c.data())>>::value)
+            return const_pointer_image<shape_type::dimension,typename container_type::value_type>(c.data() + offset, sp);
+        else
+            return pointer_image<shape_type::dimension,typename container_type::value_type>(c.data() + offset, sp);
+    }
     else
-        return pointer_image<shape_type::dimension,typename container_type::value_type>(c.data() + offset, sp);
+    {
+        if constexpr (std::is_const<std::remove_pointer_t<decltype(c.data())>>::value)
+            return const_pointer_device_image<shape_type::dimension,typename container_type::value_type>(c.data() + offset, sp);
+        else
+            return pointer_device_image<shape_type::dimension,typename container_type::value_type>(c.data() + offset, sp);
+    }
 }
 
+
+template<typename container_type>
+__INLINE__ auto make_shared(container_type& I)
+{
+    if constexpr(memory_location<container_type>::at == CPU)
+    {
+        if constexpr (std::is_const_v<std::remove_pointer_t<decltype(I.data())>>)
+            return const_pointer_image<container_type::dimension,typename container_type::value_type>(I);
+        else
+            return pointer_image<container_type::dimension,typename container_type::value_type>(I);
+    }
+    else
+    {
+        if constexpr (std::is_const_v<std::remove_pointer_t<decltype(I.data())>>)
+            return const_pointer_device_image<container_type::dimension,typename container_type::value_type>(I);
+        else
+            return pointer_device_image<container_type::dimension,typename container_type::value_type>(I);
+    }
+}
 
 template<typename value_type,typename shape_type>
 inline auto make_image(value_type* pointer,const shape_type& sp)
@@ -567,16 +672,7 @@ inline auto make_image(const value_type* pointer,const shape_type& sp)
     return const_pointer_image<shape_type::dimension,value_type>(pointer,sp);
 }
 
-template<typename T, std::enable_if_t<memory_location<T>::at == CPU, int> = 0>
-inline auto make_shared(T& I)
-{
-    return pointer_image<T::dimension,typename T::value_type>(I);
-}
-template<typename T, std::enable_if_t<memory_location<T>::at == CPU, int> = 0>
-inline auto make_shared(const T& I)
-{
-    return const_pointer_image<T::dimension,typename T::value_type>(I);
-}
+
 
 
 }
