@@ -10,8 +10,7 @@ template<typename T>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 displacement_to_mapping(T& dis)
 {
-    tipl::par_for(tipl::begin_index(dis.shape()),tipl::end_index(dis.shape()),
-                [&](const auto& index)
+    tipl::par_for(dis.shape(),[&](const auto& index)
     {
         dis[index.index()] += index;
     });
@@ -22,8 +21,7 @@ inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 displacement_to_mapping(const T& dis,U& mapping)
 {
     mapping = dis;
-    tipl::par_for(tipl::begin_index(mapping.shape()),tipl::end_index(mapping.shape()),
-                            [&](const auto& index)
+    tipl::par_for(mapping.shape(),[&](const auto& index)
     {
         mapping[index.index()] += index;
     });
@@ -33,8 +31,7 @@ template<typename T>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 mapping_to_displacement(T& mapping)
 {
-    tipl::par_for(tipl::begin_index(mapping.shape()),tipl::end_index(mapping.shape()),
-                [&](const auto& index)
+    tipl::par_for(mapping.shape(),[&](const auto& index)
     {
         mapping[index.index()] -= index;
     });
@@ -46,8 +43,7 @@ template<typename DisType,typename MappingType,typename transform_type>
 void displacement_to_mapping(const DisType& dis,MappingType& mapping,const transform_type& T)
 {
     mapping = dis;
-    tipl::par_for(tipl::begin_index(mapping.shape()),tipl::end_index(mapping.shape()),
-                            [&](const auto& index)
+    tipl::par_for(mapping.shape(),[&](const auto& index)
     {
         T(mapping[index.index()] += typename MappingType::value_type(index));
     });
@@ -58,8 +54,7 @@ void inv_displacement_to_mapping(const DisType& inv_dis,MappingType& inv_mapping
 {
     auto iT = T;
     iT.inverse();
-    tipl::par_for(tipl::begin_index(inv_mapping.shape()),tipl::end_index(inv_mapping.shape()),
-        [&](const auto& index)
+    tipl::par_for(inv_mapping.shape(),[&](const auto& index)
     {
         tipl::vector<DisType::dimension> p(iT(index));
         p += tipl::estimate<itype>(inv_dis,p);
@@ -98,8 +93,7 @@ compose_displacement(const T& from,const U& dis,V& to)
 {
     to.clear();
     to.resize(from.shape());
-    tipl::par_for(tipl::begin_index(from.shape()),tipl::end_index(from.shape()),
-        [&](const auto& index)
+    tipl::par_for(from.shape(),[&](const auto& index)
     {
         if(dis[index.index()] == typename U::value_type())
             to[index.index()] = from[index.index()];
@@ -129,14 +123,11 @@ void compose_displacement_with_affine(const ImageType& src,OutImageType& dest,
 {
     dest.clear();
     dest.resize(displace.shape());
-    tipl::par_for(tipl::begin_index(displace.shape()),tipl::end_index(displace.shape()),
-        [&](const auto& index)
+    tipl::par_for(displace.shape(),[&](const auto& index)
     {
         typename ComposeImageType::value_type vtor(index);
         vtor += displace[index.index()];
-        tipl::vector<OutImageType::dimension> pos;
-        transform(vtor,pos);
-        tipl::estimate<Type>(src,pos,dest[index.index()]);
+        tipl::estimate<Type>(src,transform(vtor),dest[index.index()]);
     });
 }
 
@@ -163,8 +154,7 @@ invert_displacement(const T& v0,T& v1,size_t count = 8)
     displacement_to_mapping(mapping);
     for(uint8_t i = 0;i < count;++i)
     {
-        tipl::par_for(tipl::begin_index(v1.shape()),tipl::end_index(v1.shape()),
-            [&](const auto& index)
+        tipl::par_for(v1.shape(),[&](const auto& index)
         {
             invert_displacement_imp(index,v1,mapping);
         });
@@ -189,7 +179,7 @@ accumulate_displacement(const T& dis,T& new_dis)
 {
     T mapping;
     displacement_to_mapping(dis,mapping);
-    tipl::par_for(tipl::begin_index(dis.shape()),tipl::end_index(dis.shape()),[&](const auto& index)
+    tipl::par_for(dis.shape(),[&](const auto& index)
     {
         accumulate_displacement_imp(index,dis,new_dis,mapping);
     });
@@ -376,8 +366,7 @@ void jacobian_determinant(const tipl::image<dim, VectorType>& src, tipl::image<d
     if constexpr (dim == 3)
         wh = src.plane_size();
 
-    tipl::par_for(tipl::begin_index(geo), tipl::end_index(geo),
-                           [&, w, wh](const auto& index)
+    tipl::par_for(geo,[&, w, wh](const auto& index)
     {
         if (geo.is_edge(index))
             return;
@@ -492,7 +481,6 @@ void jacobian_determinant_dis(const tipl::image<2,VectorType>& displacement,tipl
 {
     tipl::shape<2> geo(displacement.shape());
     dest.resize(geo);
-
     const size_t sz = geo.size();
     for (tipl::pixel_index<2> index(geo); index < sz; ++index)
     {
