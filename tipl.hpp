@@ -10,6 +10,7 @@ TIPL library is shared under one of the following licenses
 
 #include "def.hpp"
 #include "cmd.hpp"
+#include "mt.hpp"
 #include "prog.hpp"
 #include "po.hpp"
 
