@@ -49,9 +49,7 @@ void displacement_to_mapping(const DisType& dis,MappingType& mapping,const trans
     tipl::par_for(tipl::begin_index(mapping.shape()),tipl::end_index(mapping.shape()),
                             [&](const auto& index)
     {
-        typename MappingType::value_type vtor(index);
-        vtor += mapping[index.index()];
-        T(vtor,mapping[index.index()]);
+        T(mapping[index.index()] += typename MappingType::value_type(index));
     });
 }
 
@@ -63,8 +61,7 @@ void inv_displacement_to_mapping(const DisType& inv_dis,MappingType& inv_mapping
     tipl::par_for(tipl::begin_index(inv_mapping.shape()),tipl::end_index(inv_mapping.shape()),
         [&](const auto& index)
     {
-        tipl::vector<DisType::dimension> p;
-        iT(index,p);
+        tipl::vector<DisType::dimension> p(iT(index));
         p += tipl::estimate<itype>(inv_dis,p);
         inv_mapping[index.index()] = p;
     });
