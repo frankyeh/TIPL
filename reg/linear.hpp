@@ -145,10 +145,8 @@ get_mutual_info(T& mutual_hist_all,const U& to,const V& from,const W& trans)
     tipl::par_for<dynamic_with_id>(tipl::begin_index(from.shape()),tipl::end_index(from.shape()),
                                    [&](const auto& index,int id)
     {
-        tipl::vector<U::dimension> pos;
-        trans(index,pos);
         unsigned char to_index = 0;
-        tipl::estimate<tipl::interpolation::linear>(to,pos,to_index);
+        tipl::estimate<tipl::interpolation::linear>(to,trans(index),to_index);
         mutual_hist[id][(uint32_t(from[index.index()]) << mi_band_width) + uint32_t(to_index)]++;
     });
     for(size_t i = 1,sz = mutual_hist.size();i < sz;++i)
@@ -164,10 +162,8 @@ __global__ void mutual_information_cuda_kernel(T from,T to,V trans,U mutual_hist
     TIPL_FOR(index,from.size())
     {
         tipl::pixel_index<T::dimension> pos(index,from.shape());
-        tipl::vector<T::dimension> v;
-        trans(pos,v);
         unsigned char to_index = 0;
-        tipl::estimate<tipl::interpolation::linear>(to,v,to_index);
+        tipl::estimate<tipl::interpolation::linear>(to,trans(pos),to_index);
         atomicAdd(mutual_hist.begin() + (uint32_t(from[index]) << mi_band_width) +to_index,1);
     }
 }
