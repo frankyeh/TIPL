@@ -1325,6 +1325,23 @@ inline auto resample(const T& from,const shape<T::dimension>& shape,const U& tra
     return to;
 }
 
+template <typename trans_vtype, int dim>
+template <typename vtype, template <typename...> typename stype>
+__INLINE__ typename image<dim, vtype, stype>::buffer_type
+transformation_matrix<trans_vtype, dim>::operator()(const image<dim, vtype, stype>& I, const shape<dim>& sp) const
+{
+    return resample(I, sp, *this);
+}
+
+template <typename trans_vtype, int dim>
+template <typename vtype1, typename vtype2, template <typename...> typename stype1, template <typename...> typename stype2>
+__INLINE__ void transformation_matrix<trans_vtype, dim>::operator()(
+                    const image<dim, vtype1, stype1>& I,image<dim, vtype2, stype2>&& I2) const
+{
+    resample(I, I2, *this);
+}
+
+
 template<tipl::interpolation Type = linear,typename ImageType1,typename ImageType2,typename transform_type>
 void resample_dis(const ImageType1& from,ImageType2&& to,const transform_type& transform,const tipl::image<3,tipl::vector<3> >& dis)
 {
