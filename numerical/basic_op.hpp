@@ -231,6 +231,7 @@ ImageType& binary(ImageType& I,fun_type fun)
     return I;
 }
 
+
 template<typename ImageType,typename LabelImageType>
 LabelImageType& threshold(const ImageType& I,LabelImageType& out,typename ImageType::value_type threshold_value,
                typename LabelImageType::value_type foreground = 1,typename LabelImageType::value_type background = 0)
@@ -243,6 +244,30 @@ LabelImageType& threshold(const ImageType& I,LabelImageType& out,typename ImageT
         *out_iter = (*iter > threshold_value) ? foreground : background;
     return out;
 }
+
+template<typename LabelImageType,typename ImageType>
+inline auto threshold(const ImageType& I,typename ImageType::value_type threshold_value,
+               typename LabelImageType::value_type foreground = 1,typename LabelImageType::value_type background = 0)
+{
+    LabelImageType out;
+    threshold(I,out,threshold_value,foreground,background);
+    return out;
+}
+template <int dim,typename vtype,template <typename...> typename stype>
+inline auto operator>(const image<dim,vtype,stype>& I,vtype prob_threshold)
+{
+    tipl::image<dim,unsigned char,stype> mask;
+    tipl::threshold(I,mask,prob_threshold);
+    return mask;
+}
+template <int dim,typename vtype,template <typename...> typename stype>
+inline auto operator<(const image<dim,vtype,stype>& I,vtype prob_threshold)
+{
+    tipl::image<dim,unsigned char,stype> mask;
+    tipl::threshold(I,mask,prob_threshold,0,1);
+    return mask;
+}
+
 
 template<typename ImageType>
 ImageType& threshold(ImageType& I,typename ImageType::value_type threshold_value,
@@ -1479,6 +1504,32 @@ void softmax(container_type&& img)
         spatial_size *= img.shape()[i];
 
     softmax(img, spatial_size, img.shape()[container_type::dimension - 1]);
+}
+
+
+template <typename ImageType, typename MaskType>
+auto arg_max(const ImageType& label_prob, const MaskType& mask)
+{
+    tipl::image<3, unsigned char> I(mask.shape());
+    size_t s = mask.size();
+    size_t total_size = label_prob.size();
+    tipl::par_for(s, [&](size_t pos)
+    {
+        if (!mask[pos])
+            return;
+        auto m = label_prob[pos];
+        unsigned char max_label = 1;
+        for (size_t i = pos + s, label = 2; i < total_size; i += s, ++label)
+        {
+            if (label_prob[i] > m)
+            {
+                m = label_prob[i];
+                max_label = static_cast<unsigned char>(label);
+            }
+        }
+        I[pos] = max_label;
+    });
+    return I;
 }
 
 template<typename type>
