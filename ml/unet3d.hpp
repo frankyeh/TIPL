@@ -125,7 +125,7 @@ void create_gaussian(image_type& gaussian)
         max_val = std::max(max_val,val);
     }
 
-    tipl::divide_constant(gaussian,max_val);
+    gaussian /= max_val;
     tipl::lower_threshold(gaussian,1e-6f);
 }
 
@@ -166,21 +166,24 @@ void postproc(std::vector<image_type>& target_images,
 
                 if(c == model_out_count)
                 {
-                    tipl::add(weight_map,tipl::resample(gaussian,image_dim,each_trans));
+                    weight_map += tipl::resample(gaussian,image_dim,each_trans);
                     continue;
                 }
                 auto w = target_images[t].alias(model_dim.size()*c,model_dim);
                 auto o = eval_output.alias(image_dim.size()*c,image_dim);
-                tipl::multiply(w,gaussian);
-                tipl::add(o,tipl::resample(w,image_dim,each_trans));
+                w *= gaussian;
+                o += tipl::resample(w,image_dim,each_trans);
             }
         });
 
         for(size_t i=0;i<weight_map.size();++i)
             if(weight_map[i] > 1e-6)
                 weight_map[i] = 1.0f/weight_map[i];
-        for(int c=0;c<model_out_count;++c)
-            tipl::multiply(eval_output.alias(image_dim.size()*c,image_dim),weight_map);
+        tipl::par_for(model_out_count,[&](int c)
+        {
+            eval_output.alias(image_dim.size()*c,image_dim) *= weight_map;
+        });
+
     }
 
     tipl::softmax(eval_output,image_dim.size(),model_out_count);
