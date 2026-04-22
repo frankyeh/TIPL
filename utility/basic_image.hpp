@@ -118,6 +118,10 @@ public:
 template<typename vtype>
 struct memory_location<buffer_container<vtype>> {static constexpr memory_location_type at = CPU;};
 
+template<typename ImageType, typename MaskType>
+class masked_image_proxy;
+template<typename ImageType, typename MaskType>
+class const_masked_image_proxy;
 
 template <int dim,typename vtype = float,template <typename...> typename stype = std::vector>
 class image
@@ -233,6 +237,16 @@ public:
     __INLINE__ reference operator[](index_type index)           {return alloc[index];}
     __INLINE__ auto begin(void)                            {return alloc.begin();}
     __INLINE__ auto end(void)                              {return alloc.end();}
+
+    template<typename MaskType, typename std::enable_if<std::is_class<MaskType>::value, bool>::type = true>
+    __INLINE__ auto operator[](const MaskType& mask) {
+        return masked_image_proxy<image, MaskType>(*this, mask);
+    }
+
+    template<typename MaskType, typename std::enable_if<std::is_class<MaskType>::value, bool>::type = true>
+    __INLINE__ auto operator[](const MaskType& mask) const {
+        return const_masked_image_proxy<image, MaskType>(*this, mask);
+    }
 public:
     auto slice_at(unsigned int pos)
     {
@@ -328,6 +342,155 @@ public:
 
 template <int dim,typename vtype,template <typename...> typename stype>
 struct memory_location<image<dim,vtype,stype>> {static constexpr memory_location_type at = memory_location<stype<vtype>>::at;};
+
+
+template<typename ImageType, typename MaskType>
+class masked_image_proxy
+{
+private:
+    ImageType& img;
+    const MaskType& mask;
+
+public:
+    masked_image_proxy(ImageType& img_, const MaskType& mask_) : img(img_), mask(mask_) {}
+
+    template<typename T>
+    masked_image_proxy& operator=(const T& rhs) {
+        auto i = img.begin();
+        auto m = mask.begin();
+        auto ed = img.end();
+        if constexpr (std::is_fundamental_v<T>) {
+            for(; i != ed; ++i, ++m) if(*m) *i = rhs;
+        } else {
+            auto r = rhs.begin();
+            for(; i != ed; ++i, ++m, ++r) if(*m) *i = *r;
+        }
+        return *this;
+    }
+
+    template<typename T>
+    masked_image_proxy& operator+=(const T& rhs) {
+        auto i = img.begin(); auto m = mask.begin(); auto ed = img.end();
+        if constexpr (std::is_fundamental_v<T>) {
+            for(; i != ed; ++i, ++m) if(*m) *i += rhs;
+        } else {
+            auto r = rhs.begin();
+            for(; i != ed; ++i, ++m, ++r) if(*m) *i += *r;
+        }
+        return *this;
+    }
+
+    template<typename T>
+    masked_image_proxy& operator-=(const T& rhs) {
+        auto i = img.begin(); auto m = mask.begin(); auto ed = img.end();
+        if constexpr (std::is_fundamental_v<T>) {
+            for(; i != ed; ++i, ++m) if(*m) *i -= rhs;
+        } else {
+            auto r = rhs.begin();
+            for(; i != ed; ++i, ++m, ++r) if(*m) *i -= *r;
+        }
+        return *this;
+    }
+
+    template<typename T>
+    masked_image_proxy& operator*=(const T& rhs) {
+        auto i = img.begin(); auto m = mask.begin(); auto ed = img.end();
+        if constexpr (std::is_fundamental_v<T>) {
+            for(; i != ed; ++i, ++m) if(*m) *i *= rhs;
+        } else {
+            auto r = rhs.begin();
+            for(; i != ed; ++i, ++m, ++r) if(*m) *i *= *r;
+        }
+        return *this;
+    }
+
+    template<typename T>
+    masked_image_proxy& operator/=(const T& rhs) {
+        auto i = img.begin(); auto m = mask.begin(); auto ed = img.end();
+        if constexpr (std::is_fundamental_v<T>) {
+            for(; i != ed; ++i, ++m) if(*m) *i /= rhs;
+        } else {
+            auto r = rhs.begin();
+            for(; i != ed; ++i, ++m, ++r) if(*m) *i /= *r;
+        }
+        return *this;
+    }
+
+    template<typename T>
+    typename ImageType::buffer_type operator+(const T& rhs) const {
+        typename ImageType::buffer_type result(img);
+        masked_image_proxy<typename ImageType::buffer_type, MaskType> p(result, mask);
+        p += rhs;
+        return result;
+    }
+
+    template<typename T>
+    typename ImageType::buffer_type operator-(const T& rhs) const {
+        typename ImageType::buffer_type result(img);
+        masked_image_proxy<typename ImageType::buffer_type, MaskType> p(result, mask);
+        p -= rhs;
+        return result;
+    }
+
+    template<typename T>
+    typename ImageType::buffer_type operator*(const T& rhs) const {
+        typename ImageType::buffer_type result(img);
+        masked_image_proxy<typename ImageType::buffer_type, MaskType> p(result, mask);
+        p *= rhs;
+        return result;
+    }
+
+    template<typename T>
+    typename ImageType::buffer_type operator/(const T& rhs) const {
+        typename ImageType::buffer_type result(img);
+        masked_image_proxy<typename ImageType::buffer_type, MaskType> p(result, mask);
+        p /= rhs;
+        return result;
+    }
+};
+
+template<typename ImageType, typename MaskType>
+class const_masked_image_proxy
+{
+private:
+    const ImageType& img;
+    const MaskType& mask;
+
+public:
+    const_masked_image_proxy(const ImageType& img_, const MaskType& mask_) : img(img_), mask(mask_) {}
+
+    template<typename T>
+    typename ImageType::buffer_type operator+(const T& rhs) const {
+        typename ImageType::buffer_type result(img);
+        masked_image_proxy<typename ImageType::buffer_type, MaskType> p(result, mask);
+        p += rhs;
+        return result;
+    }
+
+    template<typename T>
+    typename ImageType::buffer_type operator-(const T& rhs) const {
+        typename ImageType::buffer_type result(img);
+        masked_image_proxy<typename ImageType::buffer_type, MaskType> p(result, mask);
+        p -= rhs;
+        return result;
+    }
+
+    template<typename T>
+    typename ImageType::buffer_type operator*(const T& rhs) const {
+        typename ImageType::buffer_type result(img);
+        masked_image_proxy<typename ImageType::buffer_type, MaskType> p(result, mask);
+        p *= rhs;
+        return result;
+    }
+
+    template<typename T>
+    typename ImageType::buffer_type operator/(const T& rhs) const {
+        typename ImageType::buffer_type result(img);
+        masked_image_proxy<typename ImageType::buffer_type, MaskType> p(result, mask);
+        p /= rhs;
+        return result;
+    }
+};
 
 
 template<typename V,typename T>
