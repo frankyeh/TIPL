@@ -621,8 +621,7 @@ void downsample_with_padding(const T& in,U& out)
         shift[7] = in.plane_size()+1+in.width();
     }
 
-    par_for(tipl::begin_index(out_shape),tipl::end_index(out_shape),[&]
-            (const auto& pos1)
+    par_for(out_shape,[&](const auto& pos1)
     {
         downsample_with_padding_imp(pos1,in,out,shift);
     });
@@ -745,7 +744,7 @@ void downsample_label(const T& in, U& out)
         shift_data[7] = in.plane_size() + 1 + in.width();
     }
 
-    par_for(tipl::begin_index(out_shape), tipl::end_index(out_shape), [&](const auto& pos1)
+    par_for(out_shape,[&](const auto& pos1)
     {
         downsample_label_imp(pos1, in, out, shift_data);
     });
@@ -847,8 +846,7 @@ void downsample_label(ImageType& in)
 template<interpolation type = linear,typename T, std::enable_if_t<memory_location<T>::at != CUDA, int> = 0>
 void upsample_with_padding(const T& in,T& out)
 {
-    par_for(begin_index(out.shape()),end_index(out.shape()),[&]
-            (const pixel_index<T::dimension>& pos)
+    par_for(out.shape(),[&](const pixel_index<T::dimension>& pos)
     {
         vector<T::dimension> v(pos);
         v *= 0.5f;
@@ -1224,11 +1222,10 @@ void match_signal_kernel(const T& VG,T& VFF)
 template<tipl::interpolation Type = linear,typename ImageType1,typename ImageType2,typename T>
 void scale(const ImageType1& from,ImageType2&& to,const tipl::vector<ImageType1::dimension>& s)
 {
-    par_for(begin_index(to.shape()),end_index(to.shape()),
-                [&](const auto& index)
+    par_for(to.shape(),[&](const auto& index)
     {
         vector<ImageType1::dimension> pos(index);
-        multiply(pos,s);
+        pos.elem_mul(s);
         estimate<Type>(from,pos,to[index.index()]);
     });
 }
@@ -1270,8 +1267,7 @@ void resample(const T& from,U&& to,const tipl::transformation_matrix<V,T::dimens
         return;
     }
 
-    tipl::par_for(tipl::begin_index(to.shape()),tipl::end_index(to.shape()),
-                [&](const auto& index)
+    tipl::par_for(to.shape(),[&](const auto& index)
     {
         estimate<itype>(from,trans(index),to[index.index()]);
     });
