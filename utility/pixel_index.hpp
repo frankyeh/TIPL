@@ -652,7 +652,7 @@ public:
 };
 
 template <par_for_type type = dynamic, int dim, typename Func>
-inline void par_for(shape<dim>& s, Func&& f, int tc = max_thread_count) {
+inline void par_for(const shape<dim>& s, Func&& f, int tc = max_thread_count) {
     par_for<type>(pixel_index<dim>(s),pixel_index<dim>(s.size(),s), std::forward<Func>(f), tc);
 }
 
@@ -667,16 +667,6 @@ __INLINE__ auto v(const T& data)
 {
     return vector<T::dimension, typename std::remove_const<typename std::remove_reference<decltype(data[0])>::type>::type>(data.begin());
 }
-
-template<typename T,typename U>
-__INLINE__ void multiply(vector<2,T>& lhs,const U& rhs) { lhs[0] *= rhs[0]; lhs[1] *= rhs[1]; }
-template<typename T,typename U>
-__INLINE__ void multiply(vector<3,T>& lhs,const U& rhs) { lhs[0] *= rhs[0]; lhs[1] *= rhs[1]; lhs[2] *= rhs[2]; }
-
-template<typename T,typename U>
-__INLINE__ void divide(vector<2,T>& lhs,const U& rhs) { lhs[0] /= rhs[0]; lhs[1] /= rhs[1]; }
-template<typename T,typename U>
-__INLINE__ void divide(vector<3,T>& lhs,const U& rhs) { lhs[0] /= rhs[0]; lhs[1] /= rhs[1]; lhs[2] /= rhs[2]; }
 
 }
 #endif
