@@ -399,83 +399,6 @@ template<int dim,typename vtype = float>
 using host_image = tipl::image<dim,vtype,host_vector>;
 
 
-template<int dim,typename vtype = float>
-class pointer_device_image : public image<dim,vtype,pointer_container>
-{
-public:
-    using value_type        =   vtype;
-    using base_type         =   image<dim,value_type,pointer_container>;
-    using iterator          =   typename base_type::iterator;
-    using const_iterator    =   typename base_type::const_iterator;
-    using storage_type      =   typename image<dim,vtype,pointer_container>::storage_type;
-    using buffer_type       =   image<dim,vtype,device_vector>;
-    static constexpr int dimension = dim;
-public:
-    pointer_device_image(void) {}
-    pointer_device_image(const pointer_device_image& rhs):base_type(){operator=(rhs);}
-    pointer_device_image(vtype* ptr,const typename image<dim,vtype,pointer_container>::shape_type& s):
-                base_type(ptr,s){}
-    pointer_device_image(device_image<dim,vtype>& rhs):
-                base_type(reinterpret_cast<vtype*>(rhs.data()),rhs.shape()){}
-public:
-    pointer_device_image& operator=(const pointer_device_image& rhs)
-    {
-        base_type::alloc = rhs.alloc;
-        base_type::sp = rhs.sp;
-        return *this;
-    }
-};
-
-
-template<int dim,typename vtype = float>
-class const_pointer_device_image : public image<dim,vtype,const_pointer_container>
-{
-public:
-    using value_type        =   vtype;
-    using base_type         =   image<dim,value_type,const_pointer_container>;
-    using iterator          =   typename base_type::iterator;
-    using const_iterator    =   typename base_type::const_iterator;
-    using storage_type      =   typename image<dim,vtype,const_pointer_container>::storage_type;
-    using buffer_type       =   image<dim,vtype,device_vector>;
-    static constexpr int dimension = dim;
-public:
-    const_pointer_device_image(void) {}
-    const_pointer_device_image(const const_pointer_device_image& rhs):base_type(){operator=(rhs);}
-    const_pointer_device_image(const vtype* ptr,const typename image<dim,vtype,const_pointer_container>::shape_type& s):
-                base_type(ptr,s){}
-    const_pointer_device_image(const device_image<dim,vtype>& rhs):
-                base_type(reinterpret_cast<const vtype*>(rhs.data()),rhs.shape()){}
-    const_pointer_device_image(const pointer_device_image<dim,vtype>& rhs):
-                base_type(reinterpret_cast<const vtype*>(rhs.data()),rhs.shape()){}
-public:
-    const_pointer_device_image& operator=(const const_pointer_device_image& rhs)
-    {
-        base_type::alloc = rhs.alloc;
-        base_type::sp = rhs.sp;
-        return *this;
-    }
-};
-
-
-template<typename container_type, typename shape_type,
-         std::enable_if_t<memory_location<container_type>::at == CUDA, int> = 0>
-__INLINE__ auto make_image(container_type& c, size_t offset, const shape_type& sp)
-{
-    if constexpr (std::is_const<std::remove_pointer_t<decltype(c.data())>>::value)
-        return const_pointer_device_image<shape_type::dimension,typename container_type::value_type>(c.data() + offset, sp);
-    else
-        return pointer_device_image<shape_type::dimension,typename container_type::value_type>(c.data() + offset, sp);
-}
-
-template<typename container_type,
-         std::enable_if_t<memory_location<container_type>::at == CUDA, int> = 0>
-__INLINE__ auto make_shared(container_type& I)
-{
-    if constexpr (std::is_const_v<std::remove_pointer_t<decltype(I.data())>>)
-        return const_pointer_device_image(I);
-    else
-        return pointer_device_image(I);
-}
 
 
 template<typename vtype>
@@ -484,10 +407,6 @@ template<typename vtype>
 struct memory_location<shared_device_vector<vtype> >            {static constexpr memory_location_type at = CUDA;};
 template<int dim,typename vtype>
 struct memory_location<device_image<dim,vtype> >                {static constexpr memory_location_type at = CUDA;};
-template<int dim,typename vtype>
-struct memory_location<const_pointer_device_image<dim,vtype> >  {static constexpr memory_location_type at = CUDA;};
-template<int dim,typename vtype>
-struct memory_location<pointer_device_image<dim,vtype> >        {static constexpr memory_location_type at = CUDA;};
 
 
 } //namespace tipl
