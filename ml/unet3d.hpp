@@ -96,8 +96,8 @@ void preproc_actions(const image_type& source_image,
         image_type target_image(model_dim.multiply(tipl::shape<3>::z,in_channel));
 
         for(int c=0;c<in_channel;++c)
-            tipl::resample(make_image(source_image,image_dim.size()*c,image_dim),
-                           make_image(target_image,model_dim.size()*c,model_dim),tran);
+            tran(make_image(source_image,image_dim.size()*c,image_dim),
+                 make_image(target_image,model_dim.size()*c,model_dim));
 
         target_images.push_back(std::move(target_image));
         trans.push_back(tran);
@@ -150,7 +150,7 @@ void postproc(std::vector<image_type>& target_images,
         {
             auto t = target_images[0].alias(model_dim.size()*i,model_dim);
             auto o = eval_output.alias(image_dim.size()*i,image_dim);
-            tipl::resample(t,o,each_trans);
+            each_trans(t,o);
         }
     }
     else
@@ -166,13 +166,13 @@ void postproc(std::vector<image_type>& target_images,
 
                 if(c == model_out_count)
                 {
-                    weight_map += tipl::resample(gaussian,image_dim,each_trans);
+                    weight_map += each_trans(gaussian,image_dim);
                     continue;
                 }
                 auto w = target_images[t].alias(model_dim.size()*c,model_dim);
                 auto o = eval_output.alias(image_dim.size()*c,image_dim);
                 w *= gaussian;
-                o += tipl::resample(w,image_dim,each_trans);
+                o += each_trans(w,image_dim);
             }
         });
 
@@ -382,7 +382,7 @@ public:
             trans = tipl::transformation_matrix<float,3>(arg,dim,vs,input_dim,image_vs);
         }
 
-        input_image = tipl::resample(input_image,dim,trans);
+        input_image = trans(input_image,dim);
         prog(1,4);
         auto ptr = unet->forward(input_image.data());
         prog(2,4);
