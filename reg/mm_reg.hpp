@@ -316,8 +316,7 @@ public:
         size_t sz = Its.size();
         for(tipl::pixel_index<dimension> index(Its);index < sz;++index)
         {
-            tipl::vector<dimension> pos;
-            trans(index,pos);
+            tipl::vector<dimension> pos(trans(index));
             if(Is.is_valid(pos))
                 continue;
             for(size_t i = 0;i < max_It;++i)
