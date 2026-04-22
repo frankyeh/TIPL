@@ -314,8 +314,7 @@ template<typename T,typename U>
 inline auto volume2points(const T& shape,U&& fun)
 {
     std::vector<std::vector<tipl::vector<3,short> > > points(tipl::max_thread_count);
-    tipl::par_for<dynamic_with_id>(tipl::begin_index(shape),tipl::end_index(shape),
-                   [&](const auto& index,unsigned int thread_id)
+    tipl::par_for<dynamic_with_id>(shape,[&](const auto& index,unsigned int thread_id)
     {
         if (fun(index))
             points[thread_id].push_back(tipl::vector<3,short>(index.x(), index.y(),index.z()));
@@ -329,8 +328,7 @@ template<typename T>
 inline auto volume2points(const T& mask)
 {
     std::vector<std::vector<tipl::vector<T::dimension,short> > > points(tipl::max_thread_count);
-    tipl::par_for<dynamic_with_id>(tipl::begin_index(mask.shape()),tipl::end_index(mask.shape()),
-                   [&](const auto& index,unsigned int thread_id)
+    tipl::par_for<dynamic_with_id>(mask.shape(),[&](const auto& index,unsigned int thread_id)
     {
         if (mask[index.index()])
             points[thread_id].push_back(tipl::vector<T::dimension,short>(index.begin()));
@@ -1309,8 +1307,7 @@ void project_x(const image_type& I,output_type& P)
     typedef typename output_type::value_type value_type;
     int h = I.height(), w = I.width();
     P.resize(tipl::shape<2>(h, I.depth()));
-    tipl::par_for(tipl::begin_index(P.shape()),tipl::end_index(P.shape()),
-        [&](const auto& index)
+    tipl::par_for(P.shape(),[&](const auto& index)
     {
         size_t pos = (index[0] + index[1] * h) * w;
         P[index.index()] = std::accumulate(I.begin()+pos, I.begin()+pos+w, value_type(0));
@@ -1324,8 +1321,7 @@ void project_y(const image_type& I,output_type& P)
     int h = I.height(), w = I.width();
     size_t ps = I.plane_size();
     P.resize(tipl::shape<2>(w, I.depth()));
-    tipl::par_for(tipl::begin_index(P.shape()),tipl::end_index(P.shape()),
-        [&](tipl::pixel_index<2> index)
+    tipl::par_for(P.shape(),[&](tipl::pixel_index<2> index)
     {
         size_t pos = index[0] + index[1] * ps;
         value_type v(0);
