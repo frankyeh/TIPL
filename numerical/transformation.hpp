@@ -8,6 +8,7 @@
 #include "../numerical/matrix.hpp"
 #include "../def.hpp"
 #include "../utility/pixel_index.hpp"
+#include "../utility/basic_image.hpp"
 
 namespace tipl{
 
@@ -830,7 +831,7 @@ public:
     [[nodiscard]] __INLINE__ auto operator()(const pixel_index<dimension>& from) const
     {
         vector<dimension> to;
-        vector_transformation(from.begin(),to.begin(),sr,shift,vdim<dimension>());
+        vector_transformation(vector<dimension>(from).begin(),to.begin(),sr,shift,vdim<dimension>());
         return to;
     }
     [[nodiscard]] __INLINE__ auto operator()(const vector<dimension>& from) const
@@ -849,6 +850,10 @@ public:
         vector<dimension> result(pos);
         vector_transformation(result.begin(),pos,sr,shift,vdim<dimension>());
     }
+    template <typename vtype,template <typename...> typename stype>
+    [[nodiscard]] __INLINE__ typename image<dim,vtype,stype>::buffer_type operator()(const image<dim,vtype,stype>& I,const shape<dim>& sp) const;
+    template <typename vtype1,typename vtype2,template <typename...> typename stype1,template <typename...> typename stype2>
+    __INLINE__ void operator()(const image<dim,vtype1,stype1>& I,image<dim,vtype2,stype2>&& I2) const;
 
     friend std::ostream & operator<<(std::ostream& out, const transformation_matrix& T)
     {
