@@ -195,25 +195,18 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
     if(is_root)
         par_for_running = false;
 }
-// Overload: Automatic thread count
+
 template <par_for_type type = dynamic, typename T, typename Func,
           typename std::enable_if_t<std::is_integral_v<T> || std::is_class_v<T> || std::is_pointer_v<T>, int> = 0>
 inline void par_for(T from, T to, Func&& f) {
     par_for<type>(from, to, std::forward<Func>(f), par_for_running ? 1 : max_thread_count);
 }
 
-// Overload: Single size (integral)
 template <par_for_type type = dynamic, typename T, typename Func, typename std::enable_if_t<std::is_integral_v<T>, int> = 0>
 inline void par_for(T size, Func&& f, int tc = max_thread_count) {
     par_for<type>(T(0), size, std::forward<Func>(f), tc);
 }
 
-// Overload: Containers
-template <par_for_type type = dynamic, typename C, typename Func,
-          typename = decltype(std::declval<C>().begin())>
-inline void par_for(C& c, Func&& f, int tc = max_thread_count) {
-    par_for<type>(c.begin(), c.end(), std::forward<Func>(f), tc);
-}
 
 
 template <typename T>
