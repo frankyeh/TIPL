@@ -1273,9 +1273,7 @@ void resample(const T& from,U&& to,const tipl::transformation_matrix<V,T::dimens
     tipl::par_for(tipl::begin_index(to.shape()),tipl::end_index(to.shape()),
                 [&](const auto& index)
     {
-        tipl::vector<T::dimension> pos;
-        trans(index,pos);
-        estimate<itype>(from,pos,to[index.index()]);
+        estimate<itype>(from,trans(index),to[index.index()]);
     });
 }
 
@@ -1293,9 +1291,7 @@ __global__ void resample_cuda_kernel(T1 from,T2 to,U trans)
     TIPL_FOR(index,sz)
     {
         tipl::pixel_index<3> pos(index,to.shape());
-        tipl::vector<3> v;
-        trans(pos,v);
-        tipl::estimate<itype>(from,v,to[index]);
+        tipl::estimate<itype>(from,trans(pos),to[index]);
     }
 }
 
