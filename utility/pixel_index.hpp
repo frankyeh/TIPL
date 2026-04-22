@@ -6,6 +6,7 @@
 #include <iosfwd>
 #include <cmath>
 #include "../def.hpp"
+#include "../mt.hpp"
 #include "shape.hpp"
 namespace tipl
 {
@@ -650,8 +651,10 @@ public:
     __INLINE__ data_type z() const { return z_; }
 };
 
-template<int dim> pixel_index<dim> begin_index(const shape<dim>& s) { return pixel_index<dim>(s); }
-template<int dim> pixel_index<dim> end_index(const shape<dim>& s) { return pixel_index<dim>(s.size(),s); }
+template <par_for_type type = dynamic, int dim, typename Func>
+inline void par_for(shape<dim>& s, Func&& f, int tc = max_thread_count) {
+    par_for<type>(pixel_index<dim>(s),pixel_index<dim>(s.size(),s), std::forward<Func>(f), tc);
+}
 
 template<typename value_type, typename std::enable_if<std::is_fundamental<value_type>::value,bool>::type = true>
 __INLINE__ auto v(value_type x,value_type y,value_type z) { return vector<3,value_type>(x,y,z); }
