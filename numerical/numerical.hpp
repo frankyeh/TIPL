@@ -828,6 +828,7 @@ add_constant(T& I,U v)
     });
 }
 
+
 template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 multiply_constant(T& I,U value)
@@ -909,10 +910,14 @@ template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 masking(T& I,const U& I2)
 {
-    tipl::par_for<sequential>(I.size(),[&I,&I2](size_t index)
+    if(I.size() < 65535 || max_thread_count < 2)
     {
-        if(I2[index])
-            I[index] = 0;
+        masking(I.begin(),I.end(),I2.begin());
+        return;
+    }
+    tipl::par_for<ranged>(I.size(),[&I,&I2](size_t from,size_t to)
+    {
+        masking(I.begin()+from,I.begin()+to,I2.begin()+from);
     });
 }
 
@@ -920,10 +925,14 @@ template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 preserve(T&& I,const U& I2)
 {
-    tipl::par_for<sequential>(I.size(),[&I,&I2](size_t index)
+    if(I.size() < 65535 || max_thread_count < 2)
     {
-        if(!I2[index])
-            I[index] = 0;
+        preserve(I.begin(),I.end(),I2.begin());
+        return;
+    }
+    tipl::par_for<ranged>(I.size(),[&I,&I2](size_t from,size_t to)
+    {
+        preserve(I.begin()+from,I.begin()+to,I2.begin()+from);
     });
 }
 
@@ -931,7 +940,7 @@ template<typename T,typename V>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 upper_threshold(T& I,V value)
 {
-    if(I.size() < 1000 || max_thread_count < 2)
+    if(I.size() < 65535 || max_thread_count < 2)
     {
         upper_threshold(I.begin(),I.end(),value);
         return;
@@ -946,7 +955,7 @@ template<typename T,typename V>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 lower_threshold(T& I,V value)
 {
-    if(I.size() < 1000 || max_thread_count < 2)
+    if(I.size() < 65535 || max_thread_count < 2)
     {
         lower_threshold(I.begin(),I.end(),value);
         return;
@@ -961,7 +970,7 @@ template<typename T>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 upper_lower_threshold(T& I,typename T::value_type lower,typename T::value_type upper)
 {
-    if(I.size() < 1000 || max_thread_count < 2)
+    if(I.size() < 65535 || max_thread_count < 2)
     {
         upper_lower_threshold(I.begin(),I.end(),lower,upper);
         return;
@@ -1174,7 +1183,6 @@ normalize_upper_lower2(const T& in,U& out,float upper_limit)
 }
 
 #endif
-
 
 template<typename ImageType>
 inline void normalize_upper_lower(ImageType& I,float upper_limit)
