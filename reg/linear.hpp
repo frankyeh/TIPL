@@ -142,8 +142,7 @@ get_mutual_info(T& mutual_hist_all,const U& to,const V& from,const W& trans)
     std::vector<T> mutual_hist(max_thread_count);
     for(auto& each : mutual_hist)
         each.resize(mutual_hist_all.shape());
-    tipl::par_for<dynamic_with_id>(tipl::begin_index(from.shape()),tipl::end_index(from.shape()),
-                                   [&](const auto& index,int id)
+    tipl::par_for<dynamic_with_id>(from.shape(),[&](const auto& index,int id)
     {
         unsigned char to_index = 0;
         tipl::estimate<tipl::interpolation::linear>(to,trans(index),to_index);
