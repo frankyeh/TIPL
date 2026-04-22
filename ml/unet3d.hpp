@@ -150,7 +150,7 @@ void postproc(std::vector<image_type>& target_images,
         {
             auto t = target_images[0].alias(model_dim.size()*i,model_dim);
             auto o = eval_output.alias(image_dim.size()*i,image_dim);
-            each_trans(t,o);
+            tipl::resample(t,o,each_trans);
         }
     }
     else
@@ -270,8 +270,6 @@ private:
         tipl::sum_partial(labels_4d, fg_prob);
         auto original_sum = fg_prob;
         tipl::morphology::defragment_by_threshold(fg_prob, prob_threshold);
-        tipl::filter::gaussian(fg_prob);
-        tipl::filter::gaussian(fg_prob);
 
         tipl::lower_threshold(original_sum,prob_threshold);
 
