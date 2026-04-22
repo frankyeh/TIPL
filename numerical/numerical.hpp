@@ -1235,8 +1235,7 @@ tipl::vector<T::dimension,float> center_of_mass_weighted(const T& Im)
 {
     std::vector<vector<T::dimension,float> > sum_mass(max_thread_count);
     std::vector<double> total_w(max_thread_count);
-    par_for<sequential_with_id>(tipl::begin_index(Im.shape()),tipl::end_index(Im.shape()),
-                        [&](const auto& index,size_t id)
+    par_for<sequential_with_id>(Im.shape(),[&](const auto& index,size_t id)
     {
         auto v = Im[index.index()];
         total_w[id] += v;
@@ -1259,8 +1258,7 @@ auto center_of_mass_binary(const T& Im)
 {
     std::vector<tipl::vector<T::dimension> > sum_mass(max_thread_count);
     std::vector<size_t> total_w(max_thread_count);
-    tipl::par_for<sequential>(tipl::begin_index(Im.shape()),tipl::end_index(Im.shape()),
-                        [&](const auto& index,size_t id)
+    tipl::par_for<sequential>(Im.shape(),[&](const auto& index,size_t id)
     {
         if(Im[index.index()])
         {
