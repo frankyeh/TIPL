@@ -1000,13 +1000,9 @@ void defragment_by_radius(ImageType& I,int radius = 3)
 template<typename ImageType>
 void defragment_by_threshold(ImageType& I,typename ImageType::value_type threshold)
 {
-    tipl::image<3,char> mask;
-    tipl::threshold(I,mask,threshold,1,0);
+    tipl::image<3,char> mask = I > threshold;
     tipl::morphology::defragment(mask);
-    size_t sz = mask.size();
-    for(size_t i = 0; i < sz; ++i)
-        if(mask[i] == 0)
-            I[i] = 0;
+    tipl::preserve(I.begin(),I.end(),mask.begin());
 }
 
 template<typename ImageType,typename PixelIndexType,typename ValueType>
