@@ -1318,9 +1318,9 @@ inline void resample(const T& from, U&& to, const V& trans)
 }
 
 template<tipl::interpolation itype = linear,typename T,typename U>
-inline auto resample(const T& from,const shape<T::dimension>& shape,const U& trans)
+inline auto resample(const T& from,const shape<T::dimension>& sp,const U& trans)
 {
-    typename T::buffer_type to(shape);
+    typename T::buffer_type to(sp);
     resample<itype>(from,to,trans);
     return to;
 }
