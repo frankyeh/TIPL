@@ -1504,7 +1504,7 @@ void softmax(container_type&& img)
 
 
 template <typename ImageType, typename MaskType>
-auto arg_max(const ImageType& label_prob, const MaskType& mask)
+auto argmax(const ImageType& label_prob, const MaskType& mask)
 {
     tipl::image<3, unsigned char> I(mask.shape());
     size_t s = mask.size();
