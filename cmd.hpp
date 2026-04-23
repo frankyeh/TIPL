@@ -15,9 +15,8 @@
 
 namespace tipl{
 
-template<typename image_type,
-         std::enable_if_t<tipl::is_image_v<image_type>, bool> = true>
-bool command(image_type&& data,std::string cmd,std::string param1)
+template<typename image_type>
+bool command(image_type& data,std::string cmd,std::string param1)
 {
     if constexpr (std::is_floating_point<typename image_type::value_type>::value)
     {
@@ -629,7 +628,6 @@ void equation(image_type1& lhs,const image_type2& rhs,char op)
 }
 
 template<typename image_type1,typename value_type,
-         std::enable_if_t<tipl::is_image_v<image_type1>, bool> = true,
          typename std::enable_if<std::is_fundamental<value_type>::value,bool>::type = true>
 void equation(image_type1& lhs,value_type rhs,char op)
 {
@@ -646,7 +644,6 @@ void equation(image_type1& lhs,value_type rhs,char op)
 }
 
 template<typename value_type,typename image_type1,
-         std::enable_if_t<tipl::is_image_v<image_type1>, bool> = true,
          typename std::enable_if<std::is_fundamental<value_type>::value,bool>::type = true>
 void equation(value_type lhs,image_type1& rhs,char op)
 {
@@ -662,8 +659,7 @@ void equation(value_type lhs,image_type1& rhs,char op)
     }
 }
 
-template<typename out,typename image_type,
-         std::enable_if_t<tipl::is_image_v<image_type>, bool> = true>
+template<typename out,typename image_type>
 bool equation(image_type& x,std::string eq,std::string& error_msg)
 {
     if(eq == "x" || eq.empty())
