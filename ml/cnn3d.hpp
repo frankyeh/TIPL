@@ -25,14 +25,14 @@ void cuda_conv_3d_forward(const T* in, const T* weight, const T* bias, T* out,
                           int in_c, int out_c,
                           int in_d, int in_h, int in_w,
                           int out_d, int out_h, int out_w,
-                          int kernel_size, int kernel_size3, int range, int stride, bool has_bias, T slope);
+                          int kernel_size, int kernel_size3, int range, int stride, T slope);
 
 template <typename T>
 void cuda_conv_transpose_3d_forward(const T* in, const T* weight, const T* bias, T* out,
                                     int in_c, int out_c,
                                     int in_d, int in_h, int in_w,
                                     int out_d, int out_h, int out_w,
-                                    int kernel_size, int kernel_size3, int stride, bool has_bias);
+                                    int kernel_size, int kernel_size3, int stride);
 
 template <activation_type Act, typename T>
 void cuda_instance_norm_3d_forward(T* in, const T* weight, const T* bias,
@@ -78,7 +78,6 @@ public:
 template <activation_type Act = activation_type::none>
 class conv_3d : public layer {
     int kernel_size_, kernel_size3, range, stride_;
-    bool has_bias_;
     float slope_;
 public:
     float* weight = nullptr;
@@ -87,16 +86,16 @@ public:
     size_t weight_size = 0, bias_size = 0;
     tipl::shape<3> out_dim;
 
-    conv_3d(int in_c, int out_c, int ks = 3, float slope = 1e-2f, int stride = 1, bool has_bias = true)
+    conv_3d(int in_c, int out_c, int ks = 3, float slope = 1e-2f, int stride = 1)
         : layer(in_c, out_c), kernel_size_(ks), kernel_size3(ks * ks * ks), range((ks - 1) / 2),
-          stride_(stride), has_bias_(has_bias), slope_(slope) {
+          stride_(stride),  slope_(slope) {
         weight_size = kernel_size3 * in_channels_ * out_channels_;
-        bias_size = has_bias_ ? out_channels_ : 0;
+        bias_size = out_channels_;
     }
 
     std::vector<std::pair<float*, size_t>> parameters() override {
-        if(has_bias_) return {{weight, weight_size}, {bias, bias_size}};
-        return {{weight, weight_size}};
+        return {{weight, weight_size}, {bias, bias_size}};
+
     }
 
     void init_image(tipl::shape<3>& dim_) override {
@@ -109,7 +108,7 @@ public:
     void allocate(float*& ptr, bool is_gpu_mem) override {
         this->is_gpu = is_gpu_mem;
         weight = ptr; ptr += weight_size;
-        if(has_bias_) { bias = ptr; ptr += bias_size; }
+        bias = ptr; ptr += bias_size;
         out = ptr; ptr += out_size;
     }
 
@@ -122,7 +121,7 @@ public:
                 cuda_conv_3d_forward<Act>(in, weight, bias, out, in_channels_, out_channels_,
                                           dim.depth(), dim.height(), dim.width(),
                                           out_dim.depth(), out_dim.height(), out_dim.width(),
-                                          kernel_size_, kernel_size3, range, stride_, has_bias_, slope_);
+                                          kernel_size_, kernel_size3, range, stride_, slope_);
                 return out;
             }
         }
@@ -144,7 +143,7 @@ public:
             float* out_slice = out + (oc * out_img_size) + (z * out_plane);
             const float* weight_oc = weight + (oc * in_c * kernel_size3);
 
-            float bias_val = has_bias_ ? bias[oc] : 0.0f;
+            float bias_val = bias[oc];
             std::fill_n(out_slice, out_plane, bias_val);
 
             const int start_sz = z * stride_ - range;
@@ -215,7 +214,6 @@ public:
 
 class conv_transpose_3d : public layer {
     int kernel_size_, kernel_size3, stride_;
-    bool has_bias_;
 public:
     float* weight = nullptr;
     float* bias = nullptr;
@@ -223,15 +221,14 @@ public:
     size_t weight_size = 0, bias_size = 0;
     tipl::shape<3> out_dim;
 
-    conv_transpose_3d(int in_c, int out_c, int ks = 2, int stride = 2, bool has_bias = false)
-        : layer(in_c, out_c), kernel_size_(ks), kernel_size3(ks * ks * ks), stride_(stride), has_bias_(has_bias) {
+    conv_transpose_3d(int in_c, int out_c, int ks = 2, int stride = 2)
+        : layer(in_c, out_c), kernel_size_(ks), kernel_size3(ks * ks * ks), stride_(stride){
         weight_size = kernel_size3 * in_channels_ * out_channels_;
-        bias_size = has_bias_ ? out_channels_ : 0;
+        bias_size = out_channels_;
     }
 
     std::vector<std::pair<float*, size_t>> parameters() override {
-        if(has_bias_) return {{weight, weight_size}, {bias, bias_size}};
-        return {{weight, weight_size}};
+        return {{weight, weight_size}, {bias, bias_size}};
     }
 
     void init_image(tipl::shape<3>& dim_) override {
@@ -244,7 +241,7 @@ public:
     void allocate(float*& ptr, bool is_gpu_mem) override {
         this->is_gpu = is_gpu_mem;
         weight = ptr; ptr += weight_size;
-        if(has_bias_) { bias = ptr; ptr += bias_size; }
+        bias = ptr; ptr += bias_size;
         out = ptr; ptr += out_size;
     }
 
@@ -256,7 +253,7 @@ public:
                 cuda_conv_transpose_3d_forward(in, weight, bias, out, in_channels_, out_channels_,
                                                dim.depth(), dim.height(), dim.width(),
                                                out_dim.depth(), out_dim.height(), out_dim.width(),
-                                               kernel_size_, kernel_size3, stride_, has_bias_);
+                                               kernel_size_, kernel_size3, stride_);
                 return out;
             }
 
@@ -282,7 +279,7 @@ public:
             int in_z = z / stride_;
             int kz = z % stride_;
 
-            float bias_val = has_bias_ ? bias[oc] : 0.0f;
+            float bias_val = bias[oc];
 
             const float* weight_base = weight + (oc * kernel_size3) + (kz * kernel_plane);
             const float* in_base = in + (in_z * in_plane);
@@ -675,7 +672,7 @@ class unet3d : public network {
                 int current_stride = (idx == 1) ? first_stride : 1;
                 constexpr auto conv_act = (Version == unet_version::standard) ? activation_type::leaky_relu : activation_type::none;
                 constexpr auto norm_act = (Version == unet_version::standard) ? activation_type::none : activation_type::leaky_relu;
-                block.push_back(add_layer(new conv_3d<conv_act>(count, next_c, ks, 1e-2f, current_stride, true)));
+                block.push_back(add_layer(new conv_3d<conv_act>(count, next_c, ks, 1e-2f, current_stride)));
                 block.push_back(add_layer(new instance_norm_3d<norm_act>(next_c)));
             }
             count = next_c;
@@ -713,7 +710,7 @@ public:
                 up_block.push_back(add_layer(new upsample_3d(f_up[i+1].back())));
                 add_conv_block(up_block, {f_up[i+1].back(), f_down[i].back()}, ks[i], 1);
             } else {
-                up_block.push_back(add_layer(new conv_transpose_3d(f_up[i+1].back(), f_down[i].back(), 2, 2, false)));
+                up_block.push_back(add_layer(new conv_transpose_3d(f_up[i+1].back(), f_down[i].back(), 2, 2)));
             }
 
             std::vector<int> current_decoder_features = f_up[i];
@@ -728,13 +725,13 @@ public:
             decoding.push_front(std::move(de_block));
 
             if constexpr (Version == unet_version::deep_supervision) {
-                auto ds_head = add_layer(new conv_3d<activation_type::none>(f_up[i].back(), out_c, 1, 1e-2f, 1, false));
+                auto ds_head = add_layer(new conv_3d<activation_type::none>(f_up[i].back(), out_c, 1, 1e-2f, 1));
                 if (i == 0) output = ds_head;
             }
         }
 
         if constexpr (Version == unet_version::standard) {
-            output = add_layer(new conv_3d<activation_type::none>(f_up[0].back(), out_c, 1, 1e-2f, 1, true));
+            output = add_layer(new conv_3d<activation_type::none>(f_up[0].back(), out_c, 1, 1e-2f, 1));
         }
     }
     void init_image(tipl::shape<3>& dim_) override {
@@ -785,7 +782,7 @@ template <activation_type Act, typename T>
                                    int in_c, int out_c,
                                    int in_d, int in_h, int in_w,
                                    int out_d, int out_h, int out_w,
-                                   int kernel_size, int kernel_size3, int range, int stride, bool has_bias, T slope) {
+                                   int kernel_size, int kernel_size3, int range, int stride, T slope) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         size_t total_out_size = static_cast<size_t>(out_c) * out_d * out_h * out_w;
         if (idx >= total_out_size) return;
@@ -798,7 +795,7 @@ template <activation_type Act, typename T>
         int in_img_size = in_w * in_h * in_d;
         const T* weight_oc = weight + (oc * in_c * kernel_size3);
 
-        T sum = has_bias ? bias[oc] : T(0);
+        T sum = bias[oc];
 
         for (int ic = 0; ic < in_c; ++ic) {
             const T* in_channel_ptr = in + (ic * in_img_size);
@@ -839,7 +836,7 @@ template <activation_type Act, typename T>
                                              int in_c, int out_c,
                                              int in_d, int in_h, int in_w,
                                              int out_d, int out_h, int out_w,
-                                             int kernel_size, int kernel_size3, int stride, bool has_bias) {
+                                             int kernel_size, int kernel_size3, int stride) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         size_t total_out = static_cast<size_t>(out_c) * out_d * out_h * out_w;
         if (idx >= total_out) return;
@@ -856,7 +853,7 @@ template <activation_type Act, typename T>
         int in_z = z / stride;
         int kz = z % stride;
 
-        T sum = has_bias ? bias[oc] : T(0);
+        T sum = bias[oc];
 
         int k_offset = oc * kernel_size3 + kz * (kernel_size * kernel_size) + ky * kernel_size + kx;
         int in_plane = in_w * in_h;
@@ -966,13 +963,13 @@ void cuda_conv_3d_forward(const T* in, const T* weight, const T* bias, T* out,
                           int in_c, int out_c,
                           int in_d, int in_h, int in_w,
                           int out_d, int out_h, int out_w,
-                          int kernel_size, int kernel_size3, int range, int stride, bool has_bias, T slope)
+                          int kernel_size, int kernel_size3, int range, int stride, T slope)
 {
     size_t total_out_size = static_cast<size_t>(out_c) * out_d * out_h * out_w;
     int block_size = 256;
     int grid_size = (total_out_size + block_size - 1) / block_size;
     cuda_kernels::conv_3d_kernel<Act, T><<<grid_size, block_size>>>(
-        in, weight, bias, out, in_c, out_c, in_d, in_h, in_w, out_d, out_h, out_w, kernel_size, kernel_size3, range, stride, has_bias, slope);
+        in, weight, bias, out, in_c, out_c, in_d, in_h, in_w, out_d, out_h, out_w, kernel_size, kernel_size3, range, stride, slope);
 }
 
 template
@@ -981,7 +978,7 @@ void cuda_conv_3d_forward<activation_type::none, float>(
     int in_c, int out_c,
     int in_d, int in_h, int in_w,
     int out_d, int out_h, int out_w,
-    int kernel_size, int kernel_size3, int range, int stride, bool has_bias, float slope);
+    int kernel_size, int kernel_size3, int range, int stride, float slope);
 
 template
 void cuda_conv_3d_forward<activation_type::relu, float>(
@@ -989,7 +986,7 @@ void cuda_conv_3d_forward<activation_type::relu, float>(
     int in_c, int out_c,
     int in_d, int in_h, int in_w,
     int out_d, int out_h, int out_w,
-    int kernel_size, int kernel_size3, int range, int stride, bool has_bias, float slope);
+    int kernel_size, int kernel_size3, int range, int stride, float slope);
 
 template
 void cuda_conv_3d_forward<activation_type::leaky_relu, float>(
@@ -997,25 +994,25 @@ void cuda_conv_3d_forward<activation_type::leaky_relu, float>(
     int in_c, int out_c,
     int in_d, int in_h, int in_w,
     int out_d, int out_h, int out_w,
-    int kernel_size, int kernel_size3, int range, int stride, bool has_bias, float slope);
+    int kernel_size, int kernel_size3, int range, int stride, float slope);
 
 template <typename T>
 void cuda_conv_transpose_3d_forward(const T* in, const T* weight, const T* bias, T* out,
                                     int in_c, int out_c,
                                     int in_d, int in_h, int in_w,
                                     int out_d, int out_h, int out_w,
-                                    int kernel_size, int kernel_size3, int stride, bool has_bias) {
+                                    int kernel_size, int kernel_size3, int stride) {
     size_t total_out = static_cast<size_t>(out_c) * out_d * out_h * out_w;
     int block_size = 256;
     int grid_size = (total_out + block_size - 1) / block_size;
     cuda_kernels::conv_transpose_3d_kernel<T><<<grid_size, block_size>>>(
-        in, weight, bias, out, in_c, out_c, in_d, in_h, in_w, out_d, out_h, out_w, kernel_size, kernel_size3, stride, has_bias);
+        in, weight, bias, out, in_c, out_c, in_d, in_h, in_w, out_d, out_h, out_w, kernel_size, kernel_size3, stride);
 }
 
 template
 void cuda_conv_transpose_3d_forward<float>(const float* in, const float* weight, const float* bias, float* out,
                                     int in_c, int out_c, int in_d, int in_h, int in_w, int out_d, int out_h, int out_w,
-                                    int kernel_size, int kernel_size3, int stride, bool has_bias);
+                                    int kernel_size, int kernel_size3, int stride);
 
 template <activation_type Act, typename T = float>
 void cuda_instance_norm_3d_forward(T* in, const T* weight, const T* bias,
