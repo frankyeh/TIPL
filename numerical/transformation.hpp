@@ -850,10 +850,15 @@ public:
         vector<dimension> result(pos);
         vector_transformation(result.begin(),pos,sr,shift,vdim<dimension>());
     }
-    template <typename vtype,template <typename...> typename stype>
-    [[nodiscard]] __INLINE__ typename image<dim,vtype,stype>::buffer_type operator()(const image<dim,vtype,stype>& I,const shape<dim>& sp) const;
-    template <typename vtype1,typename vtype2,template <typename...> typename stype1,template <typename...> typename stype2>
-    __INLINE__ void operator()(const image<dim,vtype1,stype1>& I,image<dim,vtype2,stype2>&& I2) const;
+
+    template <typename image_type,
+              std::enable_if_t<tipl::is_image_v<image_type>, bool> = true>
+    [[nodiscard]] __INLINE__ typename image_type::buffer_type operator()(const image_type& I,const shape<dim>& sp) const;
+
+
+    template <typename image_type1, typename image_type2,
+                  std::enable_if_t<tipl::is_image_v<image_type1> && tipl::is_image_v<image_type2>, bool> = true>
+    __INLINE__ void operator()(const image_type1& I,image_type2&& I2) const;
 
     friend std::ostream & operator<<(std::ostream& out, const transformation_matrix& T)
     {
