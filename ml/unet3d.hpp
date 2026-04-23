@@ -351,7 +351,8 @@ public:
                  tipl::progress& prog)
     {
         const float prob_threshold = 0.5f;
-
+        prog(1,4);
+        tipl::out() << "preprocessing";
         tipl::shape<3> input_dim(input_image.shape());
         tipl::segmentation::normalize_otsu_median(input_image);
 
@@ -379,21 +380,18 @@ public:
             arg.translocation[2] = (input_dim[2]*image_vs[2]-dim[2]*vs[2])*0.5f;
             trans = tipl::transformation_matrix<float,3>(arg,dim,vs,input_dim,image_vs);
         }
-
         input_image = trans(input_image,dim);
-        prog(1,4);
-        auto ptr = unet->forward(input_image.data());
         prog(2,4);
+        tipl::out() << "running unet";
+        auto ptr = unet->forward(input_image.data());
         if(!ptr) return false;
-
-
+        tipl::out() << "postprocessing";
+        prog(3,4);
         tipl::image<3> label_prob, fg_prob;
         postproc(tipl::make_image(ptr,unet->dim.multiply(tipl::shape<3>::z,unet->out_channels_)),
                  input_dim, trans, unet->out_channels_, prob_threshold, label_prob, fg_prob);
 
         num_tissue_channels = new_version ? (unet->out_channels_ - 1) : unet->out_channels_;
-        prog(3,4);
-
         label = tipl::arg_max(label_prob,fg_prob > prob_threshold);
         prog(4,4);
         return true;
