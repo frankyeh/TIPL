@@ -122,8 +122,18 @@ template<typename ImageType, typename MaskType>
 class masked_image_proxy;
 template<typename ImageType, typename MaskType>
 class const_masked_image_proxy;
-
 template <int dim,typename vtype = float,template <typename...> typename stype = std::vector>
+class image;
+
+namespace detail {
+        template <int dim, typename vtype, template <typename...> class stype>
+        std::true_type check_is_image(const tipl::image<dim, vtype, stype>*);
+        std::false_type check_is_image(...);
+    }
+template <typename T>
+static constexpr bool is_image_v = decltype(detail::check_is_image(std::declval<std::decay_t<T>*>()))::value;
+
+template <int dim,typename vtype,template <typename...> typename stype>
 class image
 {    
 public:
@@ -238,15 +248,18 @@ public:
     __INLINE__ auto begin(void)                            {return alloc.begin();}
     __INLINE__ auto end(void)                              {return alloc.end();}
 
-    template<typename MaskType, typename std::enable_if<std::is_class<MaskType>::value, bool>::type = true>
-    __INLINE__ auto operator[](const MaskType& mask) {
-        return masked_image_proxy<image, MaskType>(*this, mask);
+    template<typename mask_image_type, typename std::enable_if<is_image_v<mask_image_type>, bool>::type = true>
+    __INLINE__ auto operator[](const mask_image_type& mask) {
+        return masked_image_proxy<image, mask_image_type>(*this, mask);
     }
 
-    template<typename MaskType, typename std::enable_if<std::is_class<MaskType>::value, bool>::type = true>
-    __INLINE__ auto operator[](const MaskType& mask) const {
-        return const_masked_image_proxy<image, MaskType>(*this, mask);
+    template<typename mask_image_type, typename std::enable_if<is_image_v<mask_image_type>, bool>::type = true>
+    __INLINE__ auto operator[](const mask_image_type& mask) const {
+        return const_masked_image_proxy<image, mask_image_type>(*this, mask);
     }
+    template <typename pos_type,
+        typename = std::enable_if_t<std::is_convertible_v<decltype(std::declval<pos_type>()[0]), float>>>
+    __INLINE__ value_type operator[](const pos_type& pos) const;
 public:
     auto slice_at(unsigned int pos)
     {
@@ -344,14 +357,7 @@ template <int dim,typename vtype,template <typename...> typename stype>
 struct memory_location<image<dim,vtype,stype>> {static constexpr memory_location_type at = memory_location<stype<vtype>>::at;};
 
 
-namespace detail {
-        template <int dim, typename vtype, template <typename...> class stype>
-        std::true_type check_is_image(const tipl::image<dim, vtype, stype>*);
-        std::false_type check_is_image(...);
-    }
 
-template <typename T>
-static constexpr bool is_image_v = decltype(detail::check_is_image(std::declval<std::decay_t<T>*>()))::value;
 
 template<typename ImageType, typename MaskType>
 class masked_image_proxy
