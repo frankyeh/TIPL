@@ -13,6 +13,7 @@
 #include "../numerical/otsu.hpp"
 #include "../filter/gaussian.hpp"
 #include "../io/interface.hpp"
+#include "../io/nifti.hpp"
 #include "../utility/basic_image.hpp"
 #include "../utility/shape.hpp"
 #include "../reg/linear.hpp"
@@ -134,14 +135,17 @@ private:
         tipl::lower_threshold(gaussian,1e-6f);
     }
 public:
+    image_type source_image;
     std::vector<image_type> model_input,model_output;
     std::vector<std::decay_t<decltype(tipl::make_image(std::declval<image_type&>(), 0, std::declval<tipl::shape<3>>()))>> model_output2;
 
 public:
+    evalution_set(void):label_prob(source_image){}
     std::string error_msg;
     std::vector<tipl::transformation_matrix<float>> trans;
     tipl::image<3,unsigned char> mask,label;
-    image_type label_prob,fg_prob;
+    image_type& label_prob;
+    image_type fg_prob;
 
     tipl::shape<3> image_dim,model_dim;
     tipl::vector<3> image_vs,model_vs;
@@ -151,25 +155,25 @@ public:
 
     size_t in_count,out_count;
 
-    template<typename image_type2>
-    bool preproc(image_type2& source_image,const tipl::image<3,unsigned char>& mask_)
+    bool preproc(void)
     {
+        if(source_image.empty())
+            return error_msg = "no source image",false;
         tipl::par_for(in_count,[&](int c)
         {
             tipl::segmentation::normalize_otsu_median(source_image.alias(c*image_dim.size(),image_dim));
         });
 
-        if(mask_.empty())
+        if(mask.empty())
         {
             tipl::threshold(source_image.alias(0,image_dim),mask,0.0f);
             tipl::morphology::defragment(mask);
         }
-        else
-            mask = mask_;
+
 
         tipl::vector<3> from,to;
         if(!tipl::bounding_box(mask,from,to))
-            return false;
+            return error_msg = "source image is all zero",false;
 
         tipl::vector<3> mask_center((from+to)*0.5f),image_center(tipl::vector<3>(image_dim)*0.5f),
                         patch_phys(model_dim),bb_phys(to-from);
@@ -226,6 +230,7 @@ public:
             model_input.push_back(std::move(target_image));
             trans.push_back(tran);
         }
+        source_image.clear();
         return true;
     }
 
@@ -348,6 +353,43 @@ public:
             return error_msg = "no foreground probability",false;
         label = tipl::argmax(label_prob,fg_prob > prob_threshold);
         return true;
+    }
+    template<typename io_type>
+    bool load_from_file(const std::string& file_name)
+    {
+        io_type in(file_name,std::ios::in);
+        if(!in)
+            return error_msg = in.error_msg,false;
+        if(in.dim(4) != in_count)
+            return error_msg = "input channel mismatch",false;
+        in.get_image_transformation(untouched_srow);
+        if(!(in >> source_image >> image_vs >> srow))
+            return error_msg = "cannot read image data " + in.error_msg,false;
+
+        flip_swap = in.flip_swap_seq;
+        image_dim = source_image.shape();
+        tipl::out() << "dim: " << source_image.shape() << " vs:" << image_vs << " channel:" << in.dim(4);
+
+        if(in_count > 1)
+        {
+            source_image.resize(image_dim.multiply(tipl::shape<3>::z,in_count));
+            tipl::out() << "handle multiple channels. model channel count:" << in_count;
+            for(size_t c = 1;c < in_count;++c)
+            {
+                auto I = source_image.alias(c*image_dim.size(),image_dim);
+                if(!(in >> I))
+                    return error_msg = "file corrupted",false;
+            }
+        }
+        return true;
+    }
+    bool load_from_image(const image_type& raw_image,tipl::vector<3>& vs)
+    {
+        source_image = raw_image;
+        image_dim = source_image.shape();
+        image_vs = vs;
+        tipl::io::initial_nifti_srow(srow,image_dim,image_vs);
+        tipl::io::initial_nifti_srow(untouched_srow,image_dim,image_vs);
     }
     template<typename io_type>
     bool save_to_file(const std::string& file_name)
