@@ -564,39 +564,29 @@ public:
             return false;
 
         prog(2,4);
-        if constexpr(tipl::use_cuda)
+        auto out_shape = eval.model_dim.multiply(tipl::shape<3>::z,eval.out_count);
+        for(size_t i = 0;i < eval.model_input.size();++i)
         {
-            size_t out_size = eval.model_dim.size()*eval.out_count;
-            tipl::device_vector<float> buffer(out_size*eval.model_input.size());
-            for(size_t i = 0,pos = 0;i < eval.model_input.size();++i,pos += out_size)
-                cu_copy_h2d<float,float>(buffer.data() + pos,eval.model_input[i].data(),eval.model_input[i].size());
-            for(size_t i = 0,pos = 0;i < eval.model_input.size();++i,pos += out_size)
+            if(!prog(i,eval.model_input.size()))
+                return false;
+            if constexpr(tipl::use_cuda)
             {
-                auto gpu_ptr = unet->forward(buffer.data() + pos);
-                if (!gpu_ptr || !prog(i,eval.model_input.size()))
+                auto gpu_ptr = unet->forward(tipl::device_image<3,float>(eval.model_input[i]).data());
+                if (!gpu_ptr)
                     return false;
-                cu_copy_d2d<float,float>(buffer.data() + pos,gpu_ptr,out_size);
+                eval.model_output.push_back(tipl::image<3>(out_shape));
+                cu_copy_d2h<float,float>(eval.model_output.back().data(),gpu_ptr,out_shape.size());
             }
-            for(size_t i = 0,pos = 0;i < eval.model_input.size();++i,pos += out_size)
-            {
-                eval.model_output.push_back(tipl::image<3>(eval.model_dim.multiply(tipl::shape<3>::z,eval.out_count)));
-                cu_copy_d2h<float,float>(eval.model_output.back().data(),buffer.data() + pos,out_size);
-            }
-        }
-        else
-        {
-            for(size_t i = 0;i < eval.model_input.size();++i)
+            else
             {
                 auto ptr = unet->forward(eval.model_input[i].data());
-                if(!ptr || !prog(i,eval.model_input.size()))
+                if(!ptr)
                     return false;
-                eval.model_output.push_back(tipl::make_image(ptr,eval.model_dim.multiply(tipl::shape<3>::z,eval.out_count)));
+                eval.model_output.push_back(tipl::make_image(ptr,out_shape));
             }
         }
-
         tipl::out() << "postprocessing";
-        if(!prog(3,4))
-            return false;
+        prog(3,4);
         eval.postproc();
         if(new_version)
         {
