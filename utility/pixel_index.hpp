@@ -589,36 +589,40 @@ public:
     __INLINE__ double distance(const pointer_type* rhs) { return std::sqrt(distance2(rhs)); }
 
     template<typename tran_type>
-    __INLINE__ void to(const tran_type& m)
+    __INLINE__ auto& to(const tran_type& m)
     {
         data_type x__(x_),y__(y_),z__(z_);
         x_ = x__*m[0] + y__*m[1] + z__*m[2] + m[3];
         y_ = x__*m[4] + y__*m[5] + z__*m[6] + m[7];
         z_ = x__*m[8] + y__*m[9] + z__*m[10] + m[11];
+        return *this;
     }
     template<typename tran_type>
-    __INLINE__ void to(const tran_type* m)
+    __INLINE__ auto& to(const tran_type* m)
     {
         data_type x__(x_),y__(y_),z__(z_);
         x_ = x__*m[0] + y__*m[1] + z__*m[2] + m[3];
         y_ = x__*m[4] + y__*m[5] + z__*m[6] + m[7];
         z_ = x__*m[8] + y__*m[9] + z__*m[10] + m[11];
+        return *this;
     }
     template<typename tran_type>
-    __INLINE__ void rotate(const tran_type& m)
+    __INLINE__ auto& rotate(const tran_type& m)
     {
         data_type x__(x_),y__(y_),z__(z_);
         x_ = x__*m[0] + y__*m[1] + z__*m[2];
         y_ = x__*m[3] + y__*m[4] + z__*m[5];
         z_ = x__*m[6] + y__*m[7] + z__*m[8];
+        return *this;
     }
     template<typename tran_type>
-    __INLINE__ void rotate(const tran_type* m)
+    __INLINE__ auto& rotate(const tran_type* m)
     {
         data_type x__(x_),y__(y_),z__(z_);
         x_ = x__*m[0] + y__*m[1] + z__*m[2];
         y_ = x__*m[3] + y__*m[4] + z__*m[5];
         z_ = x__*m[6] + y__*m[7] + z__*m[8];
+        return *this;
     }
 
 public:
