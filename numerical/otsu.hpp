@@ -108,25 +108,30 @@ float otsu_median(const image_type& I)
 }
 
 template<typename image_type>
-void normalize_otsu_median(image_type& I,float upper_limit = 1.0f)
+void normalize_otsu_median(image_type&& I, float upper_limit = 1.0f)
 {
+    using pure_type = std::decay_t<image_type>;
+    using val_type = typename pure_type::value_type;
     size_t sz = I.size();
-    if constexpr(std::is_integral<typename image_type::value_type>::value)
+
+    if constexpr (!std::is_floating_point_v<val_type>)
     {
         std::vector<float> buf(sz);
-        std::copy(I.begin(),I.end(),buf.begin());
-        normalize_otsu_median(buf,255.99f);
-        std::copy(buf.begin(),buf.end(),I.begin());
+        std::copy(I.begin(), I.end(), buf.begin());
+        normalize_otsu_median(buf, 255.99f);
+        std::copy(buf.begin(), buf.end(), I.begin());
     }
     else
     {
-        float ot = otsu_median(I);
+        float ot = static_cast<float>(otsu_median(I));
         if(ot == 0.0f)
             return;
-        tipl::multiply_constant(I,upper_limit*0.5f/ot);
-        if(std::count_if(I.begin(),I.end(),[&](auto v){return v > 0.0f;}) > 0.5f*sz)
-            tipl::minus_constant(I,upper_limit*0.1f);
-        tipl::upper_lower_threshold(I,0.0f,upper_limit);
+        tipl::multiply_constant(I, upper_limit * 0.5f / ot);
+        if(static_cast<double>(std::count_if(I.begin(), I.end(), [](auto v){ return v > 0.0f; })) > 0.5 * static_cast<double>(sz))
+        {
+            tipl::minus_constant(I, upper_limit * 0.1f);
+        }
+        tipl::upper_lower_threshold(I, 0.0f, upper_limit);
     }
 }
 
