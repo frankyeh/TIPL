@@ -444,7 +444,7 @@ public:
     std::shared_ptr<network> unet;
     bool new_version = false;
 public:
-    evalution_set<tipl::image<3>>& eval;
+    evalution_set<tipl::image<3>> eval;
     std::string error_msg;
 
     template<typename reader>
@@ -507,7 +507,6 @@ public:
 
     bool forward(tipl::progress& prog)
     {
-        const float prob_threshold = 0.5f;
         prog(1,4);
         tipl::out() << "preprocessing";
 
