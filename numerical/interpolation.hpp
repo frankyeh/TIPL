@@ -7,10 +7,11 @@
 #include <algorithm>
 #include "../def.hpp"
 #include "../utility/pixel_index.hpp"
+#include "../utility/basic_image.hpp"
 #include "../utility/rgb_image.hpp"
-
 namespace tipl
 {
+
 template<typename value_type>   struct add_type{using type = value_type;};
 template<> struct add_type<char>            {using type = int16_t;};
 template<> struct add_type<unsigned char>   {using type = uint16_t;};
@@ -20,20 +21,21 @@ template<> struct add_type<int>             {using type = int64_t;};
 template<> struct add_type<unsigned int>    {using type = uint64_t;};
 template<> struct add_type<rgb>             {using type = vector<3,uint16_t>;};
 
-template<typename value_type>
-struct interpo_type{
-    using type = float;
-    __INLINE__ static void assign(value_type& result,float v)
+
+template<typename T>
+struct interp_type{
+    using type = std::conditional_t<std::is_integral_v<T>, float, T>;
+    __INLINE__ static void assign(T& result,type v)
     {
-        if constexpr(std::is_signed<value_type>::value)
-            result = value_type(v);
+        if constexpr(std::is_signed<T>::value)
+            result = T(v);
         else
-            result = (v <= 0.0f ? value_type(0):value_type(v));
+            result = (v <= 0.0f ? T(0):T(v));
     }
 };
 
 template<>
-struct interpo_type<rgb>{
+struct interp_type<rgb>{
     using type = tipl::vector<3,float>;
     __INLINE__ static void assign(rgb& result,const type& v)
     {
@@ -45,8 +47,8 @@ struct interpo_type<rgb>{
 
 
 template<int dim,typename vtype>
-struct interpo_type<tipl::vector<dim,vtype> >{
-    using type = tipl::vector<dim,float>;
+struct interp_type<tipl::vector<dim,vtype> >{
+    using type = tipl::vector<dim, typename interp_type<vtype>::type>;
     __INLINE__ static void assign(tipl::vector<dim,vtype>& result,const type& v)
     {
         result = v;
@@ -59,22 +61,21 @@ namespace interpolator{
 template<typename image_type,typename data_iterator_type,typename weighting_iterator,typename output_type>
 __INLINE__ void weighted_sum(const image_type& I,data_iterator_type from,data_iterator_type to,weighting_iterator w,output_type& result_)
 {
-    using value_type = typename interpo_type<output_type>::type;
-    value_type result(I[*from]);
-    result *= (*w);
+    using value_type = typename interp_type<output_type>::type;
+    value_type result(I[*from]*(*w));
     for (++from,++w;from != to;++from,++w)
     {
         value_type v(I[*from]);
         v *= (*w);
         result += v;
     }
-    interpo_type<output_type>::assign(result_,result);
+    interp_type<output_type>::assign(result_,result);
 }
 
 template<typename image_type, typename data_iterator_type, typename weighting_iterator, typename output_type>
 __INLINE__ void weight_majority(const image_type& I, data_iterator_type from, data_iterator_type to, weighting_iterator w, output_type& result_)
 {
-    using val_type = typename interpo_type<output_type>::type;
+    using val_type = typename interp_type<output_type>::type;
     using weight_type = typename std::remove_reference<decltype(*w)>::type;
 
     // Stack array eliminates massive heap allocations inside the interpolation loop.
@@ -106,7 +107,7 @@ __INLINE__ void weight_majority(const image_type& I, data_iterator_type from, da
             best_idx = i;
     }
 
-    interpo_type<output_type>::assign(result_, unique_values[best_idx]);
+    interp_type<output_type>::assign(result_, unique_values[best_idx]);
 }
 
 
@@ -365,22 +366,19 @@ struct linear<3>
         dindex[6] = dindex[2] + wh;
         dindex[7] = dindex[3] + wh;
 
-        ratio[0] = n0*n1;
-        ratio[1] = p0*n1;
-        ratio[2] = n0*p1;
-        ratio[3] = p0*p1;
-        ratio[4] = ratio[0];
-        ratio[5] = ratio[1];
-        ratio[6] = ratio[2];
-        ratio[7] = ratio[3];
-        ratio[0] *= n2;
-        ratio[1] *= n2;
-        ratio[2] *= n2;
-        ratio[3] *= n2;
-        ratio[4] *= p2;
-        ratio[5] *= p2;
-        ratio[6] *= p2;
-        ratio[7] *= p2;
+        float n0n1 = n0 * n1;
+        float p0n1 = p0 * n1;
+        float n0p1 = n0 * p1;
+        float p0p1 = p0 * p1;
+
+        ratio[0] = n0n1 * n2;
+        ratio[1] = p0n1 * n2;
+        ratio[2] = n0p1 * n2;
+        ratio[3] = p0p1 * n2;
+        ratio[4] = n0n1 * p2;
+        ratio[5] = p0n1 * p2;
+        ratio[6] = n0p1 * p2;
+        ratio[7] = p0p1 * p2;
         return true;
     }
 
@@ -528,10 +526,10 @@ struct cubic<1>{
     template<typename ImageType,typename PixelType>
     __INLINE__ void estimate(const ImageType& source,PixelType& pixel)
     {
-        typename interpo_type<PixelType>::type p[4];
+        typename interp_type<PixelType>::type p[4];
         for(unsigned int index = 0;index < 4;++index)
             p[index] = source[dindex[index]];
-        interpo_type<PixelType>::assign(pixel,cubic_imp(p,dx,dx2,dx3)*0.5);
+        interp_type<PixelType>::assign(pixel,cubic_imp(p,dx,dx2,dx3)*0.5);
     }
     template<typename ImageType>
     __INLINE__ void estimate(const ImageType& source,tipl::rgb& pixel)
@@ -605,10 +603,10 @@ struct cubic<2>{
     template<typename ImageType,typename PixelType>
     __INLINE__ void estimate(const ImageType& source,PixelType& pixel)
     {
-        typename interpo_type<PixelType>::type p[16];
+        typename interp_type<PixelType>::type p[16];
         for(unsigned int index = 0;index < 16;++index)
             p[index] = source[dindex[index]];
-        interpo_type<PixelType>::assign(pixel,cubic_imp(p,dx,dx2,dx3,dy,dy2,dy3)*0.25);
+        interp_type<PixelType>::assign(pixel,cubic_imp(p,dx,dx2,dx3,dy,dy2,dy3)*0.25);
     }
     template<typename ImageType>
     __INLINE__ void estimate(const ImageType& source,tipl::rgb& pixel)
@@ -698,10 +696,10 @@ struct cubic<3>{
     template<typename ImageType,typename PixelType>
     __INLINE__ void estimate(const ImageType& source,PixelType& pixel)
     {
-        typename interpo_type<PixelType>::type pos[64];
+        typename interp_type<PixelType>::type pos[64];
         for(unsigned int index = 0;index < 64;++index)
             pos[index] = source[dindex[index]];
-        interpo_type<PixelType>::assign(pixel,cubic_imp(pos,dx,dx2,dx3,dy,dy2,dy3,dz,dz2,dz3)*0.125);
+        interp_type<PixelType>::assign(pixel,cubic_imp(pos,dx,dx2,dx3,dy,dy2,dy3,dz,dz2,dz3)*0.125);
     }
 };
 
@@ -739,6 +737,14 @@ __INLINE__ auto estimate(const ImageType& source,const VTorType& location)
         tipl::interpolator::cubic<ImageType::dimension>().estimate(source,location,result);
     return result;
 }
+
+template <int dim,typename value_type,template <typename...> typename stype>
+template <typename pos_type, typename>
+__INLINE__ value_type image<dim,value_type,stype>::operator[](const pos_type& pos) const
+{
+    return tipl::estimate(*this, pos);
+}
+
 
 }//tipl
 #endif
