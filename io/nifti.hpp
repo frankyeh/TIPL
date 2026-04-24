@@ -1295,16 +1295,16 @@ public:
 
 typedef nifti_base<> nifti;
 
-
-void initial_nifti_srow(tipl::matrix<4,4>& T,const tipl::shape<3>& geo,const tipl::vector<3>& vs)
+template<typename T,typename U,typename V>
+void initial_nifti_srow(T& srow,const U& geo,const V& vs)
 {
-    std::fill(T.begin(),T.end(),0.0f);
-    T[0] = -vs[0];
-    T[5] = -vs[1];
-    T[10] = vs[2];
-    T[3] = vs[0]*(geo[0]-1);
-    T[7] = vs[1]*(geo[1]-1);
-    T[15] = 1.0f;
+    std::fill(srow.begin(),srow.end(),0.0f);
+    srow[0] = -vs[0];
+    srow[5] = -vs[1];
+    srow[10] = vs[2];
+    srow[3] = vs[0]*(geo[0]-1);
+    srow[7] = vs[1]*(geo[1]-1);
+    srow[15] = 1.0f;
 }
 
 } // io
