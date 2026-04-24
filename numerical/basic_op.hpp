@@ -1528,6 +1528,13 @@ auto argmax(const ImageType& label_prob, const MaskType& mask)
     return I;
 }
 
+template<typename U>
+auto remove_channel(U& label_prob,const shape<3>& image_dim,size_t bg_channel = 0)
+{
+    std::copy(label_prob.begin() + (bg_channel+1)*image_dim.size(), label_prob.end(), label_prob.begin() + bg_channel*image_dim.size());
+    label_prob.resize(image_dim.multiply(tipl::shape<3>::z, label_prob.depth()/image_dim[2]-1));
+}
+
 template<typename type>
 void change_endian(type& value)
 {
