@@ -541,19 +541,16 @@ public:
                 return error_msg = "error reading tensor structure " + name, false;
         }
 
-        /*
+
         if constexpr(tipl::use_cuda)
         {
             gpu_memory = memory;
             auto ptr = gpu_memory.data();
             unet->allocate(ptr, true);
         }
-        */
 
         eval.in_count = param[0];
         eval.out_count = param[1];
-
-
         return true;
     }
 
@@ -566,29 +563,30 @@ public:
         if(!eval.preproc())
             return false;
 
-        /*
-        std::vector<float> buffer;
-        if constexpr(tipl::use_cuda)
-        {
-            tipl::device_image<3,float> I = input_image;
-            tipl::ml3d::preproc_actions(I,image_dim,image_vs,dim,vs,trans,true,true);
-            auto gpu_ptr = unet->forward(I.data());
-            if (!gpu_ptr) return false;
-            buffer.resize(unet->dim.size()*unet->out_channels_);
-            cu_copy_d2h<float,float>(buffer.data(),gpu_ptr,buffer.size());
-            ptr = buffer.data();
-        }
-        else
-        */
         prog(2,4);
-        for(auto& each : eval.model_input)
+        for(size_t i = 0;prog(i,eval.model_input.size()+1) && i < eval.model_input.size();++i)
         {
-            auto ptr = unet->forward(each.data());
-            if(!ptr)
-                return false;
-            eval.model_output.push_back(tipl::make_image(ptr,eval.model_dim.multiply(tipl::shape<3>::z,eval.out_count)));
+            std::vector<float> buffer;
+            if constexpr(tipl::use_cuda)
+            {
+                auto gpu_ptr = unet->forward(tipl::device_image<3,float>(eval.model_input[i]).data());
+                if (!gpu_ptr)
+                    return false;
+                tipl::image<3> out(eval.model_dim.multiply(tipl::shape<3>::z,eval.out_count));
+                cu_copy_d2h<float,float>(out.data(),gpu_ptr,out.size());
+                eval.model_output.push_back(std::move(out));
+            }
+            else
+            {
+                auto ptr = unet->forward(eval.model_input[i].data());
+                if(!ptr)
+                    return false;
+                eval.model_output.push_back(tipl::make_image(ptr,eval.model_dim.multiply(tipl::shape<3>::z,eval.out_count)));
+            }
         }
-
+        if(eval.model_output.size() != eval.model_input.size())
+            return false;
+        tipl::out() << "postprocessing";
         prog(3,4);
         eval.postproc();
         if(new_version)
