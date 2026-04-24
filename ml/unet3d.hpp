@@ -108,8 +108,37 @@ void postproc_actions(const std::string& command,
 
 template<typename image_type = tipl::image<3>>
 struct evalution_set{
-    std::string error_msg;
+
+private:
+    image_type gaussian;
+    void create_gaussian(void)
+    {
+        gaussian.resize(model_dim);
+        float sigma_scale = 1.0f/8.0f;
+        tipl::vector<3> center(tipl::vector<3>(model_dim)*0.5f);
+        float max_val = 0.0f;
+        tipl::vector<3> inv_sigmas(1.0f/(model_dim[0]*sigma_scale),1.0f/(model_dim[1]*sigma_scale),1.0f/(model_dim[2]*sigma_scale));
+        size_t sz = model_dim.size();
+        for(tipl::pixel_index<3> index(model_dim);index < sz;++index)
+        {
+            tipl::vector<3,float> pos(index);
+            pos -= center;
+            pos.elem_mul(inv_sigmas);
+
+            float val = std::exp(-0.5f*pos.length2());
+            gaussian[index.index()] = val;
+            max_val = std::max(max_val,val);
+        }
+
+        gaussian /= max_val;
+        tipl::lower_threshold(gaussian,1e-6f);
+    }
+public:
     std::vector<image_type> model_input,model_output;
+    std::vector<std::decay_t<decltype(tipl::make_image(std::declval<image_type&>(), 0, std::declval<tipl::shape<3>>()))>> model_output2;
+
+public:
+    std::string error_msg;
     std::vector<tipl::transformation_matrix<float>> trans;
     tipl::image<3,unsigned char> mask,label;
     image_type label_prob,fg_prob;
@@ -118,19 +147,25 @@ struct evalution_set{
     tipl::vector<3> image_vs,model_vs;
     tipl::matrix<4,4,float> untouched_srow,srow;
     std::vector<char> flip_swap;
+    float prob_threshold = 0.5f;
 
     size_t in_count,out_count;
 
     template<typename image_type2>
-    bool preproc_actions(image_type2& source_image)
+    bool preproc(image_type2& source_image,const tipl::image<3,unsigned char>& mask_)
     {
         tipl::par_for(in_count,[&](int c)
         {
             tipl::segmentation::normalize_otsu_median(source_image.alias(c*image_dim.size(),image_dim));
         });
 
-        tipl::threshold(source_image.alias(0,image_dim),mask,0.0f);
-        tipl::morphology::defragment(mask);
+        if(mask_.empty())
+        {
+            tipl::threshold(source_image.alias(0,image_dim),mask,0.0f);
+            tipl::morphology::defragment(mask);
+        }
+        else
+            mask = mask_;
 
         tipl::vector<3> from,to;
         if(!tipl::bounding_box(mask,from,to))
@@ -166,7 +201,10 @@ struct evalution_set{
                     active_shifts.push_back(tipl::vector<3>(x,y,z));
 
         if(active_shifts.size()!=1)
+        {
             active_shifts.push_back(tipl::vector<3>(0.0f,0.0f,0.0f));
+            create_gaussian();
+        }
         tipl::out() << "total of sliding window:" << active_shifts.size();
         for(auto shift:active_shifts)
         {
@@ -190,18 +228,54 @@ struct evalution_set{
         }
         return true;
     }
-    void get_label_prob(const tipl::image<3,float>& gaussian)
+
+    bool command(const std::string& cmd)
     {
-        if(model_output.empty())
-            return;
+        for(const auto& each : tipl::split(cmd,'+'))
+        {
+            tipl::out() << "run " << each;
+            if(each == "postproc" && postproc())
+                continue;
+            if(each == "remove_bg_channel" && remove_bg_channel())
+                continue;
+            if(each == "softmax" && softmax())
+                continue;
+            if(each == "argmax" && argmax())
+                continue;
+            if(each == "create_mask" && create_mask())
+                continue;
+            if(error_msg.empty())
+                error_msg = "invalid command: " + cmd;
+            return false;
+        }
+        return true;
+    }
+    bool softmax(void)
+    {
+        if(label_prob.empty())
+            return error_msg = "empty label probability",false;
+        tipl::softmax(label_prob,image_dim.size(),out_count);
+        for(int c = 1;c<out_count;++c)
+            tipl::preserve(label_prob.alias(image_dim.size()*c,image_dim),mask);
+        return true;
+    }
+
+    bool postproc(void)
+    {
+        if(model_output2.empty() && model_output.empty())
+            return error_msg = "no output data",false;
+        if(model_output2.empty())
+            for(auto& each : model_output)
+                model_output2.push_back(each.alias());
+        auto& outputs = model_output2;
         label_prob.resize(image_dim.multiply(tipl::shape<3>::z,out_count));
-        if(model_output.size()==1)
+        if(outputs.size()==1)
         {
             auto each_trans = trans[0];
             each_trans.inverse();
             for(int i=0;i<out_count;++i)
             {
-                auto t = model_output[0].alias(model_dim.size()*i,model_dim);
+                auto t = outputs[0].alias(model_dim.size()*i,model_dim);
                 auto o = label_prob.alias(image_dim.size()*i,image_dim);
                 tipl::resample(t,o,each_trans);
             }
@@ -212,7 +286,7 @@ struct evalution_set{
 
             tipl::par_for(out_count+1,[&](int c)
             {
-                for(int t=0;t < model_output.size();++t)
+                for(int t=0;t < outputs.size();++t)
                 {
                     auto each_trans = trans[t];
                     each_trans.inverse();
@@ -222,7 +296,7 @@ struct evalution_set{
                         weight_map += each_trans(gaussian,image_dim);
                         continue;
                     }
-                    auto w = model_output[t].alias(model_dim.size()*c,model_dim);
+                    auto w = outputs[t].alias(model_dim.size()*c,model_dim);
                     auto o = label_prob.alias(image_dim.size()*c,image_dim);
                     w *= gaussian;
                     o += each_trans(w,image_dim);
@@ -236,19 +310,21 @@ struct evalution_set{
             {
                 label_prob.alias(image_dim.size()*c,image_dim) *= weight_map;
             });
-
         }
-        tipl::softmax(label_prob,image_dim.size(),out_count);
-        for(int c = 1;c<out_count;++c)
-            tipl::preserve(label_prob.alias(image_dim.size()*c,image_dim),mask);
+        return true;
     }
-    void remove_bg_channel(void)
+    bool remove_bg_channel(void)
     {
+        if(out_count <= 1)
+            return error_msg = "not enough out channel to remove",false;
         tipl::remove_channel(label_prob,image_dim);
         out_count--;
+        return true;
     }
-    void create_mask(float prob_threshold)
+    bool create_mask(void)
     {
+        if(label_prob.empty())
+            return error_msg = "no label probability",false;
         auto labels_4d = tipl::make_image(label_prob.data(), image_dim.expand(out_count));
         fg_prob.resize(image_dim);
         tipl::sum_partial(labels_4d, fg_prob);
@@ -262,10 +338,16 @@ struct evalution_set{
             tipl::multiply(I,fg_prob);
             tipl::divide(I,original_sum);
         });
+        return true;
     }
-    void get_label(float prob_threshold)
+    bool argmax(void)
     {
+        if(label_prob.empty())
+            return error_msg = "no label probability",false;
+        if(fg_prob.empty())
+            return error_msg = "no foreground probability",false;
         label = tipl::argmax(label_prob,fg_prob > prob_threshold);
+        return true;
     }
     template<typename io_type>
     bool save_to_file(const std::string& file_name)
@@ -298,30 +380,7 @@ struct evalution_set{
     }
 };
 
-template<typename image_type>
-void create_gaussian(image_type& gaussian)
-{
-    float sigma_scale = 1.0f/8.0f;
-    const auto& dim = gaussian.shape();
-    tipl::vector<3> center(dim[0]/2.0f,dim[1]/2.0f,dim[2]/2.0f);
-    float max_val = 0.0f;
-    size_t sz = dim.size();
 
-    tipl::vector<3> inv_sigmas(1.0f/(dim[0]*sigma_scale),1.0f/(dim[1]*sigma_scale),1.0f/(dim[2]*sigma_scale));
-    for(tipl::pixel_index<3> index(dim);index<sz;++index)
-    {
-        tipl::vector<3,float> pos(index);
-        pos -= center;
-        pos.elem_mul(inv_sigmas);
-
-        float val = std::exp(-0.5f*pos.length2());
-        gaussian[index.index()] = val;
-        max_val = std::max(max_val,val);
-    }
-
-    gaussian /= max_val;
-    tipl::lower_threshold(gaussian,1e-6f);
-}
 
 
 
@@ -385,10 +444,8 @@ public:
     std::shared_ptr<network> unet;
     bool new_version = false;
 public:
+    evalution_set<tipl::image<3>>& eval;
     std::string error_msg;
-    tipl::vector<3> vs;
-    tipl::shape<3> dim;
-    int num_tissue_channels = 5;
 
     template<typename reader>
     bool load_model(const std::string& file_name)
@@ -415,13 +472,12 @@ public:
             tipl::out() << "loading conventional unet";
             unet.reset(new unet3d<unet_version::standard>(features_down,features_up,kernel_size,param[0],param[1]));
         }
-
-        if(!in.read("dimension",dim) || !in.read("voxel_size",vs))
+        tipl::shape<3> dim;
+        if(!in.read("dimension",dim) || !in.read("voxel_size",eval.model_vs))
             return error_msg = "cannot read dimension and voxel size",false;
         unet->init_image(dim);
         unet->allocate_memory(memory);
-        dim = unet->dim;
-
+        eval.model_dim = unet->dim;
         int id = 0;
         for(auto& p : unet->parameters())
         {
@@ -449,14 +505,11 @@ public:
         return true;
     }
 
-    bool forward(evalution_set<>& eval,
-                 tipl::progress& prog)
+    bool forward(tipl::progress& prog)
     {
         const float prob_threshold = 0.5f;
         prog(1,4);
         tipl::out() << "preprocessing";
-        tipl::shape<3> image_dim(input_image.shape());
-        tipl::segmentation::normalize_otsu_median(input_image);
 
         unet->prog = [&](void){return prog(0,4);};
 
@@ -475,35 +528,26 @@ public:
         }
         else
         */
-        tipl::transformation_matrix<float,3> trans;
-
-        {
-            tipl::affine_param<float> arg;
-            arg.translocation[2] = (image_dim[2]*image_vs[2]-dim[2]*vs[2])*0.5f;
-            trans = tipl::transformation_matrix<float,3>(arg,dim,vs,image_dim,image_vs);
-        }
-        input_image = trans(input_image,dim);
         prog(2,4);
-        tipl::out() << "running unet";
-        auto ptr = unet->forward(input_image.data());
-        num_tissue_channels = unet->out_channels_;
-        if(!ptr) return false;
-        tipl::out() << "postprocessing";
+        for(auto& each : eval.model_input)
+        {
+            auto ptr = unet->forward(each.data());
+            if(!ptr)
+                return false;
+            eval.model_output2.push_back(tipl::make_image(ptr,eval.model_dim));
+        }
+
         prog(3,4);
-        if(new_version)
-            tipl::softmax(tipl::make_image(ptr,unet->dim.multiply(tipl::shape<3>::z,num_tissue_channels)), dim.size(), num_tissue_channels);
-        auto label_prob = postproc0(tipl::make_image(ptr,unet->dim.multiply(tipl::shape<3>::z,num_tissue_channels)),
-                                    image_dim, trans, num_tissue_channels);
-        tipl::image<3> fg_prob;
+        eval.postproc();
         if(new_version)
         {
-            tipl::remove_channel(label_prob,image_dim);
-            num_tissue_channels--;
+            eval.softmax();
+            eval.remove_bg_channel();
         }
         else
-            tipl::upper_lower_threshold(label_prob, 0.0f, 1.0f);
-        //fg_prob = create_mask(label_prob,image_dim,prob_threshold);
-        label = tipl::argmax(label_prob,fg_prob > prob_threshold);
+            tipl::upper_lower_threshold(eval.label_prob, 0.0f, 1.0f);
+        eval.create_mask();
+        eval.argmax();
         prog(4,4);
         return true;
     }
