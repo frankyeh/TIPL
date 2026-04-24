@@ -137,7 +137,6 @@ private:
 public:
     image_type source_image;
     std::vector<image_type> model_input,model_output;
-    std::vector<std::decay_t<decltype(tipl::make_image(std::declval<image_type&>(), 0, std::declval<tipl::shape<3>>()))>> model_output2;
 
 public:
     evalution_set(void):label_prob(source_image){}
@@ -267,20 +266,16 @@ public:
 
     bool postproc(void)
     {
-        if(model_output2.empty() && model_output.empty())
+        if(model_output.empty())
             return error_msg = "no output data",false;
-        if(model_output2.empty())
-            for(auto& each : model_output)
-                model_output2.push_back(each.alias());
-        auto& outputs = model_output2;
         label_prob.resize(image_dim.multiply(tipl::shape<3>::z,out_count));
-        if(outputs.size()==1)
+        if(model_output.size()==1)
         {
             auto each_trans = trans[0];
             each_trans.inverse();
             for(int i=0;i<out_count;++i)
             {
-                auto t = outputs[0].alias(model_dim.size()*i,model_dim);
+                auto t = model_output[0].alias(model_dim.size()*i,model_dim);
                 auto o = label_prob.alias(image_dim.size()*i,image_dim);
                 tipl::resample(t,o,each_trans);
             }
@@ -291,7 +286,7 @@ public:
 
             tipl::par_for(out_count+1,[&](int c)
             {
-                for(int t=0;t < outputs.size();++t)
+                for(int t=0;t < model_output.size();++t)
                 {
                     auto each_trans = trans[t];
                     each_trans.inverse();
@@ -301,7 +296,7 @@ public:
                         weight_map += each_trans(gaussian,image_dim);
                         continue;
                     }
-                    auto w = outputs[t].alias(model_dim.size()*c,model_dim);
+                    auto w = model_output[t].alias(model_dim.size()*c,model_dim);
                     auto o = label_prob.alias(image_dim.size()*c,image_dim);
                     w *= gaussian;
                     o += each_trans(w,image_dim);
@@ -390,6 +385,16 @@ public:
         image_vs = vs;
         tipl::io::initial_nifti_srow(srow,image_dim,image_vs);
         tipl::io::initial_nifti_srow(untouched_srow,image_dim,image_vs);
+        return true;
+    }
+    bool load_from_image(image_type&& raw_image,tipl::vector<3>& vs)
+    {
+        source_image = std::move(raw_image);
+        image_dim = source_image.shape();
+        image_vs = vs;
+        tipl::io::initial_nifti_srow(srow,image_dim,image_vs);
+        tipl::io::initial_nifti_srow(untouched_srow,image_dim,image_vs);
+        return true;
     }
     template<typename io_type>
     bool save_to_file(const std::string& file_name)
@@ -544,17 +549,23 @@ public:
             unet->allocate(ptr, true);
         }
         */
+
+        eval.in_count = param[0];
+        eval.out_count = param[1];
+
+
         return true;
     }
 
     bool forward(tipl::progress& prog)
     {
-        prog(1,4);
-        tipl::out() << "preprocessing";
-
         unet->prog = [&](void){return prog(0,4);};
 
-        // 1. PRE-PROCESSING & INFERENCE
+        prog(1,4);
+        tipl::out() << "preprocessing";
+        if(!eval.preproc())
+            return false;
+
         /*
         std::vector<float> buffer;
         if constexpr(tipl::use_cuda)
@@ -575,7 +586,7 @@ public:
             auto ptr = unet->forward(each.data());
             if(!ptr)
                 return false;
-            eval.model_output2.push_back(tipl::make_image(ptr,eval.model_dim));
+            eval.model_output.push_back(tipl::make_image(ptr,eval.model_dim.multiply(tipl::shape<3>::z,eval.out_count)));
         }
 
         prog(3,4);
@@ -592,6 +603,19 @@ public:
         prog(4,4);
         return true;
     }
+    template<typename image_type>
+    bool forward(const image_type& I,tipl::vector<3>& vs,tipl::progress& prog)
+    {
+        eval.load_from_image(I,vs);
+        return forward(prog);
+    }
+    template<typename image_type>
+    bool forward(image_type&& I,tipl::vector<3>& vs,tipl::progress& prog)
+    {
+        eval.load_from_image(std::forward<image_type>(I),vs);
+        return forward(prog);
+    }
+
 };
 
 #ifdef __CUDACC__
