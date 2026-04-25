@@ -836,7 +836,7 @@ bool has_mask(const image_type& img)
 
     if (zero_count > threshold) return true;
 
-    tipl::shape<image_type::dimension> vmin, vmax;
+    tipl::vector<image_type::dimension,int> vmin, vmax;
     tipl::bounding_box(img, vmin, vmax, 0);
 
     for (int d = 0; d < image_type::dimension; ++d)
@@ -1122,17 +1122,14 @@ ImageType& swap_xy(ImageType& I)
             for(size_t x = 0, p2 = y; x < w; ++x, ++p1, p2 += h)
                 plane_ptr[p2] = plane[p1];
     }
-    tipl::shape<ImageType::dimension> new_geo(I.shape());
-    std::swap(new_geo[0], new_geo[1]);
-    I.resize(new_geo);
+    I.resize(I.shape().swap_dim(0,1));
     return I;
 }
 
 template<typename ImageType>
 ImageType& swap_xz(ImageType& I)
 {
-    tipl::shape<ImageType::dimension> new_geo(I.shape());
-    std::swap(new_geo[0],new_geo[2]);
+    tipl::shape<ImageType::dimension> new_geo(I.shape().swap_dim(0,2));
     tipl::image<ImageType::dimension,typename ImageType::value_type> new_volume(new_geo);
 
     int64_t origin[3] = {0,0,0};
@@ -1156,8 +1153,7 @@ ImageType& swap_yz(ImageType& I)
     uint32_t w = I.width(), h = I.height(), d = I.depth();
     size_t ps = I.plane_size();
     size_t volume_size = size_t(w) * size_t(h) * size_t(d);
-    tipl::shape<ImageType::dimension> new_geo(I.shape());
-    std::swap(new_geo[1],new_geo[2]);
+    tipl::shape<ImageType::dimension> new_geo(I.shape().swap_dim(1,2));
 
     for(size_t v = 0; v < sz; v += volume_size)
     for(size_t x = 0; x < w; ++x)
