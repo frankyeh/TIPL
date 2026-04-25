@@ -216,7 +216,7 @@ public:
             if(name == "space origin")
                 read_v3(in2,T[3],T[7],T[11]);
             if(name == "sizes")
-                in2 >> size[0] >> size[1] >> size[2] >> dim4;
+                in2 >> size >> dim4;
             if(name == "data file")
             {
                 in2 >> data_file;
