@@ -670,7 +670,7 @@ public:
     template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
     bool read_pointer(const std::string& name,T& data) const
     {
-        auto ptr = read_as_type<typename std::remove_reference<decltype(*data.begin())>::type>(name);
+        auto ptr = read_as_type<typename std::decay<decltype(*data.begin())>::type>(name);
         return ptr ? (data = ptr,true) : false;
     }
     template<typename T>
