@@ -733,14 +733,8 @@ public:
     template<typename dim_type>
     bool get_dimension(dim_type& dim) const
     {
-        const float* dim_ptr = nullptr;
-        unsigned int r,c;
-        read("dimension",r,c,dim_ptr);
-        if(!dim_ptr || r*c != 3)
-            return false;
-        for(unsigned int i = 0;i < 3;++i)
-            dim.set_dim(i,dim_ptr[i]);
-        return true;
+        auto ptr = read_as_type<unsigned int>("dimension");
+        return ptr ? (dim = ptr,true) : false;
     }
     template<typename vec_type>
     bool get_voxel_size(vec_type& vs) const
