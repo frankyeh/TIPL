@@ -739,7 +739,7 @@ public:
         if(!dim_ptr || r*c != 3)
             return false;
         for(unsigned int i = 0;i < 3;++i)
-            dim[i] = dim_ptr[i];
+            dim.set_dim(i,dim_ptr[i]);
         return true;
     }
     template<typename vec_type>
