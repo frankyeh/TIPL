@@ -56,7 +56,7 @@ struct mm_reg{
     bool It_is_mni = true;
     bool Is_is_mni = false;
     bool export_intermediate = false;
-    bool use_cuda = true;
+    bool use_cuda = tipl::use_cuda;
     bool mm_linear = false;
     bool skip_linear = false;
     bool skip_nonlinear = false;
