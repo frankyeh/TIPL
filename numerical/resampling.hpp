@@ -386,7 +386,7 @@ void upsampling(const ImageType1& in,ImageType2& out)
     shape<ImageType1::dimension> geo(in.shape());
     shape<ImageType1::dimension> new_geo(in.shape());
     for(int dim = 0;dim < ImageType1::dimension;++dim)
-        new_geo[dim].set_dim(dim,new_geo[dim]<<1);
+        new_geo.set_dim(dim,new_geo[dim]<<1);
     out.resize(new_geo);
     typename ImageType2::iterator end_iter =
             upsampling_x(in.begin(),in.begin()+geo.size(),out.begin(),geo.width());
@@ -405,7 +405,7 @@ void upsampling_nearest(const ImageType1& in,ImageType2& out)
     shape<ImageType1::dimension> geo(in.shape());
     shape<ImageType1::dimension> new_geo(in.shape());
     for(int dim = 0;dim < ImageType1::dimension;++dim)
-        new_geo[dim] <<= 1;
+        new_geo.set_dim(dim,new_geo[dim]<<1);
     out.resize(new_geo);
     typename ImageType2::iterator end_iter =
             upsampling_x_nearest(in.begin(),in.begin()+geo.size(),out.begin(),geo.width());
