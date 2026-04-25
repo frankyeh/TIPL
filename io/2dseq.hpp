@@ -200,13 +200,11 @@ public:
         // get image dimension
         if(!no_visu)
         {
-            unsigned int d0,d1,d2;
-            std::istringstream(visu["VisuCoreSize"]) >> d0 >> d1 >> d2;
+            std::istringstream(visu["VisuCoreSize"]) >> dim;
             std::istringstream(visu["VisuCoreOrientation"])
                 >> orientation[0] >> orientation[1] >> orientation[2]
                 >> orientation[3] >> orientation[4] >> orientation[5]
                 >> orientation[6] >> orientation[7] >> orientation[8];
-            dim = {d0,d1,d2};
         }
         // get image slope
         {
