@@ -459,6 +459,15 @@ public:
         return std::copy_n(rhs, total_size, data_),*this;
     }
 
+    affine_param(const std::vector<value_type>& rhs)
+    {
+        std::copy_n(rhs.data(), total_size, data_);
+    }
+    const affine_param& operator=(const std::vector<value_type> rhs)
+    {
+        return std::copy_n(rhs.data(), total_size, data_),*this;
+    }
+
     affine_param& operator=(std::initializer_list<value_type> rhs)
     {
         size_t i = 0;
