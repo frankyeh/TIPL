@@ -560,12 +560,12 @@ __INLINE__ void downsampling(const ImageType1& in,ImageType2& out)
     out.resize(in.shape());
     shape<ImageType1::dimension> new_geo(in.shape());
     typename ImageType2::iterator end_iter = downsampling_x(in.begin(),in.end(),out.begin(),in.width());
-    new_geo[0] >>= 1;
+    new_geo.set_dim(0,new_geo[0]>>1);
     size_t plane_size = new_geo[0];
     for(int dim = 1;dim < ImageType1::dimension;++dim)
     {
         end_iter = downsampling_y(out.begin(),end_iter,out.begin(),plane_size,in.shape()[dim]);
-        new_geo[dim] = (in.shape()[dim] >> 1);
+        new_geo.set_dim(dim,in.shape()[dim] >> 1);
         plane_size *= new_geo[dim];
     }
     out.resize(new_geo);
