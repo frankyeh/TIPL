@@ -927,7 +927,7 @@ void upsample_label(const T& in, T& out)
     shape<T::dimension> geo(in.shape());
     shape<T::dimension> new_geo(in.shape());
     for(int dim = 0; dim < T::dimension; ++dim)
-        new_geo[dim] <<= 1;
+        new_geo.set_dim(dim,new_geo[dim]<<1);
     out.resize(new_geo);
 
     auto end_iter = upsampling_label_x(in.begin(), in.begin() + geo.size(), out.begin(), geo.width());
