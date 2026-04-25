@@ -17,6 +17,16 @@ class shape
 public:
     static constexpr int dimension = d_;
     unsigned int dim[dimension];
+private:
+    size_t precomputed_size = 0;
+    size_t precomputed_plane_size = 0;
+    __INLINE__ void update(void)
+    {
+        precomputed_size = dim[0];
+        for(int index = 1;index < dimension;++index)
+            precomputed_size *= size_t(dim[index]);
+        precomputed_plane_size = size_t(dim[0]) * size_t(dim[1]);
+    }
 public:
     __INLINE__ shape(void)
     {
@@ -25,10 +35,7 @@ public:
     template<typename T,typename U,typename V,typename W>
     __INLINE__ shape(T x,U y,V z,W t)
     {
-        dim[0] = uint32_t(x);
-        dim[1] = uint32_t(y);
-        dim[2] = uint32_t(z);
-        dim[3] = uint32_t(t);
+        dim[0] = uint32_t(x),dim[1] = uint32_t(y),dim[2] = uint32_t(z),dim[3] = uint32_t(t),update();
     }
     template<typename pointer_type>
     __INLINE__ explicit shape(const pointer_type* rhs)
@@ -38,28 +45,33 @@ public:
     template<typename pointer_type>
     __INLINE__ const shape<dimension>& operator=(const pointer_type* rhs)
     {
-        std::copy_n(rhs,dimension,dim);
-        return *this;
+        return std::copy_n(rhs,dimension,dim),update(),*this;
     }
 public:
     __INLINE__ size_t size(void) const
     {
-        size_t prod = dim[0];
-        for (int index = 1;index < dimension;++index)
-            prod *= size_t(dim[index]);
-        return prod;
+        return precomputed_size;
     }
     __INLINE__ size_t plane_size(void) const
     {
-        return size_t(dim[0])*size_t(dim[1]);
+        return precomputed_plane_size;
     }
     __INLINE__ void clear(void)
     {
-        std::fill_n(dim,dimension,0);
+        std::fill_n(dim,dimension,0),precomputed_size = 0,precomputed_plane_size = 0;
     }
     __INLINE__ void swap(shape<dimension>& rhs) noexcept
     {
-        std::swap_ranges(dim,dim+dimension,rhs.dim);
+        std::swap_ranges(dim,dim+dimension,rhs.dim),std::swap(precomputed_size,rhs.precomputed_size),std::swap(precomputed_plane_size,rhs.precomputed_plane_size);
+    }
+    __INLINE__ void set_dim(int index,unsigned int value)
+    {
+        dim[index] = value,update();
+    }
+    __INLINE__ shape swap_dim(int index1,int index2) const
+    {
+        shape new_shape = *this;
+        return std::swap(new_shape.dim[index1],new_shape.dim[index2]),new_shape.update(),new_shape;
     }
 public:
     __INLINE__ const unsigned int* data(void) const
@@ -84,18 +96,18 @@ public:
         shape new_shape = *this;
         for(unsigned int i = 0;i < dimension;++i)
             new_shape.dim[i] *= value;
-        return new_shape;
+        return new_shape.update(),new_shape;
     }
-    __INLINE__ unsigned int* begin(void)
+    __INLINE__ const unsigned int* begin(void)
     {
         return dim;
     }
-    __INLINE__ unsigned int* end(void)
+    __INLINE__ const unsigned int* end(void)
     {
         return dim+dimension;
     }
     template<typename index_type>
-    __INLINE__ unsigned int& operator[](index_type index)
+    __INLINE__ unsigned int operator[](index_type index) const
     {
         return dim[index];
     }
@@ -103,16 +115,16 @@ public:
     template<typename T>
     __INLINE__ bool is_valid(const T& pos) const
     {
-        for (int index = 0;index < dimension;++index)
-            if (pos[index] < 0 || pos[index] >= dim[index])
+        for(int index = 0;index < dimension;++index)
+            if(pos[index] < 0 || pos[index] >= dim[index])
                 return false;
         return true;
     }
     template<typename T>
     __INLINE__ bool is_edge(const T& pos) const
     {
-        for (int index = 0;index < dimension;++index)
-            if (pos[index] == 0 || pos[index]+1 == dim[index])
+        for(int index = 0;index < dimension;++index)
+            if(pos[index] == 0 || pos[index]+1 == dim[index])
                 return true;
         return false;
     }
@@ -132,8 +144,8 @@ public:
 public:
     __INLINE__ bool operator==(const shape<dimension>& rhs) const
     {
-        for (int index = 0;index < dimension;++index)
-            if (dim[index] != rhs.dim[index])
+        for(int index = 0;index < dimension;++index)
+            if(dim[index] != rhs.dim[index])
                 return false;
         return true;
     }
@@ -169,13 +181,12 @@ public:
     template<typename pointer_type>
     __INLINE__ explicit shape(const pointer_type* rhs)
     {
-        *this = rhs;
+        w = rhs[0];
     }
     template<typename pointer_type>
     __INLINE__ const shape<1>& operator=(const pointer_type* rhs)
     {
-        w = rhs[0];
-        return *this;
+        return w = rhs[0],*this;
     }
 public:
     __INLINE__ size_t size(void) const
@@ -190,6 +201,15 @@ public:
     {
         std::swap(w,rhs.w);
     }
+    __INLINE__ void set_dim(int index,unsigned int value)
+    {
+        dim[index] = value;
+    }
+    __INLINE__ shape swap_dim(int index1,int index2) const
+    {
+        shape new_shape = *this;
+        return std::swap(new_shape.dim[index1],new_shape.dim[index2]),new_shape;
+    }
 public:
     __INLINE__ const unsigned int* data(void) const
     {
@@ -203,20 +223,20 @@ public:
     {
         return dim+1;
     }
-    template<typename index_type>
-    __INLINE__ const unsigned int& operator[](index_type index) const
+    __INLINE__ unsigned int operator[](int index) const
     {
         return dim[index];
     }
-    __INLINE__ unsigned int* begin(void)
+    __INLINE__ const unsigned int* begin(void)
     {
         return dim;
     }
-    __INLINE__ unsigned int* end(void)
+    __INLINE__ const unsigned int* end(void)
     {
         return dim+1;
     }
-    __INLINE__ unsigned int& operator[](size_t index)
+    template<typename index_type>
+    __INLINE__ unsigned int operator[](index_type index) const
     {
         return dim[index];
     }
@@ -275,37 +295,55 @@ public:
         };
     };
     static constexpr int dimension = 2;
+private:
+    size_t precomputed_size = 0;
+    __INLINE__ void update(void)
+    {
+        precomputed_size = size_t(w) * h;
+    }
 public:
     __INLINE__ shape(void):w(0),h(0) {}
-    __INLINE__ shape(unsigned int w_,unsigned int h_):w(w_),h(h_) {}
+    __INLINE__ shape(unsigned int w_,unsigned int h_):w(w_),h(h_)
+    {
+        update();
+    }
     template<typename T>
-    __INLINE__ shape(std::initializer_list<T> arg):w(*arg.begin()),h(*(arg.begin()+1)){}
+    __INLINE__ shape(std::initializer_list<T> arg):w(*arg.begin()),h(*(arg.begin()+1))
+    {
+        update();
+    }
 
     template<typename pointer_type>
     __INLINE__ explicit shape(const pointer_type* rhs)
     {
-        *this = rhs;
+        w = rhs[0],h = rhs[1],update();
     }
     template<typename pointer_type>
     __INLINE__ const shape<2>& operator=(const pointer_type* rhs)
     {
-        w = rhs[0];
-        h = rhs[1];
-        return *this;
+        return w = rhs[0],h = rhs[1],update(),*this;
     }
 public:
     __INLINE__ size_t size(void) const
     {
-        return size_t(w)*size_t(h);
+        return precomputed_size;
     }
     __INLINE__ void clear(void)
     {
-        w = h = 0;
+        w = 0,h = 0,precomputed_size = 0;
     }
     __INLINE__ void swap(shape<2>& rhs)
     {
-        std::swap(w,rhs.w);
-        std::swap(h,rhs.h);
+        std::swap(w,rhs.w),std::swap(h,rhs.h),std::swap(precomputed_size,rhs.precomputed_size);
+    }
+    __INLINE__ void set_dim(int index,unsigned int value)
+    {
+        dim[index] = value,update();
+    }
+    __INLINE__ shape swap_dim(int index1,int index2) const
+    {
+        shape new_shape = *this;
+        return std::swap(new_shape.dim[index1],new_shape.dim[index2]),new_shape.update(),new_shape;
     }
 public:
     __INLINE__ const unsigned int* data(void) const
@@ -320,21 +358,20 @@ public:
     {
         return dim+2;
     }
-    template<typename index_type>
-    __INLINE__ const unsigned int& operator[](index_type index) const
+    __INLINE__ unsigned int operator[](int index) const
     {
         return dim[index];
     }
-    __INLINE__ unsigned int* begin(void)
+    __INLINE__ const unsigned int* begin(void)
     {
         return dim;
     }
-    __INLINE__ unsigned int* end(void)
+    __INLINE__ const unsigned int* end(void)
     {
         return dim+2;
     }
     template<typename index_type>
-    __INLINE__ unsigned int& operator[](index_type index)
+    __INLINE__ unsigned int operator[](index_type index) const
     {
         return dim[index];
     }
@@ -374,7 +411,7 @@ public:
     }
     __INLINE__ size_t plane_size(void) const
     {
-        return size();
+        return precomputed_size;
     }
     __INLINE__ auto expand(unsigned int t) const;
 public:
@@ -390,6 +427,10 @@ public:
     {
         out << int(dim[0]) << " " << int(dim[1]);
         return out;
+    }
+    friend std::istream& operator>>(std::istream& in,shape& rhs)
+    {
+        return in >> rhs.dim[0] >> rhs.dim[1],rhs.update(),in;
     }
 };
 
@@ -409,65 +450,83 @@ public:
     };
 public:
     static constexpr int dimension = 3;
+private:
+    size_t precomputed_size = 0;
+    size_t precomputed_plane_size = 0;
+    __INLINE__ void update(void)
+    {
+        precomputed_plane_size = size_t(w) * h;
+        precomputed_size = precomputed_plane_size * d;
+    }
 public:
-    __INLINE__ shape(void):w(0),h(0),d(0){}
+    __INLINE__ shape(void):w(0),h(0),d(0) {}
     template<typename T>
-    __INLINE__ shape(std::initializer_list<T> arg):w(*arg.begin()),h(*(arg.begin()+1)),d(*(arg.begin()+2)){}
-    __INLINE__ shape(unsigned int w_,unsigned int h_,unsigned int d_):w(w_),h(h_),d(d_){}
+    __INLINE__ shape(std::initializer_list<T> arg):w(*arg.begin()),h(*(arg.begin()+1)),d(*(arg.begin()+2))
+    {
+        update();
+    }
+    __INLINE__ shape(unsigned int w_,unsigned int h_,unsigned int d_):w(w_),h(h_),d(d_)
+    {
+        update();
+    }
 
     template<typename pointer_type>
     __INLINE__ explicit shape(const pointer_type* rhs)
     {
-        *this = rhs;
+        w = rhs[0],h = rhs[1],d = rhs[2],update();
     }
     template<typename pointer_type>
     __INLINE__ const shape& operator=(const pointer_type* rhs)
     {
-        w = rhs[0];
-        h = rhs[1];
-        d = rhs[2];
-        return *this;
+        return w = rhs[0],h = rhs[1],d = rhs[2],update(),*this;
     }
 public:
     __INLINE__ size_t size(void) const
     {
-        return size_t(w) * size_t(h) * size_t(d);
+        return precomputed_size;
+    }
+    __INLINE__ size_t plane_size(void) const
+    {
+        return precomputed_plane_size;
     }
     __INLINE__ void clear(void)
     {
-        w = h = d = 0;
+        w = 0,h = 0,d = 0,precomputed_size = 0,precomputed_plane_size = 0;
     }
     __INLINE__ void swap(shape<3>& rhs)
     {
-        std::swap(w,rhs.w);
-        std::swap(h,rhs.h);
-        std::swap(d,rhs.d);
+        std::swap(w,rhs.w),std::swap(h,rhs.h),std::swap(d,rhs.d),std::swap(precomputed_size,rhs.precomputed_size),std::swap(precomputed_plane_size,rhs.precomputed_plane_size);
+    }
+    __INLINE__ void set_dim(int index,unsigned int value)
+    {
+        dim[index] = value,update();
+    }
+    __INLINE__ shape swap_dim(int index1,int index2) const
+    {
+        shape new_shape = *this;
+        return std::swap(new_shape.dim[index1],new_shape.dim[index2]),new_shape.update(),new_shape;
     }
 public:
     enum axis_type {x=0,y=1,z=2};
     auto multiply(axis_type axis,unsigned int v) const
     {
         auto new_shape = *this;
-        new_shape.dim[axis] *= v;
-        return new_shape;
+        return new_shape.dim[axis] *= v,new_shape.update(),new_shape;
     }
     auto add(axis_type axis,unsigned int v) const
     {
         auto new_shape = *this;
-        new_shape.dim[axis] += v;
-        return new_shape;
+        return new_shape.dim[axis] += v,new_shape.update(),new_shape;
     }
     auto divide(axis_type axis,unsigned int v) const
     {
         auto new_shape = *this;
-        new_shape.dim[axis] /= v;
-        return new_shape;
+        return new_shape.dim[axis] /= v,new_shape.update(),new_shape;
     }
     auto minus(axis_type axis,unsigned int v) const
     {
         auto new_shape = *this;
-        new_shape.dim[axis] -= v;
-        return new_shape;
+        return new_shape.dim[axis] -= v,new_shape.update(),new_shape;
     }
 public:
     __INLINE__ const unsigned int* data(void) const
@@ -482,27 +541,27 @@ public:
     {
         return dim+3;
     }
-    template<typename index_type>
-    __INLINE__ const unsigned int& operator[](index_type index) const
+    __INLINE__ unsigned int operator[](int index) const
     {
         return dim[index];
     }
     template<typename rhs_type>
     __INLINE__ shape operator*(rhs_type value) const
     {
-        return shape(uint32_t(w*value),uint32_t(h*value),uint32_t(d*value));
+        shape new_shape(uint32_t(w * value),uint32_t(h * value),uint32_t(d * value));
+        return new_shape;
     }
 
-    __INLINE__ unsigned int* begin(void)
+    __INLINE__ const unsigned int* begin(void)
     {
         return dim;
     }
-    __INLINE__ unsigned int* end(void)
+    __INLINE__ const unsigned int* end(void)
     {
         return dim+3;
     }
     template<typename index_type>
-    __INLINE__ unsigned int& operator[](index_type index)
+    __INLINE__ unsigned int operator[](index_type index) const
     {
         return dim[index];
     }
@@ -550,10 +609,6 @@ public:
     {
         return d;
     }
-    __INLINE__ size_t plane_size(void) const
-    {
-        return size_t(w) * size_t(h);
-    }
 public:
     __INLINE__ bool operator==(const shape& rhs) const
     {
@@ -561,8 +616,8 @@ public:
     }
     __INLINE__ bool operator<(const shape& rhs) const
     {
-        if (dim[2] != rhs.dim[2]) return dim[2] < rhs.dim[2];
-        if (dim[1] != rhs.dim[1]) return dim[1] < rhs.dim[1];
+        if(dim[2] != rhs.dim[2]) return dim[2] < rhs.dim[2];
+        if(dim[1] != rhs.dim[1]) return dim[1] < rhs.dim[1];
         return dim[0] < rhs.dim[0];
     }
     __INLINE__ bool operator!=(const shape& rhs) const
@@ -574,7 +629,10 @@ public:
         out << dim[0] << " " << dim[1] << " " << dim[2];
         return out;
     }
-
+    friend std::istream& operator>>(std::istream& in,shape& rhs)
+    {
+        return in >> rhs.dim[0] >> rhs.dim[1] >> rhs.dim[2],rhs.update(),in;
+    }
 };
 
 __INLINE__ auto shape<2>::expand(unsigned int t) const
@@ -582,17 +640,14 @@ __INLINE__ auto shape<2>::expand(unsigned int t) const
     return shape<3>(w,h,t);
 }
 
-template<typename value_type>
-__INLINE__ tipl::shape<3> s(value_type x,value_type y,value_type z)
+__INLINE__ tipl::shape<3> s(unsigned int x,unsigned int y,unsigned int z)
 {
     return tipl::shape<3>(x,y,z);
 }
-template<typename value_type>
-__INLINE__ tipl::shape<2> s(value_type x,value_type y)
+__INLINE__ tipl::shape<2> s(unsigned int x,unsigned int y)
 {
     return tipl::shape<2>(x,y);
 }
-
 
 }
 #endif
