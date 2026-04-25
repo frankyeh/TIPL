@@ -279,7 +279,7 @@ struct linear_reg_param{
     tipl::reg::reg_type reg_type = affine;
     tipl::reg::cost_type cost_type = mutual_info;
     const float (*bound)[8] = reg_bound;
-    unsigned int search_count = 64;
+    unsigned int search_count = 16;
     bool cuda = tipl::use_cuda;
     bool absolute_bound = true;
     template<typename out_type>
@@ -310,7 +310,7 @@ public:
     transform_type arg_upper,arg_lower;
     transform_type& arg_min;
 public:
-    unsigned int count = 0,prog = 0,max_prog = 0,search_count = 64;
+    unsigned int count = 0,prog = 0,max_prog = 0,search_count = 16;
     double precision = 0.001;
     size_t max_iterations = 128;
     std::vector<reg_type> reg_list = {translocation,translocation_scaling,rigid_scaling,affine};
@@ -494,7 +494,9 @@ public:
                     {
                         tipl::optimization::line_search(
                         arg_min2.begin(),arg_min2.end(),
-                        cur_bound.first.begin(),cur_bound.second.begin(),fun,optimal_value2,cur_search_count,
+                        cur_bound.first.begin(),cur_bound.second.begin(),
+                        {0,0,0,1,1,1,1,1,1,1,1,1},
+                                    fun,optimal_value2,cur_search_count,
                                 [&](){return check_terminated();});
                         search_ended = true;
                     });
