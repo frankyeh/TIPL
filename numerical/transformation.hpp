@@ -448,22 +448,15 @@ public:
             data_[i++] = v;
         }
     }
-    affine_param(const value_type* data__)
+    template<typename pointer_type>
+    explicit affine_param(const pointer_type* rhs)
     {
-        std::copy_n(data__, total_size, data_);
+        std::copy_n(rhs, total_size, data_);
     }
-    template<typename rhs_type>
-    affine_param(const rhs_type& rhs){operator=(rhs);}
-
-    template<typename rhs_type>
-    affine_param& operator=(const rhs_type& rhs)
+    template<typename pointer_type>
+    const affine_param& operator=(const pointer_type* rhs)
     {
-        size_t i = 0;
-        for(const auto& v : rhs) {
-            if (i >= total_size) break;
-            data_[i++] = v;
-        }
-        return *this;
+        return std::copy_n(rhs, total_size, data_),*this;
     }
 
     affine_param& operator=(std::initializer_list<value_type> rhs)
