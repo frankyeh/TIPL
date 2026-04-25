@@ -1556,34 +1556,33 @@ public:
 
     void get_image_dimension(tipl::shape<2>& geo) const
     {
-        geo[0] = width();
-        geo[1] = height();
+        geo = {width(),height()};
     }
 
     void get_image_dimension(tipl::shape<3>& geo) const
     {
-        geo[0] = width();
-        geo[1] = height();
-        geo[2] = 1;
+        unsigned int g0 = width();
+        unsigned int g1 = height();
+        unsigned int g2 = 1;
 
         const char* mosaic = get_csa_data("NumberOfImagesInMosaic",0);
         if(mosaic)
-            geo[2] = std::stoi(mosaic);
+            g2 = std::stoi(mosaic);
         else
-            geo[2] = get_int(0x0019,0x100A);
-        if(geo[2])
+            g2 = get_int(0x0019,0x100A);
+        if(g2)
         {
-            geo[0] = int(width()/std::ceil(std::sqrt(geo[2])));
-            geo[1] = int(height()/std::ceil(std::sqrt(geo[2])));
+            g0 = int(width()/std::ceil(std::sqrt(g2)));
+            g1 = int(height()/std::ceil(std::sqrt(g2)));
         }
         else
         {
-            if(image_size && get_bit_count() && geo[0] && geo[1])
-                geo[2] = image_size/geo[0]/geo[1]/(get_bit_count()/8);
+            if(image_size && get_bit_count() && g0 && g1)
+                g2 = image_size/g0/g1/(get_bit_count()/8);
             else
-                geo[2] = 1;
+                g2 = 1;
         }
-
+        geo = {g0,g1,g2};
     }
 
 
@@ -1655,30 +1654,34 @@ public:
             return;
         tipl::shape<image_type::dimension> geo;
         get_image_dimension(geo);
+        unsigned int g0 = geo[0];
+        unsigned int g1 = geo[1];
+        unsigned int g2 = geo[2];
+
         if(is_mosaic)
         {
-            unsigned short slice_num = geo[2];
-            geo[2] = width()*height()/geo[0]/geo[1];
-            out.resize(geo);
+            unsigned short slice_num = g2;
+            g2 = width()*height()/g0/g1;
+            out.resize(tipl::shape<image_type::dimension>(g0,g1,g2));
             save_to_buffer(out.begin(),(unsigned int)out.size());
 
-            if(geo[2] == 1)// find mosaic pattern by numerical approach
+            if(g2 == 1)// find mosaic pattern by numerical approach
             {
                 unsigned int mfx = 0, mfy = 0;
                 // Approach 1: separator check with modulo safety
-                for(int y = 10, y_pos = 10*geo[0]; y < geo[1]; ++y, y_pos += geo[0])
+                for(int y = 10, y_pos = 10*g0; y < g1; ++y, y_pos += g0)
                 {
-                    int my = std::round((float)geo[1]/y);
-                    if(my >= 5 && my <= 10 && geo[1] % my == 0)
-                        if(std::accumulate(out.begin()+y_pos, out.begin()+y_pos+geo[0], 0) == 0) { mfy = my; break; }
+                    int my = std::round((float)g1/y);
+                    if(my >= 5 && my <= 10 && g1 % my == 0)
+                        if(std::accumulate(out.begin()+y_pos, out.begin()+y_pos+g0, 0) == 0) { mfy = my; break; }
                 }
-                for(int x = 10; x < geo[0]; ++x)
+                for(int x = 10; x < g0; ++x)
                 {
-                    int mx = std::round((float)geo[0]/x);
-                    if(mx >= 5 && mx <= 10 && geo[0] % mx == 0)
+                    int mx = std::round((float)g0/x);
+                    if(mx >= 5 && mx <= 10 && g0 % mx == 0)
                     {
                         int sum_y = 0;
-                        for(int i = x; i < out.size(); i += geo[0]) sum_y += out[i];
+                        for(int i = x; i < out.size(); i += g0) sum_y += out[i];
                         if(sum_y == 0) { mfx = mx; break; }
                     }
                 }
@@ -1691,20 +1694,20 @@ public:
                         if(length % m == 0) { m_target = m; return; }
                     m_target = 1; // Absolute fallback to avoid div by zero
                 };
-                find_valid_m(geo[0], mfx);
-                find_valid_m(geo[1], mfy);
+                find_valid_m(g0, mfx);
+                find_valid_m(g1, mfy);
 
-                geo[0] /= mfx;
-                geo[1] /= mfy;
+                g0 /= mfx;
+                g1 /= mfy;
                 slice_num = mfx * mfy;
             }
-            handle_mosaic(out.begin(),geo[0],geo[1],width(),height());
-            geo[2] = slice_num;
-            out.resize(geo);
+            handle_mosaic(out.begin(),g0,g1,width(),height());
+            g2 = slice_num;
+            out.resize(tipl::shape<image_type::dimension>(g0,g1,g2));
         }
         else
         {
-            out.resize(geo);
+            out.resize(tipl::shape<image_type::dimension>(g0,g1,g2));
             save_to_buffer(out.begin(),(unsigned int)out.size());
         }
     }
