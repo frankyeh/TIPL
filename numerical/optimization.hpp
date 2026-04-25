@@ -12,25 +12,6 @@ namespace tipl
 namespace optimization
 {
 
-template<typename image_type,typename iter_type1,typename function_type>
-void plot_fun_2d(
-                image_type& I,
-                iter_type1 x_beg,iter_type1 x_end,
-                iter_type1 x_upper,iter_type1 x_lower,
-                function_type&& fun,
-                unsigned int dim1,unsigned int dim2,unsigned int sample_frequency = 100)
-{
-    typedef typename std::iterator_traits<iter_type1>::value_type param_type;
-    I.resize(tipl::shape<2>(sample_frequency,sample_frequency));
-    size_t sz = I.size();
-    for(tipl::pixel_index<2> index(I.shape());index < sz;++index)
-    {
-        std::vector<param_type> x(x_beg,x_end);
-        x[dim1] = (x_upper[dim1]-x_lower[dim1])*index[0]/(float)sample_frequency+x_lower[dim1];
-        x[dim2] = (x_upper[dim2]-x_lower[dim2])*index[1]/(float)sample_frequency+x_lower[dim2];
-        I[index.index()] = fun(x.begin());
-    }
-}
 
 // calculate fun(x+ei)
 template<typename iter_type1,typename tol_type,typename iter_type2,typename function_type>
@@ -441,70 +422,6 @@ bool rand_search(value_type& x,value_type2 x_upper,value_type2 x_lower,
     }
     return false;
 }
-
-template<typename value_type,typename value_type2,typename value_type3,typename function_type>
-bool rand_search2(value_type& x,value_type2 x_upper,value_type2 x_lower,
-                         value_type3& fun_x,function_type&& fun)
-{
-    value_type new_x;
-    value_type new_fun_x(fun(new_x = std::min(std::max((x_upper-x_lower)*((float)std::rand()/(float)RAND_MAX) + x_lower,x_lower),x_upper)));
-    if (new_fun_x < fun_x)
-    {
-        fun_x = new_fun_x;
-        x = new_x;
-        return true;
-    }
-    return false;
-}
-
-template<typename value_type,typename value_type2,typename value_type3,typename function_type>
-void linear_search2(value_type& x,value_type2& x_upper,value_type2& x_lower,
-                         value_type3& fun_x,function_type&& fun,int count)
-{
-    value_type2 dis = (x_upper-x_lower)/count;
-    std::deque<value_type3> x_list;
-    std::deque<value_type3> value_list;
-    x_list.push_back(x);
-    value_list.push_back(fun_x);
-
-    value_type2 d = dis;
-    for(value_type new_x = x-dis;new_x > x_lower;new_x -= d,d *= 2.0)
-    {
-        x_list.push_front(new_x);
-        value_list.push_front(fun(new_x));
-    }
-    d = dis;
-    for(value_type new_x = x+dis;new_x < x_upper;new_x += d,d *= 2.0)
-    {
-        x_list.push_back(new_x);
-        value_list.push_back(fun(new_x));
-    }
-    unsigned int min_index = std::min_element(value_list.begin(),value_list.end())-value_list.begin();
-    x = x_list[min_index];
-    fun_x = value_list[min_index];
-    if(min_index+1 < x_list.size())
-        x_upper = x_list[min_index+1];
-    if(min_index > 0)
-        x_lower = x_list[min_index-1];
-}
-
-
-
-template<typename value_type,typename value_type2,typename value_type3,typename function_type>
-bool simulated_annealing(value_type& x,value_type2 x_upper,value_type2 x_lower,
-                         value_type3& fun_x,function_type&& fun,double T)
-{
-    value_type new_x;
-    value_type new_fun_x(fun(new_x = std::min(std::max((x_upper-x_lower)*((float)std::rand()/(float)RAND_MAX) + x_lower,x_lower),x_upper)));
-    if (new_fun_x < fun_x || std::rand() <= std::exp((fun_x-new_fun_x)/T)*(float)RAND_MAX)
-    {
-        fun_x = new_fun_x;
-        x = new_x;
-        return true;
-    }
-    return false;
-}
-
 
 template<typename eval_fun_type,typename value_type,typename termination_type,typename tol_type>
 void brent_method(eval_fun_type& f,value_type b/*max*/,value_type a/*min*/,value_type& arg_min,
