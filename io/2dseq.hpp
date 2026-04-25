@@ -200,11 +200,13 @@ public:
         // get image dimension
         if(!no_visu)
         {
-            std::istringstream(visu["VisuCoreSize"]) >> dim[0] >> dim[1] >> dim[2];
+            unsigned int d0,d1,d2;
+            std::istringstream(visu["VisuCoreSize"]) >> d0 >> d1 >> d2;
             std::istringstream(visu["VisuCoreOrientation"])
                 >> orientation[0] >> orientation[1] >> orientation[2]
                 >> orientation[3] >> orientation[4] >> orientation[5]
                 >> orientation[6] >> orientation[7] >> orientation[8];
+            dim = {d0,d1,d2};
         }
         // get image slope
         {
@@ -240,11 +242,7 @@ public:
                 vs[index] = fov_data[index]*10.0/size[index]; // in mm
 
             if(no_visu)
-            {
-                dim[0] = size[0];
-                dim[1] = size[1];
-                dim[2] = slopes.size();
-            }
+                dim = tipl::s(size[0],size[1],slopes.size());
         }
 
 
@@ -276,7 +274,7 @@ public:
         }
 
         // read 2dseq and convert to float
-        dim[2] = buffer.size()/word_size/dim[0]/dim[1];
+        dim = tipl::s(dim[0],dim[1],buffer.size()/word_size/dim[0]/dim[1]);
         data.resize(dim);
         if (info["RECO_wordtype"] == std::string("_8BIT_SGN_INT"))
             std::copy_n(buffer.begin(), data.size(), data.begin());
