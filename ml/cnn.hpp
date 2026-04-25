@@ -547,10 +547,13 @@ public:
         if(!in.open(file_name))
             return false;
         unsigned int i,j;
-        in.read((char*)&input[0],sizeof(input[0])*3);
-        in.read((char*)&output[0],sizeof(output[0])*3);
+        unsigned int in_dim[3],out_dim[3];
+        in.read((char*)in_dim,sizeof(in_dim[0])*3);
+        in.read((char*)out_dim,sizeof(out_dim[0])*3);
         in.read((char*)&i,4);
         in.read((char*)&j,4);
+        input = in_dim;
+        output = out_dim;
         data_label.resize(i);
         in.read((char*)&data_label[0],sizeof(label_type)*i);
         data.resize(i);
@@ -569,8 +572,8 @@ public:
             return false;
         unsigned int data_size = data.size();
         unsigned int data_dim = data[0].size();
-        out.write((const char*)&input[0],sizeof(input[0])*3);
-        out.write((const char*)&output[0],sizeof(output[0])*3);
+        out.write((const char*)input.data(),sizeof(input[0])*3);
+        out.write((const char*)output.data(),sizeof(output[0])*3);
         out.write((const char*)&data_size,sizeof(unsigned int));
         out.write((const char*)&data_dim,sizeof(unsigned int));
         out.write((const char*)&data_label[0],data_label.size());
