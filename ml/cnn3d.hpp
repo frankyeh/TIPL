@@ -100,8 +100,7 @@ public:
 
     void init_image(tipl::shape<3>& dim_) override {
         dim = dim_;
-        dim_[0] /= stride_; dim_[1] /= stride_; dim_[2] /= stride_;
-        out_dim = dim_;
+        out_dim = dim_ = tipl::s(dim_[0]/stride_,dim_[1]/stride_,dim_[2]/stride_);
         out_size = out_dim.size() * out_channels_;
     }
 
@@ -233,8 +232,7 @@ public:
 
     void init_image(tipl::shape<3>& dim_) override {
         dim = dim_;
-        dim_[0] *= stride_; dim_[1] *= stride_; dim_[2] *= stride_;
-        out_dim = dim_;
+        out_dim = dim_ = tipl::s(dim_[0]*stride_,dim_[1]*stride_,dim_[2]*stride_);
         out_size = out_dim.size() * out_channels_;
     }
 
