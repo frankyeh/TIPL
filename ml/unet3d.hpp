@@ -520,7 +520,7 @@ public:
             unet.reset(new unet3d<unet_version::standard>(features_down,features_up,kernel_size,param[0],param[1]));
         }
         tipl::shape<3> dim;
-        if(!in.read("dimension",dim) || !in.read("voxel_size",eval.model_vs))
+        if(!in.get_dimension(dim) || !in.get_voxel_size(eval.model_vs))
             return error_msg = "cannot read dimension and voxel size",false;
         unet->init_image(dim);
         unet->allocate_memory(memory);
