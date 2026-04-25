@@ -1657,8 +1657,7 @@ void iterate_cnn(
                 if(cur_layer.previous_layer == iterate_cnn_data::conv && cur_layer.dim.width() > out_dim.width())
                 {
                     new_layer = cur_layer;
-                    new_layer.dim[0] /= 2;
-                    new_layer.dim[1] /= 2;
+                    new_layer.dim = tipl::s(new_layer.dim[0]/2,new_layer.dim[1]/2);
                     new_layer.str += std::string("max_pooling2|");
                     new_layer.previous_layer = iterate_cnn_data::max_pooling;
                     int cost = cur_layer.dim.size()+layer_cost;
@@ -1678,7 +1677,7 @@ void iterate_cnn(
                     ++new_layer.num_conv;
                     //new_layer.dim[0] -= kernel-1;
                     //new_layer.dim[1] -= kernel-1;
-                    new_layer.dim[2] = width/2;
+                    new_layer.dim = new_layer.dim.divide(tipl::shape<3>::z,2);
                     new_layer.str += std::string("conv")+std::to_string(kernel)+",relu|";
                     new_layer.previous_layer = iterate_cnn_data::conv;
 
@@ -1690,9 +1689,7 @@ void iterate_cnn(
                 if(cur_layer.previous_layer != iterate_cnn_data::root)
                 {
                     new_layer = cur_layer;
-                    new_layer.dim[0] = 1;
-                    new_layer.dim[1] = 1;
-                    new_layer.dim[2] = width;
+                    new_layer.dim = tipl::s(1,1,width);
                     new_layer.str += std::string("full,relu|");
                     new_layer.previous_layer = iterate_cnn_data::fully;
                     int cost = cur_layer.dim.size()*new_layer.dim.size()+layer_cost;
