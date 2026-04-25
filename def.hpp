@@ -6,9 +6,12 @@ namespace tipl{
 
 #if defined(TIPL_USE_CUDA)
 constexpr bool use_cuda = true;
+inline bool has_gpu = true;
 #else
 constexpr bool use_cuda = false;
+inline bool has_gpu = false;
 #endif
+
 
 enum memory_location_type{
     CPU,
