@@ -667,6 +667,12 @@ public:
     {
         return read(name,data.begin(),data.end());
     }
+    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
+    bool read_pointer(const std::string& name,T& data) const
+    {
+        auto ptr = read_as_type<typename std::remove_reference<decltype(*data.begin())>::type>(name);
+        return ptr ? (data = ptr,true) : false;
+    }
     template<typename T>
     T read(const std::string& name) const
     {
@@ -719,7 +725,7 @@ public:
     bool save_to_image(image_type& image_data,const char* image_name) const
     {
         typename image_type::shape_type s;
-        if(!get_dimension(s))
+        if(!read_pointer("dimension",s))
             return false;
         image_data.resize(s);
         unsigned int r,c;
@@ -728,24 +734,6 @@ public:
         if(!buf || size_t(r)*size_t(c) != image_data.size())
             return false;
         std::copy_n(buf,image_data.size(),image_data.begin());
-        return true;
-    }
-    template<typename dim_type>
-    bool get_dimension(dim_type& dim) const
-    {
-        auto ptr = read_as_type<unsigned int>("dimension");
-        return ptr ? (dim = ptr,true) : false;
-    }
-    template<typename vec_type>
-    bool get_voxel_size(vec_type& vs) const
-    {
-        const float* vs_ptr = nullptr;
-        unsigned int r,c;
-        read("voxel_size",r,c,vs_ptr);
-        if(!vs_ptr || r*c != 3)
-            return false;
-        for(unsigned int i = 0;i < 3;++i)
-            vs[i] = vs_ptr[i];
         return true;
     }
     auto size(void) const
