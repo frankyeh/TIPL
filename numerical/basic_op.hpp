@@ -969,7 +969,7 @@ bool reorder_shift_index(const geo_type& geo,
     bool need_update = false;
     for (unsigned char index = 0; index < geo_type::dimension; ++index)
     {
-        new_geo[dim_order[index]] = geo[index];
+        new_geo.set_dim(dim_order[index],geo[index]);
         if (dim_order[index] != index) need_update = true;
     }
 
