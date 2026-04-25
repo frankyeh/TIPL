@@ -56,72 +56,6 @@ void gradient(const storage_type& x,const tol_storage_type& tol,value_type fun_x
     gradient(x.begin(),x.end(),tol.begin(),fun_x,fun_x_ei.begin(),g.begin());
 }
 
-template<typename iter_type1,typename tol_type,typename value_type,typename iter_type2,typename iter_type3,typename function_type>
-void hessian(iter_type1 x_beg,iter_type1 x_end,
-             tol_type tol,
-             value_type fun_x,
-             iter_type2 fun_x_ei,
-             iter_type3 h_iter,
-             function_type&& fun)
-{
-    typedef typename std::iterator_traits<iter_type1>::value_type param_type;
-    unsigned int size = x_end-x_beg;
-    tipl::par_for(size*size,[&](size_t index)
-    {
-        size_t i = index%size;
-        size_t j = index/size;
-        if(j < i)
-            return;
-        auto tol2 =  tol[i]*tol[j];
-        if(tol2 == 0)
-            h_iter[index] = (i == j ? 1.0:0.0);
-        else
-        {
-            std::vector<param_type> new_x(x_beg,x_end);
-            new_x[i] += tol[i];
-            new_x[j] += tol[j];
-            // h = fun(x+ei+ej)+fun(x)-fun(ei)-fun(ej)/tol(i)/tol(j);
-            h_iter[index] = (fun(new_x)-fun_x_ei[i]-fun_x_ei[j]+fun_x)/tol2;
-        }
-        if(j != i)
-            h_iter[i*size+j] = h_iter[index];
-    });
-}
-
-template<typename storage_type,typename tol_storage_type,typename value_type,typename storage_type2,typename storage_type3,typename function_type>
-void hessian(const storage_type& x,const tol_storage_type& tol,value_type fun_x,const storage_type2& fun_x_ei,storage_type3& h,function_type&& fun)
-{
-    hessian(x.begin(),x.end(),tol.begin(),fun_x,fun_x_ei.begin(),h.begin(),fun);
-}
-
-
-template<typename param_type,typename g_type,typename value_type,typename function_type>
-bool armijo_line_search_1d(param_type& x,
-                        param_type upper,param_type lower,
-                        g_type g,
-                        value_type& fun_x,
-                        function_type&& fun,double precision)
-{
-    bool has_new_x = false;
-    param_type old_x = x;
-    for(double step = 0.1;step <= 100.0;step *= 2)
-    {
-        param_type new_x = old_x;
-        new_x -= g*step;
-        new_x = std::min(std::max(new_x,lower),upper);
-        value_type new_fun_x = fun(new_x);
-        if(fun_x-new_fun_x > 0)
-        {
-            fun_x = new_fun_x;
-            x = new_x;
-            has_new_x = true;
-        }
-        else
-            break;
-    }
-    return has_new_x;
-}
-
 template<typename iter_type1,typename iter_type2,typename g_type,typename value_type,typename function_type>
 bool armijo_line_search(iter_type1 x_beg,iter_type1 x_end,
                         iter_type2 x_upper,iter_type2 x_lower,
@@ -169,159 +103,6 @@ double calculate_resolution(tol_type& tols,iter_type x_upper,iter_type x_lower,d
     return tipl::norm2(tols.begin(),tols.end());
 }
 
-template<typename iter_type1,typename function_type,typename terminated_class>
-void quasi_newtons_minimize(
-                iter_type1 x_beg,iter_type1 x_end,
-                iter_type1 x_upper,iter_type1 x_lower,
-                function_type&& fun,
-                double& fun_x,
-                terminated_class&& is_terminated,double precision = 0.001)
-{
-    typedef typename std::iterator_traits<iter_type1>::value_type param_type;
-    typedef double value_type;
-    const int line_search_count = 10;
-    unsigned int size = x_end-x_beg;
-    std::vector<param_type> tols(size);
-    double tol_length = calculate_resolution(tols,x_upper,x_lower,precision);
-    for(unsigned int iter = 0;iter < 500 && !is_terminated();++iter)
-    {
-        std::vector<value_type> fun_x_ei(size);
-        std::vector<param_type> g(size),h(size*size),p(size);
-        estimate_change(x_beg,x_end,tols.data(),fun_x_ei.data(),fun);
-        gradient(x_beg,x_end,tols.data(),fun_x,fun_x_ei.data(),g.data());
-        hessian(x_beg,x_end,tols.data(),fun_x,fun_x_ei.data(),h.data(),fun);
-
-        std::vector<unsigned int> pivot(size);
-        if(!tipl::mat::lu_decomposition(h.data(),pivot.data(),tipl::shape<2>(size,size)) ||
-           !tipl::mat::lu_solve(h.data(),pivot.data(),g.data(),p.data(),tipl::shape<2>(size,size)))
-            return;
-
-        std::vector<param_type> cost(line_search_count);
-        std::vector<std::vector<param_type> > new_xs(line_search_count);
-        {
-            float L = -0.005f;
-            for(int j = 0;j < line_search_count;++j,L *= 2.0f)
-            {
-                std::vector<param_type> new_x(x_beg,x_end);
-                tipl::vec::aypx(p.data(),p.data()+size,L,new_x.data());
-                for(size_t i = 0;i < new_x.size();++i)
-                    new_x[i] = std::min<param_type>(x_upper[i],std::max<param_type>(x_lower[i],new_x[i]));
-                new_xs[j].swap(new_x);
-            }
-        }
-
-        par_for(line_search_count,[&](unsigned int i)
-        {
-            cost[i] = fun(new_xs[i]);
-        });
-
-        size_t min_index = size_t(std::min_element(cost.begin(),cost.end())-cost.begin());
-        if(cost[min_index] >= fun_x)
-            return;
-        fun_x = cost[min_index];
-        std::copy(new_xs[min_index].begin(),new_xs[min_index].end(),x_beg);
-        if(tipl::vec::norm2(p.begin(),p.end()) < tol_length)
-            return;
-    }
-}
-
-template<typename param_type,typename function_type,typename value_type,typename terminated_class>
-void gradient_descent_1d(param_type& x,param_type upper,param_type lower,
-                     function_type&& fun,value_type& fun_x,terminated_class& terminated,double precision = 0.001)
-{
-    param_type tol = (upper-lower)*precision;
-    if(tol == 0)
-        return;
-    for(unsigned int iter = 0;iter < 1000 && !terminated;++iter)
-    {
-        param_type g = (fun(x+tol)-fun_x);
-        if(g == 0.0)
-            return;
-        g *= tol/std::fabs(g);
-        if(!armijo_line_search_1d(x,upper,lower,g,fun_x,fun,precision))
-            return;
-    }
-}
-
-template<typename iter_type1,typename iter_type2,typename function_type,typename teminated_class>
-void random_search(iter_type1 x_beg,iter_type1 x_end,
-                     iter_type2 x_upper,iter_type2 x_lower,
-                     function_type&& fun,
-                     double& optimal_value,
-                     teminated_class& terminated,
-                     int random_search_count)
-{
-    typedef typename std::iterator_traits<iter_type1>::value_type param_type;
-    std::default_random_engine gen;
-    std::uniform_int_distribution<int> un(0,x_end-x_beg-1);
-    tipl::par_for(std::thread::hardware_concurrency(),[&](int)
-    {
-        for(int j = 0;j < random_search_count && !terminated;)
-        {
-            int cur_dim = un(gen);
-            if(x_upper[cur_dim] == x_lower[cur_dim])
-                continue;
-            ++j;
-            float sd = std::max<float>(std::fabs(x_upper[cur_dim]-x_beg[cur_dim]),std::fabs(x_lower[cur_dim]-x_beg[cur_dim]))/2.0f;
-            std::normal_distribution<double> distribution(x_beg[cur_dim],sd);
-            std::vector<param_type> param(x_beg,x_end);
-            param[cur_dim] = distribution(gen);
-            double current_value = fun(param);
-            if(current_value < optimal_value)
-            {
-                optimal_value = current_value;
-                x_beg[cur_dim] = param[cur_dim];
-            }
-        }
-    });
-}
-
-template<typename iter_type1, typename iter_type2, typename function_type, typename teminated_class>
-void line_search(iter_type1 x_beg, iter_type1 x_end,
-                 iter_type2 x_upper, iter_type2 x_lower,
-                 function_type&& fun,
-                 double& optimal_value,
-                 int search_count,
-                 teminated_class&& is_terminated)
-{
-    typedef typename std::iterator_traits<iter_type1>::value_type param_type;
-    auto size = x_end - x_beg;
-
-    std::vector<float> shift;
-    shift.reserve(search_count);
-
-    std::mt19937 gen(0);
-    std::normal_distribution<float> dist(0.5f, 0.15f);
-
-    while(shift.size() < search_count)
-    {
-        float val = dist(gen);
-        if(val > 0.0f && val < 1.0f)
-            shift.push_back(val);
-    }
-
-    std::mutex m;
-    tipl::par_for(shift.size(), [&](int seg)
-    {
-        for(int cur_dim = 0; cur_dim < size && !is_terminated(); ++cur_dim)
-        {
-            if(x_upper[cur_dim] == x_lower[cur_dim])
-                continue;
-
-            std::vector<param_type> param(x_beg, x_end);
-            param[cur_dim] = (x_upper[cur_dim] - x_lower[cur_dim]) * shift[seg] + x_lower[cur_dim];
-            double current_value = fun(param);
-
-            std::lock_guard<std::mutex> lock(m);
-            if(current_value < optimal_value)
-            {
-                optimal_value = current_value;
-                std::copy(param.begin(), param.end(), x_beg);
-            }
-        }
-    });
-}
-
 
 template<typename iter_type1,typename iter_type2,typename function_type,typename terminated_class>
 void gradient_descent(
@@ -353,278 +134,221 @@ void gradient_descent(
     }
 }
 
-template<typename iter_type1,typename iter_type2,typename function_type,typename terminated_class>
-void conjugate_descent(
-                iter_type1 x_beg,iter_type1 x_end,
-                iter_type2 x_upper,iter_type2 x_lower,
-                function_type&& fun,
-                double& fun_x,
-                terminated_class& terminated,double precision = 0.001)
+template<typename iter_type1, typename iter_type2, typename function_type, typename teminated_class>
+void line_search(iter_type1 x_beg, iter_type1 x_end,
+                 iter_type2 x_upper, iter_type2 x_lower,
+                 const std::vector<int>& search_strategy, // 0 = Linear, 1 = Gaussian/Cubic
+                 function_type&& fun,
+                 double& optimal_value,
+                 int grid_samples,
+                 teminated_class&& is_terminated)
 {
     typedef typename std::iterator_traits<iter_type1>::value_type param_type;
-    typedef double value_type;
-    unsigned int size = x_end-x_beg;
-    std::vector<param_type> tols(size);
-    double tol_length = calculate_resolution(tols,x_upper,x_lower,precision);
+    auto size = x_end - x_beg;
+    const double ftol = 0.05;
+    const int search_count = 2;
+    std::vector<std::vector<param_type> > xi(size, std::vector<param_type>(size, 0.0));
+    for(unsigned int i = 0; i < size; ++i)
+        xi[i][i] = 1.0;
 
-    std::vector<param_type> g(size),d(size),y(size);
-    for(unsigned int iter = 0;iter < 1000 && !terminated;++iter)
+    std::vector<param_type> p(x_beg, x_end);
+    double fret = optimal_value;
+
+    for(int iter = 0; iter < search_count && !is_terminated(); ++iter)
     {
-        std::vector<value_type> fun_x_ei(size);
-        estimate_change(x_beg,x_end,tols.begin(),fun_x_ei.begin(),fun);
-        gradient(x_beg,x_end,tols.begin(),fun_x,fun_x_ei.begin(),g.begin());
-        if(iter == 0)
-            d = g;
-        else
+        double fp = fret;
+        std::vector<double> dim_steps(size, 0.0);
+
+        // =========================================================
+        // STAGE 1: Identify Active Dimensions and Calculate Bounds
+        // =========================================================
+        std::vector<int> active_dims;
+        std::vector<double> dim_cur_upper(size, 0.0);
+        std::vector<double> dim_cur_lower(size, 0.0);
+
+        for(unsigned int i = 0; i < size; ++i)
         {
-            tipl::minus(y.begin(),y.end(),g.begin());      // y = g_k-g_k_1
-            double dt_yk = tipl::vec::dot(d.begin(),d.end(),y.begin());
-            double y2 = tipl::vec::dot(y.begin(),y.end(),y.begin());
-            tipl::vec::axpy(y.begin(),y.end(),-2.0*y2/dt_yk,d.begin()); // y = yk-(2|y|^2/dt_yk)dk
-            double beta = tipl::vec::dot(y.begin(),y.end(),g.begin())/dt_yk;
-            tipl::multiply_constant(d.begin(),d.end(),-beta);
-            tipl::add(d,g);
-        }
-        y.swap(g);
-        g = d;
+            double bound_pos = 1e10, bound_neg = -1e10;
 
-        tipl::multiply(g,tols); // scale the unit to parameter unit
-        double length = tipl::norm2(g.begin(),g.end());
-        tipl::multiply_constant(g,tol_length/length);
-        if(!armijo_line_search(x_beg,x_end,x_upper,x_lower,g.begin(),fun_x,fun,precision))
-            return;
-    }
-}
-
-
-template<typename value_type,typename value_type2,typename value_type3,typename function_type>
-bool rand_search(value_type& x,value_type2 x_upper,value_type2 x_lower,
-                 value_type3& fun_x,function_type&& fun,double variance)
-{
-    value_type new_x(x);
-    {
-        float seed1 = (float)std::rand()+1.0;
-        float seed2 = (float)std::rand()+1.0;
-        seed1 /= (float)RAND_MAX+1.0;
-        seed2 /= (float)RAND_MAX+1.0;
-        seed1 *= 6.28318530718;
-        seed2 = std::sqrt(std::max<float>(0.0,-2.0*std::log(seed2)));
-        float r1 = seed2*std::cos(seed1);
-        new_x += (x_upper-x_lower)*r1/variance;
-        new_x = std::min(std::max(new_x,x_lower),x_upper);
-    }
-    value_type new_fun_x(fun(new_x));
-    if(new_fun_x < fun_x)
-    {
-        fun_x = new_fun_x;
-        x = new_x;
-        return true;
-    }
-    return false;
-}
-
-template<typename eval_fun_type,typename value_type,typename termination_type,typename tol_type>
-void brent_method(eval_fun_type& f,value_type b/*max*/,value_type a/*min*/,value_type& arg_min,
-                        termination_type& terminated,tol_type tol)
-{
-    const unsigned int max_iteration = 100;
-    value_type bx = arg_min;
-    std::map<value_type,value_type> record;
-    const value_type gold_ratio=0.3819660;
-    const value_type ZEPS=std::numeric_limits<double>::epsilon()*1.0e-3;
-    value_type d=0.0,e=0.0;
-    value_type etemp = f(bx);
-    value_type tol1,tol2,xm;
-
-    record[bx] = etemp;
-
-    std::pair<value_type,value_type> x(bx,etemp),w(bx,etemp),v(bx,etemp),u(0.0,0.0);
-
-    for (unsigned int iter=0;iter< max_iteration && !terminated;iter++)
-    {
-        xm=(a+b)/2.0;
-        tol2=2.0*(tol1=tol*std::abs(x.first)+ZEPS);
-        if (std::abs(x.first-xm) <= (tol2-0.5*(b-a)))
-            return;
-        if (std::abs(e) > tol1)
-        {
-            value_type r=(x.first-w.first)*(x.second-v.second);
-            value_type q=(x.first-v.first)*(x.second-w.second);
-            value_type p=(x.first-v.first)*q-(x.first-w.first)*r;
-            q=2.0*(q-r);
-            if (q > 0.0)
-                p = -p;
-            if (q < 0.0)
-                q = -q;
-            etemp=e;
-            e=d;
-            if (std::abs(p) >= std::abs(0.5*q*etemp) || p <= q*(a-x.first) || p >= q*(b-x.first))
-                d=gold_ratio*(e=(x.first >= xm ? a-x.first : b-x.first));
-            else
+            for(unsigned int j = 0; j < size; ++j)
             {
-                d=p/q;
-                u.first=x.first+d;
-                if (u.first-a < tol2 || b-u.first < tol2)
-                    d=(tol1 >= 0 ? xm-x.first:x.first-xm);
+                if(std::abs(xi[i][j]) > 1e-8 && x_upper[j] != x_lower[j])
+                {
+                    double step_to_upper = (x_upper[j] - p[j]) / xi[i][j];
+                    double step_to_lower = (x_lower[j] - p[j]) / xi[i][j];
+                    if (step_to_upper < step_to_lower) std::swap(step_to_upper, step_to_lower);
+                    bound_pos = std::min(bound_pos, step_to_upper);
+                    bound_neg = std::max(bound_neg, step_to_lower);
+                }
+            }
+
+            if (bound_pos < 0.0) bound_pos = 0.0;
+            if (bound_neg > 0.0) bound_neg = 0.0;
+            if (bound_pos > 1e9) bound_pos = 1.0;
+            if (bound_neg < -1e9) bound_neg = -1.0;
+
+            // Keep the search scale wide to explore effectively
+            double search_scale = 0.5 / (iter + 1.0);
+            double cur_upper = bound_pos * search_scale;
+            double cur_lower = bound_neg * search_scale;
+
+            if (cur_upper - cur_lower > 1e-8) {
+                active_dims.push_back(i);
+                dim_cur_upper[i] = cur_upper;
+                dim_cur_lower[i] = cur_lower;
             }
         }
-        else
-            d=gold_ratio*(e=(x.first >= xm ? a-x.first : b-x.first));
-        u.first=(std::abs(d) >= tol1 ? x.first + d : (x.first + ((d >= 0) ? tol1:-tol1)));
 
-        typename std::map<value_type,value_type>::const_iterator past_result = record.find(u.first);
-        if (past_result != record.end())
-            u.second=past_result->second;
-        else
+        // =========================================================
+        // STAGE 2: Massive Flattened Parallel Grid Evaluation
+        // =========================================================
+        int total_grid_tasks = active_dims.size() * grid_samples;
+
+        std::vector<double> all_sample_costs(size * grid_samples, fp);
+        std::vector<double> all_sample_steps(size * grid_samples, 0.0);
+
+        if (total_grid_tasks > 0)
         {
-            u.second=f(u.first);
-            record[u.first] = u.second;
+            tipl::par_for(total_grid_tasks, [&](int task_idx) {
+                if (is_terminated()) return;
+
+                int active_idx = task_idx / grid_samples;
+                int s = task_idx % grid_samples;
+                int i = active_dims[active_idx];
+                int linear_idx = i * grid_samples + s;
+
+                int strategy = (i < search_strategy.size()) ? search_strategy[i] : 0;
+                double cur_upper = dim_cur_upper[i];
+                double cur_lower = dim_cur_lower[i];
+                double trial_step = 0.0;
+
+                if (strategy == 0) {
+                    // Uniform Linear Grid
+                    double step_size = (cur_upper - cur_lower) / (grid_samples - 1);
+                    trial_step = cur_lower + s * step_size;
+                } else {
+                    // Gaussian/Cubic Grid (More points naturally gather near center now)
+                    double u = (double)(s - (grid_samples - 1) / 2.0) / ((grid_samples - 1) / 2.0);
+                    double v = u * u * u;
+                    trial_step = (v > 0.0) ? (v * cur_upper) : (v * -cur_lower);
+                }
+
+                all_sample_steps[linear_idx] = trial_step;
+
+                if (std::abs(trial_step) < 1e-8) {
+                    all_sample_costs[linear_idx] = fp;
+                } else {
+                    std::vector<param_type> temp = p;
+                    for(unsigned int j = 0; j < size; ++j) {
+                        temp[j] += trial_step * xi[i][j];
+                        if(x_upper[j] != x_lower[j])
+                            temp[j] = std::min<param_type>(x_upper[j], std::max<param_type>(x_lower[j], temp[j]));
+                    }
+                    all_sample_costs[linear_idx] = fun(temp);
+                }
+            });
         }
-        if (u.second <= x.second)
+
+        // =========================================================
+        // STAGE 3: Select Best Points (No Brent's Method)
+        // =========================================================
+        for (int active_idx = 0; active_idx < active_dims.size(); ++active_idx)
         {
-            if (u.first >= x.first)
-                a=x.first;
-            else
-                b=x.first;
-            v = w;
-            w = x;
-            x = u;
-        }
-        else
-        {
-            if (u.first < x.first)
-                a=u.first;
-            else
-                b=u.first;
-            if (u.second <= w.second || w.first == x.first)
-            {
-                v = w;
-                w = u;
+            int i = active_dims[active_idx];
+            double best_f = fp;
+            int s_min = (grid_samples - 1) / 2; // Default to 0.0 step
+
+            for (int s = 0; s < grid_samples; ++s) {
+                int linear_idx = i * grid_samples + s;
+                if (all_sample_costs[linear_idx] < best_f) {
+                    best_f = all_sample_costs[linear_idx];
+                    s_min = s;
+                }
             }
-            else
-                if (u.second <= v.second || v.first == x.first || v.first == w.first)
-                    v = u;
+            // Directly assign the best raw grid step
+            dim_steps[i] = all_sample_steps[i * grid_samples + s_min];
         }
-        arg_min = x.first;
 
-    }
-}
+        // =========================================================
+        // STAGE 4: Resultant Vector Search (Also Grid-Only)
+        // =========================================================
+        std::vector<param_type> new_dir(size, 0.0);
+        bool has_movement = false;
+        for(unsigned int i = 0; i < size; ++i) {
+            if (std::abs(dim_steps[i]) > 1e-8) has_movement = true;
+            for(unsigned int j = 0; j < size; ++j) {
+                new_dir[j] += dim_steps[i] * xi[i][j];
+            }
+        }
 
-struct brent_method_object{
-    template<typename eval_fun_type,typename value_type,typename termination_type>
-    void operator()(eval_fun_type& f,value_type b/*max*/,value_type a/*min*/,value_type& arg_min,
-                            termination_type& terminated,value_type tol)
-    {
-        brent_method(f,b,a,arg_min,terminated,tol);
-    }
-};
-
-
-
-
-template<typename value_type,typename eval_fun_type,typename termination_type>
-value_type enhanced_brent(eval_fun_type& f,value_type cur_max,value_type cur_min,value_type& out_arg_min,
-                          termination_type& terminated,value_type tol)
-{
-    const unsigned int max_iteration = 100;
-    value_type arg_min = out_arg_min;
-    if(arg_min < cur_min || arg_min > cur_max)
-        arg_min = (cur_min+cur_max)/2.0;
-    for(unsigned int iter = 0;iter < max_iteration && !terminated;++iter)
-    {
-        std::deque<value_type> values;
-        std::deque<value_type> params;
-        value_type interval = (cur_max-cur_min)/10.0;
-        for(value_type x = arg_min;x > cur_min;x -= interval)
+        if(has_movement)
         {
-            values.push_front(f(x));
-            params.push_front(x);
-        }
-        for(value_type x = arg_min+interval;x < cur_max;x += interval)
-        {
-            values.push_back(f(x));
-            params.push_back(x);
-        }
-        values.push_front(f(cur_min));
-        params.push_front(cur_min);
-        values.push_back(f(cur_max));
-        params.push_back(cur_max);
-        std::vector<unsigned char> greater(values.size()-1);
-        for(int i=0;i < greater.size();++i)
-            greater[i] = values[i] > values[i+1];
-        unsigned char change_sign = 0;
-        for(int i=1;i < greater.size();++i)
-            if(greater[i-1] != greater[i])
-                change_sign++;
+            double bound_pos = 1e10, bound_neg = -1e10;
+            for(unsigned int j = 0; j < size; ++j) {
+                if(std::abs(new_dir[j]) > 1e-8 && x_upper[j] != x_lower[j]) {
+                    double step_to_upper = (x_upper[j] - p[j]) / new_dir[j];
+                    double step_to_lower = (x_lower[j] - p[j]) / new_dir[j];
+                    if (step_to_upper < step_to_lower) std::swap(step_to_upper, step_to_lower);
+                    bound_pos = std::min(bound_pos, step_to_upper);
+                    bound_neg = std::max(bound_neg, step_to_lower);
+                }
+            }
 
-        int min_index = std::min_element(values.begin(),values.end())-values.begin();
+            if (bound_pos < 0.0) bound_pos = 0.0;
+            if (bound_neg > 0.0) bound_neg = 0.0;
+            if (bound_pos > 1e9) bound_pos = 1.0;
+            if (bound_neg < -1e9) bound_neg = -1.0;
 
-        cur_min = params[std::max<int>(0,min_index-2)];
-        cur_max = params[std::min<int>(params.size()-1,min_index+2)];
-        arg_min = params[min_index];
-        if(change_sign <= 2) // monotonic or u-shape then use brent method
+            double step_size = (bound_pos - bound_neg) / (grid_samples - 1);
+
+            if (step_size > 1e-8) {
+                std::vector<double> res_sample_costs(grid_samples, fp);
+                std::vector<double> res_sample_steps(grid_samples, 0.0);
+
+                tipl::par_for(grid_samples, [&](int s) {
+                    if (is_terminated()) return;
+                    double trial_step = bound_neg + s * step_size;
+                    res_sample_steps[s] = trial_step;
+
+                    if(std::abs(trial_step) > 1e-8) {
+                        std::vector<param_type> temp = p;
+                        for(unsigned int j = 0; j < size; ++j) {
+                            temp[j] += trial_step * new_dir[j];
+                            if(x_upper[j] != x_lower[j])
+                                temp[j] = std::min<param_type>(x_upper[j], std::max<param_type>(x_lower[j], temp[j]));
+                        }
+                        res_sample_costs[s] = fun(temp);
+                    }
+                });
+
+                double best_f = fp;
+                int s_min = (grid_samples - 1) / 2;
+
+                for (int s = 0; s < grid_samples; ++s) {
+                    if (res_sample_costs[s] < best_f) {
+                        best_f = res_sample_costs[s];
+                        s_min = s;
+                    }
+                }
+
+                double step_min = res_sample_steps[s_min];
+                fret = best_f;
+
+                // Apply the final chosen grid step
+                for(unsigned int j = 0; j < size; ++j) {
+                    p[j] += step_min * new_dir[j];
+                    if(x_upper[j] != x_lower[j])
+                        p[j] = std::min<param_type>(x_upper[j], std::max<param_type>(x_lower[j], p[j]));
+                }
+            }
+        }
+
+        if(2.0 * (fp - fret) <= ftol * (std::abs(fp) + std::abs(fret)) + 1e-10)
             break;
     }
 
-    brent_method(f,cur_max,cur_min,arg_min,terminated,tol);
-    out_arg_min = arg_min;
-}
-struct enhanced_brent_object{
-    template<typename value_type,typename eval_fun_type,typename termination_type>
-    void operator()(eval_fun_type& f,value_type cur_max,value_type cur_min,value_type& out_arg_min,
-                              termination_type& terminated,value_type tol)
-    {
-        enhanced_brent(f,cur_max,cur_min,out_arg_min,terminated,tol);
-    }
-};
-
-
-template<typename eval_fun_type,typename param_type>
-struct powell_fasade
-{
-    eval_fun_type& eval_fun;
-    param_type& param;
-    unsigned int current_dim;
-public:
-    powell_fasade(eval_fun_type& eval_fun_,param_type& param_,unsigned int current_dim_):
-            eval_fun(eval_fun_),param(param_),current_dim(current_dim_) {}
-
-    template<typename input_param_type>
-    float operator()(input_param_type next_param)
-    {
-        param_type temp(param);
-        temp[current_dim] = next_param;
-        return eval_fun(temp);
-    }
-};
-
-template<typename optimization_method,typename eval_fun_type,typename param_type,typename teminated_class>
-void powell_method(optimization_method optimize,
-                         eval_fun_type& fun,
-                         param_type& upper,param_type& lower,param_type& arg_min,
-                         teminated_class& terminated,float tol = 0.01)
-{
-    // estimate the acceptable error level
-    const unsigned int max_iteration = 100;
-    std::vector<class param_type::value_type> eplson(arg_min.size());
-    for (unsigned int j = 0; j < arg_min.size();++j)
-        eplson[j] = tol*0.05*std::fabs(upper[j] - lower[j]);
-
-    bool improved = true;
-    for (unsigned int i = 0; i < max_iteration && improved && !terminated;++i)
-    {
-        improved = false;
-        for (unsigned int j = 0; j < arg_min.size() && !terminated;++j)
-        {
-            if (lower[j] >= upper[j])
-                continue;
-            powell_fasade<eval_fun_type,param_type> search_fun(fun,arg_min,j);
-            typename param_type::value_type old_value = arg_min[j];
-            optimize(search_fun,upper[j],lower[j],arg_min[j],terminated,tol);
-            if (!improved && std::abs(arg_min[j] - old_value) > eplson[j])
-                improved = true;
-        }
-    }
+    std::copy(p.begin(), p.end(), x_beg);
+    optimal_value = fret;
 }
 
 /*
