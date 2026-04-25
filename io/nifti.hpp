@@ -790,7 +790,7 @@ public:
     template<int d>
     void get_image_dimension(shape<d>& geo) const
     {
-        std::copy_n(nif_header.dim+1,d,geo.begin());
+        geo = nif_header.dim+1;
     }
     template<int dimension>
     shape<dimension> get_image_dimension(void) const
