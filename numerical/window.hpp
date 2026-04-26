@@ -75,12 +75,14 @@ __INLINE__ void iterate_xyz(const ImageType& I,int64_t index,
 template<int width,typename ImageType,typename IteratorType>
 __INLINE__ int get_window_at_width(const pixel_index<2>& index,const ImageType& I,IteratorType iter)
 {
-    const int cx = index.x();
-    const int cy = index.y();
-    int x_upper = std::min<int>(I.width() - cx - 1, width);
-    int y_upper = std::min<int>(I.height() - cy - 1, width);
-    int x_lower = std::min<int>(cx, width);
-    int y_lower = std::min<int>(cy, width);
+    int x_upper = I.width()-index.x()-1;
+    int y_upper = I.height()-index.y()-1;
+    int x_lower = index.x();
+    int y_lower = index.y();
+    if(x_upper > width)        x_upper = width;
+    if(y_upper > width)        y_upper = width;
+    if(x_lower > width)        x_lower = width;
+    if(y_lower > width)        y_lower = width;
     int size = 0;
     iterate_xy(I, index.index(), x_upper, x_lower, y_upper, y_lower, iter, size);
     return size;
@@ -90,15 +92,18 @@ __INLINE__ int get_window_at_width(const pixel_index<2>& index,const ImageType& 
 template<int width,typename ImageType,typename IteratorType>
 __INLINE__ int get_window_at_width(const pixel_index<3>& index,const ImageType& I,IteratorType iter)
 {
-    const int cx = index.x();
-    const int cy = index.y();
-    const int cz = index.z();
-    int x_upper = std::min<int>(I.width() - cx - 1, width);
-    int y_upper = std::min<int>(I.height() - cy - 1, width);
-    int z_upper = std::min<int>(I.depth() - cz - 1, width);
-    int x_lower = std::min<int>(cx, width);
-    int y_lower = std::min<int>(cy, width);
-    int z_lower = std::min<int>(cz, width);
+    int x_upper = I.width()-index.x()-1;
+    int y_upper = I.height()-index.y()-1;
+    int z_upper = I.depth()-index.z()-1;
+    int x_lower = index.x();
+    int y_lower = index.y();
+    int z_lower = index.z();
+    if(x_upper > width)        x_upper = width;
+    if(y_upper > width)        y_upper = width;
+    if(z_upper > width)        z_upper = width;
+    if(x_lower > width)        x_lower = width;
+    if(y_lower > width)        y_lower = width;
+    if(z_lower > width)        z_lower = width;
     int size = 0;
     iterate_xyz(I, index.index(), x_upper, x_lower, y_upper, y_lower, z_upper, z_lower, iter, size);
     return size;
