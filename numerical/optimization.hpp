@@ -169,11 +169,13 @@ void line_search(iter_type1 x_beg, iter_type1 x_end,
         for(unsigned int i = 0; i < size; ++i)
         {
             double bound_pos = 1e10, bound_neg = -1e10;
+            bool is_movable = false;
 
             for(unsigned int j = 0; j < size; ++j)
             {
                 if(std::abs(xi[i][j]) > 1e-8 && x_upper[j] != x_lower[j])
                 {
+                    is_movable = true;
                     double step_to_upper = (x_upper[j] - p[j]) / xi[i][j];
                     double step_to_lower = (x_lower[j] - p[j]) / xi[i][j];
                     if (step_to_upper < step_to_lower) std::swap(step_to_upper, step_to_lower);
@@ -182,12 +184,14 @@ void line_search(iter_type1 x_beg, iter_type1 x_end,
                 }
             }
 
+            // Skip entirely if this direction has zero mobility
+            if (!is_movable) continue;
+
             if (bound_pos < 0.0) bound_pos = 0.0;
             if (bound_neg > 0.0) bound_neg = 0.0;
             if (bound_pos > 1e9) bound_pos = 1.0;
             if (bound_neg < -1e9) bound_neg = -1.0;
 
-            // Keep the search scale wide to explore effectively
             double search_scale = 0.5 / (iter + 1.0);
             double cur_upper = bound_pos * search_scale;
             double cur_lower = bound_neg * search_scale;
@@ -223,11 +227,9 @@ void line_search(iter_type1 x_beg, iter_type1 x_end,
                 double trial_step = 0.0;
 
                 if (strategy == 0) {
-                    // Uniform Linear Grid
                     double step_size = (cur_upper - cur_lower) / (grid_samples - 1);
                     trial_step = cur_lower + s * step_size;
                 } else {
-                    // Gaussian/Cubic Grid (More points naturally gather near center now)
                     double u = (double)(s - (grid_samples - 1) / 2.0) / ((grid_samples - 1) / 2.0);
                     double v = u * u * u;
                     trial_step = (v > 0.0) ? (v * cur_upper) : (v * -cur_lower);
@@ -240,9 +242,7 @@ void line_search(iter_type1 x_beg, iter_type1 x_end,
                 } else {
                     std::vector<param_type> temp = p;
                     for(unsigned int j = 0; j < size; ++j) {
-                        temp[j] += trial_step * xi[i][j];
-                        if(x_upper[j] != x_lower[j])
-                            temp[j] = std::min<param_type>(x_upper[j], std::max<param_type>(x_lower[j], temp[j]));
+                        temp[j] = std::min<param_type>(x_upper[j], std::max<param_type>(x_lower[j], p[j] + trial_step * xi[i][j]));
                     }
                     all_sample_costs[linear_idx] = fun(temp);
                 }
@@ -250,13 +250,13 @@ void line_search(iter_type1 x_beg, iter_type1 x_end,
         }
 
         // =========================================================
-        // STAGE 3: Select Best Points (No Brent's Method)
+        // STAGE 3: Select Best Points
         // =========================================================
         for (int active_idx = 0; active_idx < active_dims.size(); ++active_idx)
         {
             int i = active_dims[active_idx];
             double best_f = fp;
-            int s_min = (grid_samples - 1) / 2; // Default to 0.0 step
+            int s_min = (grid_samples - 1) / 2;
 
             for (int s = 0; s < grid_samples; ++s) {
                 int linear_idx = i * grid_samples + s;
@@ -265,12 +265,11 @@ void line_search(iter_type1 x_beg, iter_type1 x_end,
                     s_min = s;
                 }
             }
-            // Directly assign the best raw grid step
             dim_steps[i] = all_sample_steps[i * grid_samples + s_min];
         }
 
         // =========================================================
-        // STAGE 4: Resultant Vector Search (Also Grid-Only)
+        // STAGE 4: Resultant Vector Search
         // =========================================================
         std::vector<param_type> new_dir(size, 0.0);
         bool has_movement = false;
@@ -284,8 +283,11 @@ void line_search(iter_type1 x_beg, iter_type1 x_end,
         if(has_movement)
         {
             double bound_pos = 1e10, bound_neg = -1e10;
+            bool is_movable = false;
+
             for(unsigned int j = 0; j < size; ++j) {
                 if(std::abs(new_dir[j]) > 1e-8 && x_upper[j] != x_lower[j]) {
+                    is_movable = true;
                     double step_to_upper = (x_upper[j] - p[j]) / new_dir[j];
                     double step_to_lower = (x_lower[j] - p[j]) / new_dir[j];
                     if (step_to_upper < step_to_lower) std::swap(step_to_upper, step_to_lower);
@@ -294,51 +296,49 @@ void line_search(iter_type1 x_beg, iter_type1 x_end,
                 }
             }
 
-            if (bound_pos < 0.0) bound_pos = 0.0;
-            if (bound_neg > 0.0) bound_neg = 0.0;
-            if (bound_pos > 1e9) bound_pos = 1.0;
-            if (bound_neg < -1e9) bound_neg = -1.0;
+            if (is_movable)
+            {
+                if (bound_pos < 0.0) bound_pos = 0.0;
+                if (bound_neg > 0.0) bound_neg = 0.0;
+                if (bound_pos > 1e9) bound_pos = 1.0;
+                if (bound_neg < -1e9) bound_neg = -1.0;
 
-            double step_size = (bound_pos - bound_neg) / (grid_samples - 1);
+                double step_size = (bound_pos - bound_neg) / (grid_samples - 1);
 
-            if (step_size > 1e-8) {
-                std::vector<double> res_sample_costs(grid_samples, fp);
-                std::vector<double> res_sample_steps(grid_samples, 0.0);
+                if (step_size > 1e-8) {
+                    std::vector<double> res_sample_costs(grid_samples, fp);
+                    std::vector<double> res_sample_steps(grid_samples, 0.0);
 
-                tipl::par_for(grid_samples, [&](int s) {
-                    if (is_terminated()) return;
-                    double trial_step = bound_neg + s * step_size;
-                    res_sample_steps[s] = trial_step;
+                    tipl::par_for(grid_samples, [&](int s) {
+                        if (is_terminated()) return;
+                        double trial_step = bound_neg + s * step_size;
+                        res_sample_steps[s] = trial_step;
 
-                    if(std::abs(trial_step) > 1e-8) {
-                        std::vector<param_type> temp = p;
-                        for(unsigned int j = 0; j < size; ++j) {
-                            temp[j] += trial_step * new_dir[j];
-                            if(x_upper[j] != x_lower[j])
-                                temp[j] = std::min<param_type>(x_upper[j], std::max<param_type>(x_lower[j], temp[j]));
+                        if(std::abs(trial_step) > 1e-8) {
+                            std::vector<param_type> temp = p;
+                            for(unsigned int j = 0; j < size; ++j) {
+                                temp[j] = std::min<param_type>(x_upper[j], std::max<param_type>(x_lower[j], p[j] + trial_step * new_dir[j]));
+                            }
+                            res_sample_costs[s] = fun(temp);
                         }
-                        res_sample_costs[s] = fun(temp);
+                    });
+
+                    double best_f = fp;
+                    int s_min = (grid_samples - 1) / 2;
+
+                    for (int s = 0; s < grid_samples; ++s) {
+                        if (res_sample_costs[s] < best_f) {
+                            best_f = res_sample_costs[s];
+                            s_min = s;
+                        }
                     }
-                });
 
-                double best_f = fp;
-                int s_min = (grid_samples - 1) / 2;
+                    double step_min = res_sample_steps[s_min];
+                    fret = best_f;
 
-                for (int s = 0; s < grid_samples; ++s) {
-                    if (res_sample_costs[s] < best_f) {
-                        best_f = res_sample_costs[s];
-                        s_min = s;
+                    for(unsigned int j = 0; j < size; ++j) {
+                        p[j] = std::min<param_type>(x_upper[j], std::max<param_type>(x_lower[j], p[j] + step_min * new_dir[j]));
                     }
-                }
-
-                double step_min = res_sample_steps[s_min];
-                fret = best_f;
-
-                // Apply the final chosen grid step
-                for(unsigned int j = 0; j < size; ++j) {
-                    p[j] += step_min * new_dir[j];
-                    if(x_upper[j] != x_lower[j])
-                        p[j] = std::min<param_type>(x_upper[j], std::max<param_type>(x_lower[j], p[j]));
                 }
             }
         }
