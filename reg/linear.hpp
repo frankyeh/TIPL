@@ -553,27 +553,10 @@ public:
     float optimize(bool& is_terminated)
     {
         auto term_func = [&]{ return is_terminated; };
-
-        if constexpr (!mr)
-        {
-            max_prog += reg_list.size();
-            return run_optimize<cost_type>(0, term_func);
-        }
-
-        float cost = run_optimize_mr<cost_type>(term_func);
-
-        while (!is_terminated)
-        {
-            if constexpr (!std::is_void_v<out_type>)
-                out_type() << "cost: " << cost;
-
-            if (float new_cost = optimize<cost_type, false>(is_terminated); new_cost >= cost)
-                break;
-            else
-                cost = new_cost;
-        }
-
-        return cost;
+        if constexpr (mr)
+            return run_optimize_mr<cost_type>(term_func);
+        max_prog += reg_list.size();
+        return run_optimize<cost_type>(0, term_func);
     }
 };
 
@@ -656,10 +639,6 @@ float linear(std::vector<tipl::const_pointer_image<dim, unsigned char> > from,
         float result = (param.cuda && tipl::use_cuda && tipl::has_gpu) ?
                        linear_reg_imp<out_type, mr>(std::true_type{}, reg, param.cost_type, terminated):
                        linear_reg_imp<out_type, mr>(std::false_type{}, reg, param.cost_type, terminated);
-
-        if constexpr (!std::is_void_v<out_type>)
-            out_type() << "cost: " << a;
-
         return result;
     };
 
