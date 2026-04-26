@@ -69,7 +69,7 @@ bool armijo_line_search(iter_type1 x_beg,iter_type1 x_end,
     std::vector<value_type> cost;
     cost.push_back(fun_x);
     new_x_list.push_back(std::vector<param_type>(x_beg,x_end));
-    for(double step = 0.01;step <= 10.0;step *= 2)
+    for(double step = 0.015625;step <= 10.0;step *= 2)
     {
         cost.push_back(std::numeric_limits<value_type>::max());
         std::vector<param_type> new_x(new_x_list[0]);
@@ -134,29 +134,167 @@ void gradient_descent(
     }
 }
 
-template<typename iter_type1, typename iter_type2, typename function_type, typename teminated_class>
+template<typename iter_type1, typename iter_type2, typename function_type, typename terminated_class>
+void lbfgs(iter_type1 x_beg, iter_type1 x_end,
+           iter_type2 x_upper, iter_type2 x_lower,
+           function_type&& fun,
+           double& fun_x,
+           terminated_class& terminated,
+           double precision = 0.001,
+           int max_iteration = 100,
+           int m = 10) // L-BFGS Memory/History size
+{
+    typedef typename std::iterator_traits<iter_type1>::value_type param_type;
+    typedef double value_type;
+    unsigned int size = x_end - x_beg;
+
+    std::vector<param_type> tols(size);
+    double tol_length = calculate_resolution(tols, x_upper, x_lower, precision);
+
+    std::vector<std::vector<param_type>> S, Y;
+    std::vector<double> RHO;
+
+    std::vector<param_type> g(size), g_old(size), x_old(size);
+    std::vector<value_type> fun_x_ei(size);
+
+    estimate_change(x_beg, x_end, tols.begin(), fun_x_ei.begin(), fun);
+    gradient(x_beg, x_end, tols.begin(), fun_x, fun_x_ei.begin(), g.begin());
+
+    for(unsigned int iter = 0; iter < max_iteration && !terminated(); ++iter)
+    {
+        std::vector<param_type> q = g;
+        std::vector<double> alpha(S.size());
+
+        // Backward pass
+        for(int i = (int)S.size() - 1; i >= 0; --i)
+        {
+            double sq = 0.0;
+            for(unsigned int j = 0; j < size; ++j)
+                sq += S[i][j] * q[j];
+
+            alpha[i] = RHO[i] * sq;
+
+            for(unsigned int j = 0; j < size; ++j)
+                q[j] -= alpha[i] * Y[i][j];
+        }
+
+        // Central Preconditioner (H0 scaling with Diagonal Matrix)
+        if(!S.empty())
+        {
+            double yty = 0.0;
+            for(unsigned int j = 0; j < size; ++j)
+                yty += Y.back()[j] * Y.back()[j];
+
+            if(yty > 1e-14)
+            {
+                double gamma = (1.0 / RHO.back()) / yty;
+                for(unsigned int j = 0; j < size; ++j)
+                {
+                    // SCALE FIX: Apply gamma AND the specific dimension's range
+                    double range = x_upper[j] - x_lower[j];
+                    q[j] *= gamma * range;
+                }
+            }
+        }
+        else
+        {
+            // Iteration 0: Scale by range and normalize safely to prevent blowout
+            for(unsigned int j = 0; j < size; ++j)
+            {
+                double range = x_upper[j] - x_lower[j];
+                q[j] *= range;
+            }
+
+            double length = tipl::norm2(q.begin(), q.end());
+            if(length > 0.0)
+                tipl::multiply_constant(q, tol_length / length);
+        }
+
+        // Forward pass
+        for(size_t i = 0; i < S.size(); ++i)
+        {
+            double yq = 0.0;
+            for(unsigned int j = 0; j < size; ++j)
+                yq += Y[i][j] * q[j];
+
+            double beta = RHO[i] * yq;
+
+            for(unsigned int j = 0; j < size; ++j)
+                q[j] += S[i][j] * (alpha[i] - beta);
+        }
+
+        x_old.assign(x_beg, x_end);
+        g_old = g;
+
+        bool moved = armijo_line_search(x_beg, x_end, x_upper, x_lower, q.begin(), fun_x, fun);
+
+        if(!moved)
+        {
+            if(!S.empty())
+            {
+                S.clear();
+                Y.clear();
+                RHO.clear();
+                continue;
+            }
+            else
+                break;
+        }
+
+        estimate_change(x_beg, x_end, tols.begin(), fun_x_ei.begin(), fun);
+        gradient(x_beg, x_end, tols.begin(), fun_x, fun_x_ei.begin(), g.begin());
+
+        std::vector<param_type> s_k(size), y_k(size);
+        double sty = 0.0;
+
+        for(size_t i = 0; i < size; ++i)
+        {
+            s_k[i] = x_beg[i] - x_old[i];
+            y_k[i] = g[i] - g_old[i];
+            sty += s_k[i] * y_k[i];
+        }
+
+        if(sty > 1e-14)
+        {
+            if(S.size() == m)
+            {
+                S.erase(S.begin());
+                Y.erase(Y.begin());
+                RHO.erase(RHO.begin());
+            }
+            S.push_back(std::move(s_k));
+            Y.push_back(std::move(y_k));
+            RHO.push_back(1.0 / sty);
+        }
+    }
+}
+
+template<typename iter_type1, typename iter_type2, typename function_type, typename terminated_class>
 void line_search(iter_type1 x_beg, iter_type1 x_end,
                  iter_type2 x_upper, iter_type2 x_lower,
                  const std::vector<int>& search_strategy, // 0 = Linear, 1 = Gaussian/Cubic
                  function_type&& fun,
                  double& optimal_value,
                  int grid_samples,
-                 teminated_class&& is_terminated)
+                 terminated_class&& is_terminated)
 {
-    typedef typename std::iterator_traits<iter_type1>::value_type param_type;
+    using param_type = typename std::iterator_traits<iter_type1>::value_type;
     auto size = x_end - x_beg;
     const double ftol = 0.05;
     const int search_count = 2;
+
     std::vector<std::vector<param_type> > xi(size, std::vector<param_type>(size, 0.0));
     for(unsigned int i = 0; i < size; ++i)
         xi[i][i] = 1.0;
 
     std::vector<param_type> p(x_beg, x_end);
-    double fret = optimal_value;
+    std::mutex update_mtx; // Mutex to safely update x_beg and optimal_value concurrently
 
-    for(int iter = 0; iter < search_count && !is_terminated(); ++iter)
+    for(int iter = 0; iter < search_count; ++iter)
     {
-        double fp = fret;
+        if(is_terminated()) return;
+
+        double fp = optimal_value;
         std::vector<double> dim_steps(size, 0.0);
 
         // =========================================================
@@ -184,7 +322,6 @@ void line_search(iter_type1 x_beg, iter_type1 x_end,
                 }
             }
 
-            // Skip entirely if this direction has zero mobility
             if (!is_movable) continue;
 
             if (bound_pos < 0.0) bound_pos = 0.0;
@@ -196,12 +333,15 @@ void line_search(iter_type1 x_beg, iter_type1 x_end,
             double cur_upper = bound_pos * search_scale;
             double cur_lower = bound_neg * search_scale;
 
-            if (cur_upper - cur_lower > 1e-8) {
+            if (cur_upper - cur_lower > 1e-8)
+            {
                 active_dims.push_back(i);
                 dim_cur_upper[i] = cur_upper;
                 dim_cur_lower[i] = cur_lower;
             }
         }
+
+        if(is_terminated()) return;
 
         // =========================================================
         // STAGE 2: Massive Flattened Parallel Grid Evaluation
@@ -213,7 +353,8 @@ void line_search(iter_type1 x_beg, iter_type1 x_end,
 
         if (total_grid_tasks > 0)
         {
-            tipl::par_for(total_grid_tasks, [&](int task_idx) {
+            tipl::par_for(total_grid_tasks, [&](int task_idx)
+            {
                 if (is_terminated()) return;
 
                 int active_idx = task_idx / grid_samples;
@@ -237,20 +378,36 @@ void line_search(iter_type1 x_beg, iter_type1 x_end,
 
                 all_sample_steps[linear_idx] = trial_step;
 
-                if (std::abs(trial_step) < 1e-8) {
+                if (std::abs(trial_step) < 1e-8)
+                {
                     all_sample_costs[linear_idx] = fp;
-                } else {
+                }
+                else
+                {
                     std::vector<param_type> temp = p;
-                    for(unsigned int j = 0; j < size; ++j) {
+                    for(unsigned int j = 0; j < size; ++j)
                         temp[j] = std::min<param_type>(x_upper[j], std::max<param_type>(x_lower[j], p[j] + trial_step * xi[i][j]));
+
+                    double cost = fun(temp);
+                    all_sample_costs[linear_idx] = cost;
+
+                    if(cost < optimal_value)
+                    {
+                        std::lock_guard<std::mutex> lock(update_mtx);
+                        if(cost < optimal_value)
+                        {
+                            optimal_value = cost;
+                            std::copy(temp.begin(), temp.end(), x_beg);
+                        }
                     }
-                    all_sample_costs[linear_idx] = fun(temp);
                 }
             });
         }
 
+        if(is_terminated()) return;
+
         // =========================================================
-        // STAGE 3: Select Best Points
+        // STAGE 3: Select Best Points for Resultant Vector
         // =========================================================
         for (int active_idx = 0; active_idx < active_dims.size(); ++active_idx)
         {
@@ -258,9 +415,11 @@ void line_search(iter_type1 x_beg, iter_type1 x_end,
             double best_f = fp;
             int s_min = (grid_samples - 1) / 2;
 
-            for (int s = 0; s < grid_samples; ++s) {
+            for (int s = 0; s < grid_samples; ++s)
+            {
                 int linear_idx = i * grid_samples + s;
-                if (all_sample_costs[linear_idx] < best_f) {
+                if (all_sample_costs[linear_idx] < best_f)
+                {
                     best_f = all_sample_costs[linear_idx];
                     s_min = s;
                 }
@@ -268,16 +427,19 @@ void line_search(iter_type1 x_beg, iter_type1 x_end,
             dim_steps[i] = all_sample_steps[i * grid_samples + s_min];
         }
 
+        if(is_terminated()) return;
+
         // =========================================================
         // STAGE 4: Resultant Vector Search
         // =========================================================
         std::vector<param_type> new_dir(size, 0.0);
         bool has_movement = false;
-        for(unsigned int i = 0; i < size; ++i) {
+
+        for(unsigned int i = 0; i < size; ++i)
+        {
             if (std::abs(dim_steps[i]) > 1e-8) has_movement = true;
-            for(unsigned int j = 0; j < size; ++j) {
+            for(unsigned int j = 0; j < size; ++j)
                 new_dir[j] += dim_steps[i] * xi[i][j];
-            }
         }
 
         if(has_movement)
@@ -285,8 +447,10 @@ void line_search(iter_type1 x_beg, iter_type1 x_end,
             double bound_pos = 1e10, bound_neg = -1e10;
             bool is_movable = false;
 
-            for(unsigned int j = 0; j < size; ++j) {
-                if(std::abs(new_dir[j]) > 1e-8 && x_upper[j] != x_lower[j]) {
+            for(unsigned int j = 0; j < size; ++j)
+            {
+                if(std::abs(new_dir[j]) > 1e-8 && x_upper[j] != x_lower[j])
+                {
                     is_movable = true;
                     double step_to_upper = (x_upper[j] - p[j]) / new_dir[j];
                     double step_to_lower = (x_lower[j] - p[j]) / new_dir[j];
@@ -305,140 +469,47 @@ void line_search(iter_type1 x_beg, iter_type1 x_end,
 
                 double step_size = (bound_pos - bound_neg) / (grid_samples - 1);
 
-                if (step_size > 1e-8) {
-                    std::vector<double> res_sample_costs(grid_samples, fp);
-                    std::vector<double> res_sample_steps(grid_samples, 0.0);
-
-                    tipl::par_for(grid_samples, [&](int s) {
+                if (step_size > 1e-8)
+                {
+                    tipl::par_for(grid_samples, [&](int s)
+                    {
                         if (is_terminated()) return;
-                        double trial_step = bound_neg + s * step_size;
-                        res_sample_steps[s] = trial_step;
 
-                        if(std::abs(trial_step) > 1e-8) {
+                        double trial_step = bound_neg + s * step_size;
+
+                        if(std::abs(trial_step) > 1e-8)
+                        {
                             std::vector<param_type> temp = p;
-                            for(unsigned int j = 0; j < size; ++j) {
+                            for(unsigned int j = 0; j < size; ++j)
                                 temp[j] = std::min<param_type>(x_upper[j], std::max<param_type>(x_lower[j], p[j] + trial_step * new_dir[j]));
+
+                            double cost = fun(temp);
+
+                            if(cost < optimal_value)
+                            {
+                                std::lock_guard<std::mutex> lock(update_mtx);
+                                if(cost < optimal_value)
+                                {
+                                    optimal_value = cost;
+                                    std::copy(temp.begin(), temp.end(), x_beg);
+                                }
                             }
-                            res_sample_costs[s] = fun(temp);
                         }
                     });
-
-                    double best_f = fp;
-                    int s_min = (grid_samples - 1) / 2;
-
-                    for (int s = 0; s < grid_samples; ++s) {
-                        if (res_sample_costs[s] < best_f) {
-                            best_f = res_sample_costs[s];
-                            s_min = s;
-                        }
-                    }
-
-                    double step_min = res_sample_steps[s_min];
-                    fret = best_f;
-
-                    for(unsigned int j = 0; j < size; ++j) {
-                        p[j] = std::min<param_type>(x_upper[j], std::max<param_type>(x_lower[j], p[j] + step_min * new_dir[j]));
-                    }
                 }
             }
         }
 
-        if(2.0 * (fp - fret) <= ftol * (std::abs(fp) + std::abs(fret)) + 1e-10)
+        if(is_terminated()) return;
+
+        // Sync `p` with whatever the absolute best position found so far is
+        std::copy(x_beg, x_end, p.begin());
+
+        // Convergence check using the strictly continuously updated optimal_value
+        if(2.0 * (fp - optimal_value) <= ftol * (std::abs(fp) + std::abs(optimal_value)) + 1e-10)
             break;
     }
-
-    std::copy(p.begin(), p.end(), x_beg);
-    optimal_value = fret;
 }
-
-/*
-template<typename param_type,typename value_type>
-struct BFGS
-{
-    unsigned int dimension;
-	unsigned int dim2;
-    BFGS(unsigned int dim):dimension(dim),dim2(dim*dim) {}
-    template<typename function_type,typename gradient_function_type>
-    value_type minimize(const function_type& f,
-						const gradient_function_type& g,
-						param_type& xk,
-						value_type radius,
-						value_type tol = 0.001)
-    {
-        param_type g_k = g(xk);
-        param_type p = -g_k;
-        std::vector<value_type> invB(dim2),B1(dim2),B2(dim2),B2syn(dim2);
-        math::matrix_identity(invB.begin(),math::shape(dimension,dimension));
-        value_type end_gradient = tol*tol*(g_k*g_k);
-		// parameter for back tracking
-		value_type line_search_rate = 0.5;
-		value_type c1 = 0.0001;
-        radius /= std::sqrt(p*p);
-        for(unsigned int iter = 0;iter < 100;++iter)
-        {
-            // back_tracking
-            value_type f_x0 = f(xk);
-			value_type dir_g_x0 = p*g_k;
-			value_type alpha_k = radius;
-	        do//back tracking
-            {
-				param_type x_alpha_dir = p;
-				x_alpha_dir *= alpha_k;
-				x_alpha_dir += xk;
-				// the Armijo rule
-				if (f(x_alpha_dir) <= f_x0 + c1*alpha_k*dir_g_x0)
-					break;
-                alpha_k *= line_search_rate;
-            }
-            while (alpha_k > 0.0);
-			// set Sk = alphak*p;
-            param_type s_k = p;s_k *= alpha_k; 
-            
-			// update Xk <- Xk + s_k
-			param_type x_k_1 = xk;x_k_1 += s_k; 
-            
-			// Yk = g(Xk+1) - g(Xk)
-			param_type g_k_1 = g(x_k_1);
-            param_type y_k = g_k_1;y_k -= g_k;  
-            
-			value_type s_k_y_k = s_k*y_k;
-			
-			if(s_k_y_k == 0.0) // y_k = 0  or alpha too small
-				break;
-
-            param_type invB_y_k;
-			
-			// invB*Yk
-            math::matrix_vector_product(invB.begin(),y_k.begin(),invB_y_k.begin(),math::shape(dimension,dimension));
-
-			// B1 = Sk*Skt
-            math::vector_op_gen(s_k.begin(),s_k.begin()+dimension,s_k.begin(),B1.begin());
-
-			// B2 = B-1YkSkt
-            math::vector_op_gen(invB_y_k.begin(),invB_y_k.begin()+dimension,s_k.begin(),B2.begin());
-
-            math::matrix_transpose(B2.begin(),B2.begin(),math::shape(dimension,dimension));
-			
-            double tmp = (s_k_y_k+y_k*invB_y_k)/s_k_y_k;
-            for (unsigned int index = 0;index < invB.size();++index)
-                invB[index] += (tmp*B1[index]-(B2[index]+B2syn[index]))/s_k_y_k;
-
-            param_type p_k_1;
-            math::matrix_vector_product(invB.begin(),g_k_1.begin(),p_k_1.begin(),math::shape(dimension,dimension));
-
-            p = -p_k_1;
-            xk = x_k_1;
-            g_k = g_k_1;
-            if (g_k*g_k < end_gradient)
-                break;
-        }
-        return f(xk);
-    }
-
-};
-*/
-
-
 
 }
 
