@@ -393,7 +393,6 @@ template<typename input_iterator>
 __INLINE__ auto median_absolute_deviation(input_iterator from,input_iterator to)
     -> typename std::enable_if<!std::is_const<typename std::remove_reference<decltype(*from)>::type>::value,typename std::iterator_traits<input_iterator>::value_type>::type
 {
-    // HOISTED/FIX: Removed O(N) distance evaluation entirely, its output ("size") was completely unused here.
     auto m = median(from,to);
     for(auto iter = from;iter != to;++iter)
     {
@@ -408,7 +407,6 @@ template<typename input_iterator>
 __INLINE__ auto median_absolute_deviation(input_iterator from,input_iterator to,double median_value)
     -> typename std::enable_if<!std::is_const<typename std::remove_reference<decltype(*from)>::type>::value,typename std::iterator_traits<input_iterator>::value_type>::type
 {
-    // HOISTED/FIX: Removed unused distance evaluation.
     for(auto iter = from;iter != to;++iter)
     {
         auto v = *iter;
