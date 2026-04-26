@@ -368,7 +368,7 @@ cdm_smooth(const T& d,U& dd,float smoothing)
 //---------------------------------------------------------------------------
 
 template<typename out_type = void,typename pointer_image_type,typename dist_type,typename terminate_type>
-void cdm(const std::vector<pointer_image_type>& It,
+bool cdm(const std::vector<pointer_image_type>& It,
          const std::vector<pointer_image_type>& Is,
            dist_type& best_d,// displacement field
            terminate_type& terminated,
@@ -394,11 +394,12 @@ void cdm(const std::vector<pointer_image_type>& It,
             each.first *= 0.5f;
             each.second *= 0.5f;
         }
-        cdm<out_type>(rIt,rIs,best_d,terminated,param2);
+        if(!cdm<out_type>(rIt,rIs,best_d,terminated,param2))
+            return false;
         multiply_constant(best_d,2.0f);
         upsample_with_padding(best_d,It[0].shape());
         if(param.resolution > 1.0f)
-            return;
+            return true;
     }
 
     float theta = 0.0;
@@ -422,6 +423,8 @@ void cdm(const std::vector<pointer_image_type>& It,
                 dist_type dd;
                 float c = cdm_get_gradient(compose_displacement(Is[i],cur_d),It[i],dd,
                                            i < param.gradient_type.length() ? param.gradient_type[i] : 'r');
+                if(c == 0.0f)
+                    return false;
                 std::lock_guard<std::mutex> lock(mutex);
                 sum_cost += c;
                 if(new_d.empty())
@@ -470,6 +473,7 @@ void cdm(const std::vector<pointer_image_type>& It,
     }
     if constexpr(!std::is_void<out_type>::value)
         out_type() << "cost: " << log;
+    return true;
 }
 
 // To use CUDA, need to include the following instantiation in a .cu file
@@ -489,7 +493,7 @@ void cdm_cuda<void,unsigned char,3>(const std::vector<tipl::const_pointer_image<
 #ifdef __CUDACC__
 #include "../cu.hpp"
 template<typename out_type = void,typename value_type,int dim>
-void cdm_cuda(const std::vector<tipl::const_pointer_image<dim,value_type> >& It,
+bool cdm_cuda(const std::vector<tipl::const_pointer_image<dim,value_type> >& It,
                    const std::vector<tipl::const_pointer_image<dim,value_type> >& Is,
                    tipl::image<dim,tipl::vector<dim> >& d,
                    bool& terminated,
@@ -506,23 +510,24 @@ void cdm_cuda(const std::vector<tipl::const_pointer_image<dim,value_type> >& It,
         pIs.push_back(tipl::make_shared(each));
 
     try{
-        cdm<out_type>(pIt,pIs,dd,terminated,param);
+        if(!cdm<out_type>(pIt,pIs,dd,terminated,param))
+            return false;
+        d.resize(It[0].shape());
+        dd.buf().copy_to(d);
+        cudaDeviceSynchronize();
+        return true;
     }
 
     catch(std::runtime_error& er)
     {
         if constexpr(!std::is_void<out_type>::value)
-            out_type() << "❌️" << er.what() << " ...switch to CPU";
-        cdm<out_type>(It,Is,d,terminated,param);
-        return;
+            out_type() << "❌️" << er.what();
+        return false;
     }
-    d.resize(It[0].shape());
-    dd.buf().copy_to(d);
-    cudaDeviceSynchronize();
 }
 #else
 template<typename out_type = void,typename value_type,int dim>
-void cdm_cuda(const std::vector<tipl::const_pointer_image<dim,value_type> >& It,
+bool cdm_cuda(const std::vector<tipl::const_pointer_image<dim,value_type> >& It,
                    const std::vector<tipl::const_pointer_image<dim,value_type> >& Is,
                    tipl::image<dim,tipl::vector<dim> >& d,
                    bool& terminated,
@@ -530,7 +535,7 @@ void cdm_cuda(const std::vector<tipl::const_pointer_image<dim,value_type> >& It,
 #endif//__CUDACC__
 
 template<typename out_type = void,typename value_type,int dim>
-void cdm_common(std::vector<tipl::const_pointer_image<dim,value_type> > It,
+bool cdm_common(std::vector<tipl::const_pointer_image<dim,value_type> > It,
                        std::vector<tipl::const_pointer_image<dim,value_type> > Is,
                        tipl::image<dim,tipl::vector<dim> >& dis,
                        bool& terminated,
@@ -547,13 +552,12 @@ void cdm_common(std::vector<tipl::const_pointer_image<dim,value_type> > It,
         {
             if constexpr(!std::is_void<out_type>::value)
                 out_type() << "nonlinear registration using gpu";
-            tipl::reg::cdm_cuda<out_type>(It,Is,dis,terminated,param);
-            return;
+            return tipl::reg::cdm_cuda<out_type>(It,Is,dis,terminated,param);
         }
     }
     if constexpr(!std::is_void<out_type>::value)
         out_type() << "nonlinear registration using cpu";
-    tipl::reg::cdm<out_type>(It,Is,dis,terminated,param);
+    return tipl::reg::cdm<out_type>(It,Is,dis,terminated,param);
 }
 
 }// namespace reg
