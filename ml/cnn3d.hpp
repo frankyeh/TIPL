@@ -272,7 +272,7 @@ public:
             const int oc = job / out_d;
             const int z = job % out_d;
 
-            float* out_ptr = out + (oc * out_img_size) + (z * out_plane);
+            float* out_ptr = this->out + (oc * out_img_size) + (z * out_plane);
 
             int in_z = z / stride_;
             int kz = z % stride_;
