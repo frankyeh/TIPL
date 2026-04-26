@@ -97,7 +97,21 @@ enum par_for_type{
     dynamic = 4,
     dynamic_with_id = 5
 };
+
 inline std::atomic<bool> par_for_running = false;
+struct par_for_guard
+{
+    bool is_root;
+    par_for_guard(void)
+    {
+        is_root = !par_for_running.exchange(true);
+    }
+    ~par_for_guard(void)
+    {
+        if(is_root)
+            par_for_running = false;
+    }
+};
 template <par_for_type type = dynamic,typename T,
           typename Func,typename std::enable_if<
               std::is_integral<T>::value ||
@@ -109,8 +123,8 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
             return;
 
     size_t n = to - from;
-    bool is_root = !par_for_running.exchange(true);
-    thread_count = (is_root && n > 1) ? std::min<int>(thread_count, (int)n) : 1;
+    par_for_guard guard;
+    thread_count = (guard.is_root && n > 1) ? std::min<int>(thread_count, (int)n) : 1;
 
 #ifdef __CUDACC__
     int cur_device = 0;
@@ -192,8 +206,6 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
     for (auto& t : workers)
         t.join();
 
-    if(is_root)
-        par_for_running = false;
 }
 
 template <par_for_type type = dynamic, typename T, typename Func,
