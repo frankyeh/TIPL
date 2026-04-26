@@ -1660,7 +1660,7 @@ void iterate_cnn(
                 if(cur_layer.previous_layer == iterate_cnn_data::conv && cur_layer.dim.width() > out_dim.width())
                 {
                     new_layer = cur_layer;
-                    new_layer.dim = tipl::s(new_layer.dim[0]/2,new_layer.dim[1]/2);
+                    new_layer.dim = tipl::s(new_layer.dim[0]/2,new_layer.dim[1]/2,new_layer.dim[2]/2);
                     new_layer.str += std::string("max_pooling2|");
                     new_layer.previous_layer = iterate_cnn_data::max_pooling;
                     int cost = cur_layer.dim.size()+layer_cost;
