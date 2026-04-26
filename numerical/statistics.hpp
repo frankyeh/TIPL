@@ -258,7 +258,7 @@ return_type square_sum(const T& data)
 template<typename input_iterator>
 __INLINE__ double mean(input_iterator from,input_iterator to)
 {
-    return (from == to) ? 0.0 : double(sum(from,to))/double(std::distance(from, to));
+    return (from == to) ? 0.0 : double(sum(from,to))/double(to-from);
 }
 
 template<typename T>
@@ -274,7 +274,7 @@ template <typename input_iterator,
 __INLINE__ auto median(input_iterator begin, input_iterator end)
     -> typename std::enable_if<!std::is_const<typename std::remove_reference<decltype(*begin)>::type>::value,typename std::iterator_traits<input_iterator>::value_type>::type
 {
-    auto size = std::distance(begin, end) / 2;
+    auto size = (end-begin) / 2;
     std::nth_element(begin, begin + size, end);
     return *(begin + size);
 }
@@ -315,7 +315,7 @@ __INLINE__ double mean_square(input_iterator from,input_iterator to)
 {
     if(from == to)
         return 0.0;
-    return square_sum(from,to)/double(std::distance(from, to));
+    return square_sum(from,to)/double(to-from);
 }
 
 template<typename container_type>
@@ -337,7 +337,7 @@ template<typename input_iterator,typename input_iterator2>
 __INLINE__ double root_mean_suqare_error(input_iterator from,input_iterator to,input_iterator2 from2)
 {
     double rmse = 0.0;
-    const size_t size = std::distance(from, to);
+    const size_t size = to-from;
     while (from != to)
     {
         double t = *from;
@@ -490,13 +490,13 @@ __INLINE__ double covariance(input_iterator1 x_from,input_iterator1 x_to,
 {
     if(x_to == x_from)
         return 0.0;
-    return inner_product(x_from,x_to,y_from)/double(std::distance(x_from, x_to))-mean_x*mean_y;
+    return inner_product(x_from,x_to,y_from)/double(x_to - x_from)-mean_x*mean_y;
 }
 template<typename input_iterator1,typename input_iterator2>
 __INLINE__ double covariance(input_iterator1 x_from,input_iterator1 x_to,
                              input_iterator2 y_from)
 {
-    const auto sz = std::distance(x_from, x_to);
+    const auto sz = x_to - x_from;
     return covariance(x_from,x_to,y_from,mean(x_from,x_to),mean(y_from,y_from+sz));
 }
 
@@ -519,7 +519,7 @@ template<typename input_iterator1,typename input_iterator2>
 __INLINE__ double correlation(input_iterator1 x_from,input_iterator1 x_to,
                   input_iterator2 y_from,double mean_x,double mean_y)
 {
-    const auto sz = std::distance(x_from, x_to); // HOISTED to avoid multiple calculations
+    const auto sz = x_to - x_from;
     auto sd1 = standard_deviation(x_from,x_to,mean_x);
     auto sd2 = standard_deviation(y_from,y_from+sz,mean_y);
     if(sd1 == 0 || sd2 == 0)
@@ -541,7 +541,7 @@ template<typename input_iterator1,typename input_iterator2>
 __INLINE__ double correlation(input_iterator1 x_from,input_iterator1 x_to,
                   input_iterator2 y_from)
 {
-    const auto sz = std::distance(x_from, x_to);
+    const auto sz = x_to - x_from;
     return correlation(x_from,x_to,y_from,mean(x_from,x_to),mean(y_from,y_from+sz));
 }
 
@@ -549,7 +549,7 @@ template<typename input_iterator1,typename input_iterator2>
 __INLINE__ double correlation_ygz(input_iterator1 x_from,input_iterator1 x_to,
                   input_iterator2 y_from)
 {
-    const size_t s = std::distance(x_from, x_to);
+    const size_t s = x_to - x_from;
     if(!s)
         return 0.0;
     std::vector<typename std::iterator_traits<input_iterator1>::value_type> nx;
@@ -576,8 +576,8 @@ inline double correlation(const T& x,const U& y)
 template<typename input_iterator1,typename input_iterator2>
 double t_statistics(input_iterator1 x_from,input_iterator1 x_to,input_iterator2 y_from,input_iterator2 y_to)
 {
-    double n1 = std::distance(x_from, x_to);
-    double n2 = std::distance(y_from, y_to);
+    double n1 = x_to - x_from;
+    double n2 = y_to - y_from;
     double mean0 = tipl::mean(x_from,x_to);
     double mean1 = tipl::mean(y_from,y_to);
     double v = n1 + n2 - 2;
@@ -594,7 +594,7 @@ double t_statistics(input_iterator1 x_from,input_iterator1 x_to,input_iterator2 
 template<typename input_iterator>
 double t_statistics(input_iterator x_from,input_iterator x_to)
 {
-    double n = std::distance(x_from, x_to);
+    double n = x_to - x_from;
     double mean = tipl::mean(x_from,x_to);
     double var = tipl::variance(x_from,x_to,mean);
     if(var == 0.0)
@@ -612,7 +612,7 @@ double least_square_fitting_slop(input_iterator x_from,input_iterator x_to,
     if(var_x == 0)
         return 0;
     double co = 0.0;
-    const auto sz = std::distance(x_from, x_to);
+    const auto sz = x_to - x_from;
     while (x_from != x_to)
     {
         co += *x_from*(*y_from);
@@ -629,7 +629,7 @@ double least_square_fitting_slop(input_iterator x_from,input_iterator x_to,
 template<typename input_iterator1,typename input_iterator2>
 __INLINE__ std::pair<double,double> linear_regression(input_iterator1 x_from,input_iterator1 x_to,input_iterator2 y_from)
 {
-    const auto sz = std::distance(x_from, x_to);
+    const auto sz = x_to - x_from;
     auto mean_x = mean(x_from,x_to);
     auto mean_y = mean(y_from,y_from+sz);
     auto x_var = variance(x_from,x_to,mean_x);
@@ -643,7 +643,7 @@ __INLINE__ std::pair<double,double> linear_regression(input_iterator1 x_from,inp
 template<typename input_iterator1,typename input_iterator2,typename value_type>
 __INLINE__ void linear_regression(input_iterator1 x_from,input_iterator1 x_to,input_iterator2 y_from,value_type& a,value_type& b,value_type& r2)
 {
-    const auto sz = std::distance(x_from, x_to);
+    const auto sz = x_to - x_from;
     auto mean_x = mean(x_from,x_to);
     auto mean_y = mean(y_from,y_from+sz);
     auto x_var = variance(x_from,x_to,mean_x);
