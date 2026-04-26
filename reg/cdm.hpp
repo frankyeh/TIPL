@@ -90,13 +90,13 @@ cdm_get_gradient(const image_type1& Js,const image_type2& It,dis_type& new_d,uns
     switch(gradient_type)
     {
     case 'r':
-        tipl::par_for(Js.size(),[&](size_t index)
+        tipl::par_for<sequential>(Js.size(),[&](size_t index)
         {
             cdm_get_gradient_r_imp(tipl::pixel_index<image_type1::dimension>(index,Js.shape()),Js,It,new_d,cost_map);
         });
         break;
     case 'd':
-        tipl::par_for(Js.size(),[&](size_t index)
+        tipl::par_for<sequential>(Js.size(),[&](size_t index)
         {
             cdm_get_gradient_d_imp(tipl::pixel_index<image_type1::dimension>(index,Js.shape()),Js,It,new_d,cost_map);
         });
@@ -171,7 +171,7 @@ cdm_solve_poisson(T& new_d,terminated_type& terminated)
         const int size_w = new_d.size()-w;
         const int size_wh = new_d.size()-wh;
         constexpr float inv_d2 = -0.5f / float(T::dimension);
-        tipl::par_for(solve_d.size(),[&](int pos)
+        tipl::par_for<sequential>(solve_d.size(),[&](int pos)
         {
             auto v = new_d[pos];
             if(pos >= 1)
@@ -271,11 +271,16 @@ inline std::enable_if_t<memory_location<dist_type>::at != CUDA, float>
 cdm_max_displacement_length(dist_type& new_d)
 {
     float theta = 0.0f;
-    par_for(new_d.size(),[&](int i)
+    std::mutex mutex;
+    par_for<sequential>(new_d.size(),[&](int i)
     {
         float l = new_d[i].length();
         if(l > theta)
-           theta = l;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            if(l > theta)
+                theta = l;
+        }
     });
     return theta;
 }
@@ -332,7 +337,7 @@ cdm_smooth(const T& d,U& dd,float smoothing)
     float w_6 = smoothing/float(2.0f*T::dimension);
     float w_1 = (1.0f-smoothing);
 
-    tipl::par_for(d.size(),[&](size_t cur_index)
+    tipl::par_for<sequential>(d.size(),[&](size_t cur_index)
     {
         cdm_smooth_imp(d,dd,cur_index,w_6,w_1);
     });
@@ -380,7 +385,7 @@ bool cdm(const std::vector<pointer_image_type>& It,
     {
         std::vector<typename pointer_image_type::buffer_type> rIt_buffer(It.size()),rIs_buffer(It.size());
         std::vector<pointer_image_type> rIt(It.size()),rIs(It.size());
-        tipl::par_for(It.size(),[&](size_t i)
+        tipl::par_for<sequential>(It.size(),[&](size_t i)
         {
             downsample_with_padding(It[i],rIt_buffer[i]);
             downsample_with_padding(Is[i],rIs_buffer[i]);
