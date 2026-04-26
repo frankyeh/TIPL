@@ -135,22 +135,14 @@ get_mutual_info_mean(const T& mutual_hist,const U& from_hist)
 
 #endif
 
-template<typename T,typename U,typename V,typename W>
-inline std::enable_if_t<memory_location<T>::at != CUDA, void>
-get_mutual_info(T& mutual_hist_all,const U& to,const V& from,const W& trans)
+template<typename T,typename U,typename V,typename std::enable_if_t<memory_location<T>::at != CUDA, bool> = true>
+inline auto get_mutual_info(const T& to,const U& from,const V& trans)
 {
-    std::vector<T> mutual_hist(max_thread_count);
-    for(auto& each : mutual_hist)
-        each.resize(mutual_hist_all.shape());
-    tipl::par_for<dynamic_with_id>(from.shape(),[&](const auto& index,int id)
-    {
-        unsigned char to_index = 0;
-        tipl::estimate<tipl::interpolation::linear>(to,trans(index),to_index);
-        mutual_hist[id][(uint32_t(from[index.index()]) << mi_band_width) + uint32_t(to_index)]++;
-    });
-    for(size_t i = 1,sz = mutual_hist.size();i < sz;++i)
-        tipl::add(mutual_hist[0],mutual_hist[i]);
-    mutual_hist_all.swap(mutual_hist[0]);
+    image<2,int32_t> mutual_hist(shape<2>(mi_his_bandwidth,mi_his_bandwidth));
+    size_t sz = from.size();
+    for(tipl::pixel_index<T::dimension> index(from.shape());index < sz;++index)
+        mutual_hist[(uint32_t(from[index.index()]) << mi_band_width) + uint32_t(to[trans(index)])]++;
+    return mutual_hist;
 }
 
 #ifdef __CUDACC__
@@ -186,14 +178,14 @@ struct mutual_information
     image<dim,unsigned char> from,to;
     std::mutex init_mutex;
 public:
-    template<typename ImageType1,typename ImageType2,typename TransformType>
-    double operator()(const ImageType1& from_,const ImageType2& to_,const TransformType& transform)
+    template<typename image_type1,typename image_type2,typename transform_type>
+    double operator()(const image_type1& from_,const image_type2& to_,const transform_type& transform)
     {
         {
             std::scoped_lock<std::mutex> lock(init_mutex);
             if (from_hist.empty() || to_.size() != to.size() || from_.size() != from.size())
             {
-                if constexpr(std::is_same_v<unsigned char,typename ImageType1::value_type>)
+                if constexpr(std::is_same_v<unsigned char,typename image_type1::value_type>)
                 {
                     to = to_;
                     from = from_;
@@ -206,9 +198,7 @@ public:
                 histogram(from,from_hist,0,mi_his_bandwidth-1,mi_his_bandwidth);
             }
         }
-        image<2,int32_t> mutual_hist(shape<2>(mi_his_bandwidth,mi_his_bandwidth));
-        get_mutual_info(mutual_hist,make_shared(to),make_shared(from),transform);
-        return -get_mutual_info_mean(mutual_hist,from_hist);
+        return -get_mutual_info_mean(get_mutual_info(make_shared(to),make_shared(from),transform),from_hist);
     }
 };
 
@@ -219,19 +209,19 @@ struct mutual_information_cuda
 {
     typedef double value_type;
     tipl::device_vector<unsigned int> from_hist;
-    image<dim,unsigned char,tipl::device_vector> from,to;
+    device_image<dim,unsigned char> from,to;
     std::mutex init_mutex;
 public:
-    template<typename ImageType1,typename ImageType2,typename TransformType>
-    double operator()(const ImageType1& from_,const ImageType2& to_,const TransformType& transform)
+    template<typename image_type1,typename image_type2,typename transform_type>
+    double operator()(const image_type1& from_,const image_type2& to_,const transform_type& transform)
     {
         {
             std::scoped_lock<std::mutex> lock(init_mutex);
             if (from_hist.empty() || to_.size() != to.size() || from_.size() != from.size())
             {
-                if constexpr(std::is_same_v<unsigned char,typename ImageType1::value_type>)
+                if constexpr(std::is_same_v<unsigned char,typename image_type1::value_type>)
                 {
-                    host_vector<int32_t> host_from_hist;
+                    std::vector<int32_t> host_from_hist;
                     histogram(from_,host_from_hist,0,mi_his_bandwidth-1,mi_his_bandwidth);
                     from_hist = host_from_hist;
                     from = from_;
@@ -239,12 +229,12 @@ public:
                 }
                 else
                 {
-                    using device_image_type = device_image<ImageType1::dimension,typename ImageType1::value_type>;
+                    using device_image_type = device_image<image_type1::dimension,typename image_type1::value_type>;
                     to.resize(to_.shape());
                     normalize_upper_lower2(device_image_type(to_),to,float(mi_his_bandwidth)-0.01f);
 
-                    host_image<dim,unsigned char> host_from;
-                    host_vector<int32_t> host_from_hist;
+                    image<dim,unsigned char> host_from;
+                    std::vector<int32_t> host_from_hist;
 
                     host_from.resize(from_.shape());
                     normalize_upper_lower2(from_,host_from,float(mi_his_bandwidth)-0.01f);
@@ -280,7 +270,7 @@ struct linear_reg_param{
     tipl::reg::cost_type cost_type = mutual_info;
     const float (*bound)[8] = reg_bound;
     unsigned int search_count = 16;
-    bool cuda = tipl::use_cuda;
+    bool cuda = tipl::has_gpu;
     bool absolute_bound = true;
     template<typename out_type>
     void report(void) const
@@ -292,7 +282,7 @@ struct linear_reg_param{
                 search_text = " with " +std::to_string(search_count) + " search";
             out_type() << (reg_type == tipl::reg::affine? "affine" : "rigid body")
                        << " registration by " << (cost_type == tipl::reg::mutual_info? "mutual info" : "correlation")
-                       << " using " << (cuda ? "gpu":"cpu") << search_text;
+                       << " using " << (cuda && tipl::use_cuda ? "gpu":"cpu") << search_text;
         }
     }
 };
@@ -668,7 +658,7 @@ float linear(std::vector<tipl::const_pointer_image<dim, unsigned char> > from,
         reg->to_vs = t_vs;
         reg->set(param);
 
-        float result = (param.cuda && tipl::use_cuda) ?
+        float result = (param.cuda && tipl::use_cuda && tipl::has_gpu) ?
                        linear_reg_imp<out_type, mr>(std::true_type{}, reg, param.cost_type, terminated):
                        linear_reg_imp<out_type, mr>(std::false_type{}, reg, param.cost_type, terminated);
 
