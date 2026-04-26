@@ -459,7 +459,6 @@ public:
                 auto arg_min2 = arg_min;
                 auto optimal_value2 = optimal_value;
                 std::mutex m;
-                size_t search_updated = 0;
                 auto check_terminated = [&](void)
                 {
                     {
@@ -468,7 +467,6 @@ public:
                         {
                             optimal_value = optimal_value2;
                             arg_min = arg_min2;
-                            ++search_updated;
                         }
                         if(optimal_value < optimal_value2)
                         {
@@ -492,7 +490,7 @@ public:
                     });
 
                 do{
-                    tipl::optimization::gradient_descent(
+                    tipl::optimization::lbfgs(
                         arg_min.begin(),arg_min.end(),
                         cur_bound.first.begin(),cur_bound.second.begin(),fun,optimal_value,check_terminated,
                         precision,max_iterations);
@@ -501,21 +499,18 @@ public:
                 thread.join();
 
                 if constexpr(!std::is_void<out_type>::value)
-                    out_type() << "reg:" << int(reg_list[iter])
-                               << " search:" << search_updated
-                               << " cost:" << optimal_value << " " << arg_min;
+                    out_type() << "reg:" << int(reg_list[iter]) << " cost:" << optimal_value << " " << arg_min;
             }
         }
         else
         {
             auto cur_bound = get_current_bound(reg_list.back());
-            tipl::optimization::gradient_descent(
+            tipl::optimization::lbfgs(
                 arg_min.begin(),arg_min.end(),
                 cur_bound.first.begin(),cur_bound.second.begin(),fun,optimal_value,is_terminated,
-                precision*0.5f,max_iterations);
+                precision*0.2f,max_iterations);
             if constexpr(!std::is_void<out_type>::value)
-                out_type() << "reg:" << int(reg_list.back())
-                           << " cost:" << optimal_value << " " << arg_min;
+                out_type() << "reg:" << int(reg_list.back()) << " cost:" << optimal_value << " " << arg_min;
         }
         return optimal_value;
     }
@@ -717,12 +712,6 @@ float linear(std::vector<tipl::const_pointer_image<dim, unsigned char> > from,
     param.absolute_bound = true;
     param.report<out_type>();
     float result = run_linear_reg(from, from_vs, to, new_to_vs, adjust_vs ? surrogate_arg : arg, std::true_type{});
-
-    param.bound = tipl::reg::narrow_bound;
-    param.absolute_bound = false;
-    param.search_count = 0;
-    param.report<out_type>();
-    result = run_linear_reg(from, from_vs, to, new_to_vs, adjust_vs ? surrogate_arg : arg, std::false_type{});
 
     end = true;
     if (update_arg.joinable())
