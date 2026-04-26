@@ -345,7 +345,7 @@ public:
             return 0.0f;
 
         float cost = 0.0f;
-        linear_param.cuda = use_cuda;
+        linear_param.cuda = use_cuda && tipl::has_gpu;
         if(!skip_linear)
         {
             if(mm_linear)
