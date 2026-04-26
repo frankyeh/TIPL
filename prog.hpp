@@ -296,35 +296,34 @@ public:
 
 
 template<typename fun_type>
-bool run(const std::string& msg,fun_type fun)
+bool run(const std::string& msg, fun_type fun)
 {
-    if(!show_prog)
+    if (!show_prog)
     {
         fun();
         return true;
     }
+
     progress prog(msg);
-    std::atomic_bool ended = false;
-    tipl::par_for<sequential>(2,[&](int i)
+    std::atomic<bool> ended{false};
+
+    std::thread worker_thread([&]() {
+        fun();
+        ended = true;
+    });
+
+    size_t count = 0;
+    while (!ended)
     {
-        if(!i)
-        {
-            fun();
-            ended = true;
-        }
-        else
-        {
-            size_t i = 0;
-            while(!ended)
-            {
-                prog(i,i+1);
-                if(prog.aborted())
-                    return;
-                ++i;
-                std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            }
-        }
-    },2);
+        prog(count, count + 1);
+        if (prog.aborted())
+            break;
+        ++count;
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+
+    if (worker_thread.joinable())
+        worker_thread.join();
     return !prog.aborted();
 }
 
