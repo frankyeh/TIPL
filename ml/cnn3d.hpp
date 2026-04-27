@@ -73,12 +73,12 @@ public:
     virtual void allocate(float*& ptr, bool is_gpu_mem) {
         is_gpu = is_gpu_mem;
     }
+    virtual bool change_dim(void) const {return false;}
 };
 
 template <activation_type Act = activation_type::none>
 class conv_3d : public layer {
     int kernel_size_, kernel_size3, range, stride_;
-    float slope_;
 public:
     float* weight = nullptr;
     float* bias = nullptr;
@@ -86,9 +86,9 @@ public:
     size_t weight_size = 0, bias_size = 0;
     tipl::shape<3> out_dim;
 
-    conv_3d(int in_c, int out_c, int ks = 3, float slope = 1e-2f, int stride = 1)
+    conv_3d(int in_c, int out_c, int ks = 3, int stride = 1)
         : layer(in_c, out_c), kernel_size_(ks), kernel_size3(ks * ks * ks), range((ks - 1) / 2),
-          stride_(stride),  slope_(slope) {
+          stride_(stride){
         weight_size = kernel_size3 * in_channels_ * out_channels_;
         bias_size = out_channels_;
     }
@@ -120,7 +120,7 @@ public:
                 cuda_conv_3d_forward<Act>(in, weight, bias, out, in_channels_, out_channels_,
                                           dim.depth(), dim.height(), dim.width(),
                                           out_dim.depth(), out_dim.height(), out_dim.width(),
-                                          kernel_size_, kernel_size3, range, stride_, slope_);
+                                          kernel_size_, kernel_size3, range, stride_, 0.01f);
                 return out;
             }
         }
@@ -201,14 +201,22 @@ public:
                 for (int i = 0; i < out_plane; ++i) {
                     if (out_slice[i] < 0.0f) {
                         if constexpr (Act == activation_type::relu) out_slice[i] = 0.0f;
-                        else if constexpr (Act == activation_type::leaky_relu) out_slice[i] *= slope_;
+                        else if constexpr (Act == activation_type::leaky_relu) out_slice[i] *= 0.01f;
                     }
                 }
             }
         });
         return out;
     }
-    void print(std::ostream& os) const override { os << "conv3d\n"; }
+    void print(std::ostream& os) const override
+    {
+        os << "conv" << out_channels_ << ",ks" << kernel_size_ << ",stride" << stride_;
+        if(Act == activation_type::relu)
+            os << ",relu";
+        if(Act == activation_type::leaky_relu)
+            os << ",leaky_relu";
+    }
+    bool change_dim(void) const override{return stride_ != 1;}
 };
 
 class conv_transpose_3d : public layer {
@@ -326,19 +334,19 @@ public:
         });
         return out;
     }
-    void print(std::ostream& os) const override { os << "conv_transpose_3d\n"; }
+    void print(std::ostream& os) const override { os << "conv_trans" << out_channels_ << ",ks" << kernel_size_ << ",stride" << stride_; }
+    bool change_dim(void) const override{return stride_ != 1;}
 };
 
 template <activation_type Act = activation_type::none>
 class instance_norm_3d : public layer {
-    float slope_;
 public:
     float* weight = nullptr;
     float* bias = nullptr;
     size_t weight_size = 0, bias_size = 0;
 
-    instance_norm_3d(int c, float slope = 1e-2f)
-        : layer(c), slope_(slope) {
+    instance_norm_3d(int c)
+        : layer(c) {
         weight_size = c;
         bias_size = c;
     }
@@ -358,7 +366,7 @@ public:
         if constexpr (tipl::use_cuda)
             if (this->is_gpu)
             {
-                cuda_instance_norm_3d_forward<Act>(in, weight, bias, out_channels_, dim.size(), slope_);
+                cuda_instance_norm_3d_forward<Act>(in, weight, bias, out_channels_, dim.size(), 0.01f);
                 return in;
             }
 
@@ -401,7 +409,7 @@ public:
                         if constexpr (Act == activation_type::relu)
                             val = 0.0f;
                         else if constexpr (Act == activation_type::leaky_relu)
-                            val *= slope_;
+                            val *= 0.01f;
                     }
 
                 *ptr = val;
@@ -412,9 +420,11 @@ public:
     }
     size_t alloc_buffer_size() const override { return 0; }
     void print(std::ostream& os) const override {
-        os << "norm_3d "
-           << (Act == activation_type::relu ? "(relu) " : Act == activation_type::leaky_relu ? "(leaky_relu) " : "")
-           << out_channels_ << '\n';
+        os << "norm";
+        if(Act == activation_type::relu)
+            os << ",relu";
+        if(Act == activation_type::leaky_relu)
+            os << ",leaky_relu";
     }
 };
 
@@ -512,7 +522,8 @@ public:
         return out;
     }
 
-    void print(std::ostream& os) const override { os << "max_pool_3d " << out_channels_ << '\n'; }
+    void print(std::ostream& os) const override { os << "max_pool"; }
+    bool change_dim(void) const override{return true;}
 };
 
 class upsample_3d : public layer {
@@ -592,7 +603,8 @@ public:
         return out;
     }
 
-    void print(std::ostream& os) const override { os << "upsample_3d " << out_channels_ << '\n'; }
+    void print(std::ostream& os) const override { os << "upsample"; }
+    bool change_dim(void) const override{return true;}
 };
 
 class network : public layer {
@@ -644,7 +656,17 @@ public:
         return in;
     }
 
-    void print(std::ostream& os) const override { for (auto& l : layers) l->print(os); }
+    void print(std::ostream& os) const override
+    {
+        bool first = true;
+        for(auto& l : layers)
+        {
+            if(!first)
+                os << (l->change_dim() ? "\n" : "+");
+            l->print(os);
+            first = false;
+        }
+    }
 };
 
 
@@ -670,7 +692,7 @@ class unet3d : public network {
                 int current_stride = (idx == 1) ? first_stride : 1;
                 constexpr auto conv_act = (Version == unet_version::standard) ? activation_type::leaky_relu : activation_type::none;
                 constexpr auto norm_act = (Version == unet_version::standard) ? activation_type::none : activation_type::leaky_relu;
-                block.push_back(add_layer(new conv_3d<conv_act>(count, next_c, ks, 1e-2f, current_stride)));
+                block.push_back(add_layer(new conv_3d<conv_act>(count, next_c, ks, current_stride)));
                 block.push_back(add_layer(new instance_norm_3d<norm_act>(next_c)));
             }
             count = next_c;
@@ -723,13 +745,13 @@ public:
             decoding.push_front(std::move(de_block));
 
             if constexpr (Version == unet_version::deep_supervision) {
-                auto ds_head = add_layer(new conv_3d<activation_type::none>(f_up[i].back(), out_c, 1, 1e-2f, 1));
+                auto ds_head = add_layer(new conv_3d<activation_type::none>(f_up[i].back(), out_c, 1, 1));
                 if (i == 0) output = ds_head;
             }
         }
 
         if constexpr (Version == unet_version::standard) {
-            output = add_layer(new conv_3d<activation_type::none>(f_up[0].back(), out_c, 1, 1e-2f, 1));
+            output = add_layer(new conv_3d<activation_type::none>(f_up[0].back(), out_c, 1, 1));
         }
     }
     void init_image(tipl::shape<3>& dim_) override {
