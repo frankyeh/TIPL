@@ -14,6 +14,7 @@
 #include "../numerical/statistics.hpp"
 #include "../mt.hpp"
 #include "../def.hpp"
+#include "../po.hpp"
 
 namespace tipl {
 namespace ml3d {
@@ -607,23 +608,30 @@ public:
     bool change_dim(void) const override{return true;}
 };
 
-class network : public layer {
+class network : public layer
+{
 public:
     std::function<bool(void)> prog = nullptr;
     std::vector<std::shared_ptr<layer>> layers;
-    network() : layer(1, 1) {}
-    std::vector<std::pair<float*, size_t>> parameters() override {
-        std::vector<std::pair<float*, size_t>> param;
-        for (auto& l : layers) {
+
+    network() : layer(1,1) {}
+
+    std::vector<std::pair<float*,size_t>> parameters() override
+    {
+        std::vector<std::pair<float*,size_t>> param;
+        for(auto& l : layers)
+        {
             auto p = l->parameters();
-            param.insert(param.end(), p.begin(), p.end());
+            param.insert(param.end(),p.begin(),p.end());
         }
         return param;
     }
 
-    void init_image(tipl::shape<3>& dim_) override {
+    void init_image(tipl::shape<3>& dim_) override
+    {
         dim = dim_;
-        for (auto& l : layers) l->init_image(dim_);
+        for(auto& l : layers)
+            l->init_image(dim_);
         out_size = layers.back()->out_size;
     }
 
@@ -631,26 +639,35 @@ public:
     void allocate_memory(Container& memory)
     {
         size_t total_size = 0;
-        for (const auto& p : parameters()) total_size += p.second;
-        for (auto& l : layers) total_size += l->alloc_buffer_size();
+        auto p = parameters();
+        size_t p_size = p.size();
+        for(size_t i = 0; i < p_size; ++i)
+            total_size += p[i].second;
+
+        size_t l_size = layers.size();
+        for(size_t i = 0; i < l_size; ++i)
+            total_size += layers[i]->alloc_buffer_size();
+
         memory.resize(total_size);
 
         float* ptr = total_size > 0 ? (float*)memory.data() : nullptr;
         bool is_gpu_mem = (memory_location<Container>::at == CUDA);
-        allocate(ptr, is_gpu_mem);
+        allocate(ptr,is_gpu_mem);
     }
 
-    void allocate(float*& ptr, bool is_gpu_mem) override {
+    void allocate(float*& ptr,bool is_gpu_mem) override
+    {
         this->is_gpu = is_gpu_mem;
-        for (auto& l : layers) {
-            l->allocate(ptr, is_gpu_mem);
-        }
+        for(auto& l : layers)
+            l->allocate(ptr,is_gpu_mem);
     }
 
-    float* forward(float* in) override {
-        for (auto& l : layers)
+    float* forward(float* in) override
+    {
+        for(auto& l : layers)
         {
-            if (prog && !prog()) return nullptr;
+            if(prog && !prog())
+                return nullptr;
             in = l->forward(in);
         }
         return in;
@@ -667,127 +684,186 @@ public:
             first = false;
         }
     }
+
+    std::shared_ptr<layer> create_layer(const std::string& def,int in_c)
+    {
+        std::unordered_map<std::string,std::string> params;
+        for(const auto& arg : tipl::split(def,','))
+        {
+            size_t pos = arg.find_first_of("0123456789");
+            if(pos != std::string::npos)
+                params[arg.substr(0,pos)] = arg.substr(pos);
+            else
+                params[arg] = "1";
+        }
+
+        std::shared_ptr<layer> l;
+        int out_ch = in_c;
+
+        if(params.count("max_pool"))
+            l.reset(new max_pool_3d(in_c));
+        else if(params.count("upsample"))
+            l.reset(new upsample_3d(in_c));
+        else if(params.count("conv_trans"))
+        {
+            out_ch = std::stoi(params["conv_trans"]);
+            int ks = params.count("ks") ? std::stoi(params["ks"]) : 2;
+            int stride = params.count("stride") ? std::stoi(params["stride"]) : 2;
+            l.reset(new conv_transpose_3d(in_c,out_ch,ks,stride));
+        }
+        else if(params.count("conv"))
+        {
+            out_ch = std::stoi(params["conv"]);
+            int ks = params.count("ks") ? std::stoi(params["ks"]) : 3;
+            int stride = params.count("stride") ? std::stoi(params["stride"]) : 1;
+
+            if(params.count("leaky_relu"))
+                l.reset(new conv_3d<activation_type::leaky_relu>(in_c,out_ch,ks,stride));
+            else
+                l.reset(new conv_3d<activation_type::none>(in_c,out_ch,ks,stride));
+        }
+        else if(params.count("norm"))
+        {
+            if(params.count("leaky_relu"))
+                l.reset(new instance_norm_3d<activation_type::leaky_relu>(in_c));
+            else
+                l.reset(new instance_norm_3d<activation_type::none>(in_c));
+        }
+        else
+            throw std::runtime_error("unknown layer");
+        layers.push_back(l);
+        return l;
+    }
 };
 
-
-enum class unet_version { standard, deep_supervision };
-template<unet_version Version>
-class unet3d : public network {
+class unet3d : public network
+{
     std::deque<std::vector<std::shared_ptr<layer>>> encoding, decoding, up;
     std::shared_ptr<layer> output;
-
-    std::shared_ptr<layer> add_layer(layer* l) {
-        layers.emplace_back(l);
-        return layers.back();
-    }
-
-    void add_conv_block(std::vector<std::shared_ptr<layer>>& block, const std::vector<int>& rhs, size_t ks, int first_stride = 1)
-    {
-        int count = 0;
-        int idx = 0;
-        for (int next_c : rhs)
-        {
-            if (count)
-            {
-                int current_stride = (idx == 1) ? first_stride : 1;
-                constexpr auto conv_act = (Version == unet_version::standard) ? activation_type::leaky_relu : activation_type::none;
-                constexpr auto norm_act = (Version == unet_version::standard) ? activation_type::none : activation_type::leaky_relu;
-                block.push_back(add_layer(new conv_3d<conv_act>(count, next_c, ks, current_stride)));
-                block.push_back(add_layer(new instance_norm_3d<norm_act>(next_c)));
-            }
-            count = next_c;
-            idx++;
-        }
-    }
-
-    float* forward_block(const std::vector<std::shared_ptr<layer>>& block, float* in_ptr) {
-        for (auto& l : block) in_ptr = l->forward(in_ptr);
-        return in_ptr;
-    }
-
 public:
-    unet3d(const std::vector<std::vector<int>>& f_down, const std::vector<std::vector<int>>& f_up,
-               const std::vector<int>& ks, int in_c, int out_c)
+    unet3d(const std::string& structure,int in_c,int out_c)
     {
-        in_channels_ = in_c;
-        out_channels_ = out_c;
+        std::vector<std::string> enc_lines, dec_lines;
+        for(auto l : tipl::split(structure,'\n'))
+        {
+            if(!l.empty() && l.back() == '\r')
+                l.pop_back();
+            if(l.empty())
+                continue;
 
-        for (size_t i = 0; i < f_down.size(); ++i) {
-            std::vector<std::shared_ptr<layer>> en_block;
-            if constexpr (Version == unet_version::standard) {
-                if (i > 0) en_block.push_back(add_layer(new max_pool_3d(f_down[i][0])));
-                add_conv_block(en_block, f_down[i], ks[i], 1);
-            } else {
-                int first_stride = (i == 0) ? 1 : 2;
-                add_conv_block(en_block, f_down[i], ks[i], first_stride);
-            }
-            encoding.push_back(std::move(en_block));
+            (tipl::begins_with(l,"upsample") || tipl::begins_with(l,"conv_trans") ? dec_lines : enc_lines).push_back(l);
         }
 
-        for (int i = static_cast<int>(f_down.size()) - 2; i >= 0; --i) {
-            std::vector<std::shared_ptr<layer>> up_block, de_block;
-            if constexpr (Version == unet_version::standard) {
-                up_block.push_back(add_layer(new upsample_3d(f_up[i+1].back())));
-                add_conv_block(up_block, {f_up[i+1].back(), f_down[i].back()}, ks[i], 1);
-            } else {
-                up_block.push_back(add_layer(new conv_transpose_3d(f_up[i+1].back(), f_down[i].back(), 2, 2)));
-            }
-
-            std::vector<int> current_decoder_features = f_up[i];
-            if constexpr (Version == unet_version::deep_supervision) {
-                if(current_decoder_features.size() == 2)
-                    current_decoder_features.push_back(current_decoder_features.back());
-            }
-
-            add_conv_block(de_block, current_decoder_features, ks[i], 1);
-
-            up.push_front(std::move(up_block));
-            decoding.push_front(std::move(de_block));
-
-            if constexpr (Version == unet_version::deep_supervision) {
-                auto ds_head = add_layer(new conv_3d<activation_type::none>(f_up[i].back(), out_c, 1, 1));
-                if (i == 0) output = ds_head;
+        int current_c = in_c;
+        for(const auto& line : enc_lines)
+        {
+            encoding.emplace_back();
+            for(const auto& token : tipl::split(line,'+'))
+            {
+                encoding.back().push_back(create_layer(token,current_c));
+                current_c = encoding.back().back()->out_channels_;
             }
         }
 
-        if constexpr (Version == unet_version::standard) {
-            output = add_layer(new conv_3d<activation_type::none>(f_up[0].back(), out_c, 1, 1));
+        size_t dec_size = dec_lines.size();
+        size_t enc_size = encoding.size();
+
+        for(size_t j = 0; j < dec_size; ++j)
+        {
+            int skip_c = encoding[enc_size - 2 - j].back()->out_channels_;
+            std::vector<std::shared_ptr<layer>> cur_up, cur_de;
+
+            auto tokens = tipl::split(dec_lines[j],'+');
+            size_t token_size = tokens.size();
+            bool in_up_block = true;
+
+            for(size_t t = 0; t < token_size; ++t)
+            {
+                auto l = create_layer(tokens[t],current_c);
+                current_c = l->out_channels_;
+
+                // Detection: Output head fundamentally reduces channels directly to the final `out_c`
+                if(current_c == out_c && t == token_size - 1 && l->in_channels_ != l->out_channels_)
+                {
+                    if(j == dec_size - 1)
+                        output = l;
+                    current_c = l->in_channels_; // Revert `current_c` to keep decoder channel sizes consistent
+                    continue;
+                }
+
+                if(in_up_block)
+                {
+                    cur_up.push_back(l);
+                    if(current_c == skip_c)
+                    {
+                        bool next_is_norm = (t + 1 < token_size) && tipl::contains(tokens[t+1],"norm");
+                        if(!next_is_norm)
+                        {
+                            in_up_block = false;
+                            current_c += skip_c;
+                        }
+                    }
+                }
+                else
+                {
+                    cur_de.push_back(l);
+                }
+            }
+            up.push_front(std::move(cur_up));
+            decoding.push_front(std::move(cur_de));
         }
     }
-    void init_image(tipl::shape<3>& dim_) override {
+
+    void init_image(tipl::shape<3>& dim_) override
+    {
         network::init_image(dim_);
-        for (int i = static_cast<int>(encoding.size()) - 2; i >= 0; --i)
+        int enc_size = static_cast<int>(encoding.size());
+        for(int i = enc_size - 2; i >= 0; --i)
             encoding[i][encoding[i].size() - 2]->out_size += up[i].back()->out_size;
     }
 
-    float* forward(float* in) override {
+    float* forward(float* in) override
+    {
+        auto forward_block = [&](const std::vector<std::shared_ptr<layer>>& block, float* in_ptr)
+        {
+            for (auto& l : block)
+                in_ptr = l->forward(in_ptr);
+            return in_ptr;
+        };
+
         std::vector<float*> buf;
         int n_levels = static_cast<int>(encoding.size());
 
-        for (int i = 0; i < n_levels; ++i) {
-            if (prog && !prog()) return nullptr;
-
-            buf.push_back(in = forward_block(encoding[i], in));
+        for(int i = 0; i < n_levels; ++i)
+        {
+            if(prog && !prog())
+                return nullptr;
+            buf.push_back(in = forward_block(encoding[i],in));
         }
 
-        for (int i = n_levels - 2; i >= 0; --i) {
-            if (prog && !prog()) return nullptr;
+        for(int i = n_levels - 2; i >= 0; --i)
+        {
+            if(prog && !prog())
+                return nullptr;
+
             buf.pop_back();
             float* encoder_skip = buf.back();
-            float* decoder_up = forward_block(up[i], in);
+            float* decoder_up = forward_block(up[i],in);
 
             size_t copy_size = up[i].back()->out_size;
             size_t skip_offset = encoding[i].back()->out_size;
 
-            if constexpr (tipl::use_cuda) {
-                if (this->is_gpu) {
-                    cuda_copy_device_to_device(encoder_skip + skip_offset, decoder_up, copy_size);
+            if constexpr(tipl::use_cuda)
+            {
+                if(this->is_gpu)
+                {
+                    cuda_copy_device_to_device(encoder_skip + skip_offset,decoder_up,copy_size);
                     goto end;
                 }
             }
-            std::copy_n(decoder_up, copy_size, encoder_skip + skip_offset);
+            std::copy_n(decoder_up,copy_size,encoder_skip + skip_offset);
             end:
-            in = forward_block(decoding[i], encoder_skip);
+            in = forward_block(decoding[i],encoder_skip);
         }
         return output->forward(in);
     }
