@@ -77,10 +77,16 @@ public:
     virtual bool change_dim(void) const {return false;}
 };
 
+static constexpr const char* kernel_size_keyword = "ks";
+static constexpr const char* stride_keyword = "stride";
+static constexpr const char* leaky_relu_keyword = "leaky_relu";
+static constexpr const char* relu_keyword = "relu";
+
 template <activation_type Act = activation_type::none>
 class conv_3d : public layer {
     int kernel_size_, kernel_size3, range, stride_;
 public:
+    static constexpr const char* keyword = "conv";
     float* weight = nullptr;
     float* bias = nullptr;
     float* out = nullptr;
@@ -211,11 +217,11 @@ public:
     }
     void print(std::ostream& os) const override
     {
-        os << "conv" << out_channels_ << ",ks" << kernel_size_ << ",stride" << stride_;
+        os << keyword << out_channels_ << "," << kernel_size_keyword << kernel_size_ << "," << stride_keyword << stride_;
         if(Act == activation_type::relu)
-            os << ",relu";
+            os << "," << relu_keyword;
         if(Act == activation_type::leaky_relu)
-            os << ",leaky_relu";
+            os << "," << leaky_relu_keyword;
     }
     bool change_dim(void) const override{return stride_ != 1;}
 };
@@ -223,6 +229,7 @@ public:
 class conv_transpose_3d : public layer {
     int kernel_size_, kernel_size3, stride_;
 public:
+    static constexpr const char* keyword = "conv_trans";
     float* weight = nullptr;
     float* bias = nullptr;
     float* out = nullptr;
@@ -335,13 +342,14 @@ public:
         });
         return out;
     }
-    void print(std::ostream& os) const override { os << "conv_trans" << out_channels_ << ",ks" << kernel_size_ << ",stride" << stride_; }
+    void print(std::ostream& os) const override { os << keyword << out_channels_ << "," << kernel_size_keyword << kernel_size_ << "," << stride_keyword << stride_; }
     bool change_dim(void) const override{return stride_ != 1;}
 };
 
 template <activation_type Act = activation_type::none>
 class instance_norm_3d : public layer {
 public:
+    static constexpr const char* keyword = "norm";
     float* weight = nullptr;
     float* bias = nullptr;
     size_t weight_size = 0, bias_size = 0;
@@ -421,16 +429,17 @@ public:
     }
     size_t alloc_buffer_size() const override { return 0; }
     void print(std::ostream& os) const override {
-        os << "norm";
+        os << keyword;
         if(Act == activation_type::relu)
-            os << ",relu";
+            os << "," << relu_keyword;
         if(Act == activation_type::leaky_relu)
-            os << ",leaky_relu";
+            os << "," << leaky_relu_keyword;
     }
 };
 
 class max_pool_3d : public layer {
 public:
+    static constexpr const char* keyword = "max_pool";
     tipl::shape<3> out_dim;
     float* out = nullptr;
     int pool_size = 2;
@@ -523,12 +532,13 @@ public:
         return out;
     }
 
-    void print(std::ostream& os) const override { os << "max_pool"; }
+    void print(std::ostream& os) const override { os << keyword; }
     bool change_dim(void) const override{return true;}
 };
 
 class upsample_3d : public layer {
 public:
+    static constexpr const char* keyword = "upsample";
     tipl::shape<3> out_dim;
     float* out = nullptr;
     int pool_size = 2;
@@ -604,7 +614,7 @@ public:
         return out;
     }
 
-    void print(std::ostream& os) const override { os << "upsample"; }
+    void print(std::ostream& os) const override { os << keyword; }
     bool change_dim(void) const override{return true;}
 };
 
@@ -700,31 +710,31 @@ public:
         std::shared_ptr<layer> l;
         int out_ch = in_c;
 
-        if(params.count("max_pool"))
+        if(params.count(max_pool_3d::keyword))
             l.reset(new max_pool_3d(in_c));
-        else if(params.count("upsample"))
+        else if(params.count(upsample_3d::keyword))
             l.reset(new upsample_3d(in_c));
-        else if(params.count("conv_trans"))
+        else if(params.count(conv_transpose_3d::keyword))
         {
-            out_ch = std::stoi(params["conv_trans"]);
-            int ks = params.count("ks") ? std::stoi(params["ks"]) : 2;
-            int stride = params.count("stride") ? std::stoi(params["stride"]) : 2;
+            out_ch = std::stoi(params[conv_transpose_3d::keyword]);
+            int ks = params.count(kernel_size_keyword) ? std::stoi(params[kernel_size_keyword]) : 2;
+            int stride = params.count(stride_keyword) ? std::stoi(params[stride_keyword]) : 2;
             l.reset(new conv_transpose_3d(in_c,out_ch,ks,stride));
         }
-        else if(params.count("conv"))
+        else if(params.count(conv_3d<>::keyword))
         {
-            out_ch = std::stoi(params["conv"]);
-            int ks = params.count("ks") ? std::stoi(params["ks"]) : 3;
-            int stride = params.count("stride") ? std::stoi(params["stride"]) : 1;
+            out_ch = std::stoi(params[conv_3d<>::keyword]);
+            int ks = params.count(kernel_size_keyword) ? std::stoi(params[kernel_size_keyword]) : 3;
+            int stride = params.count(stride_keyword) ? std::stoi(params[stride_keyword]) : 1;
 
-            if(params.count("leaky_relu"))
+            if(params.count(leaky_relu_keyword))
                 l.reset(new conv_3d<activation_type::leaky_relu>(in_c,out_ch,ks,stride));
             else
                 l.reset(new conv_3d<activation_type::none>(in_c,out_ch,ks,stride));
         }
-        else if(params.count("norm"))
+        else if(params.count(instance_norm_3d<>::keyword))
         {
-            if(params.count("leaky_relu"))
+            if(params.count(leaky_relu_keyword))
                 l.reset(new instance_norm_3d<activation_type::leaky_relu>(in_c));
             else
                 l.reset(new instance_norm_3d<activation_type::none>(in_c));
@@ -738,20 +748,27 @@ public:
 
 class unet3d : public network
 {
-    std::deque<std::vector<std::shared_ptr<layer>>> encoding, decoding, up;
-    std::shared_ptr<layer> output;
+    std::vector<std::vector<std::shared_ptr<layer>>> encoding, decoding, up;
 public:
     unet3d(const std::string& structure,int in_c,int out_c)
     {
-        std::vector<std::string> enc_lines, dec_lines;
-        for(auto l : tipl::split(structure,'\n'))
+        std::vector<std::string> enc_lines, dec_lines, all_lines;
+        for(auto l : tipl::split(structure, '\n'))
         {
             if(!l.empty() && l.back() == '\r')
                 l.pop_back();
+
             if(l.empty())
                 continue;
 
-            (tipl::begins_with(l,"upsample") || tipl::begins_with(l,"conv_trans") ? dec_lines : enc_lines).push_back(l);
+            all_lines.push_back(l);
+        }
+
+        if(!all_lines.empty())
+        {
+            size_t enc_count = all_lines.size() / 2 + 1;
+            enc_lines.assign(all_lines.begin(), all_lines.begin() + enc_count);
+            dec_lines.assign(all_lines.begin() + enc_count, all_lines.end());
         }
 
         int current_c = in_c;
@@ -785,8 +802,6 @@ public:
                 // Detection: Output head fundamentally reduces channels directly to the final `out_c`
                 if(current_c == out_c && t == token_size - 1 && l->in_channels_ != l->out_channels_)
                 {
-                    if(j == dec_size - 1)
-                        output = l;
                     current_c = l->in_channels_; // Revert `current_c` to keep decoder channel sizes consistent
                     continue;
                 }
@@ -809,17 +824,23 @@ public:
                     cur_de.push_back(l);
                 }
             }
-            up.push_front(std::move(cur_up));
-            decoding.push_front(std::move(cur_de));
+            up.insert(up.begin(),std::move(cur_up));
+            decoding.insert(decoding.begin(),std::move(cur_de));
         }
     }
 
     void init_image(tipl::shape<3>& dim_) override
     {
         network::init_image(dim_);
-        int enc_size = static_cast<int>(encoding.size());
-        for(int i = enc_size - 2; i >= 0; --i)
-            encoding[i][encoding[i].size() - 2]->out_size += up[i].back()->out_size;
+        for(size_t i = 0;i < up.size();++i)
+            if(!up[i].empty())
+                for(auto it = encoding[i].rbegin(); it != encoding[i].rend(); ++it)
+                    if((*it)->alloc_buffer_size() > 0)
+                    {
+                        // buffer location to storage skip connections
+                        (*it)->out_size += up[i].back()->out_size;
+                        break;
+                    }
     }
 
     float* forward(float* in) override
@@ -865,7 +886,7 @@ public:
             end:
             in = forward_block(decoding[i],encoder_skip);
         }
-        return output->forward(in);
+        return layers.back()->forward(in);
     }
 };
 
