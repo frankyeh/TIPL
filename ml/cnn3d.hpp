@@ -696,7 +696,7 @@ public:
         }
     }
 
-    std::shared_ptr<layer> create_layer(const std::string& def,int in_c = 0,bool preserve_channel_count = false)
+    std::shared_ptr<layer> create_layer(const std::string& def,int in_c)
     {
         std::unordered_map<std::string,std::string> params;
         for(const auto& arg : tipl::split(def,','))
@@ -707,17 +707,6 @@ public:
             else
                 params[arg] = "1";
         }
-
-        if(layers.empty())
-            in_c = in_channels_;
-        else
-        {
-            if(preserve_channel_count) // the deep supervision outputs
-                in_c += layers.back()->in_channels_; // reverse to its input channel
-            else
-                in_c += layers.back()->out_channels_; // most common condition, follow previous layer's out channels
-        }
-
         std::shared_ptr<layer> l;
 
         if(params.count(max_pool_3d::keyword))
@@ -761,19 +750,10 @@ class unet3d : public network
 public:
     unet3d(const std::string& structure,int in_c,int out_c) : network(in_c,out_c)
     {
-        std::vector<std::string> enc_lines, dec_lines, all_lines;
-        for(auto l : tipl::split(structure, '\n'))
-        {
-            if(!l.empty() && l.back() == '\r')
-                l.pop_back();
+        std::vector<std::string> enc_lines, dec_lines, all_lines(tipl::split_in_lines(structure));
+        if(all_lines.empty())
+            throw std::runtime_error("invalid u-net structure");
 
-            if(l.empty())
-                continue;
-
-            all_lines.push_back(l);
-        }
-
-        if(!all_lines.empty())
         {
             size_t enc_count = all_lines.size() / 2 + 1;
             enc_lines.assign(all_lines.begin(), all_lines.begin() + enc_count);
@@ -781,15 +761,14 @@ public:
         }
 
         std::vector<size_t> skip_count;
-        for(const auto& line : enc_lines)
+        encoding.resize(enc_lines.size());
+        for(int level = 0;level < enc_lines.size();++level)
         {
-            encoding.emplace_back();
-            for(const auto& token : tipl::split(line,'+'))
-                encoding.back().push_back(create_layer(token));
+            for(const auto& token : tipl::split(enc_lines[level],'+'))
+                encoding[level].push_back(create_layer(token));
             skip_count.push_back(layers.back()->out_channels_);
         }
 
-        bool has_deep_supervision_layer = false;
         for(const auto& each_dec : dec_lines)
         {
             up.insert(up.begin(),std::vector<std::shared_ptr<layer>>());
@@ -800,8 +779,7 @@ public:
 
             for(size_t t = 0; t < tokens.size() - 1; ++t)
             {
-                up[0].push_back(create_layer(tokens[t],0,has_deep_supervision_layer));
-                has_deep_supervision_layer = false;
+                up[0].push_back(create_layer(tokens[t]));
                 if(layers.back()->out_channels_ == skip_count.back() && !tipl::contains(tokens[t+1],"norm"))
                     break;
             }
@@ -812,25 +790,42 @@ public:
             for(size_t t = up[0].size()+1; t < tokens.size(); ++t)
             {
                 auto l = create_layer(tokens[t]);
-                if(l->out_channels_ == out_c && t == tokens.size() - 1 && l->in_channels_ != l->out_channels_)
-                {
-                    has_deep_supervision_layer = true;
-                    continue;
-                }
+                if(is_output_layer(l) && t == tokens.size() - 1)
+                    break;
                 decoding[0].push_back(l);
             }
         }
     }
+    std::shared_ptr<layer> create_layer(const std::string& def,int in_c = 0)
+    {
+        if(layers.empty())
+            in_c = in_channels_;
+        else
+        {
+            if(is_output_layer(layers.back())) // the deep supervision outputs
+                in_c += layers.back()->in_channels_; // reverse to its input channel
+            else
+                in_c += layers.back()->out_channels_; // most common condition, follow previous layer's out channels
+        }
+        return network::create_layer(def,in_c);
+    }
+    bool is_output_layer(const std::shared_ptr<layer> l) const
+    {
+        return l->out_channels_ == out_channels_ && l->in_channels_ != l->out_channels_;
+    }
 
+    std::vector<size_t> skip_offset;
     void init_image(tipl::shape<3>& dim_) override
     {
         network::init_image(dim_);
+        skip_offset.resize(up.size());
         for(size_t i = 0;i < up.size();++i)
             if(!up[i].empty())
                 for(auto it = encoding[i].rbegin(); it != encoding[i].rend(); ++it)
                     if((*it)->alloc_buffer_size() > 0)
                     {
                         // buffer location to storage skip connections
+                        skip_offset[i] = (*it)->out_size;
                         (*it)->out_size += up[i].back()->out_size;
                         break;
                     }
@@ -865,26 +860,15 @@ public:
             float* decoder_up = forward_block(up[i],in);
 
             size_t copy_size = up[i].back()->out_size;
-            size_t skip_offset = 0;
-            for(auto it = encoding[i].rbegin(); it != encoding[i].rend(); ++it)
-            {
-                if((*it)->alloc_buffer_size() > 0)
-                {
-                    // Since we added copy_size in init_image, subtracting it yields the exact original size
-                    skip_offset = (*it)->out_size - copy_size;
-                    break;
-                }
-            }
-
             if constexpr(tipl::use_cuda)
             {
                 if(this->is_gpu)
                 {
-                    cuda_copy_device_to_device(encoder_skip + skip_offset,decoder_up,copy_size);
+                    cuda_copy_device_to_device(encoder_skip + skip_offset[i],decoder_up,copy_size);
                     goto end;
                 }
             }
-            std::copy_n(decoder_up,copy_size,encoder_skip + skip_offset);
+            std::copy_n(decoder_up,copy_size,encoder_skip + skip_offset[i]);
             end:
             in = forward_block(decoding[i],encoder_skip);
         }
