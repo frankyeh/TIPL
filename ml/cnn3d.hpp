@@ -36,7 +36,7 @@ void cuda_conv_transpose_3d_forward(const T* in, const T* weight, const T* bias,
                                     int kernel_size, int kernel_size3, int stride);
 
 template <activation_type Act, typename T>
-void cuda_instance_norm_3d_forward(T* in, const T* weight, const T* bias,
+void cuda_instance_norm_3d_forward(const T* in, T* out, const T* weight, const T* bias,
                                    int out_c, size_t plane_size, T slope);
 
 template <typename T>
@@ -54,8 +54,9 @@ void cuda_copy_device_to_device(T* dest, const T* src, size_t count);
 class layer {
 public:
     int in_channels_ = 1, out_channels_ = 1;
-    size_t out_size = 0;
+    size_t out_size = 0 , out_buffer_size = 0;
     tipl::shape<3> dim;
+    float* out = nullptr;
     bool is_gpu = false;
 
     layer(int channels) : in_channels_(channels), out_channels_(channels) {}
@@ -66,13 +67,14 @@ public:
     virtual void init_image(tipl::shape<3>& dim_)
     {
         dim = dim_;
-        out_size = dim.size() * out_channels_;
+        out_buffer_size = out_size = dim.size() * out_channels_;
     }
     virtual float* forward(float* in_ptr) = 0;
     virtual void print(std::ostream& out) const = 0;
-    virtual size_t alloc_buffer_size() const { return out_size; }
-    virtual void allocate(float*& ptr, bool is_gpu_mem) {
+    virtual void allocate(float*& ptr, bool is_gpu_mem)
+    {
         is_gpu = is_gpu_mem;
+        out = ptr; ptr += out_buffer_size;
     }
     virtual bool change_dim(void) const {return false;}
 };
@@ -89,7 +91,6 @@ public:
     static constexpr const char* keyword = "conv";
     float* weight = nullptr;
     float* bias = nullptr;
-    float* out = nullptr;
     size_t weight_size = 0, bias_size = 0;
     tipl::shape<3> out_dim;
 
@@ -108,14 +109,13 @@ public:
     void init_image(tipl::shape<3>& dim_) override {
         dim = dim_;
         out_dim = dim_ = tipl::s(dim_[0]/stride_,dim_[1]/stride_,dim_[2]/stride_);
-        out_size = out_dim.size() * out_channels_;
+        out_buffer_size = out_size = out_dim.size() * out_channels_;
     }
 
     void allocate(float*& ptr, bool is_gpu_mem) override {
-        this->is_gpu = is_gpu_mem;
         weight = ptr; ptr += weight_size;
         bias = ptr; ptr += bias_size;
-        out = ptr; ptr += out_size;
+        layer::allocate(ptr,is_gpu_mem);
     }
 
 
@@ -232,7 +232,6 @@ public:
     static constexpr const char* keyword = "conv_trans";
     float* weight = nullptr;
     float* bias = nullptr;
-    float* out = nullptr;
     size_t weight_size = 0, bias_size = 0;
     tipl::shape<3> out_dim;
 
@@ -249,14 +248,13 @@ public:
     void init_image(tipl::shape<3>& dim_) override {
         dim = dim_;
         out_dim = dim_ = tipl::s(dim_[0]*stride_,dim_[1]*stride_,dim_[2]*stride_);
-        out_size = out_dim.size() * out_channels_;
+        out_buffer_size = out_size = out_dim.size() * out_channels_;
     }
 
     void allocate(float*& ptr, bool is_gpu_mem) override {
-        this->is_gpu = is_gpu_mem;
         weight = ptr; ptr += weight_size;
         bias = ptr; ptr += bias_size;
-        out = ptr; ptr += out_size;
+        layer::allocate(ptr,is_gpu_mem);
     }
 
     float* forward(float* in) override
@@ -363,9 +361,15 @@ public:
     std::vector<std::pair<float*, size_t>> parameters() override {
         return {{weight, weight_size}, {bias, bias_size}};
     }
-
-    void allocate(float*& ptr, bool is_gpu_mem) override {
-        this->is_gpu = is_gpu_mem;
+    void init_image(tipl::shape<3>& dim_) override
+    {
+        layer::init_image(dim_);
+        out_buffer_size = 0; // in-place
+    }
+    void allocate(float*& ptr, bool is_gpu_mem) override
+    {
+        layer::allocate(ptr,is_gpu_mem);
+        out = ptr-dim.size()*out_channels_;
         weight = ptr; ptr += weight_size;
         bias = ptr; ptr += bias_size;
     }
@@ -375,8 +379,8 @@ public:
         if constexpr (tipl::use_cuda)
             if (this->is_gpu)
             {
-                cuda_instance_norm_3d_forward<Act>(in, weight, bias, out_channels_, dim.size(), 0.01f);
-                return in;
+                cuda_instance_norm_3d_forward<Act>(in, out, weight, bias, out_channels_, dim.size(), 0.01f);
+                return out;
             }
 
         const size_t plane_size = dim.size();
@@ -386,7 +390,8 @@ public:
 
         tipl::par_for(out_channels_, [&](size_t outc)
         {
-            float* const base_ptr = in + (outc * plane_size);
+            size_t pos = outc * plane_size;
+            float* const base_ptr = in + pos;
             float* const end_ptr = base_ptr + plane_size;
 
             double sum = 0.0;
@@ -408,7 +413,7 @@ public:
             float shift = bias[outc] - (mean * scale);
 
             // Pass 2: Pointer sweeping for apply phase
-            for (float* ptr = base_ptr; ptr < end_ptr; ++ptr)
+            for (float* ptr = base_ptr, *out_ptr = out + pos; ptr < end_ptr; ++ptr, ++out_ptr)
             {
                 float val = (*ptr) * scale + shift;
 
@@ -421,13 +426,12 @@ public:
                             val *= 0.01f;
                     }
 
-                *ptr = val;
+                *out_ptr = val;
             }
         });
 
-        return in;
+        return out;
     }
-    size_t alloc_buffer_size() const override { return 0; }
     void print(std::ostream& os) const override {
         os << keyword;
         if(Act == activation_type::relu)
@@ -441,7 +445,6 @@ class max_pool_3d : public layer {
 public:
     static constexpr const char* keyword = "max_pool";
     tipl::shape<3> out_dim;
-    float* out = nullptr;
     int pool_size = 2;
 
     max_pool_3d(int c) : layer(c) {}
@@ -449,12 +452,7 @@ public:
     void init_image(tipl::shape<3>& dim_) override {
         dim = dim_;
         out_dim = dim_ = {dim[0] / pool_size, dim[1] / pool_size, dim[2] / pool_size};
-        out_size = out_dim.size()*out_channels_;
-    }
-
-    void allocate(float*& ptr, bool is_gpu_mem) override {
-        this->is_gpu = is_gpu_mem;
-        out = ptr; ptr += out_size;
+        out_buffer_size = out_size = out_dim.size()*out_channels_;
     }
 
     float* forward(float* in) override
@@ -540,7 +538,6 @@ class upsample_3d : public layer {
 public:
     static constexpr const char* keyword = "upsample";
     tipl::shape<3> out_dim;
-    float* out = nullptr;
     int pool_size = 2;
 
     upsample_3d(int c) : layer(c) {}
@@ -548,13 +545,7 @@ public:
     void init_image(tipl::shape<3>& dim_) override {
         dim = dim_;
         out_dim = dim_ = {dim[0] * pool_size, dim[1] * pool_size, dim[2] * pool_size};
-        out_size = out_dim.size()*out_channels_;
-    }
-
-
-    void allocate(float*& ptr, bool is_gpu_mem) override {
-        this->is_gpu = is_gpu_mem;
-        out = ptr; ptr += out_size;
+        out_buffer_size = out_size = out_dim.size()*out_channels_;
     }
 
     float* forward(float* in) override
@@ -644,6 +635,7 @@ public:
         for(auto& l : layers)
             l->init_image(dim_);
         out_size = layers.back()->out_size;
+        out_buffer_size = 0;
     }
 
     template<typename Container>
@@ -657,7 +649,7 @@ public:
 
         size_t l_size = layers.size();
         for(size_t i = 0; i < l_size; ++i)
-            total_size += layers[i]->alloc_buffer_size();
+            total_size += layers[i]->out_buffer_size;
 
         memory.resize(total_size);
 
@@ -814,23 +806,22 @@ public:
         return l->out_channels_ == out_channels_ && l->in_channels_ != l->out_channels_;
     }
 
-    std::vector<size_t> skip_offset;
     void init_image(tipl::shape<3>& dim_) override
     {
         network::init_image(dim_);
-        skip_offset.resize(up.size());
+        // additional space allocated at the back of the encoding layer for skip connections
         for(size_t i = 0;i < up.size();++i)
             if(!up[i].empty())
-                for(auto it = encoding[i].rbegin(); it != encoding[i].rend(); ++it)
-                    if((*it)->alloc_buffer_size() > 0)
-                    {
-                        // buffer location to storage skip connections
-                        skip_offset[i] = (*it)->out_size;
-                        (*it)->out_size += up[i].back()->out_size;
-                        break;
-                    }
+                encoding[i].back()->out_buffer_size += up[i].back()->out_size;
     }
-
+    /*
+    void allocate(float*& ptr,bool is_gpu_mem) override
+    {
+        network::allocate(ptr,is_gpu_mem);
+        for(size_t i = 0;i < up.size();++i)
+            up[i].back()->out = encoding[i].back()->out + encoding[i].back()->out_size;
+    }
+    */
     float* forward(float* in) override
     {
         auto forward_block = [&](const std::vector<std::shared_ptr<layer>>& block, float* in_ptr)
@@ -862,11 +853,11 @@ public:
             {
                 if(this->is_gpu)
                 {
-                    cuda_copy_device_to_device(encoder_skip.back() + skip_offset[i],decoder_up,copy_size);
+                    cuda_copy_device_to_device(encoder_skip.back() + encoding[i].back()->out_size,decoder_up,copy_size);
                     goto end;
                 }
             }
-            std::copy_n(decoder_up,copy_size,encoder_skip.back() + skip_offset[i]);
+            std::copy_n(decoder_up,copy_size,encoder_skip.back() + encoding[i].back()->out_size);
             end:
             in = forward_block(decoding[i],encoder_skip.back());
         }
@@ -998,14 +989,15 @@ __global__ void conv_transpose_3d_kernel(const T* in,const T* weight,const T* bi
 }
 
 template<activation_type Act,typename T>
-__global__ void instance_norm_3d_kernel(T* in,const T* weight,const T* bias,
+__global__ void instance_norm_3d_kernel(const T* in,T* out,const T* weight,const T* bias,
                                         int out_c,size_t plane_size,T slope)
 {
     int oc = blockIdx.x*blockDim.x+threadIdx.x;
     if(oc >= out_c)
         return;
 
-    T* in_ptr = in+plane_size*oc;
+    const T* in_ptr = in+plane_size*oc;
+    T* out_ptr = out+plane_size*oc;
     double sum = 0.0,sq_sum = 0.0;
 
     for(size_t i = 0;i < plane_size;++i)
@@ -1031,7 +1023,7 @@ __global__ void instance_norm_3d_kernel(T* in,const T* weight,const T* bias,
         if constexpr(Act == activation_type::leaky_relu)
             if(val < T(0))
                 val *= slope;
-        in_ptr[i] = val;
+        out_ptr[i] = val;
     }
 }
 
@@ -1180,24 +1172,24 @@ void cuda_conv_transpose_3d_forward<float>(const float* in, const float* weight,
                                     int kernel_size, int kernel_size3, int stride);
 
 template <activation_type Act, typename T = float>
-void cuda_instance_norm_3d_forward(T* in, const T* weight, const T* bias,
+void cuda_instance_norm_3d_forward(const T* in, T* out, const T* weight, const T* bias,
                                    int out_c, size_t plane_size, T slope) {
     int block_size = 256;
     int grid_size = (out_c + block_size - 1) / block_size;
     cuda_kernels::instance_norm_3d_kernel<Act, T><<<grid_size, block_size>>>(
-        in, weight, bias, out_c, plane_size, slope);
+        in, out, weight, bias, out_c, plane_size, slope);
 }
 
 template
-void cuda_instance_norm_3d_forward<activation_type::none, float>(float* in, const float* weight, const float* bias,
+void cuda_instance_norm_3d_forward<activation_type::none, float>(const float* in, float* out, const float* weight, const float* bias,
                                    int out_c, size_t plane_size, float slope);
 
 template
-void cuda_instance_norm_3d_forward<activation_type::relu, float>(float* in, const float* weight, const float* bias,
+void cuda_instance_norm_3d_forward<activation_type::relu, float>(const float* in, float* out, const float* weight, const float* bias,
                                    int out_c, size_t plane_size, float slope);
 
 template
-void cuda_instance_norm_3d_forward<activation_type::leaky_relu, float>(float* in, const float* weight, const float* bias,
+void cuda_instance_norm_3d_forward<activation_type::leaky_relu, float>(const float* in, float* out, const float* weight, const float* bias,
                                    int out_c, size_t plane_size, float slope);
 
 
