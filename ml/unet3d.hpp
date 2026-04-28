@@ -428,31 +428,6 @@ public:
 };
 
 
-
-
-
-template<typename feature_type,typename kernel_type>
-void parse_feature_string(const std::string& feature_string,
-                          int input_feature,
-                          feature_type& features_down,
-                          feature_type& features_up,
-                          kernel_type& kernel_size)
-{
-    for(auto feature_string_per_level : tipl::split(feature_string,'+'))
-    {
-        auto level_feature_string = tipl::split(feature_string_per_level,',');
-        // Condensed if/else logic using ternary operator
-        kernel_size.push_back(level_feature_string.size() == 2 ? std::stoi(level_feature_string.back()) : 3);
-
-        features_down.push_back({input_feature});
-        for(auto s : tipl::split(feature_string_per_level,'x'))
-            features_down.back().push_back(input_feature = std::stoi(s));
-
-        features_up.push_back(std::vector<int>(features_down.back().rbegin(),features_down.back().rend()-1));
-        features_up.back()[0] *= 2; // due to input concatenation
-    }
-}
-
 template<typename T>
 inline auto soft_mask(const T& label)
 {
@@ -498,33 +473,31 @@ public:
     bool load_model(const std::string& file_name)
     {
         reader in;
-        std::string feature_string;
         std::vector<int> param({1,1});
-        if(!in.load_from_file(file_name)) return error_msg = "cannot open file: " + file_name,false;
-        if(!in.read("param",param) || !in.read("feature_string",feature_string)) return error_msg = "invalid network file format",false;
-
-        std::vector<std::vector<int> > features_down;
-        std::vector<std::vector<int> > features_up;
-        std::vector<int> kernel_size;
-        parse_feature_string(feature_string,param[0],features_down,features_up,kernel_size);
-
-        if(in.has("report"))
-        {
-            tipl::out() << "loading deep supervision unet";
-            unet.reset(new unet3d<unet_version::deep_supervision>(features_down,features_up,kernel_size,param[0],param[1]));
-            new_version = true;
-        }
-        else
-        {
-            tipl::out() << "loading conventional unet";
-            unet.reset(new unet3d<unet_version::standard>(features_down,features_up,kernel_size,param[0],param[1]));
-        }
+        std::string arch;
         tipl::shape<3> dim;
-        if(!in.read_pointer("dimension",dim) || !in.read_pointer("voxel_size",eval.model_vs))
-            return error_msg = "cannot read dimension and voxel size",false;
+        if(!in.load_from_file(file_name))
+            return error_msg = "cannot open file: " + file_name,false;
+        if(in.has("feature_string"))
+            return error_msg = "cannot read old network format: " + file_name,false;
+
+        if(!in.read("param",param) || !in.read("architecture",arch) ||
+           !in.read_pointer("dimension",dim) || !in.read_pointer("voxel_size",eval.model_vs))
+            return error_msg = "invalid network file format",false;
+
+        if((new_version = !tipl::contains(arch,"leaky_relu+norm")))
+            tipl::out() << "loading deep supervision unet: " << arch;
+        else
+            tipl::out() << "loading conventional unet: " << arch;
+        tipl::out() << "dim: " << dim;
+        tipl::out() << "vs: " << eval.model_vs;
+        tipl::out() << "in: " << param[0] << " out:" << param[1];
+
+        unet.reset(new unet3d(arch,param[0],param[1]));
         unet->init_image(dim);
         unet->allocate_memory(memory);
         eval.model_dim = unet->dim;
+
         int id = 0;
         for(auto& p : unet->parameters())
         {
@@ -540,7 +513,6 @@ public:
             if(!in.read(name.c_str(), p.first, p.first + p.second))
                 return error_msg = "error reading tensor structure " + name, false;
         }
-
 
         if constexpr(tipl::use_cuda)
         {
