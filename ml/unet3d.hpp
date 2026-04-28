@@ -238,16 +238,22 @@ public:
         for(const auto& each : tipl::split(cmd,'+'))
         {
             tipl::out() << "run " << each;
-            if(each == "postproc" && postproc())
+            auto param = tipl::split(each,',');
+            if(param[0] == "postproc" && postproc())
                 continue;
-            if(each == "remove_bg_channel" && remove_bg_channel())
+            if(param[0] == "remove_bg_channel" && remove_bg_channel())
                 continue;
-            if(each == "softmax" && softmax())
+            if(param[0] == "softmax" && softmax())
                 continue;
-            if(each == "argmax" && argmax())
+            if(param[0] == "argmax" && argmax())
                 continue;
-            if(each == "create_mask" && create_mask())
+            if(param[0] == "create_mask" && create_mask())
                 continue;
+            if(param[0] == "clamp_prob")
+            {
+                tipl::upper_lower_threshold(label_prob, 0.0f, 1.0f);
+                continue;
+            }
             if(error_msg.empty())
                 error_msg = "invalid command: " + cmd;
             return false;
@@ -464,10 +470,9 @@ public:
     tipl::device_vector<float> gpu_memory;
     std::vector<float> memory;
     std::shared_ptr<network> unet;
-    bool new_version = false;
 public:
     evalution_set<tipl::image<3>> eval;
-    std::string error_msg;
+    std::string error_msg,postproc;
 
     template<typename reader>
     bool load_model(const std::string& file_name)
@@ -481,17 +486,14 @@ public:
         if(in.has("feature_string"))
             return error_msg = "cannot read old network format: " + file_name,false;
 
-        if(!in.read("param",param) || !in.read("architecture",arch) ||
+        if(!in.read("param",param) || !in.read("architecture",arch) || !in.read("postproc",postproc) ||
            !in.read_pointer("dimension",dim) || !in.read_pointer("voxel_size",eval.model_vs))
             return error_msg = "invalid network file format",false;
 
-        if((new_version = !tipl::contains(arch,"leaky_relu+norm")))
-            tipl::out() << "loading deep supervision unet: " << arch;
-        else
-            tipl::out() << "loading conventional unet: " << arch;
         tipl::out() << "dim: " << dim;
         tipl::out() << "vs: " << eval.model_vs;
         tipl::out() << "in: " << param[0] << " out:" << param[1];
+        tipl::out() << "loading unet: " << arch;
 
         unet.reset(new unet3d(arch,param[0],param[1]));
         unet->init_image(dim);
@@ -560,15 +562,7 @@ public:
         tipl::out() << "postprocessing";
         prog(3,4);
         eval.postproc();
-        if(new_version)
-        {
-            eval.softmax();
-            eval.remove_bg_channel();
-        }
-        else
-            tipl::upper_lower_threshold(eval.label_prob, 0.0f, 1.0f);
-        eval.create_mask();
-        eval.argmax();
+        eval.command(postproc);
         prog(4,4);
         return true;
     }
