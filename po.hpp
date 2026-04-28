@@ -43,6 +43,20 @@ auto split(const T& s,typename T::value_type delimiter)
     return tokens;
 }
 template<typename T>
+auto split_in_lines(const T& s,bool ignore_empty_lines = true)
+{
+    std::vector<T> tokens;
+    for(auto t : split(s, '\n'))
+    {
+        if(!t.empty() && t.back() == '\r')
+            t.pop_back();
+        if(ignore_empty_lines && t.empty())
+            continue;
+        tokens.push_back(t);
+    }
+    return tokens;
+}
+template<typename T>
 auto merge(const std::vector<T>& tokens, typename T::value_type delimiter)
 {
     if (tokens.empty()) return T{};
