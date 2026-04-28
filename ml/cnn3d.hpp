@@ -738,40 +738,47 @@ public:
 class unet3d : public network
 {
     std::vector<std::vector<std::shared_ptr<layer>>> encoding, decoding, up;
+    std::vector<std::shared_ptr<layer>> en_tail,up_tail;
 public:
     unet3d(const std::string& structure,int in_c,int out_c) : network(in_c,out_c)
     {
-        std::vector<std::string> enc_lines, dec_lines, all_lines(tipl::split_in_lines(structure));
-        if(all_lines.empty())
-            throw std::runtime_error("invalid u-net structure");
+        std::vector<std::vector<std::string> > enc_tokens,dec_tokens;
 
         {
+            std::vector<std::string> all_lines(tipl::split_in_lines(structure));
+            if(all_lines.empty())
+                throw std::runtime_error("invalid u-net structure");
             size_t enc_count = all_lines.size() / 2 + 1;
-            enc_lines.assign(all_lines.begin(), all_lines.begin() + enc_count);
-            dec_lines.assign(all_lines.begin() + enc_count, all_lines.end());
+            for(size_t i = 0;i < enc_count;++i)
+                enc_tokens.push_back(tipl::split(all_lines[i],'+'));
+            for(size_t i = enc_count;i < all_lines.size();++i)
+                dec_tokens.push_back(tipl::split(all_lines[i],'+'));
         }
 
         std::vector<size_t> skip_count;
-        encoding.resize(enc_lines.size());
-        for(int level = 0;level < enc_lines.size();++level)
+        encoding.resize(enc_tokens.size());
+        for(int level = 0;level < enc_tokens.size();++level)
         {
-            for(const auto& token : tipl::split(enc_lines[level],'+'))
+            for(const auto& token : enc_tokens[level])
                 encoding[level].push_back(create_layer(token));
             skip_count.push_back(layers.back()->out_channels_);
         }
 
-        for(const auto& each_dec : dec_lines)
+        for(int level = 1;level < dec_tokens.size()-1;++level)
+            if(dec_tokens[0].back() != dec_tokens[level].back())
+                throw std::runtime_error("invalid u-net structure: the tail layers of encoding blocks are different");
+
+        for(const auto& tokens : dec_tokens)
         {
             up.insert(up.begin(),std::vector<std::shared_ptr<layer>>());
             decoding.insert(decoding.begin(),std::vector<std::shared_ptr<layer>>());
 
-            auto tokens = tipl::split(each_dec,'+');
             skip_count.pop_back();
 
             for(size_t t = 0; t < tokens.size() - 1; ++t)
             {
                 up[0].push_back(create_layer(tokens[t]));
-                if(layers.back()->out_channels_ == skip_count.back() && !tipl::contains(tokens[t+1],"norm"))
+                if(layers.back()->out_channels_ == skip_count.back() && !tipl::begins_with(tokens[t+1],"norm"))
                     break;
             }
 
@@ -808,57 +815,57 @@ public:
     void init_image(tipl::shape<3>& dim_) override
     {
         network::init_image(dim_);
-        // additional space allocated at the back of the encoding layer for skip connections
-        for(size_t i = 0;i < up.size();++i)
-            if(!up[i].empty())
-                encoding[i].back()->out_buffer_size += up[i].back()->out_size;
+
+        // find all tail layers basic on out_buffer_size
+        auto tail_layer = [](std::vector<std::shared_ptr<layer>>& block)
+        {
+            for(auto it = block.rbegin(); it != block.rend(); ++it)
+                if((*it)->out_buffer_size > 0)
+                    return *it;
+            throw std::runtime_error("invalid u-net structure: cannot find tail layer");
+        };
+
+        en_tail.resize(encoding.size());
+        up_tail.resize(up.size());
+        for(size_t level = 0;level < encoding.size();++level)
+            en_tail[level] = tail_layer(encoding[level]);
+        for(size_t level = 0;level < up.size();++level)
+            up_tail[level] = tail_layer(up[level]);
+
+        for(size_t i = 0; i < up_tail.size(); ++i)
+            {
+                en_tail[i]->out_buffer_size += up_tail[i]->out_size;
+                up_tail[i]->out_buffer_size = 0; // Prevent the up layer from requesting its own independent memory block
+            }
     }
-    /*
-    void allocate(float*& ptr,bool is_gpu_mem) override
+    void allocate(float*& ptr, bool is_gpu_mem) override
     {
-        network::allocate(ptr,is_gpu_mem);
-        for(size_t i = 0;i < up.size();++i)
-            up[i].back()->out = encoding[i].back()->out + encoding[i].back()->out_size;
+        network::allocate(ptr, is_gpu_mem);
+        for(size_t i = 0; i < up_tail.size(); ++i)
+            up_tail[i]->out = en_tail[i]->out + en_tail[i]->out_size;
     }
-    */
     float* forward(float* in) override
     {
         auto forward_block = [&](const std::vector<std::shared_ptr<layer>>& block, float* in_ptr)
         {
-            for (auto& l : block)
+            for(auto& l : block)
                 in_ptr = l->forward(in_ptr);
             return in_ptr;
         };
 
-        std::vector<float*> encoder_skip;
         int n_levels = static_cast<int>(encoding.size());
-
         for(int i = 0; i < n_levels; ++i)
         {
             if(prog && !prog())
                 return nullptr;
-            encoder_skip.push_back(in = forward_block(encoding[i],in));
+            in = forward_block(encoding[i], in);
         }
-
         for(int i = n_levels - 2; i >= 0; --i)
         {
             if(prog && !prog())
                 return nullptr;
-
-            encoder_skip.pop_back();
-            float* decoder_up = forward_block(up[i],in);
-            size_t copy_size = up[i].back()->out_size;
-            if constexpr(tipl::use_cuda)
-            {
-                if(this->is_gpu)
-                {
-                    cuda_copy_device_to_device(encoder_skip.back() + encoding[i].back()->out_size,decoder_up,copy_size);
-                    goto end;
-                }
-            }
-            std::copy_n(decoder_up,copy_size,encoder_skip.back() + encoding[i].back()->out_size);
-            end:
-            in = forward_block(decoding[i],encoder_skip.back());
+            forward_block(up[i], in); // This writes directly into the pre-allocated tail location of the encoder buffer
+            in = forward_block(decoding[i], en_tail[i]->out);
         }
         return layers.back()->forward(in);
     }
