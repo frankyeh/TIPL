@@ -204,7 +204,7 @@ public:
     bool is_scaled(void) const
     {
         for(auto each1 : sub_data)
-            if(each1->name == ".scale")
+            if(each1->name == ".slope")
                 for(auto each2 : sub_data)
                     if(each2->name == ".inter")
                         return true;
