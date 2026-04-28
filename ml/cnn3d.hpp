@@ -743,7 +743,6 @@ public:
     unet3d(const std::string& structure,int in_c,int out_c) : network(in_c,out_c)
     {
         std::vector<std::vector<std::string> > enc_tokens,dec_tokens;
-
         {
             std::vector<std::string> all_lines(tipl::split_in_lines(structure));
             if(all_lines.empty())
@@ -753,45 +752,43 @@ public:
                 enc_tokens.push_back(tipl::split(all_lines[i],'+'));
             for(size_t i = enc_count;i < all_lines.size();++i)
                 dec_tokens.push_back(tipl::split(all_lines[i],'+'));
+            for(int level = 1;level < dec_tokens.size()-1;++level)
+                if(dec_tokens[0].back() != dec_tokens[level].back())
+                    throw std::runtime_error("invalid u-net structure: the tail layers of encoding blocks are different");
         }
 
-        std::vector<size_t> skip_count;
         encoding.resize(enc_tokens.size());
         for(int level = 0;level < enc_tokens.size();++level)
         {
             for(const auto& token : enc_tokens[level])
                 encoding[level].push_back(create_layer(token));
-            skip_count.push_back(layers.back()->out_channels_);
         }
 
-        for(int level = 1;level < dec_tokens.size()-1;++level)
-            if(dec_tokens[0].back() != dec_tokens[level].back())
-                throw std::runtime_error("invalid u-net structure: the tail layers of encoding blocks are different");
-
-        for(const auto& tokens : dec_tokens)
-        {
+        auto channel_count = layers.back()->out_channels_;
+        for(int level = dec_tokens.size() - 1; level >= 0; --level)
+        {   
+            const auto& tokens = dec_tokens[dec_tokens.size() - 1 - level];
             up.insert(up.begin(),std::vector<std::shared_ptr<layer>>());
             decoding.insert(decoding.begin(),std::vector<std::shared_ptr<layer>>());
 
-            skip_count.pop_back();
+            size_t skip_conn_loc = std::find(tokens.begin(),tokens.end(),"skip_conn")-tokens.begin();
+            if(skip_conn_loc == tokens.size())
+                throw std::runtime_error("invalid u-net structure: cannot find skip connection location");
 
-            for(size_t t = 0; t < tokens.size() - 1; ++t)
-            {
-                up[0].push_back(create_layer(tokens[t]));
-                if(layers.back()->out_channels_ == skip_count.back() && !tipl::begins_with(tokens[t+1],"norm"))
-                    break;
-            }
+            for(size_t t = 0; t < skip_conn_loc; ++t)
+                up[0].push_back(network::create_layer(tokens[t],t ? layers.back()->out_channels_ : channel_count));
 
             // skip connection add additional channels
-            decoding[0].push_back(create_layer(tokens[up[0].size()],skip_count.back()));
+            decoding[0].push_back(create_layer(tokens[skip_conn_loc + 1],encoding[level].back()->out_channels_));
 
-            for(size_t t = up[0].size()+1; t < tokens.size(); ++t)
+            for(size_t t = skip_conn_loc + 2; t < tokens.size(); ++t)
             {
                 auto l = create_layer(tokens[t]);
-                if(is_output_layer(l) && t == tokens.size() - 1)
+                if(tipl::contains(tokens[t],"ks1") && t == tokens.size() - 1) // final or deep supervision outputs
                     break;
                 decoding[0].push_back(l);
             }
+            channel_count = decoding[0].back()->out_channels_;
         }
     }
     std::shared_ptr<layer> create_layer(const std::string& def,int in_c = 0)
@@ -799,17 +796,8 @@ public:
         if(layers.empty())
             in_c = in_channels_;
         else
-        {
-            if(is_output_layer(layers.back())) // the deep supervision outputs
-                in_c += layers.back()->in_channels_; // reverse to its input channel
-            else
-                in_c += layers.back()->out_channels_; // most common condition, follow previous layer's out channels
-        }
+            in_c += layers.back()->out_channels_; // most common condition, follow previous layer's out channels
         return network::create_layer(def,in_c);
-    }
-    bool is_output_layer(const std::shared_ptr<layer> l) const
-    {
-        return l->out_channels_ == out_channels_ && l->in_channels_ != l->out_channels_;
     }
 
     void init_image(tipl::shape<3>& dim_) override
