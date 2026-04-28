@@ -761,6 +761,7 @@ class mat_write_base
 public:
     bool apply_slope = false;
     bool apply_mask = false;
+    size_t min_size_for_mask_slope = 4096;
 public:
     unsigned int mask_rows = 0;
     unsigned int mask_cols = 0;
@@ -777,7 +778,7 @@ public:
     {
         if constexpr(stype == sloped || stype == masked_sloped)
         {
-            if(apply_slope && mat.size() > 4096 && mat.sub_data.empty())
+            if(apply_slope && mat.size() > min_size_for_mask_slope && mat.sub_data.empty())
             {
                 T inter(ptr[0]),max_v(ptr[0]);
                 auto size = mat.size();
