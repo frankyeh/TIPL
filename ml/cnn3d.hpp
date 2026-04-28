@@ -625,6 +625,7 @@ public:
     std::vector<std::shared_ptr<layer>> layers;
 
     network() : layer(1,1) {}
+    network(int in_c,int out_c) : layer(in_c,out_c) {}
 
     std::vector<std::pair<float*,size_t>> parameters() override
     {
@@ -695,7 +696,7 @@ public:
         }
     }
 
-    std::shared_ptr<layer> create_layer(const std::string& def,int in_c)
+    std::shared_ptr<layer> create_layer(const std::string& def,int in_c = 0,bool preserve_channel_count = false)
     {
         std::unordered_map<std::string,std::string> params;
         for(const auto& arg : tipl::split(def,','))
@@ -707,8 +708,17 @@ public:
                 params[arg] = "1";
         }
 
+        if(layers.empty())
+            in_c = in_channels_;
+        else
+        {
+            if(preserve_channel_count) // the deep supervision outputs
+                in_c += layers.back()->in_channels_; // reverse to its input channel
+            else
+                in_c += layers.back()->out_channels_; // most common condition, follow previous layer's out channels
+        }
+
         std::shared_ptr<layer> l;
-        int out_ch = in_c;
 
         if(params.count(max_pool_3d::keyword))
             l.reset(new max_pool_3d(in_c));
@@ -716,14 +726,13 @@ public:
             l.reset(new upsample_3d(in_c));
         else if(params.count(conv_transpose_3d::keyword))
         {
-            out_ch = std::stoi(params[conv_transpose_3d::keyword]);
             int ks = params.count(kernel_size_keyword) ? std::stoi(params[kernel_size_keyword]) : 2;
             int stride = params.count(stride_keyword) ? std::stoi(params[stride_keyword]) : 2;
-            l.reset(new conv_transpose_3d(in_c,out_ch,ks,stride));
+            l.reset(new conv_transpose_3d(in_c,std::stoi(params[conv_transpose_3d::keyword]),ks,stride));
         }
         else if(params.count(conv_3d<>::keyword))
         {
-            out_ch = std::stoi(params[conv_3d<>::keyword]);
+            int out_ch = std::stoi(params[conv_3d<>::keyword]);
             int ks = params.count(kernel_size_keyword) ? std::stoi(params[kernel_size_keyword]) : 3;
             int stride = params.count(stride_keyword) ? std::stoi(params[stride_keyword]) : 1;
 
@@ -750,7 +759,7 @@ class unet3d : public network
 {
     std::vector<std::vector<std::shared_ptr<layer>>> encoding, decoding, up;
 public:
-    unet3d(const std::string& structure,int in_c,int out_c)
+    unet3d(const std::string& structure,int in_c,int out_c) : network(in_c,out_c)
     {
         std::vector<std::string> enc_lines, dec_lines, all_lines;
         for(auto l : tipl::split(structure, '\n'))
@@ -771,61 +780,45 @@ public:
             dec_lines.assign(all_lines.begin() + enc_count, all_lines.end());
         }
 
-        int current_c = in_c;
+        std::vector<size_t> skip_count;
         for(const auto& line : enc_lines)
         {
             encoding.emplace_back();
             for(const auto& token : tipl::split(line,'+'))
-            {
-                encoding.back().push_back(create_layer(token,current_c));
-                current_c = encoding.back().back()->out_channels_;
-            }
+                encoding.back().push_back(create_layer(token));
+            skip_count.push_back(layers.back()->out_channels_);
         }
 
-        size_t dec_size = dec_lines.size();
-        size_t enc_size = encoding.size();
-
-        for(size_t j = 0; j < dec_size; ++j)
+        bool has_deep_supervision_layer = false;
+        for(const auto& each_dec : dec_lines)
         {
-            int skip_c = encoding[enc_size - 2 - j].back()->out_channels_;
-            std::vector<std::shared_ptr<layer>> cur_up, cur_de;
+            up.insert(up.begin(),std::vector<std::shared_ptr<layer>>());
+            decoding.insert(decoding.begin(),std::vector<std::shared_ptr<layer>>());
 
-            auto tokens = tipl::split(dec_lines[j],'+');
-            size_t token_size = tokens.size();
-            bool in_up_block = true;
+            auto tokens = tipl::split(each_dec,'+');
+            skip_count.pop_back();
 
-            for(size_t t = 0; t < token_size; ++t)
+            for(size_t t = 0; t < tokens.size() - 1; ++t)
             {
-                auto l = create_layer(tokens[t],current_c);
-                current_c = l->out_channels_;
+                up[0].push_back(create_layer(tokens[t],0,has_deep_supervision_layer));
+                has_deep_supervision_layer = false;
+                if(layers.back()->out_channels_ == skip_count.back() && !tipl::contains(tokens[t+1],"norm"))
+                    break;
+            }
 
-                // Detection: Output head fundamentally reduces channels directly to the final `out_c`
-                if(current_c == out_c && t == token_size - 1 && l->in_channels_ != l->out_channels_)
+            // skip connection add additional channels
+            decoding[0].push_back(create_layer(tokens[up[0].size()],skip_count.back()));
+
+            for(size_t t = up[0].size()+1; t < tokens.size(); ++t)
+            {
+                auto l = create_layer(tokens[t]);
+                if(l->out_channels_ == out_c && t == tokens.size() - 1 && l->in_channels_ != l->out_channels_)
                 {
-                    current_c = l->in_channels_; // Revert `current_c` to keep decoder channel sizes consistent
+                    has_deep_supervision_layer = true;
                     continue;
                 }
-
-                if(in_up_block)
-                {
-                    cur_up.push_back(l);
-                    if(current_c == skip_c)
-                    {
-                        bool next_is_norm = (t + 1 < token_size) && tipl::contains(tokens[t+1],"norm");
-                        if(!next_is_norm)
-                        {
-                            in_up_block = false;
-                            current_c += skip_c;
-                        }
-                    }
-                }
-                else
-                {
-                    cur_de.push_back(l);
-                }
+                decoding[0].push_back(l);
             }
-            up.insert(up.begin(),std::move(cur_up));
-            decoding.insert(decoding.begin(),std::move(cur_de));
         }
     }
 
@@ -872,7 +865,16 @@ public:
             float* decoder_up = forward_block(up[i],in);
 
             size_t copy_size = up[i].back()->out_size;
-            size_t skip_offset = encoding[i].back()->out_size;
+            size_t skip_offset = 0;
+            for(auto it = encoding[i].rbegin(); it != encoding[i].rend(); ++it)
+            {
+                if((*it)->alloc_buffer_size() > 0)
+                {
+                    // Since we added copy_size in init_image, subtracting it yields the exact original size
+                    skip_offset = (*it)->out_size - copy_size;
+                    break;
+                }
+            }
 
             if constexpr(tipl::use_cuda)
             {
