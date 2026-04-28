@@ -752,9 +752,9 @@ public:
                 enc_tokens.push_back(tipl::split(all_lines[i],'+'));
             for(size_t i = enc_count;i < all_lines.size();++i)
                 dec_tokens.push_back(tipl::split(all_lines[i],'+'));
-            for(int level = 1;level < dec_tokens.size()-1;++level)
+            for(int level = 1;level + 1 < dec_tokens.size();++level)
                 if(dec_tokens[0].back() != dec_tokens[level].back())
-                    throw std::runtime_error("invalid u-net structure: the tail layers of encoding blocks are different");
+                    throw std::runtime_error("invalid u-net structure: the tail layers of decoding blocks are different");
         }
 
         encoding.resize(enc_tokens.size());
@@ -772,7 +772,7 @@ public:
             decoding.insert(decoding.begin(),std::vector<std::shared_ptr<layer>>());
 
             size_t skip_conn_loc = std::find(tokens.begin(),tokens.end(),"skip_conn")-tokens.begin();
-            if(skip_conn_loc == tokens.size())
+            if(skip_conn_loc + 1 >= tokens.size())
                 throw std::runtime_error("invalid u-net structure: cannot find skip connection location");
 
             for(size_t t = 0; t < skip_conn_loc; ++t)
@@ -784,7 +784,7 @@ public:
             for(size_t t = skip_conn_loc + 2; t < tokens.size(); ++t)
             {
                 auto l = create_layer(tokens[t]);
-                if(tipl::contains(tokens[t],"ks1") && t == tokens.size() - 1) // final or deep supervision outputs
+                if(tokens[t] == dec_tokens.back().back()) // final or deep supervision outputs
                     break;
                 decoding[0].push_back(l);
             }
