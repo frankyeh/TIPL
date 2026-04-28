@@ -472,7 +472,7 @@ public:
     std::shared_ptr<network> unet;
 public:
     evalution_set<tipl::image<3>> eval;
-    std::string error_msg,postproc,version,report;
+    std::string error_msg,preproc,postproc,version,report;
 
     template<typename reader>
     bool load_model(const std::string& file_name)
@@ -494,13 +494,15 @@ public:
            !in.read_pointer("dimension",dim) ||
            !in.read_pointer("voxel_size",eval.model_vs))
             return error_msg = "invalid network file format",false;
-
         tipl::out() << "dim: " << dim;
         tipl::out() << "vs: " << eval.model_vs;
         tipl::out() << "in: " << param[0] << " out:" << param[1];
         tipl::out() << "version: " << version;
         tipl::out() << "report: " << report;
+        if(in.read("preproc",preproc))
+            tipl::out() << "preproc: " << preproc;
         tipl::out() << "loading unet: " << arch;
+
 
         unet.reset(new unet3d(arch,param[0],param[1]));
         unet->init_image(dim);
