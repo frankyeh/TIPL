@@ -840,14 +840,14 @@ public:
             return in_ptr;
         };
 
-        std::vector<float*> buf;
+        std::vector<float*> encoder_skip;
         int n_levels = static_cast<int>(encoding.size());
 
         for(int i = 0; i < n_levels; ++i)
         {
             if(prog && !prog())
                 return nullptr;
-            buf.push_back(in = forward_block(encoding[i],in));
+            encoder_skip.push_back(in = forward_block(encoding[i],in));
         }
 
         for(int i = n_levels - 2; i >= 0; --i)
@@ -855,22 +855,20 @@ public:
             if(prog && !prog())
                 return nullptr;
 
-            buf.pop_back();
-            float* encoder_skip = buf.back();
+            encoder_skip.pop_back();
             float* decoder_up = forward_block(up[i],in);
-
             size_t copy_size = up[i].back()->out_size;
             if constexpr(tipl::use_cuda)
             {
                 if(this->is_gpu)
                 {
-                    cuda_copy_device_to_device(encoder_skip + skip_offset[i],decoder_up,copy_size);
+                    cuda_copy_device_to_device(encoder_skip.back() + skip_offset[i],decoder_up,copy_size);
                     goto end;
                 }
             }
-            std::copy_n(decoder_up,copy_size,encoder_skip + skip_offset[i]);
+            std::copy_n(decoder_up,copy_size,encoder_skip.back() + skip_offset[i]);
             end:
-            in = forward_block(decoding[i],encoder_skip);
+            in = forward_block(decoding[i],encoder_skip.back());
         }
         return layers.back()->forward(in);
     }
