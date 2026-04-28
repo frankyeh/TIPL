@@ -368,10 +368,9 @@ public:
     }
     void allocate(float*& ptr, bool is_gpu_mem) override
     {
-        layer::allocate(ptr,is_gpu_mem);
-        out = ptr-dim.size()*out_channels_;
         weight = ptr; ptr += weight_size;
         bias = ptr; ptr += bias_size;
+        layer::allocate(ptr,is_gpu_mem);
     }
 
     float* forward(float* in) override
@@ -379,8 +378,8 @@ public:
         if constexpr (tipl::use_cuda)
             if (this->is_gpu)
             {
-                cuda_instance_norm_3d_forward<Act>(in, out, weight, bias, out_channels_, dim.size(), 0.01f);
-                return out;
+                cuda_instance_norm_3d_forward<Act>(in, in, weight, bias, out_channels_, dim.size(), 0.01f);
+                return in;
             }
 
         const size_t plane_size = dim.size();
@@ -430,7 +429,7 @@ public:
             }
         });
 
-        return out;
+        return in;
     }
     void print(std::ostream& os) const override {
         os << keyword;
