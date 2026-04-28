@@ -472,7 +472,7 @@ public:
     std::shared_ptr<network> unet;
 public:
     evalution_set<tipl::image<3>> eval;
-    std::string error_msg,postproc;
+    std::string error_msg,postproc,version,report;
 
     template<typename reader>
     bool load_model(const std::string& file_name)
@@ -486,13 +486,20 @@ public:
         if(in.has("feature_string"))
             return error_msg = "cannot read old network format: " + file_name,false;
 
-        if(!in.read("param",param) || !in.read("architecture",arch) || !in.read("postproc",postproc) ||
-           !in.read_pointer("dimension",dim) || !in.read_pointer("voxel_size",eval.model_vs))
+        if(!in.read("param",param) ||
+           !in.read("architecture",arch) ||
+           !in.read("postproc",postproc) ||
+           !in.read("version",version) ||
+           !in.read("report",report) ||
+           !in.read_pointer("dimension",dim) ||
+           !in.read_pointer("voxel_size",eval.model_vs))
             return error_msg = "invalid network file format",false;
 
         tipl::out() << "dim: " << dim;
         tipl::out() << "vs: " << eval.model_vs;
         tipl::out() << "in: " << param[0] << " out:" << param[1];
+        tipl::out() << "version: " << version;
+        tipl::out() << "report: " << report;
         tipl::out() << "loading unet: " << arch;
 
         unet.reset(new unet3d(arch,param[0],param[1]));
