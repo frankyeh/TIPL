@@ -19,7 +19,7 @@
 namespace tipl {
 namespace ml3d {
 
-enum class activation_type { none, relu, leaky_relu };
+enum class activation_type { none, relu, leaky_relu, elu };
 
 template <activation_type Act, typename T>
 void cuda_conv_3d_forward(const T* in, const T* weight, const T* bias, T* out,
@@ -82,6 +82,7 @@ public:
 static constexpr const char* kernel_size_keyword = "ks";
 static constexpr const char* stride_keyword = "stride";
 static constexpr const char* leaky_relu_keyword = "leaky_relu";
+static constexpr const char* elu_keyword = "elu";
 static constexpr const char* relu_keyword = "relu";
 
 template <activation_type Act = activation_type::none>
@@ -207,8 +208,9 @@ public:
             if constexpr (Act != activation_type::none) {
                 for (int i = 0; i < out_plane; ++i) {
                     if (out_slice[i] < 0.0f) {
-                        if constexpr (Act == activation_type::relu) out_slice[i] = 0.0f;
-                        else if constexpr (Act == activation_type::leaky_relu) out_slice[i] *= 0.01f;
+                        if constexpr(Act == activation_type::relu) out_slice[i] = 0.0f;
+                        else if constexpr(Act == activation_type::leaky_relu) out_slice[i] *= 0.01f;
+                        else if constexpr(Act == activation_type::elu) out_slice[i] = std::expm1(out_slice[i]);
                     }
                 }
             }
@@ -218,10 +220,12 @@ public:
     void print(std::ostream& os) const override
     {
         os << keyword << out_channels_ << "," << kernel_size_keyword << kernel_size_ << "," << stride_keyword << stride_;
-        if(Act == activation_type::relu)
+        if constexpr(Act == activation_type::relu)
             os << "," << relu_keyword;
-        if(Act == activation_type::leaky_relu)
+        if constexpr(Act == activation_type::leaky_relu)
             os << "," << leaky_relu_keyword;
+        if constexpr(Act == activation_type::elu)
+            os << "," << elu_keyword;
     }
     bool change_dim(void) const override{return stride_ != 1;}
 };
@@ -419,10 +423,12 @@ public:
                 if constexpr (Act != activation_type::none)
                     if (val < 0.0f)
                     {
-                        if constexpr (Act == activation_type::relu)
+                        if constexpr(Act == activation_type::relu)
                             val = 0.0f;
-                        else if constexpr (Act == activation_type::leaky_relu)
+                        else if constexpr(Act == activation_type::leaky_relu)
                             val *= 0.01f;
+                        else if constexpr(Act == activation_type::elu)
+                            val = std::expm1(val);
                     }
 
                 *out_ptr = val;
@@ -433,10 +439,12 @@ public:
     }
     void print(std::ostream& os) const override {
         os << keyword;
-        if(Act == activation_type::relu)
+        if constexpr(Act == activation_type::relu)
             os << "," << relu_keyword;
-        if(Act == activation_type::leaky_relu)
+        if constexpr(Act == activation_type::leaky_relu)
             os << "," << leaky_relu_keyword;
+        if constexpr(Act == activation_type::elu)
+            os << "," << elu_keyword;
     }
 };
 
@@ -716,15 +724,23 @@ public:
             int ks = params.count(kernel_size_keyword) ? std::stoi(params[kernel_size_keyword]) : 3;
             int stride = params.count(stride_keyword) ? std::stoi(params[stride_keyword]) : 1;
 
-            if(params.count(leaky_relu_keyword))
+            if(params.count(elu_keyword))
+                l.reset(new conv_3d<activation_type::elu>(in_c,out_ch,ks,stride));
+            else if(params.count(leaky_relu_keyword))
                 l.reset(new conv_3d<activation_type::leaky_relu>(in_c,out_ch,ks,stride));
+            else if(params.count(relu_keyword))
+                l.reset(new conv_3d<activation_type::relu>(in_c,out_ch,ks,stride));
             else
                 l.reset(new conv_3d<activation_type::none>(in_c,out_ch,ks,stride));
         }
         else if(params.count(instance_norm_3d<>::keyword))
         {
-            if(params.count(leaky_relu_keyword))
+            if(params.count(elu_keyword))
+                l.reset(new instance_norm_3d<activation_type::elu>(in_c));
+            else if(params.count(leaky_relu_keyword))
                 l.reset(new instance_norm_3d<activation_type::leaky_relu>(in_c));
+            else if(params.count(relu_keyword))
+                l.reset(new instance_norm_3d<activation_type::relu>(in_c));
             else
                 l.reset(new instance_norm_3d<activation_type::none>(in_c));
         }
@@ -935,6 +951,9 @@ __global__ void conv_3d_kernel(const T* in,const T* weight,const T* bias,T* out,
     if constexpr(Act == activation_type::leaky_relu)
         if(sum < T(0))
             sum *= slope;
+    if constexpr(Act == activation_type::elu)
+        if(sum < T(0))
+            sum = (T)expm1f((float)sum);
 
     out[idx] = sum;
 }
@@ -1017,6 +1036,9 @@ __global__ void instance_norm_3d_kernel(const T* in,T* out,const T* weight,const
         if constexpr(Act == activation_type::leaky_relu)
             if(val < T(0))
                 val *= slope;
+        if constexpr(Act == activation_type::elu)
+            if(val < T(0))
+                val = (T)expm1f((float)val);
         out_ptr[i] = val;
     }
 }
@@ -1147,6 +1169,14 @@ void cuda_conv_3d_forward<activation_type::leaky_relu, float>(
     int out_d, int out_h, int out_w,
     int kernel_size, int kernel_size3, int range, int stride, float slope);
 
+template
+void cuda_conv_3d_forward<activation_type::elu, float>(
+    const float* in, const float* weight, const float* bias, float* out,
+    int in_c, int out_c,
+    int in_d, int in_h, int in_w,
+    int out_d, int out_h, int out_w,
+    int kernel_size, int kernel_size3, int range, int stride, float slope);
+
 template <typename T>
 void cuda_conv_transpose_3d_forward(const T* in, const T* weight, const T* bias, T* out,
                                     int in_c, int out_c,
@@ -1185,7 +1215,9 @@ void cuda_instance_norm_3d_forward<activation_type::relu, float>(const float* in
 template
 void cuda_instance_norm_3d_forward<activation_type::leaky_relu, float>(const float* in, float* out, const float* weight, const float* bias,
                                    int out_c, size_t plane_size, float slope);
-
+template
+void cuda_instance_norm_3d_forward<activation_type::elu, float>(const float* in, float* out, const float* weight, const float* bias,
+                                   int out_c, size_t plane_size, float slope);
 
 template <typename T>
 void cuda_max_pool_3d_forward(const T* in, T* out,
