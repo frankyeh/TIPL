@@ -150,7 +150,7 @@ public:
     tipl::vector<3> image_vs,model_vs;
     tipl::matrix<4,4,float> untouched_srow,srow;
     std::vector<char> flip_swap;
-    float prob_threshold = 0.5f;
+
 
     size_t in_count,out_count;
 
@@ -167,7 +167,7 @@ public:
             for(const auto& each : tipl::split(cmd,'+'))
             {
                 if(each == "flip_xy")
-                    tipl::flip_xy(I);
+                    flip_xy();
             }
         });
 
@@ -240,13 +240,41 @@ public:
         source_image.clear();
         return true;
     }
-
+    bool flip_xy(void)
+    {
+        if(!label_prob.empty())
+            tipl::flip_xy(label_prob);
+        if(!fg_prob.empty())
+            tipl::flip_xy(fg_prob);
+        if(!label.empty())
+            tipl::flip_xy(label);
+        if(!mask.empty())
+            tipl::flip_xy(mask);
+        return true;
+    }
+    bool clamp_prob(void)
+    {
+        return tipl::upper_lower_threshold(label_prob, 0.0f, 1.0f),true;
+    }
+    bool smoothing(void)
+    {
+        if(label_prob.empty())
+            return error_msg = "empty label probability",false;
+        auto labels_4d = tipl::make_image(label_prob.data(), image_dim.expand(out_count));
+        tipl::par_for(out_count, [&](size_t label)
+        {
+            auto I = labels_4d.slice_at(label);
+            tipl::filter::gaussian(I);
+        });
+        return true;
+    }
+    std::vector<std::string> param;
     bool command(const std::string& cmd)
     {
         for(const auto& each : tipl::split(cmd,'+'))
         {
             tipl::out() << "run " << each;
-            auto param = tipl::split(each,',');
+            param = tipl::split(each,',');
             if(param[0] == "postproc" && postproc())
                 continue;
             if(param[0] == "remove_bg_channel" && remove_bg_channel())
@@ -257,22 +285,14 @@ public:
                 continue;
             if(param[0] == "create_mask" && create_mask())
                 continue;
-            if(param[0] == "flip_xy")
-            {
-                if(!label_prob.empty())
-                    tipl::flip_xy(label_prob);
-                if(!fg_prob.empty())
-                    tipl::flip_xy(fg_prob);
-                if(!fg_prob.empty())
-                    tipl::flip_xy(label);
-            }
-            if(param[0] == "clamp_prob")
-            {
-                tipl::upper_lower_threshold(label_prob, 0.0f, 1.0f);
+            if(param[0] == "flip_xy" && flip_xy())
                 continue;
-            }
+            if(param[0] == "clamp_prob" && clamp_prob())
+                continue;
+            if(param[0] == "smoothing" && smoothing())
+                continue;
             if(error_msg.empty())
-                error_msg = "invalid command: " + cmd;
+                error_msg = "invalid command: " + each;
             return false;
         }
         return true;
@@ -346,6 +366,9 @@ public:
     }
     bool create_mask(void)
     {
+        float prob_threshold = 0.5f;
+        if(param.size() > 1)
+            prob_threshold = std::stof(param[1]);
         if(label_prob.empty())
             return error_msg = "no label probability",false;
         auto labels_4d = tipl::make_image(label_prob.data(), image_dim.expand(out_count));
@@ -353,8 +376,10 @@ public:
         tipl::sum_partial(labels_4d, fg_prob);
         auto original_sum = fg_prob;
         tipl::morphology::defragment_by_threshold(fg_prob, prob_threshold);
-        tipl::lower_threshold(original_sum,prob_threshold);
+        mask = fg_prob > prob_threshold;
 
+        // renormalize
+        tipl::lower_threshold(original_sum,prob_threshold);
         tipl::par_for(out_count, [&](size_t label)
         {
             auto I = labels_4d.slice_at(label);
@@ -367,10 +392,7 @@ public:
     {
         if(label_prob.empty())
             return error_msg = "no label probability",false;
-        if(!fg_prob.empty())
-            label = tipl::argmax(label_prob,fg_prob > prob_threshold);
-        else
-            label = tipl::argmax(label_prob,mask);
+        label = tipl::argmax(label_prob,mask);
         return true;
     }
     template<typename io_type>
