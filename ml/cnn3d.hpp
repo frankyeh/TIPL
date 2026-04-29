@@ -1174,7 +1174,7 @@ public:
 class network : public layer
 {
 public:
-    std::function<bool(void)> prog = nullptr;
+    std::function<bool(int,int)> prog = nullptr;
     std::vector<std::shared_ptr<layer>> layers;
 
     network() : layer(1,1) {}
@@ -1230,12 +1230,12 @@ public:
 
     void forward(const float* in_ptr,float*) override
     {
-        for(auto& l : layers)
+        for(size_t i = 0;i < layers.size();++i)
         {
-            if(prog && !prog())
+            if(prog && !prog(i,layers.size()))
                 return;
-            l->forward(in_ptr,l->out);
-            in_ptr = l->out;
+            layers[i]->forward(in_ptr,layers[i]->out);
+            in_ptr = layers[i]->out;
         }
     }
 
@@ -1408,13 +1408,13 @@ public:
         int n_levels = static_cast<int>(encoding.size());
         for(int i = 0; i < n_levels; ++i)
         {
-            if(prog && !prog())
+            if(prog && !prog(i,n_levels+n_levels))
                 return;
             in_ptr = forward_block(encoding[i], in_ptr);
         }
         for(int i = n_levels - 2; i >= 0; --i)
         {
-            if(prog && !prog())
+            if(prog && !prog(n_levels+n_levels-i-1,n_levels+n_levels))
                 return;
             forward_block(up[i], in_ptr);
             in_ptr = forward_block(decoding[i], encoding[i].back()->out);
