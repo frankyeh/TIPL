@@ -226,6 +226,34 @@ void cpu_instance_norm_3d_forward(const T* in, T* out, const T* weight, const T*
     });
 }
 
+template<activation_type Act,typename T>
+void cpu_batch_norm_3d_forward(const T* in,T* out,const T* weight,const T* bias,int in_c,size_t plane_size)
+{
+    tipl::par_for(in_c,[&](size_t c)
+    {
+        const T* ptr = in+c*plane_size;
+        T* out_ptr = out+c*plane_size;
+        const T* end_ptr = ptr+plane_size;
+        T w = weight[c];
+        T b = bias[c];
+
+        for(;ptr < end_ptr;++ptr,++out_ptr)
+        {
+            T val = (*ptr)*w+b;
+
+            if constexpr(Act != activation_type::none)
+                if(val < T(0))
+            if constexpr(Act == activation_type::relu)
+                val = T(0);
+            else if constexpr(Act == activation_type::leaky_relu)
+                val *= T(0.01);
+            else if constexpr(Act == activation_type::elu)
+                val = std::expm1(val);
+            *out_ptr = val;
+        }
+    });
+}
+
 template <typename T>
 void cpu_max_pool_3d_forward(const T* in, T* out, int in_c, int in_d, int in_h, int in_w, int out_d, int out_h, int out_w, int pool_size)
 {
@@ -334,6 +362,8 @@ void cuda_conv_transpose_3d_forward(const T* in, const T* weight, const T* bias,
 template <activation_type Act, typename T>
 void cuda_instance_norm_3d_forward(const T* in, T* out, const T* weight, const T* bias,
                                    int out_c, size_t plane_size, T slope);
+template<activation_type Act,typename T>
+void cuda_batch_norm_3d_forward(const T* in,T* out,const T* weight,const T* bias,int in_c,size_t plane_size);
 
 template <typename T>
 void cuda_max_pool_3d_forward(const T* in, T* out,
@@ -477,7 +507,30 @@ __global__ void conv_transpose_3d_kernel(const T* in,const T* weight,const T* bi
 
     out[idx] = sum;
 }
+template<activation_type Act,typename T>
+__global__ void batch_norm_3d_kernel(const T* in,T* out,const T* weight,const T* bias,
+                                     int in_c,size_t plane_size)
+{
+    size_t idx = blockIdx.x*blockDim.x+threadIdx.x;
+    size_t total_size = static_cast<size_t>(in_c)*plane_size;
+    if(idx >= total_size)
+        return;
 
+    int c = idx/plane_size;
+    T val = in[idx]*weight[c]+bias[c];
+
+    if constexpr(Act == activation_type::relu)
+        if(val < T(0))
+            val = T(0);
+    if constexpr(Act == activation_type::leaky_relu)
+        if(val < T(0))
+            val *= (T)0.01f;
+    if constexpr(Act == activation_type::elu)
+        if(val < T(0))
+            val = (T)expm1f((float)val);
+
+    out[idx] = val;
+}
 template<activation_type Act,typename T>
 __global__ void instance_norm_3d_kernel(const T* in,T* out,const T* weight,const T* bias,
                                         int out_c,size_t plane_size,T slope)
@@ -672,6 +725,22 @@ template
 void cuda_conv_transpose_3d_forward<float>(const float* in, const float* weight, const float* bias, float* out,
                                     int in_c, int out_c, int in_d, int in_h, int in_w, int out_d, int out_h, int out_w,
                                     int kernel_size, int kernel_size3, int stride);
+
+
+template<activation_type Act,typename T>
+void cuda_batch_norm_3d_forward(const T* in,T* out,const T* weight,const T* bias,
+                                int in_c,size_t plane_size)
+{
+    size_t total_size = static_cast<size_t>(in_c)*plane_size;
+    int block_size = 256;
+    int grid_size = (total_size+block_size-1)/block_size;
+    cuda_kernels::batch_norm_3d_kernel<Act,T><<<grid_size,block_size>>>(in,out,weight,bias,in_c,plane_size);
+}
+
+template void cuda_batch_norm_3d_forward<activation_type::none,float>(const float* in,float* out,const float* weight,const float* bias,int in_c,size_t plane_size);
+template void cuda_batch_norm_3d_forward<activation_type::relu,float>(const float* in,float* out,const float* weight,const float* bias,int in_c,size_t plane_size);
+template void cuda_batch_norm_3d_forward<activation_type::leaky_relu,float>(const float* in,float* out,const float* weight,const float* bias,int in_c,size_t plane_size);
+template void cuda_batch_norm_3d_forward<activation_type::elu,float>(const float* in,float* out,const float* weight,const float* bias,int in_c,size_t plane_size);
 
 template <activation_type Act, typename T = float>
 void cuda_instance_norm_3d_forward(const T* in, T* out, const T* weight, const T* bias,
@@ -874,6 +943,56 @@ public:
     bool change_dim(void) const override{return stride_ != 1;}
 };
 
+template<activation_type Act = activation_type::none>
+class batch_norm_3d : public layer
+{
+public:
+    static constexpr const char* keyword = "bnorm";
+    float* weight = nullptr;
+    float* bias = nullptr;
+    size_t weight_size = 0, bias_size = 0;
+
+    batch_norm_3d(int c) : layer(c)
+    {
+        weight_size = c;
+        bias_size = c;
+    }
+
+    std::vector<std::pair<float*,size_t>> parameters() override
+    {
+        return {{weight,weight_size},{bias,bias_size}};
+    }
+    void init_image(tipl::shape<3>& dim_) override
+    {
+        layer::init_image(dim_);
+        out_buffer_size = 0; // In-place operation
+    }
+    void allocate(float*& ptr,bool is_gpu_mem) override
+    {
+        weight = ptr; ptr += weight_size;
+        bias = ptr; ptr += bias_size;
+        layer::allocate(ptr,is_gpu_mem);
+    }
+
+    float* forward(float* in) override
+    {
+        if constexpr(tipl::use_cuda)
+            if(this->is_gpu)
+                return cuda_batch_norm_3d_forward<Act>(in,in,weight,bias,out_channels_,dim.size()),in;
+        return cpu_batch_norm_3d_forward<Act>(in,in,weight,bias,out_channels_,dim.size()),in;
+    }
+
+    void print(std::ostream& os) const override
+    {
+        os << keyword;
+        if constexpr(Act == activation_type::relu)
+            os << "," << relu_keyword;
+        if constexpr(Act == activation_type::leaky_relu)
+            os << "," << leaky_relu_keyword;
+        if constexpr(Act == activation_type::elu)
+            os << "," << elu_keyword;
+    }
+};
 template <activation_type Act = activation_type::none>
 class instance_norm_3d : public layer {
 public:
@@ -1102,8 +1221,19 @@ public:
             else
                 l.reset(new instance_norm_3d<activation_type::none>(in_c));
         }
+        else if(params.count(batch_norm_3d<>::keyword))
+        {
+            if(params.count(elu_keyword))
+                l.reset(new batch_norm_3d<activation_type::elu>(in_c));
+            else if(params.count(leaky_relu_keyword))
+                l.reset(new batch_norm_3d<activation_type::leaky_relu>(in_c));
+            else if(params.count(relu_keyword))
+                l.reset(new batch_norm_3d<activation_type::relu>(in_c));
+            else
+                l.reset(new batch_norm_3d<activation_type::none>(in_c));
+        }
         else
-            throw std::runtime_error("unknown layer");
+            throw std::runtime_error("unknown layer:"+params[0]);
         layers.push_back(l);
         return l;
     }
