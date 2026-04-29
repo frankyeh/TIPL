@@ -591,18 +591,21 @@ public:
     bool forward(void)
     {
         tipl::progress prog("unet segmentation");
-        unet->prog = [&](void){return prog(0,4);};
+
 
         if(!eval.preproc(preproc))
             return false;
 
         auto out_shape = eval.model_dim.multiply(tipl::shape<3>::z,eval.out_count);
         {
-            tipl::progress prog2("unet forwarding");
+            tipl::progress prog2("processing");
             for(size_t i = 0;prog2(i,eval.model_input.size());++i)
             {
-                if(!prog(i,eval.model_input.size()))
-                    return false;
+                tipl::progress prog3("unet forwarding");
+                unet->prog = [&](int cur,int total)
+                {
+                    return prog3(cur,total);
+                };
                 if constexpr(tipl::use_cuda)
                 {
                     unet->forward(tipl::device_image<3,float>(eval.model_input[i]).data(),nullptr);
