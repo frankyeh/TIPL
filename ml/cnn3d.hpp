@@ -844,7 +844,7 @@ public:
         dim = dim_;
         out_buffer_size = out_size = dim.size() * out_channels_;
     }
-    virtual float* forward(float* in_ptr) = 0;
+    virtual void forward(const float* in_ptr,float* out_ptr) = 0;
     virtual void print(std::ostream& out) const = 0;
     virtual void allocate(float*& ptr, bool is_gpu_mem)
     {
@@ -887,12 +887,12 @@ public:
         layer::allocate(ptr, is_gpu_mem);
     }
 
-    float* forward(float* in) override
+    void forward(const float* in,float* out_ptr) override
     {
         if constexpr(tipl::use_cuda)
             if(this->is_gpu)
-                return cuda_conv_3d_forward<Act>(in, weight, bias, out, in_channels_, out_channels_, dim.depth(), dim.height(), dim.width(), out_dim.depth(), out_dim.height(), out_dim.width(), kernel_size_, kernel_size3, range, stride_, 0.01f), out;
-        return cpu_conv_3d_forward<Act>(in, weight, bias, out, in_channels_, out_channels_, dim.depth(), dim.height(), dim.width(), out_dim.depth(), out_dim.height(), out_dim.width(), kernel_size_, kernel_size3, range, stride_), out;
+                return cuda_conv_3d_forward<Act>(in, weight, bias, out_ptr, in_channels_, out_channels_, dim.depth(), dim.height(), dim.width(), out_dim.depth(), out_dim.height(), out_dim.width(), kernel_size_, kernel_size3, range, stride_, 0.01f),void();
+        cpu_conv_3d_forward<Act>(in, weight, bias, out_ptr, in_channels_, out_channels_, dim.depth(), dim.height(), dim.width(), out_dim.depth(), out_dim.height(), out_dim.width(), kernel_size_, kernel_size3, range, stride_);
     }
 
     void print(std::ostream& os) const override
@@ -939,12 +939,12 @@ public:
         layer::allocate(ptr, is_gpu_mem);
     }
 
-    float* forward(float* in) override
+    void forward(const float* in,float* out_ptr) override
     {
         if constexpr(tipl::use_cuda)
             if(this->is_gpu)
-                return cuda_conv_transpose_3d_forward(in, weight, bias, out, in_channels_, out_channels_, dim.depth(), dim.height(), dim.width(), out_dim.depth(), out_dim.height(), out_dim.width(), kernel_size_, kernel_size3, stride_), out;
-        return cpu_conv_transpose_3d_forward(in, weight, bias, out, in_channels_, out_channels_, dim.depth(), dim.height(), dim.width(), out_dim.depth(), out_dim.height(), out_dim.width(), kernel_size_, kernel_size3, stride_), out;
+                return cuda_conv_transpose_3d_forward(in, weight, bias, out_ptr, in_channels_, out_channels_, dim.depth(), dim.height(), dim.width(), out_dim.depth(), out_dim.height(), out_dim.width(), kernel_size_, kernel_size3, stride_), void();
+        cpu_conv_transpose_3d_forward(in, weight, bias, out, in_channels_, out_channels_, dim.depth(), dim.height(), dim.width(), out_dim.depth(), out_dim.height(), out_dim.width(), kernel_size_, kernel_size3, stride_);
     }
 
     void print(std::ostream& os) const override { os << keyword << out_channels_ << "," << kernel_size_keyword << kernel_size_ << "," << stride_keyword << stride_; }
@@ -965,15 +965,9 @@ public:
         weight_size = c;
         bias_size = c;
     }
-
     std::vector<std::pair<float*,size_t>> parameters() override
     {
         return {{weight,weight_size},{bias,bias_size}};
-    }
-    void init_image(tipl::shape<3>& dim_) override
-    {
-        layer::init_image(dim_);
-        out_buffer_size = 0; // In-place operation
     }
     void allocate(float*& ptr,bool is_gpu_mem) override
     {
@@ -982,12 +976,12 @@ public:
         layer::allocate(ptr,is_gpu_mem);
     }
 
-    float* forward(float* in) override
+    void forward(const float* in,float* out_ptr) override
     {
         if constexpr(tipl::use_cuda)
             if(this->is_gpu)
-                return cuda_batch_norm_3d_forward<Act>(in,in,weight,bias,out_channels_,dim.size()),in;
-        return cpu_batch_norm_3d_forward<Act>(in,in,weight,bias,out_channels_,dim.size()),in;
+                return cuda_batch_norm_3d_forward<Act>(in,out_ptr,weight,bias,out_channels_,dim.size()),void();
+        cpu_batch_norm_3d_forward<Act>(in,out_ptr,weight,bias,out_channels_,dim.size());
     }
 
     void print(std::ostream& os) const override
@@ -1018,11 +1012,6 @@ public:
     std::vector<std::pair<float*, size_t>> parameters() override {
         return {{weight, weight_size}, {bias, bias_size}};
     }
-    void init_image(tipl::shape<3>& dim_) override
-    {
-        layer::init_image(dim_);
-        out_buffer_size = 0; // in-place
-    }
     void allocate(float*& ptr, bool is_gpu_mem) override
     {
         weight = ptr; ptr += weight_size;
@@ -1030,12 +1019,12 @@ public:
         layer::allocate(ptr, is_gpu_mem);
     }
 
-    float* forward(float* in) override
+    void forward(const float* in,float* out_ptr) override
     {
         if constexpr(tipl::use_cuda)
             if(this->is_gpu)
-                return cuda_instance_norm_3d_forward<Act>(in, in, weight, bias, out_channels_, dim.size(), 0.01f), in;
-        return cpu_instance_norm_3d_forward<Act>(in, in, weight, bias, out_channels_, dim.size()), in;
+                return cuda_instance_norm_3d_forward<Act>(in, out_ptr, weight, bias, out_channels_, dim.size(), 0.01f), void();
+        cpu_instance_norm_3d_forward<Act>(in, out_ptr, weight, bias, out_channels_, dim.size()), in;
     }
 
     void print(std::ostream& os) const override {
@@ -1063,12 +1052,12 @@ public:
         out_buffer_size = out_size = out_dim.size() * out_channels_;
     }
 
-    float* forward(float* in) override
+    void forward(const float* in,float* out_ptr) override
     {
         if constexpr(tipl::use_cuda)
             if(this->is_gpu)
-                return cuda_max_pool_3d_forward(in, out, out_channels_, dim.depth(), dim.height(), dim.width(), out_dim.depth(), out_dim.height(), out_dim.width(), pool_size), out;
-        return cpu_max_pool_3d_forward(in, out, out_channels_, dim.depth(), dim.height(), dim.width(), out_dim.depth(), out_dim.height(), out_dim.width(), pool_size), out;
+                return cuda_max_pool_3d_forward(in, out_ptr, out_channels_, dim.depth(), dim.height(), dim.width(), out_dim.depth(), out_dim.height(), out_dim.width(), pool_size), void();
+        cpu_max_pool_3d_forward(in, out_ptr, out_channels_, dim.depth(), dim.height(), dim.width(), out_dim.depth(), out_dim.height(), out_dim.width(), pool_size);
     }
 
     void print(std::ostream& os) const override { os << keyword; }
@@ -1089,12 +1078,12 @@ public:
         out_buffer_size = out_size = out_dim.size() * out_channels_;
     }
 
-    float* forward(float* in) override
+    void forward(const float* in,float* out_ptr) override
     {
         if constexpr(tipl::use_cuda)
             if(this->is_gpu)
-                return cuda_upsample_3d_forward(in, out, out_channels_, dim.depth(), dim.height(), dim.width(), out_dim.depth(), out_dim.height(), out_dim.width(), pool_size), out;
-        return cpu_upsample_3d_forward(in, out, out_channels_, dim.depth(), dim.height(), dim.width(), out_dim.depth(), out_dim.height(), out_dim.width(), pool_size), out;
+                return cuda_upsample_3d_forward(in, out_ptr, out_channels_, dim.depth(), dim.height(), dim.width(), out_dim.depth(), out_dim.height(), out_dim.width(), pool_size), void();
+        cpu_upsample_3d_forward(in, out_ptr, out_channels_, dim.depth(), dim.height(), dim.width(), out_dim.depth(), out_dim.height(), out_dim.width(), pool_size);
     }
 
     void print(std::ostream& os) const override { os << keyword; }
@@ -1155,17 +1144,18 @@ public:
         this->is_gpu = is_gpu_mem;
         for(auto& l : layers)
             l->allocate(ptr,is_gpu_mem);
+        out = layers.back()->out;
     }
 
-    float* forward(float* in) override
+    void forward(const float* in_ptr,float*) override
     {
         for(auto& l : layers)
         {
             if(prog && !prog())
-                return nullptr;
-            in = l->forward(in);
+                return;
+            l->forward(in_ptr,l->out);
+            in_ptr = l->out;
         }
-        return in;
     }
 
     void print(std::ostream& os) const override
@@ -1250,7 +1240,6 @@ public:
 class unet3d : public network
 {
     std::vector<std::vector<std::shared_ptr<layer>>> encoding, decoding, up;
-    std::vector<std::shared_ptr<layer>> en_tail,up_tail;
 public:
     unet3d(const std::string& structure,int in_c,int out_c) : network(in_c,out_c)
     {
@@ -1309,59 +1298,44 @@ public:
     void init_image(tipl::shape<3>& dim_) override
     {
         network::init_image(dim_);
-
-        // find all tail layers basic on out_buffer_size
-        auto tail_layer = [](std::vector<std::shared_ptr<layer>>& block)
-        {
-            for(auto it = block.rbegin(); it != block.rend(); ++it)
-                if((*it)->out_buffer_size > 0)
-                    return *it;
-            throw std::runtime_error("invalid u-net structure: cannot find tail layer");
-        };
-
-        en_tail.resize(encoding.size());
-        up_tail.resize(up.size());
-        for(size_t level = 0;level < encoding.size();++level)
-            en_tail[level] = tail_layer(encoding[level]);
-        for(size_t level = 0;level < up.size();++level)
-            up_tail[level] = tail_layer(up[level]);
-
-        for(size_t i = 0; i < up_tail.size(); ++i)
-            {
-                en_tail[i]->out_buffer_size += up_tail[i]->out_size;
-                up_tail[i]->out_buffer_size = 0; // Prevent the up layer from requesting its own independent memory block
-            }
+        for(size_t i = 0; i < up.size(); ++i)
+            encoding[i].back()->out_buffer_size += up[i].back()->out_size;
     }
     void allocate(float*& ptr, bool is_gpu_mem) override
     {
         network::allocate(ptr, is_gpu_mem);
-        for(size_t i = 0; i < up_tail.size(); ++i)
-            up_tail[i]->out = en_tail[i]->out + en_tail[i]->out_size;
+        for(size_t i = 0; i < up.size(); ++i)
+            up[i].back()->out = encoding[i].back()->out + encoding[i].back()->out_size;
     }
-    float* forward(float* in) override
+    void forward(const float* in_ptr,float*) override
     {
-        auto forward_block = [&](const std::vector<std::shared_ptr<layer>>& block, float* in_ptr)
+        auto forward_block = [&](const auto& block, const float* in_p) -> const float*
         {
             for(auto& l : block)
-                in_ptr = l->forward(in_ptr);
-            return in_ptr;
+            {
+                l->forward(in_p,l->out);
+                in_p = l->out;
+            }
+            return in_p;
         };
 
         int n_levels = static_cast<int>(encoding.size());
         for(int i = 0; i < n_levels; ++i)
         {
             if(prog && !prog())
-                return nullptr;
-            in = forward_block(encoding[i], in);
+                return;
+            in_ptr = forward_block(encoding[i], in_ptr);
         }
         for(int i = n_levels - 2; i >= 0; --i)
         {
             if(prog && !prog())
-                return nullptr;
-            forward_block(up[i], in); // This writes directly into the pre-allocated tail location of the encoder buffer
-            in = forward_block(decoding[i], en_tail[i]->out);
+                return;
+            forward_block(up[i], in_ptr);
+            in_ptr = forward_block(decoding[i], encoding[i].back()->out);
         }
-        return layers.back()->forward(in);
+        if(layers.back()->out_buffer_size == 0)
+            layers.back()->out = const_cast<float*>(in_ptr);
+        layers.back()->forward(in_ptr,layers.back()->out);
     }
 };
 
