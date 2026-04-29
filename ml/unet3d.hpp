@@ -158,8 +158,8 @@ public:
     {
         if(source_image.empty())
             return error_msg = "no source image",false;
-
-        tipl::out() << "preproc: " << cmd;
+        tipl::progress prog("preprocessing");
+        tipl::out() << "cmd: " << cmd;
         tipl::par_for(in_count,[&](int c)
         {
             auto I = source_image.alias(c*image_dim.size(),image_dim);
@@ -217,8 +217,9 @@ public:
             create_gaussian();
         }
         tipl::out() << "total of sliding window:" << active_shifts.size();
-        for(auto shift:active_shifts)
+        for(size_t i = 0;prog(i,active_shifts.size());++i)
         {
+            auto shift = active_shifts[i];
             shift += mask_center;
             shift -= image_center;
 
@@ -238,7 +239,7 @@ public:
             trans.push_back(tran);
         }
         source_image.clear();
-        return true;
+        return !prog.aborted();
     }
     bool flip_xy(void)
     {
@@ -271,10 +272,12 @@ public:
     std::vector<std::string> param;
     bool command(const std::string& cmd)
     {
-        for(const auto& each : tipl::split(cmd,'+'))
+        progress prog("postprocessing");
+        auto cmds = tipl::split(cmd,'+');
+        for(size_t i = 0;prog(i,cmds.size());++i)
         {
-            tipl::out() << "run " << each;
-            param = tipl::split(each,',');
+            tipl::out() << "run " << cmds[i];
+            param = tipl::split(cmds[i],',');
             if(param[0] == "postproc" && postproc())
                 continue;
             if(param[0] == "remove_bg_channel" && remove_bg_channel())
@@ -292,10 +295,10 @@ public:
             if(param[0] == "smoothing" && smoothing())
                 continue;
             if(error_msg.empty())
-                error_msg = "invalid command: " + each;
+                error_msg = "invalid command: " + cmds[i];
             return false;
         }
-        return true;
+        return !prog.aborted();
     }
     bool softmax(void)
     {
@@ -309,6 +312,7 @@ public:
 
     bool postproc(void)
     {
+        tipl::progress prog("postprocessing");
         if(model_output.empty())
             return error_msg = "no output data",false;
         label_prob.resize(image_dim.multiply(tipl::shape<3>::z,out_count));
@@ -316,7 +320,7 @@ public:
         {
             auto each_trans = trans[0];
             each_trans.inverse();
-            for(int i=0;i<out_count;++i)
+            for(int i=0;prog(i,out_count);++i)
             {
                 auto t = model_output[0].alias(model_dim.size()*i,model_dim);
                 auto o = label_prob.alias(image_dim.size()*i,image_dim);
@@ -327,8 +331,11 @@ public:
         {
             tipl::image<3,float> weight_map(image_dim);
 
+            std::atomic<int> p = 0;
             tipl::par_for(out_count+1,[&](int c)
             {
+                if(!prog(p++,out_count+2))
+                    return;
                 for(int t=0;t < model_output.size();++t)
                 {
                     auto each_trans = trans[t];
@@ -349,12 +356,15 @@ public:
             for(size_t i=0;i<weight_map.size();++i)
                 if(weight_map[i] > 1e-6)
                     weight_map[i] = 1.0f/weight_map[i];
+            p = 0;
             tipl::par_for(out_count,[&](int c)
             {
+                if(!prog(p++,out_count+1))
+                    return;
                 label_prob.alias(image_dim.size()*c,image_dim) *= weight_map;
             });
         }
-        return true;
+        return !prog.aborted();
     }
     bool remove_bg_channel(void)
     {
@@ -517,6 +527,7 @@ public:
     template<typename reader>
     bool load_model(const std::string& file_name)
     {
+        tipl::progress prog("loading unet model");
         reader in;
         std::vector<int> param({1,1});
         std::string arch;
@@ -577,36 +588,37 @@ public:
         return true;
     }
 
-    bool forward(tipl::progress& prog)
+    bool forward(void)
     {
+        tipl::progress prog("unet segmentation");
         unet->prog = [&](void){return prog(0,4);};
 
-        prog(1,4);
-        tipl::out() << "preprocessing";
         if(!eval.preproc(preproc))
             return false;
 
-        prog(2,4);
         auto out_shape = eval.model_dim.multiply(tipl::shape<3>::z,eval.out_count);
-        for(size_t i = 0;i < eval.model_input.size();++i)
         {
-            if(!prog(i,eval.model_input.size()))
+            tipl::progress prog2("unet forwarding");
+            for(size_t i = 0;prog2(i,eval.model_input.size());++i)
+            {
+                if(!prog(i,eval.model_input.size()))
+                    return false;
+                if constexpr(tipl::use_cuda)
+                {
+                    unet->forward(tipl::device_image<3,float>(eval.model_input[i]).data(),nullptr);
+                    eval.model_output.push_back(tipl::image<3>(out_shape));
+                    cu_copy_d2h<float,float>(eval.model_output.back().data(),
+                                             unet->layers.back()->out,out_shape.size());
+                }
+                else
+                {
+                    unet->forward(eval.model_input[i].data(),nullptr);
+                    eval.model_output.push_back(tipl::make_image(unet->layers.back()->out,out_shape));
+                }
+            }
+            if(prog2.aborted())
                 return false;
-            if constexpr(tipl::use_cuda)
-            {
-                unet->forward(tipl::device_image<3,float>(eval.model_input[i]).data(),nullptr);
-                eval.model_output.push_back(tipl::image<3>(out_shape));
-                cu_copy_d2h<float,float>(eval.model_output.back().data(),
-                                         unet->layers.back()->out,out_shape.size());
-            }
-            else
-            {
-                unet->forward(eval.model_input[i].data(),nullptr);
-                eval.model_output.push_back(tipl::make_image(unet->layers.back()->out,out_shape));
-            }
         }
-        tipl::out() << "postprocessing";
-        prog(3,4);
         eval.postproc();
         if(!eval.command(postproc))
             return error_msg = eval.error_msg,false;
@@ -614,16 +626,16 @@ public:
         return true;
     }
     template<typename image_type>
-    bool forward(const image_type& I,tipl::vector<3>& vs,tipl::progress& prog)
+    bool forward(const image_type& I,tipl::vector<3>& vs)
     {
         eval.load_from_image(I,vs);
-        return forward(prog);
+        return forward();
     }
     template<typename image_type>
-    bool forward(image_type&& I,tipl::vector<3>& vs,tipl::progress& prog)
+    bool forward(image_type&& I,tipl::vector<3>& vs)
     {
         eval.load_from_image(std::forward<image_type>(I),vs);
-        return forward(prog);
+        return forward();
     }
 
 };
