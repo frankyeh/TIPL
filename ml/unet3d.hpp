@@ -367,9 +367,10 @@ public:
     {
         if(label_prob.empty())
             return error_msg = "no label probability",false;
-        if(fg_prob.empty())
-            return error_msg = "no foreground probability",false;
-        label = tipl::argmax(label_prob,fg_prob > prob_threshold);
+        if(!fg_prob.empty())
+            label = tipl::argmax(label_prob,fg_prob > prob_threshold);
+        else
+            label = tipl::argmax(label_prob,mask);
         return true;
     }
     template<typename io_type>
@@ -486,7 +487,7 @@ private:
 public:
     tipl::device_vector<float> gpu_memory;
     std::vector<float> memory;
-    std::shared_ptr<network> unet;
+    std::shared_ptr<unet3d> unet;
 public:
     evalution_set<tipl::image<3>> eval;
     std::string error_msg,preproc,postproc,version,report;
@@ -571,24 +572,22 @@ public:
                 return false;
             if constexpr(tipl::use_cuda)
             {
-                auto gpu_ptr = unet->forward(tipl::device_image<3,float>(eval.model_input[i]).data());
-                if (!gpu_ptr)
-                    return false;
+                unet->forward(tipl::device_image<3,float>(eval.model_input[i]).data(),nullptr);
                 eval.model_output.push_back(tipl::image<3>(out_shape));
-                cu_copy_d2h<float,float>(eval.model_output.back().data(),gpu_ptr,out_shape.size());
+                cu_copy_d2h<float,float>(eval.model_output.back().data(),
+                                         unet->layers.back()->out,out_shape.size());
             }
             else
             {
-                auto ptr = unet->forward(eval.model_input[i].data());
-                if(!ptr)
-                    return false;
-                eval.model_output.push_back(tipl::make_image(ptr,out_shape));
+                unet->forward(eval.model_input[i].data(),nullptr);
+                eval.model_output.push_back(tipl::make_image(unet->layers.back()->out,out_shape));
             }
         }
         tipl::out() << "postprocessing";
         prog(3,4);
         eval.postproc();
-        eval.command(postproc);
+        if(!eval.command(postproc))
+            return error_msg = eval.error_msg,false;
         prog(4,4);
         return true;
     }
