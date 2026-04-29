@@ -94,17 +94,25 @@ void cpu_conv_3d_forward(const T* in, const T* weight, const T* bias, T* out, in
             }
         }
 
-        if constexpr(Act != activation_type::none)
-            for(int i = 0; i < out_plane; ++i)
-                if(out_slice[i] < T(0))
-                {
-                    if constexpr(Act == activation_type::relu)
-                        out_slice[i] = T(0);
-                    else if constexpr(Act == activation_type::leaky_relu)
-                        out_slice[i] *= T(0.01);
-                    else if constexpr(Act == activation_type::elu)
-                        out_slice[i] = std::expm1(out_slice[i]);
-                }
+        if constexpr(Act == activation_type::relu)
+            for(int i = 0;i < out_plane;++i)
+            {
+                T val = out_slice[i];
+                out_slice[i] = val < (T)0 ? (T)0 : val;
+            }
+        else if constexpr(Act == activation_type::leaky_relu)
+            for(int i = 0;i < out_plane;++i)
+            {
+                T val = out_slice[i];
+                out_slice[i] = val < (T)0 ? val*(T)0.01f : val;
+            }
+        else if constexpr(Act == activation_type::elu)
+            for(int i = 0;i < out_plane;++i)
+            {
+                T val = out_slice[i];
+                out_slice[i] = val < (T)0 ? (T)std::expm1((float)val) : val;
+            }
+            return;
     });
 }
 
