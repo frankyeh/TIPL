@@ -390,282 +390,343 @@ void cuda_copy_device_to_device(T* dest, const T* src, size_t count);
 namespace cuda_kernels
 {
 
-template<activation_type Act,typename T>
-__global__ void conv_3d_kernel(const T* in,const T* weight,const T* bias,T* out,
-                               int in_c,int out_c,
-                               int in_d,int in_h,int in_w,
-                               int out_d,int out_h,int out_w,
-                               int kernel_size,int kernel_size3,int range,int stride,T slope)
-{
-    size_t out_plane = out_w * out_h;
-    size_t out_img_size = out_plane * out_d;
-    size_t total_out_size = static_cast<size_t>(out_c) * out_img_size;
-    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+static constexpr int spatial_block_x = 32;
+static constexpr int spatial_block_y = 4;
+static constexpr int elem_block_size = 256;
+static constexpr int norm_block_size = 256;
 
-    if(idx >= total_out_size)
+inline int div_up(size_t n,size_t d)
+{
+    return static_cast<int>((n+d-1)/d);
+}
+
+template<activation_type Act,typename T>
+__device__ __forceinline__ T apply_activation(T v,T slope)
+{
+    if constexpr(Act == activation_type::relu)
+        return v < T(0) ? T(0) : v;
+    if constexpr(Act == activation_type::leaky_relu)
+        return v < T(0) ? v*slope : v;
+    if constexpr(Act == activation_type::elu)
+        return v < T(0) ? (T)expm1f((float)v) : v;
+    return v;
+}
+
+template<activation_type Act,typename T,int kernel_size,int stride>
+__global__ __launch_bounds__(128,2)
+void conv_3d_kernel(const T* __restrict__ in,const T* __restrict__ weight,const T* __restrict__ bias,T* __restrict__ out,
+                    int in_c,int out_c,
+                    int in_d,int in_h,int in_w,
+                    int out_d,int out_h,int out_w,T slope)
+{
+    int x = blockIdx.x*blockDim.x+threadIdx.x;
+    int y_blocks = (out_h+blockDim.y-1)/blockDim.y;
+    int y_tile = blockIdx.y;
+    int y0 = (y_tile%y_blocks)*blockDim.y;
+    int z = y_tile/y_blocks;
+    int y = y0+threadIdx.y;
+    int oc = blockIdx.z;
+
+    if(x >= out_w || y >= out_h)
         return;
 
-    int x = idx % out_w;
-    int y = (idx / out_w) % out_h;
-    int z = (idx / out_plane) % out_d;
-    int oc = idx / out_img_size;
+    constexpr int kernel_size3 = kernel_size*kernel_size*kernel_size;
+    constexpr int kernel_plane = kernel_size*kernel_size;
+    constexpr int range = kernel_size/2;
 
-    int in_plane = in_w * in_h;
-    int in_img_size = in_plane * in_d;
-    int kernel_plane = kernel_size * kernel_size;
+    int in_plane = in_w*in_h;
+    int in_img_size = in_plane*in_d;
+    int out_plane = out_w*out_h;
+    int out_img_size = out_plane*out_d;
 
-    int start_sz = z * stride - range;
-    int start_sy = y * stride - range;
-    int start_sx = x * stride - range;
+    int start_sx = x*stride-range;
+    int start_sy = y*stride-range;
+    int start_sz = z*stride-range;
 
-    // Calculate total linear offset before entering any loops
-    int base_offset = start_sz * in_plane + start_sy * in_w + start_sx;
-
-    const T* weight_oc = weight + (oc * in_c * kernel_size3);
     T sum = bias[oc];
+    const T* weight_oc = weight+static_cast<size_t>(oc)*in_c*kernel_size3;
 
-    // Base pointers for the input channel loop
-    const T* in_ic_base = in + base_offset;
-    const T* weight_ic_base = weight_oc;
-
-    // Replaced ic * in_img_size and ic * kernel_size3 with running pointer additions
-    for(int ic = 0; ic < in_c; ++ic, in_ic_base += in_img_size, weight_ic_base += kernel_size3)
+    if constexpr(kernel_size == 1 && stride == 1)
     {
-        const T* in_slice_base = in_ic_base;
-        const T* weight_kz = weight_ic_base;
-        int sz = start_sz;
+        size_t in_offset = static_cast<size_t>(z)*in_plane+static_cast<size_t>(y)*in_w+x;
+        for(int ic = 0;ic < in_c;++ic)
+            sum = fmaf(in[static_cast<size_t>(ic)*in_img_size+in_offset],weight_oc[ic],sum);
+    }
+    else
+    {
+        bool inside = start_sx >= 0 && start_sy >= 0 && start_sz >= 0 &&
+                      start_sx+kernel_size <= in_w &&
+                      start_sy+kernel_size <= in_h &&
+                      start_sz+kernel_size <= in_d;
 
-        for(int kz = 0; kz < kernel_size; ++kz, ++sz, in_slice_base += in_plane, weight_kz += kernel_plane)
+        if(inside)
         {
-            if(static_cast<unsigned int>(sz) >= static_cast<unsigned int>(in_d))
-                continue;
-
-            const T* in_row_base = in_slice_base;
-            const T* weight_ky = weight_kz;
-            int sy = start_sy;
-
-            for(int ky = 0; ky < kernel_size; ++ky, ++sy, in_row_base += in_w, weight_ky += kernel_size)
+            for(int ic = 0;ic < in_c;++ic)
             {
-                if(static_cast<unsigned int>(sy) >= static_cast<unsigned int>(in_h))
-                    continue;
+                const T* in_base = in+static_cast<size_t>(ic)*in_img_size+
+                                   static_cast<size_t>(start_sz)*in_plane+
+                                   static_cast<size_t>(start_sy)*in_w+start_sx;
+                const T* weight_ic = weight_oc+ic*kernel_size3;
 
-                const T* in_ptr = in_row_base;
-                const T* weight_kx = weight_ky;
-                int sx = start_sx;
+                #pragma unroll
+                for(int kz = 0;kz < kernel_size;++kz)
+                {
+                    const T* in_z = in_base+kz*in_plane;
+                    const T* weight_z = weight_ic+kz*kernel_plane;
 
-                for(int kx = 0; kx < kernel_size; ++kx, ++sx, ++in_ptr, ++weight_kx)
-                    if(static_cast<unsigned int>(sx) < static_cast<unsigned int>(in_w))
-                        sum += (*weight_kx) * (*in_ptr);
+                    #pragma unroll
+                    for(int ky = 0;ky < kernel_size;++ky)
+                    {
+                        const T* in_y = in_z+ky*in_w;
+                        const T* weight_y = weight_z+ky*kernel_size;
+
+                        #pragma unroll
+                        for(int kx = 0;kx < kernel_size;++kx)
+                            sum = fmaf(weight_y[kx],in_y[kx],sum);
+                    }
+                }
+            }
+        }
+        else
+        {
+            for(int ic = 0;ic < in_c;++ic)
+            {
+                const T* in_ic = in+static_cast<size_t>(ic)*in_img_size;
+                const T* weight_ic = weight_oc+ic*kernel_size3;
+
+                #pragma unroll
+                for(int kz = 0;kz < kernel_size;++kz)
+                {
+                    int sz = start_sz+kz;
+                    if(static_cast<unsigned int>(sz) >= static_cast<unsigned int>(in_d))
+                        continue;
+
+                    #pragma unroll
+                    for(int ky = 0;ky < kernel_size;++ky)
+                    {
+                        int sy = start_sy+ky;
+                        if(static_cast<unsigned int>(sy) >= static_cast<unsigned int>(in_h))
+                            continue;
+
+                        const T* in_y = in_ic+static_cast<size_t>(sz)*in_plane+static_cast<size_t>(sy)*in_w;
+                        const T* weight_y = weight_ic+kz*kernel_plane+ky*kernel_size;
+
+                        #pragma unroll
+                        for(int kx = 0;kx < kernel_size;++kx)
+                        {
+                            int sx = start_sx+kx;
+                            if(static_cast<unsigned int>(sx) < static_cast<unsigned int>(in_w))
+                                sum = fmaf(weight_y[kx],in_y[sx],sum);
+                        }
+                    }
+                }
             }
         }
     }
 
-    if constexpr(Act == activation_type::relu)
-        if(sum < T(0))
-            sum = T(0);
-    if constexpr(Act == activation_type::leaky_relu)
-        if(sum < T(0))
-            sum *= slope;
-    if constexpr(Act == activation_type::elu)
-        if(sum < T(0))
-            sum = (T)expm1f((float)sum);
-
-    out[idx] = sum;
+    out[static_cast<size_t>(oc)*out_img_size+static_cast<size_t>(z)*out_plane+static_cast<size_t>(y)*out_w+x] =
+        apply_activation<Act>(sum,slope);
 }
 
 template<typename T>
-__global__ void conv_transpose_3d_kernel(const T* in,const T* weight,const T* bias,T* out,
-                                         int in_c,int out_c,
-                                         int in_d,int in_h,int in_w,
-                                         int out_d,int out_h,int out_w,
-                                         int kernel_size,int kernel_size3,int stride)
+__global__ __launch_bounds__(128,2)
+void conv_transpose_3d_kernel(const T* __restrict__ in,const T* __restrict__ weight,const T* __restrict__ bias,T* __restrict__ out,
+                              int in_c,int out_c,
+                              int in_d,int in_h,int in_w,
+                              int out_d,int out_h,int out_w)
 {
-    size_t out_plane = out_w*out_h;
-    size_t out_img_size = out_plane*out_d;
-    size_t total_out = static_cast<size_t>(out_c)*out_img_size;
-    size_t idx = blockIdx.x*blockDim.x+threadIdx.x;
-    if(idx >= total_out)
+    int x = blockIdx.x*blockDim.x+threadIdx.x;
+    int y_blocks = (out_h+blockDim.y-1)/blockDim.y;
+    int y_tile = blockIdx.y;
+    int y0 = (y_tile%y_blocks)*blockDim.y;
+    int z = y_tile/y_blocks;
+    int y = y0+threadIdx.y;
+    int oc = blockIdx.z;
+
+    if(x >= out_w || y >= out_h)
         return;
 
-    int x = idx%out_w;
-    int y = (idx/out_w)%out_h;
-    int z = (idx/out_plane)%out_d;
-    int oc = idx/out_img_size;
+    int in_x = x >> 1;
+    int in_y = y >> 1;
+    int in_z = z >> 1;
+    int kx = x & 1;
+    int ky = y & 1;
+    int kz = z & 1;
 
-    int in_x = x/stride;
-    int kx = x%stride;
-    int in_y = y/stride;
-    int ky = y%stride;
-    int in_z = z/stride;
-    int kz = z%stride;
-
-    T sum = bias[oc];
-
-    int k_offset = oc*kernel_size3+kz*(kernel_size*kernel_size)+ky*kernel_size+kx;
     int in_plane = in_w*in_h;
     int in_img_size = in_d*in_plane;
-    int in_offset_base = in_z*in_plane+in_y*in_w+in_x;
-    int w_stride = out_c*kernel_size3;
+    int out_plane = out_w*out_h;
+    int out_img_size = out_d*out_plane;
+    int k_offset = (kz << 2)+(ky << 1)+kx;
 
-    const T* in_ptr = in+in_offset_base;
-    const T* w_ptr = weight+k_offset;
+    T sum = bias[oc];
+    const T* in_ptr = in+static_cast<size_t>(in_z)*in_plane+static_cast<size_t>(in_y)*in_w+in_x;
+    const T* weight_ptr = weight+static_cast<size_t>(oc)*8+k_offset;
+    int w_stride = out_c*8;
 
-    for(int ic = 0;ic < in_c;++ic,in_ptr += in_img_size,w_ptr += w_stride)
-        sum += (*in_ptr)*(*w_ptr);
+    for(int ic = 0;ic < in_c;++ic,in_ptr += in_img_size,weight_ptr += w_stride)
+        sum = fmaf(*in_ptr,*weight_ptr,sum);
 
-    out[idx] = sum;
+    out[static_cast<size_t>(oc)*out_img_size+static_cast<size_t>(z)*out_plane+static_cast<size_t>(y)*out_w+x] = sum;
 }
+
 template<activation_type Act,typename T>
-__global__ void batch_norm_3d_kernel(const T* in,T* out,const T* weight,const T* bias,
-                                     int in_c,size_t plane_size)
+__global__ __launch_bounds__(256,2)
+void batch_norm_3d_kernel(const T* __restrict__ in,T* __restrict__ out,const T* __restrict__ weight,const T* __restrict__ bias,
+                          int in_c,size_t plane_size)
 {
-    size_t idx = blockIdx.x*blockDim.x+threadIdx.x;
-    size_t total_size = static_cast<size_t>(in_c)*plane_size;
-    if(idx >= total_size)
+    size_t i = static_cast<size_t>(blockIdx.x)*blockDim.x+threadIdx.x;
+    int c = blockIdx.y;
+
+    if(i >= plane_size)
         return;
 
-    int c = idx/plane_size;
-    T val = in[idx]*weight[c]+bias[c];
+    size_t pos = static_cast<size_t>(c)*plane_size+i;
+    T val = in[pos]*weight[c]+bias[c];
 
-    if constexpr(Act == activation_type::relu)
-        if(val < T(0))
-            val = T(0);
-    if constexpr(Act == activation_type::leaky_relu)
-        if(val < T(0))
-            val *= (T)0.01f;
-    if constexpr(Act == activation_type::elu)
-        if(val < T(0))
-            val = (T)expm1f((float)val);
-
-    out[idx] = val;
+    out[pos] = apply_activation<Act>(val,(T)0.01f);
 }
+
 template<activation_type Act,typename T>
-__global__ void instance_norm_3d_kernel(const T* in,T* out,const T* weight,const T* bias,
-                                        int out_c,size_t plane_size,T slope)
+__global__ __launch_bounds__(256,1)
+void instance_norm_3d_kernel(const T* __restrict__ in,T* __restrict__ out,const T* __restrict__ weight,const T* __restrict__ bias,
+                             int out_c,size_t plane_size,T slope)
 {
-    int oc = blockIdx.x*blockDim.x+threadIdx.x;
-    if(oc >= out_c)
-        return;
+    int oc = blockIdx.x;
+    int tid = threadIdx.x;
 
-    const T* in_ptr = in+plane_size*oc;
-    T* out_ptr = out+plane_size*oc;
-    double sum = 0.0,sq_sum = 0.0;
+    __shared__ T sum_buffer[norm_block_size];
+    __shared__ T sq_buffer[norm_block_size];
 
-    for(size_t i = 0;i < plane_size;++i)
+    const T* in_ptr = in+static_cast<size_t>(oc)*plane_size;
+    T* out_ptr = out+static_cast<size_t>(oc)*plane_size;
+
+    T sum = T(0);
+    T sq_sum = T(0);
+
+    for(size_t i = tid;i < plane_size;i += blockDim.x)
     {
         T val = in_ptr[i];
         sum += val;
-        sq_sum += (double)val*val;
+        sq_sum += val*val;
     }
 
-    double inv_plane = 1.0/plane_size;
-    T mean = (T)(sum*inv_plane);
-    T var = (T)fmaxf(0.0f,(float)(sq_sum*inv_plane-mean*mean));
+    sum_buffer[tid] = sum;
+    sq_buffer[tid] = sq_sum;
+    __syncthreads();
+
+    for(int offset = blockDim.x >> 1;offset;offset >>= 1)
+    {
+        if(tid < offset)
+        {
+            sum_buffer[tid] += sum_buffer[tid+offset];
+            sq_buffer[tid] += sq_buffer[tid+offset];
+        }
+        __syncthreads();
+    }
+
+    T inv_plane = T(1)/static_cast<T>(plane_size);
+    T mean = sum_buffer[0]*inv_plane;
+    T var = sq_buffer[0]*inv_plane-mean*mean;
+    if(var < T(0))
+        var = T(0);
 
     T scale = weight[oc]/(T)sqrtf((float)var+1e-5f);
-    T shift = bias[oc]-(mean*scale);
+    T shift = bias[oc]-mean*scale;
 
-    for(size_t i = 0;i < plane_size;++i)
+    for(size_t i = tid;i < plane_size;i += blockDim.x)
     {
         T val = in_ptr[i]*scale+shift;
-        if constexpr(Act == activation_type::relu)
-            if(val < T(0))
-                val = T(0);
-        if constexpr(Act == activation_type::leaky_relu)
-            if(val < T(0))
-                val *= slope;
-        if constexpr(Act == activation_type::elu)
-            if(val < T(0))
-                val = (T)expm1f((float)val);
-        out_ptr[i] = val;
+        out_ptr[i] = apply_activation<Act>(val,slope);
     }
 }
 
 template<typename T>
-__global__ void max_pool_3d_kernel(const T* in,T* out,
-                                   int in_c,int in_d,int in_h,int in_w,
-                                   int out_d,int out_h,int out_w,int pool_size)
+__global__ __launch_bounds__(128,2)
+void max_pool_3d_kernel(const T* __restrict__ in,T* __restrict__ out,
+                        int in_c,int in_d,int in_h,int in_w,
+                        int out_d,int out_h,int out_w)
 {
-    size_t out_plane = out_w * out_h;
-    size_t out_img_size = out_plane * out_d;
-    size_t total_out = static_cast<size_t>(in_c) * out_img_size;
-    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int x = blockIdx.x*blockDim.x+threadIdx.x;
+    int y_blocks = (out_h+blockDim.y-1)/blockDim.y;
+    int y_tile = blockIdx.y;
+    int y0 = (y_tile%y_blocks)*blockDim.y;
+    int z = y_tile/y_blocks;
+    int y = y0+threadIdx.y;
+    int c = blockIdx.z;
 
-    if(idx >= total_out)
+    if(x >= out_w || y >= out_h)
         return;
-
-    int x = idx % out_w;
-    int y = (idx / out_w) % out_h;
-    int z = (idx / out_plane) % out_d;
-    int c = idx / out_img_size;
-
-    int from_z_base = z * pool_size;
-    int from_y_base = y * pool_size;
-    int from_x_base = x * pool_size;
-
-    // Hoist boundary evaluation to accurately truncate the pool size before loops
-    int max_dz = pool_size;
-    if(from_z_base + max_dz > in_d)
-        max_dz = in_d - from_z_base;
-    if(max_dz <= 0)
-        return;
-
-    int max_dy = pool_size;
-    if(from_y_base + max_dy > in_h)
-        max_dy = in_h - from_y_base;
-
-    int max_dx = pool_size;
-    if(from_x_base + max_dx > in_w)
-        max_dx = in_w - from_x_base;
-
-    int in_plane = in_w * in_h;
-    int in_img_size = in_d * in_plane;
-    int base_offset = from_z_base * in_plane + from_y_base * in_w + from_x_base;
-
-    const T* z_ptr = in + (c * in_img_size) + base_offset;
-    T max_val = (T)-1e38f;
-
-    // Zero math inside inner loops; pointer sequentially advances
-    for(int dz = 0; dz < max_dz; ++dz, z_ptr += in_plane)
-    {
-        const T* y_ptr = z_ptr;
-        for(int dy = 0; dy < max_dy; ++dy, y_ptr += in_w)
-        {
-            const T* x_ptr = y_ptr;
-            for(int dx = 0; dx < max_dx; ++dx, ++x_ptr)
-                if(*x_ptr > max_val)
-                    max_val = *x_ptr;
-        }
-    }
-
-    out[idx] = max_val;
-}
-
-template<typename T>
-__global__ void upsample_3d_kernel(const T* in,T* out,
-                                   int in_c,int in_d,int in_h,int in_w,
-                                   int out_d,int out_h,int out_w,int pool_size)
-{
-    size_t out_plane = out_w*out_h;
-    size_t out_img_size = out_plane*out_d;
-    size_t total_out = static_cast<size_t>(in_c)*out_img_size;
-    size_t idx = blockIdx.x*blockDim.x+threadIdx.x;
-    if(idx >= total_out)
-        return;
-
-    int x = idx%out_w;
-    int y = (idx/out_w)%out_h;
-    int z = (idx/out_plane)%out_d;
-    int c = idx/out_img_size;
-
-    int in_x = x/pool_size;
-    int in_y = y/pool_size;
-    int in_z = z/pool_size;
 
     int in_plane = in_w*in_h;
     int in_img_size = in_d*in_plane;
+    int out_plane = out_w*out_h;
+    int out_img_size = out_d*out_plane;
 
-    out[idx] = in[c*in_img_size+in_z*in_plane+in_y*in_w+in_x];
+    int sx = x << 1;
+    int sy = y << 1;
+    int sz = z << 1;
+
+    const T* p = in+static_cast<size_t>(c)*in_img_size+
+                 static_cast<size_t>(sz)*in_plane+
+                 static_cast<size_t>(sy)*in_w+sx;
+
+    T max_val = p[0];
+    max_val = max_val > p[1] ? max_val : p[1];
+    max_val = max_val > p[in_w] ? max_val : p[in_w];
+    max_val = max_val > p[in_w+1] ? max_val : p[in_w+1];
+
+    p += in_plane;
+    max_val = max(max_val,p[0]);
+    max_val = max_val > p[1] ? max_val : p[1];
+    max_val = max_val > p[in_w] ? max_val : p[in_w];
+    max_val = max_val > p[in_w+1] ? max_val : p[in_w+1];
+
+    out[static_cast<size_t>(c)*out_img_size+static_cast<size_t>(z)*out_plane+static_cast<size_t>(y)*out_w+x] = max_val;
+}
+
+template<typename T>
+__global__ __launch_bounds__(128,2)
+void upsample_3d_kernel(const T* __restrict__ in,T* __restrict__ out,
+                        int in_c,int in_d,int in_h,int in_w,
+                        int out_d,int out_h,int out_w)
+{
+    int x = blockIdx.x*blockDim.x+threadIdx.x;
+    int y_blocks = (in_h+blockDim.y-1)/blockDim.y;
+    int y_tile = blockIdx.y;
+    int y0 = (y_tile%y_blocks)*blockDim.y;
+    int z = y_tile/y_blocks;
+    int y = y0+threadIdx.y;
+    int c = blockIdx.z;
+
+    if(x >= in_w || y >= in_h)
+        return;
+
+    int in_plane = in_w*in_h;
+    int in_img_size = in_d*in_plane;
+    int out_plane = out_w*out_h;
+    int out_img_size = out_d*out_plane;
+
+    T val = in[static_cast<size_t>(c)*in_img_size+static_cast<size_t>(z)*in_plane+static_cast<size_t>(y)*in_w+x];
+
+    int ox = x << 1;
+    int oy = y << 1;
+    int oz = z << 1;
+
+    T* out_ptr = out+static_cast<size_t>(c)*out_img_size+
+                 static_cast<size_t>(oz)*out_plane+
+                 static_cast<size_t>(oy)*out_w+ox;
+
+    out_ptr[0] = val;
+    out_ptr[1] = val;
+    out_ptr[out_w] = val;
+    out_ptr[out_w+1] = val;
+
+    out_ptr += out_plane;
+    out_ptr[0] = val;
+    out_ptr[1] = val;
+    out_ptr[out_w] = val;
+    out_ptr[out_w+1] = val;
 }
 
 } // namespace cuda_kernels
@@ -677,11 +738,20 @@ void cuda_conv_3d_forward(const T* in, const T* weight, const T* bias, T* out,
                           int out_d, int out_h, int out_w,
                           int kernel_size, int kernel_size3, int range, int stride, T slope)
 {
-    size_t total_out_size = static_cast<size_t>(out_c) * out_d * out_h * out_w;
-    int block_size = 256;
-    int grid_size = (total_out_size + block_size - 1) / block_size;
-    cuda_kernels::conv_3d_kernel<Act, T><<<grid_size, block_size>>>(
-        in, weight, bias, out, in_c, out_c, in_d, in_h, in_w, out_d, out_h, out_w, kernel_size, kernel_size3, range, stride, slope);
+    dim3 block(cuda_kernels::spatial_block_x,cuda_kernels::spatial_block_y,1);
+    dim3 grid(cuda_kernels::div_up(out_w,block.x),cuda_kernels::div_up(out_h,block.y)*out_d,out_c);
+
+    if(kernel_size == 1 && stride == 1)
+        cuda_kernels::conv_3d_kernel<Act,T,1,1><<<grid,block>>>(
+            in,weight,bias,out,in_c,out_c,in_d,in_h,in_w,out_d,out_h,out_w,slope);
+    else if(kernel_size == 3 && stride == 1)
+        cuda_kernels::conv_3d_kernel<Act,T,3,1><<<grid,block>>>(
+            in,weight,bias,out,in_c,out_c,in_d,in_h,in_w,out_d,out_h,out_w,slope);
+    else if(kernel_size == 3 && stride == 2)
+        cuda_kernels::conv_3d_kernel<Act,T,3,2><<<grid,block>>>(
+            in,weight,bias,out,in_c,out_c,in_d,in_h,in_w,out_d,out_h,out_w,slope);
+    else
+        throw std::runtime_error("cuda conv_3d supports only ks1 stride1, ks3 stride1, and ks3 stride2");
 }
 
 template
@@ -721,12 +791,15 @@ void cuda_conv_transpose_3d_forward(const T* in, const T* weight, const T* bias,
                                     int in_c, int out_c,
                                     int in_d, int in_h, int in_w,
                                     int out_d, int out_h, int out_w,
-                                    int kernel_size, int kernel_size3, int stride) {
-    size_t total_out = static_cast<size_t>(out_c) * out_d * out_h * out_w;
-    int block_size = 256;
-    int grid_size = (total_out + block_size - 1) / block_size;
-    cuda_kernels::conv_transpose_3d_kernel<T><<<grid_size, block_size>>>(
-        in, weight, bias, out, in_c, out_c, in_d, in_h, in_w, out_d, out_h, out_w, kernel_size, kernel_size3, stride);
+                                    int kernel_size, int kernel_size3, int stride)
+{
+    if(kernel_size != 2 || stride != 2)
+        throw std::runtime_error("cuda conv_transpose_3d supports only ks2 stride2");
+
+    dim3 block(cuda_kernels::spatial_block_x,cuda_kernels::spatial_block_y,1);
+    dim3 grid(cuda_kernels::div_up(out_w,block.x),cuda_kernels::div_up(out_h,block.y)*out_d,out_c);
+    cuda_kernels::conv_transpose_3d_kernel<T><<<grid,block>>>(
+        in,weight,bias,out,in_c,out_c,in_d,in_h,in_w,out_d,out_h,out_w);
 }
 
 template
@@ -739,10 +812,9 @@ template<activation_type Act,typename T>
 void cuda_batch_norm_3d_forward(const T* in,T* out,const T* weight,const T* bias,
                                 int in_c,size_t plane_size)
 {
-    size_t total_size = static_cast<size_t>(in_c)*plane_size;
-    int block_size = 256;
-    int grid_size = (total_size+block_size-1)/block_size;
-    cuda_kernels::batch_norm_3d_kernel<Act,T><<<grid_size,block_size>>>(in,out,weight,bias,in_c,plane_size);
+    dim3 block(cuda_kernels::elem_block_size);
+    dim3 grid(cuda_kernels::div_up(plane_size,block.x),in_c);
+    cuda_kernels::batch_norm_3d_kernel<Act,T><<<grid,block>>>(in,out,weight,bias,in_c,plane_size);
 }
 
 template void cuda_batch_norm_3d_forward<activation_type::none,float>(const float* in,float* out,const float* weight,const float* bias,int in_c,size_t plane_size);
@@ -750,13 +822,12 @@ template void cuda_batch_norm_3d_forward<activation_type::relu,float>(const floa
 template void cuda_batch_norm_3d_forward<activation_type::leaky_relu,float>(const float* in,float* out,const float* weight,const float* bias,int in_c,size_t plane_size);
 template void cuda_batch_norm_3d_forward<activation_type::elu,float>(const float* in,float* out,const float* weight,const float* bias,int in_c,size_t plane_size);
 
-template <activation_type Act, typename T = float>
+template <activation_type Act, typename T>
 void cuda_instance_norm_3d_forward(const T* in, T* out, const T* weight, const T* bias,
-                                   int out_c, size_t plane_size, T slope) {
-    int block_size = 256;
-    int grid_size = (out_c + block_size - 1) / block_size;
-    cuda_kernels::instance_norm_3d_kernel<Act, T><<<grid_size, block_size>>>(
-        in, out, weight, bias, out_c, plane_size, slope);
+                                   int out_c, size_t plane_size, T slope)
+{
+    cuda_kernels::instance_norm_3d_kernel<Act,T><<<out_c,cuda_kernels::norm_block_size>>>(
+        in,out,weight,bias,out_c,plane_size,slope);
 }
 
 template
@@ -777,12 +848,15 @@ void cuda_instance_norm_3d_forward<activation_type::elu, float>(const float* in,
 template <typename T>
 void cuda_max_pool_3d_forward(const T* in, T* out,
                               int in_c, int in_d, int in_h, int in_w,
-                              int out_d, int out_h, int out_w, int pool_size) {
-    size_t total_out = static_cast<size_t>(out_d) * out_h * out_w * in_c;
-    int block_size = 256;
-    int grid_size = (total_out + block_size - 1) / block_size;
-    cuda_kernels::max_pool_3d_kernel<T><<<grid_size, block_size>>>(
-        in, out, in_c, in_d, in_h, in_w, out_d, out_h, out_w, pool_size);
+                              int out_d, int out_h, int out_w, int pool_size)
+{
+    if(pool_size != 2)
+        throw std::runtime_error("cuda max_pool_3d supports only pool size 2");
+
+    dim3 block(cuda_kernels::spatial_block_x,cuda_kernels::spatial_block_y,1);
+    dim3 grid(cuda_kernels::div_up(out_w,block.x),cuda_kernels::div_up(out_h,block.y)*out_d,in_c);
+    cuda_kernels::max_pool_3d_kernel<T><<<grid,block>>>(
+        in,out,in_c,in_d,in_h,in_w,out_d,out_h,out_w);
 }
 
 template
@@ -794,12 +868,15 @@ void cuda_max_pool_3d_forward<float>(const float* in, float* out,
 template <typename T>
 void cuda_upsample_3d_forward(const T* in, T* out,
                               int in_c, int in_d, int in_h, int in_w,
-                              int out_d, int out_h, int out_w, int pool_size) {
-    size_t total_out = static_cast<size_t>(out_d) * out_h * out_w * in_c;
-    int block_size = 256;
-    int grid_size = (total_out + block_size - 1) / block_size;
-    cuda_kernels::upsample_3d_kernel<T><<<grid_size, block_size>>>(
-        in, out, in_c, in_d, in_h, in_w, out_d, out_h, out_w, pool_size);
+                              int out_d, int out_h, int out_w, int pool_size)
+{
+    if(pool_size != 2)
+        throw std::runtime_error("cuda upsample_3d supports only pool size 2");
+
+    dim3 block(cuda_kernels::spatial_block_x,cuda_kernels::spatial_block_y,1);
+    dim3 grid(cuda_kernels::div_up(in_w,block.x),cuda_kernels::div_up(in_h,block.y)*in_d,in_c);
+    cuda_kernels::upsample_3d_kernel<T><<<grid,block>>>(
+        in,out,in_c,in_d,in_h,in_w,out_d,out_h,out_w);
 }
 
 template
@@ -809,11 +886,11 @@ void cuda_upsample_3d_forward<float>(const float* in, float* out,
 
 
 template <typename T = float>
-void cuda_copy_device_to_device(T* dest, const T* src, size_t count) {
+void cuda_copy_device_to_device(T* dest, const T* src, size_t count)
+{
     cudaMemcpy(dest, src, count * sizeof(T), cudaMemcpyDeviceToDevice);
 }
 
-// Explicit instantiation for cuda_copy_device_to_device
 template
 void cuda_copy_device_to_device<float>(float* dest, const float* src, size_t count);
 
@@ -1191,6 +1268,8 @@ public:
         {
             int ks = params.count(kernel_size_keyword) ? std::stoi(params[kernel_size_keyword]) : 2;
             int stride = params.count(stride_keyword) ? std::stoi(params[stride_keyword]) : 2;
+            if(ks != 2 || stride != 2)
+                throw std::runtime_error("conv_trans supports only ks2 stride2");
             l.reset(new conv_transpose_3d(in_c,std::stoi(params[conv_transpose_3d::keyword]),ks,stride));
         }
         else if(params.count(conv_3d<>::keyword))
@@ -1198,6 +1277,9 @@ public:
             int out_ch = std::stoi(params[conv_3d<>::keyword]);
             int ks = params.count(kernel_size_keyword) ? std::stoi(params[kernel_size_keyword]) : 3;
             int stride = params.count(stride_keyword) ? std::stoi(params[stride_keyword]) : 1;
+
+            if(!((ks == 1 && stride == 1) || (ks == 3 && (stride == 1 || stride == 2))))
+                throw std::runtime_error("conv supports only ks1 stride1, ks3 stride1, and ks3 stride2");
 
             if(params.count(elu_keyword))
                 l.reset(new conv_3d<activation_type::elu>(in_c,out_ch,ks,stride));
@@ -1261,7 +1343,7 @@ public:
 
         auto channel_count = layers.back()->out_channels_;
         for(int level = dec_tokens.size() - 1; level >= 0; --level)
-        {   
+        {
             const auto& tokens = dec_tokens[dec_tokens.size() - 1 - level];
             up.insert(up.begin(),std::vector<std::shared_ptr<layer>>());
             decoding.insert(decoding.begin(),std::vector<std::shared_ptr<layer>>());
