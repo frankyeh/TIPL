@@ -154,13 +154,21 @@ public:
 
     size_t in_count,out_count;
 
-    bool preproc(void)
+    bool preproc(const std::string& cmd)
     {
         if(source_image.empty())
             return error_msg = "no source image",false;
+
+        tipl::out() << "preproc: " << cmd;
         tipl::par_for(in_count,[&](int c)
         {
-            tipl::segmentation::normalize_otsu_median(source_image.alias(c*image_dim.size(),image_dim));
+            auto I = source_image.alias(c*image_dim.size(),image_dim);
+            tipl::segmentation::normalize_otsu_median(I);
+            for(const auto& each : tipl::split(cmd,'+'))
+            {
+                if(each == "flip_xy")
+                    tipl::flip_xy(I);
+            }
         });
 
         if(mask.empty())
@@ -249,6 +257,15 @@ public:
                 continue;
             if(param[0] == "create_mask" && create_mask())
                 continue;
+            if(param[0] == "flip_xy")
+            {
+                if(!label_prob.empty())
+                    tipl::flip_xy(label_prob);
+                if(!fg_prob.empty())
+                    tipl::flip_xy(fg_prob);
+                if(!fg_prob.empty())
+                    tipl::flip_xy(label);
+            }
             if(param[0] == "clamp_prob")
             {
                 tipl::upper_lower_threshold(label_prob, 0.0f, 1.0f);
@@ -543,7 +560,7 @@ public:
 
         prog(1,4);
         tipl::out() << "preprocessing";
-        if(!eval.preproc())
+        if(!eval.preproc(preproc))
             return false;
 
         prog(2,4);
