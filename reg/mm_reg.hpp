@@ -62,7 +62,7 @@ struct mm_reg{
     bool skip_nonlinear = false;
     bool match_fov = true;
     bool masked_r = true;
-
+    bool skip_reverse = false;
     std::vector<std::string> modality_names;
     std::vector<image_type> I,J,It;
     std::vector<float> r;
@@ -270,13 +270,17 @@ public:
 
     void compute_mapping_from_displacement()
     {
-        if(f2t_dis.empty() || t2f_dis.empty())
-            return;
         auto trans = T();
-        from2to.resize(Is);
-        to2from.resize(Its);
-        tipl::inv_displacement_to_mapping(f2t_dis,from2to,trans);
-        tipl::displacement_to_mapping(t2f_dis,to2from,trans);
+        if(!f2t_dis.empty())
+        {
+            from2to.resize(Is);
+            tipl::inv_displacement_to_mapping(f2t_dis,from2to,trans);
+        }
+        if(!t2f_dis.empty())
+        {
+            to2from.resize(Its);
+            tipl::displacement_to_mapping(t2f_dis,to2from,trans);
+        }
     }
 
     void calculate_linear_r()
@@ -327,6 +331,8 @@ public:
     void calculate_nonlinear_r()
     {
         std::fill(r.begin(),r.end(),0.0f);
+        if(to2from.empty())
+            return;
         tipl::par_for(I.size(),[&](size_t i)
         {
             if(I[i].empty() || It[i].empty())
@@ -388,12 +394,16 @@ public:
         auto param0 = param;
         auto param1 = param;
 
-        std::thread t([&]()
-        {
+        std::shared_ptr<std::thread> t;
+
+        if(!skip_reverse)
+            t.reset(new std::thread([&]()
+            {
+                tipl::reg::cdm_common<out_type>(tipl::reg::make_list(J),tipl::reg::make_list(It),f2t_dis,terminated,param1,use_cuda);
+            }));
             tipl::reg::cdm_common<out_type>(tipl::reg::make_list(It),tipl::reg::make_list(J),t2f_dis,terminated,param0,use_cuda);
-        });
-        tipl::reg::cdm_common<out_type>(tipl::reg::make_list(J),tipl::reg::make_list(It),f2t_dis,terminated,param1,use_cuda);
-        t.join();
+        if(!skip_reverse)
+        t->join();
 
         if(!previous_f2t.empty() && !previous_t2f.empty())
         {
