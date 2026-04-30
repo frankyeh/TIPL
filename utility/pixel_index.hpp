@@ -292,7 +292,6 @@ public:
     __INLINE__ const data_type* data() const { return data_; }
     __INLINE__ const data_type* begin() const { return data_; }
     __INLINE__ const data_type* end() const { return data_+2; }
-    __INLINE__ size_t size() const { return 2; }
 
 public:
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
@@ -462,7 +461,6 @@ public:
     __INLINE__ const data_type* data() const { return data_; }
     __INLINE__ const data_type* begin() const { return data_; }
     __INLINE__ const data_type* end() const { return data_+3; }
-    __INLINE__ size_t size() const { return 3; }
 
 public:
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
