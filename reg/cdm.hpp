@@ -90,15 +90,15 @@ cdm_get_gradient(const image_type1& Js,const image_type2& It,dis_type& new_d,uns
     switch(gradient_type)
     {
     case 'r':
-        tipl::par_for<sequential>(Js.size(),[&](size_t index)
+        tipl::par_for<sequential>(Js.shape(),[&](auto index)
         {
-            cdm_get_gradient_r_imp(tipl::pixel_index<image_type1::dimension>(index,Js.shape()),Js,It,new_d,cost_map);
+            cdm_get_gradient_r_imp(index,Js,It,new_d,cost_map);
         });
         break;
     case 'd':
-        tipl::par_for<sequential>(Js.size(),[&](size_t index)
+        tipl::par_for<sequential>(Js.shape(),[&](auto index)
         {
-            cdm_get_gradient_d_imp(tipl::pixel_index<image_type1::dimension>(index,Js.shape()),Js,It,new_d,cost_map);
+            cdm_get_gradient_d_imp(index,Js,It,new_d,cost_map);
         });
         break;
     }
@@ -270,19 +270,17 @@ template<typename dist_type>
 inline std::enable_if_t<memory_location<dist_type>::at != CUDA, float>
 cdm_max_displacement_length(dist_type& new_d)
 {
-    float theta = 0.0f;
-    std::mutex mutex;
-    par_for<sequential>(new_d.size(),[&](int i)
+    unsigned int tc = std::thread::hardware_concurrency();
+    std::vector<float> theta(tc,0.0f);
+
+    par_for<sequential_with_id>(new_d.size(),[&](int i,size_t id)
     {
         float l = new_d[i].length();
-        if(l > theta)
-        {
-            std::lock_guard<std::mutex> lock(mutex);
-            if(l > theta)
-                theta = l;
-        }
-    });
-    return theta;
+        if(l > theta[id])
+            theta[id] = l;
+    },tc);
+
+    return *std::max_element(theta.begin(),theta.end());
 }
 
 #ifdef __CUDACC__
@@ -385,7 +383,7 @@ bool cdm(const std::vector<pointer_image_type>& It,
     {
         std::vector<typename pointer_image_type::buffer_type> rIt_buffer(It.size()),rIs_buffer(It.size());
         std::vector<pointer_image_type> rIt(It.size()),rIs(It.size());
-        tipl::par_for<sequential>(It.size(),[&](size_t i)
+        tipl::par_for(It.size(),[&](size_t i)
         {
             downsample_with_padding(It[i],rIt_buffer[i]);
             downsample_with_padding(Is[i],rIs_buffer[i]);
@@ -436,7 +434,6 @@ bool cdm(const std::vector<pointer_image_type>& It,
             }
             cost.push_back(sum_cost/It.size());
         }
-
         if constexpr(!std::is_void<out_type>::value)
         {
             auto cost_str = std::to_string(cost.back());
@@ -463,7 +460,6 @@ bool cdm(const std::vector<pointer_image_type>& It,
         }
         // solving the poisson equation using Jacobi method
         cdm_solve_poisson(new_d,terminated);
-
         if(theta == 0.0f)
             theta = cdm_max_displacement_length(new_d);
         if(theta == 0.0f)
