@@ -1335,5 +1335,208 @@ auto center_of_mass_binary(const T& Im)
     return sum_mass[0];
 }
 
+
+
+// ===========================================================================
+// Global arithmetic operators for TIPL-like containers
+// ===========================================================================
+
+namespace detail{
+
+template<class...>
+using void_t = void;
+
+template<typename T,typename = void>
+struct is_array_like : std::false_type {};
+
+template<typename T>
+struct is_array_like<T,void_t<
+    typename std::decay<T>::type::value_type,
+    typename std::decay<T>::type::iterator,
+    decltype(std::declval<T&>()[size_t(0)]),
+    decltype(std::declval<T&>().size())
+> > : std::integral_constant<bool,
+    !std::is_arithmetic<typename std::decay<T>::type>::value &&
+    std::is_convertible<
+        decltype(std::declval<T&>()[size_t(0)]),
+        typename std::decay<T>::type::value_type
+    >::value> {};
+
+
+template<typename T>
+using enable_array_like = std::enable_if_t<is_array_like<T>::value,int>;
+
+template<typename T>
+using enable_mutable_array_like = std::enable_if_t<
+    is_array_like<T>::value &&
+    !std::is_const<typename std::remove_reference<T>::type>::value,int>;
+
+template<typename T>
+using enable_scalar = std::enable_if_t<std::is_arithmetic<typename std::decay<T>::type>::value,int>;
+
+}
+
+template<typename T,typename U,
+         detail::enable_mutable_array_like<T> = 0,
+         detail::enable_array_like<U> = 0>
+T&& operator+=(T&& lhs,const U& rhs)
+{
+    add(lhs,rhs);
+    return std::forward<T>(lhs);
+}
+
+template<typename T,typename U,
+         detail::enable_mutable_array_like<T> = 0,
+         detail::enable_array_like<U> = 0>
+T&& operator-=(T&& lhs,const U& rhs)
+{
+    minus(lhs,rhs);
+    return std::forward<T>(lhs);
+}
+
+template<typename T,typename U,
+         detail::enable_mutable_array_like<T> = 0,
+         detail::enable_array_like<U> = 0>
+T&& operator*=(T&& lhs,const U& rhs)
+{
+    multiply(lhs,rhs);
+    return std::forward<T>(lhs);
+}
+
+template<typename T,typename U,
+         detail::enable_mutable_array_like<T> = 0,
+         detail::enable_array_like<U> = 0>
+T&& operator/=(T&& lhs,const U& rhs)
+{
+    divide(lhs,rhs);
+    return std::forward<T>(lhs);
+}
+
+template<typename T,typename U,
+         detail::enable_mutable_array_like<T> = 0,
+         detail::enable_scalar<U> = 0>
+T&& operator+=(T&& lhs,U rhs)
+{
+    add_constant(lhs,rhs);
+    return std::forward<T>(lhs);
+}
+
+template<typename T,typename U,
+         detail::enable_mutable_array_like<T> = 0,
+         detail::enable_scalar<U> = 0>
+T&& operator-=(T&& lhs,U rhs)
+{
+    minus_constant(lhs,rhs);
+    return std::forward<T>(lhs);
+}
+
+template<typename T,typename U,
+         detail::enable_mutable_array_like<T> = 0,
+         detail::enable_scalar<U> = 0>
+T&& operator*=(T&& lhs,U rhs)
+{
+    multiply_constant(lhs,rhs);
+    return std::forward<T>(lhs);
+}
+
+template<typename T,typename U,
+         detail::enable_mutable_array_like<T> = 0,
+         detail::enable_scalar<U> = 0>
+T&& operator/=(T&& lhs,U rhs)
+{
+    divide_constant(lhs,rhs);
+    return std::forward<T>(lhs);
+}
+
+template<typename T,typename U,detail::enable_array_like<T> = 0,detail::enable_array_like<U> = 0>
+T operator+(T lhs,const U& rhs)
+{
+    lhs += rhs;
+    return lhs;
+}
+
+template<typename T,typename U,detail::enable_array_like<T> = 0,detail::enable_array_like<U> = 0>
+T operator-(T lhs,const U& rhs)
+{
+    lhs -= rhs;
+    return lhs;
+}
+
+template<typename T,typename U,detail::enable_array_like<T> = 0,detail::enable_array_like<U> = 0>
+T operator*(T lhs,const U& rhs)
+{
+    lhs *= rhs;
+    return lhs;
+}
+
+template<typename T,typename U,detail::enable_array_like<T> = 0,detail::enable_array_like<U> = 0>
+T operator/(T lhs,const U& rhs)
+{
+    lhs /= rhs;
+    return lhs;
+}
+
+// object op scalar
+
+template<typename T,typename U,detail::enable_array_like<T> = 0,detail::enable_scalar<U> = 0>
+T operator+(T lhs,U rhs)
+{
+    lhs += rhs;
+    return lhs;
+}
+
+template<typename T,typename U,detail::enable_array_like<T> = 0,detail::enable_scalar<U> = 0>
+T operator-(T lhs,U rhs)
+{
+    lhs -= rhs;
+    return lhs;
+}
+
+template<typename T,typename U,detail::enable_array_like<T> = 0,detail::enable_scalar<U> = 0>
+T operator*(T lhs,U rhs)
+{
+    lhs *= rhs;
+    return lhs;
+}
+
+template<typename T,typename U,detail::enable_array_like<T> = 0,detail::enable_scalar<U> = 0>
+T operator/(T lhs,U rhs)
+{
+    lhs /= rhs;
+    return lhs;
+}
+
+// scalar op object
+
+template<typename U,typename T,detail::enable_scalar<U> = 0,detail::enable_array_like<T> = 0>
+T operator+(U lhs,T rhs)
+{
+    rhs += lhs;
+    return rhs;
+}
+
+template<typename U,typename T,detail::enable_scalar<U> = 0,detail::enable_array_like<T> = 0>
+T operator-(U lhs,T rhs)
+{
+    minus_by_constant(rhs,lhs);
+    return rhs;
+}
+
+template<typename U,typename T,detail::enable_scalar<U> = 0,detail::enable_array_like<T> = 0>
+T operator*(U lhs,T rhs)
+{
+    rhs *= lhs;
+    return rhs;
+}
+
+template<typename U,typename T,detail::enable_scalar<U> = 0,detail::enable_array_like<T> = 0>
+T operator/(U lhs,T rhs)
+{
+    divide_by_constant(rhs,lhs);
+    return rhs;
+}
+
+
+
 }
 #endif

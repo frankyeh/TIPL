@@ -290,43 +290,6 @@ public:
         return make_image(alloc,0,sp);
     }
 public:
-    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    auto operator+=(T value)
-    {auto ed = end();for(auto bg = begin();bg != ed;++bg)*bg += value;
-        return *this;}
-    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    auto operator-=(T value)
-    {auto ed = end();for(auto bg = begin();bg != ed;++bg)*bg -= value;
-        return *this;}
-    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    auto operator*=(T value)
-    {auto ed = end();for(auto bg = begin();bg != ed;++bg)*bg *= value;
-        return *this;}
-    template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
-    auto operator/=(T value)
-    {auto ed = end();for(auto bg = begin();bg != ed;++bg)*bg /= value;
-        return *this;}
-    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    auto operator+=(const T& rhs)
-    {auto ed = end();auto bg2 = rhs.begin();
-     for(auto bg = begin();bg != ed;++bg,++bg2)*bg += *bg2;
-     return *this;}
-    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    auto operator-=(const T& rhs)
-    {auto ed = end();auto bg2 = rhs.begin();
-     for(auto bg = begin();bg != ed;++bg,++bg2)*bg -= *bg2;
-     return *this;}
-    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    auto operator*=(const T& rhs)
-    {auto ed = end();auto bg2 = rhs.begin();
-     for(auto bg = begin();bg != ed;++bg,++bg2)*bg *= *bg2;
-     return *this;}
-    template<typename T,typename std::enable_if<std::is_class<T>::value,bool>::type = true>
-    auto operator/=(const T& rhs)
-    {auto ed = end();auto bg2 = rhs.begin();
-     for(auto bg = begin();bg != ed;++bg,++bg2)*bg /= *bg2;
-     return *this;}
-public:
     template<typename format_type>
     bool save_to_file(const std::string& file_name) const
     {
