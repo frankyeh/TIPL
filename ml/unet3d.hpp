@@ -593,20 +593,17 @@ public:
     bool forward(void)
     {
         tipl::progress prog("unet segmentation");
-
-
         if(!eval.preproc(preproc))
             return false;
 
         auto out_shape = eval.model_dim.multiply(tipl::shape<3>::z,eval.out_count);
         {
-            tipl::progress prog2("processing");
-            for(size_t i = 0;prog2(i,eval.model_input.size());++i)
+            for(size_t i = 0;prog(i,eval.model_input.size());++i)
             {
-                tipl::progress prog3("unet forwarding");
+                tipl::progress prog2("forwarding");
                 unet->prog = [&](int cur,int total)
                 {
-                    return prog3(cur,total);
+                    return prog2(cur,total);
                 };
                 if constexpr(tipl::use_cuda)
                 {
@@ -621,14 +618,14 @@ public:
                     eval.model_output.push_back(tipl::make_image(unet->layers.back()->out,out_shape));
                 }
             }
-            if(prog2.aborted())
+            if(prog.aborted())
                 return false;
         }
         eval.postproc();
         if(!eval.command(postproc))
             return error_msg = eval.error_msg,false;
         prog(4,4);
-        return true;
+        return !prog.aborted();
     }
     template<typename image_type>
     bool forward(const image_type& I,tipl::vector<3>& vs)
