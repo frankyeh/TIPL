@@ -263,17 +263,18 @@ public:
     bool change_dim(void) const override { return true; }
 };
 
-template<template<activation_type> class LayerType,typename... Args>
-std::shared_ptr<layer> make_act_layer(const std::unordered_map<std::string,std::string>& params,Args... args)
-{
-    if(params.count(elu_keyword)) return std::make_shared<LayerType<activation_type::elu>>(args...);
-    if(params.count(leaky_relu_keyword)) return std::make_shared<LayerType<activation_type::leaky_relu>>(args...);
-    if(params.count(relu_keyword)) return std::make_shared<LayerType<activation_type::relu>>(args...);
-    return std::make_shared<LayerType<activation_type::none>>(args...);
-}
+
 
 class network : public layer
 {
+    template<template<activation_type> class LayerType,typename... Args>
+    std::shared_ptr<layer> make_act_layer(const std::unordered_map<std::string,std::string>& params,Args... args)
+    {
+        if(params.count(elu_keyword)) return std::make_shared<LayerType<activation_type::elu>>(args...);
+        if(params.count(leaky_relu_keyword)) return std::make_shared<LayerType<activation_type::leaky_relu>>(args...);
+        if(params.count(relu_keyword)) return std::make_shared<LayerType<activation_type::relu>>(args...);
+        return std::make_shared<LayerType<activation_type::none>>(args...);
+    }
 protected:
     tipl::device_vector<float> gpu_memory;
     std::vector<float> memory;
@@ -295,7 +296,8 @@ public:
                     total_size += each_param.second;
                 total_size += each_layer->out_buffer_size;
             }
-            if(!total_size) throw std::runtime_error("no memory to allocate for network");
+            if(!total_size)
+                throw std::runtime_error("no memory to allocate for network");
             memory.resize(total_size);
             auto ptr = memory.data();
             allocate(ptr,is_gpu = false);
