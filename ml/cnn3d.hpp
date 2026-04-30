@@ -10,6 +10,7 @@
 #include <stdexcept>
 #include "../utility/shape.hpp"
 #include "../def.hpp"
+#include "../cu.hpp"
 #include "cnn3d_detail.hpp"
 
 namespace tipl {
@@ -288,6 +289,9 @@ public:
 
 class network : public layer
 {
+protected:
+    tipl::device_vector<float> gpu_memory;
+    std::vector<float> memory;
 public:
     std::function<bool(int,int)> prog = nullptr;
     std::vector<std::shared_ptr<layer>> layers;
@@ -297,6 +301,21 @@ public:
 
     std::vector<std::pair<float*,size_t>> parameters() override
     {
+        if(memory.empty())
+        {
+            size_t total_size = 0;
+            for(auto& each_layer : layers)
+            {
+                for(auto& each_param : each_layer->parameters())
+                    total_size += each_param.second;
+                total_size += each_layer->out_buffer_size;
+            }
+            if(!total_size)
+                throw std::runtime_error("no memory to allocate for network");
+            memory.resize(total_size);
+            auto ptr = memory.data();
+            allocate(ptr,is_gpu = false);
+        }
         std::vector<std::pair<float*,size_t>> param;
         for(auto& l : layers)
         {
@@ -314,35 +333,20 @@ public:
         out_size = layers.back()->out_size;
         out_buffer_size = 0;
     }
-
-    template<typename Container>
-    void allocate_memory(Container& memory)
+    void to_gpu(void)
     {
-        size_t total_size = 0;
-        auto p = parameters();
-        size_t p_size = p.size();
-        for(size_t i = 0; i < p_size; ++i)
-            total_size += p[i].second;
-
-        size_t l_size = layers.size();
-        for(size_t i = 0; i < l_size; ++i)
-            total_size += layers[i]->out_buffer_size;
-
-        memory.resize(total_size);
-
-        float* ptr = total_size > 0 ? (float*)memory.data() : nullptr;
-        bool is_gpu_mem = (memory_location<Container>::at == CUDA);
-        allocate(ptr,is_gpu_mem);
+        gpu_memory = memory;
+        memory = std::vector<float>();
+        auto ptr = gpu_memory.data();
+        allocate(ptr,is_gpu = true);
     }
-
-    void allocate(float*& ptr,bool is_gpu_mem) override
+    void allocate(float*& ptr, bool is_gpu_mem) override
     {
-        this->is_gpu = is_gpu_mem;
+        is_gpu = is_gpu_mem;
         for(auto& l : layers)
-            l->allocate(ptr,is_gpu_mem);
+            l->allocate(ptr,is_gpu);
         out = layers.back()->out;
     }
-
     void forward(const float* in_ptr,float*) override
     {
         for(size_t i = 0;i < layers.size();++i)
@@ -506,9 +510,9 @@ public:
         for(size_t i = 0; i < up.size(); ++i)
             encoding[i].back()->out_buffer_size += up[i].back()->out_size;
     }
-    void allocate(float*& ptr, bool is_gpu_mem) override
+    void allocate(float*& ptr, bool is_gpu_) override
     {
-        network::allocate(ptr, is_gpu_mem);
+        network::allocate(ptr,is_gpu = is_gpu_);
         for(size_t i = 0; i < up.size(); ++i)
             up[i].back()->out = encoding[i].back()->out + encoding[i].back()->out_size;
     }
@@ -531,6 +535,16 @@ public:
             in_ptr = decoding[i].back()->out;
         }
         layers.back()->forward(in_ptr,layers.back()->out);
+    }
+    void forward(tipl::image<3>& in)
+    {
+        if constexpr(tipl::use_cuda)
+            if(is_gpu)
+            {
+                forward(tipl::device_image<3,float>(in).data(),nullptr);
+                return;
+            }
+        forward(in.data(),nullptr);
     }
 };
 
