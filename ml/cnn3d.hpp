@@ -326,7 +326,11 @@ public:
     void allocate(float*& ptr,bool is_gpu_mem) override
     {
         is_gpu = is_gpu_mem;
-        for(auto& l : layers) l->allocate(ptr,is_gpu);
+        for(auto& l : layers)
+        {
+            l->allocate(ptr,is_gpu);
+            l->out = ptr;ptr += l->out_buffer_size;
+        }
         out = layers.back()->out;
     }
     void forward(const float* in_ptr,float*) override
