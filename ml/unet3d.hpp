@@ -567,7 +567,7 @@ public:
         {
             if(!params[id].second)
                 continue;
-            std::string name = "tensor" + std::to_string(id++);
+            std::string name = "tensor" + std::to_string(id);
             if(!in.has(name.c_str()))
                 return error_msg = "tensor structure mismatch (missing " + name + ")", false;
             unsigned int tr, tc;
