@@ -56,6 +56,7 @@ public:
     virtual ~layer() = default;
 
     virtual std::vector<std::pair<float*,size_t>> parameters() { return {}; }
+    virtual size_t param_size(void)       {return 0;}
     virtual const tipl::shape<3>& init_image(const tipl::shape<3>& dim_)
     {
         dim = dim_;
@@ -91,7 +92,8 @@ public:
     weight_bias_layer(int channels) : layer(channels), bias_size(channels) {}
     weight_bias_layer(int in_c,int out_c) : layer(in_c,out_c), bias_size(out_c) {}
 
-    std::vector<std::pair<float*,size_t>> parameters() override { return {{weight,weight_size},{bias,bias_size}}; }
+    std::vector<std::pair<float*,size_t>> parameters() override   { return {{weight,weight_size},{bias,bias_size}}; }
+    size_t param_size(void) override                              { return weight_size + bias_size;}
     float* allocate_param(float* ptr,bool is_gpu_) override
     {
         weight = ptr; ptr += weight_size;
@@ -297,17 +299,11 @@ public:
 
     std::vector<std::pair<float*,size_t>> parameters() override
     {
+        size_t size = param_size();
+        if(!size)
+            return {};
         if(memory.empty())
-        {
-            size_t total_size = 0;
-            for(auto& l : layers)
-                for(auto& p : l->parameters())
-                    total_size += p.second;
-            if(!total_size)
-                throw std::runtime_error("no memory for network");
-            memory.resize(total_size);
-            allocate_param(memory.data(),is_gpu = false);
-        }
+            allocate_param((memory = std::vector<float>(size)).data(),is_gpu = false);
         std::vector<std::pair<float*,size_t>> param;
         for(auto& l : layers)
         {
@@ -315,6 +311,13 @@ public:
             param.insert(param.end(),p.begin(),p.end());
         }
         return param;
+    }
+    size_t param_size(void) override
+    {
+        size_t total_size = 0;
+        for(auto& l : layers)
+            total_size += l->param_size();
+        return total_size;
     }
 
     const tipl::shape<3>& init_image(const tipl::shape<3>& dim_) override
