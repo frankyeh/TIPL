@@ -217,7 +217,9 @@ public:
             create_gaussian();
         }
         tipl::out() << "total of sliding window:" << active_shifts.size();
-        for(size_t i = 0;prog(i,active_shifts.size());++i)
+        model_input.resize(active_shifts.size());
+        trans.resize(active_shifts.size());
+        tipl::par_for(active_shifts.size(),[&](int i)
         {
             auto shift = active_shifts[i];
             shift += mask_center;
@@ -235,9 +237,9 @@ public:
                 tran(make_image(source_image,image_dim.size()*c,image_dim),
                      make_image(target_image,model_dim.size()*c,model_dim));
 
-            model_input.push_back(std::move(target_image));
-            trans.push_back(tran);
-        }
+            model_input[i] = std::move(target_image);
+            trans[i] = tran;
+        });
         source_image.clear();
         return !prog.aborted();
     }
