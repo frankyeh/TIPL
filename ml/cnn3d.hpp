@@ -284,12 +284,29 @@ class network : public layer
         if(params.count(relu_keyword)) return std::make_shared<LayerType<activation_type::relu>>(args...);
         return std::make_shared<LayerType<activation_type::none>>(args...);
     }
+    float* get_ptr(std::vector<float>& mem,tipl::device_vector<float>& gpu_mem,size_t total_size)
+    {
+        float* ptr = nullptr;
+        if constexpr(tipl::use_cuda)
+            if(is_gpu)
+            {
+                gpu_mem.resize(total_size);
+                ptr = gpu_mem.data();
+            }
+        if(!ptr)
+        {
+            mem.resize(total_size);
+            ptr = mem.data();
+        }
+        return ptr;
+    }
 protected:
     tipl::device_vector<float> gpu_memory;
     std::vector<float> memory;
 protected:
     tipl::device_vector<float> gpu_buf_memory;
     std::vector<float> buf_memory;
+
 public:
     std::function<bool(int,int)> prog = nullptr;
     std::vector<std::shared_ptr<layer>> layers;
@@ -332,7 +349,8 @@ public:
     }
     void to_gpu(void)
     {
-        allocate_param((gpu_memory = memory).data(),is_gpu = true);
+        if constexpr(tipl::use_cuda)
+            allocate_param((gpu_memory = memory).data(),is_gpu = true);
         memory = std::vector<float>();
     }
     float* allocate_param(float* ptr,bool is_gpu_mem) override
@@ -347,18 +365,9 @@ public:
         size_t total_size = 0;
         for(auto& l : layers)
             total_size += l->out_buffer_size;
-        float* ptr = nullptr;
-        if constexpr(tipl::use_cuda)
-            if(is_gpu)
-            {
-                gpu_buf_memory.resize(total_size);
-                ptr = gpu_buf_memory.data();
-            }
-        if(!ptr)
-        {
-            buf_memory.resize(total_size);
-            ptr = buf_memory.data();
-        }
+
+        float* ptr = get_ptr(buf_memory,gpu_buf_memory,total_size);
+
         for(auto& l : layers)
         {
             l->out = ptr;
