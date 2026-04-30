@@ -17,7 +17,7 @@
 #include "../utility/basic_image.hpp"
 #include "../utility/shape.hpp"
 #include "../reg/linear.hpp"
-#include "../cu.hpp"
+
 
 namespace tipl
 {
@@ -519,8 +519,6 @@ class tissue_seg{
 private:
 
 public:
-    tipl::device_vector<float> gpu_memory;
-    std::vector<float> memory;
     std::shared_ptr<unet3d> unet;
 public:
     evalution_set<tipl::image<3>> eval;
@@ -558,7 +556,6 @@ public:
 
         unet.reset(new unet3d(arch,param[0],param[1]));
         unet->init_image(dim);
-        unet->allocate_memory(memory);
         eval.model_dim = unet->dim;
 
         auto params = unet->parameters();
@@ -580,11 +577,8 @@ public:
             return false;
 
         if constexpr(tipl::use_cuda)
-        {
-            gpu_memory = memory;
-            auto ptr = gpu_memory.data();
-            unet->allocate(ptr, true);
-        }
+            if(tipl::has_gpu)
+                unet->to_gpu();
 
         eval.in_count = param[0];
         eval.out_count = param[1];
@@ -606,18 +600,17 @@ public:
                 {
                     return prog2(cur,total);
                 };
+                unet->forward(eval.model_input[i]);
                 if constexpr(tipl::use_cuda)
-                {
-                    unet->forward(tipl::device_image<3,float>(eval.model_input[i]).data(),nullptr);
-                    eval.model_output.push_back(tipl::image<3>(out_shape));
-                    cu_copy_d2h<float,float>(eval.model_output.back().data(),
+                    if(unet->is_gpu)
+                    {
+                        eval.model_output.push_back(tipl::image<3>(out_shape));
+                        cu_copy_d2h<float,float>(eval.model_output.back().data(),
                                              unet->layers.back()->out,out_shape.size());
-                }
-                else
-                {
-                    unet->forward(eval.model_input[i].data(),nullptr);
-                    eval.model_output.push_back(tipl::make_image(unet->layers.back()->out,out_shape));
-                }
+                        continue;
+                    }
+                eval.model_output.push_back(tipl::make_image(unet->layers.back()->out,out_shape));
+
             }
             if(prog.aborted())
                 return false;
