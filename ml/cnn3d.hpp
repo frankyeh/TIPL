@@ -56,16 +56,18 @@ public:
     virtual ~layer() = default;
 
     virtual std::vector<std::pair<float*,size_t>> parameters() { return {}; }
-    virtual void init_image(tipl::shape<3>& dim_)
+    virtual const tipl::shape<3>& init_image(const tipl::shape<3>& dim_)
     {
         dim = dim_;
         out_buffer_size = out_size = dim.size() * out_channels_;
+        return dim;
     }
     virtual void forward(const float* in_ptr,float* out_ptr) = 0;
     virtual void print(std::ostream& out) const = 0;
-    virtual void allocate_param(float*& ptr,bool is_gpu_mem)
+    virtual float* allocate_param(float* ptr,bool is_gpu_mem)
     {
         is_gpu = is_gpu_mem;
+        return ptr;
     }
     virtual bool change_dim(void) const { return false; }
 
@@ -90,11 +92,12 @@ public:
     weight_bias_layer(int in_c,int out_c) : layer(in_c,out_c), bias_size(out_c) {}
 
     std::vector<std::pair<float*,size_t>> parameters() override { return {{weight,weight_size},{bias,bias_size}}; }
-    void allocate_param(float*& ptr,bool is_gpu) override
+    float* allocate_param(float* ptr,bool is_gpu_) override
     {
         weight = ptr; ptr += weight_size;
         bias = ptr; ptr += bias_size;
-        is_gpu = is_gpu;
+        is_gpu = is_gpu_;
+        return ptr;
     }
 };
 
@@ -109,11 +112,12 @@ public:
     conv_3d(int in_c,int out_c,int ks = 3,int stride = 1)
         : weight_bias_layer(in_c,out_c), kernel_size_(ks), kernel_size3(ks * ks * ks), range((ks - 1) / 2), stride_(stride) { weight_size = kernel_size3 * in_channels_ * out_channels_; }
 
-    void init_image(tipl::shape<3>& dim_) override
+    const tipl::shape<3>& init_image(const tipl::shape<3>& dim_) override
     {
         dim = dim_;
-        out_dim = dim_ = tipl::s(dim_[0] / stride_,dim_[1] / stride_,dim_[2] / stride_);
+        out_dim = tipl::s(dim_[0] / stride_,dim_[1] / stride_,dim_[2] / stride_);
         out_buffer_size = out_size = out_dim.size() * out_channels_;
+        return out_dim;
     }
 
     void forward(const float* in,float* out_ptr) override
@@ -142,11 +146,12 @@ public:
     conv_transpose_3d(int in_c,int out_c,int ks = 2,int stride = 2)
         : weight_bias_layer(in_c,out_c), kernel_size_(ks), kernel_size3(ks * ks * ks), stride_(stride) { weight_size = kernel_size3 * in_channels_ * out_channels_; }
 
-    void init_image(tipl::shape<3>& dim_) override
+    const tipl::shape<3>& init_image(const tipl::shape<3>& dim_) override
     {
         dim = dim_;
-        out_dim = dim_ = tipl::s(dim_[0] * stride_,dim_[1] * stride_,dim_[2] * stride_);
+        out_dim = tipl::s(dim_[0] * stride_,dim_[1] * stride_,dim_[2] * stride_);
         out_buffer_size = out_size = out_dim.size() * out_channels_;
+        return out_dim;
     }
 
     void forward(const float* in,float* out_ptr) override
@@ -216,11 +221,12 @@ public:
 
     max_pool_3d(int c) : layer(c) {}
 
-    void init_image(tipl::shape<3>& dim_) override
+    const tipl::shape<3>& init_image(const tipl::shape<3>& dim_) override
     {
         dim = dim_;
-        out_dim = dim_ = {dim[0] / pool_size,dim[1] / pool_size,dim[2] / pool_size};
+        out_dim = {dim[0] / pool_size,dim[1] / pool_size,dim[2] / pool_size};
         out_buffer_size = out_size = out_dim.size() * out_channels_;
+        return out_dim;
     }
 
     void forward(const float* in,float* out_ptr) override
@@ -244,11 +250,12 @@ public:
 
     upsample_3d(int c) : layer(c) {}
 
-    void init_image(tipl::shape<3>& dim_) override
+    const tipl::shape<3>& init_image(const tipl::shape<3>& dim_) override
     {
         dim = dim_;
-        out_dim = dim_ = {dim[0] * pool_size,dim[1] * pool_size,dim[2] * pool_size};
+        out_dim = {dim[0] * pool_size,dim[1] * pool_size,dim[2] * pool_size};
         out_buffer_size = out_size = out_dim.size() * out_channels_;
+        return out_dim;
     }
 
     void forward(const float* in,float* out_ptr) override
@@ -293,17 +300,13 @@ public:
         if(memory.empty())
         {
             size_t total_size = 0;
-            for(auto& each_layer : layers)
-            {
-                for(auto& each_param : each_layer->parameters())
-                    total_size += each_param.second;
-                total_size += each_layer->out_buffer_size;
-            }
+            for(auto& l : layers)
+                for(auto& p : l->parameters())
+                    total_size += p.second;
             if(!total_size)
                 throw std::runtime_error("no memory for network");
             memory.resize(total_size);
-            auto ptr = memory.data();
-            allocate_param(ptr,is_gpu = false);
+            allocate_param(memory.data(),is_gpu = false);
         }
         std::vector<std::pair<float*,size_t>> param;
         for(auto& l : layers)
@@ -314,25 +317,27 @@ public:
         return param;
     }
 
-    void init_image(tipl::shape<3>& dim_) override
+    const tipl::shape<3>& init_image(const tipl::shape<3>& dim_) override
     {
-        dim = dim_;
-        for(auto& l : layers) l->init_image(dim_);
+        auto out_dim = dim = dim_;
+        for(auto& l : layers)
+            out_dim = l->init_image(out_dim);
         out_size = layers.back()->out_size;
         out_buffer_size = 0;
+        out = nullptr;
+        return dim;
     }
     void to_gpu(void)
     {
-        gpu_memory = memory;
+        allocate_param((gpu_memory = memory).data(),is_gpu = true);
         memory = std::vector<float>();
-        auto ptr = gpu_memory.data();
-        allocate_param(ptr,is_gpu = true);
     }
-    void allocate_param(float*& ptr,bool is_gpu_mem) override
+    float* allocate_param(float* ptr,bool is_gpu_mem) override
     {
         is_gpu = is_gpu_mem;
         for(auto& l : layers)
-            l->allocate_param(ptr,is_gpu);
+            ptr = l->allocate_param(ptr,is_gpu);
+        return ptr;
     }
     void allocate_buffer(void)
     {
@@ -513,6 +518,8 @@ public:
     }
     void forward(tipl::image<3>& in)
     {
+        if(dim != in.shape())
+            init_image(in.shape());
         if constexpr(tipl::use_cuda)
             if(is_gpu) return forward(tipl::device_image<3,float>(in).data(),nullptr),void();
         forward(in.data(),nullptr);
