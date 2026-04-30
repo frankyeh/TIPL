@@ -276,6 +276,7 @@ public:
 
 class network : public layer
 {
+protected:
     template<template<activation_type> class LayerType,typename... Args>
     std::shared_ptr<layer> make_act_layer(const std::unordered_map<std::string,std::string>& params,Args... args)
     {
@@ -362,17 +363,23 @@ public:
     }
     virtual void allocate_buffer(void)
     {
-        size_t total_size = 0;
-        for(auto& l : layers)
-            total_size += l->out_buffer_size;
-
-        float* ptr = get_ptr(buf_memory,gpu_buf_memory,total_size);
-
-        for(auto& l : layers)
+        size_t max_mem = 0, in_beg = std::numeric_limits<size_t>::max(), in_end = in_beg;
+        std::vector<size_t> out_loc(layers.size());
+        for(size_t i = 0; i < layers.size(); ++i)
         {
-            l->out = ptr;
-            ptr += l->out_buffer_size;
+            size_t buf_size = layers[i]->out_buffer_size;
+            if(buf_size < in_beg)
+                out_loc[i] = in_beg = 0;
+            else
+                out_loc[i] = in_beg = in_end;
+            in_end = in_beg + buf_size;
+            if(in_end > max_mem)
+                max_mem = in_end;
         }
+
+        float* ptr = get_ptr(buf_memory,gpu_buf_memory,max_mem);
+        for(size_t i = 0; i < layers.size(); ++i)
+            layers[i]->out = ptr + out_loc[i];
         out = layers.back()->out;
     }
     void forward(const float* in_ptr,float*) override
@@ -444,7 +451,11 @@ public:
 
 class unet3d : public network
 {
+protected:
     std::vector<std::vector<std::shared_ptr<layer>>> encoding, decoding, up;
+protected:
+    tipl::device_vector<float> gpu_skip_memory;
+    std::vector<float> skip_memory;
 public:
     unet3d(const std::string& structure,int in_c,int out_c) : network(in_c,out_c)
     {
@@ -495,14 +506,21 @@ public:
 
     void allocate_buffer(void) override
     {
+        size_t total_skip_memory = 0;
         for(size_t i = 0; i < up.size(); ++i)
         {
-            encoding[i].back()->out_buffer_size += up[i].back()->out_size;
+            total_skip_memory += encoding[i].back()->out_size + up[i].back()->out_size;
+            encoding[i].back()->out_buffer_size = 0;
             up[i].back()->out_buffer_size = 0;
         }
         network::allocate_buffer();
+        auto skip_ptr = get_ptr(skip_memory,gpu_skip_memory,total_skip_memory);
         for(size_t i = 0; i < up.size(); ++i)
-            up[i].back()->out = encoding[i].back()->out + encoding[i].back()->out_size;
+        {
+            encoding[i].back()->out = skip_ptr;
+            up[i].back()->out = skip_ptr + encoding[i].back()->out_size;
+            skip_ptr += encoding[i].back()->out_size + up[i].back()->out_size;
+        }
     }
 
     void forward(const float* in_ptr,float*) override
@@ -519,15 +537,15 @@ public:
             }
             return in_p;
         };
-        int n_levels = static_cast<int>(encoding.size());
-        for(int i = 0; i < n_levels; ++i)
+        for(size_t i = 0; i < encoding.size(); ++i)
         {
-            if(prog && !prog(i,n_levels+n_levels)) return;
+            if(prog && !prog(i,encoding.size()*2))
+                return;
             in_ptr = forward_block(encoding[i], in_ptr);
         }
-        for(int i = n_levels - 2; i >= 0; --i)
+        for(int i = int(up.size()) - 1; i >= 0; --i)
         {
-            if(prog && !prog(n_levels+n_levels-i-1,n_levels+n_levels))
+            if(prog && !prog(encoding.size()*2-i-1,encoding.size()*2))
                 return;
             forward_block(up[i], in_ptr);
             in_ptr = forward_block(decoding[i], encoding[i].back()->out);
