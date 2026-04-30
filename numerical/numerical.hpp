@@ -960,7 +960,7 @@ minmax_value(const T& data,value_type& minv,value_type& maxv)
             min_v = min_v_;
         if(max_v_ > max_v)
             max_v = max_v_;
-    });
+    },std::min<size_t>(tipl::max_thread_count,8));
     minv = min_v;
     maxv = max_v;
 }
@@ -977,7 +977,7 @@ masking(T& I,const U& I2)
     tipl::par_for<ranged>(I.size(),[&I,&I2](size_t from,size_t to)
     {
         masking(I.begin()+from,I.begin()+to,I2.begin()+from);
-    });
+    },std::min<size_t>(tipl::max_thread_count,8));
 }
 
 template<typename T,typename U>
@@ -992,7 +992,7 @@ preserve(T&& I,const U& I2)
     tipl::par_for<ranged>(I.size(),[&I,&I2](size_t from,size_t to)
     {
         preserve(I.begin()+from,I.begin()+to,I2.begin()+from);
-    });
+    },std::min<size_t>(tipl::max_thread_count,8));
 }
 
 template<typename T,typename V>
@@ -1007,7 +1007,7 @@ upper_threshold(T& I,V value)
     tipl::par_for<ranged>(I.begin(),I.end(),[&](auto beg,auto end)
     {
         upper_threshold(beg,end,value);
-    });
+    },std::min<size_t>(tipl::max_thread_count,8));
 }
 
 template<typename T,typename V>
@@ -1022,7 +1022,7 @@ lower_threshold(T& I,V value)
     tipl::par_for<ranged>(I.begin(),I.end(),[&](auto beg,auto end)
     {
         lower_threshold(beg,end,value);
-    });
+    },std::min<size_t>(tipl::max_thread_count,8));
 }
 
 template<typename T>
@@ -1037,7 +1037,7 @@ upper_lower_threshold(T& I,typename T::value_type lower,typename T::value_type u
     tipl::par_for<ranged>(I.begin(),I.end(),[&](auto beg,auto end)
     {
         upper_lower_threshold(beg,end,lower,upper);
-    });
+    },std::min<size_t>(tipl::max_thread_count,8));
 }
 
 template<typename T,typename U>
@@ -1057,7 +1057,7 @@ normalize_upper_lower2(const T& in,U& out,float upper_limit)
     tipl::par_for<sequential>(in.size(),[&](size_t i)
     {
         out[i] = (in[i]-min_v)*upper_limit;
-    });
+    },std::min<size_t>(tipl::max_thread_count,8));
 }
 
 #ifdef __CUDACC__
