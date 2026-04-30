@@ -342,7 +342,7 @@ public:
             ptr = l->allocate_param(ptr,is_gpu);
         return ptr;
     }
-    void allocate_buffer(void)
+    virtual void allocate_buffer(void)
     {
         size_t total_size = 0;
         for(auto& l : layers)
@@ -484,16 +484,22 @@ public:
         return network::create_layer(def,in_c);
     }
 
+    void allocate_buffer(void) override
+    {
+        for(size_t i = 0; i < up.size(); ++i)
+        {
+            encoding[i].back()->out_buffer_size += up[i].back()->out_size;
+            up[i].back()->out_buffer_size = 0;
+        }
+        network::allocate_buffer();
+        for(size_t i = 0; i < up.size(); ++i)
+            up[i].back()->out = encoding[i].back()->out + encoding[i].back()->out_size;
+    }
+
     void forward(const float* in_ptr,float*) override
     {
         if(!out)
-        {
-            for(size_t i = 0; i < up.size(); ++i)
-                encoding[i].back()->out_buffer_size += up[i].back()->out_size;
             allocate_buffer();
-            for(size_t i = 0; i < up.size(); ++i)
-                up[i].back()->out = encoding[i].back()->out + encoding[i].back()->out_size;
-        }
 
         auto forward_block = [&](const auto& block, const float* in_p) -> const float*
         {
