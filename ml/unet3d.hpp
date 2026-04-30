@@ -547,8 +547,7 @@ public:
            !in.read_pointer("dimension",dim) ||
            !in.read_pointer("voxel_size",eval.model_vs))
             return error_msg = "invalid network file format",false;
-        tipl::out() << "dim: " << dim;
-        tipl::out() << "vs: " << eval.model_vs;
+        tipl::out() << "dim: " << dim << "vs: " << eval.model_vs;
         tipl::out() << "in: " << param[0] << " out:" << param[1];
         tipl::out() << "version: " << version;
         tipl::out() << "report: " << report;
