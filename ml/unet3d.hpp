@@ -562,21 +562,23 @@ public:
         unet->allocate_memory(memory);
         eval.model_dim = unet->dim;
 
-        int id = 0;
-        for(auto& p : unet->parameters())
+        auto params = unet->parameters();
+        for(int id = 0;prog(id,params.size());++id)
         {
-            if(!p.second) continue;
-
+            if(!params[id].second)
+                continue;
             std::string name = "tensor" + std::to_string(id++);
-            if(!in.has(name.c_str())) return error_msg = "tensor structure mismatch (missing " + name + ")", false;
-
+            if(!in.has(name.c_str()))
+                return error_msg = "tensor structure mismatch (missing " + name + ")", false;
             unsigned int tr, tc;
-            if(!in.get_col_row(name.c_str(), tr, tc) || tr * tc != p.second)
+            if(!in.get_col_row(name.c_str(), tr, tc) || tr * tc != params[id].second)
                 return error_msg = "tensor size mismatch in " + name, false;
 
-            if(!in.read(name.c_str(), p.first, p.first + p.second))
+            if(!in.read(name.c_str(), params[id].first, params[id].first + params[id].second))
                 return error_msg = "error reading tensor structure " + name, false;
         }
+        if(prog.aborted())
+            return false;
 
         if constexpr(tipl::use_cuda)
         {
