@@ -37,7 +37,10 @@ struct memory_location<container&&> {
     static constexpr memory_location_type at = memory_location<container>::at;
 };
 
-
+template<typename container>
+struct memory_location<const container&> {
+    static constexpr memory_location_type at = memory_location<container>::at;
+};
 
 }
 
