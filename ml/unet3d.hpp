@@ -114,7 +114,7 @@ private:
     image_type gaussian;
     void create_gaussian(void)
     {
-        gaussian.resize(model_dim);
+        tipl::image<3> gau(model_dim);
         float sigma_scale = 1.0f/8.0f;
         tipl::vector<3> center(tipl::vector<3>(model_dim)*0.5f);
         float max_val = 0.0f;
@@ -127,12 +127,13 @@ private:
             pos.elem_mul(inv_sigmas);
 
             float val = std::exp(-0.5f*pos.length2());
-            gaussian[index.index()] = val;
+            gau[index.index()] = val;
             max_val = std::max(max_val,val);
         }
 
-        gaussian /= max_val;
-        tipl::lower_threshold(gaussian,1e-6f);
+        gau /= max_val;
+        tipl::lower_threshold(gau,1e-6f);
+        gaussian = std::move(gau);
     }
 public:
     image_type source_image;
