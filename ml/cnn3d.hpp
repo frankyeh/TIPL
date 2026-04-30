@@ -63,7 +63,7 @@ public:
     }
     virtual void forward(const float* in_ptr,float* out_ptr) = 0;
     virtual void print(std::ostream& out) const = 0;
-    virtual void allocate(float*& ptr,bool is_gpu_mem)
+    virtual void allocate_param(float*& ptr,bool is_gpu_mem)
     {
         is_gpu = is_gpu_mem;
     }
@@ -90,11 +90,11 @@ public:
     weight_bias_layer(int in_c,int out_c) : layer(in_c,out_c), bias_size(out_c) {}
 
     std::vector<std::pair<float*,size_t>> parameters() override { return {{weight,weight_size},{bias,bias_size}}; }
-    void allocate(float*& ptr,bool is_gpu_mem) override
+    void allocate_param(float*& ptr,bool is_gpu) override
     {
         weight = ptr; ptr += weight_size;
         bias = ptr; ptr += bias_size;
-        layer::allocate(ptr,is_gpu_mem);
+        is_gpu = is_gpu;
     }
 };
 
@@ -278,6 +278,9 @@ class network : public layer
 protected:
     tipl::device_vector<float> gpu_memory;
     std::vector<float> memory;
+protected:
+    tipl::device_vector<float> gpu_buf_memory;
+    std::vector<float> buf_memory;
 public:
     std::function<bool(int,int)> prog = nullptr;
     std::vector<std::shared_ptr<layer>> layers;
@@ -297,10 +300,10 @@ public:
                 total_size += each_layer->out_buffer_size;
             }
             if(!total_size)
-                throw std::runtime_error("no memory to allocate for network");
+                throw std::runtime_error("no memory for network");
             memory.resize(total_size);
             auto ptr = memory.data();
-            allocate(ptr,is_gpu = false);
+            allocate_param(ptr,is_gpu = false);
         }
         std::vector<std::pair<float*,size_t>> param;
         for(auto& l : layers)
@@ -323,20 +326,42 @@ public:
         gpu_memory = memory;
         memory = std::vector<float>();
         auto ptr = gpu_memory.data();
-        allocate(ptr,is_gpu = true);
+        allocate_param(ptr,is_gpu = true);
     }
-    void allocate(float*& ptr,bool is_gpu_mem) override
+    void allocate_param(float*& ptr,bool is_gpu_mem) override
     {
         is_gpu = is_gpu_mem;
         for(auto& l : layers)
+            l->allocate_param(ptr,is_gpu);
+    }
+    void allocate_buffer(void)
+    {
+        size_t total_size = 0;
+        for(auto& l : layers)
+            total_size += l->out_buffer_size;
+        float* ptr = nullptr;
+        if constexpr(tipl::use_cuda)
+            if(is_gpu)
+            {
+                gpu_buf_memory.resize(total_size);
+                ptr = gpu_buf_memory.data();
+            }
+        if(!ptr)
         {
-            l->allocate(ptr,is_gpu);
-            l->out = ptr;ptr += l->out_buffer_size;
+            buf_memory.resize(total_size);
+            ptr = buf_memory.data();
+        }
+        for(auto& l : layers)
+        {
+            l->out = ptr;
+            ptr += l->out_buffer_size;
         }
         out = layers.back()->out;
     }
     void forward(const float* in_ptr,float*) override
     {
+        if(!out)
+            allocate_buffer();
         for(size_t i = 0;i < layers.size();++i)
         {
             if(prog && !prog(i,layers.size())) return;
@@ -402,7 +427,7 @@ public:
 
 class unet3d : public network
 {
-    std::vector<network> encoding, decoding, up;
+    std::vector<std::vector<std::shared_ptr<layer>>> encoding, decoding, up;
 public:
     unet3d(const std::string& structure,int in_c,int out_c) : network(in_c,out_c)
     {
@@ -424,8 +449,8 @@ public:
         for(int level = dec_tokens.size() - 1; level >= 0; --level)
         {
             const auto& tokens = dec_tokens[dec_tokens.size() - 1 - level];
-            up.insert(up.begin(),network());
-            decoding.insert(decoding.begin(),network());
+            up.insert(up.begin(),std::vector<std::shared_ptr<layer>>());
+            decoding.insert(decoding.begin(),std::vector<std::shared_ptr<layer>>());
 
             size_t skip_conn_loc = std::find(tokens.begin(),tokens.end(),"skip_conn")-tokens.begin();
             if(skip_conn_loc + 1 >= tokens.size()) throw std::runtime_error("invalid u-net structure: cannot find skip connection location");
@@ -451,33 +476,38 @@ public:
         return network::create_layer(def,in_c);
     }
 
-    void init_image(tipl::shape<3>& dim_) override
-    {
-        network::init_image(dim_);
-        for(size_t i = 0; i < up.size(); ++i)
-            encoding[i].back()->out_buffer_size += up[i].back()->out_size;
-    }
-    void allocate(float*& ptr,bool is_gpu_) override
-    {
-        network::allocate(ptr,is_gpu = is_gpu_);
-        for(size_t i = 0; i < up.size(); ++i)
-            up[i].back()->out = encoding[i].back()->out + encoding[i].back()->out_size;
-    }
     void forward(const float* in_ptr,float*) override
     {
+        if(!out)
+        {
+            for(size_t i = 0; i < up.size(); ++i)
+                encoding[i].back()->out_buffer_size += up[i].back()->out_size;
+            allocate_buffer();
+            for(size_t i = 0; i < up.size(); ++i)
+                up[i].back()->out = encoding[i].back()->out + encoding[i].back()->out_size;
+        }
+
+        auto forward_block = [&](const auto& block, const float* in_p) -> const float*
+        {
+            for(auto& l : block)
+            {
+                l->forward(in_p,l->out);
+                in_p = l->out;
+            }
+            return in_p;
+        };
         int n_levels = static_cast<int>(encoding.size());
         for(int i = 0; i < n_levels; ++i)
         {
             if(prog && !prog(i,n_levels+n_levels)) return;
-            encoding[i].forward(in_ptr,nullptr);
-            in_ptr = encoding[i].back()->out;
+            in_ptr = forward_block(encoding[i], in_ptr);
         }
         for(int i = n_levels - 2; i >= 0; --i)
         {
-            if(prog && !prog(n_levels+n_levels-i-1,n_levels+n_levels)) return;
-            up[i].forward(in_ptr,nullptr);
-            decoding[i].forward(encoding[i].back()->out,nullptr);
-            in_ptr = decoding[i].back()->out;
+            if(prog && !prog(n_levels+n_levels-i-1,n_levels+n_levels))
+                return;
+            forward_block(up[i], in_ptr);
+            in_ptr = forward_block(decoding[i], encoding[i].back()->out);
         }
         layers.back()->forward(in_ptr,layers.back()->out);
     }
