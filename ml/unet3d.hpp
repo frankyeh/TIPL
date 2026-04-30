@@ -542,10 +542,10 @@ public:
            !in.read("postproc",postproc) ||
            !in.read("version",version) ||
            !in.read("report",report) ||
-           !in.read_pointer("dimension",dim) ||
+           !in.read_pointer("dimension",eval.model_dim) ||
            !in.read_pointer("voxel_size",eval.model_vs))
             return error_msg = "invalid network file format",false;
-        tipl::out() << "dim: " << dim << "vs: " << eval.model_vs;
+        tipl::out() << "dim: " << eval.model_dim << "vs: " << eval.model_vs;
         tipl::out() << "in: " << param[0] << " out:" << param[1];
         tipl::out() << "version: " << version;
         tipl::out() << "report: " << report;
@@ -555,9 +555,6 @@ public:
 
 
         unet.reset(new unet3d(arch,param[0],param[1]));
-        unet->init_image(dim);
-        eval.model_dim = unet->dim;
-
         auto params = unet->parameters();
         for(int id = 0;prog(id,params.size());++id)
         {
