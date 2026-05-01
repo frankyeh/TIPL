@@ -520,7 +520,8 @@ public:
     std::shared_ptr<unet3d> unet;
 public:
     evalution_set<tipl::image<3>> eval;
-    std::string error_msg,preproc,postproc,version,report;
+    std::string error_msg;
+    std::string preproc,postproc,fov_strategy,version,arch,report;
 
     template<typename reader>
     bool load_model(const std::string& file_name)
@@ -528,7 +529,6 @@ public:
         tipl::progress prog("loading unet model");
         reader in;
         std::vector<int> param({1,1});
-        std::string arch;
         tipl::shape<3> dim;
         if(!in.load_from_file(file_name))
             return error_msg = "cannot open file: " + file_name,false;
@@ -537,22 +537,28 @@ public:
 
         if(!in.read("param",param) ||
            !in.read("architecture",arch) ||
-           !in.read("postproc",postproc) ||
            !in.read("version",version) ||
-           !in.read("report",report) ||
            !in.read_pointer("dimension",eval.model_dim) ||
            !in.read_pointer("voxel_size",eval.model_vs))
             return error_msg = "invalid network file format",false;
+        in.read("postproc",postproc);
+        in.read("preproc",preproc);
         tipl::out() << "dim: " << eval.model_dim << "vs: " << eval.model_vs;
         tipl::out() << "in: " << param[0] << " out:" << param[1];
         tipl::out() << "version: " << version;
-        tipl::out() << "report: " << report;
-        if(in.read("preproc",preproc))
-            tipl::out() << "preproc: " << preproc;
         tipl::out() << "loading unet: " << arch;
+        if(in.read("report",report))
+            tipl::out() << "report: " << report;
 
 
+        try{
         unet.reset(new unet3d(arch,param[0],param[1]));
+        }
+        catch(std::runtime_error& e)
+        {
+            return error_msg = e.what(),false;
+        }
+
         auto params = unet->parameters();
         for(int id = 0;prog(id,params.size());++id)
         {
@@ -631,23 +637,10 @@ public:
 
 };
 
-#ifdef __CUDACC__
 
-
-#endif
 
 }//ml3d
 
-#ifdef __CUDACC__
-template void tipl::resample<(tipl::interpolation)2,
-                             tipl::pointer_device_image<3, float>,
-                             tipl::pointer_device_image<3, float>&,
-                             float>(
-    const tipl::pointer_device_image<3, float>& from,
-    tipl::pointer_device_image<3, float>& to,
-    const tipl::transformation_matrix<float, 3>& trans
-);
-#endif
 
 }//tipl
 
