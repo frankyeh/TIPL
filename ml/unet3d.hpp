@@ -315,6 +315,7 @@ public:
 
     bool postproc(void)
     {
+        model_input.clear();
         if(model_output.empty())
             return error_msg = "no output data",false;
         label_prob.resize(image_dim.multiply(tipl::shape<3>::z,out_count));
