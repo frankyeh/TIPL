@@ -452,7 +452,8 @@ public:
 class unet3d : public network
 {
 protected:
-    std::vector<std::vector<std::shared_ptr<layer>>> encoding, decoding, up;
+    std::vector<std::vector<std::shared_ptr<layer>>> encoding, decoding;
+    std::vector<std::shared_ptr<layer>> decoding_head;
 protected:
     tipl::device_vector<float> gpu_skip_memory;
     std::vector<float> skip_memory;
@@ -477,18 +478,11 @@ public:
         for(int level = dec_tokens.size() - 1; level >= 0; --level)
         {
             const auto& tokens = dec_tokens[dec_tokens.size() - 1 - level];
-            up.insert(up.begin(),std::vector<std::shared_ptr<layer>>());
             decoding.insert(decoding.begin(),std::vector<std::shared_ptr<layer>>());
+            decoding_head.insert(decoding_head.begin(),layers.back());
 
-            size_t skip_conn_loc = std::find(tokens.begin(),tokens.end(),"skip_conn")-tokens.begin();
-            if(skip_conn_loc + 1 >= tokens.size()) throw std::runtime_error("invalid u-net structure: cannot find skip connection location");
-
-            for(size_t t = 0; t < skip_conn_loc; ++t)
-                up[0].push_back(network::create_layer(tokens[t],t ? layers.back()->out_channels_ : channel_count));
-
-            decoding[0].push_back(create_layer(tokens[skip_conn_loc + 1],encoding[level].back()->out_channels_));
-
-            for(size_t t = skip_conn_loc + 2; t < tokens.size(); ++t)
+            decoding[0].push_back(create_layer(tokens[0],encoding[level].back()->out_channels_));
+            for(size_t t = 1; t < tokens.size(); ++t)
             {
                 auto l = create_layer(tokens[t]);
                 if(tokens[t] == dec_tokens.back().back()) break;
@@ -507,19 +501,19 @@ public:
     void allocate_buffer(void) override
     {
         size_t total_skip_memory = 0;
-        for(size_t i = 0; i < up.size(); ++i)
+        for(size_t i = 0; i < decoding.size(); ++i)
         {
-            total_skip_memory += encoding[i].back()->out_size + up[i].back()->out_size;
+            total_skip_memory += encoding[i].back()->out_size + decoding_head[i]->out_size;
             encoding[i].back()->out_buffer_size = 0;
-            up[i].back()->out_buffer_size = 0;
+            decoding_head[i]->out_buffer_size = 0;
         }
         network::allocate_buffer();
         auto skip_ptr = get_ptr(skip_memory,gpu_skip_memory,total_skip_memory);
-        for(size_t i = 0; i < up.size(); ++i)
+        for(size_t i = 0; i < decoding_head.size(); ++i)
         {
             encoding[i].back()->out = skip_ptr;
-            up[i].back()->out = skip_ptr + encoding[i].back()->out_size;
-            skip_ptr += encoding[i].back()->out_size + up[i].back()->out_size;
+            decoding_head[i]->out = skip_ptr + encoding[i].back()->out_size;
+            skip_ptr += encoding[i].back()->out_size + decoding_head[i]->out_size;
         }
     }
 
@@ -543,11 +537,10 @@ public:
                 return;
             in_ptr = forward_block(encoding[i], in_ptr);
         }
-        for(int i = int(up.size()) - 1; i >= 0; --i)
+        for(int i = int(decoding_head.size()) - 1; i >= 0; --i)
         {
             if(prog && !prog(encoding.size()*2-i-1,encoding.size()*2))
                 return;
-            forward_block(up[i], in_ptr);
             in_ptr = forward_block(decoding[i], encoding[i].back()->out);
         }
         layers.back()->forward(in_ptr,layers.back()->out);
