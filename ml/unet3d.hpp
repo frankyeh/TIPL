@@ -315,7 +315,6 @@ public:
 
     bool postproc(void)
     {
-        tipl::progress prog("postprocessing");
         if(model_output.empty())
             return error_msg = "no output data",false;
         label_prob.resize(image_dim.multiply(tipl::shape<3>::z,out_count));
@@ -323,7 +322,7 @@ public:
         {
             auto each_trans = trans[0];
             each_trans.inverse();
-            for(int i=0;prog(i,out_count);++i)
+            for(int i=0;i < out_count;++i)
             {
                 auto t = model_output[0].alias(model_dim.size()*i,model_dim);
                 auto o = label_prob.alias(image_dim.size()*i,image_dim);
@@ -337,8 +336,6 @@ public:
             std::atomic<int> p = 0;
             tipl::par_for(out_count+1,[&](int c)
             {
-                if(!prog(p++,out_count+2))
-                    return;
                 for(int t=0;t < model_output.size();++t)
                 {
                     auto each_trans = trans[t];
@@ -362,12 +359,10 @@ public:
             p = 0;
             tipl::par_for(out_count,[&](int c)
             {
-                if(!prog(p++,out_count+1))
-                    return;
                 label_prob.alias(image_dim.size()*c,image_dim) *= weight_map;
             });
         }
-        return !prog.aborted();
+        return true;
     }
     bool remove_bg_channel(void)
     {
