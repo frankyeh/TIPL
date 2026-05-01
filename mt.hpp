@@ -123,8 +123,11 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
             return;
 
     size_t n = to - from;
+    thread_count = std::min<int>(thread_count, (int)n);
     par_for_guard guard;
-    thread_count = (guard.is_root && n > 1) ? std::min<int>(thread_count, (int)n) : 1;
+    if(thread_count >= max_thread_count)
+        thread_count = (guard.is_root && n > 1) ?  thread_count : 1;
+
 
 #ifdef __CUDACC__
     int cur_device = 0;
