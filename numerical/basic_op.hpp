@@ -1467,7 +1467,7 @@ void softmax(container_type&& eval_output, size_t spatial_size, size_t model_out
         return;
 
     size_t sz = eval_output.size();
-    tipl::par_for(spatial_size, [&](size_t pos)
+    tipl::par_for<sequential>(spatial_size, [&](size_t pos)
     {
         auto max_val = eval_output[pos];
         for(size_t offset = pos + spatial_size; offset < sz; offset += spatial_size)
