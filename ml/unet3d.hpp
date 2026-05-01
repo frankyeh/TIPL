@@ -160,13 +160,13 @@ public:
         if(source_image.empty())
             return error_msg = "no source image",false;
         tipl::progress prog("preprocessing");
-        tipl::out() << "cmd: " << cmd;
         tipl::par_for(in_count,[&](int c)
         {
             auto I = source_image.alias(c*image_dim.size(),image_dim);
             tipl::segmentation::normalize_otsu_median(I);
             for(const auto& each : tipl::split(cmd,'+'))
             {
+                tipl::out() << "run " << each;
                 if(each == "flip_xy")
                     flip_xy();
             }
@@ -362,6 +362,7 @@ public:
                 label_prob.alias(image_dim.size()*c,image_dim) *= weight_map;
             });
         }
+        model_output.clear();
         return true;
     }
     bool remove_bg_channel(void)
