@@ -399,7 +399,7 @@ bool cdm(const std::vector<pointer_image_type>& It,
         }
         if(!cdm<out_type>(rIt,rIs,best_d,terminated,param2))
             return false;
-        multiply_constant(best_d,2.0f);
+        best_d *= 2.0f;
         upsample_with_padding(best_d,It[0].shape());
         if(param.resolution > 1.0f)
             return true;
@@ -430,7 +430,7 @@ bool cdm(const std::vector<pointer_image_type>& It,
                 if(new_d.empty())
                     new_d.swap(dd);
                 else
-                    add(new_d,dd);
+                    new_d += dd;
             }
             cost.push_back(sum_cost/It.size());
         }
@@ -464,7 +464,7 @@ bool cdm(const std::vector<pointer_image_type>& It,
             theta = cdm_max_displacement_length(new_d);
         if(theta == 0.0f)
             break;
-        multiply_constant(new_d,param.speed/theta);
+        new_d *= param.speed/theta;
         accumulate_displacement(cur_d,new_d);
         cdm_smooth(new_d,cur_d,cur_smoothing);
     }
