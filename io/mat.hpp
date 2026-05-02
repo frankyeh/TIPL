@@ -355,25 +355,9 @@ public:
         }
         return in.read(reinterpret_cast<char*>(data_buf.data()),get_total_size(type));
     }
-    std::string get_info(void) const
+    std::string to_text(size_t out_count) const
     {
         std::ostringstream out;
-        auto out_count = size();
-        out << name << "= ";
-        if(!out_count)
-            return out.str();
-        if(out_count > 20)
-            out_count = 20;
-        out << std::vector<std::string>({"double","float","unsigned int","short","unsigned short","unsigned char"})[type/10];
-        if(out_count > 1)
-        {
-            if(rows == 1)
-                out << "[" << cols << "]=";
-            else
-                out << "[" << rows << "][" << cols << "]=";
-        }
-        else
-            out << "=";
         switch (type)
         {
         case 0://double
@@ -414,15 +398,28 @@ public:
                       std::ostream_iterator<uint64_t>(out," "));
             break;
         }
-        std::string info = out.str();
-        if(size() > 10)
-            info += "...";
+        return out.str();
+    }
+    std::string get_info(void) const
+    {
+        std::ostringstream out;
+        auto out_count = size();
+        out << name << " (" <<
+            std::vector<std::string>({"double","float","unsigned int",
+                                  "short","unsigned short","unsigned char"})[type/10]
+            << "," << rows << "," << cols << ")=";
+
+        if(!out_count)
+            return out.str();
+
         for(auto each : sub_data)
-        {
-            info += "\n";
-            info += each->get_info();
-        }
-        return info;
+            out << tipl::split(each->name,'.').back() << "=" << each->to_text(1) << ", ";
+        if(out_count > 10)
+            out_count = 10;
+        std::string info = to_text(out_count);
+        if(size() > 10 && type != 50)
+            info += "...";
+        return out.str() + info;
     }
 };
 
@@ -465,6 +462,11 @@ public:
         for(size_t index = 0;index < dataset.size();++index)
             name_table[dataset[index]->name] = index;
         return true;
+    }
+    template<typename T>
+    void write(size_t index,const T* ptr,unsigned int rows,unsigned int cols)
+    {
+        dataset[index] = std::make_shared<mat_matrix>(dataset[index]->name,ptr,rows,cols);
     }
     template<typename T>
     void write(const std::string& name,const T* ptr,unsigned int rows,unsigned int cols)
