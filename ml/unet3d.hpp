@@ -155,7 +155,7 @@ public:
 
     size_t in_count,out_count;
 
-    bool preproc(const std::string& cmd)
+    bool preproc(const std::string& fov_strategy,const std::string& cmd)
     {
         if(source_image.empty())
             return error_msg = "no source image",false;
@@ -183,64 +183,88 @@ public:
         if(!tipl::bounding_box(mask,from,to))
             return error_msg = "source image is all zero",false;
 
-        tipl::vector<3> mask_center((from+to)*0.5f),image_center(tipl::vector<3>(image_dim)*0.5f),
-                        patch_phys(model_dim),bb_phys(to-from);
+        tipl::vector<3> mask_center((from+to)*0.5f),image_center(tipl::vector<3>(image_dim)*0.5f);
+        tipl::vector<3> mask_center_phys(mask_center),image_center_phys(image_center);
+        tipl::vector<3> patch_phys(model_dim),bb_phys(to-from),mask_top_phys(to);
 
-        mask_center.elem_mul(image_vs);
-        image_center.elem_mul(image_vs);
+        mask_center_phys.elem_mul(image_vs);
+        image_center_phys.elem_mul(image_vs);
         patch_phys.elem_mul(model_vs);
         bb_phys.elem_mul(image_vs);
+        mask_top_phys.elem_mul(image_vs);
 
-        std::vector<float> s[3];
-        for(int d=0;d<3;++d)
+        auto add_view = [&](const tipl::vector<3>& shift,auto& input,auto &trans)
         {
-            if(bb_phys[d]>2.0f*patch_phys[d])
-                bb_phys[d] = 2.0f*patch_phys[d];
-            if(bb_phys[d]>patch_phys[d])
-            {
-                float d_shift = (bb_phys[d]-patch_phys[d])*0.5f;
-                s[d].push_back(-d_shift);
-                s[d].push_back(d_shift);
-            }
-            else
-                s[d].push_back(0.0f);
-        }
-
-        std::vector<tipl::vector<3>> active_shifts;
-        for(float z:s[2])
-            for(float y:s[1])
-                for(float x:s[0])
-                    active_shifts.push_back(tipl::vector<3>(x,y,z));
-
-        if(active_shifts.size()!=1)
-        {
-            active_shifts.push_back(tipl::vector<3>(0.0f,0.0f,0.0f));
-            create_gaussian();
-        }
-        tipl::out() << "total of sliding window:" << active_shifts.size();
-        model_input.resize(active_shifts.size());
-        trans.resize(active_shifts.size());
-        tipl::par_for(active_shifts.size(),[&](int i)
-        {
-            auto shift = active_shifts[i];
-            shift += mask_center;
-            shift -= image_center;
-
             tipl::affine_param<float> arg;
             arg.translocation[0] = shift[0];
             arg.translocation[1] = shift[1];
             arg.translocation[2] = shift[2];
 
-            auto tran = tipl::transformation_matrix<float,3>(arg,model_dim,model_vs,image_dim,image_vs);
+            trans = tipl::transformation_matrix<float,3>(arg,model_dim,model_vs,image_dim,image_vs);
             image_type target_image(model_dim.multiply(tipl::shape<3>::z,in_count));
 
             for(int c=0;c<in_count;++c)
-                tran(make_image(source_image,image_dim.size()*c,image_dim),
+                trans(make_image(source_image,image_dim.size()*c,image_dim),
                      make_image(target_image,model_dim.size()*c,model_dim));
 
-            model_input[i] = std::move(target_image);
-            trans[i] = tran;
-        });
+            input = std::move(target_image);
+        };
+        tipl::out() << "fov_strategy: " << fov_strategy;
+        if(fov_strategy == "sliding_window")
+        {
+            std::vector<float> s[3];
+            for(int d = 0;d < 3;++d)
+            {
+                if(bb_phys[d] > 2.0f*patch_phys[d])
+                    bb_phys[d] = 2.0f*patch_phys[d];
+                if(bb_phys[d] > patch_phys[d])
+                {
+                    float d_shift = (bb_phys[d]-patch_phys[d])*0.5f;
+                    s[d].push_back(-d_shift);
+                    s[d].push_back(d_shift);
+                }
+                else
+                    s[d].push_back(0.0f);
+            }
+
+            std::vector<tipl::vector<3>> active_shifts;
+            for(float z:s[2])
+                for(float y:s[1])
+                    for(float x:s[0])
+                        active_shifts.push_back(tipl::vector<3>(x,y,z));
+
+            if(active_shifts.size() != 1)
+            {
+                active_shifts.push_back(tipl::vector<3>(0.0f,0.0f,0.0f));
+                create_gaussian();
+            }
+
+            tipl::out() << "total of sliding window:" << active_shifts.size();
+            model_input.resize(active_shifts.size());
+            trans.resize(active_shifts.size());
+
+            tipl::par_for(active_shifts.size(),[&](int i)
+            {
+                add_view(active_shifts[i]+mask_center_phys-image_center_phys,model_input[i],trans[i]);
+            });
+        }
+        else
+        if(fov_strategy == "align_top")
+        {
+            model_input.resize(1);
+            trans.resize(1);
+
+            auto view_center_phys = mask_center_phys;
+            view_center_phys[2] = mask_top_phys[2] - patch_phys[2]*0.5f;
+
+            add_view(view_center_phys-image_center_phys,model_input[0],trans[0]);
+        }
+        else // default align_center
+        {
+            model_input.resize(1);
+            trans.resize(1);
+            add_view(mask_center_phys-image_center_phys,model_input[0],trans[0]);
+        }
         source_image.clear();
         return !prog.aborted();
     }
@@ -311,7 +335,7 @@ public:
         return true;
     }
 
-    bool postproc(void)
+    bool postproc()
     {
         model_input.clear();
         if(model_output.empty())
@@ -588,7 +612,7 @@ public:
     bool forward(void)
     {
         tipl::progress prog("unet segmentation");
-        if(!eval.preproc(preproc))
+        if(!eval.preproc(fov_strategy,preproc))
             return false;
 
         auto out_shape = eval.model_dim.multiply(tipl::shape<3>::z,eval.out_count);
