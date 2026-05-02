@@ -487,7 +487,10 @@ public:
         std::shared_ptr<mat_matrix> mat(new mat_matrix(name,ptr,rows,cols));
         auto iter = name_table.find(name);
         if(iter == name_table.end())
-            push_back(mat);
+        {
+            name_table[mat->name] = dataset.size();
+            dataset.push_back(mat);
+        }
         else
             dataset[iter->second] = mat;
     }
@@ -652,7 +655,10 @@ public:
     {
         auto iter = name_table.find(name);
         if (iter == name_table.end())
+        {
+            error_msg = "cannot find " + name;
             return false;
+        }
         return read(iter->second,first,last);
     }
     bool read(const std::string& name,std::string& str) const
@@ -703,11 +709,9 @@ public:
     bool load_from_file(const std::string& file_name,prog_type&& prog = prog_type())
     {
         if(!in->open(file_name))
-        {
-            error_msg = "cannot open file at " + file_name;
-            return false;
-        }
+            return error_msg = "cannot open file at " + file_name,false;
         dataset.clear();
+        name_table.clear();
         while(in->good() && !in->eof())
         {
             if(!prog(int(in->cur_size()*99/in->size()),100))
@@ -723,18 +727,15 @@ public:
                 dataset.push_back(matrix);
             }
         }    
-        if(dataset.empty())
-        {
-            error_msg = "invalid format";
-            return false;
-        }
-        return true;
+        return dataset.empty() ? (error_msg = "invalid format",false) : true;
     }
     void push_back(std::shared_ptr<mat_matrix> mat)
     {
-        remove(mat->name);
+        size_t index = index_of(mat->name);
+        if(index < dataset.size())
+            return dataset[index] = mat,void();
+        name_table[mat->name] = dataset.size();
         dataset.push_back(mat);
-        name_table[mat->name] = dataset.size()-1;
     }
     template<typename image_type>
     bool save_to_image(image_type& image_data,const char* image_name) const
