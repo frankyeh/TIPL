@@ -464,6 +464,19 @@ public:
         return true;
     }
     template<typename T>
+    bool insert(size_t insert_index,const std::string& name)
+    {
+        if(insert_index >= dataset.size())
+            return false;
+        T dummy(0);
+        dataset.insert(dataset.begin()+insert_index,
+                       std::make_shared<mat_matrix>(name,&dummy,1,1));
+        name_table.clear();
+        for(size_t index = 0;index < dataset.size();++index)
+            name_table[dataset[index]->name] = index;
+        return true;
+    }
+    template<typename T>
     void write(size_t index,const T* ptr,unsigned int rows,unsigned int cols)
     {
         dataset[index] = std::make_shared<mat_matrix>(dataset[index]->name,ptr,rows,cols);
