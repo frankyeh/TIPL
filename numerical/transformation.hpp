@@ -9,6 +9,7 @@
 #include "../def.hpp"
 #include "../utility/pixel_index.hpp"
 #include "../utility/basic_image.hpp"
+#include "interpolation.hpp"
 
 namespace tipl{
 
@@ -853,12 +854,12 @@ public:
         vector_transformation(result.begin(),pos,sr,shift,vdim<dimension>());
     }
 
-    template <typename image_type,
+    template <tipl::interpolation itype = linear,typename image_type,
               std::enable_if_t<tipl::is_image_v<image_type>, bool> = true>
     [[nodiscard]] __INLINE__ typename image_type::buffer_type operator()(const image_type& I,const shape<dim>& sp) const;
 
 
-    template <typename image_type1, typename image_type2,
+    template <tipl::interpolation itype = linear,typename image_type1, typename image_type2,
                   std::enable_if_t<tipl::is_image_v<image_type1> && tipl::is_image_v<image_type2>, bool> = true>
     __INLINE__ void operator()(const image_type1& I,image_type2&& I2) const;
 
