@@ -281,8 +281,6 @@ public:
         {
             tipl::out() << "run " << cmds[i];
             param = tipl::split(cmds[i],',');
-            if(param[0] == "postproc" && postproc())
-                continue;
             if(param[0] == "remove_bg_channel" && remove_bg_channel())
                 continue;
             if(param[0] == "softmax" && softmax())
@@ -521,38 +519,39 @@ public:
 public:
     evalution_set<tipl::image<3>> eval;
     std::string error_msg;
-    std::string preproc,postproc,fov_strategy,version,arch,report;
+    std::string preproc,postproc,fov_strategy,name,arch,report;
 
     template<typename reader>
     bool load_model(const std::string& file_name)
     {
         tipl::progress prog("loading unet model");
         reader in;
-        std::vector<int> param({1,1});
+        std::vector<int> channels({1,1});
         tipl::shape<3> dim;
         if(!in.load_from_file(file_name))
             return error_msg = "cannot open file: " + file_name,false;
         if(in.has("feature_string"))
             return error_msg = "cannot read old network format: " + file_name,false;
 
-        if(!in.read("param",param) ||
+        if(!in.read("channels",channels) ||
            !in.read("architecture",arch) ||
-           !in.read("version",version) ||
+           !in.read("name",name) ||
            !in.read_pointer("dimension",eval.model_dim) ||
            !in.read_pointer("voxel_size",eval.model_vs))
-            return error_msg = "invalid network file format",false;
+            return error_msg = "invalid model format: " + in.error_msg,false;
+        in.read("fov_strategy",fov_strategy);
         in.read("postproc",postproc);
         in.read("preproc",preproc);
         tipl::out() << "dim: " << eval.model_dim << "vs: " << eval.model_vs;
-        tipl::out() << "in: " << param[0] << " out:" << param[1];
-        tipl::out() << "version: " << version;
+        tipl::out() << "in: " << channels[0] << " out:" << channels[1];
+        tipl::out() << "name: " << name;
         tipl::out() << "loading unet: " << arch;
         if(in.read("report",report))
             tipl::out() << "report: " << report;
 
 
         try{
-        unet.reset(new unet3d(arch,param[0],param[1]));
+        unet.reset(new unet3d(arch,channels[0],channels[1]));
         }
         catch(std::runtime_error& e)
         {
@@ -581,8 +580,8 @@ public:
             if(tipl::has_gpu)
                 unet->to_gpu();
 
-        eval.in_count = param[0];
-        eval.out_count = param[1];
+        eval.in_count = channels[0];
+        eval.out_count = channels[1];
         return true;
     }
 
