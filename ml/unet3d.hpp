@@ -446,7 +446,7 @@ public:
             return error_msg = "no label probability",false;
         auto labels_4d = tipl::make_image(label_prob.data(),mask.shape().expand(cur_channel_count()));
         fg_prob.resize(mask.shape());
-        tipl::sum_partial(labels_4d,fg_prob,mask.data());
+        tipl::sum_partial(labels_4d,fg_prob);
         auto original_sum = fg_prob;
         tipl::morphology::defragment_by_threshold(fg_prob, prob_threshold);
         mask = fg_prob > prob_threshold;
