@@ -195,7 +195,7 @@ __INLINE__ void sum_partial(const image_type1& in,image_type2& out,const mask_ty
     tipl::par_for<sequential>(out_size,[&](size_t j)
     {
         if constexpr(!std::is_void_v<mask_type>)
-            if(!(*mask)[j])
+            if(!mask[j])
                 return;
 
         auto v = out[j];
