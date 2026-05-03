@@ -167,8 +167,11 @@ public:
         {
             tipl::out() << "run " << each;
             if(each == "flip_xy")
+            {
                 for(auto& each : model_input)
                     tipl::flip_xy(each);
+                tipl::flip_xy(mask);
+            }
         }
         return !prog.aborted();
     }
