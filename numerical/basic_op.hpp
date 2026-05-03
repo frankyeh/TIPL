@@ -1460,8 +1460,8 @@ image_type& hist_norm(image_type& I,unsigned int bin_count)
     return I;
 }
 
-template<typename container_type>
-void softmax(container_type&& eval_output, size_t spatial_size, size_t model_out_count)
+template<typename container_type,typename mask_type = void>
+void softmax(container_type&& eval_output, size_t spatial_size, size_t model_out_count,const mask_type* mask = nullptr)
 {
     if (model_out_count <= 1 || spatial_size == 0)
         return;
@@ -1469,6 +1469,9 @@ void softmax(container_type&& eval_output, size_t spatial_size, size_t model_out
     size_t sz = eval_output.size();
     tipl::par_for<sequential>(spatial_size, [&](size_t pos)
     {
+        if constexpr(!std::is_void_v<mask_type>)
+            if(!(*mask)[pos])
+                return;
         auto max_val = eval_output[pos];
         for(size_t offset = pos + spatial_size; offset < sz; offset += spatial_size)
             if(eval_output[offset] > max_val)
@@ -1498,16 +1501,17 @@ void softmax(container_type&& img)
 }
 
 
-template <typename ImageType, typename MaskType>
-auto argmax(const ImageType& label_prob, const MaskType& mask)
+template <typename ImageType,typename mask_type = void>
+auto argmax(const ImageType& label_prob,tipl::shape<3>& dim,const mask_type* mask = nullptr)
 {
-    tipl::image<3, unsigned char> I(mask.shape());
-    size_t s = mask.size();
+    tipl::image<3, unsigned char> I(dim);
+    size_t s = dim.size();
     size_t total_size = label_prob.size();
     tipl::par_for(s, [&](size_t pos)
     {
-        if (!mask[pos])
-            return;
+        if constexpr(!std::is_void_v<mask_type>)
+            if(!(*mask)[pos])
+                return;
         auto m = label_prob[pos];
         unsigned char max_label = 1;
         for (size_t i = pos + s, label = 2; i < total_size; i += s, ++label)
