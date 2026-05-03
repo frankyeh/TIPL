@@ -71,8 +71,6 @@ public:
     tipl::image<3,unsigned char> mask,label;
     image_type& label_prob;
     image_type fg_prob;
-
-    size_t cur_channel_count(void) const    {return mask.empty() ? 0 : label_prob.size()/mask.size();}
 public:
     tipl::shape<3> image_dim,model_dim;
     tipl::vector<3> image_vs,model_vs;
@@ -80,7 +78,7 @@ public:
     std::vector<char> flip_swap;
 
 
-    size_t in_count,out_count;
+    size_t in_count = 1,out_count = 1,cur_count = 1;
 public:
     tipl::transformation_matrix<float> to_native_space;
     tipl::shape<3> native_space;
@@ -238,7 +236,7 @@ public:
     {
         if(label_prob.empty())
             return error_msg = "empty label probability",false;
-        tipl::par_for(cur_channel_count(), [&](size_t c)
+        tipl::par_for(cur_count, [&](size_t c)
         {
             tipl::filter::gaussian(tipl::make_image(label_prob.data()+mask.size()*c,mask.shape()));
         });
@@ -272,35 +270,29 @@ public:
             return false;
         }
 
-        if(model_output.size() == 1)
+        if(model_output.size() == 1 && label_prob.size() == model_dim.size()*cur_count)
         {
             tipl::progress prog("handle fov");
-            image_type new_label_prob(image_dim.multiply(tipl::shape<3>::z,cur_channel_count()));
-            tipl::par_for(cur_channel_count()+3,[&](int i)
+            if(cur_count == 0)
+                return error_msg = "invalid channel count",false;
+
+            image_type new_label_prob(image_dim.multiply(tipl::shape<3>::z,cur_count));
+
+            tipl::par_for(cur_count,[&](size_t i)
             {
-                if(i == cur_channel_count())
-                {
-                    if(!fg_prob.empty())
-                        fg_prob = trans[0](fg_prob,image_dim);
-                    return;
-                }
-                if(i == cur_channel_count()+1)
-                {
-                    if(!label.empty())
-                        label = trans[0].template operator()<tipl::majority>(label,image_dim);
-                    return;
-                }
-                if(i == cur_channel_count()+2)
-                {
-                    if(!mask.empty())
-                        mask = trans[0].template operator()<tipl::majority>(mask,image_dim);
-                    return;
-                }
                 auto t = label_prob.alias(model_dim.size()*i,model_dim);
                 auto o = new_label_prob.alias(image_dim.size()*i,image_dim);
                 trans[0](t,o);
             });
+
             new_label_prob.swap(label_prob);
+
+            if(!fg_prob.empty())
+                fg_prob = trans[0](fg_prob,image_dim);
+            if(!label.empty())
+                label = trans[0].template operator()<tipl::majority>(label,image_dim);
+            if(!mask.empty())
+                mask = trans[0].template operator()<tipl::majority>(mask,image_dim);
         }
         model_output.clear();
         return !prog.aborted();
@@ -309,8 +301,8 @@ public:
     {
         if(label_prob.empty())
             return error_msg = "empty label probability",false;
-        tipl::softmax(label_prob,mask.size(),cur_channel_count());
-        for(int c = 1;c < cur_channel_count();++c)
+        tipl::softmax(label_prob,mask.size(),cur_count);
+        for(int c = 1;c < cur_count;++c)
             tipl::preserve(label_prob.alias(mask.size()*c,mask.shape()),mask);
         return true;
     }
@@ -325,6 +317,7 @@ public:
         {
             tipl::progress prog("handle sliding window");
             label_prob.resize(image_dim.multiply(tipl::shape<3>::z,out_count));
+            label_prob = 0.0f;
             tipl::image<3,float> weight_map(image_dim);
 
             std::atomic<int> p = 0;
@@ -355,6 +348,7 @@ public:
         }
         else
             label_prob = std::move(model_output[0]);
+        cur_count = out_count;
         return true;
     }
     bool remove_bg_channel(void)
@@ -362,6 +356,7 @@ public:
         if(label_prob.size() == mask.size())
             return error_msg = "not enough out channel to remove",false;
         tipl::remove_channel(label_prob,mask.shape());
+        --cur_count;
         return true;
     }
     bool create_mask(void)
@@ -371,7 +366,7 @@ public:
             prob_threshold = std::stof(param[1]);
         if(label_prob.empty())
             return error_msg = "no label probability",false;
-        auto labels_4d = tipl::make_image(label_prob.data(),mask.shape().expand(cur_channel_count()));
+        auto labels_4d = tipl::make_image(label_prob.data(),mask.shape().expand(cur_count));
         fg_prob.resize(mask.shape());
         tipl::sum_partial(labels_4d,fg_prob);
         auto original_sum = fg_prob;
@@ -380,7 +375,7 @@ public:
 
         // renormalize
         tipl::lower_threshold(original_sum,prob_threshold);
-        tipl::par_for(cur_channel_count(), [&](size_t label)
+        tipl::par_for(cur_count, [&](size_t label)
         {
             auto I = labels_4d.slice_at(label);
             tipl::multiply(I,fg_prob);
