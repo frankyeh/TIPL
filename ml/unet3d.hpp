@@ -396,16 +396,15 @@ public:
         if(model_output.size() > 1)
         {
             tipl::progress prog("handle sliding window");
-            auto ch_count = cur_channel_count();
-            label_prob.resize(image_dim.multiply(tipl::shape<3>::z,ch_count));
+            label_prob.resize(image_dim.multiply(tipl::shape<3>::z,out_count));
             tipl::image<3,float> weight_map(image_dim);
 
             std::atomic<int> p = 0;
-            tipl::par_for(ch_count+1,[&](int c)
+            tipl::par_for(out_count+1,[&](int c)
             {
                 for(int t=0;t < model_output.size();++t)
                 {
-                    if(c == ch_count)
+                    if(c == out_count)
                     {
                         weight_map += trans[t](gaussian,image_dim);
                         continue;
@@ -421,7 +420,7 @@ public:
                 if(weight_map[i] > 1e-6)
                     weight_map[i] = 1.0f/weight_map[i];
             p = 0;
-            tipl::par_for(ch_count,[&](int c)
+            tipl::par_for(out_count,[&](int c)
             {
                 label_prob.alias(image_dim.size()*c,image_dim) *= weight_map;
             });
