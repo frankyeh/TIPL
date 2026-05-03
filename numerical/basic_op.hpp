@@ -1470,7 +1470,7 @@ void softmax(container_type&& eval_output, size_t spatial_size, size_t model_out
     tipl::par_for<sequential>(spatial_size, [&](size_t pos)
     {
         if constexpr(!std::is_void_v<mask_type>)
-            if(!(*mask)[pos])
+            if(!mask[pos])
                 return;
         auto max_val = eval_output[pos];
         for(size_t offset = pos + spatial_size; offset < sz; offset += spatial_size)
@@ -1502,7 +1502,7 @@ void softmax(container_type&& img)
 
 
 template <typename ImageType,typename mask_type = void>
-auto argmax(const ImageType& label_prob,tipl::shape<3>& dim,const mask_type* mask = nullptr)
+auto argmax(const ImageType& label_prob,const tipl::shape<3>& dim,const mask_type* mask = nullptr)
 {
     tipl::image<3, unsigned char> I(dim);
     size_t s = dim.size();
@@ -1510,7 +1510,7 @@ auto argmax(const ImageType& label_prob,tipl::shape<3>& dim,const mask_type* mas
     tipl::par_for(s, [&](size_t pos)
     {
         if constexpr(!std::is_void_v<mask_type>)
-            if(!(*mask)[pos])
+            if(!mask[pos])
                 return;
         auto m = label_prob[pos];
         unsigned char max_label = 1;
