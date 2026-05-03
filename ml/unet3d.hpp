@@ -384,7 +384,9 @@ public:
     {
         if(label_prob.empty())
             return error_msg = "empty label probability",false;
-        tipl::softmax(label_prob,mask.size(),label_prob.size()/mask.size(),mask.data());
+        tipl::softmax(label_prob,mask.size(),cur_channel_count());
+        for(int c = 1;c < cur_channel_count();++c)
+            tipl::preserve(label_prob.alias(mask.size()*c,mask.shape()),mask);
         return true;
     }
 
