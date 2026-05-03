@@ -381,9 +381,7 @@ public:
     {
         if(label_prob.empty())
             return error_msg = "empty label probability",false;
-        tipl::softmax(label_prob,mask.size(),label_prob.size()/mask.size());
-        for(int c = 1;c < cur_channel_count();++c)
-            tipl::preserve(label_prob.alias(mask.size()*c,mask.shape()),mask);
+        tipl::softmax(label_prob,mask.size(),label_prob.size()/mask.size(),mask.data());
         return true;
     }
 
@@ -445,7 +443,7 @@ public:
             return error_msg = "no label probability",false;
         auto labels_4d = tipl::make_image(label_prob.data(),mask.shape().expand(cur_channel_count()));
         fg_prob.resize(mask.shape());
-        tipl::sum_partial(labels_4d, fg_prob);
+        tipl::sum_partial(labels_4d,fg_prob,mask.data());
         auto original_sum = fg_prob;
         tipl::morphology::defragment_by_threshold(fg_prob, prob_threshold);
         mask = fg_prob > prob_threshold;
@@ -464,7 +462,7 @@ public:
     {
         if(label_prob.empty())
             return error_msg = "no label probability",false;
-        label = tipl::argmax(label_prob,mask);
+        label = tipl::argmax(label_prob,mask.shape(),mask.data());
         return true;
     }
     template<typename io_type>
