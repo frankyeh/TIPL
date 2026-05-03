@@ -178,17 +178,17 @@ public:
 };
 
 template<typename image_type>
-image_type& gaussian(image_type&& src)
+void gaussian(image_type&& src)
 {
-    gaussian_filter_imp<typename std::remove_reference_t<image_type>::value_type,std::remove_reference_t<image_type>::dimension>()(src);
-    return src;
+    gaussian_filter_imp<typename std::remove_reference_t<image_type>::value_type,std::remove_reference_t<image_type>::dimension>()
+            (std::forward<image_type>(src));
 }
 
 template<typename image_type>
-image_type& gaussian2(image_type&& src)
+void gaussian2(image_type&& src)
 {
-    gaussian_filter_imp2<typename std::remove_reference_t<image_type>::value_type,std::remove_reference_t<image_type>::dimension>()(src);
-    return src;
+    gaussian_filter_imp2<typename std::remove_reference_t<image_type>::value_type,std::remove_reference_t<image_type>::dimension>()
+            (std::forward<image_type>(src));
 }
 
 
