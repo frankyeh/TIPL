@@ -474,7 +474,6 @@ public:
             for(const auto& token : enc_tokens[level])
                 encoding[level].push_back(create_layer(token));
 
-        auto channel_count = layers.back()->out_channels_;
         for(int level = dec_tokens.size() - 1; level >= 0; --level)
         {
             const auto& tokens = dec_tokens[dec_tokens.size() - 1 - level];
@@ -488,7 +487,6 @@ public:
                 if(tokens[t] == dec_tokens.back().back()) break;
                 decoding[0].push_back(l);
             }
-            channel_count = decoding[0].back()->out_channels_;
         }
     }
     std::shared_ptr<layer> create_layer(const std::string& def,int in_c = 0)
