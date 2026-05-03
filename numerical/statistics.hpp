@@ -186,18 +186,14 @@ auto sum(const T& data)
 
 }
 
-template<typename image_type1,typename image_type2,typename mask_type = void>
-__INLINE__ void sum_partial(const image_type1& in,image_type2& out,const mask_type* mask = nullptr)
+template<typename image_type1,typename image_type2>
+__INLINE__ void sum_partial(const image_type1& in,image_type2& out)
 {
     const size_t out_size = out.size();
     const size_t in_size = in.size();
 
     tipl::par_for<sequential>(out_size,[&](size_t j)
     {
-        if constexpr(!std::is_void_v<mask_type>)
-            if(!mask[j])
-                return;
-
         auto v = out[j];
         for(size_t pos = j;pos < in_size;pos += out_size)
             v += in[pos];
