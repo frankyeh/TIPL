@@ -154,22 +154,34 @@ public:
 
 
     size_t in_count,out_count;
+public:
+    tipl::transformation_matrix<float> to_native_space;
+    tipl::shape<3> native_space;
 
-    bool preproc(const std::string& fov_strategy,const std::string& cmd)
+    bool preproc(const std::string& cmd)
     {
+        tipl::progress prog("preprocessing");
+        for(const auto& each : tipl::split(cmd,'+'))
+        {
+            tipl::out() << "run " << each;
+            if(each == "flip_xy")
+                for(auto& each : model_input)
+                    tipl::flip_xy(each);
+        }
+        return !prog.aborted();
+    }
+
+    bool handle_fov_pre(const std::string& fov_strategy)
+    {
+        tipl::progress prog("handle fov");
+
         if(source_image.empty())
             return error_msg = "no source image",false;
-        tipl::progress prog("preprocessing");
+
         tipl::par_for(in_count,[&](int c)
         {
             auto I = source_image.alias(c*image_dim.size(),image_dim);
             tipl::segmentation::normalize_otsu_median(I);
-            for(const auto& each : tipl::split(cmd,'+'))
-            {
-                tipl::out() << "run " << each;
-                if(each == "flip_xy")
-                    flip_xy();
-            }
         });
 
         if(mask.empty())
@@ -177,7 +189,6 @@ public:
             tipl::threshold(source_image.alias(0,image_dim),mask,0.0f);
             tipl::morphology::defragment(mask);
         }
-
 
         tipl::vector<3> from,to;
         if(!tipl::bounding_box(mask,from,to))
@@ -209,6 +220,7 @@ public:
 
             input = std::move(target_image);
         };
+
         tipl::out() << "fov_strategy: " << fov_strategy;
         if(fov_strategy == "sliding_window")
         {
@@ -233,22 +245,23 @@ public:
                     for(float x:s[0])
                         active_shifts.push_back(tipl::vector<3>(x,y,z));
 
-            if(active_shifts.size() != 1)
+            if(active_shifts.size() > 1)
             {
                 active_shifts.push_back(tipl::vector<3>(0.0f,0.0f,0.0f));
                 create_gaussian();
+                tipl::out() << "total of sliding window:" << active_shifts.size();
+                model_input.resize(active_shifts.size());
+                trans.resize(active_shifts.size());
+
+                tipl::par_for(active_shifts.size(),[&](int i)
+                {
+                    add_view(active_shifts[i]+mask_center_phys-image_center_phys,model_input[i],trans[i]);
+                });
+                goto end;
             }
-
-            tipl::out() << "total of sliding window:" << active_shifts.size();
-            model_input.resize(active_shifts.size());
-            trans.resize(active_shifts.size());
-
-            tipl::par_for(active_shifts.size(),[&](int i)
-            {
-                add_view(active_shifts[i]+mask_center_phys-image_center_phys,model_input[i],trans[i]);
-            });
+            // if active_shifts == 1 then use default align_center
         }
-        else
+
         if(fov_strategy == "align_top")
         {
             model_input.resize(1);
@@ -258,13 +271,18 @@ public:
             view_center_phys[2] = mask_top_phys[2] - patch_phys[2]*0.5f;
 
             add_view(view_center_phys-image_center_phys,model_input[0],trans[0]);
+            mask = trans[0].template operator()<tipl::majority>(mask,model_dim);
+
         }
         else // default align_center
         {
             model_input.resize(1);
             trans.resize(1);
             add_view(mask_center_phys-image_center_phys,model_input[0],trans[0]);
+            mask = trans[0].template operator()<tipl::majority>(mask,model_dim);
         }
+
+        end:
         source_image.clear();
         return !prog.aborted();
     }
@@ -288,11 +306,9 @@ public:
     {
         if(label_prob.empty())
             return error_msg = "empty label probability",false;
-        auto labels_4d = tipl::make_image(label_prob.data(), image_dim.expand(out_count));
-        tipl::par_for(out_count, [&](size_t label)
+        tipl::par_for(out_count, [&](size_t c)
         {
-            auto I = labels_4d.slice_at(label);
-            tipl::filter::gaussian(I);
+            tipl::filter::gaussian(tipl::make_image(label_prob.data()+mask.size()*c,mask.shape()));
         });
         return true;
     }
@@ -323,37 +339,49 @@ public:
                 error_msg = "invalid command: " + cmds[i];
             return false;
         }
+
+        if(model_output.size() == 1)
+        {
+            auto each_trans = trans[0];
+            each_trans.inverse();
+            image_type new_label_prob(image_dim.multiply(tipl::shape<3>::z,out_count));
+            for(int i=0;i < out_count;++i)
+            {
+                auto t = label_prob.alias(model_dim.size()*i,model_dim);
+                auto o = new_label_prob.alias(image_dim.size()*i,image_dim);
+                each_trans(t,o);
+            }
+            new_label_prob.swap(label_prob);
+
+            if(!fg_prob.empty())
+                fg_prob = each_trans(fg_prob,image_dim);
+            if(!label.empty())
+                label = each_trans.template operator()<tipl::majority>(label,image_dim);
+            if(!mask.empty())
+                mask = each_trans.template operator()<tipl::majority>(mask,image_dim);
+        }
+        model_output.clear();
         return !prog.aborted();
     }
     bool softmax(void)
     {
         if(label_prob.empty())
             return error_msg = "empty label probability",false;
-        tipl::softmax(label_prob,image_dim.size(),out_count);
+        tipl::softmax(label_prob,mask.size(),label_prob.size()/mask.size());
         for(int c = 1;c<out_count;++c)
-            tipl::preserve(label_prob.alias(image_dim.size()*c,image_dim),mask);
+            tipl::preserve(label_prob.alias(mask.size()*c,mask.shape()),mask);
         return true;
     }
 
-    bool postproc()
+    bool handle_fov_post()
     {
         model_input.clear();
         if(model_output.empty())
             return error_msg = "no output data",false;
-        label_prob.resize(image_dim.multiply(tipl::shape<3>::z,out_count));
-        if(model_output.size()==1)
+
+        if(model_output.size() > 1)
         {
-            auto each_trans = trans[0];
-            each_trans.inverse();
-            for(int i=0;i < out_count;++i)
-            {
-                auto t = model_output[0].alias(model_dim.size()*i,model_dim);
-                auto o = label_prob.alias(image_dim.size()*i,image_dim);
-                tipl::resample(t,o,each_trans);
-            }
-        }
-        else
-        {
+            label_prob.resize(image_dim.multiply(tipl::shape<3>::z,out_count));
             tipl::image<3,float> weight_map(image_dim);
 
             std::atomic<int> p = 0;
@@ -385,14 +413,15 @@ public:
                 label_prob.alias(image_dim.size()*c,image_dim) *= weight_map;
             });
         }
-        model_output.clear();
+        else
+            label_prob = std::move(model_output[0]);
         return true;
     }
     bool remove_bg_channel(void)
     {
         if(out_count <= 1)
             return error_msg = "not enough out channel to remove",false;
-        tipl::remove_channel(label_prob,image_dim);
+        tipl::remove_channel(label_prob,label_prob.shape().divide(tipl::shape<3>::z,out_count));
         out_count--;
         return true;
     }
@@ -403,8 +432,9 @@ public:
             prob_threshold = std::stof(param[1]);
         if(label_prob.empty())
             return error_msg = "no label probability",false;
-        auto labels_4d = tipl::make_image(label_prob.data(), image_dim.expand(out_count));
-        fg_prob.resize(image_dim);
+        auto labels_4d = tipl::make_image(label_prob.data(),
+                                          label_prob.shape().divide(tipl::shape<3>::z,out_count).expand(out_count));
+        fg_prob.resize(label_prob.shape().divide(tipl::shape<3>::z,out_count));
         tipl::sum_partial(labels_4d, fg_prob);
         auto original_sum = fg_prob;
         tipl::morphology::defragment_by_threshold(fg_prob, prob_threshold);
@@ -515,25 +545,6 @@ inline auto soft_mask(const T& label)
     return foreground_mask;
 }
 
-template<typename U>
-auto postproc0(const U& eval_output,const shape<3>& image_dim,
-              tipl::transformation_matrix<float,3> trans,size_t out_count)
-{
-    tipl::shape<3> dim_from(eval_output.shape().divide(tipl::shape<3>::z,out_count));
-    tipl::image<3> label_prob(image_dim.multiply(tipl::shape<3>::z,out_count));
-    trans.inverse();
-
-    tipl::par_for(out_count,[&](int i)
-    {
-        auto from = eval_output.alias(dim_from.size()*i,dim_from);
-        auto to = label_prob.alias(image_dim.size()*i,image_dim);
-        tipl::resample(from,to,trans);
-    },out_count);
-    return label_prob;
-}
-
-
-
 
 class tissue_seg{
 private:
@@ -612,7 +623,7 @@ public:
     bool forward(void)
     {
         tipl::progress prog("unet segmentation");
-        if(!eval.preproc(fov_strategy,preproc))
+        if(!eval.handle_fov_pre(fov_strategy) || !eval.preproc(preproc))
             return false;
 
         auto out_shape = eval.model_dim.multiply(tipl::shape<3>::z,eval.out_count);
@@ -639,8 +650,8 @@ public:
             if(prog.aborted())
                 return false;
         }
-        eval.postproc();
-        if(!eval.command(postproc))
+
+        if(!eval.handle_fov_post() || !eval.command(postproc))
             return error_msg = eval.error_msg,false;
         prog(4,4);
         return !prog.aborted();
