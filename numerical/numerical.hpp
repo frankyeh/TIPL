@@ -967,7 +967,7 @@ minmax_value(const T& data,value_type& minv,value_type& maxv)
 
 template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
-masking(T& I,const U& I2)
+masking(T&& I,const U& I2)
 {
     if(I.size() < 1024*1024 || max_thread_count < 2)
     {
