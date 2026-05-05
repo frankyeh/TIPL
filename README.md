@@ -42,7 +42,6 @@ int main()
 {
     tipl::image<3,float> image({64,64,64});
     image = 0.0f;
-    image.at(32,32,32) = 1.0f;
     return 0;
 }
 ```
