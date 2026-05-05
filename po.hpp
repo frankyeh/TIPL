@@ -85,6 +85,20 @@ inline bool contains(const std::string& str, const std::initializer_list<std::st
     return false;
 }
 
+inline std::string replace(std::string str,
+                           const std::string& old_str,
+                           const std::string& new_str)
+{
+    if(old_str.empty())
+        return str;
+    for(size_t pos = 0;(pos = str.find(old_str,pos)) != std::string::npos;)
+    {
+        str.replace(pos,old_str.length(),new_str);
+        pos += new_str.length();
+    }
+    return str;
+}
+
 inline bool ends_with(const std::string& str,const std::string& suffix)
 {
     return (str.size() >= suffix.size()) ? (0 == str.compare(str.size() - suffix.size(), suffix.size(), suffix)) : false;
