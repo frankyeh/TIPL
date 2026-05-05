@@ -2,10 +2,11 @@
 Copyright (c) 2010-2026 Fang-Cheng Yeh
 All rights reserved.
 
-TIPL library is shared under one of the following licenses
-(1) GPLv3 license (https://www.gnu.org/licenses/gpl-3.0.en.html)
-(2) A propriety license allowing close-source usage.
+The TIPL library is dual-licensed. You may use it under one of the following licenses:
 
+1. GNU General Public License v3.0 (GPLv3)
+   https://www.gnu.org/licenses/gpl-3.0.en.html
+2. A proprietary license granted by the copyright holder, which permits closed-source use.
 */
 
 #include "def.hpp"
