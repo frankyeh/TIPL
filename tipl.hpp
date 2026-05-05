@@ -1,9 +1,9 @@
 /*
-Copyright (c) 2010-2023 Fang-Cheng Yeh
+Copyright (c) 2010-2026 Fang-Cheng Yeh
 All rights reserved.
 
 TIPL library is shared under one of the following licenses
-(1) GPLv4 license (https://www.gnu.org/licenses/gpl-3.0.en.html)
+(1) GPLv3 license (https://www.gnu.org/licenses/gpl-3.0.en.html)
 (2) A propriety license allowing close-source usage.
 
 */
