@@ -492,15 +492,6 @@ public:
 };
 
 
-template<typename T>
-inline auto soft_mask(const T& label)
-{
-    tipl::image<3> foreground_mask(label.shape());
-    tipl::threshold(label,foreground_mask,0,1.0f,0.0f);
-    tipl::filter::gaussian(foreground_mask);
-    return foreground_mask;
-}
-
 
 class tissue_seg{
 private:
