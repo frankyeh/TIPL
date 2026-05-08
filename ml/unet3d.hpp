@@ -511,6 +511,7 @@ public:
     evalution_set<tipl::image<3>> eval;
     std::string error_msg;
     std::string preproc,postproc,fov_strategy,name,arch,report;
+    std::vector<std::string> labels;
 
     template<typename reader>
     bool load_model(const std::string& file_name)
@@ -533,7 +534,8 @@ public:
         in.read("fov_strategy",fov_strategy);
         in.read("postproc",postproc);
         in.read("preproc",preproc);
-        tipl::out() << "dim: " << eval.model_dim << "vs: " << eval.model_vs;
+        labels = tipl::split(in.template read<std::string>("labels"),'\n');
+        tipl::out() << "dim: " << eval.model_dim << " vs: " << eval.model_vs;
         tipl::out() << "in: " << channels[0] << " out:" << channels[1];
         tipl::out() << "name: " << name;
         tipl::out() << "loading unet: " << arch;
