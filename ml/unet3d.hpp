@@ -251,7 +251,7 @@ public:
         {
             param = tipl::split(cmds[i],',');
             progress prog(param[0]);
-            if(param[0] == "remove_bg_channel" && remove_bg_channel())
+            if(param[0] == "create_bg" && create_bg())
                 continue;
             if(param[0] == "softmax" && softmax())
                 continue;
@@ -302,8 +302,6 @@ public:
         if(label_prob.empty())
             return error_msg = "empty label probability",false;
         tipl::softmax(label_prob,mask.size(),cur_count);
-        for(int c = 1;c < cur_count;++c)
-            tipl::preserve(label_prob.alias(mask.size()*c,mask.shape()),mask);
         return true;
     }
 
@@ -351,12 +349,22 @@ public:
         cur_count = out_count;
         return true;
     }
-    bool remove_bg_channel(void)
+    bool create_bg(void)
     {
-        if(label_prob.size() == mask.size())
-            return error_msg = "not enough out channel to remove",false;
-        tipl::remove_channel(label_prob,mask.shape());
-        --cur_count;
+        size_t image_size = mask.size();
+        label_prob.resize(mask.shape().multiply(tipl::shape<3>::z,cur_count+1));
+        size_t total_size = label_prob.size();
+        tipl::par_for<sequential>(image_size, [&](size_t pos)
+        {
+            double sum(0);
+            for(size_t offset = total_size - image_size + pos; offset >= image_size; offset -= image_size)
+                sum += label_prob[offset] = label_prob[offset-image_size];
+            if(sum < 1.0)
+                label_prob[pos] = 1.0f-sum;
+            else
+                label_prob[pos] = 0.0f;
+        });
+        ++cur_count;
         return true;
     }
     bool create_mask(void)
@@ -366,20 +374,35 @@ public:
             prob_threshold = std::stof(param[1]);
         if(label_prob.empty())
             return error_msg = "no label probability",false;
-        auto labels_4d = tipl::make_image(label_prob.data(),mask.shape().expand(cur_count));
-        fg_prob.resize(mask.shape());
-        tipl::sum_partial(labels_4d,fg_prob);
-        auto original_sum = fg_prob;
-        tipl::morphology::defragment_by_threshold(fg_prob, prob_threshold);
-        mask = fg_prob > prob_threshold;
+        fg_prob = label_prob.alias(0,mask.shape());
+        tipl::filter::gaussian(fg_prob);
+        tipl::filter::gaussian(fg_prob);
+
+        // refine current mask based on model output
+        tipl::masking_by_value(mask,fg_prob,prob_threshold);
+
+        tipl::morphology::defragment(mask);
+        tipl::morphology::smoothing(mask);
+        tipl::morphology::negate(mask);
+        tipl::morphology::defragment(mask);
+        tipl::morphology::negate(mask);
+        fg_prob = mask;
+        tipl::filter::gaussian(fg_prob);
+        tipl::filter::gaussian(fg_prob);
+
+        size_t image_size = mask.size();
+        size_t total_size = label_prob.size();
 
         // renormalize
-        tipl::lower_threshold(original_sum,prob_threshold);
-        tipl::par_for(cur_count, [&](size_t label)
+        tipl::par_for<sequential>(image_size, [&](size_t pos)
         {
-            auto I = labels_4d.slice_at(label);
-            tipl::multiply(I,fg_prob);
-            tipl::divide(I,original_sum);
+            double sum(0);
+            for(size_t offset = pos + image_size; offset < total_size; offset += image_size)
+                sum += label_prob[offset];
+            label_prob[pos] = 1.0-fg_prob[pos];
+            float scale = (sum == 0.0 ? 0.0f : float(fg_prob[pos]/sum));
+            for(size_t offset = pos + image_size; offset < total_size; offset += image_size)
+                label_prob[offset] *= scale;
         });
         return true;
     }
@@ -387,7 +410,7 @@ public:
     {
         if(label_prob.empty())
             return error_msg = "no label probability",false;
-        label = tipl::argmax(label_prob,mask.shape(),mask.data());
+        label = tipl::argmax(label_prob.alias(mask.size(),mask.shape().multiply(tipl::shape<3>::z,cur_count-1)),mask.shape(),mask.data());
         return true;
     }
     template<typename io_type>
