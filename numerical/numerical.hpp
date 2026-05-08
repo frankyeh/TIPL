@@ -691,11 +691,28 @@ __INLINE__ void masking(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
             *lhs_from = 0;
 }
 
+template<typename iterator1,typename iterator2,typename T>
+__INLINE__ void masking_by_value(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from,T value)
+{
+    for (; lhs_from != lhs_to; ++lhs_from,++rhs_from)
+        if(*rhs_from > value)
+            *lhs_from = 0;
+}
+
+
 template<typename iterator1,typename iterator2>
 __INLINE__ void preserve(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
     for (; lhs_from != lhs_to; ++lhs_from,++rhs_from)
         if(*rhs_from == typename std::iterator_traits<iterator2>::value_type(0))
+            *lhs_from = typename std::iterator_traits<iterator1>::value_type(0);
+}
+
+template<typename iterator1,typename iterator2,typename T>
+__INLINE__ void preserve_by_value(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from,T value)
+{
+    for (; lhs_from != lhs_to; ++lhs_from,++rhs_from)
+        if(*rhs_from < value)
             *lhs_from = typename std::iterator_traits<iterator1>::value_type(0);
 }
 
@@ -980,6 +997,21 @@ masking(T&& I,const U& I2)
     },std::min<size_t>(tipl::max_thread_count,8));
 }
 
+template<typename T,typename U,typename V>
+inline std::enable_if_t<memory_location<T>::at != CUDA, void>
+masking_by_value(T&& I,const U& I2,V value)
+{
+    if(I.size() < 1024*1024 || max_thread_count < 2)
+    {
+        masking_by_value(I.begin(),I.end(),I2.begin(),value);
+        return;
+    }
+    tipl::par_for<ranged>(I.size(),[&I,&I2,value](size_t from,size_t to)
+    {
+        masking_by_value(I.begin()+from,I.begin()+to,I2.begin()+from,value);
+    },std::min<size_t>(tipl::max_thread_count,8));
+}
+
 template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 preserve(T&& I,const U& I2)
@@ -992,6 +1024,21 @@ preserve(T&& I,const U& I2)
     tipl::par_for<ranged>(I.size(),[&I,&I2](size_t from,size_t to)
     {
         preserve(I.begin()+from,I.begin()+to,I2.begin()+from);
+    },std::min<size_t>(tipl::max_thread_count,8));
+}
+
+template<typename T,typename U,typename V>
+inline std::enable_if_t<memory_location<T>::at != CUDA, void>
+preserve_by_value(T&& I,const U& I2,V value)
+{
+    if(I.size() < 1024*1024 || max_thread_count < 2)
+    {
+        preserve_by_value(I.begin(),I.end(),I2.begin(),value);
+        return;
+    }
+    tipl::par_for<ranged>(I.size(),[&I,&I2,value](size_t from,size_t to)
+    {
+        preserve_by_value(I.begin()+from,I.begin()+to,I2.begin()+from,value);
     },std::min<size_t>(tipl::max_thread_count,8));
 }
 
