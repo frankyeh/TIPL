@@ -6,6 +6,7 @@
 #include <QGraphicsView>
 #include <QScrollBar>
 
+
 // show image on scene and keep the original scroll bar position if zoom in/out
 inline void operator<<(QGraphicsScene& scene,QImage I)
 {
@@ -365,4 +366,278 @@ inline QImage create_mosaic(const std::vector<QImage>& images,int col_size)
 }//tipl
 
 #endif//TIPL_QT_EXT_HPP
+
+
+#ifdef TIPL_GZ_STREAM_HPP
+
+#ifndef TIPL_QT_EXT2_HPP
+#define TIPL_QT_EXT2_HPP
+
+#include <QFileDialog>
+#include <QGridLayout>
+#include <QLabel>
+#include <QTextEdit>
+#include <QVBoxLayout>
+#include <QPointer>
+#include <QFileInfo>
+#include <QDir>
+#include <atomic>
+#include <thread>
+#include <sstream>
+#include "../io/gz_stream.hpp"
+#include "../io/nifti.hpp"
+#include "../io/dicom.hpp"
+#include "../io/mat.hpp"
+#include "../io/2dseq.hpp"
+
+
+
+namespace tipl::qt
+{
+
+inline QList<QUrl> working_dirs;
+
+namespace details
+{
+
+inline bool read_preview_image(QString file,tipl::image<3,float>& I,tipl::vector<3>& vs,std::string& report)
+{
+    if(file.endsWith("nii.gz") || file.endsWith("nii"))
+    {
+        std::scoped_lock<std::mutex> lock(tipl::io::nifti_do_not_show_process);
+        if(tipl::io::gz_nifti in(file.toStdString(),std::ios::in);in >> I >> vs)
+        {
+            std::ostringstream out;
+            out << in;
+            report = "\n" + out.str();
+            return true;
+        }
+    }
+    else
+    if(file.endsWith("2dseq"))
+    {
+        tipl::io::bruker_2dseq seq;
+        if(seq.load_from_file(file.toStdString()))
+        {
+            seq.get_image().swap(I);
+            seq.get_voxel_size(vs);
+            return true;
+        }
+    }
+    else
+    if(file.endsWith(".dcm"))
+    {
+        tipl::io::dicom dicom;
+        if(dicom.load_from_file(file.toStdString()))
+        {
+            dicom >> std::tie(I,vs,report);
+            return true;
+        }
+    }
+    else
+    if(file.endsWith("z"))
+    {
+        tipl::shape<3> dim;
+        if(tipl::io::gz_mat_read in;
+            in.load_from_file(file.toStdString()) &&
+            in.read_pointer("dimension",dim) &&
+            in.read_pointer("voxel_size",vs))
+        {
+            if(const unsigned char* mask_ptr = nullptr;in.read("mask",mask_ptr))
+            {
+                in.si2vi = tipl::get_sparse_index(tipl::make_image(mask_ptr,dim));
+                in.mask_cols = dim.plane_size();
+                in.mask_rows = dim.depth();
+            }
+
+            for(auto each : {"iso","image0","subject0"})
+                if(in.has(each))
+                {
+                    I.resize(dim);
+                    in.read(each,I);
+                    break;
+                }
+
+            report = in.read<std::string>("report");
+            return !I.empty();
+        }
+    }
+    return false;
+}
+
+template<typename T>
+void add_preview(T& dlg)
+{
+    auto* preview = new QLabel("preview");
+    auto* report = new QTextEdit;
+    auto* panel = new QWidget;
+    auto* box = new QVBoxLayout(panel);
+
+    preview->setFixedSize(512,512);
+    preview->setAlignment(Qt::AlignCenter);
+    preview->setStyleSheet("background:#222;color:white");
+    report->setReadOnly(true);
+    report->setMinimumHeight(120);
+    report->setStyleSheet("QTextEdit{background:#222;color:white;}");
+
+    box->setContentsMargins(0,0,0,0);
+    box->addWidget(preview);
+    box->addWidget(report,1);
+
+    if(auto* g = qobject_cast<QGridLayout*>(dlg.layout()))
+        g->addWidget(panel,0,3,g->rowCount(),1);
+
+    auto* id = new std::atomic<size_t>(0);
+    QPointer<QLabel> preview_ptr(preview);
+    QPointer<QTextEdit> report_ptr(report);
+    QPointer<QFileDialog> dlg_ptr(&dlg);
+
+
+
+
+    QObject::connect(&dlg,&QFileDialog::destroyed,[id]{delete id;});
+
+    QObject::connect(&dlg,&QFileDialog::currentChanged,
+                     [id,preview_ptr,report_ptr,dlg_ptr](const QString& file)
+                     {
+                         size_t cur_id = ++(*id);
+                         preview_ptr->setText("loading...");
+                         preview_ptr->setPixmap({});
+                         report_ptr->clear();
+
+                         std::thread([file,cur_id,id,preview_ptr,report_ptr,dlg_ptr]
+                                     {
+                                         auto image_preview = [](const tipl::image<3,float>& I)
+                                         {
+                                             if(I.empty())
+                                                 return QImage();
+
+                                             int w = I.width(),h = I.height(),z = I.depth()/2;
+                                             size_t off = size_t(z)*I.plane_size();
+                                             auto [mn,mx] = std::minmax_element(I.begin()+off,I.begin()+off+I.plane_size());
+                                             float d = *mx-*mn; if(d == 0.0f) d = 1.0f;
+                                             float scale = 255.0f/d;
+
+                                             QImage out(w,h,QImage::Format_Grayscale8);
+                                             for(int y = 0;y < h;++y)
+                                             {
+                                                 auto* p = out.scanLine(y);
+                                                 size_t pos = off + size_t(y)*w;
+                                                 for(int x = 0;x < w;++x)
+                                                     p[x] = uchar(std::clamp<int>((I[pos+x]-*mn)*scale,0,255));
+                                             }
+                                             return out.scaled(512,512,Qt::KeepAspectRatio,Qt::SmoothTransformation);
+                                         };
+
+                                         tipl::image<3,float> I;
+                                         tipl::vector<3> vs;
+                                         std::string r;
+                                         read_preview_image(file,I,vs,r);
+
+                                         QImage img;
+                                         QString text;
+                                         if(!I.empty())
+                                         {
+                                             img = image_preview(I);
+                                             text = QString("image size: [%1,%2,%3] x (%4 mm,%5 mm,%6 mm)\n")
+                                                        .arg(I.width()).arg(I.height()).arg(I.depth())
+                                                        .arg(vs[0]).arg(vs[1]).arg(vs[2]);
+
+                                             if(!r.empty())
+                                                 text += QString::fromStdString("report:" + r);
+                                         }
+
+                                         if(!dlg_ptr)
+                                             return;
+
+                                         QMetaObject::invokeMethod(dlg_ptr,[=,img = std::move(img),text = std::move(text)]
+                                             {
+                                                 if(cur_id != *id || !preview_ptr || !report_ptr)
+                                                     return;
+
+                                                 if(img.isNull())
+                                                 {
+                                                     preview_ptr->setText("no preview");
+                                                     preview_ptr->setPixmap({});
+                                                     report_ptr->clear();
+                                                     return;
+                                                 }
+
+                                                 preview_ptr->setText("");
+                                                 preview_ptr->setPixmap(QPixmap::fromImage(img));
+                                                 report_ptr->setPlainText(text);
+                                             },Qt::QueuedConnection);
+                                     }).detach();
+                     });
+}
+
+template<typename T>
+auto image_dialog(T* parent,QString path,QString filter,QFileDialog::AcceptMode accept,QFileDialog::FileMode mode,QString suffix = {})
+{
+    QString dir = QDir::currentPath(),name;
+    if(!path.isEmpty())
+    {
+        QFileInfo info(path);
+        if(info.isDir())
+            dir = info.absoluteFilePath();
+        else
+        {
+            dir = info.absolutePath();
+            name = info.fileName();
+            if(dir.isEmpty() || dir == ".")
+                dir = QDir::currentPath();
+        }
+    }
+
+    QFileDialog dlg(parent,accept == QFileDialog::AcceptSave ? "Save Image" : "Open Image");
+    dlg.setOption(QFileDialog::DontUseNativeDialog,true);
+    dlg.setAcceptMode(accept);
+    dlg.setFileMode(mode);
+    dlg.setNameFilter(filter);
+    dlg.setSidebarUrls(tipl::qt::working_dirs);
+    dlg.setDirectory(dir);
+    dlg.resize(1500,600);
+
+    if(!suffix.isEmpty())
+        dlg.setDefaultSuffix(suffix);
+    if(!name.isEmpty())
+        dlg.selectFile(name);
+    if(accept == QFileDialog::AcceptOpen)
+        add_preview(dlg);
+
+    return dlg.exec() ? dlg.selectedFiles() : QStringList();
+}
+
+}
+
+template<typename T>
+auto open_image_files(T* parent,QString path,QString filter,bool multiple = true)
+{
+    return tipl::qt::details::image_dialog(parent,path,filter,QFileDialog::AcceptOpen,
+                                           multiple ? QFileDialog::ExistingFiles : QFileDialog::ExistingFile);
+}
+
+template<typename T>
+auto open_image_file(T* parent,QString path,QString filter)
+{
+    auto files = open_image_files(parent,path,filter,false);
+    return files.isEmpty() ? QString() : files.front();
+}
+
+template<typename T>
+auto save_image_file(T* parent,QString default_name,QString filter)
+{
+    auto files = tipl::qt::details::image_dialog(parent,default_name,filter,QFileDialog::AcceptSave,QFileDialog::AnyFile,
+                                                 filter.contains("nii.gz") ? QString("nii.gz") : QString());
+    return files.isEmpty() ? QString() : files.front();
+}
+
+}
+
+
+#endif//TIPL_QT_EXT2_HPP
+
+#endif//TIPL_GZ_STREAM_HPP
+
+
 #endif//QIMAGE_H
