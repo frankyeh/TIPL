@@ -936,21 +936,21 @@ public:
     {
         auto search_str = get(name,default_str);
         std::vector<std::string> filenames,file_list(tipl::split(search_str,','));
-        for(size_t index = 0;index < file_list.size();++index)
+        for(const auto& each : file_list)
         {
-            if(file_list[index].find('*') == std::string::npos)
-                filenames.push_back(file_list[index]);
+            if(each.find('*') == std::string::npos)
+                filenames.push_back(each);
             else
             {
                 std::vector<std::string> new_files;
-                if(search_filesystem<out>(file_list[index],new_files))
+                if(search_filesystem<out>(each,new_files))
                 {
-                    out() << file_list[index] << ": " << new_files.size() << " file(s) specified by " << file_list[index];
+                    out() << each << ": " << new_files.size() << " file(s) specified by " << each;
                     std::sort(new_files.begin(),new_files.end());
                     filenames.insert(filenames.end(),new_files.begin(),new_files.end());
                 }
                 else
-                    out_warning() << "could not find files matching " << file_list[index];
+                    out_warning() << "could not find files matching " << each;
             }
         }
         if(filenames.empty())
