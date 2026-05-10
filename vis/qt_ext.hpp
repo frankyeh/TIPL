@@ -405,7 +405,7 @@ inline bool read_preview_image(QString file,tipl::image<3,float>& I,tipl::vector
     if(file.endsWith("nii.gz") || file.endsWith("nii"))
     {
         std::scoped_lock<std::mutex> lock(tipl::io::nifti_do_not_show_process);
-        if(tipl::io::gz_nifti in(file.toStdString(),std::ios::in);in >> I >> vs)
+        if(tipl::io::gz_nifti in(file.toUtf8().constData(),std::ios::in);in >> I >> vs)
         {
             std::ostringstream out;
             out << in;
@@ -417,7 +417,7 @@ inline bool read_preview_image(QString file,tipl::image<3,float>& I,tipl::vector
     if(file.endsWith("2dseq"))
     {
         tipl::io::bruker_2dseq seq;
-        if(seq.load_from_file(file.toStdString()))
+        if(seq.load_from_file(file.toUtf8().constData()))
         {
             seq.get_image().swap(I);
             seq.get_voxel_size(vs);
@@ -428,7 +428,7 @@ inline bool read_preview_image(QString file,tipl::image<3,float>& I,tipl::vector
     if(file.endsWith(".dcm"))
     {
         tipl::io::dicom dicom;
-        if(dicom.load_from_file(file.toStdString()))
+        if(dicom.load_from_file(file.toUtf8().constData()))
         {
             dicom >> std::tie(I,vs,report);
             return true;
@@ -439,7 +439,7 @@ inline bool read_preview_image(QString file,tipl::image<3,float>& I,tipl::vector
     {
         tipl::shape<3> dim;
         if(tipl::io::gz_mat_read in;
-            in.load_from_file(file.toStdString()) &&
+            in.load_from_file(file.toUtf8().constData()) &&
             in.read_pointer("dimension",dim) &&
             in.read_pointer("voxel_size",vs))
         {
