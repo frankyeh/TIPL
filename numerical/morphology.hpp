@@ -141,6 +141,7 @@ void morphology_by_radius(ImageType& I,unsigned int radius)
             x0 = std::min(x0,x); y0 = std::min(y0,y); z0 = std::min(z0,z);
             x1 = std::max(x1,x); y1 = std::max(y1,y); z1 = std::max(z1,z);
         }
+
     if(x1 < 0)
         return;
 
@@ -157,60 +158,57 @@ void morphology_by_radius(ImageType& I,unsigned int radius)
     const int bx1 = dilate ? std::min(w-1,x1+r) : x1;
     const int by1 = dilate ? std::min(h-1,y1+r) : y1;
     const int bz1 = dilate ? std::min(d-1,z1+r) : z1;
-    const int bh = by1-by0+1;
 
-    tipl::par_for(size_t((bz1-bz0+1)*bh),[&](size_t row)
+    tipl::par_for(I.shape(),[&](const tipl::pixel_index<3>& p)
     {
-        int rz = int(row)/bh, y = by0 + int(row)-rz*bh, z = bz0+rz;
-        size_t base = size_t(z)*wh + size_t(y)*w;
+        const int x = p[0], y = p[1], z = p[2];
+        if(x < bx0 || x > bx1 || y < by0 || y > by1 || z < bz0 || z > bz1)
+            return;
 
-        for(int x = bx0;x <= bx1;++x)
+        const size_t pos = p.index();
+        if constexpr(dilate)
         {
-            size_t pos = base+x;
-            if constexpr(dilate)
-            {
-                if(src[pos])
-                    continue;
-            }
-            else
-            {
-                if(!src[pos])
-                    continue;
-            }
+            if(src[pos])
+                return;
+        }
+        else
+        {
+            if(!src[pos])
+                return;
+        }
 
-            for(const auto& s : span)
+        for(const auto& s : span)
+        {
+            int zz = z+s.dz, yy = y+s.dy;
+            if(zz < 0 || yy < 0 || zz >= d || yy >= h)
             {
-                int zz = z+s.dz, yy = y+s.dy;
-                if(zz < 0 || yy < 0 || zz >= d || yy >= h)
-                {
-                    if constexpr(!dilate)
-                        I[pos] = value_type(0);
-                    if constexpr(!dilate)
-                        break;
-                    continue;
-                }
-
                 if constexpr(!dilate)
-                    if(x-s.dx < 0 || x+s.dx >= w)
-                    {
-                        I[pos] = value_type(0);
-                        break;
-                    }
+                    I[pos] = value_type(0);
+                if constexpr(!dilate)
+                    break;
+                continue;
+            }
 
-                int xx0 = dilate ? std::max(0,x-s.dx) : x-s.dx;
-                int xx1 = dilate ? std::min(w-1,x+s.dx) : x+s.dx;
-                auto p = src.begin() + base + s.off + xx0;
-                auto e = src.begin() + base + s.off + xx1 + 1;
-
-                bool hit = dilate ?
-                               std::find_if(p,e,[](const auto& v){return v;}) != e :
-                               std::find(p,e,value_type(0)) != e;
-
-                if(hit)
+            if constexpr(!dilate)
+                if(x-s.dx < 0 || x+s.dx >= w)
                 {
-                    I[pos] = value_type(dilate);
+                    I[pos] = value_type(0);
                     break;
                 }
+
+            int xx0 = dilate ? std::max(0,x-s.dx) : x-s.dx;
+            int xx1 = dilate ? std::min(w-1,x+s.dx) : x+s.dx;
+            auto p0 = src.begin() + pos + s.off + (xx0-x);
+            auto p1 = src.begin() + pos + s.off + (xx1-x) + 1;
+
+            bool hit = dilate ?
+                           std::find_if(p0,p1,[](const auto& v){return v;}) != p1 :
+                           std::find(p0,p1,value_type(0)) != p1;
+
+            if(hit)
+            {
+                I[pos] = value_type(dilate);
+                break;
             }
         }
     });
