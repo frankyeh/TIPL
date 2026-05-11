@@ -129,11 +129,65 @@ void dilation(T&& I)
 }
 
 template<typename ImageType>
-void dilation2(ImageType& I,int radius)
+void dilation2(ImageType& I,unsigned int radius)
 {
-    neighbor_index_shift<ImageType::dimension> neighborhood(I.shape(),radius);
-    dilation(I,neighborhood.index_shift);
+    if(radius == 0 || I.empty())
+        return;
+
+    using value_type = typename ImageType::value_type;
+
+    ImageType src(I);
+    const int w = int(I.width());
+    const int h = int(I.height());
+    const int d = int(I.depth());
+    const int wh = w*h;
+    const int r = int(radius);
+    const int r2 = r*r;
+
+    std::vector<std::tuple<int,int,int> > span;
+    for(int dz = -r;dz <= r;++dz)
+        for(int dy = -r;dy <= r;++dy)
+        {
+            int rr = r2-dz*dz-dy*dy;
+            if(rr < 0)
+                continue;
+            int dx = int(std::sqrt(float(rr)));
+            span.emplace_back(dz,dy,dx);
+        }
+
+    tipl::par_for<sequential>(size_t(h*d),[&](size_t row)
+    {
+        int z = int(row)/h;
+        int y = int(row)%h;
+        size_t base = size_t(z)*wh + size_t(y)*w;
+
+        for(int x = 0;x < w;++x)
+        {
+            if(src[base+x])
+                continue;
+
+            for(auto [dz,dy,dx] : span)
+            {
+                int zz = z+dz;
+                int yy = y+dy;
+                if(zz < 0 || yy < 0 || zz >= d || yy >= h)
+                    continue;
+
+                int x1 = std::max(0,x-dx);
+                int x2 = std::min(w-1,x+dx);
+                auto p = src.begin() + size_t(zz)*wh + size_t(yy)*w + x1;
+                auto e = src.begin() + size_t(zz)*wh + size_t(yy)*w + x2 + 1;
+
+                if(std::find_if(p,e,[](const auto& v){return v;}) != e)
+                {
+                    I[base+x] = value_type(1);
+                    break;
+                }
+            }
+        }
+    });
 }
+
 
 template<typename ImageType,typename LabelType,typename ShiftType>
 void edge(const ImageType& I,LabelType& act,const ShiftType& shift_list)
