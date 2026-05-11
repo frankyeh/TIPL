@@ -374,6 +374,7 @@ inline QImage create_mosaic(const std::vector<QImage>& images,int col_size)
 #define TIPL_QT_EXT2_HPP
 
 #include <QFileDialog>
+#include <QFileIconProvider>
 #include <QGridLayout>
 #include <QLabel>
 #include <QTextEdit>
@@ -569,7 +570,17 @@ void add_preview(T& dlg)
                                              },Qt::QueuedConnection);
                                      }).detach();
                      });
+
 }
+
+class simple_icon_provider : public QFileIconProvider
+{
+public:
+    QIcon icon(const QFileInfo& info) const override
+    {
+        return QFileIconProvider::icon(info.isDir() ? Folder : File);
+    }
+};
 
 template<typename T>
 auto image_dialog(T* parent,QString path,QString filter,QFileDialog::AcceptMode accept,QFileDialog::FileMode mode,QString suffix = {})
@@ -591,11 +602,14 @@ auto image_dialog(T* parent,QString path,QString filter,QFileDialog::AcceptMode 
 
     QFileDialog dlg(parent,accept == QFileDialog::AcceptSave ? "Save Image" : "Open Image");
     dlg.setOption(QFileDialog::DontUseNativeDialog,true);
+    dlg.setOption(QFileDialog::DontUseCustomDirectoryIcons,true);
+    dlg.setOption(QFileDialog::DontResolveSymlinks,true);
     dlg.setAcceptMode(accept);
     dlg.setFileMode(mode);
     dlg.setNameFilter(filter);
     dlg.setSidebarUrls(tipl::qt::working_dirs);
     dlg.setDirectory(dir);
+    dlg.setIconProvider(new simple_icon_provider);
     dlg.resize(1500,600);
 
     if(!suffix.isEmpty())
