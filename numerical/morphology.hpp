@@ -86,13 +86,6 @@ void erosion(ImageType& I)
 }
 
 template<typename ImageType>
-void erosion2(ImageType& I,int radius)
-{
-    neighbor_index_shift<ImageType::dimension> neighborhood(I.shape(),radius);
-    erosion(I,neighborhood.index_shift);
-}
-
-template<typename ImageType>
 void dilation(ImageType& I,const std::vector<int64_t>& index_shift)
 {
     size_t sz = I.size();
@@ -128,65 +121,113 @@ void dilation(T&& I)
     dilation(I,neighborhood.index_shift);
 }
 
-template<typename ImageType>
-void dilation2(ImageType& I,unsigned int radius)
+template<bool dilate,typename ImageType>
+void morphology_by_radius(ImageType& I,unsigned int radius)
 {
     if(radius == 0 || I.empty())
         return;
 
     using value_type = typename ImageType::value_type;
-
     ImageType src(I);
-    const int w = int(I.width());
-    const int h = int(I.height());
-    const int d = int(I.depth());
-    const int wh = w*h;
-    const int r = int(radius);
-    const int r2 = r*r;
 
-    std::vector<std::tuple<int,int,int> > span;
+    const int w = int(I.width()), h = int(I.height()), d = int(I.depth()), wh = w*h;
+    const int r = int(radius), r2 = r*r;
+    int x0 = w, y0 = h, z0 = d, x1 = -1, y1 = -1, z1 = -1;
+
+    for(size_t p = 0;p < src.size();++p)
+        if(src[p])
+        {
+            int z = int(p)/wh, rem = int(p)%wh, y = rem/w, x = rem-y*w;
+            x0 = std::min(x0,x); y0 = std::min(y0,y); z0 = std::min(z0,z);
+            x1 = std::max(x1,x); y1 = std::max(y1,y); z1 = std::max(z1,z);
+        }
+    if(x1 < 0)
+        return;
+
+    struct span_type{int dz,dy,dx,off;};
+    std::vector<span_type> span;
     for(int dz = -r;dz <= r;++dz)
         for(int dy = -r;dy <= r;++dy)
-        {
-            int rr = r2-dz*dz-dy*dy;
-            if(rr < 0)
-                continue;
-            int dx = int(std::sqrt(float(rr)));
-            span.emplace_back(dz,dy,dx);
-        }
+            if(int rr = r2-dz*dz-dy*dy; rr >= 0)
+                span.push_back({dz,dy,int(std::sqrt(float(rr))),dz*wh+dy*w});
 
-    tipl::par_for<sequential>(size_t(h*d),[&](size_t row)
+    const int bx0 = dilate ? std::max(0,x0-r) : x0;
+    const int by0 = dilate ? std::max(0,y0-r) : y0;
+    const int bz0 = dilate ? std::max(0,z0-r) : z0;
+    const int bx1 = dilate ? std::min(w-1,x1+r) : x1;
+    const int by1 = dilate ? std::min(h-1,y1+r) : y1;
+    const int bz1 = dilate ? std::min(d-1,z1+r) : z1;
+    const int bh = by1-by0+1;
+
+    tipl::par_for(size_t((bz1-bz0+1)*bh),[&](size_t row)
     {
-        int z = int(row)/h;
-        int y = int(row)%h;
+        int rz = int(row)/bh, y = by0 + int(row)-rz*bh, z = bz0+rz;
         size_t base = size_t(z)*wh + size_t(y)*w;
 
-        for(int x = 0;x < w;++x)
+        for(int x = bx0;x <= bx1;++x)
         {
-            if(src[base+x])
-                continue;
-
-            for(auto [dz,dy,dx] : span)
+            size_t pos = base+x;
+            if constexpr(dilate)
             {
-                int zz = z+dz;
-                int yy = y+dy;
-                if(zz < 0 || yy < 0 || zz >= d || yy >= h)
+                if(src[pos])
                     continue;
+            }
+            else
+            {
+                if(!src[pos])
+                    continue;
+            }
 
-                int x1 = std::max(0,x-dx);
-                int x2 = std::min(w-1,x+dx);
-                auto p = src.begin() + size_t(zz)*wh + size_t(yy)*w + x1;
-                auto e = src.begin() + size_t(zz)*wh + size_t(yy)*w + x2 + 1;
-
-                if(std::find_if(p,e,[](const auto& v){return v;}) != e)
+            for(const auto& s : span)
+            {
+                int zz = z+s.dz, yy = y+s.dy;
+                if(zz < 0 || yy < 0 || zz >= d || yy >= h)
                 {
-                    I[base+x] = value_type(1);
+                    if constexpr(!dilate)
+                        I[pos] = value_type(0);
+                    if constexpr(!dilate)
+                        break;
+                    continue;
+                }
+
+                if constexpr(!dilate)
+                    if(x-s.dx < 0 || x+s.dx >= w)
+                    {
+                        I[pos] = value_type(0);
+                        break;
+                    }
+
+                int xx0 = dilate ? std::max(0,x-s.dx) : x-s.dx;
+                int xx1 = dilate ? std::min(w-1,x+s.dx) : x+s.dx;
+                auto p = src.begin() + base + s.off + xx0;
+                auto e = src.begin() + base + s.off + xx1 + 1;
+
+                bool hit = dilate ?
+                               std::find_if(p,e,[](const auto& v){return v;}) != e :
+                               std::find(p,e,value_type(0)) != e;
+
+                if(hit)
+                {
+                    I[pos] = value_type(dilate);
                     break;
                 }
             }
         }
     });
 }
+
+template<typename ImageType>
+void dilation_by_radius(ImageType& I,unsigned int radius)
+{
+    morphology_by_radius<true>(I,radius);
+}
+
+template<typename ImageType>
+void erosion_by_radius(ImageType& I,unsigned int radius)
+{
+    morphology_by_radius<false>(I,radius);
+}
+
 
 
 template<typename ImageType,typename LabelType,typename ShiftType>
