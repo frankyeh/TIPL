@@ -1297,26 +1297,28 @@ inline void normalize_upper_lower(ImageType& I,float upper_limit)
 }
 
 template<typename ImageType>
-void normalize(ImageType& I,float upper_limit = 1.0f)
+auto&& normalize(ImageType&& I,float upper_limit = 1.0f)
 {
     if(I.empty())
-        return;
+        return std::forward<ImageType>(I);
     auto m = max_value(I);
     if(m != 0)
         multiply_constant(I,upper_limit/m);
+    return std::forward<ImageType>(I);
 }
 
 template<typename ImageType>
-void normalize_abs(ImageType& I,float upper_limit = 1.0f)
+auto&& normalize_abs(ImageType&& I,float upper_limit = 1.0f)
 {
     if(I.empty())
-        return;
+        return std::forward<ImageType>(I);
     auto min_v = I[0];
     auto max_v = I[0];
     minmax_value(I,min_v,max_v);
     auto scale = std::max(-min_v,max_v);
     if(scale != 0)
         multiply_constant(I,upper_limit/scale);
+    return std::forward<ImageType>(I);
 }
 
 template<typename container_type,typename index_type>
