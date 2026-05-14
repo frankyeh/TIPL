@@ -16,25 +16,6 @@
 namespace tipl {
 namespace ml3d {
 
-template <activation_type Act,typename T>
-void cuda_conv_3d_forward(const T* in,const T* weight,const T* bias,T* out,int in_c,int out_c,int in_d,int in_h,int in_w,int out_d,int out_h,int out_w,int kernel_size,int kernel_size3,int range,int stride,T slope);
-
-template <typename T>
-void cuda_conv_transpose_3d_forward(const T* in,const T* weight,const T* bias,T* out,int in_c,int out_c,int in_d,int in_h,int in_w,int out_d,int out_h,int out_w,int kernel_size,int kernel_size3,int stride);
-
-template <activation_type Act,typename T>
-void cuda_batch_norm_3d_forward(const T* in,T* out,const T* weight,const T* bias,int in_c,size_t plane_size);
-
-template <activation_type Act,typename T>
-void cuda_instance_norm_3d_forward(const T* in,T* out,const T* weight,const T* bias,int out_c,size_t plane_size,T slope);
-
-template <typename T>
-void cuda_max_pool_3d_forward(const T* in,T* out,int in_c,int in_d,int in_h,int in_w,int out_d,int out_h,int out_w,int pool_size);
-
-template <typename T>
-void cuda_upsample_3d_forward(const T* in,T* out,int in_c,int in_d,int in_h,int in_w,int out_d,int out_h,int out_w,int pool_size);
-
-
 static constexpr const char* kernel_size_keyword = "ks";
 static constexpr const char* stride_keyword = "stride";
 static constexpr const char* leaky_relu_keyword = "leaky_relu";
@@ -219,14 +200,13 @@ class max_pool_3d : public layer
 public:
     static constexpr const char* keyword = "max_pool";
     tipl::shape<3> out_dim;
-    int pool_size = 2;
 
     max_pool_3d(int c) : layer(c) {}
 
     const tipl::shape<3>& init_image(const tipl::shape<3>& dim_) override
     {
         dim = dim_;
-        out_dim = {dim[0] / pool_size,dim[1] / pool_size,dim[2] / pool_size};
+        out_dim = {dim[0] / 2,dim[1] / 2,dim[2] / 2};
         out_buffer_size = out_size = out_dim.size() * out_channels_;
         return out_dim;
     }
@@ -235,11 +215,74 @@ public:
     {
         if constexpr(tipl::use_cuda)
             if(this->is_gpu)
-                return cuda_max_pool_3d_forward<float>(in,out_ptr,out_channels_,dim.depth(),dim.height(),dim.width(),out_dim.depth(),out_dim.height(),out_dim.width(),pool_size),void();
-        cpu_max_pool_3d_forward(in,out_ptr,out_channels_,dim.depth(),dim.height(),dim.width(),out_dim.depth(),out_dim.height(),out_dim.width(),pool_size);
+                return cuda_max_pool_3d_forward<float>(in,out_ptr,out_channels_,dim.depth(),dim.height(),dim.width(),out_dim.depth(),out_dim.height(),out_dim.width()),void();
+        cpu_max_pool_3d_forward(in,out_ptr,out_channels_,dim.depth(),dim.height(),dim.width(),out_dim.depth(),out_dim.height(),out_dim.width());
     }
 
     void print(std::ostream& os) const override { os << keyword; }
+    bool change_dim(void) const override { return true; }
+};
+
+class avg_pool_3d : public layer
+{
+public:
+    static constexpr const char* keyword = "avg_pool";
+    tipl::shape<3> out_dim;
+
+    avg_pool_3d(int c) : layer(c) {}
+
+    const tipl::shape<3>& init_image(const tipl::shape<3>& dim_) override
+    {
+        dim = dim_;
+        out_dim = {dim[0] / 2,dim[1] / 2,dim[2] / 2};
+        out_buffer_size = out_size = out_dim.size() * out_channels_;
+        return out_dim;
+    }
+
+    void forward(const float* in,float* out_ptr) override
+    {
+        if constexpr(tipl::use_cuda)
+            if(this->is_gpu)
+                return cuda_avg_pool_3d_forward<float>(in,out_ptr,out_channels_,dim.depth(),dim.height(),dim.width(),out_dim.depth(),out_dim.height(),out_dim.width()),void();
+        cpu_avg_pool_3d_forward(in,out_ptr,out_channels_,dim.depth(),dim.height(),dim.width(),out_dim.depth(),out_dim.height(),out_dim.width());
+    }
+
+    void print(std::ostream& os) const override { os << keyword; }
+    bool change_dim(void) const override { return true; }
+};
+
+class avg_pooling_xy_3d : public layer
+{
+public:
+    static constexpr const char* keyword = "avg_pooling_xy";
+    tipl::shape<3> out_dim;
+
+    avg_pooling_xy_3d(int c) : layer(c) {}
+
+    const tipl::shape<3>& init_image(const tipl::shape<3>& dim_) override
+    {
+        dim = dim_;
+        out_dim = {dim[0]/2,dim[1]/2,dim[2]};
+        out_buffer_size = out_size = out_dim.size()*out_channels_;
+        return out_dim;
+    }
+
+    void forward(const float* in,float* out_ptr) override
+    {
+        if constexpr(tipl::use_cuda)
+            if(this->is_gpu)
+                return cuda_avg_pooling_xy_3d_forward<float>(
+                           in,out_ptr,out_channels_,
+                           dim.depth(),dim.height(),dim.width(),
+                           out_dim.depth(),out_dim.height(),out_dim.width()),void();
+
+        cpu_avg_pooling_xy_3d_forward(
+            in,out_ptr,out_channels_,
+            dim.depth(),dim.height(),dim.width(),
+            out_dim.depth(),out_dim.height(),out_dim.width());
+    }
+
+    void print(std::ostream& os) const override     {os << keyword;}
     bool change_dim(void) const override { return true; }
 };
 
@@ -248,14 +291,13 @@ class upsample_3d : public layer
 public:
     static constexpr const char* keyword = "upsample";
     tipl::shape<3> out_dim;
-    int pool_size = 2;
 
     upsample_3d(int c) : layer(c) {}
 
     const tipl::shape<3>& init_image(const tipl::shape<3>& dim_) override
     {
         dim = dim_;
-        out_dim = {dim[0] * pool_size,dim[1] * pool_size,dim[2] * pool_size};
+        out_dim = {dim[0] * 2,dim[1] * 2,dim[2] * 2};
         out_buffer_size = out_size = out_dim.size() * out_channels_;
         return out_dim;
     }
@@ -264,8 +306,8 @@ public:
     {
         if constexpr(tipl::use_cuda)
             if(this->is_gpu)
-                return cuda_upsample_3d_forward<float>(in,out_ptr,out_channels_,dim.depth(),dim.height(),dim.width(),out_dim.depth(),out_dim.height(),out_dim.width(),pool_size),void();
-        cpu_upsample_3d_forward(in,out_ptr,out_channels_,dim.depth(),dim.height(),dim.width(),out_dim.depth(),out_dim.height(),out_dim.width(),pool_size);
+                return cuda_upsample_3d_forward<float>(in,out_ptr,out_channels_,dim.depth(),dim.height(),dim.width(),out_dim.depth(),out_dim.height(),out_dim.width()),void();
+        cpu_upsample_3d_forward(in,out_ptr,out_channels_,dim.depth(),dim.height(),dim.width(),out_dim.depth(),out_dim.height(),out_dim.width());
     }
 
     void print(std::ostream& os) const override { os << keyword; }
@@ -421,6 +463,8 @@ public:
         std::shared_ptr<layer> l;
 
         if(params.count(max_pool_3d::keyword)) l.reset(new max_pool_3d(in_c));
+        else if(params.count(avg_pool_3d::keyword)) l.reset(new avg_pool_3d(in_c));
+        else if(params.count(avg_pooling_xy_3d::keyword)) l.reset(new avg_pooling_xy_3d(in_c));
         else if(params.count(upsample_3d::keyword)) l.reset(new upsample_3d(in_c));
         else if(params.count(conv_transpose_3d::keyword))
         {
@@ -442,7 +486,7 @@ public:
         }
         else if(params.count(instance_norm_3d<>::keyword)) l = make_act_layer<instance_norm_3d>(params,in_c);
         else if(params.count(batch_norm_3d<>::keyword)) l = make_act_layer<batch_norm_3d>(params,in_c);
-        else throw std::runtime_error("unknown layer:"+params[0]);
+        else throw std::runtime_error("unknown layer:"+def);
 
         layers.push_back(l);
         return l;
