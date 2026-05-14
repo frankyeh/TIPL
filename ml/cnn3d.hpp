@@ -639,7 +639,7 @@ public:
 
         os << keyword << "(";
         print_inline_branch(main_branch);
-        os << ",";
+        os << "|";
         if(skip_is_identity)
             os << "identity";
         else
@@ -687,7 +687,7 @@ inline std::shared_ptr<layer> layer_sequence::make_layer(const std::string& def_
             throw std::runtime_error("invalid split_merge syntax: " + def);
 
         const std::string inside = def.substr(open+1,close-open-1);
-        auto branches = tipl::split(inside,',','(',')');
+        auto branches = tipl::split(inside,'|','(',')');
         if(branches.size() != 2)
             throw std::runtime_error("split_merge requires two branches: " + def);
 
