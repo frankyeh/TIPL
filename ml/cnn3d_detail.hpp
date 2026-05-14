@@ -222,6 +222,122 @@ void cpu_conv_transpose_3d_forward(const T* in, const T* weight, const T* bias, 
     });
 }
 
+template <activation_type Act,typename T>
+void cpu_conv_xy_3d_forward(const T* in,const T* weight,const T* bias,T* out,
+                            int in_c,int out_c,
+                            int in_d,int in_h,int in_w,
+                            int out_d,int out_h,int out_w)
+{
+    if(out_d != in_d || out_h*2 != in_h || out_w*2 != in_w)
+        throw std::runtime_error("cpu conv_xy expects stride 2x2x1");
+
+    const size_t in_img_size = static_cast<size_t>(in_w)*in_h*in_d;
+    const size_t out_img_size = static_cast<size_t>(out_w)*out_h*out_d;
+    const int in_plane = in_w*in_h;
+    const int out_plane = out_w*out_h;
+    constexpr int kernel_size3 = 27;
+    constexpr int kernel_plane = 9;
+
+    tipl::par_for(static_cast<size_t>(out_c)*out_d,[&](size_t job)
+    {
+        const int oc = static_cast<int>(job/out_d);
+        const int z = static_cast<int>(job-static_cast<size_t>(oc)*out_d);
+        T* out_slice = out+static_cast<size_t>(oc)*out_img_size+static_cast<size_t>(z)*out_plane;
+
+        std::fill_n(out_slice,out_plane,bias[oc]);
+
+        const bool z_inside = z > 0 && z+1 < in_d;
+        const T* weight_oc = weight+static_cast<size_t>(oc)*in_c*kernel_size3;
+
+        for(int ic = 0;ic < in_c;++ic)
+        {
+            const T* in_ic = in+static_cast<size_t>(ic)*in_img_size;
+            const T* weight_ic = weight_oc+static_cast<size_t>(ic)*kernel_size3;
+
+            auto add_border = [&](int y,int x)
+            {
+                const int start_z = z-1;
+                const int start_y = (y << 1)-1;
+                const int start_x = (x << 1)-1;
+                T sum = out_slice[static_cast<size_t>(y)*out_w+x];
+
+                for(int kz = 0;kz < 3;++kz)
+                {
+                    const int sz = start_z+kz;
+                    if(static_cast<unsigned int>(sz) >= static_cast<unsigned int>(in_d))
+                        continue;
+
+                    const T* in_z = in_ic+static_cast<size_t>(sz)*in_plane;
+                    const T* weight_z = weight_ic+kz*kernel_plane;
+
+                    for(int ky = 0;ky < 3;++ky)
+                    {
+                        const int sy = start_y+ky;
+                        if(static_cast<unsigned int>(sy) >= static_cast<unsigned int>(in_h))
+                            continue;
+
+                        const T* in_y = in_z+static_cast<size_t>(sy)*in_w;
+                        const T* weight_y = weight_z+ky*3;
+
+                        for(int kx = 0;kx < 3;++kx)
+                        {
+                            const int sx = start_x+kx;
+                            if(static_cast<unsigned int>(sx) < static_cast<unsigned int>(in_w))
+                                sum = multiply_add(weight_y[kx],in_y[sx],sum);
+                        }
+                    }
+                }
+
+                out_slice[static_cast<size_t>(y)*out_w+x] = sum;
+            };
+
+            if(z_inside)
+            {
+                // Fast path: y >= 1 and x >= 1 have no padding checks.
+                for(int kz = 0;kz < 3;++kz)
+                {
+                    const T* in_z = in_ic+static_cast<size_t>(z+kz-1)*in_plane;
+                    const T* weight_z = weight_ic+kz*kernel_plane;
+
+                    for(int ky = 0;ky < 3;++ky)
+                    {
+                        const T* weight_y = weight_z+ky*3;
+
+                        for(int y = 1,sy = 1+ky;y < out_h;++y,sy += 2)
+                        {
+                            const T* in_row = in_z+static_cast<size_t>(sy)*in_w;
+                            T* out_row = out_slice+static_cast<size_t>(y)*out_w;
+
+                            for(int kx = 0;kx < 3;++kx)
+                            {
+                                const T w = weight_y[kx];
+
+                                for(int x = 1,sx = 1+kx;x < out_w;++x,sx += 2)
+                                    out_row[x] = multiply_add(w,in_row[sx],out_row[x]);
+                            }
+                        }
+                    }
+                }
+
+                // Borders: first row and first column.
+                for(int x = 0;x < out_w;++x)
+                    add_border(0,x);
+                for(int y = 1;y < out_h;++y)
+                    add_border(y,0);
+            }
+            else
+            {
+                // z border: only two z planes are valid, so use checked path.
+                for(int y = 0;y < out_h;++y)
+                    for(int x = 0;x < out_w;++x)
+                        add_border(y,x);
+            }
+        }
+
+        apply_activation_buffer<Act>(out_slice,out_plane,(T)0.01f);
+    });
+}
+
 template <activation_type Act, typename T>
 void cpu_instance_norm_3d_forward(const T* in, T* out, const T* weight, const T* bias, int out_c, size_t plane_size)
 {
@@ -427,12 +543,18 @@ void cuda_conv_3d_forward(const T* in, const T* weight, const T* bias, T* out,
                           int out_d, int out_h, int out_w,
                           int kernel_size, int kernel_size3, int range, int stride, T slope);
 
+template <activation_type Act,typename T>
+void cuda_conv_xy_3d_forward(const T* in,const T* weight,const T* bias,T* out,
+                             int in_c,int out_c,
+                             int in_d,int in_h,int in_w,
+                             int out_d,int out_h,int out_w,T slope);
 template <typename T>
 void cuda_conv_transpose_3d_forward(const T* in, const T* weight, const T* bias, T* out,
                                     int in_c, int out_c,
                                     int in_d, int in_h, int in_w,
                                     int out_d, int out_h, int out_w,
                                     int kernel_size, int kernel_size3, int stride);
+
 
 template <activation_type Act, typename T>
 void cuda_instance_norm_3d_forward(const T* in, T* out, const T* weight, const T* bias,
@@ -590,6 +712,125 @@ void conv_3d_kernel(const T* __restrict__ in,const T* __restrict__ weight,const 
     out[static_cast<size_t>(oc)*out_img_size+static_cast<size_t>(z)*out_plane+static_cast<size_t>(y)*out_w+x] =
         apply_activation<Act>(sum,slope);
 }
+
+template<activation_type Act,typename T>
+__global__ __launch_bounds__(128,2)
+    void conv_xy_3d_kernel(const T* __restrict__ in,const T* __restrict__ weight,
+                           const T* __restrict__ bias,T* __restrict__ out,
+                           int in_c,int out_c,
+                           int in_d,int in_h,int in_w,
+                           int out_d,int out_h,int out_w,T slope)
+{
+    int x = blockIdx.x*blockDim.x+threadIdx.x;
+    int y_blocks = (out_h+blockDim.y-1)/blockDim.y;
+    int y_tile = blockIdx.y;
+    int y0 = (y_tile%y_blocks)*blockDim.y;
+    int z = y_tile/y_blocks;
+    int y = y0+threadIdx.y;
+    int oc = blockIdx.z;
+
+    if(x >= out_w || y >= out_h)
+        return;
+
+    constexpr int kernel_size3 = 27;
+    constexpr int kernel_plane = 9;
+
+    int in_plane = in_w*in_h;
+    int in_img_size = in_plane*in_d;
+    int out_plane = out_w*out_h;
+    int out_img_size = out_plane*out_d;
+
+    T sum = bias[oc];
+    const T* weight_oc = weight+static_cast<size_t>(oc)*in_c*kernel_size3;
+
+    // For stride 2x2x1 with padding 1:
+    // x/y upper borders are still valid when input sizes are even.
+    // Only x==0, y==0, z==0, and z==last need boundary checks.
+    if(x && y && z && z+1 < in_d)
+    {
+        int sx = (x << 1)-1;
+        int sy = (y << 1)-1;
+        int sz = z-1;
+
+        for(int ic = 0;ic < in_c;++ic)
+        {
+            const T* p = in+static_cast<size_t>(ic)*in_img_size+
+                         static_cast<size_t>(sz)*in_plane+
+                         static_cast<size_t>(sy)*in_w+sx;
+            const T* w = weight_oc+static_cast<size_t>(ic)*kernel_size3;
+
+#pragma unroll
+            for(int kz = 0;kz < 3;++kz)
+            {
+                const T* pz = p+kz*in_plane;
+                const T* wz = w+kz*kernel_plane;
+
+                const T* p0 = pz;
+                const T* p1 = p0+in_w;
+                const T* p2 = p1+in_w;
+
+                sum = multiply_add(wz[0],p0[0],sum);
+                sum = multiply_add(wz[1],p0[1],sum);
+                sum = multiply_add(wz[2],p0[2],sum);
+
+                sum = multiply_add(wz[3],p1[0],sum);
+                sum = multiply_add(wz[4],p1[1],sum);
+                sum = multiply_add(wz[5],p1[2],sum);
+
+                sum = multiply_add(wz[6],p2[0],sum);
+                sum = multiply_add(wz[7],p2[1],sum);
+                sum = multiply_add(wz[8],p2[2],sum);
+            }
+        }
+    }
+    else
+    {
+        int start_sx = (x << 1)-1;
+        int start_sy = (y << 1)-1;
+        int start_sz = z-1;
+
+        for(int ic = 0;ic < in_c;++ic)
+        {
+            const T* in_ic = in+static_cast<size_t>(ic)*in_img_size;
+            const T* weight_ic = weight_oc+static_cast<size_t>(ic)*kernel_size3;
+
+#pragma unroll
+            for(int kz = 0;kz < 3;++kz)
+            {
+                int sz = start_sz+kz;
+                if(static_cast<unsigned int>(sz) >= static_cast<unsigned int>(in_d))
+                    continue;
+
+                const T* in_z = in_ic+static_cast<size_t>(sz)*in_plane;
+                const T* weight_z = weight_ic+kz*kernel_plane;
+
+#pragma unroll
+                for(int ky = 0;ky < 3;++ky)
+                {
+                    int sy = start_sy+ky;
+                    if(static_cast<unsigned int>(sy) >= static_cast<unsigned int>(in_h))
+                        continue;
+
+                    const T* in_y = in_z+static_cast<size_t>(sy)*in_w;
+                    const T* weight_y = weight_z+ky*3;
+
+#pragma unroll
+                    for(int kx = 0;kx < 3;++kx)
+                    {
+                        int sx = start_sx+kx;
+                        if(static_cast<unsigned int>(sx) < static_cast<unsigned int>(in_w))
+                            sum = multiply_add(weight_y[kx],in_y[sx],sum);
+                    }
+                }
+            }
+        }
+    }
+
+    out[static_cast<size_t>(oc)*out_img_size+
+        static_cast<size_t>(z)*out_plane+
+        static_cast<size_t>(y)*out_w+x] = apply_activation<Act>(sum,slope);
+}
+
 
 template<typename T>
 __global__ __launch_bounds__(128,2)
@@ -924,6 +1165,45 @@ void cuda_conv_3d_forward<activation_type::elu, float>(
     int in_d, int in_h, int in_w,
     int out_d, int out_h, int out_w,
     int kernel_size, int kernel_size3, int range, int stride, float slope);
+
+
+template <activation_type Act,typename T>
+void cuda_conv_xy_3d_forward(const T* in,const T* weight,const T* bias,T* out,
+                             int in_c,int out_c,
+                             int in_d,int in_h,int in_w,
+                             int out_d,int out_h,int out_w,T slope)
+{
+    dim3 block(cuda_kernels::spatial_block_x,cuda_kernels::spatial_block_y,1);
+    dim3 grid(cuda_kernels::div_up(out_w,block.x),
+              cuda_kernels::div_up(out_h,block.y)*out_d,
+              out_c);
+
+    cuda_kernels::conv_xy_3d_kernel<Act,T><<<grid,block>>>(
+        in,weight,bias,out,in_c,out_c,in_d,in_h,in_w,out_d,out_h,out_w,slope);
+}
+
+template
+    void cuda_conv_xy_3d_forward<activation_type::none,float>(
+        const float*,const float*,const float*,float*,
+        int,int,int,int,int,int,int,int,float);
+
+template
+    void cuda_conv_xy_3d_forward<activation_type::relu,float>(
+        const float*,const float*,const float*,float*,
+        int,int,int,int,int,int,int,int,float);
+
+template
+    void cuda_conv_xy_3d_forward<activation_type::leaky_relu,float>(
+        const float*,const float*,const float*,float*,
+        int,int,int,int,int,int,int,int,float);
+
+template
+    void cuda_conv_xy_3d_forward<activation_type::elu,float>(
+        const float*,const float*,const float*,float*,
+        int,int,int,int,int,int,int,int,float);
+
+
+
 
 template <typename T>
 void cuda_conv_transpose_3d_forward(const T* in, const T* weight, const T* bias, T* out,
