@@ -8,9 +8,13 @@
 #include <deque>
 #include <algorithm>
 #include <stdexcept>
+#include <limits>
+#include <functional>
+#include <type_traits>
 #include "../utility/shape.hpp"
 #include "../def.hpp"
 #include "../cu.hpp"
+#include "../po.hpp"
 #include "cnn3d_detail.hpp"
 
 namespace tipl {
@@ -51,7 +55,6 @@ public:
         is_gpu = is_gpu_mem;
         return ptr;
     }
-    virtual bool change_dim(void) const { return false; }
 
 protected:
     template<activation_type Act>
@@ -116,7 +119,6 @@ public:
         os << keyword << out_channels_ << "," << kernel_size_keyword << kernel_size_ << "," << stride_keyword << stride_;
         this->print_activation<Act>(os);
     }
-    bool change_dim(void) const override { return stride_ != 1; }
 };
 
 template <activation_type Act = activation_type::none>
@@ -162,8 +164,6 @@ public:
         os << keyword << out_channels_ << "," << kernel_size_keyword << "3," << stride_keyword << "2";
         this->print_activation<Act>(os);
     }
-
-    bool change_dim(void) const override { return true; }
 };
 
 class conv_transpose_3d : public weight_bias_layer
@@ -193,7 +193,48 @@ public:
     }
 
     void print(std::ostream& os) const override { os << keyword << out_channels_ << "," << kernel_size_keyword << kernel_size_ << "," << stride_keyword << stride_; }
-    bool change_dim(void) const override { return stride_ != 1; }
+};
+
+class conv_transpose_xy_3d : public weight_bias_layer
+{
+public:
+    static constexpr const char* keyword = "conv_trans_xy";
+    tipl::shape<3> out_dim;
+
+    conv_transpose_xy_3d(int in_c,int out_c) : weight_bias_layer(in_c,out_c)
+    {
+        weight_size = 4*in_channels_*out_channels_; // 2x2x1
+    }
+
+    const tipl::shape<3>& init_image(const tipl::shape<3>& dim_) override
+    {
+        dim = dim_;
+        out_dim = tipl::s(dim_[0]*2,dim_[1]*2,dim_[2]);
+        out_buffer_size = out_size = out_dim.size()*out_channels_;
+        return out_dim;
+    }
+
+    void forward(const float* in,float* out_ptr) override
+    {
+        if constexpr(tipl::use_cuda)
+            if(this->is_gpu)
+                return cuda_conv_transpose_xy_3d_forward<float>(
+                           in,weight,bias,out_ptr,
+                           in_channels_,out_channels_,
+                           dim.depth(),dim.height(),dim.width(),
+                           out_dim.depth(),out_dim.height(),out_dim.width()),void();
+
+        cpu_conv_transpose_xy_3d_forward(
+            in,weight,bias,out_ptr,
+            in_channels_,out_channels_,
+            dim.depth(),dim.height(),dim.width(),
+            out_dim.depth(),out_dim.height(),out_dim.width());
+    }
+
+    void print(std::ostream& os) const override
+    {
+        os << keyword << out_channels_ << "," << kernel_size_keyword << "2," << stride_keyword << "2";
+    }
 };
 
 template<activation_type Act = activation_type::none>
@@ -267,7 +308,6 @@ public:
     }
 
     void print(std::ostream& os) const override { os << keyword; }
-    bool change_dim(void) const override { return true; }
 };
 
 class avg_pool_3d : public layer
@@ -295,7 +335,6 @@ public:
     }
 
     void print(std::ostream& os) const override { os << keyword; }
-    bool change_dim(void) const override { return true; }
 };
 
 class avg_pooling_xy_3d : public layer
@@ -330,7 +369,6 @@ public:
     }
 
     void print(std::ostream& os) const override     {os << keyword;}
-    bool change_dim(void) const override { return true; }
 };
 
 class upsample_3d : public layer
@@ -358,12 +396,9 @@ public:
     }
 
     void print(std::ostream& os) const override { os << keyword; }
-    bool change_dim(void) const override { return true; }
 };
 
-
-
-class network : public layer
+class layer_sequence
 {
 protected:
     template<template<activation_type> class LayerType,typename... Args>
@@ -374,6 +409,400 @@ protected:
         if(params.count(relu_keyword)) return std::make_shared<LayerType<activation_type::relu>>(args...);
         return std::make_shared<LayerType<activation_type::none>>(args...);
     }
+public:
+    std::vector<std::shared_ptr<layer>> layers;
+
+    std::vector<std::pair<float*,size_t>> parameters(void)
+    {
+        std::vector<std::pair<float*,size_t>> param;
+        for(auto& l : layers)
+        {
+            auto p = l->parameters();
+            param.insert(param.end(),p.begin(),p.end());
+        }
+        return param;
+    }
+
+    size_t param_size(void) const
+    {
+        size_t total_size = 0;
+        for(auto& l : layers)
+            total_size += l->param_size();
+        return total_size;
+    }
+
+    float* allocate_param(float* ptr,bool is_gpu)
+    {
+        for(auto& l : layers)
+            ptr = l->allocate_param(ptr,is_gpu);
+        return ptr;
+    }
+
+    tipl::shape<3> init_image(const tipl::shape<3>& dim)
+    {
+        auto out_dim = dim;
+        for(auto& l : layers)
+            out_dim = l->init_image(out_dim);
+        return out_dim;
+    }
+
+    size_t arrange_buffer(float* ptr = nullptr)
+    {
+        size_t max_mem = 0;
+        size_t in_beg = std::numeric_limits<size_t>::max();
+        size_t in_end = in_beg;
+
+        for(auto& l : layers)
+        {
+            size_t buf_size = l->out_buffer_size;
+            if(buf_size < in_beg)
+                in_beg = 0;
+            else
+                in_beg = in_end;
+
+            in_end = in_beg + buf_size;
+
+            if(ptr)
+                l->out = ptr + in_beg;
+            if(in_end > max_mem)
+                max_mem = in_end;
+        }
+        return max_mem;
+    }
+
+    const float* forward(const float* in_ptr,const std::function<bool(size_t,size_t)>& prog = nullptr)
+    {
+        for(size_t i = 0;i < layers.size();++i)
+        {
+            if(prog && !prog(i,layers.size()))
+                return in_ptr;
+            layers[i]->forward(in_ptr,layers[i]->out);
+            in_ptr = layers[i]->out;
+        }
+        return in_ptr;
+    }
+
+    void print(std::ostream& os) const
+    {
+        bool first = true;
+        for(auto& l : layers)
+        {
+            if(!first)
+                os << "+";
+            l->print(os);
+            first = false;
+        }
+    }
+
+    std::shared_ptr<layer> make_layer(const std::string& def,int in_c);
+    std::shared_ptr<layer> append_layer(const std::string& def,int in_c)
+    {
+        auto l = make_layer(def,in_c);
+        layers.push_back(l);
+        return l;
+    }
+
+    void push_back(std::shared_ptr<layer> l) { layers.push_back(l); }
+    size_t size(void) const { return layers.size(); }
+    bool empty(void) const { return layers.empty(); }
+    auto back(void) { return layers.back(); }
+    auto back(void) const { return layers.back(); }
+};
+
+template<activation_type Act = activation_type::none>
+class split_merge_3d : public layer
+{
+public:
+    static constexpr const char* keyword = "split_merge";
+
+    layer_sequence main_branch;
+    layer_sequence skip_branch;
+    bool skip_is_identity = false;
+
+    tipl::shape<3> out_dim;
+    size_t main_branch_mem_size = 0;
+    size_t skip_branch_mem_size = 0;
+
+public:
+    split_merge_3d(int in_c,bool skip_identity_ = false) :
+        layer(in_c,in_c), skip_is_identity(skip_identity_) {}
+
+public:
+    layer_sequence& main_layers(void) { return main_branch; }
+    layer_sequence& skip_layers(void) { return skip_branch; }
+    const layer_sequence& main_layers(void) const { return main_branch; }
+    const layer_sequence& skip_layers(void) const { return skip_branch; }
+
+    void set_skip_identity(bool value = true) { skip_is_identity = value; }
+
+    std::vector<std::pair<float*,size_t>> parameters() override
+    {
+        auto p1 = main_branch.parameters();
+        auto p2 = skip_branch.parameters();
+        p1.insert(p1.end(),p2.begin(),p2.end());
+        return p1;
+    }
+
+    size_t param_size(void) override
+    {
+        return main_branch.param_size()+skip_branch.param_size();
+    }
+
+    float* allocate_param(float* ptr,bool is_gpu_) override
+    {
+        is_gpu = is_gpu_;
+        ptr = main_branch.allocate_param(ptr,is_gpu);
+        ptr = skip_branch.allocate_param(ptr,is_gpu);
+        return ptr;
+    }
+
+    const tipl::shape<3>& init_image(const tipl::shape<3>& dim_) override
+    {
+        dim = dim_;
+
+        out_dim = dim_;
+        if(!main_branch.empty())
+            out_dim = main_branch.init_image(dim_);
+        else
+            throw std::runtime_error("split_merge requires a non-empty main branch");
+
+        tipl::shape<3> skip_dim = dim_;
+        int main_out_channels = main_branch.back()->out_channels_;
+        int skip_out_channels = in_channels_;
+
+        if(skip_is_identity)
+        {
+            skip_dim = dim_;
+            skip_out_channels = in_channels_;
+        }
+        else
+        {
+            if(skip_branch.empty())
+                throw std::runtime_error("split_merge skip branch is empty and not identity");
+            skip_dim = skip_branch.init_image(dim_);
+            skip_out_channels = skip_branch.back()->out_channels_;
+        }
+
+        if(skip_dim != out_dim)
+            throw std::runtime_error("split_merge main/skip branch output dimensions mismatch");
+        if(skip_out_channels != main_out_channels)
+            throw std::runtime_error("split_merge main/skip branch channel count mismatch");
+
+        out_channels_ = main_out_channels;
+        out_size = out_dim.size()*out_channels_;
+
+        main_branch_mem_size = main_branch.arrange_buffer();
+        skip_branch_mem_size = skip_is_identity ? 0 : skip_branch.arrange_buffer();
+
+        out_buffer_size = out_size + main_branch_mem_size + skip_branch_mem_size;
+        return out_dim;
+    }
+
+    void forward(const float* in,float* out_ptr) override
+    {
+        float* main_ptr = out_ptr + out_size;
+        float* skip_ptr = main_ptr + main_branch_mem_size;
+
+        main_branch.arrange_buffer(main_ptr);
+        const float* main_out = main_branch.forward(in);
+
+        const float* skip_out = in;
+        if(!skip_is_identity)
+        {
+            skip_branch.arrange_buffer(skip_ptr);
+            skip_out = skip_branch.forward(in);
+        }
+
+        if constexpr(tipl::use_cuda)
+            if(this->is_gpu)
+            {
+                cuda_add_3d_forward<Act,float>(main_out,skip_out,out_ptr,out_size,0.01f);
+                return;
+            }
+
+        cpu_add_3d_forward<Act>(main_out,skip_out,out_ptr,out_size,(float)0.01f);
+    }
+
+    void print(std::ostream& os) const override
+    {
+        auto print_inline_branch = [&](const layer_sequence& seq)
+        {
+            bool first = true;
+            for(auto& l : seq.layers)
+            {
+                if(!first)
+                    os << "+";
+                l->print(os);
+                first = false;
+            }
+        };
+
+        os << keyword << "(";
+        print_inline_branch(main_branch);
+        os << ",";
+        if(skip_is_identity)
+            os << "identity";
+        else
+            print_inline_branch(skip_branch);
+        os << ")";
+        this->print_activation<Act>(os);
+    }
+
+};
+
+
+inline std::shared_ptr<layer> layer_sequence::make_layer(const std::string& def_,int in_c)
+{
+    auto build_layer_sequence = [&](layer_sequence& seq,const std::string& branch,int in_c)
+    {
+        int cur_c = in_c;
+        for(const auto& token : tipl::split(branch,'+','(',')'))
+        {
+            if(token.empty())
+                continue;
+            auto l = seq.append_layer(token,cur_c);
+            cur_c = l->out_channels_;
+        }
+    };
+
+    std::string def = tipl::trim_space(def_);
+
+    if(tipl::begins_with(def,std::string(split_merge_3d<>::keyword)+"("))
+    {
+        const size_t open = def.find('(');
+        int depth = 0;
+        size_t close = std::string::npos;
+
+        for(size_t i = open;i < def.size();++i)
+        {
+            if(def[i] == '(')
+                ++depth;
+            else if(def[i] == ')' && --depth == 0)
+            {
+                close = i;
+                break;
+            }
+        }
+        if(close == std::string::npos)
+            throw std::runtime_error("invalid split_merge syntax: " + def);
+
+        const std::string inside = def.substr(open+1,close-open-1);
+        auto branches = tipl::split(inside,',','(',')');
+        if(branches.size() != 2)
+            throw std::runtime_error("split_merge requires two branches: " + def);
+
+        const std::string main_branch = tipl::trim_space(branches[0]);
+        const std::string skip_branch = tipl::trim_space(branches[1]);
+
+        auto tail = tipl::trim_space(def.substr(close+1));
+        if(!tail.empty() && tail[0] == ',')
+            tail.erase(tail.begin());
+
+        auto options = tipl::split(tail,',','(',')');
+        std::unordered_map<std::string,std::string> params;
+        for(auto& opt : options)
+            if(!tipl::trim_space(opt).empty())
+                params[tipl::trim_space(opt)] = "1";
+
+        auto make_split = [&](auto act_tag)
+        {
+            using split_type = split_merge_3d<decltype(act_tag)::value>;
+            bool identity = skip_branch == "identity";
+            auto l = std::make_shared<split_type>(in_c,identity);
+
+            build_layer_sequence(l->main_branch,main_branch,in_c);
+            if(!identity)
+                build_layer_sequence(l->skip_branch,skip_branch,in_c);
+
+            if(l->main_branch.empty())
+                throw std::runtime_error("split_merge main branch is empty: " + def);
+
+            // Critical: out_channels_ must be known during parsing,
+            // before init_image(), because the next layer uses it.
+            l->out_channels_ = l->main_branch.back()->out_channels_;
+            return std::static_pointer_cast<layer>(l);
+        };
+
+        if(params.count(elu_keyword))
+            return make_split(std::integral_constant<activation_type,activation_type::elu>{});
+        if(params.count(leaky_relu_keyword))
+            return make_split(std::integral_constant<activation_type,activation_type::leaky_relu>{});
+        if(params.count(relu_keyword))
+            return make_split(std::integral_constant<activation_type,activation_type::relu>{});
+        return make_split(std::integral_constant<activation_type,activation_type::none>{});
+    }
+
+    std::unordered_map<std::string,std::string> params;
+    for(const auto& arg : tipl::split(def,',','(',')'))
+    {
+        auto a = tipl::trim_space(arg);
+        size_t pos = a.find_first_of("0123456789");
+        if(pos != std::string::npos)
+            params[a.substr(0,pos)] = a.substr(pos);
+        else
+            params[a] = "1";
+    }
+
+    std::shared_ptr<layer> l;
+
+    if(params.count(max_pool_3d::keyword))
+        l.reset(new max_pool_3d(in_c));
+    else if(params.count(avg_pool_3d::keyword))
+        l.reset(new avg_pool_3d(in_c));
+    else if(params.count(avg_pooling_xy_3d::keyword))
+        l.reset(new avg_pooling_xy_3d(in_c));
+    else if(params.count(upsample_3d::keyword))
+        l.reset(new upsample_3d(in_c));
+    else if(params.count(conv_transpose_3d::keyword))
+    {
+        int ks = params.count(kernel_size_keyword) ? std::stoi(params[kernel_size_keyword]) : 2;
+        int stride = params.count(stride_keyword) ? std::stoi(params[stride_keyword]) : 2;
+        if(ks != 2 || stride != 2)
+            throw std::runtime_error("conv_trans supports only ks2 stride2");
+        l.reset(new conv_transpose_3d(in_c,std::stoi(params[conv_transpose_3d::keyword]),ks,stride));
+    }
+    else if(params.count(conv_transpose_xy_3d::keyword))
+    {
+        int ks = params.count(kernel_size_keyword) ? std::stoi(params[kernel_size_keyword]) : 2;
+        int stride = params.count(stride_keyword) ? std::stoi(params[stride_keyword]) : 2;
+        if(ks != 2 || stride != 2)
+            throw std::runtime_error("conv_trans_xy supports only ks2 stride2, meaning ks2x2x1 stride2x2x1");
+        l.reset(new conv_transpose_xy_3d(in_c,std::stoi(params[conv_transpose_xy_3d::keyword])));
+    }
+    else if(params.count(conv_3d<>::keyword))
+    {
+        int out_ch = std::stoi(params[conv_3d<>::keyword]);
+        int ks = params.count(kernel_size_keyword) ? std::stoi(params[kernel_size_keyword]) : 3;
+        int stride = params.count(stride_keyword) ? std::stoi(params[stride_keyword]) : 1;
+
+        if(!((ks == 1 && stride == 1) || (ks == 3 && (stride == 1 || stride == 2))))
+            throw std::runtime_error("conv supports only ks1 stride1, ks3 stride1, and ks3 stride2");
+
+        l = make_act_layer<conv_3d>(params,in_c,out_ch,ks,stride);
+    }
+    else if(params.count(conv_xy_3d<>::keyword))
+    {
+        int out_ch = std::stoi(params[conv_xy_3d<>::keyword]);
+        int ks = params.count(kernel_size_keyword) ? std::stoi(params[kernel_size_keyword]) : 3;
+        int stride = params.count(stride_keyword) ? std::stoi(params[stride_keyword]) : 2;
+        if(ks != 3 || stride != 2)
+            throw std::runtime_error("conv_xy supports only ks3 stride2, meaning stride2x2x1");
+
+        l = make_act_layer<conv_xy_3d>(params,in_c,out_ch);
+    }
+    else if(params.count(instance_norm_3d<>::keyword))
+        l = make_act_layer<instance_norm_3d>(params,in_c);
+    else if(params.count(batch_norm_3d<>::keyword))
+        l = make_act_layer<batch_norm_3d>(params,in_c);
+    else
+        throw std::runtime_error("unknown layer:" + def);
+
+    return l;
+}
+
+class network : public layer, public layer_sequence
+{
+protected:
     float* get_ptr(std::vector<float>& mem,tipl::device_vector<float>& gpu_mem,size_t total_size)
     {
         float* ptr = nullptr;
@@ -390,17 +819,18 @@ protected:
         }
         return ptr;
     }
+
 protected:
     tipl::device_vector<float> gpu_memory;
     std::vector<float> memory;
-protected:
+
     tipl::device_vector<float> gpu_buf_memory;
     std::vector<float> buf_memory;
 
 public:
     std::function<bool(int,int)> prog = nullptr;
-    std::vector<std::shared_ptr<layer>> layers;
 
+public:
     network() : layer(1,1) {}
     network(int in_c,int out_c) : layer(in_c,out_c) {}
 
@@ -411,143 +841,45 @@ public:
             return {};
         if(memory.empty())
             allocate_param((memory = std::vector<float>(size)).data(),is_gpu = false);
-        std::vector<std::pair<float*,size_t>> param;
-        for(auto& l : layers)
-        {
-            auto p = l->parameters();
-            param.insert(param.end(),p.begin(),p.end());
-        }
-        return param;
-    }
-    size_t param_size(void) override
-    {
-        size_t total_size = 0;
-        for(auto& l : layers)
-            total_size += l->param_size();
-        return total_size;
+        return layer_sequence::parameters();
     }
 
+    size_t param_size(void) override    {return layer_sequence::param_size();}
     const tipl::shape<3>& init_image(const tipl::shape<3>& dim_) override
     {
-        auto out_dim = dim = dim_;
-        for(auto& l : layers)
-            out_dim = l->init_image(out_dim);
-        out_size = layers.back()->out_size;
+        dim = dim_;
+        layer_sequence::init_image(dim_);
+        out_size = layers.empty() ? 0 : layers.back()->out_size;
         out_buffer_size = 0;
         out = nullptr;
         return dim;
     }
+
     void to_gpu(void)
     {
         if constexpr(tipl::use_cuda)
             allocate_param((gpu_memory = memory).data(),is_gpu = true);
         memory = std::vector<float>();
     }
-    float* allocate_param(float* ptr,bool is_gpu_mem) override
-    {
-        is_gpu = is_gpu_mem;
-        for(auto& l : layers)
-            ptr = l->allocate_param(ptr,is_gpu);
-        return ptr;
-    }
+
+    float* allocate_param(float* ptr,bool is_gpu_mem) override  {return layer_sequence::allocate_param(ptr,is_gpu = is_gpu_mem);}
     virtual void allocate_buffer(void)
     {
-        size_t max_mem = 0, in_beg = std::numeric_limits<size_t>::max(), in_end = in_beg;
-        std::vector<size_t> out_loc(layers.size());
-        for(size_t i = 0; i < layers.size(); ++i)
-        {
-            size_t buf_size = layers[i]->out_buffer_size;
-            if(buf_size < in_beg)
-                out_loc[i] = in_beg = 0;
-            else
-                out_loc[i] = in_beg = in_end;
-            in_end = in_beg + buf_size;
-            if(in_end > max_mem)
-                max_mem = in_end;
-        }
-
+        size_t max_mem = arrange_buffer();
         float* ptr = get_ptr(buf_memory,gpu_buf_memory,max_mem);
-        for(size_t i = 0; i < layers.size(); ++i)
-            layers[i]->out = ptr + out_loc[i];
-        out = layers.back()->out;
+        arrange_buffer(ptr);
+        out = layers.empty() ? nullptr : layers.back()->out;
     }
+
     void forward(const float* in_ptr,float*) override
     {
         if(!out)
             allocate_buffer();
-        for(size_t i = 0;i < layers.size();++i)
-        {
-            if(prog && !prog(i,layers.size())) return;
-            layers[i]->forward(in_ptr,layers[i]->out);
-            in_ptr = layers[i]->out;
-        }
+        layer_sequence::forward(in_ptr,[&](size_t i,size_t n){return !prog || prog(int(i),int(n));});
     }
 
-    void push_back(std::shared_ptr<layer> l) { layers.push_back(l); }
-    size_t size(void) const { return layers.size(); }
-    auto back(void) { return layers.back(); }
-
-    void print(std::ostream& os) const override
-    {
-        bool first = true;
-        for(auto& l : layers)
-        {
-            if(!first) os << (l->change_dim() ? "\n" : "+");
-            l->print(os);
-            first = false;
-        }
-    }
-
-    std::shared_ptr<layer> create_layer(const std::string& def,int in_c)
-    {
-        std::unordered_map<std::string,std::string> params;
-        for(const auto& arg : tipl::split(def,','))
-        {
-            size_t pos = arg.find_first_of("0123456789");
-            if(pos != std::string::npos) params[arg.substr(0,pos)] = arg.substr(pos);
-            else params[arg] = "1";
-        }
-        std::shared_ptr<layer> l;
-
-        if(params.count(max_pool_3d::keyword)) l.reset(new max_pool_3d(in_c));
-        else if(params.count(avg_pool_3d::keyword)) l.reset(new avg_pool_3d(in_c));
-        else if(params.count(avg_pooling_xy_3d::keyword)) l.reset(new avg_pooling_xy_3d(in_c));
-        else if(params.count(upsample_3d::keyword)) l.reset(new upsample_3d(in_c));
-        else if(params.count(conv_transpose_3d::keyword))
-        {
-            int ks = params.count(kernel_size_keyword) ? std::stoi(params[kernel_size_keyword]) : 2;
-            int stride = params.count(stride_keyword) ? std::stoi(params[stride_keyword]) : 2;
-            if(ks != 2 || stride != 2) throw std::runtime_error("conv_trans supports only ks2 stride2");
-            l.reset(new conv_transpose_3d(in_c,std::stoi(params[conv_transpose_3d::keyword]),ks,stride));
-        }
-        else if(params.count(conv_3d<>::keyword))
-        {
-            int out_ch = std::stoi(params[conv_3d<>::keyword]);
-            int ks = params.count(kernel_size_keyword) ? std::stoi(params[kernel_size_keyword]) : 3;
-            int stride = params.count(stride_keyword) ? std::stoi(params[stride_keyword]) : 1;
-
-            if(!((ks == 1 && stride == 1) || (ks == 3 && (stride == 1 || stride == 2))))
-                throw std::runtime_error("conv supports only ks1 stride1, ks3 stride1, and ks3 stride2");
-
-            l = make_act_layer<conv_3d>(params,in_c,out_ch,ks,stride);
-        }
-        else if(params.count(conv_xy_3d<>::keyword))
-        {
-            int out_ch = std::stoi(params[conv_xy_3d<>::keyword]);
-            int ks = params.count(kernel_size_keyword) ? std::stoi(params[kernel_size_keyword]) : 3;
-            int stride = params.count(stride_keyword) ? std::stoi(params[stride_keyword]) : 2;
-            if(ks != 3 || stride != 2)
-                throw std::runtime_error("conv_xy supports only ks3 stride2, meaning stride2x2x1");
-
-            l = make_act_layer<conv_xy_3d>(params,in_c,out_ch);
-        }
-        else if(params.count(instance_norm_3d<>::keyword)) l = make_act_layer<instance_norm_3d>(params,in_c);
-        else if(params.count(batch_norm_3d<>::keyword)) l = make_act_layer<batch_norm_3d>(params,in_c);
-        else throw std::runtime_error("unknown layer:"+def);
-
-        layers.push_back(l);
-        return l;
-    }
+    void print(std::ostream& os) const override     {layer_sequence::print(os);}
+    std::shared_ptr<layer> create_layer(const std::string& def,int in_c)     {return append_layer(def,in_c);}
 };
 
 class unet3d : public network
@@ -558,16 +890,17 @@ protected:
 protected:
     tipl::device_vector<float> gpu_skip_memory;
     std::vector<float> skip_memory;
+    std::string arch;
 public:
-    unet3d(const std::string& structure,int in_c,int out_c) : network(in_c,out_c)
+    unet3d(const std::string& structure,int in_c,int out_c) : network(in_c,out_c), arch(structure)
     {
         std::vector<std::vector<std::string>> enc_tokens, dec_tokens;
         {
-            std::vector<std::string> all_lines(tipl::split_in_lines(structure));
+            std::vector<std::string> all_lines(tipl::split_by_line_breaks(structure));
             if(all_lines.size() < 3) throw std::runtime_error("invalid u-net structure");
             size_t enc_count = all_lines.size() / 2 + 1;
             for(size_t i = 0;i < all_lines.size();++i)
-                (i < enc_count ? enc_tokens : dec_tokens).push_back(tipl::split(all_lines[i],'+'));
+                (i < enc_count ? enc_tokens : dec_tokens).push_back(tipl::split(all_lines[i],'+','(',')'));
         }
 
         encoding.resize(enc_tokens.size());
@@ -652,6 +985,7 @@ public:
             if(is_gpu) return forward(tipl::device_image<3,float>(in).data(),nullptr),void();
         forward(in.data(),nullptr);
     }
+    void print(std::ostream& os) const override     {os << arch;}
 };
 
 } // namespace ml3d
