@@ -272,11 +272,8 @@ void cpu_batch_norm_3d_forward(const T* in,T* out,const T* weight,const T* bias,
 }
 
 template <typename T>
-void cpu_max_pool_3d_forward(const T* in, T* out, int in_c, int in_d, int in_h, int in_w, int out_d, int out_h, int out_w, int pool_size)
+void cpu_max_pool_3d_forward(const T* in, T* out, int in_c, int in_d, int in_h, int in_w, int out_d, int out_h, int out_w)
 {
-    if(pool_size != 2)
-        throw std::runtime_error("cpu max_pool_3d supports only pool size 2");
-
     const size_t in_plane = static_cast<size_t>(in_w)*in_h;
     const size_t out_plane = static_cast<size_t>(out_w)*out_h;
     const size_t in_img_size = static_cast<size_t>(in_d)*in_plane;
@@ -314,11 +311,78 @@ void cpu_max_pool_3d_forward(const T* in, T* out, int in_c, int in_d, int in_h, 
 }
 
 template <typename T>
-void cpu_upsample_3d_forward(const T* in, T* out, int in_c, int in_d, int in_h, int in_w, int out_d, int out_h, int out_w, int pool_size)
+void cpu_avg_pool_3d_forward(const T* in, T* out, int in_c,
+                             int in_d, int in_h, int in_w,
+                             int out_d, int out_h, int out_w)
 {
-    if(pool_size != 2)
-        throw std::runtime_error("cpu upsample_3d supports only pool size 2");
 
+    const size_t in_plane = static_cast<size_t>(in_w)*in_h;
+    const size_t out_plane = static_cast<size_t>(out_w)*out_h;
+    const size_t in_img_size = static_cast<size_t>(in_d)*in_plane;
+    const size_t out_img_size = static_cast<size_t>(out_d)*out_plane;
+    constexpr T scale = T(0.125);
+
+    tipl::par_for(static_cast<size_t>(in_c)*out_d,[&](size_t i)
+    {
+        const int c = static_cast<int>(i/out_d);
+        const int z = static_cast<int>(i-static_cast<size_t>(c)*out_d);
+
+        const T* in_z0 = in+static_cast<size_t>(c)*in_img_size+static_cast<size_t>(z << 1)*in_plane;
+        const T* in_z1 = in_z0+in_plane;
+        T* out_ptr = out+static_cast<size_t>(c)*out_img_size+static_cast<size_t>(z)*out_plane;
+
+        for(int y = 0,sy = 0;y < out_h;++y,sy += 2)
+        {
+            const T* r00 = in_z0+static_cast<size_t>(sy)*in_w;
+            const T* r01 = r00+in_w;
+            const T* r10 = in_z1+static_cast<size_t>(sy)*in_w;
+            const T* r11 = r10+in_w;
+
+            for(int x = 0,sx = 0;x < out_w;++x,sx += 2,++out_ptr)
+                *out_ptr = (r00[sx]   + r00[sx+1] +
+                            r01[sx]   + r01[sx+1] +
+                            r10[sx]   + r10[sx+1] +
+                            r11[sx]   + r11[sx+1])*scale;
+        }
+    });
+}
+
+template <typename T>
+void cpu_avg_pooling_xy_3d_forward(const T* in,T* out,int in_c,
+                                   int in_d,int in_h,int in_w,
+                                   int out_d,int out_h,int out_w)
+{
+    if(out_d != in_d || out_h*2 != in_h || out_w*2 != in_w)
+        throw std::runtime_error("cpu avg_pooling_xy expects output size w/2,h/2,d");
+
+    const size_t in_plane = static_cast<size_t>(in_w)*in_h;
+    const size_t out_plane = static_cast<size_t>(out_w)*out_h;
+    const size_t in_img_size = static_cast<size_t>(in_d)*in_plane;
+    const size_t out_img_size = static_cast<size_t>(out_d)*out_plane;
+    constexpr T scale = T(0.25);
+
+    tipl::par_for(static_cast<size_t>(in_c)*in_d,[&](size_t i)
+    {
+        const int c = static_cast<int>(i/in_d);
+        const int z = static_cast<int>(i-static_cast<size_t>(c)*in_d);
+
+        const T* in_z = in+static_cast<size_t>(c)*in_img_size+static_cast<size_t>(z)*in_plane;
+        T* out_ptr = out+static_cast<size_t>(c)*out_img_size+static_cast<size_t>(z)*out_plane;
+
+        for(int y = 0,sy = 0;y < out_h;++y,sy += 2)
+        {
+            const T* r0 = in_z+static_cast<size_t>(sy)*in_w;
+            const T* r1 = r0+in_w;
+
+            for(int x = 0,sx = 0;x < out_w;++x,sx += 2,++out_ptr)
+                *out_ptr = (r0[sx]+r0[sx+1]+r1[sx]+r1[sx+1])*scale;
+        }
+    });
+}
+
+template <typename T>
+void cpu_upsample_3d_forward(const T* in, T* out, int in_c, int in_d, int in_h, int in_w, int out_d, int out_h, int out_w)
+{
     const size_t in_plane = static_cast<size_t>(in_w)*in_h;
     const size_t out_plane = static_cast<size_t>(out_w)*out_h;
     const size_t in_img_size = static_cast<size_t>(in_d)*in_plane;
@@ -379,11 +443,19 @@ void cuda_batch_norm_3d_forward(const T* in,T* out,const T* weight,const T* bias
 template <typename T>
 void cuda_max_pool_3d_forward(const T* in, T* out,
                               int in_c, int in_d, int in_h, int in_w,
-                              int out_d, int out_h, int out_w, int pool_size);
+                              int out_d, int out_h, int out_w);
+template <typename T>
+void cuda_avg_pool_3d_forward(const T* in, T* out,
+                              int in_c, int in_d, int in_h, int in_w,
+                              int out_d, int out_h, int out_w);
+template <typename T>
+void cuda_avg_pooling_xy_3d_forward(const T* in,T* out,int in_c,
+                                    int in_d,int in_h,int in_w,
+                                    int out_d,int out_h,int out_w);
 template <typename T>
 void cuda_upsample_3d_forward(const T* in, T* out,
                               int in_c, int in_d, int in_h, int in_w,
-                              int out_d, int out_h, int out_w, int pool_size);
+                              int out_d, int out_h, int out_w);
 
 template <typename T>
 void cuda_copy_device_to_device(T* dest, const T* src, size_t count);
@@ -678,6 +750,82 @@ void max_pool_3d_kernel(const T* __restrict__ in,T* __restrict__ out,
 
 template<typename T>
 __global__ __launch_bounds__(128,2)
+    void avg_pool_3d_kernel(const T* __restrict__ in,T* __restrict__ out,
+                            int in_c,int in_d,int in_h,int in_w,
+                            int out_d,int out_h,int out_w)
+{
+    int x = blockIdx.x*blockDim.x+threadIdx.x;
+    int y_blocks = (out_h+blockDim.y-1)/blockDim.y;
+    int y_tile = blockIdx.y;
+    int y0 = (y_tile%y_blocks)*blockDim.y;
+    int z = y_tile/y_blocks;
+    int y = y0+threadIdx.y;
+    int c = blockIdx.z;
+
+    if(x >= out_w || y >= out_h)
+        return;
+
+    int in_plane = in_w*in_h;
+    int in_img_size = in_d*in_plane;
+    int out_plane = out_w*out_h;
+    int out_img_size = out_d*out_plane;
+
+    int sx = x << 1;
+    int sy = y << 1;
+    int sz = z << 1;
+
+    const T* p = in+static_cast<size_t>(c)*in_img_size+
+                 static_cast<size_t>(sz)*in_plane+
+                 static_cast<size_t>(sy)*in_w+sx;
+
+    T sum = p[0] + p[1] + p[in_w] + p[in_w+1];
+
+    p += in_plane;
+    sum += p[0] + p[1] + p[in_w] + p[in_w+1];
+
+    out[static_cast<size_t>(c)*out_img_size+
+        static_cast<size_t>(z)*out_plane+
+        static_cast<size_t>(y)*out_w+x] = sum*T(0.125);
+}
+
+template<typename T>
+__global__ __launch_bounds__(128,2)
+    void avg_pooling_xy_3d_kernel(const T* __restrict__ in,T* __restrict__ out,
+                                  int in_c,int in_d,int in_h,int in_w,
+                                  int out_d,int out_h,int out_w)
+{
+    int x = blockIdx.x*blockDim.x+threadIdx.x;
+    int y_blocks = (out_h+blockDim.y-1)/blockDim.y;
+    int y_tile = blockIdx.y;
+    int y0 = (y_tile%y_blocks)*blockDim.y;
+    int z = y_tile/y_blocks;
+    int y = y0+threadIdx.y;
+    int c = blockIdx.z;
+
+    if(x >= out_w || y >= out_h)
+        return;
+
+    int in_plane = in_w*in_h;
+    int in_img_size = in_d*in_plane;
+    int out_plane = out_w*out_h;
+    int out_img_size = out_d*out_plane;
+
+    int sx = x << 1;
+    int sy = y << 1;
+
+    const T* p = in+static_cast<size_t>(c)*in_img_size+
+                 static_cast<size_t>(z)*in_plane+
+                 static_cast<size_t>(sy)*in_w+sx;
+
+    T sum = p[0]+p[1]+p[in_w]+p[in_w+1];
+
+    out[static_cast<size_t>(c)*out_img_size+
+        static_cast<size_t>(z)*out_plane+
+        static_cast<size_t>(y)*out_w+x] = sum*T(0.25);
+}
+
+template<typename T>
+__global__ __launch_bounds__(128,2)
 void upsample_3d_kernel(const T* __restrict__ in,T* __restrict__ out,
                         int in_c,int in_d,int in_h,int in_w,
                         int out_d,int out_h,int out_w)
@@ -839,11 +987,8 @@ void cuda_instance_norm_3d_forward<activation_type::elu, float>(const float* in,
 template <typename T>
 void cuda_max_pool_3d_forward(const T* in, T* out,
                               int in_c, int in_d, int in_h, int in_w,
-                              int out_d, int out_h, int out_w, int pool_size)
+                              int out_d, int out_h, int out_w)
 {
-    if(pool_size != 2)
-        throw std::runtime_error("cuda max_pool_3d supports only pool size 2");
-
     dim3 block(cuda_kernels::spatial_block_x,cuda_kernels::spatial_block_y,1);
     dim3 grid(cuda_kernels::div_up(out_w,block.x),cuda_kernels::div_up(out_h,block.y)*out_d,in_c);
     cuda_kernels::max_pool_3d_kernel<T><<<grid,block>>>(
@@ -853,17 +998,53 @@ void cuda_max_pool_3d_forward(const T* in, T* out,
 template
 void cuda_max_pool_3d_forward<float>(const float* in, float* out,
                               int in_c, int in_d, int in_h, int in_w,
-                              int out_d, int out_h, int out_w, int pool_size);
+                              int out_d, int out_h, int out_w);
 
+
+template <typename T>
+void cuda_avg_pool_3d_forward(const T* in, T* out,
+                              int in_c, int in_d, int in_h, int in_w,
+                              int out_d, int out_h, int out_w)
+{
+    dim3 block(cuda_kernels::spatial_block_x,cuda_kernels::spatial_block_y,1);
+    dim3 grid(cuda_kernels::div_up(out_w,block.x),cuda_kernels::div_up(out_h,block.y)*out_d,in_c);
+
+    cuda_kernels::avg_pool_3d_kernel<T><<<grid,block>>>(
+        in,out,in_c,in_d,in_h,in_w,out_d,out_h,out_w);
+}
+
+template
+void cuda_avg_pool_3d_forward<float>(const float* in, float* out,
+                                    int in_c, int in_d, int in_h, int in_w,
+                                    int out_d, int out_h, int out_w);
+
+template <typename T>
+void cuda_avg_pooling_xy_3d_forward(const T* in,T* out,int in_c,
+                                    int in_d,int in_h,int in_w,
+                                    int out_d,int out_h,int out_w)
+{
+    if(out_d != in_d || out_h*2 != in_h || out_w*2 != in_w)
+        throw std::runtime_error("cuda avg_pooling_xy expects output size w/2,h/2,d");
+
+    dim3 block(cuda_kernels::spatial_block_x,cuda_kernels::spatial_block_y,1);
+    dim3 grid(cuda_kernels::div_up(out_w,block.x),
+              cuda_kernels::div_up(out_h,block.y)*out_d,
+              in_c);
+
+    cuda_kernels::avg_pooling_xy_3d_kernel<T><<<grid,block>>>(
+        in,out,in_c,in_d,in_h,in_w,out_d,out_h,out_w);
+}
+
+template
+    void cuda_avg_pooling_xy_3d_forward<float>(const float* in,float* out,int in_c,
+                                          int in_d,int in_h,int in_w,
+                                          int out_d,int out_h,int out_w);
 
 template <typename T>
 void cuda_upsample_3d_forward(const T* in, T* out,
                               int in_c, int in_d, int in_h, int in_w,
-                              int out_d, int out_h, int out_w, int pool_size)
+                              int out_d, int out_h, int out_w)
 {
-    if(pool_size != 2)
-        throw std::runtime_error("cuda upsample_3d supports only pool size 2");
-
     dim3 block(cuda_kernels::spatial_block_x,cuda_kernels::spatial_block_y,1);
     dim3 grid(cuda_kernels::div_up(in_w,block.x),cuda_kernels::div_up(in_h,block.y)*in_d,in_c);
     cuda_kernels::upsample_3d_kernel<T><<<grid,block>>>(
@@ -873,7 +1054,7 @@ void cuda_upsample_3d_forward(const T* in, T* out,
 template
 void cuda_upsample_3d_forward<float>(const float* in, float* out,
                               int in_c, int in_d, int in_h, int in_w,
-                              int out_d, int out_h, int out_w, int pool_size);
+                              int out_d, int out_h, int out_w);
 
 
 template <typename T = float>
