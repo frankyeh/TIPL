@@ -42,6 +42,13 @@ inline void apply_activation_buffer(T* out,size_t count,T slope)
             out[i] = apply_activation<Act>(out[i],slope);
 }
 
+template<activation_type Act,typename T>
+inline void cpu_add_3d_forward(const T* lhs,const T* rhs,T* out,size_t count,T slope)
+{
+    for(size_t i = 0;i < count;++i)
+        out[i] = apply_activation<Act>(lhs[i]+rhs[i],slope);
+}
+
 template <activation_type Act, typename T>
 void cpu_conv_1x1_forward(const T* in,const T* weight,const T* bias,T* out,
                           int in_c,int out_c,
@@ -204,6 +211,56 @@ void cpu_conv_transpose_3d_forward(const T* in, const T* weight, const T* bias, 
             const T* weight_y = weight_z+(ky << 1);
             T* out_row = out_slice+static_cast<size_t>(y)*out_w;
             const T* in_y_base = in+static_cast<size_t>(in_z)*in_plane+static_cast<size_t>(in_y)*in_w;
+
+            for(int x = 0;x < out_w;++x)
+            {
+                const int in_x = x >> 1;
+                const int kx = x & 1;
+                const T* weight_k = weight_y+kx;
+                const T* in_ptr = in_y_base+in_x;
+                T sum = bias_val;
+
+                for(int ic = 0;ic < in_c;++ic,in_ptr += in_img_size,weight_k += weight_ic_step)
+                    sum = multiply_add(*in_ptr,*weight_k,sum);
+
+                out_row[x] = sum;
+            }
+        }
+    });
+}
+
+template <typename T>
+void cpu_conv_transpose_xy_3d_forward(const T* in,const T* weight,const T* bias,T* out,
+                                      int in_c,int out_c,
+                                      int in_d,int in_h,int in_w,
+                                      int out_d,int out_h,int out_w)
+{
+    if(out_d != in_d || out_h != in_h*2 || out_w != in_w*2)
+        throw std::runtime_error("cpu conv_trans_xy expects output size w*2,h*2,d");
+
+    const size_t in_img_size = static_cast<size_t>(in_w)*in_h*in_d;
+    const size_t out_img_size = static_cast<size_t>(out_w)*out_h*out_d;
+    const int in_plane = in_w*in_h;
+    const int out_plane = out_w*out_h;
+    constexpr int kernel_size3_const = 4; // 2x2x1
+    const int weight_ic_step = out_c*kernel_size3_const;
+
+    tipl::par_for(static_cast<size_t>(out_c)*out_d,[&](size_t job)
+    {
+        const int oc = static_cast<int>(job/out_d);
+        const int z = static_cast<int>(job-static_cast<size_t>(oc)*out_d);
+
+        T* out_slice = out+static_cast<size_t>(oc)*out_img_size+static_cast<size_t>(z)*out_plane;
+        const T bias_val = bias[oc];
+        const T* weight_z = weight+static_cast<size_t>(oc)*kernel_size3_const;
+
+        for(int y = 0;y < out_h;++y)
+        {
+            const int in_y = y >> 1;
+            const int ky = y & 1;
+            const T* weight_y = weight_z+(ky << 1);
+            T* out_row = out_slice+static_cast<size_t>(y)*out_w;
+            const T* in_y_base = in+static_cast<size_t>(z)*in_plane+static_cast<size_t>(in_y)*in_w;
 
             for(int x = 0;x < out_w;++x)
             {
@@ -555,6 +612,12 @@ void cuda_conv_transpose_3d_forward(const T* in, const T* weight, const T* bias,
                                     int out_d, int out_h, int out_w,
                                     int kernel_size, int kernel_size3, int stride);
 
+template <typename T>
+void cuda_conv_transpose_xy_3d_forward(const T* in,const T* weight,const T* bias,T* out,
+                                       int in_c,int out_c,
+                                       int in_d,int in_h,int in_w,
+                                       int out_d,int out_h,int out_w);
+
 
 template <activation_type Act, typename T>
 void cuda_instance_norm_3d_forward(const T* in, T* out, const T* weight, const T* bias,
@@ -578,6 +641,9 @@ template <typename T>
 void cuda_upsample_3d_forward(const T* in, T* out,
                               int in_c, int in_d, int in_h, int in_w,
                               int out_d, int out_h, int out_w);
+
+template<activation_type Act,typename T>
+void cuda_add_3d_forward(const T* lhs,const T* rhs,T* out,size_t count,T slope);
 
 template <typename T>
 void cuda_copy_device_to_device(T* dest, const T* src, size_t count);
@@ -874,6 +940,51 @@ void conv_transpose_3d_kernel(const T* __restrict__ in,const T* __restrict__ wei
     out[static_cast<size_t>(oc)*out_img_size+static_cast<size_t>(z)*out_plane+static_cast<size_t>(y)*out_w+x] = sum;
 }
 
+template<typename T>
+__global__ __launch_bounds__(128,2)
+    void conv_transpose_xy_3d_kernel(const T* __restrict__ in,const T* __restrict__ weight,
+                                     const T* __restrict__ bias,T* __restrict__ out,
+                                     int in_c,int out_c,
+                                     int in_d,int in_h,int in_w,
+                                     int out_d,int out_h,int out_w)
+{
+    int x = blockIdx.x*blockDim.x+threadIdx.x;
+    int y_blocks = (out_h+blockDim.y-1)/blockDim.y;
+    int y_tile = blockIdx.y;
+    int y0 = (y_tile%y_blocks)*blockDim.y;
+    int z = y_tile/y_blocks;
+    int y = y0+threadIdx.y;
+    int oc = blockIdx.z;
+
+    if(x >= out_w || y >= out_h)
+        return;
+
+    int in_x = x >> 1;
+    int in_y = y >> 1;
+    int kx = x & 1;
+    int ky = y & 1;
+
+    int in_plane = in_w*in_h;
+    int in_img_size = in_d*in_plane;
+    int out_plane = out_w*out_h;
+    int out_img_size = out_d*out_plane;
+
+    constexpr int kernel_size3_const = 4; // 2x2x1
+    int k_offset = (ky << 1)+kx;
+
+    T sum = bias[oc];
+    const T* in_ptr = in+static_cast<size_t>(z)*in_plane+static_cast<size_t>(in_y)*in_w+in_x;
+    const T* weight_ptr = weight+static_cast<size_t>(oc)*kernel_size3_const+k_offset;
+    int w_stride = out_c*kernel_size3_const;
+
+    for(int ic = 0;ic < in_c;++ic,in_ptr += in_img_size,weight_ptr += w_stride)
+        sum = multiply_add(*in_ptr,*weight_ptr,sum);
+
+    out[static_cast<size_t>(oc)*out_img_size+
+        static_cast<size_t>(z)*out_plane+
+        static_cast<size_t>(y)*out_w+x] = sum;
+}
+
 template<activation_type Act,typename T>
 __global__ __launch_bounds__(256,2)
 void batch_norm_3d_kernel(const T* __restrict__ in,T* __restrict__ out,const T* __restrict__ weight,const T* __restrict__ bias,
@@ -1109,6 +1220,20 @@ void upsample_3d_kernel(const T* __restrict__ in,T* __restrict__ out,
     out_ptr[out_w+1] = val;
 }
 
+template<activation_type Act,typename T>
+__global__ __launch_bounds__(256,2)
+    void add_3d_kernel(const T* __restrict__ lhs,
+                       const T* __restrict__ rhs,
+                       T* __restrict__ out,
+                       size_t count,
+                       T slope)
+{
+    size_t i = static_cast<size_t>(blockIdx.x)*blockDim.x+threadIdx.x;
+    if(i >= count)
+        return;
+    out[i] = apply_activation<Act>(lhs[i]+rhs[i],slope);
+}
+
 } // namespace cuda_kernels
 
 template <activation_type Act, typename T>
@@ -1226,6 +1351,28 @@ void cuda_conv_transpose_3d_forward<float>(const float* in, const float* weight,
                                     int in_c, int out_c, int in_d, int in_h, int in_w, int out_d, int out_h, int out_w,
                                     int kernel_size, int kernel_size3, int stride);
 
+template <typename T>
+void cuda_conv_transpose_xy_3d_forward(const T* in,const T* weight,const T* bias,T* out,
+                                       int in_c,int out_c,
+                                       int in_d,int in_h,int in_w,
+                                       int out_d,int out_h,int out_w)
+{
+    if(out_d != in_d || out_h != in_h*2 || out_w != in_w*2)
+        throw std::runtime_error("cuda conv_trans_xy expects output size w*2,h*2,d");
+
+    dim3 block(cuda_kernels::spatial_block_x,cuda_kernels::spatial_block_y,1);
+    dim3 grid(cuda_kernels::div_up(out_w,block.x),
+              cuda_kernels::div_up(out_h,block.y)*out_d,
+              out_c);
+
+    cuda_kernels::conv_transpose_xy_3d_kernel<T><<<grid,block>>>(
+        in,weight,bias,out,in_c,out_c,in_d,in_h,in_w,out_d,out_h,out_w);
+}
+
+template
+    void cuda_conv_transpose_xy_3d_forward<float>(
+        const float*,const float*,const float*,float*,
+        int,int,int,int,int,int,int,int);
 
 template<activation_type Act,typename T>
 void cuda_batch_norm_3d_forward(const T* in,T* out,const T* weight,const T* bias,
@@ -1336,6 +1483,30 @@ void cuda_upsample_3d_forward<float>(const float* in, float* out,
                               int in_c, int in_d, int in_h, int in_w,
                               int out_d, int out_h, int out_w);
 
+
+template<activation_type Act,typename T>
+void cuda_add_3d_forward(const T* lhs,const T* rhs,T* out,size_t count,T slope)
+{
+    dim3 block(cuda_kernels::elem_block_size);
+    dim3 grid(cuda_kernels::div_up(count,block.x));
+    cuda_kernels::add_3d_kernel<Act,T><<<grid,block>>>(lhs,rhs,out,count,slope);
+}
+
+template
+    void cuda_add_3d_forward<activation_type::none,float>(
+        const float*,const float*,float*,size_t,float);
+
+template
+    void cuda_add_3d_forward<activation_type::relu,float>(
+        const float*,const float*,float*,size_t,float);
+
+template
+    void cuda_add_3d_forward<activation_type::leaky_relu,float>(
+        const float*,const float*,float*,size_t,float);
+
+template
+    void cuda_add_3d_forward<activation_type::elu,float>(
+        const float*,const float*,float*,size_t,float);
 
 template <typename T = float>
 void cuda_copy_device_to_device(T* dest, const T* src, size_t count)
