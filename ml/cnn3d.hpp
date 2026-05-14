@@ -119,6 +119,53 @@ public:
     bool change_dim(void) const override { return stride_ != 1; }
 };
 
+template <activation_type Act = activation_type::none>
+class conv_xy_3d : public weight_bias_layer
+{
+public:
+    static constexpr const char* keyword = "conv_xy";
+    tipl::shape<3> out_dim;
+
+    conv_xy_3d(int in_c,int out_c) : weight_bias_layer(in_c,out_c)
+    {
+        weight_size = 27*in_channels_*out_channels_;
+    }
+
+    const tipl::shape<3>& init_image(const tipl::shape<3>& dim_) override
+    {
+        dim = dim_;
+        out_dim = tipl::s(dim_[0] >> 1,dim_[1] >> 1,dim_[2]);
+        out_buffer_size = out_size = out_dim.size()*out_channels_;
+        return out_dim;
+    }
+
+    void forward(const float* in,float* out_ptr) override
+    {
+        if constexpr(tipl::use_cuda)
+            if(this->is_gpu)
+                return cuda_conv_xy_3d_forward<Act,float>(
+                           in,weight,bias,out_ptr,
+                           in_channels_,out_channels_,
+                           dim.depth(),dim.height(),dim.width(),
+                           out_dim.depth(),out_dim.height(),out_dim.width(),
+                           0.01f),void();
+
+        cpu_conv_xy_3d_forward<Act>(
+            in,weight,bias,out_ptr,
+            in_channels_,out_channels_,
+            dim.depth(),dim.height(),dim.width(),
+            out_dim.depth(),out_dim.height(),out_dim.width());
+    }
+
+    void print(std::ostream& os) const override
+    {
+        os << keyword << out_channels_ << "," << kernel_size_keyword << "3," << stride_keyword << "2";
+        this->print_activation<Act>(os);
+    }
+
+    bool change_dim(void) const override { return true; }
+};
+
 class conv_transpose_3d : public weight_bias_layer
 {
     int kernel_size_, kernel_size3, stride_;
@@ -483,6 +530,16 @@ public:
                 throw std::runtime_error("conv supports only ks1 stride1, ks3 stride1, and ks3 stride2");
 
             l = make_act_layer<conv_3d>(params,in_c,out_ch,ks,stride);
+        }
+        else if(params.count(conv_xy_3d<>::keyword))
+        {
+            int out_ch = std::stoi(params[conv_xy_3d<>::keyword]);
+            int ks = params.count(kernel_size_keyword) ? std::stoi(params[kernel_size_keyword]) : 3;
+            int stride = params.count(stride_keyword) ? std::stoi(params[stride_keyword]) : 2;
+            if(ks != 3 || stride != 2)
+                throw std::runtime_error("conv_xy supports only ks3 stride2, meaning stride2x2x1");
+
+            l = make_act_layer<conv_xy_3d>(params,in_c,out_ch);
         }
         else if(params.count(instance_norm_3d<>::keyword)) l = make_act_layer<instance_norm_3d>(params,in_c);
         else if(params.count(batch_norm_3d<>::keyword)) l = make_act_layer<batch_norm_3d>(params,in_c);
