@@ -42,8 +42,43 @@ auto split(const T& s,typename T::value_type delimiter)
     for (T token; std::getline(ss, token, delimiter); tokens.push_back(token));
     return tokens;
 }
+
 template<typename T>
-auto split_in_lines(const T& s,bool ignore_empty_lines = true)
+auto split(const T& s,typename T::value_type delimiter,
+           typename T::value_type open,
+           typename T::value_type close)
+{
+    std::vector<T> tokens;
+    int depth = 0;
+    size_t beg = 0;
+
+    for(size_t i = 0;i < s.size();++i)
+    {
+        if(s[i] == open)
+        {
+            if(s.find(close,i+1) != T::npos)
+                ++depth;
+        }
+        else
+            if(s[i] == close)
+            {
+                if(depth)
+                    --depth;
+            }
+            else
+                if(s[i] == delimiter && !depth)
+                {
+                    tokens.push_back(s.substr(beg,i-beg));
+                    beg = i+1;
+                }
+    }
+
+    tokens.push_back(s.substr(beg));
+    return tokens;
+}
+
+template<typename T>
+auto split_by_line_breaks(const T& s,bool ignore_empty_lines = true)
 {
     std::vector<T> tokens;
     for(auto t : split(s, '\n'))
@@ -122,6 +157,15 @@ inline bool begins_with(const std::string& str, const std::initializer_list<std:
             return true;
     return false;
 }
+
+inline std::string trim_space(std::string s)
+{
+    auto not_space = [](unsigned char c){return !std::isspace(c);};
+    s.erase(s.begin(),std::find_if(s.begin(),s.end(),not_space));
+    s.erase(std::find_if(s.rbegin(),s.rend(),not_space).base(),s.end());
+    return s;
+};
+
 inline std::string remove_all_suffix(const std::string& str)
 {
     std::string_view s(str);
