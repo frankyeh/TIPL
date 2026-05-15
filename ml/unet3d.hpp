@@ -24,13 +24,14 @@ namespace tipl
 namespace ml3d
 {
 
-inline auto round_up_size(const tipl::shape<3>& s)
+template<typename T>
+auto round_up_size(const T& round_up_multiple,const tipl::shape<3>& s)
 {
-    return tipl::shape<3>((s[0]+31)&~31, (s[1]+31)&~31, (s[2]+31)&~31);
+    return tipl::shape<3>(
+        ((s[0]+round_up_multiple[0]-1)/round_up_multiple[0])*round_up_multiple[0],
+        ((s[1]+round_up_multiple[1]-1)/round_up_multiple[1])*round_up_multiple[1],
+        ((s[2]+round_up_multiple[2]-1)/round_up_multiple[2])*round_up_multiple[2]);
 }
-
-
-
 
 template<typename image_type = tipl::image<3>>
 struct evalution_set{
@@ -63,7 +64,7 @@ private:
 public:
     image_type source_image;
     std::vector<image_type> model_input,model_output;
-
+    tipl::vector<3,int> round_up_multiple;
 public:
     evalution_set(void):label_prob(source_image){}
     std::string error_msg;
@@ -190,7 +191,19 @@ public:
             // if active_shifts == 1 then use default align_center
         }
 
-        if(fov_strategy == "align_top")
+        if(fov_strategy == "image")
+        {
+            model_vs[0] = model_vs[1] = model_vs[2] = ((image_vs[0] + image_vs[2]) * 0.5f);
+            patch_phys = model_dim = round_up_size(round_up_multiple,
+                    tipl::shape<3>(bb_phys[0]/model_vs[0],bb_phys[1]/model_vs[1],bb_phys[2]/model_vs[2]));
+            patch_phys.elem_mul(model_vs);
+
+            model_input.resize(1);
+            trans.resize(1);
+            add_view(mask_center_phys-image_center_phys,model_input[0],trans[0]);
+            mask = trans[0].template operator()<tipl::majority>(mask,model_dim);
+        }
+        else if(fov_strategy == "align_top")
         {
             model_input.resize(1);
             trans.resize(1);
@@ -530,12 +543,10 @@ public:
         tipl::out() << "in: " << channels[0] << " out:" << channels[1];
         tipl::out() << "name: " << name;
         tipl::out() << "loading unet: " << arch;
-        if(in.read("report",report))
-            tipl::out() << "report: " << report;
-
 
         try{
-        unet.reset(new unet3d(arch,channels[0],channels[1]));
+            unet.reset(new unet3d(arch,channels[0],channels[1]));
+            eval.round_up_multiple = unet->round_up_multiple;
         }
         catch(std::runtime_error& e)
         {
