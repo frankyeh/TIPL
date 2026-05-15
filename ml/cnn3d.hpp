@@ -891,6 +891,10 @@ protected:
     tipl::device_vector<float> gpu_skip_memory;
     std::vector<float> skip_memory;
     std::string arch;
+
+public:
+    int round_up_multiple[3] = {1,1,1};
+
 public:
     unet3d(const std::string& structure,int in_c,int out_c) : network(in_c,out_c), arch(structure)
     {
@@ -901,6 +905,19 @@ public:
             size_t enc_count = all_lines.size() / 2 + 1;
             for(size_t i = 0;i < all_lines.size();++i)
                 (i < enc_count ? enc_tokens : dec_tokens).push_back(tipl::split(all_lines[i],'+','(',')'));
+        }
+
+        for(size_t i = 1;i < enc_tokens.size();++i)
+        {
+            bool xy = false;
+            for(const auto& token : enc_tokens[i])
+                if(token.find("conv_xy") != std::string::npos)
+                    xy = true;
+
+            round_up_multiple[0] <<= 1;
+            round_up_multiple[1] <<= 1;
+            if(!xy)
+                round_up_multiple[2] <<= 1;
         }
 
         encoding.resize(enc_tokens.size());
@@ -923,6 +940,7 @@ public:
             }
         }
     }
+
     std::shared_ptr<layer> create_layer(const std::string& def,int in_c = 0)
     {
         if(layers.empty()) in_c = in_channels_;
@@ -932,20 +950,40 @@ public:
 
     void allocate_buffer(void) override
     {
-        size_t total_skip_memory = 0;
-        for(size_t i = 0; i < decoding.size(); ++i)
+        size_t persistent_size = 0;
+        size_t max_memory_reached = 0;
+
+        std::vector<size_t> enc_offset(decoding.size());
+        std::vector<size_t> dec_offset(decoding.size());
+
+        for(size_t i = 0;i < decoding.size();++i)
         {
-            total_skip_memory += encoding[i].back()->out_size + decoding_head[i]->out_size;
-            encoding[i].back()->out_buffer_size = 0;
-            decoding_head[i]->out_buffer_size = 0;
+            auto enc = encoding[i].back();
+            auto dec = decoding_head[i];
+
+            enc_offset[i] = persistent_size;
+            max_memory_reached = std::max(max_memory_reached,
+                                          persistent_size + enc->out_buffer_size);
+            persistent_size += enc->out_size;
+
+            dec_offset[i] = persistent_size;
+            max_memory_reached = std::max(max_memory_reached,
+                                          persistent_size + dec->out_buffer_size);
+            persistent_size += dec->out_size;
+
+            enc->out_buffer_size = 0;
+            dec->out_buffer_size = 0;
         }
+
         network::allocate_buffer();
-        auto skip_ptr = get_ptr(skip_memory,gpu_skip_memory,total_skip_memory);
-        for(size_t i = 0; i < decoding_head.size(); ++i)
+
+        auto skip_ptr = get_ptr(skip_memory,gpu_skip_memory,
+                                std::max(persistent_size,max_memory_reached));
+
+        for(size_t i = 0;i < decoding_head.size();++i)
         {
-            encoding[i].back()->out = skip_ptr;
-            decoding_head[i]->out = skip_ptr + encoding[i].back()->out_size;
-            skip_ptr += encoding[i].back()->out_size + decoding_head[i]->out_size;
+            encoding[i].back()->out = skip_ptr + enc_offset[i];
+            decoding_head[i]->out = skip_ptr + dec_offset[i];
         }
     }
 
