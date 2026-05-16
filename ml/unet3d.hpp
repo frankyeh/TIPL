@@ -86,6 +86,8 @@ public:
 
     bool handle_orientation(const std::string& cmd,bool reversed = false)
     {
+        if(cmd.empty())
+            return true;
         tipl::progress prog("handle orientation");
         tipl::out() << "run " << cmd;
         auto cmds = tipl::split(cmd,'+');
@@ -101,13 +103,15 @@ public:
                     tipl::flip_xy(I);
                 if(each == "swap_yz")
                     tipl::swap_yz(I);
+                if(each == "flip_x")
+                    tipl::flip_x(I);
                 if(each == "flip_y")
                     tipl::flip_y(I);
                 if(each == "flip_z")
                     tipl::flip_z(I);
             }
         });
-        return !prog.aborted();
+        return true;
     }
 
     bool handle_fov_pre(const std::string& fov_strategy)
@@ -521,7 +525,7 @@ public:
 public:
     evalution_set<tipl::image<3>> eval;
     std::string error_msg;
-    std::string preproc,postproc,fov_strategy,name,arch,report;
+    std::string preproc,postproc,orientation,fov_strategy,name,arch,report;
     std::vector<std::string> labels;
 
     template<typename reader>
@@ -544,6 +548,7 @@ public:
             return error_msg = "invalid model format: " + in.error_msg,false;
         in.read("fov_strategy",fov_strategy);
         in.read("postproc",postproc);
+        in.read("orientation",orientation);
         in.read("preproc",preproc);
         labels = tipl::split(in.template read<std::string>("labels"),'\n');
         tipl::out() << "dim: " << eval.model_dim << " vs: " << eval.model_vs;
@@ -590,7 +595,7 @@ public:
     bool forward(void)
     {
         tipl::progress prog("unet segmentation");
-        if(!eval.handle_fov_pre(fov_strategy) || !eval.handle_orientation(preproc))
+        if(!eval.handle_fov_pre(fov_strategy) || !eval.handle_orientation(orientation))
             return false;
 
         auto out_shape = eval.model_dim.multiply(tipl::shape<3>::z,eval.out_count);
@@ -618,7 +623,7 @@ public:
                 return false;
         }
 
-        if(!eval.handle_orientation(preproc,true) || !eval.handle_fov_post() || !eval.command(postproc))
+        if(!eval.handle_orientation(orientation,true) || !eval.handle_fov_post() || !eval.command(postproc))
             return error_msg = eval.error_msg,false;
         prog(4,4);
         return !prog.aborted();
