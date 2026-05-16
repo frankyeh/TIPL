@@ -797,9 +797,14 @@ void bounding_box(const std::vector<point_type>& points,point_type& max_value,po
     }
     tipl::par_for<dynamic_with_id>(points.size(),[&](unsigned int index,unsigned int id)
     {
-        for (unsigned char d = 0; d < point_type::dimension; ++d)
-            if (points[index][d] > max_values[id][d]) max_values[id][d] = points[index][d];
-            else if (points[index][d] < min_values[id][d]) min_values[id][d] = points[index][d];
+        const auto& p = points[index];
+        for(unsigned char d = 0; d < point_type::dimension; ++d)
+        {
+            if(p[d] > max_values[id][d])
+                max_values[id][d] = p[d];
+            else if(p[d] < min_values[id][d])
+                min_values[id][d] = p[d];
+        }
     });
     max_value = max_values[0]; min_value = min_values[0];
 
