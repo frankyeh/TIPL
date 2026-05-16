@@ -1221,9 +1221,7 @@ void negate(iterator_type iter,iterator_type end,value_type maximum)
 template<typename ImageType,typename value_type>
 ImageType& negate(ImageType& I,value_type maximum)
 {
-    auto iter = I.begin(), end = I.end();
-    for (; iter != end; ++iter) *iter = maximum - *iter;
-    return I;
+    return apply(I,[&](auto v){return maximum - v;});
 }
 
 template<typename ImageType>
