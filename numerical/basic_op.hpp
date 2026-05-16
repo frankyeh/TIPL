@@ -246,6 +246,14 @@ LabelImageType& threshold(const ImageType& I,LabelImageType& out,typename ImageT
     return transform_to(I,out,[&](auto v){return v > threshold_value ? foreground : background;});
 }
 
+template<typename LabelImageType,typename ImageType>
+inline auto threshold(const ImageType& I,typename ImageType::value_type threshold_value,
+               typename LabelImageType::value_type foreground = 1,typename LabelImageType::value_type background = 0)
+{
+    LabelImageType out;
+    threshold(I,out,threshold_value,foreground,background);
+    return out;
+}
 
 template<typename ImageType>
 ImageType& threshold(ImageType& I,typename ImageType::value_type threshold_value,
@@ -269,18 +277,7 @@ inline auto operator<(const image<dim,vtype,stype>& I,vtype prob_threshold)
     tipl::threshold(I,mask,prob_threshold,0,1);
     return mask;
 }
-
-
-template<typename ImageType>
-ImageType& threshold(ImageType& I,typename ImageType::value_type threshold_value,
-                     typename ImageType::value_type foreground = 1,typename ImageType::value_type background = 0)
-{
-    auto iter = I.begin();
-    auto end = I.end();
-    for(; iter != end; ++iter)
-        *iter = (*iter > threshold_value) ? foreground : background;
-    return I;
-}
+
 
 template<typename T,typename U>
 inline T space2slice(unsigned char dim,const U& p)
