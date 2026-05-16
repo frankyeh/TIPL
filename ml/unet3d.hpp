@@ -434,7 +434,10 @@ public:
     {
         if(label_prob.empty())
             return error_msg = "no label probability",false;
-        label = tipl::argmax(label_prob.alias(mask.size(),mask.shape().multiply(tipl::shape<3>::z,cur_count-1)),mask.shape(),mask.data());
+        if(fg_prob.empty())
+            label = tipl::argmax<0>(label_prob.alias(0,mask.shape().multiply(tipl::shape<3>::z,cur_count)),mask.shape(),mask.data());
+        else
+            label = tipl::argmax<1>(label_prob.alias(mask.size(),mask.shape().multiply(tipl::shape<3>::z,cur_count-1)),mask.shape(),mask.data());
         return true;
     }
     template<typename io_type>
