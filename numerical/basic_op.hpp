@@ -72,15 +72,12 @@ std::vector<unsigned int> arg_sort(size_t size,compare_type comp)
 }
 
 template <typename container_type, typename compare_type>
-auto rank(const container_type& data, compare_type comp)
+auto rank(const container_type& data,compare_type comp)
 {
-    size_t sz = data.size();
-    std::vector<unsigned int> idx(sz);
-    std::iota(idx.begin(), idx.end(), 0);
-    std::sort(idx.begin(), idx.end(), [&](size_t a,size_t b){ return less(data[a], data[b]); });
-    std::vector<unsigned int> r(sz);
-    for (unsigned int i = 0; i < sz; ++i)
-        r[idx[i]] = i;
+    auto idx = arg_sort(data,comp);
+    std::vector<unsigned int> r(data.size());
+    for(size_t i = 0; i < idx.size(); ++i)
+        r[idx[i]] = static_cast<unsigned int>(i);
     return r;
 }
 
@@ -108,25 +105,13 @@ auto rank_avg_tie(const container_type& data, compare_type comp)
 template <typename container_type>
 size_t arg_max(const container_type& data)
 {
-    size_t sz = data.size();
-    if(sz == 0) return 0;
-    typename container_type::value_type m = data[0];
-    size_t m_pos = 0;
-    for(size_t i = 1; i < sz; ++i)
-        if(data[i] > m) { m = data[i]; m_pos = i; }
-    return m_pos;
+    return arg_extreme(data,[](const auto& a,const auto& b){return a < b;});
 }
 
 template <typename container_type>
 size_t arg_min(const container_type& data)
 {
-    size_t sz = data.size();
-    if(sz == 0) return 0;
-    typename container_type::value_type m = data[0];
-    size_t m_pos = 0;
-    for(size_t i = 1; i < sz; ++i)
-        if(data[i] < m) { m = data[i]; m_pos = i; }
-    return m_pos;
+    return arg_extreme(data,[](const auto& a,const auto& b){return a > b;});
 }
 
 template<typename T>
