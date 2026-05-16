@@ -63,7 +63,7 @@ private:
     }
 public:
     image_type source_image;
-    std::vector<image_type> model_input,model_output;
+    std::vector<image_type> model_io;
     tipl::vector<3,int> round_up_multiple;
 public:
     evalution_set(void):label_prob(source_image){}
@@ -84,19 +84,29 @@ public:
     tipl::transformation_matrix<float> to_native_space;
     tipl::shape<3> native_space;
 
-    bool preproc(const std::string& cmd)
+    bool handle_orientation(const std::string& cmd,bool reversed = false)
     {
-        tipl::progress prog("preprocessing");
-        for(const auto& each : tipl::split(cmd,'+'))
+        tipl::progress prog("handle orientation");
+        tipl::out() << "run " << cmd;
+        auto cmds = tipl::split(cmd,'+');
+        if(reversed)
+            cmds = std::vector<std::string>(cmds.rbegin(),cmds.rend());
+
+        tipl::par_for(tipl::shape<2>(reversed ? out_count:in_count,model_io.size()),[&](auto index)
         {
-            tipl::out() << "run " << each;
-            if(each == "flip_xy")
+            auto I = tipl::make_image(model_io[index.y()].data() + index.x()*model_dim.size(),model_dim);
+            for(const auto& each : cmds)
             {
-                for(auto& each : model_input)
-                    tipl::flip_xy(each);
-                tipl::flip_xy(mask);
+                if(each == "flip_xy")
+                    tipl::flip_xy(I);
+                if(each == "swap_yz")
+                    tipl::swap_yz(I);
+                if(each == "flip_y")
+                    tipl::flip_y(I);
+                if(each == "flip_z")
+                    tipl::flip_z(I);
             }
-        }
+        });
         return !prog.aborted();
     }
 
@@ -179,12 +189,12 @@ public:
                 active_shifts.push_back(tipl::vector<3>(0.0f,0.0f,0.0f));
                 create_gaussian();
                 tipl::out() << "total of sliding window:" << active_shifts.size();
-                model_input.resize(active_shifts.size());
+                model_io.resize(active_shifts.size());
                 trans.resize(active_shifts.size());
 
                 tipl::par_for(active_shifts.size(),[&](int i)
                 {
-                    add_view(active_shifts[i]+mask_center_phys-image_center_phys,model_input[i],trans[i]);
+                    add_view(active_shifts[i]+mask_center_phys-image_center_phys,model_io[i],trans[i]);
                 });
                 goto end;
             }
@@ -198,28 +208,28 @@ public:
                     tipl::shape<3>(bb_phys[0]/model_vs[0],bb_phys[1]/model_vs[1],bb_phys[2]/model_vs[2]));
             patch_phys.elem_mul(model_vs);
 
-            model_input.resize(1);
+            model_io.resize(1);
             trans.resize(1);
-            add_view(mask_center_phys-image_center_phys,model_input[0],trans[0]);
+            add_view(mask_center_phys-image_center_phys,model_io[0],trans[0]);
             mask = trans[0].template operator()<tipl::majority>(mask,model_dim);
         }
         else if(fov_strategy == "align_top")
         {
-            model_input.resize(1);
+            model_io.resize(1);
             trans.resize(1);
 
             auto view_center_phys = mask_center_phys;
             view_center_phys[2] = mask_top_phys[2] - patch_phys[2]*0.5f;
 
-            add_view(view_center_phys-image_center_phys,model_input[0],trans[0]);
+            add_view(view_center_phys-image_center_phys,model_io[0],trans[0]);
             mask = trans[0].template operator()<tipl::majority>(mask,model_dim);
 
         }
         else // default align_center
         {
-            model_input.resize(1);
+            model_io.resize(1);
             trans.resize(1);
-            add_view(mask_center_phys-image_center_phys,model_input[0],trans[0]);
+            add_view(mask_center_phys-image_center_phys,model_io[0],trans[0]);
             mask = trans[0].template operator()<tipl::majority>(mask,model_dim);
         }
 
@@ -272,8 +282,6 @@ public:
                 continue;
             if(param[0] == "create_mask" && create_mask())
                 continue;
-            if(param[0] == "flip_xy" && flip_xy())
-                continue;
             if(param[0] == "clamp_prob" && clamp_prob())
                 continue;
             if(param[0] == "smoothing" && smoothing())
@@ -283,7 +291,7 @@ public:
             return false;
         }
 
-        if(model_output.size() == 1 && label_prob.size() == model_dim.size()*cur_count)
+        if(model_io.size() == 1 && label_prob.size() == model_dim.size()*cur_count)
         {
             tipl::progress prog("handle fov");
             if(cur_count == 0)
@@ -307,7 +315,7 @@ public:
             if(!mask.empty())
                 mask = trans[0].template operator()<tipl::majority>(mask,image_dim);
         }
-        model_output.clear();
+        model_io.clear();
         return !prog.aborted();
     }
     bool softmax(void)
@@ -320,11 +328,10 @@ public:
 
     bool handle_fov_post()
     {
-        model_input.clear();
-        if(model_output.empty())
+        if(model_io.empty())
             return error_msg = "no output data",false;
 
-        if(model_output.size() > 1)
+        if(model_io.size() > 1)
         {
             tipl::progress prog("handle sliding window");
             label_prob.resize(image_dim.multiply(tipl::shape<3>::z,out_count));
@@ -334,14 +341,14 @@ public:
             std::atomic<int> p = 0;
             tipl::par_for(out_count+1,[&](int c)
             {
-                for(int t=0;t < model_output.size();++t)
+                for(int t=0;t < model_io.size();++t)
                 {
                     if(c == out_count)
                     {
                         weight_map += trans[t](gaussian,image_dim);
                         continue;
                     }
-                    auto w = model_output[t].alias(model_dim.size()*c,model_dim);
+                    auto w = model_io[t].alias(model_dim.size()*c,model_dim);
                     auto o = label_prob.alias(image_dim.size()*c,image_dim);
                     w *= gaussian;
                     o += trans[t](w,image_dim);
@@ -358,7 +365,7 @@ public:
             });
         }
         else
-            label_prob = std::move(model_output[0]);
+            label_prob = std::move(model_io[0]);
         cur_count = out_count;
         return true;
     }
@@ -583,35 +590,35 @@ public:
     bool forward(void)
     {
         tipl::progress prog("unet segmentation");
-        if(!eval.handle_fov_pre(fov_strategy) || !eval.preproc(preproc))
+        if(!eval.handle_fov_pre(fov_strategy) || !eval.handle_orientation(preproc))
             return false;
 
         auto out_shape = eval.model_dim.multiply(tipl::shape<3>::z,eval.out_count);
         {
-            for(size_t i = 0;prog(i,eval.model_input.size());++i)
+            for(size_t i = 0;prog(i,eval.model_io.size());++i)
             {
                 tipl::progress prog2("forwarding");
                 unet->prog = [&](int cur,int total)
                 {
                     return prog2(cur,total);
                 };
-                unet->forward(eval.model_input[i]);
+                unet->forward(eval.model_io[i]);
                 if constexpr(tipl::use_cuda)
                     if(unet->is_gpu)
                     {
-                        eval.model_output.push_back(tipl::image<3>(out_shape));
-                        cu_copy_d2h<float,float>(eval.model_output.back().data(),
+                        tipl::image<3> out(out_shape);
+                        cu_copy_d2h<float,float>(out.data(),
                                              unet->layers.back()->out,out_shape.size());
+                        eval.model_io[i] = std::move(out);
                         continue;
                     }
-                eval.model_output.push_back(tipl::make_image(unet->layers.back()->out,out_shape));
-
+                eval.model_io[i] = tipl::make_image(unet->layers.back()->out,out_shape);
             }
             if(prog.aborted())
                 return false;
         }
 
-        if(!eval.handle_fov_post() || !eval.command(postproc))
+        if(!eval.handle_orientation(preproc,true) || !eval.handle_fov_post() || !eval.command(postproc))
             return error_msg = eval.error_msg,false;
         prog(4,4);
         return !prog.aborted();
