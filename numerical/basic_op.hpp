@@ -423,34 +423,23 @@ ImageType2D& volume2slice_scaled(const ImageType3D& slice,ImageType2D& I,dim_typ
     size_t sz = I.size();
     int w = slice.width() - 1, h = slice.height() - 1, d = slice.depth() - 1;
 
-    if (dim == 2)
-    {
-        for(pixel_index<2> pos(I.shape()); pos < sz; ++pos)
-        {
-            int x = std::min<int>(w, static_cast<int>(std::round(ratio*pos[0])));
-            int y = std::min<int>(h, static_cast<int>(std::round(ratio*pos[1])));
-            I[pos.index()] = slice.at(vector<3,int>(x, y, int(slice_index)));
-        }
-    }
-    else if (dim == 1)
-    {
-        for(pixel_index<2> pos(I.shape()); pos < sz; ++pos)
-        {
-            int x = std::min<int>(w, static_cast<int>(std::round(ratio*pos[0])));
-            int z = std::min<int>(d, static_cast<int>(std::round(ratio*pos[1])));
-            I[pos.index()] = slice.at(vector<3,int>(x, int(slice_index), z));
-        }
-    }
-    else if (dim == 0)
-    {
-        for(pixel_index<2> pos(I.shape()); pos < sz; ++pos)
-        {
-            int y = std::min<int>(h, static_cast<int>(std::round(ratio*pos[0])));
-            int z = std::min<int>(d, static_cast<int>(std::round(ratio*pos[1])));
-            I[pos.index()] = slice.at(vector<3,int>(int(slice_index), y, z));
-        }
-    }
-    return I;
+    auto get_i = [&](auto v,auto m)
+{
+    return std::min<int>(m,static_cast<int>(std::round(ratio*v)));
+};
+
+auto sample = [&](auto&& get_pos)
+{
+    for(pixel_index<2> pos(I.shape()); pos < sz; ++pos)
+        I[pos.index()] = slice.at(get_pos(pos));
+};
+
+if(dim == 2)
+    sample([&](const auto& pos){return vector<3,int>(get_i(pos[0],w),get_i(pos[1],h),int(slice_index));});
+else if(dim == 1)
+    sample([&](const auto& pos){return vector<3,int>(get_i(pos[0],w),int(slice_index),get_i(pos[1],d));});
+else if(dim == 0)
+    sample([&](const auto& pos){return vector<3,int>(int(slice_index),get_i(pos[0],h),get_i(pos[1],d));});
 }
 
 template<typename ImageType3D,typename dim_type,typename slice_pos_type>
