@@ -1247,7 +1247,7 @@ void draw_if(const tipl::image<2,PixelType1>& src,
     int64_t x_src = 0, y_src = 0;
     int64_t x_des = place[0], y_des = place[1];
     if (x_des < 0) { x_src = -x_des; x_des = 0; }
-    if (y_des < 0) { x_src = -y_des; y_des = 0; }
+    if (y_des < 0) { y_src = -y_des; y_des = 0; }
 
     int64_t sw = src.width(), dw = des.width();
     int64_t draw_width = sw - x_src;
