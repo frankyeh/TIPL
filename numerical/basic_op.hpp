@@ -225,25 +225,17 @@ void expand_label_to_images(const T& label,std::vector<T>& images,size_t max_v)
     }
 }
 
+
 template<typename ImageType,typename LabelImageType,typename fun_type>
 void binary(const ImageType& I,LabelImageType& out,fun_type fun)
 {
-    out.resize(I.shape());
-    auto iter = I.begin();
-    auto end = I.end();
-    auto out_iter = out.begin();
-    for(; iter != end; ++iter, ++out_iter)
-        *out_iter = fun(*iter) ? 1 : 0;
+    transform_to(I,out,[&](auto v){return fun(v) ? 1 : 0;});
 }
 
 template<typename ImageType,typename fun_type>
 ImageType& binary(ImageType& I,fun_type fun)
 {
-    auto iter = I.begin();
-    auto end = I.end();
-    for(; iter != end; ++iter)
-        *iter = fun(*iter) ? 1 : 0;
-    return I;
+    return apply(I,[&](auto v){return fun(v) ? 1 : 0;});
 }
 
 
@@ -251,23 +243,18 @@ template<typename ImageType,typename LabelImageType>
 LabelImageType& threshold(const ImageType& I,LabelImageType& out,typename ImageType::value_type threshold_value,
                typename LabelImageType::value_type foreground = 1,typename LabelImageType::value_type background = 0)
 {
-    out.resize(I.shape());
-    auto iter = I.begin();
-    auto end = I.end();
-    auto out_iter = out.begin();
-    for(; iter != end; ++iter, ++out_iter)
-        *out_iter = (*iter > threshold_value) ? foreground : background;
-    return out;
+    return transform_to(I,out,[&](auto v){return v > threshold_value ? foreground : background;});
 }
 
-template<typename LabelImageType,typename ImageType>
-inline auto threshold(const ImageType& I,typename ImageType::value_type threshold_value,
-               typename LabelImageType::value_type foreground = 1,typename LabelImageType::value_type background = 0)
+
+template<typename ImageType>
+ImageType& threshold(ImageType& I,typename ImageType::value_type threshold_value,
+                     typename ImageType::value_type foreground = 1,typename ImageType::value_type background = 0)
 {
-    LabelImageType out;
-    threshold(I,out,threshold_value,foreground,background);
-    return out;
+    return apply(I,[&](auto v){return v > threshold_value ? foreground : background;});
 }
+
+
 template <int dim,typename vtype,template <typename...> typename stype>
 inline auto operator>(const image<dim,vtype,stype>& I,vtype prob_threshold)
 {
