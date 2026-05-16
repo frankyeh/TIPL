@@ -1326,10 +1326,7 @@ void histogram(const ImageType& src,HisType& hist,
     for(; iter != end; ++iter)
     {
         float value = (*iter - min_value) * range;
-        int index = int(std::floor(value));
-        if(index < 0) index = 0;
-        if(index >= int(hist.size())) index = int(hist.size()) - 1;
-        ++hist[uint32_t(index)];
+        ++hist[std::clamp(int(std::floor(value)),0,int(hist.size())-1)];
     }
 }
 
