@@ -1511,47 +1511,13 @@ auto remove_channel(U& label_prob,const shape<3>& image_dim,size_t bg_channel = 
 {
     std::copy(label_prob.begin() + (bg_channel+1)*image_dim.size(), label_prob.end(), label_prob.begin() + bg_channel*image_dim.size());
     label_prob.resize(image_dim.multiply(tipl::shape<3>::z, label_prob.depth()/image_dim[2]-1));
-}
+}
 
 template<typename type>
-void change_endian(type& value)
+inline void change_endian(type& data)
 {
-    type data = value;
-    unsigned char* temp = reinterpret_cast<unsigned char*>(&value);
-    unsigned char* pdata = reinterpret_cast<unsigned char*>(&data)+sizeof(type)-1;
-    for (unsigned char i = 0; i < sizeof(type); ++i, --pdata)
-        temp[i] = *pdata;
-}
-
-inline void change_endian(unsigned short& data)
-{
-    unsigned char* h = reinterpret_cast<unsigned char*>(&data);
-    std::swap(*h,*(h+1));
-}
-
-inline void change_endian(short& data)
-{
-    unsigned char* h = reinterpret_cast<unsigned char*>(&data);
-    std::swap(*h,*(h+1));
-}
-
-inline void change_endian(unsigned int& data)
-{
-    unsigned char* h = reinterpret_cast<unsigned char*>(&data);
-    std::swap(*h,*(h+3));
-    std::swap(*(h+1),*(h+2));
-}
-
-inline void change_endian(int& data)
-{
-    unsigned char* h = reinterpret_cast<unsigned char*>(&data);
-    std::swap(*h,*(h+3));
-    std::swap(*(h+1),*(h+2));
-}
-
-inline void change_endian(float& data)
-{
-    change_endian(*reinterpret_cast<int*>(&data));
+    auto h = reinterpret_cast<unsigned char*>(&data);
+    std::reverse(h,h+sizeof(type));
 }
 
 template<typename datatype>
