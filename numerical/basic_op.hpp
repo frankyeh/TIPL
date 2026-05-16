@@ -13,6 +13,36 @@
 namespace tipl
 {
 
+
+template<typename T,typename F>
+T& apply(T& I,F&& f)
+{
+    for(auto& v : I)
+        v = f(v);
+    return I;
+}
+
+template<typename From,typename To,typename F>
+To& transform_to(const From& from,To& to,F&& f)
+{
+    to.resize(from.shape());
+    auto out = to.begin();
+    for(auto in = from.begin(); in != from.end(); ++in,++out)
+        *out = f(*in);
+    return to;
+}
+
+template <typename container_type,typename compare_type>
+size_t arg_extreme(const container_type& data,compare_type comp)
+{
+    if(data.empty()) return 0;
+    size_t m_pos = 0;
+    for(size_t i = 1; i < data.size(); ++i)
+        if(comp(data[m_pos],data[i]))
+            m_pos = i;
+    return m_pos;
+}
+
 template<typename iterator_type1,typename iterator_type2,typename fun_type>
 inline void for_each(iterator_type1 iter1,iterator_type1 end,iterator_type2 iter2,fun_type fun)
 {
