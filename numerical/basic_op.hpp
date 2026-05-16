@@ -1424,14 +1424,11 @@ void hist_norm(const image_type1& I1,image_type2& I2,unsigned int bin_count)
 
     for(size_t i = 1; i < sz; ++i)
     {
-        int rank = std::floor(float(I1[i]-min_v) * r);
-        if(rank <= 0) I2[i] = min_v;
+        int rank = int(std::floor(float(I1[i]-min_v) * r));
+        if(rank <= 0)
+            I2[i] = min_v;
         else
-        {
-            --rank;
-            if(rank >= int(hist.size())) rank = int(hist.size()) - 1;
-            I2[i] = range * float(hist[rank]) / float(hist.back()) + min_v;
-        }
+            I2[i] = range * float(hist[std::clamp(rank-1,0,int(hist.size())-1)]) / float(hist.back()) + min_v;
     }
 }
 
