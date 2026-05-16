@@ -100,7 +100,8 @@ auto rank_avg_tie(const container_type& data, compare_type comp)
         i = j;
     }
     return r;
-}
+}
+
 
 template <typename container_type>
 size_t arg_max(const container_type& data)
@@ -277,7 +278,8 @@ inline auto operator<(const image<dim,vtype,stype>& I,vtype prob_threshold)
     tipl::threshold(I,mask,prob_threshold,0,1);
     return mask;
 }
-
+
+
 
 template<typename T,typename U>
 inline T space2slice(unsigned char dim,const U& p)
@@ -614,7 +616,7 @@ inline void draw(const T1& from_image,T2&& to_image)
 {
     draw<copy>(from_image,to_image,
          (tipl::vector<T1::dimension,int>(to_image.shape())-
-         tipl::vector<T1::dimension,int>(to_image.shape()))/2);
+         tipl::vector<T1::dimension,int>(from_image.shape()))/2);
 }
 
 template<bool copy = true,typename image_type,typename pos_type,typename shape_type>
