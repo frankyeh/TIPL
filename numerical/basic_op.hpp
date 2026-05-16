@@ -423,7 +423,7 @@ ImageType2D& volume2slice_scaled(const ImageType3D& slice,ImageType2D& I,dim_typ
     size_t sz = I.size();
     int w = slice.width() - 1, h = slice.height() - 1, d = slice.depth() - 1;
 
-    auto get_i = [&](auto v,auto m)
+auto get_i = [&](auto v,auto m)
 {
     return std::min<int>(m,static_cast<int>(std::round(ratio*v)));
 };
@@ -440,6 +440,7 @@ else if(dim == 1)
     sample([&](const auto& pos){return vector<3,int>(get_i(pos[0],w),int(slice_index),get_i(pos[1],d));});
 else if(dim == 0)
     sample([&](const auto& pos){return vector<3,int>(int(slice_index),get_i(pos[0],h),get_i(pos[1],d));});
+return I;
 }
 
 template<typename ImageType3D,typename dim_type,typename slice_pos_type>
