@@ -1501,7 +1501,7 @@ void softmax(container_type&& img)
 }
 
 
-template <typename ImageType,typename mask_type = void>
+template <int base_label = 1,typename ImageType,typename mask_type = void>
 auto argmax(const ImageType& label_prob,const tipl::shape<3>& dim,const mask_type* mask = nullptr)
 {
     tipl::image<3, unsigned char> I(dim);
@@ -1513,8 +1513,8 @@ auto argmax(const ImageType& label_prob,const tipl::shape<3>& dim,const mask_typ
             if(!mask[pos])
                 return;
         auto m = label_prob[pos];
-        unsigned char max_label = 1;
-        for (size_t i = pos + s, label = 2; i < total_size; i += s, ++label)
+        unsigned char max_label = base_label;
+        for (size_t i = pos + s, label = base_label+1; i < total_size; i += s, ++label)
         {
             if (label_prob[i] > m)
             {
