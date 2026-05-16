@@ -383,9 +383,9 @@ public:
         case 50://unsigned char
             if(sub_data.empty() && out_count < 4096 && data_buf[0])
             {
-                std::string text(reinterpret_cast<const char*>(data_buf.data()));
+                std::string text(reinterpret_cast<const char*>(data_buf.data()),reinterpret_cast<const char*>(data_buf.data()+data_buf.size()));
                 std::replace(text.begin(),text.end(),'\n',' ');
-                return out.str() + text;
+                return text;
             }
             else
             {
