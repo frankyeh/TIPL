@@ -1234,10 +1234,8 @@ ImageType& negate(ImageType& I)
 template<typename ImageType1,typename ImageType2,typename PixelType2>
 void paint(const ImageType1& image1,ImageType2& image2,PixelType2 paint_value)
 {
-    auto iter1 = image1.begin(), end = image1.end();
-    auto iter2 = image2.begin();
-    for (; iter1 != end; ++iter1, ++iter2)
-        if (*iter1) *iter2 = paint_value;
+    tipl::for_each(image1.begin(),image1.end(),image2.begin(),
+        [=](auto v,auto& out){if(v) out = paint_value;});
 }
 
 template<typename PixelType1,typename PixelType2,typename LocationType,typename DetermineType>
