@@ -85,9 +85,7 @@ template <typename container_type, typename compare_type>
 auto rank_avg_tie(const container_type& data, compare_type comp)
 {
     size_t sz = data.size();
-    std::vector<size_t> idx(sz);
-    std::iota(idx.begin(), idx.end(), 0);
-    std::sort(idx.begin(), idx.end(), [&](size_t a,size_t b){ return comp(data[a], data[b]); });
+    auto idx = arg_sort(data,comp);
     std::vector<float> r(sz);
     for(size_t i = 0; i < sz;)
     {
@@ -403,12 +401,9 @@ ImageType2D& volume2slice_scaled(const ImageType3D& slice,ImageType2D& I,dim_typ
     float ratio = 1.0f/scale;
     size_t sz = I.size();
     int w = slice.width() - 1, h = slice.height() - 1;
+    auto get_i = [&](auto v,auto m){return std::min<int>(m,static_cast<int>(std::round(ratio*v)));};
     for(pixel_index<2> pos(I.shape()); pos < sz; ++pos)
-    {
-        int x = std::min<int>(w, static_cast<int>(std::round(ratio*pos[0])));
-        int y = std::min<int>(h, static_cast<int>(std::round(ratio*pos[1])));
-        I[pos.index()] = slice.at(vector<2,int>(x,y));
-    }
+        I[pos.index()] = slice.at(vector<2,int>(get_i(pos[0],w),get_i(pos[1],h)));
     return I;
 }
 
@@ -1518,19 +1513,19 @@ inline void change_endian(type& data)
 }
 
 template<typename datatype>
-inline void change_endian(void* data_,size_t count)
-{
-    auto data = reinterpret_cast<datatype*>(data_);
-    for (size_t index = 0; index < count; ++index)
-        change_endian(data[index]);
-}
-
-template<typename datatype>
 inline void change_endian(datatype* data,size_t count)
 {
     for (size_t index = 0; index < count; ++index)
         change_endian(data[index]);
 }
+
+template<typename datatype>
+inline void change_endian(void* data_,size_t count)
+{
+    change_endian(reinterpret_cast<datatype*>(data_),count);
+}
+
+
 
 }
 #endif
