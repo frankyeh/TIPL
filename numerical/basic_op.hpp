@@ -1251,27 +1251,6 @@ void draw_if(const tipl::image<2,PixelType1>& src,
     }
 }
 
-template<typename PixelType1,typename OutImageType>
-void project(const tipl::image<2,PixelType1>& src,OutImageType& result,unsigned int dim)
-{
-    if(dim == 0) // project x
-    {
-        int sh = src.height(), sw = src.width();
-        result.resize(sh);
-        size_t index = 0;
-        for(int y = 0; y < sh; ++y, index += sw)
-            result[y] = std::accumulate(src.begin()+index, src.begin()+index+sw, typename OutImageType::value_type(0));
-    }
-    else//project y
-    {
-        result.clear();
-        result.resize(src.width());
-        size_t sz = src.size();
-        for(pixel_index<2> index(src.shape()); index < sz; ++index)
-            result[index.x()] += src[index.index()];
-    }
-}
-
 template <typename image_type,typename output_type>
 void project_x(const image_type& I,output_type& P)
 {
