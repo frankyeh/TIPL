@@ -284,8 +284,7 @@ __INLINE__ void minus(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 template<typename iterator1,typename iterator2>
 __INLINE__ void multiply(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
-    using value_type = typename std::iterator_traits<iterator1>::value_type;
-    apply_range(lhs_from,lhs_to,rhs_from,[](auto a,auto b){return value_type(a*b);});
+    apply_range(lhs_from,lhs_to,rhs_from,[](auto a,auto b){return a*b;});
 }
 
 template<typename iterator1,typename iterator2>
