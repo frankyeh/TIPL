@@ -55,19 +55,12 @@ The TIPL library is dual-licensed. You may use it under one of the following lic
 
 #include "reg/linear.hpp"
 #include "reg/cdm.hpp"
-#include "reg/bfnorm.hpp"
 #include "reg/mm_reg.hpp"
 
+
 #include "ml/utility.hpp"
-#include "ml/nb.hpp"
-#include "ml/lg.hpp"
-#include "ml/non_parametric.hpp"
-#include "ml/ada_boost.hpp"
-#include "ml/decision_tree.hpp"
 #include "ml/k_means.hpp"
 #include "ml/em.hpp"
-#include "ml/hmc.hpp"
-#include "ml/cnn.hpp"
 
 #ifndef __CUDACC__
 #include "ml/cnn3d_detail.hpp"
