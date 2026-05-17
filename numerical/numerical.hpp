@@ -1,7 +1,6 @@
 #ifndef NUMERICAL_HPP
 #define NUMERICAL_HPP
-#include <random>
-#include <stdexcept>
+
 #include "../mt.hpp"
 #include "../utility/pixel_index.hpp"
 #ifdef __CUDACC__
@@ -11,55 +10,37 @@
 namespace tipl
 {
 
-template<typename T>
-struct normal_dist{
-    std::mt19937 gen;
-    std::normal_distribution<T> dst;
-    normal_dist(unsigned int seed = 0):gen(seed){}
-    T operator()(void){
-        return dst(gen);
-    }
-};
+template<typename T,typename F>
+inline void serial_or_parallel(T&& I,F&& f)
+{
+    if(I.size() < 1024*1024 || max_thread_count < 2)
+        for(size_t index = 0,sz = I.size(); index < sz; ++index)
+            f(index);
+    else
+        tipl::par_for<sequential>(I.size(),std::forward<F>(f),std::min<size_t>(tipl::max_thread_count,8));
+}
+template<typename T,typename F>
+inline void serial_or_ranged_size(T&& I,F&& f)
+{
+    if(I.size() < 1024*1024 || max_thread_count < 2)
+        f(size_t(0),I.size());
+    else
+        tipl::par_for<ranged>(I.size(),std::forward<F>(f),std::min<size_t>(tipl::max_thread_count,8));
+}
 
-template<typename T>
-struct uniform_dist{
-    std::mt19937 gen;
-    std::uniform_real_distribution<T> dst;
-    uniform_dist(T min = T(0), T max = T(1),unsigned int seed = 0):gen(seed),dst(min, max){}
-    T operator()(void){
-        return dst(gen);
-    }
-};
-template<>
-struct uniform_dist<int>{
-    std::mt19937 gen;
-    std::uniform_int_distribution<int> dst;
-    uniform_dist(int min, int max,unsigned int seed = 0):gen(seed),dst(min, max){}
-    uniform_dist(int size, unsigned int seed = 0):gen(seed),dst(0, size-1){}
-    uniform_dist(unsigned int seed = 0):gen(seed),dst(){}
-    int operator()(void){
-        return dst(gen);
-    }
-    int operator()(unsigned int size){
-        std::uniform_int_distribution<int> temp_dst(0,size-1);
-        return temp_dst(gen);
-    }
-    void reset(int seed = 0)
-    {
-        dst.reset();
-        gen.seed(seed);
-    }
-};
+template<typename iterator,typename F>
+__INLINE__ void apply_range(iterator from,iterator to,F&& f)
+{
+    for(; from != to; ++from)
+        *from = f(*from);
+}
 
-struct bernoulli{
-    float p;
-    std::mt19937 gen;
-    std::uniform_real_distribution<float> dst;
-    bernoulli(float p_,unsigned int seed = 0):p(p_),gen(seed),dst(float(0), float(1)){}
-    bool operator()(void){
-        return dst(gen) <= p;
-    }
-};
+template<typename iterator1,typename iterator2,typename F>
+__INLINE__ void apply_range(iterator1 from,iterator1 to,iterator2 rhs,F&& f)
+{
+    for(; from != to; ++from,++rhs)
+        *from = f(*from,*rhs);
+}
 
 template<typename input_iterator,typename output_iterator>
 inline void gradient(input_iterator src_from,input_iterator src_to,
@@ -215,11 +196,7 @@ auto norm2(const image_type&& I)
 template<typename iterator>
 __INLINE__ void square(iterator lhs_from,iterator lhs_to)
 {
-    for (; lhs_from != lhs_to; ++lhs_from)
-    {
-        auto tmp = *lhs_from;
-        *lhs_from = tmp*tmp;
-    }
+    apply_range(lhs_from,lhs_to,[](auto v){return v*v;});
 }
 
 template<typename image_type>
@@ -231,8 +208,7 @@ __INLINE__ void square(image_type&& I)
 template<typename iterator>
 __INLINE__ void square_root(iterator lhs_from,iterator lhs_to)
 {
-    for (; lhs_from != lhs_to; ++lhs_from)
-        *lhs_from = std::sqrt(*lhs_from);
+    apply_range(lhs_from,lhs_to,[](auto v){return std::sqrt(v);});
 }
 
 template<typename image_type>
@@ -244,8 +220,7 @@ __INLINE__ void square_root(image_type&& I)
 template<typename iterator>
 __INLINE__ void log(iterator lhs_from,iterator lhs_to)
 {
-    for (; lhs_from != lhs_to; ++lhs_from)
-        *lhs_from = std::log(*lhs_from);
+    apply_range(lhs_from,lhs_to,[](auto v){return std::log(v);});
 }
 
 template<typename image_type>
@@ -257,8 +232,7 @@ __INLINE__ void log(image_type&& I)
 template<typename iterator>
 __INLINE__ void exp(iterator lhs_from,iterator lhs_to)
 {
-    for (; lhs_from != lhs_to; ++lhs_from)
-        *lhs_from = std::exp(*lhs_from);
+    apply_range(lhs_from,lhs_to,[](auto v){return std::exp(v);});
 }
 
 template<typename image_type>
@@ -270,8 +244,7 @@ __INLINE__ void exp(image_type&& I)
 template<typename iterator>
 __INLINE__ void neg(iterator lhs_from,iterator lhs_to)
 {
-    for (; lhs_from != lhs_to; ++lhs_from)
-        *lhs_from = -*lhs_from;
+    apply_range(lhs_from,lhs_to,[](auto v){return -v;});
 }
 
 template<typename image_type>
@@ -283,8 +256,7 @@ __INLINE__ void neg(image_type&& I)
 template<typename iterator>
 __INLINE__ void abs(iterator lhs_from,iterator lhs_to)
 {
-    for (; lhs_from != lhs_to; ++lhs_from)
-        *lhs_from = std::abs(*lhs_from);
+    apply_range(lhs_from,lhs_to,[](auto v){return std::abs(v);});
 }
 
 template<typename image_type>
@@ -300,138 +272,123 @@ __INLINE__ void abs(image_type&& I)
 template<typename iterator1,typename iterator2>
 __INLINE__ void add(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
-    for (; lhs_from != lhs_to; ++lhs_from,++rhs_from)
-        *lhs_from += *rhs_from;
+    apply_range(lhs_from,lhs_to,rhs_from,[](auto a,auto b){return a+b;});
 }
 
 template<typename iterator1,typename iterator2>
 __INLINE__ void minus(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
-    for (; lhs_from != lhs_to; ++lhs_from,++rhs_from)
-        *lhs_from -= *rhs_from;
+    apply_range(lhs_from,lhs_to,rhs_from,[](auto a,auto b){return a-b;});
 }
-
 
 template<typename iterator1,typename iterator2>
 __INLINE__ void multiply(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
-    for (; lhs_from != lhs_to; ++lhs_from,++rhs_from)
-        *lhs_from = typename std::iterator_traits<iterator1>::value_type((*lhs_from)*(*rhs_from));
+    using value_type = typename std::iterator_traits<iterator1>::value_type;
+    apply_range(lhs_from,lhs_to,rhs_from,[](auto a,auto b){return value_type(a*b);});
 }
 
 template<typename iterator1,typename iterator2>
 __INLINE__ void divide(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 {
-    for (; lhs_from != lhs_to; ++lhs_from,++rhs_from)
-        *lhs_from /= *rhs_from;
+    apply_range(lhs_from,lhs_to,rhs_from,[](auto a,auto b){return a/b;});
 }
 
 template<typename image_type1,typename image_type2>
 inline void divide(image_type1&& I,const image_type2& I2)
 {
-    tipl::par_for<sequential>(I.size(),[&I,&I2](size_t index)
-    {
-        I[index] /= I2[index];
-    });
+    serial_or_parallel(I,[&](size_t index){I[index] /= I2[index];});
+}
+
+template<typename iterator1,typename iterator2>
+__INLINE__ void greater(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
+{
+    apply_range(lhs_from,lhs_to,rhs_from,[](auto a,auto b){return a > b ? 1 : 0;});
 }
 
 template<typename image_type1,typename image_type2>
 void greater(image_type1&& I,const image_type2& I2)
 {
-    tipl::par_for<sequential>(I.size(),[&I,&I2](size_t index)
-    {
-        I[index] = (I[index] > I2[index] ? 1 : 0);
-    });
+    serial_or_parallel(I,[&](size_t index){I[index] = (I[index] > I2[index] ? 1 : 0);});
+}
+
+template<typename iterator1,typename iterator2>
+__INLINE__ void lesser(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
+{
+    apply_range(lhs_from,lhs_to,rhs_from,[](auto a,auto b){return a < b ? 1 : 0;});
 }
 
 template<typename image_type1,typename image_type2>
 inline void lesser(image_type1&& I,const image_type2& I2)
 {
-    tipl::par_for<sequential>(I.size(),[&I,&I2](size_t index)
-    {
-        I[index] = (I[index] < I2[index] ? 1 : 0);
-    });
+    serial_or_parallel(I,[&](size_t index){I[index] = (I[index] < I2[index] ? 1 : 0);});
+}
+
+template<typename iterator1,typename iterator2>
+__INLINE__ void equal(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
+{
+    apply_range(lhs_from,lhs_to,rhs_from,[](auto a,auto b){return a == b ? 1 : 0;});
 }
 
 template<typename image_type1,typename image_type2>
 inline void equal(image_type1&& I,const image_type2& I2)
 {
-    tipl::par_for<sequential>(I.size(),[&I,&I2](size_t index)
-    {
-        I[index] = (I[index] == I2[index] ? 1 : 0);
-    });
+    serial_or_parallel(I,[&](size_t index){I[index] = (I[index] == I2[index] ? 1 : 0);});
 }
 
 template<typename iterator1,typename value_type>
 __INLINE__ void add_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
-    for (; lhs_from != lhs_to; ++lhs_from)
-        *lhs_from += value;
+    apply_range(lhs_from,lhs_to,[=](auto v){return v+value;});
 }
 
 template<typename iterator1,typename value_type>
 __INLINE__ void mod_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
-    for (; lhs_from != lhs_to; ++lhs_from)
-        *lhs_from %= value;
+    apply_range(lhs_from,lhs_to,[=](auto v){return v%value;});
 }
 
 template<typename image_type,typename value_type>
 inline void mod_constant(image_type&& I,value_type value)
 {
-    tipl::par_for<sequential>(I.size(),[&I,value](size_t index)
-    {
-        I[index] %= value;
-    });
+    serial_or_parallel(I,[&](size_t index){I[index] %= value;});
 }
 
 template<typename iterator1,typename value_type>
 __INLINE__ void minus_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
-    for (; lhs_from != lhs_to; ++lhs_from)
-        *lhs_from -= value;
+    apply_range(lhs_from,lhs_to,[=](auto v){return v-value;});
 }
 
 template<typename iterator1,typename value_type>
 __INLINE__ void minus_by_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
-    for (; lhs_from != lhs_to; ++lhs_from)
-        *lhs_from = value - *lhs_from;
+    apply_range(lhs_from,lhs_to,[=](auto v){return value-v;});
 }
 
 template<typename iterator1,typename value_type>
 __INLINE__ void multiply_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
-    for (; lhs_from != lhs_to; ++lhs_from)
-        *lhs_from *= value;
+    apply_range(lhs_from,lhs_to,[=](auto v){return v*value;});
 }
 
 template<typename iterator1,typename value_type>
 __INLINE__ void divide_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
-    for (; lhs_from != lhs_to; ++lhs_from)
-        *lhs_from /= value;
+    apply_range(lhs_from,lhs_to,[=](auto v){return v/value;});
 }
-
-
 
 template<typename iterator1,typename value_type>
 inline void divide_by_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
-    for (; lhs_from != lhs_to; ++lhs_from)
-        *lhs_from = value/(*lhs_from);
+    apply_range(lhs_from,lhs_to,[=](auto v){return value/v;});
 }
-
 
 template<typename image_type1,typename image_type2>
 inline void minus(image_type1&& I,const image_type2& I2)
 {
-    tipl::par_for<sequential>(I.size(),[&I,&I2](size_t index)
-    {
-        I[index] -= I2[index];
-    });
+    serial_or_parallel(I,[&](size_t index){I[index] -= I2[index];});
 }
-
 
 
 template<typename iterator1,typename iterator2>
@@ -665,22 +622,19 @@ __INLINE__ void minmax_value(iterator_type iter,iterator_type end,value_type& mi
 template<typename iterator1,typename value_type>
 __INLINE__ void greater_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
-    for(;lhs_from != lhs_to;++lhs_from)
-        *lhs_from = (*lhs_from > value ? 1 : 0);
+    apply_range(lhs_from,lhs_to,[=](auto v){return v > value ? 1 : 0;});
 }
 
 template<typename iterator1,typename value_type>
 __INLINE__ void lesser_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
-    for(;lhs_from != lhs_to;++lhs_from)
-        *lhs_from = (*lhs_from < value ? 1 : 0);
+    apply_range(lhs_from,lhs_to,[=](auto v){return v < value ? 1 : 0;});
 }
 
 template<typename iterator1,typename value_type>
 __INLINE__ void equal_constant(iterator1 lhs_from,iterator1 lhs_to,value_type value)
 {
-    for(;lhs_from != lhs_to;++lhs_from)
-        *lhs_from = (*lhs_from == value ? 1 : 0);
+    apply_range(lhs_from,lhs_to,[=](auto v){return v == value ? 1 : 0;});
 }
 
 template<typename iterator1,typename iterator2>
@@ -719,31 +673,19 @@ __INLINE__ void preserve_by_value(iterator1 lhs_from,iterator1 lhs_to,iterator2 
 template<typename InputIter,typename value_type>
 __INLINE__ void upper_threshold(InputIter from,InputIter to,value_type upper)
 {
-    for(;from != to;++from)
-        if(*from > upper)
-            *from = upper;
+    apply_range(from,to,[=](auto v){return v > upper ? upper : v;});
 }
 
 template<typename InputIter,typename value_type>
 __INLINE__ void lower_threshold(InputIter from,InputIter to,value_type lower)
 {
-    for(;from != to;++from)
-        if(*from < lower)
-            *from = lower;
+    apply_range(from,to,[=](auto v){return v < lower ? lower : v;});
 }
 
 template<typename T,typename V>
 __INLINE__ void upper_lower_threshold(T from,T to,V lower,V upper)
 {
-    for(;from != to;++from)
-    {
-        auto v = *from;
-        if(v > upper)
-            *from = upper;
-        else
-            if(v < lower)
-                *from = lower;
-    }
+    apply_range(from,to,[=](auto v){return v > upper ? upper : (v < lower ? lower : v);});
 }
 
 template<typename T,typename U,typename V>
@@ -785,96 +727,56 @@ template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 add(T& I,const U& I2)
 {
-    if(I.size() < 1024*1024 || max_thread_count < 2)
-        return add(I.begin(),I.end(),I2.begin());
-    tipl::par_for<sequential>(I.size(),[&I,&I2](size_t index)
-    {
-        I[index] += I2[index];
-    },std::min<size_t>(tipl::max_thread_count,8));
+    serial_or_parallel(I,[&](size_t index){I[index] += I2[index];});
 }
 
 template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 add_constant(T& I,U v)
 {
-    if(I.size() < 1024*1024 || max_thread_count < 2)
-        return add_constant(I.begin(),I.end(),v);
-    tipl::par_for<sequential>(I.size(),[&I,v](size_t index)
-    {
-       I[index] += v;
-    },std::min<size_t>(tipl::max_thread_count,8));
+    serial_or_parallel(I,[&](size_t index){I[index] += v;});
 }
 
 template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 minus_constant(T&& I,U value)
 {
-    if(I.size() < 1024*1024 || max_thread_count < 2)
-        return minus_constant(I.begin(),I.end(),value);
-    tipl::par_for<sequential>(I.size(),[&I,value](size_t index)
-    {
-        I[index] -= value;
-    },std::min<size_t>(tipl::max_thread_count,8));
+    serial_or_parallel(I,[&](size_t index){I[index] -= value;});
 }
 
 template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 minus_by_constant(T&& I,U value)
 {
-    if(I.size() < 1024*1024 || max_thread_count < 2)
-        return minus_by_constant(I.begin(),I.end(),value);
-    tipl::par_for<sequential>(I.size(),[&I,value](size_t index)
-    {
-        I[index] = value - I[index];
-    },std::min<size_t>(tipl::max_thread_count,8));
+    serial_or_parallel(I,[&](size_t index){I[index] = value - I[index];});
 }
 
 template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 divide_constant(T&& I,U value)
 {
-    if(I.size() < 1024*1024 || max_thread_count < 2)
-        return divide_constant(I.begin(),I.end(),value);
-    tipl::par_for<sequential>(I.size(),[&I,value](size_t index)
-    {
-        I[index] /= value;
-    },std::min<size_t>(tipl::max_thread_count,8));
+    serial_or_parallel(I,[&](size_t index){I[index] /= value;});
 }
 
 template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 divide_by_constant(T&& I,U value)
 {
-    if(I.size() < 1024*1024 || max_thread_count < 2)
-        return divide_by_constant(I.begin(),I.end(),value);
-    tipl::par_for<sequential>(I.size(),[&I,value](size_t index)
-    {
-        I[index] = value/I[index];
-    },std::min<size_t>(tipl::max_thread_count,8));
+    serial_or_parallel(I,[&](size_t index){I[index] = value/I[index];});
 }
 
 
 template<typename image_type1,typename image_type2>
 inline void multiply(image_type1&& I,const image_type2& I2)
 {
-    if(I.size() < 1024*1024 || max_thread_count < 2)
-        return multiply(I.begin(),I.end(),I2.begin());
-    tipl::par_for<sequential>(I.size(),[&I,&I2](size_t index)
-    {
-        I[index] *= I2[index];
-    },std::min<size_t>(tipl::max_thread_count,8));
+    serial_or_parallel(I,[&](size_t index){I[index] *= I2[index];});
 }
 
 template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 multiply_constant(T& I,U value)
 {
-    if(I.size() < 1024*1024 || max_thread_count < 2)
-        return multiply_constant(I.begin(),I.end(),value);
-    tipl::par_for<sequential>(I.size(),[&I,value](size_t index)
-    {
-       I[index] *= value;
-    },std::min<size_t>(tipl::max_thread_count,8));
+    serial_or_parallel(I,[&](size_t index){I[index] *= value;});
 }
 
 
@@ -882,36 +784,21 @@ template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 greater_constant(T&& I,U value)
 {
-    if(I.size() < 1024*1024 || max_thread_count < 2)
-        return greater_constant(I.begin(),I.end(),value);
-    tipl::par_for<sequential>(I.size(),[&I,value](size_t index)
-    {
-       I[index] = (I[index] > value ? 1 : 0);
-    },std::min<size_t>(tipl::max_thread_count,8));
+    serial_or_parallel(I,[&](size_t index){I[index] = (I[index] > value ? 1 : 0);});
 }
 
 template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 lesser_constant(T&& I,U value)
 {
-    if(I.size() < 1024*1024 || max_thread_count < 2)
-        return lesser_constant(I.begin(),I.end(),value);
-    tipl::par_for<sequential>(I.size(),[&I,value](size_t index)
-    {
-        I[index] = (I[index] < value ? 1 : 0);
-    },std::min<size_t>(tipl::max_thread_count,8));
+    serial_or_parallel(I,[&](size_t index){I[index] = (I[index] < value ? 1 : 0);});
 }
 
 template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 equal_constant(T&& I,U value)
 {
-    if(I.size() < 1024*1024 || max_thread_count < 2)
-        return equal_constant(I.begin(),I.end(),value);
-    tipl::par_for<sequential>(I.size(),[&I,value](size_t index)
-    {
-        I[index] = (I[index] == value ? 1 : 0);
-    },std::min<size_t>(tipl::max_thread_count,8));
+    serial_or_parallel(I,[&](size_t index){I[index] = (I[index] == value ? 1 : 0);});
 }
 
 
@@ -970,7 +857,7 @@ minmax_value(const T& data,value_type& minv,value_type& maxv)
     auto max_v = data[0];
     tipl::par_for<ranged>(data.begin(),data.end(),[&](auto beg,auto end)
     {
-        value_type min_v_(data[0]),max_v_(data[0]);
+        value_type min_v_(*beg),max_v_(*beg);
         minmax_value(beg,end,min_v_,max_v_);
         std::lock_guard<std::mutex> lock(mutex);
         if(min_v_ < min_v)
@@ -986,105 +873,56 @@ template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 masking(T&& I,const U& I2)
 {
-    if(I.size() < 1024*1024 || max_thread_count < 2)
-    {
-        masking(I.begin(),I.end(),I2.begin());
-        return;
-    }
-    tipl::par_for<ranged>(I.size(),[&I,&I2](size_t from,size_t to)
-    {
-        masking(I.begin()+from,I.begin()+to,I2.begin()+from);
-    },std::min<size_t>(tipl::max_thread_count,8));
+    serial_or_ranged_size(I,[&](size_t from,size_t to)
+                          {masking(I.begin()+from,I.begin()+to,I2.begin()+from);});
 }
 
 template<typename T,typename U,typename V>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 masking_by_value(T&& I,const U& I2,V value)
 {
-    if(I.size() < 1024*1024 || max_thread_count < 2)
-    {
-        masking_by_value(I.begin(),I.end(),I2.begin(),value);
-        return;
-    }
-    tipl::par_for<ranged>(I.size(),[&I,&I2,value](size_t from,size_t to)
-    {
-        masking_by_value(I.begin()+from,I.begin()+to,I2.begin()+from,value);
-    },std::min<size_t>(tipl::max_thread_count,8));
+    serial_or_ranged_size(I,[&](size_t from,size_t to)
+                          {masking_by_value(I.begin()+from,I.begin()+to,I2.begin()+from,value);});
 }
 
 template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 preserve(T&& I,const U& I2)
 {
-    if(I.size() < 1024*1024 || max_thread_count < 2)
-    {
-        preserve(I.begin(),I.end(),I2.begin());
-        return;
-    }
-    tipl::par_for<ranged>(I.size(),[&I,&I2](size_t from,size_t to)
-    {
-        preserve(I.begin()+from,I.begin()+to,I2.begin()+from);
-    },std::min<size_t>(tipl::max_thread_count,8));
+    serial_or_ranged_size(I,[&](size_t from,size_t to)
+                          {preserve(I.begin()+from,I.begin()+to,I2.begin()+from);});
 }
 
 template<typename T,typename U,typename V>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 preserve_by_value(T&& I,const U& I2,V value)
 {
-    if(I.size() < 1024*1024 || max_thread_count < 2)
-    {
-        preserve_by_value(I.begin(),I.end(),I2.begin(),value);
-        return;
-    }
-    tipl::par_for<ranged>(I.size(),[&I,&I2,value](size_t from,size_t to)
-    {
-        preserve_by_value(I.begin()+from,I.begin()+to,I2.begin()+from,value);
-    },std::min<size_t>(tipl::max_thread_count,8));
+    serial_or_ranged_size(I,[&](size_t from,size_t to)
+                          {preserve_by_value(I.begin()+from,I.begin()+to,I2.begin()+from,value);});
 }
 
 template<typename T,typename V>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 upper_threshold(T& I,V value)
 {
-    if(I.size() < 1024*1024 || max_thread_count < 2)
-    {
-        upper_threshold(I.begin(),I.end(),value);
-        return;
-    }
-    tipl::par_for<ranged>(I.begin(),I.end(),[&](auto beg,auto end)
-    {
-        upper_threshold(beg,end,value);
-    },std::min<size_t>(tipl::max_thread_count,8));
+    serial_or_ranged_size(I,[&](size_t from,size_t to)
+                          {upper_threshold(I.begin()+from,I.begin()+to,value);});
 }
 
 template<typename T,typename V>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 lower_threshold(T& I,V value)
 {
-    if(I.size() < 1024*1024 || max_thread_count < 2)
-    {
-        lower_threshold(I.begin(),I.end(),value);
-        return;
-    }
-    tipl::par_for<ranged>(I.begin(),I.end(),[&](auto beg,auto end)
-    {
-        lower_threshold(beg,end,value);
-    },std::min<size_t>(tipl::max_thread_count,8));
+    serial_or_ranged_size(I,[&](size_t from,size_t to)
+                          {lower_threshold(I.begin()+from,I.begin()+to,value);});
 }
 
 template<typename T>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 upper_lower_threshold(T& I,typename T::value_type lower,typename T::value_type upper)
 {
-    if(I.size() < 1024*1024 || max_thread_count < 2)
-    {
-        upper_lower_threshold(I.begin(),I.end(),lower,upper);
-        return;
-    }
-    tipl::par_for<ranged>(I.begin(),I.end(),[&](auto beg,auto end)
-    {
-        upper_lower_threshold(beg,end,lower,upper);
-    },std::min<size_t>(tipl::max_thread_count,8));
+    serial_or_ranged_size(I,[&](size_t from,size_t to)
+                          {upper_lower_threshold(I.begin()+from,I.begin()+to,lower,upper);});
 }
 
 template<typename T,typename U>
@@ -1425,165 +1263,46 @@ using enable_scalar = std::enable_if_t<std::is_arithmetic<typename std::decay<T>
 
 }
 
-template<typename T,typename U,
-         detail::enable_mutable_array_like<T> = 0,
-         detail::enable_array_like<U> = 0>
-T&& operator+=(T&& lhs,const U& rhs)
-{
-    add(lhs,rhs);
-    return std::forward<T>(lhs);
-}
-
-template<typename T,typename U,
-         detail::enable_mutable_array_like<T> = 0,
-         detail::enable_array_like<U> = 0>
-T&& operator-=(T&& lhs,const U& rhs)
-{
-    minus(lhs,rhs);
-    return std::forward<T>(lhs);
-}
-
-template<typename T,typename U,
-         detail::enable_mutable_array_like<T> = 0,
-         detail::enable_array_like<U> = 0>
-T&& operator*=(T&& lhs,const U& rhs)
-{
-    multiply(lhs,rhs);
-    return std::forward<T>(lhs);
-}
-
-template<typename T,typename U,
-         detail::enable_mutable_array_like<T> = 0,
-         detail::enable_array_like<U> = 0>
-T&& operator/=(T&& lhs,const U& rhs)
-{
-    divide(lhs,rhs);
-    return std::forward<T>(lhs);
-}
-
-template<typename T,typename U,
-         detail::enable_mutable_array_like<T> = 0,
-         detail::enable_scalar<U> = 0>
-T&& operator+=(T&& lhs,U rhs)
-{
-    add_constant(lhs,rhs);
-    return std::forward<T>(lhs);
-}
-
-template<typename T,typename U,
-         detail::enable_mutable_array_like<T> = 0,
-         detail::enable_scalar<U> = 0>
-T&& operator-=(T&& lhs,U rhs)
-{
-    minus_constant(lhs,rhs);
-    return std::forward<T>(lhs);
-}
-
-template<typename T,typename U,
-         detail::enable_mutable_array_like<T> = 0,
-         detail::enable_scalar<U> = 0>
-T&& operator*=(T&& lhs,U rhs)
-{
-    multiply_constant(lhs,rhs);
-    return std::forward<T>(lhs);
-}
-
-template<typename T,typename U,
-         detail::enable_mutable_array_like<T> = 0,
-         detail::enable_scalar<U> = 0>
-T&& operator/=(T&& lhs,U rhs)
-{
-    divide_constant(lhs,rhs);
-    return std::forward<T>(lhs);
-}
-
+template<typename T,typename U,detail::enable_mutable_array_like<T> = 0,detail::enable_array_like<U> = 0>
+T&& operator+=(T&& lhs,const U& rhs){add(lhs,rhs);return std::forward<T>(lhs);}
+template<typename T,typename U,detail::enable_mutable_array_like<T> = 0,detail::enable_array_like<U> = 0>
+T&& operator-=(T&& lhs,const U& rhs){minus(lhs,rhs);return std::forward<T>(lhs);}
+template<typename T,typename U,detail::enable_mutable_array_like<T> = 0,detail::enable_array_like<U> = 0>
+T&& operator*=(T&& lhs,const U& rhs){multiply(lhs,rhs);return std::forward<T>(lhs);}
+template<typename T,typename U,detail::enable_mutable_array_like<T> = 0,detail::enable_array_like<U> = 0>
+T&& operator/=(T&& lhs,const U& rhs){divide(lhs,rhs);return std::forward<T>(lhs);}
+template<typename T,typename U,detail::enable_mutable_array_like<T> = 0,detail::enable_scalar<U> = 0>
+T&& operator+=(T&& lhs,U rhs){add_constant(lhs,rhs);return std::forward<T>(lhs);}
+template<typename T,typename U,detail::enable_mutable_array_like<T> = 0,detail::enable_scalar<U> = 0>
+T&& operator-=(T&& lhs,U rhs){minus_constant(lhs,rhs);return std::forward<T>(lhs);}
+template<typename T,typename U,detail::enable_mutable_array_like<T> = 0,detail::enable_scalar<U> = 0>
+T&& operator*=(T&& lhs,U rhs){multiply_constant(lhs,rhs);return std::forward<T>(lhs);}
+template<typename T,typename U,detail::enable_mutable_array_like<T> = 0,detail::enable_scalar<U> = 0>
+T&& operator/=(T&& lhs,U rhs){divide_constant(lhs,rhs);return std::forward<T>(lhs);}
 template<typename T,typename U,detail::enable_array_like<T> = 0,detail::enable_array_like<U> = 0>
-T operator+(T lhs,const U& rhs)
-{
-    lhs += rhs;
-    return lhs;
-}
-
+T operator+(T lhs,const U& rhs){lhs += rhs;return lhs;}
 template<typename T,typename U,detail::enable_array_like<T> = 0,detail::enable_array_like<U> = 0>
-T operator-(T lhs,const U& rhs)
-{
-    lhs -= rhs;
-    return lhs;
-}
-
+T operator-(T lhs,const U& rhs){lhs -= rhs;return lhs;}
 template<typename T,typename U,detail::enable_array_like<T> = 0,detail::enable_array_like<U> = 0>
-T operator*(T lhs,const U& rhs)
-{
-    lhs *= rhs;
-    return lhs;
-}
-
+T operator*(T lhs,const U& rhs){lhs *= rhs;return lhs;}
 template<typename T,typename U,detail::enable_array_like<T> = 0,detail::enable_array_like<U> = 0>
-T operator/(T lhs,const U& rhs)
-{
-    lhs /= rhs;
-    return lhs;
-}
-
-// object op scalar
-
+T operator/(T lhs,const U& rhs){lhs /= rhs;return lhs;}
 template<typename T,typename U,detail::enable_array_like<T> = 0,detail::enable_scalar<U> = 0>
-T operator+(T lhs,U rhs)
-{
-    lhs += rhs;
-    return lhs;
-}
-
+T operator+(T lhs,U rhs){lhs += rhs;return lhs;}
 template<typename T,typename U,detail::enable_array_like<T> = 0,detail::enable_scalar<U> = 0>
-T operator-(T lhs,U rhs)
-{
-    lhs -= rhs;
-    return lhs;
-}
-
+T operator-(T lhs,U rhs){lhs -= rhs;return lhs;}
 template<typename T,typename U,detail::enable_array_like<T> = 0,detail::enable_scalar<U> = 0>
-T operator*(T lhs,U rhs)
-{
-    lhs *= rhs;
-    return lhs;
-}
-
+T operator*(T lhs,U rhs){lhs *= rhs;return lhs;}
 template<typename T,typename U,detail::enable_array_like<T> = 0,detail::enable_scalar<U> = 0>
-T operator/(T lhs,U rhs)
-{
-    lhs /= rhs;
-    return lhs;
-}
-
-// scalar op object
-
+T operator/(T lhs,U rhs){lhs /= rhs;return lhs;}
 template<typename U,typename T,detail::enable_scalar<U> = 0,detail::enable_array_like<T> = 0>
-T operator+(U lhs,T rhs)
-{
-    rhs += lhs;
-    return rhs;
-}
-
+T operator+(U lhs,T rhs){rhs += lhs;return rhs;}
 template<typename U,typename T,detail::enable_scalar<U> = 0,detail::enable_array_like<T> = 0>
-T operator-(U lhs,T rhs)
-{
-    minus_by_constant(rhs,lhs);
-    return rhs;
-}
-
+T operator-(U lhs,T rhs){minus_by_constant(rhs,lhs);return rhs;}
 template<typename U,typename T,detail::enable_scalar<U> = 0,detail::enable_array_like<T> = 0>
-T operator*(U lhs,T rhs)
-{
-    rhs *= lhs;
-    return rhs;
-}
-
+T operator*(U lhs,T rhs){rhs *= lhs;return rhs;}
 template<typename U,typename T,detail::enable_scalar<U> = 0,detail::enable_array_like<T> = 0>
-T operator/(U lhs,T rhs)
-{
-    divide_by_constant(rhs,lhs);
-    return rhs;
-}
+T operator/(U lhs,T rhs){divide_by_constant(rhs,lhs);return rhs;}
 
 
 
