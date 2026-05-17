@@ -1,6 +1,6 @@
 #ifndef ML_K_MEANS_HPP
 #define ML_K_MEANS_HPP
-
+#include "utility.hpp"
 namespace tipl{
 
 namespace ml{
