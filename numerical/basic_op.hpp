@@ -1235,19 +1235,20 @@ void draw_if(const tipl::image<2,PixelType1>& src,
     if (x_des + draw_width > dw) draw_width = dw - x_des;
     if (y_des + draw_height > des.height()) draw_height = des.height() - y_des;
 
+    if(draw_width <= 0 || draw_height <= 0)
+        return;
+
     const PixelType1* src_iter = src.begin() + y_src * sw + x_src;
-    const PixelType1* src_end = src_iter + draw_height * sw;
     PixelType2* des_iter = des.begin() + y_des * dw + x_des;
 
-    for(; src_iter != src_end; des_iter += dw)
+    for(int64_t y = 0; y < draw_height; ++y, src_iter += sw, des_iter += dw)
     {
         const PixelType1* from = src_iter;
-        const PixelType1* to = src_iter + sw;
+        const PixelType1* to = src_iter + draw_width;
         PixelType2* des_p = des_iter;
         for(; from != to; ++from, ++des_p)
             if(!pred_background(*from))
                 *des_p = *from;
-        src_iter = to;
     }
 }
 
