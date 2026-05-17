@@ -1,5 +1,7 @@
 #ifndef STATISTICS_HPP
 #define STATISTICS_HPP
+#include <random>
+#include <stdexcept>
 #include <cmath>
 #include <algorithm>
 #include <numeric>
@@ -13,6 +15,56 @@
 
 namespace tipl
 {
+
+template<typename T>
+struct normal_dist{
+    std::mt19937 gen;
+    std::normal_distribution<T> dst;
+    normal_dist(unsigned int seed = 0):gen(seed){}
+    T operator()(void){
+        return dst(gen);
+    }
+};
+
+template<typename T>
+struct uniform_dist{
+    std::mt19937 gen;
+    std::uniform_real_distribution<T> dst;
+    uniform_dist(T min = T(0), T max = T(1),unsigned int seed = 0):gen(seed),dst(min, max){}
+    T operator()(void){
+        return dst(gen);
+    }
+};
+template<>
+struct uniform_dist<int>{
+    std::mt19937 gen;
+    std::uniform_int_distribution<int> dst;
+    uniform_dist(int min, int max,unsigned int seed = 0):gen(seed),dst(min, max){}
+    uniform_dist(int size, unsigned int seed = 0):gen(seed),dst(0, size-1){}
+    uniform_dist(unsigned int seed = 0):gen(seed),dst(){}
+    int operator()(void){
+        return dst(gen);
+    }
+    int operator()(unsigned int size){
+        std::uniform_int_distribution<int> temp_dst(0,size-1);
+        return temp_dst(gen);
+    }
+    void reset(int seed = 0)
+    {
+        dst.reset();
+        gen.seed(seed);
+    }
+};
+
+struct bernoulli{
+    float p;
+    std::mt19937 gen;
+    std::uniform_real_distribution<float> dst;
+    bernoulli(float p_,unsigned int seed = 0):p(p_),gen(seed),dst(float(0), float(1)){}
+    bool operator()(void){
+        return dst(gen) <= p;
+    }
+};
 
 class sample
 {
