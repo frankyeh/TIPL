@@ -809,13 +809,11 @@ void bounding_box(const std::vector<point_type>& points,point_type& max_value,po
     max_value = max_values[0]; min_value = min_values[0];
 
     for(unsigned int i = 0; i < thread_count; ++i)
-    {
         for (unsigned char d = 0; d < point_type::dimension; ++d)
         {
             if (max_values[i][d] > max_value[d]) max_value[d] = max_values[i][d];
             if (min_values[i][d] < min_value[d]) min_value[d] = min_values[i][d];
         }
-    }
 }
 
 template<typename image_type>
@@ -940,17 +938,14 @@ void reorient_vector(tipl::vector<3>& spatial_resolution,dim_order_type dim_orde
 template<typename iterator_type2,typename dim_order_type,typename flip_type>
 void reorient_matrix(iterator_type2 orientation_matrix,dim_order_type dim_order,flip_type flip)
 {
-    float orientation_matrix_[9];
-    std::copy_n(orientation_matrix,9,orientation_matrix_);
+    float m[9];
+    std::copy_n(orientation_matrix,9,m);
     for(unsigned int index = 0, ptr = 0; index < 3; ++index, ptr += 3)
         if(flip[index])
-        {
-            orientation_matrix_[ptr] = -orientation_matrix_[ptr];
-            orientation_matrix_[ptr+1] = -orientation_matrix_[ptr+1];
-            orientation_matrix_[ptr+2] = -orientation_matrix_[ptr+2];
-        }
+            for(unsigned int i = 0; i < 3; ++i)
+                m[ptr+i] = -m[ptr+i];
     for(unsigned int index = 0; index < 3; ++index)
-        std::copy_n(orientation_matrix_ + index*3, 3, orientation_matrix + dim_order[index]*3);
+        std::copy_n(m + index*3,3,orientation_matrix + dim_order[index]*3);
 }
 
 template<typename geo_type,typename dim_order_type,typename flip_type,typename origin_type,typename shift_type>
@@ -1018,13 +1013,8 @@ void flip_block(iterator_type beg,iterator_type end,size_t block_size)
 {
     tipl::par_for((end-beg)/block_size,[&](size_t i)
     {
-        iterator_type from = beg + i * block_size;
-        iterator_type to = from + block_size - 1;
-        while (from < to)
-        {
-            std::swap(*from,*to);
-            ++from; --to;
-        }
+        auto from = beg + i * block_size;
+        std::reverse(from,from + block_size);
     });
 }
 
@@ -1040,8 +1030,7 @@ void flip_block_line(iterator_type beg,iterator_type end,size_t block_size,unsig
             iterator_type to = beg - line_length;
             while (from < to)
             {
-                for(unsigned int index = 0; index < line_length; ++index)
-                    std::swap(*(from+index),*(to+index));
+                std::swap_ranges(from,from+line_length,to);
                 from += line_length;
                 to -= line_length;
             }
