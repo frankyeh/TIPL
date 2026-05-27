@@ -250,8 +250,11 @@ public:
             float slope = 0.0f;
             T inter = 0;
             if(get_sub_data(name+".slope",slope) && get_sub_data(name+".inter",inter))
+            {
+                slope *= 255.99f/255.0f;
                 for(auto beg = new_data,end = new_data + size();beg != end;++beg)
                     *beg = (*beg)*slope+inter;
+            }
         }
         return new_data;
     }
@@ -796,7 +799,7 @@ public:
         {
             if(apply_slope && mat.size() > min_size_for_mask_slope && mat.sub_data.empty())
             {
-                T inter(ptr[0]),max_v(ptr[0]);
+                float inter(ptr[0]),max_v(ptr[0]);
                 auto size = mat.size();
                 for(size_t i = 0;i < size;++i)
                 {
