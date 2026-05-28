@@ -36,31 +36,7 @@ auto round_up_size(const T& round_up_multiple,const tipl::shape<3>& s)
 template<typename image_type = tipl::image<3>>
 struct evalution_set{
 
-private:
-    image_type gaussian;
-    void create_gaussian(void)
-    {
-        tipl::image<3> gau(model_dim);
-        float sigma_scale = 1.0f/8.0f;
-        tipl::vector<3> center(tipl::vector<3>(model_dim)*0.5f);
-        float max_val = 0.0f;
-        tipl::vector<3> inv_sigmas(1.0f/(model_dim[0]*sigma_scale),1.0f/(model_dim[1]*sigma_scale),1.0f/(model_dim[2]*sigma_scale));
-        size_t sz = model_dim.size();
-        for(tipl::pixel_index<3> index(model_dim);index < sz;++index)
-        {
-            tipl::vector<3,float> pos(index);
-            pos -= center;
-            pos.elem_mul(inv_sigmas);
 
-            float val = std::exp(-0.5f*pos.length2());
-            gau[index.index()] = val;
-            max_val = std::max(max_val,val);
-        }
-
-        gau /= max_val;
-        tipl::lower_threshold(gau,1e-6f);
-        gaussian = std::move(gau);
-    }
 public:
     image_type source_image;
     std::vector<image_type> model_io;
@@ -86,23 +62,28 @@ public:
 
     bool handle_orientation(const std::string& cmd,bool reversed = false)
     {
-        if(cmd.empty())
+        if(cmd.empty() || model_io.empty())
             return true;
         tipl::progress prog("handle orientation");
         tipl::out() << "run " << cmd;
         auto cmds = tipl::split(cmd,'+');
         if(reversed)
             cmds = std::vector<std::string>(cmds.rbegin(),cmds.rend());
-
+        auto dim = model_io.front().shape().divide(tipl::shape<3>::z,reversed ? out_count:in_count);
+        auto new_dim = dim;
         tipl::par_for(tipl::shape<2>(reversed ? out_count:in_count,model_io.size()),[&](auto index)
         {
-            auto I = tipl::make_image(model_io[index.y()].data() + index.x()*model_dim.size(),model_dim);
+            auto I = tipl::make_image(model_io[index.y()].data() + index.x()*dim.size(),dim);
             for(const auto& each : cmds)
             {
+                if(each == "swap_xy")
+                    new_dim = tipl::swap_xy(I).shape();
+                if(each == "swap_xz")
+                    new_dim = tipl::swap_xz(I).shape();
+                if(each == "swap_yz")
+                    new_dim = tipl::swap_yz(I).shape();
                 if(each == "flip_xy")
                     tipl::flip_xy(I);
-                if(each == "swap_yz")
-                    tipl::swap_yz(I);
                 if(each == "flip_x")
                     tipl::flip_x(I);
                 if(each == "flip_y")
@@ -111,9 +92,11 @@ public:
                     tipl::flip_z(I);
             }
         });
+        if(new_dim != dim)
+            for(auto& each : model_io)
+                each.resize(new_dim.multiply(tipl::shape<3>::z,reversed ? out_count:in_count));
         return true;
     }
-
     bool handle_fov_pre(const std::string& fov_strategy)
     {
         tipl::progress prog("handle fov");
@@ -191,7 +174,6 @@ public:
             if(active_shifts.size() > 1)
             {
                 active_shifts.push_back(tipl::vector<3>(0.0f,0.0f,0.0f));
-                create_gaussian();
                 tipl::out() << "total of sliding window:" << active_shifts.size();
                 model_io.resize(active_shifts.size());
                 trans.resize(active_shifts.size());
@@ -305,7 +287,8 @@ public:
 
             tipl::par_for(cur_count,[&](size_t i)
             {
-                auto t = label_prob.alias(model_dim.size()*i,model_dim);
+                auto dim = label_prob.shape().divide(tipl::shape<3>::z,cur_count);
+                auto t = label_prob.alias(dim.size()*i,dim);
                 auto o = new_label_prob.alias(image_dim.size()*i,image_dim);
                 trans[0](t,o);
             });
@@ -337,6 +320,31 @@ public:
 
         if(model_io.size() > 1)
         {
+            auto dim = model_io.front().shape().divide(tipl::shape<3>::z,out_count);
+            // generate gaussian basis
+            tipl::image<3> gaussian(dim);
+            {
+
+                float sigma_scale = 1.0f/8.0f;
+                tipl::vector<3> center(tipl::vector<3>(dim)*0.5f);
+                float max_val = 0.0f;
+                tipl::vector<3> inv_sigmas(1.0f/(dim[0]*sigma_scale),1.0f/(dim[1]*sigma_scale),1.0f/(dim[2]*sigma_scale));
+                size_t sz = dim.size();
+                for(tipl::pixel_index<3> index(dim);index < sz;++index)
+                {
+                    tipl::vector<3,float> pos(index);
+                    pos -= center;
+                    pos.elem_mul(inv_sigmas);
+
+                    float val = std::exp(-0.5f*pos.length2());
+                    gaussian[index.index()] = val;
+                    max_val = std::max(max_val,val);
+                }
+
+                gaussian /= max_val;
+                tipl::lower_threshold(gaussian,1e-6f);
+            }
+
             tipl::progress prog("handle sliding window");
             label_prob.resize(image_dim.multiply(tipl::shape<3>::z,out_count));
             label_prob = 0.0f;
@@ -352,7 +360,8 @@ public:
                         weight_map += trans[t](gaussian,image_dim);
                         continue;
                     }
-                    auto w = model_io[t].alias(model_dim.size()*c,model_dim);
+
+                    auto w = model_io[t].alias(dim.size()*c,dim);
                     auto o = label_prob.alias(image_dim.size()*c,image_dim);
                     w *= gaussian;
                     o += trans[t](w,image_dim);
@@ -601,7 +610,6 @@ public:
         if(!eval.handle_fov_pre(fov_strategy) || !eval.handle_orientation(orientation))
             return false;
 
-        auto out_shape = eval.model_dim.multiply(tipl::shape<3>::z,eval.out_count);
         {
             for(size_t i = 0;prog(i,eval.model_io.size());++i)
             {
@@ -611,6 +619,7 @@ public:
                     return prog2(cur,total);
                 };
                 unet->forward(eval.model_io[i]);
+                auto out_shape = eval.model_io[i].shape().multiply(tipl::shape<3>::z,eval.out_count/eval.in_count);
                 if constexpr(tipl::use_cuda)
                     if(unet->is_gpu)
                     {
