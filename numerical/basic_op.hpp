@@ -1108,73 +1108,85 @@ ImageType& swap_xy(ImageType& I)
 template<typename ImageType>
 ImageType& swap_xz(ImageType& I)
 {
+    if(I.empty())
+        return I;
+
     tipl::shape<ImageType::dimension> new_geo(I.shape().swap_dim(0,2));
     tipl::image<ImageType::dimension,typename ImageType::value_type> new_volume(new_geo);
 
-    int64_t origin[3] = {0,0,0};
-    int64_t shift[3];
-    shift[0] = new_geo.plane_size();
-    shift[1] = new_geo.width();
-    shift[2] = 1;
-    reorder(I,new_volume,origin,shift,3);
+    const size_t w = I.width();
+    const size_t h = I.height();
+    const size_t d = I.depth();
+    const size_t old_ps = I.plane_size();
+    const size_t new_w = new_volume.width();
+    const size_t new_ps = new_volume.plane_size();
+    const size_t volume_size = w*h*d;
 
-    I.resize(new_geo);
+    auto old_v = I.begin();
+    auto new_v = new_volume.begin();
+
+    for(size_t v = 0;v < I.size();v += volume_size,old_v += volume_size,new_v += volume_size)
+    {
+        auto old_z = old_v;
+        auto new_x0 = new_v;
+
+        for(size_t z = 0;z < d;++z,old_z += old_ps,++new_x0)
+        {
+            auto old_y = old_z;
+            auto new_y = new_x0;
+
+            for(size_t y = 0;y < h;++y,old_y += w,new_y += new_w)
+            {
+                auto old_x = old_y;
+                auto new_x = new_y;
+
+                for(size_t x = 0;x < w;++x,++old_x,new_x += new_ps)
+                    *new_x = *old_x;
+            }
+        }
+    }
+
     std::copy(new_volume.begin(),new_volume.end(),I.begin());
+    I.resize(new_geo);
     return I;
 }
 
 template<typename ImageType>
 ImageType& swap_yz(ImageType& I)
 {
-    size_t sz = I.size();
-    if(sz == 0) return I;
+    if(I.empty())
+        return I;
 
-    uint32_t w = I.width(), h = I.height(), d = I.depth();
-    size_t ps = I.plane_size();
-    size_t volume_size = size_t(w) * size_t(h) * size_t(d);
     tipl::shape<ImageType::dimension> new_geo(I.shape().swap_dim(1,2));
+    tipl::image<ImageType::dimension,typename ImageType::value_type> new_volume(new_geo);
 
-    for(size_t v = 0; v < sz; v += volume_size)
-    for(size_t x = 0; x < w; ++x)
+    const size_t w = I.width();
+    const size_t h = I.height();
+    const size_t d = I.depth();
+    const size_t old_ps = I.plane_size();
+    const size_t new_ps = new_volume.plane_size();
+    const size_t volume_size = w*h*d;
+
+    auto old_v = I.begin();
+    auto new_v = new_volume.begin();
+
+    for(size_t v = 0;v < I.size();v += volume_size,old_v += volume_size,new_v += volume_size)
     {
-        size_t start_pos = x + v;
-        if(h == d)
+        auto old_z = old_v;
+        auto new_z0 = new_v;
+
+        for(size_t z = 0;z < d;++z,old_z += old_ps,new_z0 += w)
         {
-            for(uint16_t z = 0; z < d; ++z, start_pos += w + ps)
-            {
-                size_t pos_y = start_pos + w;
-                size_t pos_z = start_pos + ps;
-                for(uint16_t y = z + 1; y < h; ++y)
-                {
-                    std::swap(I[pos_y], I[pos_z]);
-                    pos_y += w; pos_z += ps;
-                }
-            }
-        }
-        else
-        {
-            tipl::image<2,typename ImageType::value_type> plane(tipl::shape<2>(h, d));
-            {
-                size_t index = 0, pos = start_pos;
-                for(uint32_t z = 0; z < d; ++z)
-                    for(uint32_t y = 0; y < h; ++y, ++index, pos += w)
-                        plane[index] = I[pos];
-            }
-            {
-                size_t index = 0, new_pos = start_pos;
-                uint32_t new_w = new_geo.width();
-                size_t new_ps = new_geo.plane_size();
-                for(uint16_t z = 0; z < d; ++z, new_pos += new_w)
-                {
-                    size_t pos = new_pos;
-                    for(uint16_t y = 0; y < h; ++y, ++index, pos += new_ps)
-                        I[pos] = plane[index];
-                }
-            }
+            auto old_y = old_z;
+            auto new_y = new_z0;
+
+            for(size_t y = 0;y < h;++y,old_y += w,new_y += new_ps)
+                std::copy(old_y,old_y+w,new_y);
         }
     }
 
-    if(h != d) I.resize(new_geo);
+    std::copy(new_volume.begin(),new_volume.end(),I.begin());
+    I.resize(new_geo);
     return I;
 }
 
