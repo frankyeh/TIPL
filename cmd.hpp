@@ -333,21 +333,37 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     }
     if(cmd == "crop_to_fit")
     {
-        tipl::vector<3,int> range_min,range_max,margin;
-        tipl::bounding_box(data,range_min,range_max,data[0]);
+        tipl::vector<3,int> from,to,margin(0,0,0);
+        tipl::bounding_box(data,from,to,data[0]);
+
         std::istringstream in(param1);
-        in >> margin[0] >> margin[1] >> margin[2];
-        range_min[0] = std::max<int>(0,range_min[0]-margin[0]);
-        range_min[1] = std::max<int>(0,range_min[1]-margin[1]);
-        range_min[2] = std::max<int>(0,range_min[2]-margin[2]);
-        range_max[0] = std::min<int>(data.width(),range_max[0]+margin[0]);
-        range_max[1] = std::min<int>(data.height(),range_max[1]+margin[1]);
-        range_max[2] = std::min<int>(data.depth(),range_max[2]+margin[2]);
-        typename image_type::buffer_type original_data(data);
-        tipl::crop(original_data,data,range_min,range_max);
-        T[3] -= range_min[0]*vs[0];
-        T[7] -= range_min[1]*vs[1];
-        T[11] -= range_min[2]*vs[2];
+        in >> margin[0];
+        if(!(in >> margin[1]))
+            margin[1] = margin[0];
+        if(!(in >> margin[2]))
+            margin[2] = margin[0];
+
+        from[0] = std::max<int>(0,from[0]-margin[0]);
+        from[1] = std::max<int>(0,from[1]-margin[1]);
+        from[2] = std::max<int>(0,from[2]-margin[2]);
+
+        to[0] = std::min<int>(data.width(),to[0]+margin[0]);
+        to[1] = std::min<int>(data.height(),to[1]+margin[1]);
+        to[2] = std::min<int>(data.depth(),to[2]+margin[2]);
+
+        if(from[0] >= to[0] || from[1] >= to[1] || from[2] >= to[2])
+        {
+            error_msg = "empty crop region";
+            return false;
+        }
+
+        typename image_type::buffer_type src(data);
+        tipl::crop(src,data,from,to);
+
+        T[3]  += T[0]*from[0] + T[1]*from[1] + T[2]*from[2];
+        T[7]  += T[4]*from[0] + T[5]*from[1] + T[6]*from[2];
+        T[11] += T[8]*from[0] + T[9]*from[1] + T[10]*from[2];
+
         return true;
     }
     if(cmd == "transform")
