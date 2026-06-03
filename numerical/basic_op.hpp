@@ -509,13 +509,10 @@ void crop(const T1& from_image,T2&& to_image,PosType from,PosType to)
 
     for(int i = 0; i < dim; ++i) if(from[i] >= to[i]) return;
 
-    if(to_image.empty())
-    {
-        if constexpr(dim == 3)
-            to_image.resize(tipl::shape<3>(to[0]-from[0],to[1]-from[1],to[2]-from[2]));
-        else
-            to_image.resize(tipl::shape<2>(to[0]-from[0],to[1]-from[1]));
-    }
+    if constexpr(dim == 3)
+        to_image.resize(tipl::shape<3>(to[0]-from[0],to[1]-from[1],to[2]-from[2]));
+    else
+        to_image.resize(tipl::shape<2>(to[0]-from[0],to[1]-from[1]));
 
     PosType draw_pos;
     for(int i = 0; i < dim; ++i) draw_pos[i] = -from[i];
