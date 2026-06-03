@@ -625,24 +625,22 @@ auto image_dialog(T* parent,QString path,QString filter,QFileDialog::AcceptMode 
 }
 
 template<typename T>
-auto open_image_files(T* parent,QString path,QString filter,bool multiple = true)
+auto open_image_files(T* parent,QString path,QString filter)
 {
-    return tipl::qt::details::image_dialog(parent,path,filter,QFileDialog::AcceptOpen,
-                                           multiple ? QFileDialog::ExistingFiles : QFileDialog::ExistingFile);
+    return tipl::qt::details::image_dialog(parent,path,filter,QFileDialog::AcceptOpen,QFileDialog::ExistingFiles);
 }
 
 template<typename T>
 auto open_image_file(T* parent,QString path,QString filter)
 {
-    auto files = open_image_files(parent,path,filter,false);
+    auto files = tipl::qt::details::image_dialog(parent,path,filter,QFileDialog::AcceptOpen,QFileDialog::ExistingFile);
     return files.isEmpty() ? QString() : files.front();
 }
 
 template<typename T>
 auto save_image_file(T* parent,QString default_name,QString filter)
 {
-    auto files = tipl::qt::details::image_dialog(parent,default_name,filter,QFileDialog::AcceptSave,QFileDialog::AnyFile,
-                                                 filter.contains("nii.gz") ? QString("nii.gz") : QString());
+    auto files = tipl::qt::details::image_dialog(parent,default_name,filter,QFileDialog::AcceptSave,QFileDialog::AnyFile,filter);
     return files.isEmpty() ? QString() : files.front();
 }
 
