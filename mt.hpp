@@ -86,7 +86,7 @@ inline bool is_main_thread(void)
     return main_thread_id == std::this_thread::get_id();
 }
 
-inline int max_thread_count = std::thread::hardware_concurrency();
+inline int max_thread_count = std::max<int>(1,std::thread::hardware_concurrency());
 
 
 enum par_for_type{
@@ -98,18 +98,18 @@ enum par_for_type{
     dynamic_with_id = 5
 };
 
-inline std::atomic<bool> par_for_running = false;
+inline std::atomic<unsigned int> par_for_active_count = 0;
+
 struct par_for_guard
 {
-    bool is_root;
+    bool is_root = false;
     par_for_guard(void)
     {
-        is_root = !par_for_running.exchange(true);
+        is_root = (par_for_active_count.fetch_add(1,std::memory_order_acq_rel) == 0);
     }
     ~par_for_guard(void)
     {
-        if(is_root)
-            par_for_running = false;
+        par_for_active_count.fetch_sub(1,std::memory_order_acq_rel);
     }
 };
 template <par_for_type type = dynamic,typename T,
@@ -123,11 +123,12 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
             return;
 
     size_t n = to - from;
-    thread_count = std::min<int>(thread_count, (int)n);
     par_for_guard guard;
-    if(thread_count >= max_thread_count)
-        thread_count = (guard.is_root && n > 1) ?  thread_count : 1;
+    thread_count = std::max<int>(1,thread_count);
+    thread_count = std::min<int>(thread_count,int(n));
 
+    if(!guard.is_root || n <= 1)
+        thread_count = 1;
 
 #ifdef __CUDACC__
     int cur_device = 0;
@@ -214,7 +215,7 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
 template <par_for_type type = dynamic, typename T, typename Func,
           typename std::enable_if_t<std::is_integral_v<T> || std::is_class_v<T> || std::is_pointer_v<T>, int> = 0>
 inline void par_for(T from, T to, Func&& f) {
-    par_for<type>(from, to, std::forward<Func>(f), par_for_running ? 1 : max_thread_count);
+    par_for<type>(from, to, std::forward<Func>(f), max_thread_count);
 }
 
 template <par_for_type type = dynamic, typename T, typename Func, typename std::enable_if_t<std::is_integral_v<T>, int> = 0>
@@ -274,7 +275,8 @@ public:
         if(th)
         {
             terminated = true;
-            th->join();
+            if(th->joinable())
+                th->join();
             th.reset();
         }
         terminated = false;
