@@ -459,7 +459,7 @@ bool search_filesystem(std::string pat, std::vector<std::string>& out, bool want
 
     for (const auto& c : p)
     {
-        auto s = c.string();
+        auto s = c.u8string();
         if (s.find_first_of("*?") != std::string::npos)
             parts.push_back(s);
         else if (parts.empty())
@@ -477,8 +477,8 @@ bool search_filesystem(std::string pat, std::vector<std::string>& out, bool want
             std::filesystem::is_directory(p,ec);
         if (!ok || ec) return false;
 
-        out.push_back(strip_dir ? p.filename().string()
-                                : std::filesystem::weakly_canonical(p,ec).string());
+        out.push_back(strip_dir ? p.filename().u8string()
+                                : std::filesystem::weakly_canonical(p,ec).u8string());
         return true;
     }
 
@@ -502,7 +502,7 @@ bool search_filesystem(std::string pat, std::vector<std::string>& out, bool want
             for (; it != end; ++it)
             {
                 const auto& e = *it;
-                auto name = e.path().filename().string();
+                auto name = e.path().filename().u8string();
                 if (!match(parts[i], name)) continue;
 
                 bool is_file = e.is_regular_file(ec);
@@ -512,7 +512,7 @@ bool search_filesystem(std::string pat, std::vector<std::string>& out, bool want
                 {
                     if ((want_file && is_file) || (!want_file && is_dir))
                         out.push_back(strip_dir ? name
-                                                : std::filesystem::weakly_canonical(e.path(),ec).string());
+                                                : std::filesystem::weakly_canonical(e.path(),ec).u8string());
                 }
                 else if (is_dir)
                     next.push_back(e.path());
@@ -531,8 +531,8 @@ bool search_filesystem(std::string pat, std::vector<std::string>& out, bool want
 inline std::string complete_suffix(const std::string& file_name)
 {
     std::filesystem::path p(file_name);
-    std::string ext = p.extension().string();
-    return (ext == ".gz") ? p.stem().extension().string() + ext : ext;
+    std::string ext = p.extension().u8string();
+    return (ext == ".gz") ? p.stem().extension().u8string() + ext : ext;
 }
 inline auto read_text_file(const std::string& file_name)
 {
@@ -933,8 +933,8 @@ public:
 
             std::vector<std::string> local_files;
             for(const auto& entry : std::filesystem::directory_iterator(std::filesystem::current_path()))
-                if(tipl::ends_with(entry.path().filename().string(),extension))
-                    local_files.push_back(entry.path().filename().string());
+                if(tipl::ends_with(entry.path().filename().u8string(),extension))
+                    local_files.push_back(entry.path().filename().u8string());
 
             std::sort(local_files.begin(),local_files.end());
 
