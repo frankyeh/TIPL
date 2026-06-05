@@ -343,7 +343,7 @@ public:
         if(!is_gz)
             return in.good();
 
-        file_buf.resize(file_size/size_t(WINSIZE)+1);
+        file_buf.resize((file_size + WINSIZE - 1)/WINSIZE);
         file_buf_ready.resize(file_buf.size());
         initgz();
         return in.good();
