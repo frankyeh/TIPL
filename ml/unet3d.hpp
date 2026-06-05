@@ -537,7 +537,7 @@ public:
 public:
     evalution_set<tipl::image<3>> eval;
     std::string error_msg;
-    std::string preproc,postproc,orientation,fov_strategy,name,arch,report;
+    std::string preproc,postproc,orientation,fov_strategy,arch;
     std::vector<std::string> labels;
 
     template<typename reader>
@@ -554,7 +554,6 @@ public:
 
         if(!in.read("channels",channels) ||
            !in.read("architecture",arch) ||
-           !in.read("name",name) ||
            !in.read_pointer("dimension",eval.model_dim) ||
            !in.read_pointer("voxel_size",eval.model_vs))
             return error_msg = "invalid model format: " + in.error_msg,false;
@@ -565,7 +564,6 @@ public:
         labels = tipl::split(in.template read<std::string>("labels"),'\n');
         tipl::out() << "dim: " << eval.model_dim << " vs: " << eval.model_vs;
         tipl::out() << "in: " << channels[0] << " out:" << channels[1];
-        tipl::out() << "name: " << name;
         tipl::out() << "loading unet: " << arch;
 
         try{
