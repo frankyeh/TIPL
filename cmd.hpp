@@ -623,8 +623,8 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         if(!nii)
             return error_msg = "cannot open file:" + param1,false;
 
-        tipl::reg::mm_reg<out> r;
-        r.Is = data.shape(); r.Ivs = vs; r.IR = T; r.Is_is_mni = is_mni;
+        tipl::reg::mm_reg<tipl::out> r;
+        r.Ivs = vs; r.IR = T; r.Is_is_mni = is_mni;
 
         nii.get_image_transformation(T); // target native T before toLPS
 
@@ -632,7 +632,8 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         if(!(nii >> It >> r.Itvs >> r.ItR >> r.Its >> r.It_is_mni >> [&](const std::string& e){error_msg = e;}))
             return false;
 
-        tipl::io::apply_flip_swap_seq(data,tipl::io::toLPS(r.Is,r.Ivs,r.IR));
+        tipl::io::apply_flip_swap_seq(data,tipl::io::toLPS(tipl::vector<3,int>(data.shape()).begin(),r.Ivs.begin(),r.IR.begin()));
+        r.Is = data.shape();
         r.I[0] = tipl::reg::subject_image_pre(tipl::image<3>(data));
         r.It[0] = tipl::reg::template_image_pre(std::move(It));
         r.linear_param.reg_type = warp ? tipl::reg::affine : tipl::reg::rigid_body;
