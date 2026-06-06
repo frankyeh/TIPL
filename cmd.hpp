@@ -637,8 +637,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         r.I[0] = tipl::reg::subject_image_pre(tipl::image<3>(data));
         r.It[0] = tipl::reg::template_image_pre(std::move(It));
         r.linear_param.reg_type = warp ? tipl::reg::affine : tipl::reg::rigid_body;
-        r.linear_param.cost_type = warp ? tipl::reg::corr : tipl::reg::mutual_info;
-
+        r.match_resolution(true);
         bool terminated = false;
         r.linear_reg(terminated);
         if(!terminated && warp)
