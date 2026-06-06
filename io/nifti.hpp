@@ -1198,11 +1198,11 @@ public:
         return I;
     }
     //from RAS to LPS
-    auto& toLPS(void)
+    void toLPS(void)
     {
         handle_qform();
         untouched_dim = std::vector<short>(nif_header.dim,nif_header.dim+8);
-        return flip_swap_seq = tipl::io::toLPS(nif_header.dim+1,nif_header.pixdim+1,nif_header.srow_x);
+        flip_swap_seq = tipl::io::toLPS(nif_header.dim+1,nif_header.pixdim+1,nif_header.srow_x);
     }
     friend std::ostream& operator<<(std::ostream& out,const nifti_base& nii)
     {
