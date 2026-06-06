@@ -25,14 +25,11 @@ bool command(image_type& data,std::string cmd,std::string param1)
     {
         if(cmd.find("morphology") == 0)
         {
-            tipl::image<image_type::dimension,char> mask(data.shape());
-            const size_t sz = mask.size();
-            for(size_t pos = 0; pos < sz; ++pos)
-                mask[pos] = data[pos] > typename image_type::value_type(0) ? 1 : 0;
+            tipl::image<image_type::dimension,char> mask;
+            tipl::threshold(data,mask,0);
             if(!command(mask,cmd,param1))
                 return false;
-            for(size_t pos = 0; pos < sz; ++pos)
-                data[pos] = typename image_type::value_type(mask[pos]);
+            tipl::preserve(data,mask);
             return true;
         }
     }
@@ -336,9 +333,14 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     }
     if(cmd == "crop_to_fit")
     {
-        tipl::vector<3,int> from,to,margin(0,0,0);
-        tipl::bounding_box(data,from,to,data[0]);
-
+        tipl::vector<3,int> from,to;
+        {
+            tipl::image<3,unsigned char> label;
+            tipl::threshold(data,label,0);
+            tipl::morphology::defragment(label);
+            tipl::bounding_box(label,from,to,data[0]);
+        }
+        tipl::vector<3,int> margin(0,0,0);
         std::istringstream in(param1);
         in >> margin[0];
         if(!(in >> margin[1]))
@@ -634,10 +636,19 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
 
         tipl::io::apply_flip_swap_seq(data,tipl::io::toLPS(tipl::vector<3,int>(data.shape()).begin(),r.Ivs.begin(),r.IR.begin()));
         r.Is = data.shape();
+
+        for(size_t i = 0;i < 3;++i)
+        {
+            float w1 = r.Is[i]*r.Ivs[i], w2 = r.Its[i]*r.Itvs[i];
+            if(w1 > w2*2.0f || w2 > w1*2.0f)
+                return error_msg = std::string("FOV mismatch in ") + "xyz"[i] +
+                                   ": image=" + std::to_string(w1) + " mm, target=" + std::to_string(w2) +
+                                   " mm. Please resize current image.",false;
+        }
+
         r.I[0] = tipl::reg::subject_image_pre(tipl::image<3>(data));
         r.It[0] = tipl::reg::template_image_pre(std::move(It));
         r.linear_param.reg_type = warp ? tipl::reg::affine : tipl::reg::rigid_body;
-        r.match_resolution(true);
         bool terminated = false;
         r.linear_reg(terminated);
         if(!terminated && warp)
