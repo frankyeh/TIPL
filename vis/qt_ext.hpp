@@ -644,6 +644,28 @@ auto save_image_file(T* parent,QString default_name,QString filter)
     return files.isEmpty() ? QString() : files.front();
 }
 
+inline std::filesystem::path to_path(const QString& s)
+{
+#ifdef _WIN32
+    return std::filesystem::path(s.toStdWString());
+#else
+    return std::filesystem::path(s.toUtf8().constData());
+#endif
+}
+inline QString to_qstring(const std::filesystem::path& p)
+{
+#ifdef _WIN32
+    return QString::fromStdWString(p.wstring());
+#else
+#if defined(__cpp_char8_t)
+    auto s = p.u8string();
+    return QString::fromUtf8(reinterpret_cast<const char*>(s.data()),qsizetype(s.size()));
+#else
+    return QString::fromUtf8(p.u8string().c_str());
+#endif
+#endif
+}
+
 }
 
 
