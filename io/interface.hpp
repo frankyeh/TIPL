@@ -102,7 +102,7 @@ class std_istream{
     std::ifstream in;
 public:
     std_istream(void):size_(0){}
-    bool open(const std::string& file_name)
+    bool open(const std::filesystem::path& file_name)
     {
         in.open(file_name,std::ios::binary);
         if(in)
@@ -160,7 +160,7 @@ public:
 class std_ostream{
     std::ofstream out;
 public:
-    bool open(const std::string& file_name)
+    bool open(const std::filesystem::path& file_name)
     {
         out.open(file_name,std::ios::binary);
         return out.good();
