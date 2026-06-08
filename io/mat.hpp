@@ -709,10 +709,10 @@ public:
     std::shared_ptr<input_interface> in;
     bool delay_read = false;
     template<typename prog_type = tipl::progress>
-    bool load_from_file(const std::string& file_name,prog_type&& prog = prog_type())
+    bool load_from_file(const std::filesystem::path& file_name,prog_type&& prog = prog_type())
     {
         if(!in->open(file_name))
-            return error_msg = "cannot open file at " + file_name,false;
+            return error_msg = "cannot open file at " + file_name.u8string(),false;
         dataset.clear();
         name_table.clear();
         while(in->good() && !in->eof())
@@ -786,7 +786,7 @@ public:
     unsigned int mask_cols = 0;
     std::vector<size_t> si2vi;
 public:
-    mat_write_base(const std::string& file_name)
+    mat_write_base(const std::filesystem::path& file_name)
     {
         out.open(file_name);
     }
