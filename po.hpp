@@ -42,6 +42,14 @@ auto split(const T& s,typename T::value_type delimiter)
     for (T token; std::getline(ss, token, delimiter); tokens.push_back(token));
     return tokens;
 }
+template<typename T>
+auto to_path(const std::vector<T>& list)
+{
+    std::vector<std::filesystem::path> file_list(list.size());
+    for(size_t i = 0;i < list.size();++i)
+        file_list[i] = list[i];
+    return file_list;
+}
 
 template<typename T>
 auto split(const T& s,typename T::value_type delimiter,
@@ -182,6 +190,13 @@ inline std::string remove_all_suffix(const std::string& str)
         s = s.substr(0, pos);
     }
     return std::string(s);
+}
+inline std::filesystem::path remove_all_suffix(std::filesystem::path p)
+{
+    auto name = p.filename();
+    for(auto ext = name.extension(); !ext.empty() && ext.native().size() <= 6; ext = name.extension())
+        name = name.stem();
+    return p.parent_path()/name;
 }
 
 inline std::string to_lower(const std::string& str)
@@ -534,7 +549,7 @@ inline std::string complete_suffix(const std::string& file_name)
     std::string ext = p.extension().u8string();
     return (ext == ".gz") ? p.stem().extension().u8string() + ext : ext;
 }
-inline auto read_text_file(const std::string& file_name)
+inline auto read_text_file(const std::filesystem::path& file_name)
 {
     std::ifstream file(file_name);
     std::vector<std::string> lines;
