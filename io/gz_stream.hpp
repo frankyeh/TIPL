@@ -284,7 +284,7 @@ public:
     bool sample_access_point = false;
     bool buffer_all = false;
     bool free_on_read = true;
-    bool load_index(const std::string& file_name)
+    bool load_index(const std::filesystem::path& file_name)
     {
         std::ifstream in(file_name,std::ios::binary);
         if(!in)
@@ -302,7 +302,7 @@ public:
         }
         return true;
     }
-    bool save_index(const std::string& file_name)
+    bool save_index(const std::filesystem::path& file_name)
     {
         std::ofstream out(file_name,std::ios::binary);
         if(!out)
@@ -318,13 +318,13 @@ public:
     bool has_access_points(void) const {return !points.empty();}
 public:
     ~gz_istream(void){close();}
-    bool open(const std::string& file_name)
+    bool open(const std::filesystem::path& file_name)
     {
         in.open(file_name,std::ios::binary);
         if(!in)
             return false;
         // check gz
-        if(file_name.back() == 'z')
+        if(file_name.extension() == ".gz")
             is_gz = true;
         else
         {
@@ -541,10 +541,14 @@ public:
         close();
     }
 public:
-    bool open(const std::string& file_name)
+    bool open(const std::filesystem::path& file_name)
     {
-        handle = gzopen(file_name.c_str(), "wb");
-        std::filesystem::remove(file_name + ".idx");
+#ifdef _WIN32
+        handle =  gzopen_w(file_name.wstring().c_str(),"wb");
+#else
+        handle = gzopen(file_name.c_str(),"wb");
+#endif
+        std::filesystem::remove(std::filesystem::path(file_name) += ".idx");
         return handle;
     }
 
