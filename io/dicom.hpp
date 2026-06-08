@@ -1063,7 +1063,7 @@ public:
         return *this;
     }
 public:
-    bool load_from_file(const std::string& file_name)
+    bool load_from_file(const std::filesystem::path& file_name)
     {
         ge_map.clear();
         data.clear();
@@ -1851,30 +1851,22 @@ public:
     {
         std::copy(orientation_matrix,orientation_matrix+9,image_row_orientation);
     }
-    bool load_from_files(const std::vector<std::string>& files)
+    bool load_from_files(const std::vector<std::filesystem::path>& files)
     {
         if(files.empty())
             return false;
         free_all();
         std::vector<int> image_num;
         unsigned int w(0),h(0);
-        for (unsigned int index = 0;index < files.size();++index)
+        for (const auto& each : files)
         {
             std::shared_ptr<dicom> d(new dicom);
-            if (!d->load_from_file(files[index]))
-            {
-                error_msg = "failed to read ";
-                error_msg += files[index];
-                return false;
-            }
-            if(index)
+            if (!d->load_from_file(each))
+                return error_msg = "failed to read " + each.u8string(),false;
+            if(w)
             {
                 if(d->width() != w || d->height() != h)
-                {
-                    error_msg = "inconsistent image dimension at ";
-                    error_msg += files[index];
-                    return false;
-                }
+                    return error_msg = "inconsistent image dimension at " + each.u8string(),false;
             }
             else
             {
