@@ -98,7 +98,7 @@ struct mm_reg{
 private:
 
     template<typename io_loader,typename T,typename trans_type,typename vs_type,typename shape_type>
-    bool load_reg_image(size_t id,const std::string& file_name,
+    bool load_reg_image(size_t id,const std::filesystem::path& file_name,
                     std::vector<T>& images,bool preprocess,
                     trans_type& ref_transform,
                     vs_type& voxel_size,
@@ -152,7 +152,7 @@ private:
     }
 public:
     template<typename io_loader>
-    bool load_subject(size_t id,const std::string& file_name)
+    bool load_subject(size_t id,const std::filesystem::path& file_name)
     {
         if(!id)
             clear_reg();
@@ -160,7 +160,7 @@ public:
     }
 
     template<typename io_loader>
-    bool load_template(size_t id,const std::string& file_name)
+    bool load_template(size_t id,const std::filesystem::path& file_name)
     {
         if(!id)
             clear_reg();
