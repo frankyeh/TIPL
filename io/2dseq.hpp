@@ -65,7 +65,7 @@ private:
         }
     }
 public:
-    bool load_from_file(const std::string& file_name)
+    bool load_from_file(const std::filesystem::path& file_name)
     {
         std::ifstream info(file_name);
         if(!info)
@@ -132,69 +132,23 @@ public:
 private:
     std::string tmp;
     std::wstring wtmp;
-
-    bool check_name(const std::string& filename)
-    {
-        return tipl::ends_with(filename,"2dseq");
-    }
-    const char* load_method(const std::string& filename)
-    {
-        std::string str = filename;
-        tmp = str.substr(0,str.find_last_of("/\\",str.find_last_of("/\\",str.find_last_of("/\\")-1)-1)+1);
-        tmp += "method";
-        return tmp.c_str();
-    }
-    const char* load_reco(const std::string& filename)
-    {
-        std::string str = filename;
-        tmp = std::string(str.begin(),str.end()-5);
-        tmp += "reco";
-        return tmp.c_str();
-    }
-    const wchar_t* load_reco(const wchar_t* filename)
-    {
-        std::wstring str = filename;
-        wtmp = std::wstring(str.begin(),str.end()-5);
-        wtmp += L"reco";
-        return wtmp.c_str();
-    }
-    const char* load_visu(const std::string& filename)
-    {
-        std::string str = filename;
-        tmp = std::string(str.begin(),str.end()-5);
-        tmp += "visu_pars";
-        return tmp.c_str();
-    }
-    const wchar_t* load_visu(const wchar_t* filename)
-    {
-        std::wstring str = filename;
-        wtmp = std::wstring(str.begin(),str.end()-5);
-        wtmp += L"visu_pars";
-        return wtmp.c_str();
-    }
     
 public:
     std::vector<float> slopes;
-    bool load_from_file(const std::string& file_name)
+    bool load_from_file(const std::filesystem::path& file_name)
     {
-        if(!check_name(file_name))
-        {
-            error_msg = "invalid file name";
-            return false;
-        }
+        if(file_name.filename().u8string() != "2dseq")
+            return error_msg = "not a 2dseq file",false;
 
         // read image dimension
         bool no_visu = false;
         bool no_method = false;
         bruker_info visu,info,method;
-        if(!info.load_from_file(load_reco(file_name)))
-        {
-            error_msg = "cannot read reco file";
-            return false;
-        }
-        if(!visu.load_from_file(load_visu(file_name)))
+        if(!info.load_from_file(file_name.parent_path()/"reco"))
+            return error_msg = "cannot read reco file",false;
+        if(!visu.load_from_file(file_name.parent_path()/"visu_pars"))
             no_visu = true;
-        if(!method.load_from_file(load_method(file_name)))
+        if(!method.load_from_file(file_name.parent_path().parent_path().parent_path()/"method"))
             no_method = true;
         tipl::shape<3> dim;
         // get image dimension
@@ -209,10 +163,7 @@ public:
         // get image slope
         {
             if(!info.read("RECO_map_slope",slopes))
-            {
-                error_msg = "cannot find slope information";
-                return false;
-            }
+                return error_msg = "cannot find slope information",false;
             float max_slope = *std::max_element(slopes.begin(),slopes.end());
             for(unsigned int i = 0;i < slopes.size();++i)
                 slopes[i] /= max_slope;
@@ -266,10 +217,7 @@ public:
         }
 
         if(!dim[0] || !dim[1])
-        {
-            error_msg = "invalid image dimension";
-            return false;
-        }
+            return error_msg = "invalid image dimension",false;
 
         // read 2dseq and convert to float
         dim = tipl::s(dim[0],dim[1],buffer.size()/word_size/dim[0]/dim[1]);
