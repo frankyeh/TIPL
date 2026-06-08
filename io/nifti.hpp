@@ -378,7 +378,7 @@ public:
     };
     bool is_nii; // backward compatibility to ANALYE 7.5
     mutable std::string error_msg;
-    std::string file_name,tmp_file_name;
+    std::filesystem::path file_name,tmp_file_name;
 public:
     std::shared_ptr<input_interface> input_stream;
     std::shared_ptr<output_interface> output_stream;
@@ -521,53 +521,43 @@ public:
         return error_msg.empty();
     }
     template<typename T>
-    bool open(const std::string& file_name_,T type)
+    bool open(const std::filesystem::path& file_name_,T type)
     {
         file_name = file_name_;
         if(type == std::ios::out)
         {
             if(nifti_do_not_show_process.try_lock())
             {
-                prog = tipl::progress("save " + file_name);
+                prog = tipl::progress("save " + file_name.u8string());
                 nifti_do_not_show_process.unlock();
             }
-            tmp_file_name = (file_name.back() == 'z' ? file_name + ".tmp.gz" : file_name + ".tmp");
+            tmp_file_name = file_name;
+            tmp_file_name += (tmp_file_name.extension() == ".gz" ? ".tmp.gz" : ".tmp");
+
+
             output_stream.reset(new output_interface);
-            if(!output_stream->open(tmp_file_name))
-            {
-                error_msg = "cannot write to " + tmp_file_name +
-                            " please check file path and access permissions.";
-                return false;
-            }
-            return true;
+            return output_stream->open(tmp_file_name) ? true:
+                       (error_msg = "cannot write to " + tmp_file_name.u8string() + " please check file path and access permissions.",false);
         }
         if(nifti_do_not_show_process.try_lock())
         {
-            prog = tipl::progress("open " + file_name);
+            prog = tipl::progress("open " + file_name.u8string());
             nifti_do_not_show_process.unlock();
         }
         if(!std::filesystem::exists(file_name))
-        {
-            error_msg = "file does not exist:" + file_name;
-            return false;
-        }
+            return error_msg = "file does not exist:" + file_name.u8string(),false;
         if(!input_stream.get())
             input_stream.reset(new input_interface);
         if(!input_stream->open(file_name))
-        {
-            error_msg = "cannot open file:" + file_name;
-            return false;
-        }
+            return error_msg = "cannot open file:" + file_name.u8string(),false;
+
         int size_of_header = 0;
         input_stream->read(&size_of_header,sizeof(int));
         if(size_of_header != 540 && size_of_header != 348)
         {
             change_endian(size_of_header);
             if(size_of_header != 540 && size_of_header != 348)
-            {
-                error_msg = "invalid NIFTI format: size of header is not 540 or 348";
-                return false;
-            }
+                return error_msg = "invalid NIFTI format: size of header is not 540 or 348",false;
             big_endian = true;
         }
         else
@@ -658,20 +648,12 @@ public:
             else
             {
                 // find the img file
-                if (file_name.size() < 4)
-                {
-                    error_msg = "failed to find the img file.";
-                    return false;
-                }
-                auto file_name_no_ext = std::string(file_name.begin(),file_name.end()-4);
-                auto data_file = file_name_no_ext;
-                data_file += ".img";
+
+                auto img = file_name;
+                img.replace_extension(".img");
                 input_stream.reset(new input_interface);
-                if(!input_stream->open(data_file))
-                {
-                    error_msg = "failed to open the img file.";
-                    return false;
-                }
+                if(!input_stream->open(img))
+                    return error_msg = "failed to open the img file at " + img.u8string(),false;
             }
         }
         return (*input_stream);
@@ -803,7 +785,7 @@ public:
         init_header();
     }
     template<typename T>
-    nifti_base(const std::string& file_name_,T type)
+    nifti_base(const std::filesystem::path& file_name_,T type)
     {
         init_header();
         open(file_name_,type);
@@ -893,13 +875,10 @@ private:
         nif_header.sform_code = is_mni ? 4:1;
     }
     template<int dim, typename vtype, template<typename...> class stype>
-    void write(const tipl::image<dim, vtype, stype>& source)
+    bool write(const tipl::image<dim, vtype, stype>& source)
     {
         if(!output_stream.get())
-        {
-            error_msg = "cannot write to " + file_name;
-            return;
-        }
+            return error_msg = "cannot write to " + file_name.u8string(),false;
         nif_header.datatype = nifti_type_info<vtype>::data_type;
         nif_header.bitpix = nifti_type_info<vtype>::bit_pix;
         set_dim(source.shape());
@@ -927,14 +906,15 @@ private:
             std::filesystem::remove(tmp_file_name);
             if(error_msg.empty())
                 error_msg = "aborted";
-            return;
+            return false;
         }
         output_stream.reset();
         std::filesystem::remove(file_name);
         std::error_code error;
         std::filesystem::rename(tmp_file_name,file_name,error);
         if(error)
-            error_msg = "cannot rename temp file " + tmp_file_name + " to " + file_name + ": " + error.message();
+            return error_msg = "cannot rename temp file " + tmp_file_name.u8string() + " to " + file_name.u8string() + ": " + error.message(),false;
+        return true;
     }
 public:
     template<typename iterator_type1,typename iterator_type2,typename int_type>
