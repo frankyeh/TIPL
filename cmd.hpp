@@ -787,20 +787,14 @@ bool equation(image_type& x,std::string eq,std::string& error_msg)
         if(pos > 0 && pos != std::string::npos)
         {
             if(eq.back() != ')')
-            {
-                error_msg = std::string("invalid parentheses:") + eq;
-                return false;
-            }
+                return error_msg = std::string("invalid parentheses:") + eq,false;
             std::string param;
             auto comma_pos = eq.find_last_of(',');
             if(comma_pos != std::string::npos)
             {
                 param = std::string(eq.begin()+comma_pos+1,eq.end()-1);
                 if(!is_number(param))
-                {
-                    error_msg = std::string("invalid parameter:") + param + " in " + eq;
-                    return false;
-                }
+                    return error_msg = std::string("invalid parameter:") + param + " in " + eq,false;
             }
             else
                 comma_pos = eq.length()-1;
@@ -813,14 +807,10 @@ bool equation(image_type& x,std::string eq,std::string& error_msg)
             if constexpr(!std::is_void_v<out>)
                     out() << "call " << function_name << "(" << std::string(param.empty() ? eval : eval + "," + param) << ")";
             if(!command(x,function_name,param))
-            {
-                error_msg = std::string("unsupported function:") + function_name;
-                return false;
-            }
+                return error_msg = std::string("unsupported function:") + function_name,false;
             return true;
         }
-        error_msg = std::string("illegal operator found in equation:") + eq;
-        return false;
+        return error_msg = std::string("illegal operator found in equation:") + eq,false;
     }
     tokens.push_back(cur_token);
 
@@ -846,10 +836,7 @@ bool equation(image_type& x,std::string eq,std::string& error_msg)
             if(tokens[i].find_first_of('(') == 0)
             {
                 if(tokens[i].back() != ')')
-                {
-                    error_msg = std::string("invalid parentheses:") + tokens[i] + " in " + eq;
-                    return false;
-                }
+                    return error_msg = std::string("invalid parentheses:") + tokens[i] + " in " + eq,false;
                 tokens[i] = tokens[i].substr(1,tokens[i].size()-2);
             }
 
@@ -867,10 +854,7 @@ bool equation(image_type& x,std::string eq,std::string& error_msg)
         if(operands[first_op].empty())
         {
             if(operands[first_op+1].empty())
-            {
-                error_msg = std::string("empty operands found in:") + eq;
-                return false;
-            }
+                return error_msg = std::string("empty operands found in:") + eq,false;
             if constexpr(!std::is_void_v<out>) out() << "compute " << values[first_op] << op[first_op] << tokens[first_op+1];
             equation(values[first_op],operands[first_op+1],op[first_op]);
             operands[first_op].swap(operands[first_op+1]);
