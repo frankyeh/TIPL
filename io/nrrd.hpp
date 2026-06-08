@@ -29,7 +29,7 @@ public:
     tipl::vector<3> vs;
     tipl::shape<3> size;
     int dim4 = 1;
-    std::string data_file;
+    std::filesystem::path data_file;
     std::string error_msg;
 public:
     bool file_series = false;
@@ -66,39 +66,25 @@ private:
             for(size_t index = from,z = 0;index <= to;index += step)
             {
                 std::string file_name;
-                file_name.resize(data_file.length()+2);
-                sprintf(&file_name[0],data_file.c_str(),index);
+                file_name.resize(data_file.u8string().length()+2);
+                sprintf(&file_name[0],data_file.u8string().c_str(),index);
                 if(!std::filesystem::exists(file_name))
-                {
-                    error_msg = "file not found ";
-                    error_msg += file_name;
-                    return false;
-                }
+                    return error_msg = "file not found " + file_name,false;
                 std::ifstream in(file_name,std::ios::binary);
                 if(!in.read(reinterpret_cast<char*>(I.data() + I.plane_size()*z),I.plane_size()*sizeof(typename T::value_type)))
-                {
-                    error_msg = "error reading image data ";
-                    error_msg += file_name;
-                    return false;
-                }
+                    return error_msg = "error reading image data " + file_name,false;
             }
         }
         else
         {
             if(!std::filesystem::exists(data_file))
-            {
-                error_msg = "data file not found";
-                return false;
-            }
+                return error_msg = "data file not found",false;
             if(values["encoding"] == "raw")
             {
                 std::ifstream in(data_file,std::ios::binary);
                 in.seekg(header_size,std::ios_base::beg);
                 if(!in.read(reinterpret_cast<char*>(I.data()),I.size()*sizeof(typename T::value_type)))
-                {
-                    error_msg = "error reading image data " + data_file;
-                    return false;
-                }
+                    return error_msg = "error reading image data " + data_file.u8string(),false;
                 goto check_endian;
             }
             if(values["encoding"] == "gzip")
@@ -110,18 +96,12 @@ private:
                     std::vector<unsigned char> buf(size_t(in.tellg())-header_size);
                     in.seekg(header_size,std::ios_base::beg);
                     if(!in.read(reinterpret_cast<char*>(buf.data()),buf.size()))
-                    {
-                        error_msg = "error reading image data: " + data_file;
-                        return false;
-                    }
+                        return error_msg = "error reading image data: " + data_file.u8string(),false;
                     gz_stream_type istrm;
                     istrm.input(std::move(buf));
                     istrm.output(I.data(),I.size()*sizeof(typename T::value_type));
                     if(istrm.process() > 1) // != Z_OK(0) or Z_STREAM_END(1)
-                    {
-                        error_msg = "corrupted gzip encoding: " + data_file;
-                        return false;
-                    }
+                        return error_msg = "corrupted gzip encoding: " + data_file.u8string(),false;
                     goto check_endian;
                 }
             }
@@ -178,20 +158,14 @@ private:
         return false;
     }
 public:
-    bool load_from_file(const std::string& file_name)
+    bool load_from_file(const std::filesystem::path& file_name)
     {
         std::ifstream in(file_name,std::ios::binary);
         if(!in)
-        {
-            error_msg = "cannot open file";
-            return false;
-        }
+            return error_msg = "cannot open file " + file_name.u8string(),false;
         std::string line;
         if(!std::getline(in,line) || !tipl::begins_with(line,"NRRD000"))
-        {
-            error_msg = "invalid nrrd file format";
-            return false;
-        }
+            return error_msg = "invalid nrrd file format",false;
         T.identity();
         data_file = file_name;
         while(std::getline(in,line) && !line.empty())
@@ -219,22 +193,20 @@ public:
                 in2 >> size >> dim4;
             if(name == "data file")
             {
-                in2 >> data_file;
-                if(data_file.find("%") != std::string::npos)
+                std::string p;
+                in2 >> p;
+                if(p.find("%") != std::string::npos)
                 {
                     file_series = true;
                     in2 >> from >> to >> step;
                 }
-                data_file = std::filesystem::path(file_name).parent_path().u8string() + "/" + data_file;
+                data_file = std::filesystem::path(file_name).parent_path()/p;
             }
         }
         if(data_file == file_name)
             header_size = in.tellg();
         if(!size.size())
-        {
-            error_msg = "invalid nrrd header size zero";
-            return false;
-        }
+            return error_msg = "invalid nrrd header size zero",false;
         return true;
     }
     const tipl::shape<3>& shape(void) const{return size;}
