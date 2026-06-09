@@ -65,10 +65,9 @@ std::vector<char> toLPS(dim_type* dim,pixdim_type* pixdim,row_type* R)
     auto flp = [&](int a,char op)
     {
         seq.push_back(op);
-        float n = float(dim[a]-1);
         for(int r : {0,4,8})
         {
-            R[r+3] += R[r+a]*n;
+            R[r+3] += R[r+a]*float(dim[a]-1);
             R[r+a] = -R[r+a];
         }
     };
@@ -80,15 +79,34 @@ std::vector<char> toLPS(dim_type* dim,pixdim_type* pixdim,row_type* R)
     if(R[0] > 0.0f)  flp(0,0);
     if(R[5] > 0.0f)  flp(1,1);
     if(R[10] < 0.0f) flp(2,2);
-
     return seq;
 }
 
-template<typename image_type>
-void apply_flip_swap_seq(image_type& out,const std::vector<char>& flip_swap_seq,bool reverse = false)
+template<typename srow_type>
+inline auto get_flip_swap_seq(srow_type T)
 {
-    for(auto type : ((reverse) ? std::vector<char>(flip_swap_seq.rbegin(),flip_swap_seq.rend()) : flip_swap_seq))
-        tipl::flip(out,type);
+    char dim[3] = {2,2,2};
+    float vs[3] = {1.0f,1.0f,1.0f};
+    return tipl::io::toLPS(dim,vs,T.begin());
+}
+
+template<typename image_type>
+inline void apply_flip_swap_seq(image_type& out,const std::vector<char>& seq,bool reverse = false)
+{
+    for(size_t i = 0,n = seq.size();i < n;++i)
+        tipl::flip(out,seq[reverse ? n-1-i : i]);
+}
+
+inline void apply_flip_swap_seq(char* dim,const std::vector<char>& seq,bool reverse = false)
+{
+    for(size_t i = 0,n = seq.size();i < n;++i)
+        switch(char type = seq[reverse ? n-1-i : i])
+        {
+        case 0: case 1: case 2: dim[type] = -dim[type]; break;
+        case 3: std::swap(dim[0],dim[1]); break;
+        case 4: std::swap(dim[1],dim[2]); break;
+        case 5: std::swap(dim[0],dim[2]); break;
+        }
 }
 
 struct header_key /* header key */
