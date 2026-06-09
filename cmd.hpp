@@ -14,7 +14,6 @@
 #include "filter/anisotropic_diffusion.hpp"
 #include "prog.hpp"
 #include "io/nifti.hpp"
-#include "reg/mm_reg.hpp"
 
 namespace tipl{
 
@@ -616,53 +615,6 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         data.resize(data.shape().add(tipl::shape<3>::z,nii.depth()));
         auto new_space = data.alias(pos,tipl::shape<3>(nii.width(),nii.height(),nii.depth()));
         nii.get_untouched_image(new_space);
-        return true;
-    }
-    if(cmd == "rotate_to_image" || cmd == "warp_to_image")
-    {
-        const bool warp = cmd[0] == 'w';
-        image_loader nii(param1,std::ios::in);
-        if(!nii)
-            return error_msg = "cannot open file:" + param1,false;
-
-        tipl::reg::mm_reg<tipl::out> r;
-        r.Ivs = vs; r.IR = T; r.Is_is_mni = is_mni;
-
-        nii.get_image_transformation(T); // target native T before toLPS
-
-        tipl::image<3> It;
-        if(!(nii >> It >> r.Itvs >> r.ItR >> r.Its >> r.It_is_mni >> [&](const std::string& e){error_msg = e;}))
-            return false;
-
-        tipl::io::apply_flip_swap_seq(data,tipl::io::toLPS(tipl::vector<3,int>(data.shape()).begin(),r.Ivs.begin(),r.IR.begin()));
-        r.Is = data.shape();
-
-        for(size_t i = 0;i < 3;++i)
-        {
-            float w1 = r.Is[i]*r.Ivs[i], w2 = r.Its[i]*r.Itvs[i];
-            if(w1 > w2*2.0f || w2 > w1*2.0f)
-                return error_msg = std::string("FOV mismatch in ") + "xyz"[i] +
-                                   ": image=" + std::to_string(w1) + " mm, target=" + std::to_string(w2) +
-                                   " mm. Please resize current image.",false;
-        }
-
-        r.I[0] = tipl::reg::subject_image_pre(tipl::image<3>(data));
-        r.It[0] = tipl::reg::template_image_pre(std::move(It));
-        r.linear_param.reg_type = warp ? tipl::reg::affine : tipl::reg::rigid_body;
-        bool terminated = false;
-        r.linear_reg(terminated);
-        if(!terminated && warp)
-            r.nonlinear_reg(terminated);
-        if(terminated)
-            return error_msg = "aborted",false;
-
-        data = interpolation ?
-                   r.template apply_warping<true,tipl::interpolation::linear>(data) :
-                   r.template apply_warping<true,tipl::interpolation::majority>(data);
-
-        tipl::io::apply_flip_swap_seq(data,nii.flip_swap_seq,true);
-        vs = tipl::to_vs(T);
-        is_mni = r.It_is_mni;
         return true;
     }
     if(cmd == "save")
