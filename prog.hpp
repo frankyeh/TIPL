@@ -282,14 +282,6 @@ public:
             std::cout << get_head(head_node,tail_node) + new_line << std::endl;
             head_node = false;
         }
-#if defined(TIPL_USE_QT) && !defined(__CUDACC__)
-        if(tipl::is_main_thread() && status_count &&
-            std::chrono::high_resolution_clock::now() > status_list.back().next_update_time)
-        {
-            status_list.back().next_update_time = std::chrono::high_resolution_clock::now()+std::chrono::milliseconds(500);
-            QApplication::processEvents();
-        }
-#endif
     }
 public:
     bool temporary = false;
@@ -377,7 +369,6 @@ public:
             return;
         if(status_count <= 1)
             progressDialog->close(),progressDialog.reset();
-        QApplication::processEvents();
 #endif
 
     }
