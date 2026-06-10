@@ -203,7 +203,7 @@ private:
             return now < total;
         cur_status.now = now;
         cur_status.total = total;
-        cur_status.next_update_time = now_time+std::chrono::milliseconds(500);
+        cur_status.next_update_time = now_time+std::chrono::milliseconds(200);
         cur_status.at = "(" + std::to_string(now) + "/" + std::to_string(total) + ")";
         if(now < total)
         {
