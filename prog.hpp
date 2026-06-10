@@ -63,34 +63,22 @@ struct progress_dialog : public QDialog{
         {
             QPainter p(this);
             p.setRenderHint(QPainter::Antialiasing);
-            QPoint c(width()/2,height()/2);
-            int n = std::max(1,active), R = std::min(width(),height())/2 - 12;
-            int gap = n > 1 ? std::min(24,(R-58)/(n-1)) : 0;
-
-            for(int i = 1,k = 0;i < int(status_list.size());++i)
+            auto plot_circle = [&](unsigned int now,unsigned int total,int k)
             {
-                auto& s = status_list[i];
-                if(!s.now || !s.total)
-                    continue;
-
-                int r = R - (n-1-k)*gap;
-                QRect rc(c.x()-r,c.y()-r,r*2,r*2);
+                int r = 90 + k*24;
+                QRect rc(width()/2-r,height()/2-r,r*2,r*2);
                 int t = (pulse + k*25)%120;
-                int v = 185 + (t < 60 ? t : 120-t);
-
                 p.setPen(QPen(QColor(230,232,235),13,Qt::SolidLine,Qt::RoundCap));
                 p.drawEllipse(rc);
-                p.setPen(QPen(QColor::fromHsv((205+k*28)%360,155,v),13,Qt::SolidLine,Qt::RoundCap));
-                p.drawArc(rc,90*16,-int(360.0*16.0*s.now/s.total));
-                ++k;
-            }
-
-            if(!active)
-            {
-                int t = pulse%120;
-                p.setPen(QPen(QColor::fromHsv(205,80,175 + (t < 60 ? t : 120-t)),13,Qt::SolidLine,Qt::RoundCap));
-                p.drawEllipse(QRect(c.x()-R,c.y()-R,R*2,R*2));
-            }
+                p.setPen(QPen(QColor::fromHsv((205+k*28)%360,155,185 + (t < 60 ? t : 120-t)),13,Qt::SolidLine,Qt::RoundCap));
+                p.drawArc(rc,90*16,-int(360.0*16.0*now/total));
+            };
+            int k = 0;
+            for(auto& s : status_list)
+                if(s.now && s.total)
+                    plot_circle(s.now,s.total,k++);
+            if(k == 0)
+                plot_circle(0,1,0);
         }
     };
 
