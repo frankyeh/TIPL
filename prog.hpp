@@ -299,14 +299,14 @@ public:
     {
         unsigned int dummy = 0;
         if (!show_prog || !tipl::is_main_thread() || status_list.empty())
-            return fun(dummy),true;
+            return fun(dummy);
 
         status_list.back().total = total;
         status_list.back().now = 1;
         std::atomic<bool> ended{false};
-
+        bool result = true;
         std::thread worker_thread([&]() {
-            fun(status_list.back().now);
+            result = fun(status_list.back().now);
             ended = true;
         });
 
@@ -324,7 +324,7 @@ public:
         #endif
         if (worker_thread.joinable())
             worker_thread.join();
-        return !prog_aborted;
+        return result && !prog_aborted;
     }
     ~progress(void)
     {
