@@ -50,6 +50,74 @@ namespace io
 
 inline std::mutex nifti_do_not_show_process;
 
+
+template<typename prog_type,typename stream_type,typename ptr_type>
+bool read_stream_with_prog(prog_type&& prog,
+                           stream_type& in,
+                           ptr_type* ptr,
+                           size_t size_in_byte,
+                           std::string& error_msg,
+                           size_t buf_size = 1000000)
+{
+    if(size_in_byte < buf_size || prog.temporary)
+    {
+        if(!in.read(reinterpret_cast<char*>(ptr),size_in_byte))
+        {
+            if(in.eof())
+                return true;
+            return error_msg = "I/O error",false;
+        }
+        return true;
+    }
+    {
+        auto buf = reinterpret_cast<char*>(ptr);
+        size_t pos = 0;
+        while(prog(pos*100/size_in_byte,100))
+        {
+            if(buf_size < 64000000)
+                buf_size *= 2;
+            if(!in.read(buf+pos,std::min<size_t>(buf_size,size_in_byte-pos)))
+                return error_msg = "error reading data",false;
+            pos += buf_size;
+        }
+        if(pos < size_in_byte)
+            return error_msg = "aborted",false;
+    }
+    return true;
+}
+
+template<typename prog_type,typename stream_type,typename ptr_type>
+bool save_stream_with_prog(prog_type& prog,
+                           stream_type& out,
+                           const ptr_type* ptr,
+                           size_t size_in_byte,
+                           std::string& error_msg,
+                           size_t buf_size = 1000000)
+{
+    if(size_in_byte < buf_size || prog.temporary)
+    {
+        if(!out.write(reinterpret_cast<const char*>(ptr),size_in_byte))
+            return error_msg = "insufficient disk space",false;
+        return true;
+    }
+
+    {
+        auto buf = reinterpret_cast<const char*>(ptr);
+        size_t pos = 0;
+        while(prog(pos*100/size_in_byte,100))
+        {
+            if(buf_size < 64000000)
+                buf_size *= 2;
+            if(!out.write(buf+pos,std::min<size_t>(buf_size,size_in_byte-pos)))
+                return error_msg = "insufficient disk space",false;
+            pos += buf_size;
+        }
+        if(pos < size_in_byte)
+            return error_msg = "aborted",false;
+    }
+    return true;
+}
+
 template<typename dim_type,typename pixdim_type,typename row_type>
 std::vector<char> toLPS(dim_type* dim,pixdim_type* pixdim,row_type* R)
 {
@@ -923,8 +991,7 @@ private:
             output_stream.reset();
             std::filesystem::remove(tmp_file_name);
             if(error_msg.empty())
-                error_msg = "aborted";
-            return false;
+                return error_msg = "aborted",false;
         }
         output_stream.reset();
         std::filesystem::remove(file_name);
