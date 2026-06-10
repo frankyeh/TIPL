@@ -16,6 +16,7 @@
 #include <QPushButton>
 #include <QPainter>
 #include <QFontMetrics>
+#include <QMouseEvent>
 #include <QApplication>
 #endif
 
@@ -35,22 +36,22 @@ inline bool prog_aborted = false,show_prog = false;
 
 inline std::mutex print_mutex,msg_mutex;
 inline std::string last_msg;
+
 #if defined(TIPL_USE_QT) && !defined(__CUDACC__)
+
 struct progress_dialog : public QDialog{
     struct ring_widget : public QWidget{
         QPushButton cancel{"Cancel",this};
-        bool aborted = false;
-
+        int active = 0;
         ring_widget()
         {
-            setFixedSize(180,180);
-            cancel.setFixedSize(70,70);
+            setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Expanding);
+            setMinimumSize(220,220);
+            cancel.setFixedSize(140,140);
             cancel.setStyleSheet(
-                "QPushButton{border-radius:35px;background:#444;color:white;font-weight:bold;}"
-                "QPushButton:hover{background:#666;}"
-                "QPushButton:pressed{background:#222;}"
-                );
-            connect(&cancel,&QPushButton::clicked,[this]{aborted = true;});
+                "QPushButton{border-radius:70px;background:#3b3b3b;color:white;font-weight:bold;font-size:16px;}"
+                "QPushButton:hover{background:#555;font-size:18px;}QPushButton:pressed{background:#222;}");
+            connect(&cancel,&QPushButton::clicked,[]{prog_aborted = true;});
         }
 
         void resizeEvent(QResizeEvent*) override
@@ -62,54 +63,94 @@ struct progress_dialog : public QDialog{
         {
             QPainter p(this);
             p.setRenderHint(QPainter::Antialiasing);
-
             QPoint c(width()/2,height()/2);
-            int k = 0;
+            int n = std::max(1,active), R = std::min(width(),height())/2 - 12;
+            int gap = n > 1 ? std::min(24,(R-58)/(n-1)) : 0;
 
-            for(int i = 1;i < int(status_list.size());++i)
+            for(int i = 1,k = 0;i < int(status_list.size());++i)
             {
                 auto& s = status_list[i];
-                if(!s.now || !s.total)
+                if(!s.total)
                     continue;
-
-                int r = 50 + k*14;
-                QRect rect(c.x()-r,c.y()-r,r*2,r*2);
-
-                p.setPen(QPen(QColor(225,225,225),9,Qt::SolidLine,Qt::RoundCap));
-                p.drawEllipse(rect);
-                p.setPen(QPen(QColor::fromHsv((205 + k*35)%360,170,220),9,Qt::SolidLine,Qt::RoundCap));
-                p.drawArc(rect,90*16,-int(360.0*16.0*s.now/s.total));
+                int r = R - (n-1-k)*gap;
+                QRect rc(c.x()-r,c.y()-r,r*2,r*2);
+                p.setPen(QPen(QColor(230,232,235),13,Qt::SolidLine,Qt::RoundCap));
+                p.drawEllipse(rc);
+                p.setPen(QPen(QColor::fromHsv((205+k*28)%360,150,215),13,Qt::SolidLine,Qt::RoundCap));
+                p.drawArc(rc,90*16,-int(360.0*16.0*s.now/s.total));
                 ++k;
             }
 
-            if(!k)
+            if(!active)
             {
-                p.setPen(QPen(QColor(190,190,190),9,Qt::SolidLine,Qt::RoundCap));
-                p.drawEllipse(QRect(c.x()-58,c.y()-58,116,116));
+                p.setPen(QPen(QColor(190,190,190),13,Qt::SolidLine,Qt::RoundCap));
+                p.drawEllipse(QRect(c.x()-R,c.y()-R,R*2,R*2));
             }
         }
     };
 
     QVBoxLayout box{this};
-    QLabel text;
     ring_widget rings;
-    bool& aborted = rings.aborted;
+    QLabel text;
+    QPoint drag_pos;
+    bool dragging = false;
 
     progress_dialog()
     {
-        setWindowTitle("Progress");
+        setAttribute(Qt::WA_TranslucentBackground);
+        setWindowFlags(windowFlags() | Qt::FramelessWindowHint);
+        box.setContentsMargins(8,8,8,8);
+        box.setSpacing(2);
         text.setAlignment(Qt::AlignCenter);
-        text.setFixedWidth(420);
-        setMaximumWidth(460);
+        text.setFixedWidth(310);
+        box.addWidget(&rings,1);
         box.addWidget(&text,0,Qt::AlignCenter);
-        box.addWidget(&rings,0,Qt::AlignCenter);
-        resize(460,260);
+        installEventFilter(this);
+        rings.installEventFilter(this);
+        text.installEventFilter(this);
+        resize(320,360);
+    }
+    void paintEvent(QPaintEvent*) override
+    {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor(255,255,255,210));
+        p.drawRoundedRect(rect(),24,24);
+    }
+
+    bool eventFilter(QObject*,QEvent* event) override
+    {
+        if(event->type() == QEvent::MouseButtonPress)
+        {
+            auto* e = static_cast<QMouseEvent*>(event);
+            if(e->button() == Qt::LeftButton)
+            {
+                dragging = true;
+                drag_pos = e->globalPosition().toPoint() - frameGeometry().topLeft();
+                setCursor(Qt::SizeAllCursor);
+                return true;
+            }
+        }
+        if(event->type() == QEvent::MouseMove && dragging)
+        {
+            move(static_cast<QMouseEvent*>(event)->globalPosition().toPoint() - drag_pos);
+            return true;
+        }
+        if(event->type() == QEvent::MouseButtonRelease)
+        {
+            dragging = false;
+            unsetCursor();
+            return true;
+        }
+        return false;
     }
 
     void refresh()
     {
         QStringList lines;
         QFontMetrics fm(text.font());
+        rings.active = 0;
 
         for(int i = 1;i < int(status_list.size());++i)
             if(!status_list[i].status.empty())
@@ -118,38 +159,16 @@ struct progress_dialog : public QDialog{
                 if(!status_list[i].at.empty())
                     s += " " + QString::fromStdString(status_list[i].at);
                 lines << fm.elidedText(s,Qt::ElideRight,text.width()-8);
+                rings.active += status_list[i].now && status_list[i].total;
             }
 
         text.setText(lines.empty() ? "working..." : lines.join('\n'));
+        text.setFixedHeight(fm.lineSpacing()*std::max<int>(1,lines.size())+4);
         rings.update();
-        resize(width(),230 + std::max<int>(1,lines.size())*18);
     }
 };
 inline std::shared_ptr<progress_dialog> progressDialog;
 #endif
-
-
-
-inline void create_prog(void)
-{
-#if defined(TIPL_USE_QT) && !defined(__CUDACC__)
-    if(!show_prog || !tipl::is_main_thread())
-        return;
-    progressDialog.reset(new progress_dialog);
-    progressDialog->show();
-    QApplication::processEvents(QEventLoop::AllEvents,20);
-#endif
-}
-inline void close_prog(void)
-{
-#if defined(TIPL_USE_QT) && !defined(__CUDACC__)
-    if(!show_prog || !tipl::is_main_thread() || !progressDialog)
-        return;
-    if(status_count <= 1)
-        progressDialog->close(),progressDialog.reset();
-    QApplication::processEvents();
-#endif
-}
 
 class progress{
 private:
@@ -162,42 +181,49 @@ private:
         status_list.push_back({t,t,status,{}});
         ++status_count;
         last_msg.clear();
-        if(show_now)
-            create_prog();
+#if defined(TIPL_USE_QT) && !defined(__CUDACC__)
+
+        if(show_now && !progressDialog.get())
+        {
+            progressDialog.reset(new progress_dialog);
+            progressDialog->show();
+        }
+
+#endif
     }
     static bool check_prog(unsigned int now,unsigned int total)
     {
-        if(!show_prog || !tipl::is_main_thread() || !status_count)
-            return !prog_aborted && now < total;
-        auto& cur_status = status_list.back();
-        if(now >= total || prog_aborted)
-        {
-            cur_status.at.clear();
+        if(prog_aborted)
             return false;
-        }
+        if(!show_prog || !tipl::is_main_thread() || !status_count)
+            return now < total;
+        auto& cur_status = status_list.back();
         auto now_time = std::chrono::high_resolution_clock::now();
         if(now == 0 || now_time < cur_status.next_update_time)
-            return true;
-        cur_status.next_update_time = now_time+std::chrono::milliseconds(500);
-        cur_status.at = "(" + std::to_string(now) + "/" + std::to_string(total) + ")";
-        int exp_min = std::chrono::duration_cast<std::chrono::milliseconds>(now_time - cur_status.start_time).count()*(total-now)/(now+1)/1000/60;
-        if(exp_min)
-            cur_status.at += " " + std::to_string(exp_min) + " min";
+            return now < total;
         cur_status.now = now;
         cur_status.total = total;
+        cur_status.next_update_time = now_time+std::chrono::milliseconds(500);
+        cur_status.at = "(" + std::to_string(now) + "/" + std::to_string(total) + ")";
+        if(now < total)
+        {
+            int exp_min = std::chrono::duration_cast<std::chrono::milliseconds>(now_time - cur_status.start_time).count()*(total-now)/now/1000/60;
+            if(exp_min)
+                cur_status.at += " " + std::to_string(exp_min) + " min";
+        }
 
 #if defined(TIPL_USE_QT) && !defined(__CUDACC__)
         if(!progressDialog)
-            create_prog();
-        if(progressDialog)
         {
-            progressDialog->refresh();
-            if(progressDialog->aborted)
-                prog_aborted = true,progress::print("operation aborted",false,false,1);
-            QApplication::processEvents(QEventLoop::AllEvents,20);
+            progressDialog.reset(new progress_dialog);
+            progressDialog->show();
         }
+        progressDialog->refresh();
+        QApplication::processEvents();
 #endif
-        return !prog_aborted;
+        if(prog_aborted)
+            return progress::print("operation aborted",false,false,1),false;
+        return now < total;
     }
     static std::string get_head(bool head_node,bool tail_node)
     {
@@ -251,7 +277,7 @@ public:
             head_node = false;
         }
 #if defined(TIPL_USE_QT) && !defined(__CUDACC__)
-        if(tipl::is_main_thread() && progressDialog.get() && status_count &&
+        if(tipl::is_main_thread() && status_count &&
             std::chrono::high_resolution_clock::now() > status_list.back().next_update_time)
         {
             status_list.back().next_update_time = std::chrono::high_resolution_clock::now()+std::chrono::milliseconds(500);
@@ -309,7 +335,14 @@ public:
             std::scoped_lock<std::mutex> lock2(msg_mutex);
             last_msg.clear();
         }
-        close_prog();
+
+#if defined(TIPL_USE_QT) && !defined(__CUDACC__)
+        if(!show_prog || !progressDialog)
+            return;
+        if(status_count <= 1)
+            progressDialog->close(),progressDialog.reset();
+        QApplication::processEvents();
+#endif
 
     }
 };
