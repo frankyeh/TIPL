@@ -190,7 +190,7 @@ private:
         last_msg.clear();
 #if defined(TIPL_USE_QT) && !defined(__CUDACC__)
 
-        if(show_now && !progressDialog.get())
+        if(show_now && !progressDialog)
         {
             progressDialog.reset(new progress_dialog);
             progressDialog->show();
@@ -214,9 +214,8 @@ private:
         cur_status.now = now;
         if(now < total)
         {
-            int exp_min = std::chrono::duration_cast<std::chrono::milliseconds>(now_time - cur_status.start_time).count()*(total-now)/now/1000/60;
-            if(exp_min)
-                cur_status.at += " " + std::to_string(exp_min) + " min";
+            if(auto e = std::chrono::duration_cast<std::chrono::milliseconds>(now_time-cur_status.start_time).count()*(total-now)/now/60000; e)
+                cur_status.at += " "+std::to_string(e)+" min";
         }
 
 #if defined(TIPL_USE_QT) && !defined(__CUDACC__)
@@ -355,20 +354,18 @@ public:
         auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                       std::chrono::high_resolution_clock::now() - status_list.back().start_time).count();
 
-        auto h = ms/3600000; ms %= 3600000;
-        auto m = ms/60000;   ms %= 60000;
-        auto s = ms/1000;    ms %= 1000;
-
+        auto s=ms/1000; ms%=1000;
+        auto m=s/60;    s%=60;
+        auto h=m/60;    m%=60;
         std::string t;
-        if(h) t += std::to_string(h) + "h ";
-        if(m) t += std::to_string(m) + "m ";
-        if(s) t += std::to_string(s) + "s ";
-        t += std::to_string(ms) + "ms";
+        if(h) t += std::to_string(h) + "h";
+        if(m) t += std::to_string(m) + "m";
+        if(s) t += std::to_string(s) + "s";
+        t+=std::to_string(ms)+"ms";
 
         status_list.pop_back();
         --status_count;
         print("⏱" + t,false,true);
-
 
         {
             std::scoped_lock<std::mutex> lock2(msg_mutex);
