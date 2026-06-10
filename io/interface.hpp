@@ -27,8 +27,7 @@ bool read_stream_with_prog(prog_type&& prog,
         {
             if(in.eof())
                 return true;
-            error_msg = "I/O error";
-            return false;
+            return error_msg = "I/O error",false;
         }
         return true;
     }
@@ -40,18 +39,11 @@ bool read_stream_with_prog(prog_type&& prog,
             if(buf_size < 64000000)
                 buf_size *= 2;
             if(!in.read(buf+pos,std::min<size_t>(buf_size,size_in_byte-pos)))
-            {
-                error_msg = "error reading data";
-                return false;
-            }
+                return error_msg = "error reading data",false;
             pos += buf_size;
         }
         if(pos < size_in_byte)
-        {
-            error_msg = "aborted";
-            return false;
-        }
-
+            return error_msg = "aborted",false;
     }
     return true;
 }
@@ -67,10 +59,7 @@ bool save_stream_with_prog(prog_type& prog,
     if(size_in_byte < buf_size || prog.temporary)
     {
         if(!out.write(reinterpret_cast<const char*>(ptr),size_in_byte))
-        {
-            error_msg = "insufficient disk space";
-            return false;
-        }
+            return error_msg = "insufficient disk space",false;
         return true;
     }
 
@@ -82,17 +71,11 @@ bool save_stream_with_prog(prog_type& prog,
             if(buf_size < 64000000)
                 buf_size *= 2;
             if(!out.write(buf+pos,std::min<size_t>(buf_size,size_in_byte-pos)))
-            {
-                error_msg = "insufficient disk space";
-                return false;
-            }
+                return error_msg = "insufficient disk space",false;
             pos += buf_size;
         }
         if(pos < size_in_byte)
-        {
-            error_msg = "aborted";
-            return false;
-        }
+            return error_msg = "aborted",false;
     }
     return true;
 }
