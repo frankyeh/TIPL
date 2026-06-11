@@ -28,7 +28,7 @@ inline auto get_directories(const std::filesystem::path& dir)
     if(std::filesystem::exists(dir) && std::filesystem::is_directory(dir))
         for(const auto& entry : std::filesystem::directory_iterator(dir))
             if(entry.is_directory())
-                dir_list.push_back(entry.path().filename().string());
+                dir_list.push_back(entry.path().filename().u8string());
 
     std::sort(dir_list.begin(),dir_list.end());
     return dir_list;
@@ -412,134 +412,133 @@ inline bool match_wildcard(const std::string& file_path,const std::string& wild_
     return tipl::match_strings(wild_card,file_path,std::string("*"),result,true,false) && !result.empty();
 }
 
-inline void search_files(const std::string& search_path,const std::string& wildcard,std::vector<std::string>& results)
+inline void search_files(const std::filesystem::path& search_path,
+                         const std::string& wildcard,
+                         std::vector<std::filesystem::path>& results,
+                         bool recursive = false)
 {
-    if(!std::filesystem::exists(search_path) || !std::filesystem::is_directory(search_path))
+    if(!std::filesystem::is_directory(search_path))
         return;
-    for (const auto& entry : std::filesystem::directory_iterator(search_path))
+
+    auto add = [&](const auto& entry)
     {
-        if (!std::filesystem::is_regular_file(entry))
-            continue;
-        if (wildcard.empty() || tipl::match_wildcard(entry.path().filename().u8string(),wildcard))
-            results.push_back(entry.path().u8string());
-    }
+        if(entry.is_regular_file() &&
+            (wildcard.empty() || tipl::match_wildcard(entry.path().filename().u8string(),wildcard)))
+            results.push_back(entry.path());
+    };
+
+    if(recursive)
+        for(const auto& entry : std::filesystem::recursive_directory_iterator(search_path))
+            add(entry);
+    else
+        for(const auto& entry : std::filesystem::directory_iterator(search_path))
+            add(entry);
 }
-inline std::vector<std::string> search_files(const std::string& search_path,const std::string& wildcard)
+
+inline auto search_files(const std::filesystem::path& search_path,
+                         const std::string& wildcard,
+                         bool recursive = false)
 {
-    std::vector<std::string> results;
-    search_files(search_path,wildcard,results);
+    std::vector<std::filesystem::path> results;
+    search_files(search_path,wildcard,results,recursive);
     return results;
 }
-inline void search_dirs(const std::string& search_path,const std::string& wildcard,std::vector<std::string>& results)
+inline void search_dirs(const std::filesystem::path& search_path,const std::string& wildcard,std::vector<std::filesystem::path>& results)
 {
-    if(!std::filesystem::exists(search_path) || !std::filesystem::is_directory(search_path))
+    if(!std::filesystem::is_directory(search_path))
         return;
-    for (const auto& entry : std::filesystem::directory_iterator(search_path))
-    {
-        if (!std::filesystem::is_directory(entry))
-            continue;
-        if (wildcard.empty() || tipl::match_wildcard(entry.path().filename().u8string(),wildcard))
-            results.push_back(entry.path().u8string());
-    }
+
+    for(const auto& entry : std::filesystem::directory_iterator(search_path))
+        if(entry.is_directory() &&
+            (wildcard.empty() || tipl::match_wildcard(entry.path().filename().u8string(),wildcard)))
+                results.push_back(entry.path());
 }
-inline std::vector<std::string> search_dirs(const std::string& search_path,const std::string& wildcard)
+inline auto search_dirs(const std::filesystem::path& search_path,const std::string& wildcard)
 {
-    std::vector<std::string> results;
+    std::vector<std::filesystem::path> results;
     search_dirs(search_path,wildcard,results);
     return results;
 }
 
 
-template<typename out_type = void>
-bool search_filesystem(std::string pat, std::vector<std::string>& out, bool want_file = true)
+inline bool search_filesystem(const std::filesystem::path& pat,
+                              std::vector<std::filesystem::path>& out,
+                              bool want_file = true)
 {
-    if (pat.empty()) return false;
-
-    const bool strip_dir = (pat.find_first_of("/\\") == std::string::npos);
-
-    auto match = [](const std::string& p, const std::string& s)
+    if(pat.empty())
+        return false;
+    auto old_size = out.size();
+    auto match = [](const std::string& p,const std::string& s)
     {
-        const char *a=p.c_str(), *b=s.c_str(), *sa=nullptr, *sb=nullptr;
-        while (*b)
-            if (*a=='?' || *a==*b) a++, b++;
-            else if (*a=='*') sa=a++, sb=b;
-            else if (sa) a=sa+1, b=++sb;
-            else return false;
-        while (*a=='*') a++;
+        const char *a = p.c_str(),*b = s.c_str(),*sa = nullptr,*sb = nullptr;
+        while(*b)
+            if(*a == '?' || *a == *b)
+                ++a,++b;
+            else if(*a == '*')
+                sa = a++,sb = b;
+            else if(sa)
+                a = sa+1,b = ++sb;
+            else
+                return false;
+        while(*a == '*')
+            ++a;
         return !*a;
     };
 
-    std::filesystem::path p(pat), base;
+    std::filesystem::path base;
     std::vector<std::string> parts;
 
-    for (const auto& c : p)
+    for(const auto& c : pat)
     {
         auto s = c.u8string();
-        if (s.find_first_of("*?") != std::string::npos)
+        if(s.find_first_of("*?") != std::string::npos || !parts.empty())
             parts.push_back(s);
-        else if (parts.empty())
-            base /= c;
         else
-            parts.push_back(s);
+            base /= c;
     }
-
-    // No wildcard pattern at all
-    if (parts.empty())
-    {
-        std::error_code ec;
-        bool ok = want_file ?
-            std::filesystem::is_regular_file(p,ec) :
-            std::filesystem::is_directory(p,ec);
-        if (!ok || ec) return false;
-
-        out.push_back(strip_dir ? p.filename().u8string()
-                                : std::filesystem::weakly_canonical(p,ec).u8string());
-        return true;
-    }
-
-    if (base.empty()) base = std::filesystem::current_path();
 
     std::error_code ec;
-    if (!std::filesystem::exists(base,ec) || !std::filesystem::is_directory(base,ec))
+    if(parts.empty())
+    {
+        if((want_file ? std::filesystem::is_regular_file(pat,ec) :
+                 std::filesystem::is_directory(pat,ec)) && !ec)
+            out.push_back(std::filesystem::weakly_canonical(pat,ec));
+        return !out.empty();
+    }
+
+    if(base.empty())
+        base = std::filesystem::current_path();
+
+    if(!std::filesystem::is_directory(base,ec))
         return false;
 
-    std::vector<std::filesystem::path> dirs { base };
+    std::vector<std::filesystem::path> dirs{base};
 
-    for (size_t i = 0; i < parts.size(); ++i)
+    for(size_t i = 0;i < parts.size();++i)
     {
         std::vector<std::filesystem::path> next;
 
-        for (const auto& d : dirs)
-        {
-            std::filesystem::directory_iterator it(d, ec), end;
-            if (ec) continue;
-
-            for (; it != end; ++it)
+        for(const auto& d : dirs)
+            for(std::filesystem::directory_iterator it(d,ec),end;!ec && it != end;++it)
             {
                 const auto& e = *it;
-                auto name = e.path().filename().u8string();
-                if (!match(parts[i], name)) continue;
+                if(!match(parts[i],e.path().filename().u8string()))
+                    continue;
 
-                bool is_file = e.is_regular_file(ec);
-                bool is_dir  = e.is_directory(ec);
-
-                if (i + 1 == parts.size())
+                if(i+1 == parts.size())
                 {
-                    if ((want_file && is_file) || (!want_file && is_dir))
-                        out.push_back(strip_dir ? name
-                                                : std::filesystem::weakly_canonical(e.path(),ec).u8string());
+                    if(want_file ? e.is_regular_file(ec) : e.is_directory(ec))
+                        out.push_back(std::filesystem::weakly_canonical(e.path(),ec));
                 }
-                else if (is_dir)
+                else if(e.is_directory(ec))
                     next.push_back(e.path());
             }
-        }
 
         dirs.swap(next);
     }
 
-    return !out.empty();
+    return out.size() != old_size;
 }
-
 
 
 
@@ -661,6 +660,9 @@ public:
         values.clear();
         used.clear();
         printed.clear();
+        not_found_names.clear();
+        error_msg.clear();
+        interact = false;
     }
 
     bool parse(int ac, char *av[])
@@ -991,18 +993,18 @@ public:
     }
 
     template<typename out_warning = out>
-    std::vector<std::string> get_files(const char* name,const std::string& default_str = std::string())
+    auto get_files(const char* name,const std::string& default_str = std::string())
     {
         auto search_str = get(name,default_str);
-        std::vector<std::string> filenames,file_list(tipl::split(search_str,','));
-        for(const auto& each : file_list)
+        std::vector<std::filesystem::path> filenames;
+        for(const auto& each : tipl::split(search_str,','))
         {
             if(each.find('*') == std::string::npos)
                 filenames.push_back(each);
             else
             {
-                std::vector<std::string> new_files;
-                if(search_filesystem<out>(each,new_files))
+                std::vector<std::filesystem::path> new_files;
+                if(search_filesystem(each,new_files))
                 {
                     out() << each << ": " << new_files.size() << " file(s) specified by " << each;
                     std::sort(new_files.begin(),new_files.end());
