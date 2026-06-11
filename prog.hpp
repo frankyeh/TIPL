@@ -178,7 +178,7 @@ private:
         last_msg.clear();
 #if defined(TIPL_USE_QT) && !defined(__CUDACC__)
 
-        if(show_now && !progressDialog)
+        if(!show_prog && show_now && !progressDialog)
         {
             progressDialog.reset(new progress_dialog);
             progressDialog->show();
