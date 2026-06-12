@@ -124,10 +124,8 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
 
     size_t n = to - from;
     par_for_guard guard;
-    thread_count = std::max<int>(1,thread_count);
-    thread_count = std::min<int>(thread_count,int(n));
-
-    if(!guard.is_root || n <= 1)
+    thread_count = std::clamp(thread_count, 1, int(n));
+    if(!guard.is_root)
         thread_count = 1;
 
 #ifdef __CUDACC__
