@@ -381,6 +381,12 @@ inline QImage create_mosaic(const std::vector<QImage>& images,int col_size)
 #include <QVBoxLayout>
 #include <QPointer>
 #include <QFileInfo>
+#include <QLineEdit>
+#include <QSortFilterProxyModel>
+#include <QFileSystemModel>
+#include <QSlider>
+#include <QPushButton>
+#include <QHBoxLayout>
 #include <QDir>
 #include <atomic>
 #include <thread>
@@ -473,6 +479,11 @@ void add_preview(T& dlg)
     auto* report = new QTextEdit;
     auto* panel = new QWidget;
     auto* box = new QVBoxLayout(panel);
+    auto* ctrl = new QHBoxLayout;
+    auto* slider = new QSlider(Qt::Horizontal);
+    auto* sag = new QPushButton("Sag");
+    auto* cor = new QPushButton("Cor");
+    auto* axi = new QPushButton("Axi");
 
     preview->setFixedSize(512,512);
     preview->setAlignment(Qt::AlignCenter);
@@ -481,96 +492,110 @@ void add_preview(T& dlg)
     report->setMinimumHeight(120);
     report->setStyleSheet("QTextEdit{background:#222;color:white;}");
 
+    for(auto* b : {sag,cor,axi})
+    {
+        b->setCheckable(true);
+        ctrl->addWidget(b);
+    }
+    axi->setChecked(true);
+    ctrl->insertWidget(0,slider,1);
+    slider->setRange(0,2);
+    slider->setValue(1);
+
     box->setContentsMargins(0,0,0,0);
     box->addWidget(preview);
+    box->addLayout(ctrl);
     box->addWidget(report,1);
 
     if(auto* g = qobject_cast<QGridLayout*>(dlg.layout()))
         g->addWidget(panel,0,3,g->rowCount(),1);
 
-    auto* id = new std::atomic<size_t>(0);
-    QPointer<QLabel> preview_ptr(preview);
-    QPointer<QTextEdit> report_ptr(report);
+    auto id = std::make_shared<std::atomic<size_t>>(0);
+    auto I = std::make_shared<tipl::image<3,float>>();
+    auto dim = std::make_shared<int>(2);
     QPointer<QFileDialog> dlg_ptr(&dlg);
 
+    auto redraw = [=]()
+    {
+        if(I->empty())
+            return;
 
+        slider->setMaximum(std::max<int>(0,int(I->shape()[*dim])-1));
+        auto slice = tipl::volume2slice(*I,*dim,size_t(slider->value()));
+        if(*dim != 2)
+            tipl::flip_y(slice);
+        auto [mn,mx] = std::minmax_element(slice.begin(),slice.end());
+        float scale = 255.0f/std::max<float>(*mx-*mn,1.0f);
 
+        QImage out(slice.width(),slice.height(),QImage::Format_Grayscale8);
+        for(int y = 0;y < out.height();++y)
+        {
+            auto* p = out.scanLine(y);
+            for(int x = 0;x < out.width();++x)
+                p[x] = uchar(std::clamp<int>((slice[size_t(y)*slice.width()+x]-*mn)*scale,0,255));
+        }
+        preview->setPixmap(QPixmap::fromImage(out.scaled(512,512,Qt::KeepAspectRatio,Qt::SmoothTransformation)));
+    };
 
-    QObject::connect(&dlg,&QFileDialog::destroyed,[id]{delete id;});
+    auto set_dim = [=](int d)
+    {
+        float pos = slider->maximum() ? float(slider->value())/float(slider->maximum()) : 0.5f;
+        int max_pos = I->empty() ? 0 : std::max<int>(0,int(I->shape()[d])-1);
 
-    QObject::connect(&dlg,&QFileDialog::currentChanged,
-                     [id,preview_ptr,report_ptr,dlg_ptr](const QString& file)
+        *dim = d;
+        sag->setChecked(d == 0);
+        cor->setChecked(d == 1);
+        axi->setChecked(d == 2);
+
+        slider->blockSignals(true);
+        slider->setRange(0,max_pos);
+        slider->setValue(int(pos*max_pos + 0.5f));
+        slider->blockSignals(false);
+
+        redraw();
+    };
+
+    QObject::connect(slider,&QSlider::valueChanged,redraw);
+    QObject::connect(sag,&QPushButton::clicked,[=]{set_dim(0);});
+    QObject::connect(cor,&QPushButton::clicked,[=]{set_dim(1);});
+    QObject::connect(axi,&QPushButton::clicked,[=]{set_dim(2);});
+
+    QObject::connect(&dlg,&QFileDialog::currentChanged,[=](const QString& file)
                      {
                          size_t cur_id = ++(*id);
-                         preview_ptr->setText("loading...");
-                         preview_ptr->setPixmap({});
-                         report_ptr->clear();
+                         preview->setText("loading...");
+                         preview->setPixmap({});
+                         report->clear();
 
-                         std::thread([file,cur_id,id,preview_ptr,report_ptr,dlg_ptr]
+                         std::thread([=]
                                      {
-                                         auto image_preview = [](const tipl::image<3,float>& I)
-                                         {
-                                             if(I.empty())
-                                                 return QImage();
-
-                                             int w = I.width(),h = I.height(),z = I.depth()/2;
-                                             size_t off = size_t(z)*I.plane_size();
-                                             auto [mn,mx] = std::minmax_element(I.begin()+off,I.begin()+off+I.plane_size());
-                                             float d = *mx-*mn; if(d == 0.0f) d = 1.0f;
-                                             float scale = 255.0f/d;
-
-                                             QImage out(w,h,QImage::Format_Grayscale8);
-                                             for(int y = 0;y < h;++y)
-                                             {
-                                                 auto* p = out.scanLine(y);
-                                                 size_t pos = off + size_t(y)*w;
-                                                 for(int x = 0;x < w;++x)
-                                                     p[x] = uchar(std::clamp<int>((I[pos+x]-*mn)*scale,0,255));
-                                             }
-                                             return out.scaled(512,512,Qt::KeepAspectRatio,Qt::SmoothTransformation);
-                                         };
-
-                                         tipl::image<3,float> I;
+                                         auto new_I = std::make_shared<tipl::image<3,float>>();
                                          tipl::vector<3> vs;
                                          std::string r;
-                                         read_preview_image(file,I,vs,r);
-
-                                         QImage img;
-                                         QString text;
-                                         if(!I.empty())
-                                         {
-                                             img = image_preview(I);
-                                             text = QString("image size: [%1,%2,%3] x (%4 mm,%5 mm,%6 mm)\n")
-                                                        .arg(I.width()).arg(I.height()).arg(I.depth())
-                                                        .arg(vs[0]).arg(vs[1]).arg(vs[2]);
-
-                                             if(!r.empty())
-                                                 text += QString::fromStdString("report:" + r);
-                                         }
+                                         read_preview_image(file,*new_I,vs,r);
 
                                          if(!dlg_ptr)
                                              return;
 
-                                         QMetaObject::invokeMethod(dlg_ptr,[=,img = std::move(img),text = std::move(text)]
+                                         QMetaObject::invokeMethod(dlg_ptr,[=]
                                              {
-                                                 if(cur_id != *id || !preview_ptr || !report_ptr)
+                                                 if(cur_id != *id)
                                                      return;
-
-                                                 if(img.isNull())
+                                                 if(new_I->empty())
                                                  {
-                                                     preview_ptr->setText("no preview");
-                                                     preview_ptr->setPixmap({});
-                                                     report_ptr->clear();
+                                                     preview->setText("no preview");
                                                      return;
                                                  }
 
-                                                 preview_ptr->setText("");
-                                                 preview_ptr->setPixmap(QPixmap::fromImage(img));
-                                                 report_ptr->setPlainText(text);
+                                                 I->swap(*new_I);
+                                                 report->setPlainText(QString("image size: [%1,%2,%3] x (%4 mm,%5 mm,%6 mm)\n%7")
+                                                                          .arg(I->width()).arg(I->height()).arg(I->depth())
+                                                                          .arg(vs[0]).arg(vs[1]).arg(vs[2])
+                                                                          .arg(QString::fromStdString(r.empty() ? "" : "report:" + r)));
+                                                 set_dim(*dim);
                                              },Qt::QueuedConnection);
                                      }).detach();
                      });
-
 }
 
 class simple_icon_provider : public QFileIconProvider
@@ -579,6 +604,39 @@ public:
     QIcon icon(const QFileInfo& info) const override
     {
         return QFileIconProvider::icon(info.isDir() ? Folder : File);
+    }
+};
+
+class filename_filter_proxy : public QSortFilterProxyModel
+{
+    QStringList keys;
+public:
+    using QSortFilterProxyModel::QSortFilterProxyModel;
+
+    void set_filter(QString text)
+    {
+        keys = text.split(' ',Qt::SkipEmptyParts);
+        invalidateFilter();
+    }
+
+protected:
+    bool filterAcceptsRow(int row,const QModelIndex& parent) const override
+    {
+        if(keys.empty() || !sourceModel())
+            return true;
+
+        auto index = sourceModel()->index(row,0,parent);
+        QString name = qobject_cast<QFileSystemModel*>(sourceModel()) ?
+                           qobject_cast<QFileSystemModel*>(sourceModel())->fileName(index) :
+                           sourceModel()->data(index).toString();
+
+        if(auto* fs = qobject_cast<QFileSystemModel*>(sourceModel());fs && fs->isDir(index))
+            return true;
+
+        for(const auto& key : keys)
+            if(!name.contains(key,Qt::CaseInsensitive))
+                return false;
+        return true;
     }
 };
 
@@ -610,6 +668,26 @@ auto image_dialog(T* parent,QString path,QString filter,QFileDialog::AcceptMode 
     dlg.setSidebarUrls(tipl::qt::working_dirs);
     dlg.setDirectory(dir);
     dlg.setIconProvider(new simple_icon_provider);
+
+    if(accept == QFileDialog::AcceptOpen)
+    {
+        auto* proxy = new filename_filter_proxy(&dlg);
+        auto* name_filter = new QLineEdit(&dlg);
+        name_filter->setPlaceholderText("filter filename...");
+        name_filter->setClearButtonEnabled(true);
+
+        dlg.setProxyModel(proxy);
+        QObject::connect(name_filter,&QLineEdit::textChanged,
+                         proxy,&filename_filter_proxy::set_filter);
+
+        if(auto* g = qobject_cast<QGridLayout*>(dlg.layout()))
+        {
+            int row = g->rowCount();
+            g->addWidget(new QLabel("Filename contains:",&dlg),row,0);
+            g->addWidget(name_filter,row,1,1,2);
+        }
+    }
+
     dlg.resize(1500,600);
 
     if(!suffix.isEmpty())
