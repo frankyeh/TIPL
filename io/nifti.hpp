@@ -995,11 +995,15 @@ private:
         }
         output_stream.reset();
         std::filesystem::remove(file_name);
-        std::error_code error;
-        std::filesystem::rename(tmp_file_name,file_name,error);
-        if(error)
-            return error_msg = "cannot rename temp file " + tmp_file_name.u8string() + " to " + file_name.u8string() + ": " + error.message(),false;
-        return true;
+        for(int i = 0;i < 3;++i,std::this_thread::sleep_for(std::chrono::milliseconds(500)))
+        {
+            std::error_code error;
+            std::filesystem::rename(tmp_file_name,file_name,error);
+            if(!error)
+                return true;
+        }
+        return error_msg = "cannot save image to " + file_name.filename().u8string() +
+                           ". save it to a temporary file" + tmp_file_name.filename().u8string(),false;
     }
 public:
     template<typename iterator_type1,typename iterator_type2,typename int_type>
