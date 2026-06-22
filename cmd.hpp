@@ -567,16 +567,17 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
 
     if(cmd == "load_image" || cmd == "multiply_image" || cmd == "add_image" || cmd == "minus_image" || cmd == "max_image" || cmd == "min_image")
     {
+        if(!std::filesystem::exists(param1))
+            return error_msg = "file not exist :" + param1,false;
         tipl::image<3,typename image_type::value_type> rhs(data.shape());
         image_loader loader(param1,std::ios::in);
-
         if(interpolation)
             loader.template to_space<tipl::interpolation::linear>(rhs,T);
         else
             loader.template to_space<tipl::interpolation::majority>(rhs,T);
 
         if(!loader)
-            return error_msg = "cannot open file:" + param1,false;
+            return error_msg = loader.error_msg + ": " + param1,false;
 
         const size_t sz = data.size();
 
