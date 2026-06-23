@@ -3206,49 +3206,49 @@ public:
     const value_type* end(void) const{return value+mat_size;}
     value_type* end(void){return value+mat_size;}
 public:
-    const matrix& operator=(identity_matrix)
+    matrix& operator=(identity_matrix)
     {
         identity();
         return *this;
     }
-    const matrix& operator=(const matrix& rhs)
+    matrix& operator=(const matrix& rhs)
     {
         std::copy(rhs.begin(),rhs.end(),value);
         return *this;
     }
     template<typename rhs_type>
-    const matrix& operator=(const rhs_type& rhs)
+    matrix& operator=(const rhs_type& rhs)
     {
         std::copy(rhs.begin(),rhs.end(),value);
         return *this;
     }
     template<typename rhs_type>
-    const matrix& operator=(std::initializer_list<rhs_type> rhs)
+    matrix& operator=(std::initializer_list<rhs_type> rhs)
     {
         std::copy(rhs.begin(),rhs.end(),value);
         return *this;
     }
     template<typename rhs_type>
-    const matrix& operator=(const rhs_type* rhs)
+    matrix& operator=(const rhs_type* rhs)
     {
         std::copy_n(rhs,mat_size,value);
         return *this;
     }
     template<int cc,typename lhs_type,typename rhs_type>
-    const matrix& operator=(const product_delegate<cc,lhs_type,rhs_type>& prod)
+    matrix& operator=(const product_delegate<cc,lhs_type,rhs_type>& prod)
     {
         prod.solve(value,dim<r,c>());
         return *this;
     }
     template<typename rhs_type>
-    const matrix& operator=(const inverse_delegate<rhs_type>& inv)
+    matrix& operator=(const inverse_delegate<rhs_type>& inv)
     {
         inv.solve(value,dim<r,c>());
         return *this;
     }
 public:
     template<typename rhs_type>
-    const matrix& operator*=(const rhs_type& rhs)
+    matrix& operator*=(const rhs_type& rhs)
     {
         value_type old_value[mat_size];
         std::copy_n(value,mat_size,old_value);
