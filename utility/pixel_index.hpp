@@ -654,7 +654,7 @@ public:
 };
 
 template <par_for_type type = dynamic, int dim, typename Func>
-inline void par_for(const shape<dim>& s, Func&& f, int tc = max_thread_count()) {
+inline void par_for(const shape<dim>& s, Func&& f, int tc = max_thread_count) {
     par_for<type>(pixel_index<dim>(s),pixel_index<dim>(s.size(),s), std::forward<Func>(f), tc);
 }
 

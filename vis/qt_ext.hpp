@@ -411,7 +411,7 @@ inline bool read_preview_image(QString file,tipl::image<3,float>& I,tipl::vector
 {
     if(file.endsWith("nii.gz") || file.endsWith("nii"))
     {
-        std::scoped_lock<std::mutex> lock(tipl::io::nifti_do_not_show_process());
+        std::scoped_lock<std::mutex> lock(tipl::io::nifti_do_not_show_process);
         if(tipl::io::gz_nifti in(file.toUtf8().constData(),std::ios::in);in >> I >> vs)
         {
             std::ostringstream out;

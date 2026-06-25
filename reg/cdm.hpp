@@ -543,7 +543,7 @@ bool cdm_common(std::vector<tipl::const_pointer_image<dim,value_type> > It,
         Is.resize(It.size());
     if(Is.size() < It.size())
         It.resize(Is.size());
-    if(cuda && tipl::has_gpu())
+    if(cuda && tipl::has_gpu)
     {
         if constexpr (tipl::use_cuda)
         {

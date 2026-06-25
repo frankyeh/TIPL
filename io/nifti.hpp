@@ -48,7 +48,7 @@ namespace tipl
 namespace io
 {
 
-inline std::mutex& nifti_do_not_show_process(){static std::mutex m;return m;}
+inline std::mutex nifti_do_not_show_process;
 
 
 template<typename prog_type,typename stream_type,typename ptr_type>
@@ -612,10 +612,10 @@ public:
         file_name = file_name_;
         if(type == std::ios::out)
         {
-            if(nifti_do_not_show_process().try_lock())
+            if(nifti_do_not_show_process.try_lock())
             {
                 prog = tipl::progress("save " + file_name.u8string());
-                nifti_do_not_show_process().unlock();
+                nifti_do_not_show_process.unlock();
             }
             tmp_file_name = file_name;
             tmp_file_name += (tmp_file_name.extension() == ".gz" ? ".tmp.gz" : ".tmp");
@@ -625,10 +625,10 @@ public:
             return output_stream->open(tmp_file_name) ? true:
                        (error_msg = "cannot write to " + tmp_file_name.u8string() + " please check file path and access permissions.",false);
         }
-        if(nifti_do_not_show_process().try_lock())
+        if(nifti_do_not_show_process.try_lock())
         {
             prog = tipl::progress("open " + file_name.u8string());
-            nifti_do_not_show_process().unlock();
+            nifti_do_not_show_process.unlock();
         }
         if(!std::filesystem::exists(file_name))
             return error_msg = "file does not exist:" + file_name.u8string(),false;

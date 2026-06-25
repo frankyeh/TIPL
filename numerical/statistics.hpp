@@ -223,7 +223,7 @@ auto sum(const T& data)
     else
     {
         const size_t sz = data.size();
-        if(sz < 1000 || max_thread_count() < 2)
+        if(sz < 1000 || max_thread_count < 2)
             return sum(data.begin(),data.end());
         std::mutex mutex;
         return_type sums = return_type();
@@ -294,7 +294,7 @@ return_type square_sum(const T& data)
     else
     {
         const size_t sz = data.size();
-        if(sz < 1000 || max_thread_count() < 2)
+        if(sz < 1000 || max_thread_count < 2)
             return square_sum(data.begin(),data.end());
         std::mutex mutex;
         return_type sums = return_type();

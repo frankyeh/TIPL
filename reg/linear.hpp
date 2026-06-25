@@ -270,7 +270,7 @@ struct linear_reg_param{
     tipl::reg::cost_type cost_type = mutual_info;
     const float (*bound)[8] = reg_bound;
     unsigned int search_count = 16;
-    bool cuda = tipl::has_gpu();
+    bool cuda = tipl::has_gpu;
     bool absolute_bound = true;
     template<typename out_type>
     void report(void) const
@@ -626,7 +626,7 @@ float linear(std::vector<tipl::const_pointer_image<dim, unsigned char> > from,
              tipl::vector<dim> to_vs,
              tipl::affine_param<float, dim>& arg,
              linear_reg_param param = linear_reg_param(),
-             bool& terminated = tipl::prog_aborted())
+             bool& terminated = tipl::prog_aborted)
 {
     auto run_linear_reg = [&](auto& f, const auto& f_vs, auto& t, const auto& t_vs, auto& a, auto mr_tag)
     {
@@ -636,7 +636,7 @@ float linear(std::vector<tipl::const_pointer_image<dim, unsigned char> > from,
         reg->to_vs = t_vs;
         reg->set(param);
 
-        float result = (param.cuda && tipl::use_cuda && tipl::has_gpu()) ?
+        float result = (param.cuda && tipl::use_cuda && tipl::has_gpu) ?
                        linear_reg_imp<out_type, mr>(std::true_type{}, reg, param.cost_type, terminated):
                        linear_reg_imp<out_type, mr>(std::false_type{}, reg, param.cost_type, terminated);
         return result;
@@ -706,7 +706,7 @@ auto linear(std::vector<tipl::const_pointer_image<dim,unsigned char> > from,
                                           std::vector<tipl::const_pointer_image<dim,unsigned char> > to,
                                           tipl::vector<dim> to_vs,
                                           const linear_reg_param& param = linear_reg_param(),
-                                          bool& terminated = tipl::prog_aborted())
+                                          bool& terminated = tipl::prog_aborted)
 {
     tipl::affine_param<float,dim> arg;
     linear<out_type>(from,from_vs,to,to_vs,arg,param,terminated);
