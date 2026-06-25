@@ -30,12 +30,13 @@ struct prog_status{
     std::string status,at;
     unsigned int now = 0,total = 0;
 };
-inline std::vector<prog_status> status_list;
-inline std::atomic_int status_count = 0;
-inline bool prog_aborted = false,show_prog = false;
-
-inline std::mutex print_mutex,msg_mutex;
-inline std::string last_msg;
+inline std::vector<prog_status>& status_list() { static std::vector<prog_status> v; return v; }
+inline std::atomic_int& status_count() { static std::atomic_int v{0}; return v; }
+inline bool& prog_aborted() { static bool v = false; return v; }
+inline bool& show_prog() { static bool v = false; return v; }
+inline std::mutex& print_mutex() { static std::mutex v; return v; }
+inline std::mutex& msg_mutex() { static std::mutex v; return v; }
+inline std::string& last_msg() { static std::string v; return v; }
 
 #if defined(TIPL_USE_QT) && !defined(__CUDACC__)
 struct progress_dialog : public QDialog{
@@ -51,7 +52,7 @@ struct progress_dialog : public QDialog{
             cancel.setStyleSheet(
                 "QPushButton{border-radius:70px;background:#3b3b3b;color:white;font-weight:bold;font-size:16px;}"
                 "QPushButton:hover{background:#555;font-size:18px;}QPushButton:pressed{background:#222;}");
-            connect(&cancel,&QPushButton::clicked,[]{prog_aborted = true;});
+            connect(&cancel,&QPushButton::clicked,[]{prog_aborted() = true;});
         }
 
         void resizeEvent(QResizeEvent*) override
@@ -74,7 +75,7 @@ struct progress_dialog : public QDialog{
                 p.drawArc(rc,90*16,-int(360.0*16.0*now/total));
             };
             int k = 0;
-            for(auto& s : status_list)
+            for(auto& s : status_list())
                 if(s.now && s.total)
                     plot_circle(s.now,s.total,k++);
             if(k == 0)
@@ -147,14 +148,14 @@ struct progress_dialog : public QDialog{
         rings.active = 0;
         rings.pulse = (rings.pulse + 8)%120;
 
-        for(int i = 1;i < int(status_list.size());++i)
-            if(!status_list[i].status.empty())
+        for(int i = 1;i < int(status_list().size());++i)
+            if(!status_list()[i].status.empty())
             {
-                auto s = QString::fromStdString(tipl::split(status_list[i].status,'\n').front());
-                if(!status_list[i].at.empty())
-                    s += " " + QString::fromStdString(status_list[i].at);
+                auto s = QString::fromStdString(tipl::split(status_list()[i].status,'\n').front());
+                if(!status_list()[i].at.empty())
+                    s += " " + QString::fromStdString(status_list()[i].at);
                 lines << fm.elidedText(s,Qt::ElideRight,text.width()-8);
-                rings.active += status_list[i].total != 0;
+                rings.active += status_list()[i].total != 0;
             }
 
         text.setText(lines.empty() ? "working..." : lines.join('\n'));
@@ -172,13 +173,13 @@ private:
         if(!tipl::is_main_thread())
             return;
         auto t = std::chrono::high_resolution_clock::now();
-        prog_aborted = false;
-        status_list.push_back({t,t,status,{}});
-        ++status_count;
-        last_msg.clear();
+        prog_aborted() = false;
+        status_list().push_back({t,t,status,{}});
+        ++status_count();
+        last_msg().clear();
 #if defined(TIPL_USE_QT) && !defined(__CUDACC__)
 
-        if(show_prog && show_now && !progressDialog)
+        if(show_prog() && show_now && !progressDialog)
         {
             progressDialog.reset(new progress_dialog);
             progressDialog->show();
@@ -188,11 +189,11 @@ private:
     }
     static bool check_prog(unsigned int now,unsigned int total)
     {
-        if(prog_aborted)
+        if(prog_aborted())
             return false;
-        if(!show_prog || !tipl::is_main_thread() || !status_count)
+        if(!show_prog() || !tipl::is_main_thread() || !status_count())
             return now < total;
-        auto& cur_status = status_list.back();
+        auto& cur_status = status_list().back();
         auto now_time = std::chrono::high_resolution_clock::now();
         if(now == 0 || now_time < cur_status.next_update_time)
             return now < total;
@@ -215,13 +216,13 @@ private:
         progressDialog->refresh();
         QApplication::processEvents();
 #endif
-        if(prog_aborted)
+        if(prog_aborted())
             return progress::print("operation aborted",false,false,1),false;
         return now < total;
     }
     static std::string get_head(bool head_node,bool tail_node)
     {
-        int count = status_count.load();
+        int count = status_count().load();
         std::string head;
         for(int i = 1;i < count;++i)
             head += "│  ";
@@ -253,7 +254,7 @@ private:
 public:
     static void print(const std::string& status,bool head_node, bool tail_node,int error_code = 0)
     {
-        std::scoped_lock<std::mutex> lock(print_mutex);
+        std::scoped_lock<std::mutex> lock(print_mutex());
         std::istringstream in(status);
         std::string line;
         while(std::getline(in,line))
@@ -285,8 +286,8 @@ public:
         begin_prog(status,show_now);
     }
     progress(const std::string& a,const std::string& b,bool show_now = false):progress(a + b,show_now) {}
-    static bool is_running(void) {return status_count > 1;}
-    static bool aborted(void) { return prog_aborted;}
+    static bool is_running(void) {return status_count() > 1;}
+    static bool aborted(void) { return prog_aborted();}
     template<typename value_type1,typename value_type2>
     bool operator()(value_type1 now,value_type2 total) const
     {
@@ -298,24 +299,24 @@ public:
     bool run(size_t total,fun_type&& fun)
     {
         unsigned int dummy = 0;
-        if (!show_prog || !tipl::is_main_thread() || status_list.empty())
+        if (!show_prog() || !tipl::is_main_thread() || status_list().empty())
             return fun(dummy);
 
-        status_list.back().total = total;
-        status_list.back().now = 1;
+        status_list().back().total = total;
+        status_list().back().now = 1;
         std::atomic<bool> ended{false};
         bool result = true;
         std::thread worker_thread([&]() {
-            result = fun(status_list.back().now);
+            result = fun(status_list().back().now);
             ended = true;
         });
 
         #if defined(TIPL_USE_QT) && !defined(__CUDACC__)
-        while (!ended && !prog_aborted)
+        while (!ended && !prog_aborted())
         {
-            if(status_count && std::chrono::high_resolution_clock::now() > status_list.back().next_update_time)
+            if(status_count() && std::chrono::high_resolution_clock::now() > status_list().back().next_update_time)
             {
-                status_list.back().next_update_time = std::chrono::high_resolution_clock::now()+std::chrono::milliseconds(200);
+                status_list().back().next_update_time = std::chrono::high_resolution_clock::now()+std::chrono::milliseconds(200);
                 if(progressDialog)
                     progressDialog->refresh();
                 QApplication::processEvents();
@@ -324,15 +325,15 @@ public:
         #endif
         if (worker_thread.joinable())
             worker_thread.join();
-        return result && !prog_aborted;
+        return result && !prog_aborted();
     }
     ~progress(void)
     {
-        if(!tipl::is_main_thread() || temporary || status_count == 0)
+        if(!tipl::is_main_thread() || temporary || status_count() == 0)
             return;
 
         auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                      std::chrono::high_resolution_clock::now() - status_list.back().start_time).count();
+                      std::chrono::high_resolution_clock::now() - status_list().back().start_time).count();
 
         auto s=ms/1000; ms%=1000;
         auto m=s/60;    s%=60;
@@ -343,19 +344,19 @@ public:
         if(s) t += std::to_string(s) + "s";
         t+=std::to_string(ms)+"ms";
 
-        status_list.pop_back();
-        --status_count;
+        status_list().pop_back();
+        --status_count();
         print("⏱" + t,false,true);
 
         {
-            std::scoped_lock<std::mutex> lock2(msg_mutex);
-            last_msg.clear();
+            std::scoped_lock<std::mutex> lock2(msg_mutex());
+            last_msg().clear();
         }
 
 #if defined(TIPL_USE_QT) && !defined(__CUDACC__)
-        if(!show_prog || !progressDialog)
+        if(!show_prog() || !progressDialog)
             return;
-        if(status_count <= 1)
+        if(status_count() <= 1)
             progressDialog->close(),progressDialog.reset();
 #endif
 
@@ -374,8 +375,8 @@ public:
         if(out.back() == '\n')
             out.pop_back();
         progress::print(out,false,false,code);
-        std::scoped_lock<std::mutex> lock2(msg_mutex);
-        std::getline(std::istringstream(out),last_msg);
+        std::scoped_lock<std::mutex> lock2(msg_mutex());
+        std::getline(std::istringstream(out),last_msg());
     }
     output& operator<<(std::ostream& (*v)(std::ostream&)){s << v; return *this;}
     template<typename T> output& operator<<(const T& v){s << v; return *this;}

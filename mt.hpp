@@ -80,14 +80,27 @@ public:
 };
 
 
-inline auto main_thread_id = std::this_thread::get_id();
-inline bool is_main_thread(void)
+inline std::thread::id& main_thread_id()
 {
-    return main_thread_id == std::this_thread::get_id();
+    static auto id = std::this_thread::get_id();
+    return id;
+}
+inline bool is_main_thread()
+{
+    return main_thread_id() == std::this_thread::get_id();
 }
 
-inline int max_thread_count = std::max<int>(1,std::thread::hardware_concurrency());
+inline int& max_thread_count()
+{
+    static int n = std::max<int>(1, std::thread::hardware_concurrency());
+    return n;
+}
 
+inline std::atomic<unsigned int>& par_for_active_count()
+{
+    static std::atomic<unsigned int> c{0};
+    return c;
+}
 
 enum par_for_type{
     sequential = 0,
@@ -98,18 +111,16 @@ enum par_for_type{
     dynamic_with_id = 5
 };
 
-inline std::atomic<unsigned int> par_for_active_count = 0;
-
 struct par_for_guard
 {
     bool is_root = false;
     par_for_guard(void)
     {
-        is_root = (par_for_active_count.fetch_add(1,std::memory_order_acq_rel) == 0);
+        is_root = (par_for_active_count().fetch_add(1,std::memory_order_acq_rel) == 0);
     }
     ~par_for_guard(void)
     {
-        par_for_active_count.fetch_sub(1,std::memory_order_acq_rel);
+        par_for_active_count().fetch_sub(1,std::memory_order_acq_rel);
     }
 };
 template <par_for_type type = dynamic,typename T,
@@ -213,11 +224,11 @@ __HOST__ void par_for(T from,T to,Func&& f,int thread_count)
 template <par_for_type type = dynamic, typename T, typename Func,
           typename std::enable_if_t<std::is_integral_v<T> || std::is_class_v<T> || std::is_pointer_v<T>, int> = 0>
 inline void par_for(T from, T to, Func&& f) {
-    par_for<type>(from, to, std::forward<Func>(f), max_thread_count);
+    par_for<type>(from, to, std::forward<Func>(f), max_thread_count());
 }
 
 template <par_for_type type = dynamic, typename T, typename Func, typename std::enable_if_t<std::is_integral_v<T>, int> = 0>
-inline void par_for(T size, Func&& f, int tc = max_thread_count) {
+inline void par_for(T size, Func&& f, int tc = max_thread_count()) {
     par_for<type>(T(0), size, std::forward<Func>(f), tc);
 }
 

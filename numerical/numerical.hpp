@@ -13,19 +13,19 @@ namespace tipl
 template<typename T,typename F>
 inline void serial_or_parallel(T&& I,F&& f)
 {
-    if(I.size() < 1024*1024 || max_thread_count < 2)
+    if(I.size() < 1024*1024 || tipl::max_thread_count() < 2)
         for(size_t index = 0,sz = I.size(); index < sz; ++index)
             f(index);
     else
-        tipl::par_for<sequential>(I.size(),std::forward<F>(f),std::min<size_t>(tipl::max_thread_count,8));
+        tipl::par_for<sequential>(I.size(),std::forward<F>(f),std::min<size_t>(tipl::max_thread_count(),8));
 }
 template<typename T,typename F>
 inline void serial_or_ranged_size(T&& I,F&& f)
 {
-    if(I.size() < 1024*1024 || max_thread_count < 2)
+    if(I.size() < 1024*1024 || tipl::max_thread_count() < 2)
         f(size_t(0),I.size());
     else
-        tipl::par_for<ranged>(I.size(),std::forward<F>(f),std::min<size_t>(tipl::max_thread_count,8));
+        tipl::par_for<ranged>(I.size(),std::forward<F>(f),std::min<size_t>(tipl::max_thread_count(),8));
 }
 
 template<typename iterator,typename F>
@@ -804,7 +804,7 @@ equal_constant(T&& I,U value)
 template<typename T, std::enable_if_t<memory_location<T>::at != CUDA, int> = 0>
 inline auto min_value(const T& data)
 {
-    if(data.size() < 1024*1024 || max_thread_count < 2)
+    if(data.size() < 1024*1024 || max_thread_count() < 2)
         return min_value(data.begin(),data.end());
 
     std::mutex mutex;
@@ -815,14 +815,14 @@ inline auto min_value(const T& data)
         std::lock_guard<std::mutex> lock(mutex);
         if(v < min_v)
             min_v = v;
-    },std::min<size_t>(tipl::max_thread_count,8));
+    },std::min<size_t>(tipl::max_thread_count(),8));
     return min_v;
 }
 
 template<typename T, std::enable_if_t<memory_location<T>::at != CUDA, int> = 0>
 inline auto max_value(const T& data)
 {
-    if(data.size() < 1024*1024 || max_thread_count < 2)
+    if(data.size() < 1024*1024 || max_thread_count() < 2)
         return max_value(data.begin(),data.end());
 
     std::mutex mutex;
@@ -834,7 +834,7 @@ inline auto max_value(const T& data)
         std::lock_guard<std::mutex> lock(mutex);
         if(v > max_v)
             max_v = v;
-    },std::min<size_t>(tipl::max_thread_count,8));
+    },std::min<size_t>(tipl::max_thread_count(),8));
     return max_v;
 }
 
@@ -845,7 +845,7 @@ minmax_value(const T& data,value_type& minv,value_type& maxv)
     if(data.empty())
         return;
 
-    if(data.size() < 1024*1024 || max_thread_count < 2)
+    if(data.size() < 1024*1024 || max_thread_count() < 2)
     {
         minmax_value(data.begin(),data.end(),minv,maxv);
         return;
@@ -863,7 +863,7 @@ minmax_value(const T& data,value_type& minv,value_type& maxv)
             min_v = min_v_;
         if(max_v_ > max_v)
             max_v = max_v_;
-    },std::min<size_t>(tipl::max_thread_count,8));
+    },std::min<size_t>(tipl::max_thread_count(),8));
     minv = min_v;
     maxv = max_v;
 }
@@ -941,7 +941,7 @@ normalize_upper_lower2(const T& in,U& out,float upper_limit)
     tipl::par_for<sequential>(in.size(),[&](size_t i)
     {
         out[i] = (in[i]-min_v)*upper_limit;
-    },std::min<size_t>(tipl::max_thread_count,8));
+    },std::min<size_t>(tipl::max_thread_count(),8));
 }
 
 #ifdef __CUDACC__
@@ -1178,8 +1178,8 @@ void apply_sort_index(container_type& c,const std::vector<index_type>& idx)
 template<typename T>
 tipl::vector<T::dimension,float> center_of_mass_weighted(const T& Im)
 {
-    std::vector<vector<T::dimension,float> > sum_mass(max_thread_count);
-    std::vector<double> total_w(max_thread_count);
+    std::vector<vector<T::dimension,float> > sum_mass(max_thread_count());
+    std::vector<double> total_w(max_thread_count());
     par_for<sequential_with_id>(Im.shape(),[&](const auto& index,size_t id)
     {
         auto v = Im[index.index()];
@@ -1201,8 +1201,8 @@ tipl::vector<T::dimension,float> center_of_mass_weighted(const T& Im)
 template<typename T>
 auto center_of_mass_binary(const T& Im)
 {
-    std::vector<tipl::vector<T::dimension> > sum_mass(max_thread_count);
-    std::vector<size_t> total_w(max_thread_count);
+    std::vector<tipl::vector<T::dimension> > sum_mass(max_thread_count());
+    std::vector<size_t> total_w(max_thread_count());
     tipl::par_for<sequential_with_id>(Im.shape(),[&](const auto& index,size_t id)
     {
         if(Im[index.index()])

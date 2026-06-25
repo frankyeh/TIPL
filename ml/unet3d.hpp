@@ -594,7 +594,7 @@ public:
             return false;
 
         if constexpr(tipl::use_cuda)
-            if(tipl::has_gpu)
+            if(tipl::has_gpu())
                 unet->to_gpu();
 
         eval.in_count = channels[0];

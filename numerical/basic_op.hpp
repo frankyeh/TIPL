@@ -312,7 +312,7 @@ inline void get_slice_positions(dim_type dim,float pos,const GeoType& geo,Result
 template<typename T,typename U>
 inline auto volume2points(const T& shape,U&& fun)
 {
-    std::vector<std::vector<tipl::vector<3,short> > > points(tipl::max_thread_count);
+    std::vector<std::vector<tipl::vector<3,short> > > points(tipl::max_thread_count());
     tipl::par_for<dynamic_with_id>(shape,[&](const auto& index,unsigned int thread_id)
     {
         if (fun(index))
@@ -326,7 +326,7 @@ inline auto volume2points(const T& shape,U&& fun)
 template<typename T>
 inline auto volume2points(const T& mask)
 {
-    std::vector<std::vector<tipl::vector<T::dimension,short> > > points(tipl::max_thread_count);
+    std::vector<std::vector<tipl::vector<T::dimension,short> > > points(tipl::max_thread_count());
     tipl::par_for<dynamic_with_id>(mask.shape(),[&](const auto& index,unsigned int thread_id)
     {
         if (mask[index.index()])
@@ -780,7 +780,7 @@ template<typename point_type>
 void bounding_box(const std::vector<point_type>& points,point_type& max_value,point_type& min_value)
 {
     if(points.empty()) return;
-    unsigned int thread_count = tipl::max_thread_count;
+    unsigned int thread_count = tipl::max_thread_count();
     std::vector<point_type> max_values(thread_count), min_values(thread_count);
     for(unsigned int i = 0; i < thread_count; ++i)
     {
