@@ -1119,58 +1119,6 @@ void fill(ImageType& I,PixelIndexType seed_point,ValueType new_value)
     }
 }
 
-template<typename out_type,typename template_type,typename image_type>
-void reclassify_labels_by_template(const template_type& template_I,image_type& atlas_I)
-{
-    size_t template_region_count = tipl::max_value(template_I) + 1;
-    size_t atlas_region_count = tipl::max_value(atlas_I);
-    std::vector<size_t> tissue_votes((atlas_region_count+1)*template_region_count,0);
-
-    size_t sz = atlas_I.size();
-    for(size_t pos = 0; pos < sz; ++pos)
-    {
-        auto a = atlas_I[pos];
-        auto t = template_I[pos];
-        if(a > 0 && t < template_region_count)
-            tissue_votes[a*template_region_count + t]++;
-    }
-
-    std::vector<size_t> region_majority_tissue(atlas_region_count+1,0);
-    tipl::par_for(atlas_region_count,[&](size_t i)
-    {
-        ++i;
-        auto begin_it = tissue_votes.begin() + i*template_region_count;
-        auto best_tissue = std::max_element(begin_it,begin_it + template_region_count);
-        region_majority_tissue[i] = std::distance(begin_it,best_tissue);
-    });
-
-    std::vector<size_t> region_erased(atlas_region_count+1,0);
-    for(size_t pos = 0; pos < sz; ++pos)
-    {
-        auto a = atlas_I[pos];
-        if(a > 0 && template_I[pos] != region_majority_tissue[a])
-        {
-            atlas_I[pos] = 0;
-            region_erased[a]++;
-        }
-    }
-
-    if constexpr(!std::is_same_v<out_type,void>)
-    {
-        std::string erased_report;
-        for(size_t i = 1; i <= atlas_region_count; ++i)
-            if(region_majority_tissue[i] > 0)
-            {
-                if(!erased_report.empty())
-                    erased_report += ", ";
-                erased_report += std::to_string(region_erased[i]);
-            }
-
-        if(!erased_report.empty())
-            out_type() << " voxel erased based on tissue classification: " << erased_report;
-    }
-}
-
 template<typename out_type,typename mask_type,typename image_type>
 void fill_and_smooth_labels(const mask_type& mask,image_type& atlas_I,size_t max_growing_iteration = 64,size_t max_smoothing_iteration = 12)
 {
@@ -1330,6 +1278,139 @@ void fill_and_smooth_labels(const mask_type& mask,image_type& atlas_I,size_t max
     if constexpr(!std::is_same_v<out_type,void>)
         if(!smooth_report.empty())
             out_type() << "smoothing iterations (voxels flipped): " << smooth_report;
+}
+
+/*
+Reclassify edge voxels using reference-image likelihood and a local spatial prior.
+
+current_weight controls how hard it is to flip the existing center label:
+    4.0f   aggressive
+    8.0f   default
+    12.0f  conservative
+    16.0f  very conservative
+
+spatial_weight controls spatial prior relative to signal likelihood:
+    0.0f   signal only
+    1.0f   balanced
+    2.0f   stronger spatial prior
+    4.0f   conservative/smoother
+
+Internal spatial weights:
+current label:       current_weight
+6-neighbor support:  2.0
+20-neighbor support: 0.5
+pseudo-count:        0.1
+
+Only labels found in the 6-connected neighbors are considered candidates.
+The remaining 20 neighbors only adjust the prior of existing candidates.
+*/
+template<typename label_image_type,typename ref_image_type>
+size_t reclassify(label_image_type& label,const ref_image_type& ref,
+                  float current_weight = 8.0f,float spatial_weight = 2.0f,
+                  unsigned int width = 5,unsigned int max_iteration = 100)
+{
+    if(label.shape() != ref.shape())
+        return 0;
+
+    using label_type = typename label_image_type::value_type;
+    auto shape = label.shape();
+    constexpr double eps = 1.0e-6,fw = 2.0,dw = 0.5,sw = 0.1;
+    double cw = std::max<double>(current_weight,sw),pw = std::max<float>(spatial_weight,0.0f);
+    tipl::neighbor_index_shift_narrow<3> shift(shape);
+    size_t total = 0;
+
+    for(unsigned int iter = 0;iter < max_iteration;++iter)
+    {
+        tipl::image<3,unsigned char> edge_mask;
+        tipl::morphology::edge(label,edge_mask,shift.index_shift);
+
+        size_t n = 0;
+        for(size_t i = 0;i < label.size();++i)
+            n += edge_mask[i] && label[i];
+        if(!n)
+            break;
+
+        std::vector<size_t> edge_voxels(n);
+        for(size_t i = 0,pos = 0;i < label.size();++i)
+            if(edge_mask[i] && label[i])
+                edge_voxels[pos++] = i;
+
+        std::vector<label_type> next(n);
+        tipl::par_for(n,[&](size_t j)
+                      {
+                          tipl::pixel_index<3> pos(edge_voxels[j],shape);
+                          size_t index = pos.index();
+                          label_type cur = label[index],cand[7] = {cur},best_label = cur;
+                          double pc[7] = {};
+                          pc[0] = cw;
+                          size_t cand_count = 1;
+
+                          tipl::for_each_connected_neighbors(pos,shape,[&](const auto& n_pos)
+                                                             {
+                                                                 label_type v = label[n_pos.index()];
+                                                                 if(!v)
+                                                                     return;
+                                                                 auto p = std::find(cand,cand+cand_count,v);
+                                                                 if(p == cand+cand_count)
+                                                                     cand[cand_count] = v,pc[cand_count] = sw,p = cand+cand_count++;
+                                                                 pc[p-cand] += fw;
+                                                             });
+
+                          if(cand_count < 2)
+                              return next[j] = cur,void();
+
+                          tipl::for_each_neighbors(pos,shape,[&](const auto& n_pos)
+                                                   {
+                                                       int d = std::abs(int(n_pos[0])-int(pos[0]))+
+                                                               std::abs(int(n_pos[1])-int(pos[1]))+
+                                                               std::abs(int(n_pos[2])-int(pos[2]));
+                                                       if(d <= 1)
+                                                           return;
+                                                       label_type v = label[n_pos.index()];
+                                                       auto p = std::find(cand,cand+cand_count,v);
+                                                       if(v && p != cand+cand_count)
+                                                           pc[p-cand] += dw;
+                                                   });
+
+                          auto lw = tipl::get_window(pos,label,width);
+                          auto rw = tipl::get_window(pos,ref,width);
+                          double x = ref[index],sum_pc = std::accumulate(pc,pc+cand_count,0.0);
+                          double best = -std::numeric_limits<double>::infinity();
+
+                          for(size_t c = 0;c < cand_count;++c)
+                          {
+                              double s = 0.0,s2 = 0.0,nv = 0.0;
+                              for(size_t i = 0;i < rw.size();++i)
+                                  if(lw[i] == cand[c])
+                                  {
+                                      double v = rw[i];
+                                      s += v;
+                                      s2 += v*v;
+                                      ++nv;
+                                  }
+                              if(nv < 2.0)
+                                  continue;
+
+                              double mean = s/nv,var = std::max(s2/nv-mean*mean,eps);
+                              double score = pw*std::log(pc[c]/sum_pc)
+                                             - 0.5*std::log(var)
+                                             - 0.5*(x-mean)*(x-mean)/var;
+                              if(score > best)
+                                  best = score,best_label = cand[c];
+                          }
+                          next[j] = best_label;
+                      });
+
+        size_t changed = 0;
+        for(size_t j = 0;j < n;++j)
+            if(next[j] != label[edge_voxels[j]])
+                label[edge_voxels[j]] = next[j],++changed;
+
+        total += changed;
+        if(!changed)
+            break;
+    }
+    return total;
 }
 
 }
