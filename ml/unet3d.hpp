@@ -450,7 +450,7 @@ public:
         return true;
     }
     template<typename io_type>
-    bool load_from_file(const std::string& file_name)
+    bool load_from_file(const std::filesystem::path& file_name)
     {
         io_type in(file_name,std::ios::in);
         if(!in)
@@ -497,7 +497,7 @@ public:
         return true;
     }
     template<typename io_type>
-    bool save_to_file(const std::string& file_name)
+    bool save_to_file(const std::filesystem::path& file_name)
     {
         io_type out;
         if(!out.open(file_name,std::ios::out))
@@ -541,16 +541,16 @@ public:
     std::vector<std::string> labels;
 
     template<typename reader>
-    bool load_model(const std::string& file_name)
+    bool load_model(const std::filesystem::path& file_name)
     {
         tipl::progress prog("loading unet model");
         reader in;
         std::vector<int> channels({1,1});
         tipl::shape<3> dim;
         if(!in.load_from_file(file_name))
-            return error_msg = "cannot open file: " + file_name,false;
+            return error_msg = "cannot open file: " + file_name.u8string(),false;
         if(in.has("feature_string"))
-            return error_msg = "cannot read old network format: " + file_name,false;
+            return error_msg = "cannot read old network format: " + file_name.u8string(),false;
 
         if(!in.read("channels",channels) ||
            !in.read("architecture",arch) ||
