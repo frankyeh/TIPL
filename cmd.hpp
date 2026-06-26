@@ -581,7 +581,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         nii.get_untouched_image(new_space);
         return true;
     }
-    if(tipl::ends_with(cmd,"_image") || cmd == "reclassify")
+    if(tipl::ends_with(cmd,{"_image","_label"))
     {
         if(!std::filesystem::exists(param1))
             return error_msg = "file not exist :" + param1,false;
@@ -597,7 +597,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
 
         const size_t sz = data.size();
         if(cmd == "reclassify")
-            tipl::morphology::reclassify(data,rhs);
+            tipl::morphology::refine_label(data,rhs);
         if(cmd == "load_image")
             data = std::move(rhs);
         if(cmd == "multiply_image")
