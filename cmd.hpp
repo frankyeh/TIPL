@@ -564,8 +564,24 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         T = T*nT;
         return true;
     }
-
-    if(cmd == "load_image" || cmd == "multiply_image" || cmd == "add_image" || cmd == "minus_image" || cmd == "max_image" || cmd == "min_image")
+    if(cmd == "concatenate_image")
+    {
+        image_loader nii(param1,std::ios::in);
+        if(!nii)
+            return false;
+        if(nii.width() != data.width() ||
+           nii.height() != data.height())
+        {
+            error_msg = "inconsistent image width and height";
+            return false;
+        }
+        size_t pos = data.size();
+        data.resize(data.shape().add(tipl::shape<3>::z,nii.depth()));
+        auto new_space = data.alias(pos,tipl::shape<3>(nii.width(),nii.height(),nii.depth()));
+        nii.get_untouched_image(new_space);
+        return true;
+    }
+    if(tipl::ends_with(cmd,"_image") || cmd == "reclassify")
     {
         if(!std::filesystem::exists(param1))
             return error_msg = "file not exist :" + param1,false;
@@ -580,7 +596,8 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
             return error_msg = loader.error_msg + ": " + param1,false;
 
         const size_t sz = data.size();
-
+        if(cmd == "reclassify")
+            tipl::morphology::reclassify(data,rhs);
         if(cmd == "load_image")
             data = std::move(rhs);
         if(cmd == "multiply_image")
@@ -599,23 +616,6 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
             for(size_t i = 0; i < sz; ++i)
                 data[i] = std::min(data[i],rhs[i]);
         }
-        return true;
-    }
-    if(cmd == "concatenate_image")
-    {
-        image_loader nii(param1,std::ios::in);
-        if(!nii)
-            return false;
-        if(nii.width() != data.width() ||
-           nii.height() != data.height())
-        {
-            error_msg = "inconsistent image width and height";
-            return false;
-        }
-        size_t pos = data.size();
-        data.resize(data.shape().add(tipl::shape<3>::z,nii.depth()));
-        auto new_space = data.alias(pos,tipl::shape<3>(nii.width(),nii.height(),nii.depth()));
-        nii.get_untouched_image(new_space);
         return true;
     }
     if(cmd == "save")
