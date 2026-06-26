@@ -581,7 +581,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         nii.get_untouched_image(new_space);
         return true;
     }
-    if(tipl::ends_with(cmd,{"_image","_label"))
+    if(tipl::ends_with(cmd,{"_image","_label"}))
     {
         if(!std::filesystem::exists(param1))
             return error_msg = "file not exist :" + param1,false;
