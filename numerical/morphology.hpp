@@ -1289,13 +1289,12 @@ current_weight controls how hard it is to flip the existing center label:
     12.0f  conservative
     16.0f  very conservative
 
-spatial_weight controls spatial prior relative to signal likelihood:
-    0.0f   signal only
-    1.0f   balanced
-    2.0f   stronger spatial prior
-    4.0f   conservative/smoother
+
 
 Internal spatial weights:
+
+spatial_weight controls spatial prior relative to signal likelihood:
+
 current label:       current_weight
 6-neighbor support:  2.0
 20-neighbor support: 0.5
@@ -1305,22 +1304,26 @@ Only labels found in the 6-connected neighbors are considered candidates.
 The remaining 20 neighbors only adjust the prior of existing candidates.
 */
 template<typename label_image_type,typename ref_image_type>
-size_t reclassify(label_image_type& label,const ref_image_type& ref,
-                  float current_weight = 8.0f,float spatial_weight = 2.0f,
-                  unsigned int width = 5,unsigned int max_iteration = 100)
+size_t reclassify(label_image_type& label,const ref_image_type& ref,float current_weight = 12.0f)
 {
     if(label.shape() != ref.shape())
         return 0;
+    float spatial_weight = 2.0f;
+    unsigned int width = 4;        // ~0.5 mm
+    if(label.plane_size() <= 256*256)
+        spatial_weight = 0.5f,width = 2;  // ~1 mm
+    if(label.plane_size() <= 128*128)
+        spatial_weight = 0.25f,width = 1; // ~2 mm
 
     using label_type = typename label_image_type::value_type;
     auto shape = label.shape();
     constexpr double eps = 1.0e-6,fw = 2.0,dw = 0.5,sw = 0.1;
-    double cw = std::max<double>(current_weight,sw),pw = std::max<float>(spatial_weight,0.0f);
     tipl::neighbor_index_shift_narrow<3> shift(shape);
     size_t total = 0;
-
-    for(unsigned int iter = 0;iter < max_iteration;++iter)
+    constexpr unsigned int max_iteration = 100;
+    for(unsigned int iter = 0;iter < max_iteration;)
     {
+        double cw = std::max<double>(current_weight,sw);
         tipl::image<3,unsigned char> edge_mask;
         tipl::morphology::edge(label,edge_mask,shift.index_shift);
 
@@ -1392,7 +1395,7 @@ size_t reclassify(label_image_type& label,const ref_image_type& ref,
                                   continue;
 
                               double mean = s/nv,var = std::max(s2/nv-mean*mean,eps);
-                              double score = pw*std::log(pc[c]/sum_pc)
+                              double score = spatial_weight*std::log(pc[c]/sum_pc)
                                              - 0.5*std::log(var)
                                              - 0.5*(x-mean)*(x-mean)/var;
                               if(score > best)
@@ -1408,7 +1411,15 @@ size_t reclassify(label_image_type& label,const ref_image_type& ref,
 
         total += changed;
         if(!changed)
+        {
+            if(iter == 0 && current_weight > 0.2f)
+            {
+                current_weight -= 1.0f;
+                continue;
+            }
             break;
+        }
+        ++iter;
     }
     return total;
 }
