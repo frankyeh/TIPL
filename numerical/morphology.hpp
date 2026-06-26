@@ -1308,12 +1308,12 @@ size_t reclassify(label_image_type& label,const ref_image_type& ref,float curren
 {
     if(label.shape() != ref.shape())
         return 0;
-    float spatial_weight = 2.0f;
+    float spatial_weight = 4.0f;
     unsigned int width = 4;        // ~0.5 mm
     if(label.plane_size() <= 256*256)
-        spatial_weight = 0.5f,width = 2;  // ~1 mm
+        spatial_weight = 2.0f,width = 2;  // ~1 mm
     if(label.plane_size() <= 128*128)
-        spatial_weight = 0.25f,width = 1; // ~2 mm
+        spatial_weight = 1.0f,width = 1; // ~2 mm
 
     using label_type = typename label_image_type::value_type;
     auto shape = label.shape();
