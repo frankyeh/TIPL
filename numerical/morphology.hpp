@@ -1304,7 +1304,7 @@ Only labels found in the 6-connected neighbors are considered candidates.
 The remaining 20 neighbors only adjust the prior of existing candidates.
 */
 template<typename label_image_type,typename ref_image_type>
-size_t reclassify(label_image_type& label,const ref_image_type& ref,float current_weight = 12.0f)
+size_t refine_label(label_image_type& label,const ref_image_type& ref,float current_weight = 12.0f)
 {
     if(label.shape() != ref.shape())
         return 0;
