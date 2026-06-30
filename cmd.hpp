@@ -199,8 +199,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         std::istringstream in(param1);
         for(int i = 0;i < 16;++i)
             in >> T[i];
-        for(int i = 0;i < 3;++i)
-            vs[i] = std::sqrt(T[i]*T[i]+T[i+4]*T[i+4]+T[i+8]*T[i+8]);
+        vs = tipl::io::get_vs(T);
         return true;
     }
     if(cmd == "set_translocation")
@@ -383,9 +382,6 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
             }
             in >> U[i];
         }
-        tipl::vector<3> new_vs;
-        for(int i = 0;i < 3;++i)
-            new_vs[i] = std::sqrt(U[i]*U[i]+U[i+4]*U[i+4]+U[i+8]*U[i+8]);
 
         // main axis not in diagonal, just use transformation
         if(T[1] != 0.0f || U[1] != 0.0f ||
@@ -401,7 +397,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
             else
                 tipl::resample<tipl::interpolation::majority>(data,new_data,tipl::transformation_matrix<float>(tipl::from_space(U).to(T)));
             new_data.swap(data);
-            vs = new_vs;
+            vs = tipl::io::get_vs(U);
             return true;
         }
         // flip in x y z
@@ -426,12 +422,14 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         // consider voxel size
         if(T[0] != U[0] || T[5] != U[5] || T[10] != U[10])
         {
+            auto new_vs = tipl::io::get_vs(U);
             if(!command<out,image_loader>(data,vs,T,is_mni,"regrid",std::to_string(new_vs[0])+" "+std::to_string(new_vs[1])+" "+std::to_string(new_vs[2]),interpolation,error_msg))
+
                 return false;
             T[0] = U[0];
             T[5] = U[5];
             T[10] = U[10];
-            vs = new_vs;
+            vs = tipl::io::get_vs(U);
             return command<out,image_loader>(data,vs,T,is_mni,cmd,param1,interpolation,error_msg);
         }
         // now translocation
@@ -596,7 +594,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
             return error_msg = loader.error_msg + ": " + param1,false;
 
         const size_t sz = data.size();
-        if(cmd == "reclassify")
+        if(cmd == "refine_label")
             tipl::morphology::refine_label(data,rhs);
         if(cmd == "load_image")
             data = std::move(rhs);
