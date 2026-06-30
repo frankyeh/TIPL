@@ -118,6 +118,15 @@ bool save_stream_with_prog(prog_type& prog,
     return true;
 }
 
+template<typename matrix_type>
+inline auto get_vs(const matrix_type& R)
+{
+    return tipl::vector<3>(
+        std::hypot(R[0],R[4],R[8]),
+        std::hypot(R[1],R[5],R[9]),
+        std::hypot(R[2],R[6],R[10]));
+}
+
 template<typename dim_type,typename pixdim_type,typename row_type>
 std::vector<char> toLPS(dim_type* dim,pixdim_type* pixdim,row_type* R)
 {
