@@ -1304,7 +1304,7 @@ Only labels found in the 6-connected neighbors are considered candidates.
 The remaining 20 neighbors only adjust the prior of existing candidates.
 */
 template<typename label_image_type,typename ref_image_type>
-size_t refine_label(label_image_type& label,const ref_image_type& ref,float current_weight = 12.0f)
+size_t refine_label(label_image_type& label,const ref_image_type& ref,float final_weight = 8.0f)
 {
     if(label.shape() != ref.shape())
         return 0;
@@ -1321,6 +1321,7 @@ size_t refine_label(label_image_type& label,const ref_image_type& ref,float curr
     tipl::neighbor_index_shift_narrow<3> shift(shape);
     size_t total = 0;
     constexpr unsigned int max_iteration = 100;
+    float current_weight = 12.0f;
     for(unsigned int iter = 0;iter < max_iteration;)
     {
         double cw = std::max<double>(current_weight,sw);
@@ -1409,16 +1410,14 @@ size_t refine_label(label_image_type& label,const ref_image_type& ref,float curr
             if(next[j] != label[edge_voxels[j]])
                 label[edge_voxels[j]] = next[j],++changed;
 
-        total += changed;
         if(!changed)
         {
-            if(iter == 0 && current_weight > 0.2f)
-            {
-                current_weight -= 1.0f;
-                continue;
-            }
-            break;
+            current_weight -= 1.0f;
+            if(current_weight < final_weight)
+                break;
+            iter = 0;
         }
+        total += changed;
         ++iter;
     }
     return total;
