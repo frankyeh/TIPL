@@ -1325,9 +1325,16 @@ size_t refine_label(label_image_type& label,const ref_image_type& ref,float fina
     constexpr unsigned int max_iteration = 100;
     float current_weight = 12.0f;
 
+    tipl::image<label_image_type::dimension,unsigned char> mask;
+
     bool has_mask = tipl::has_mask(ref);
     if(has_mask)
-        tipl::preserve(label,ref);
+    {
+        tipl::threshold(ref,mask,0);
+        tipl::morphology::closing(mask);
+        tipl::morphology::closing(mask);
+        tipl::preserve(label,mask);
+    }
 
     for(unsigned int iter = 0;iter < max_iteration;)
     {
@@ -1335,7 +1342,7 @@ size_t refine_label(label_image_type& label,const ref_image_type& ref,float fina
         tipl::image<3,unsigned char> edge_mask;
         tipl::morphology::edge(label,edge_mask,shift.index_shift);
         if(has_mask)
-            tipl::preserve(edge_mask,ref);
+            tipl::preserve(edge_mask,mask);
 
         size_t n = 0;
         for(size_t i = 0;i < label.size();++i)
