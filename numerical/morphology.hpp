@@ -27,10 +27,18 @@ namespace morphology
 template<typename T,typename F>
 void for_each_label(T& data,F&& fun)
 {
+    auto max_v = tipl::max_value(data);
+    if(max_v <= 1)
+    {
+        tipl::image<3,char> mask(data);
+        fun(mask);
+        data = mask;
+        return;
+    }
     auto shape = data.shape();
     size_t sz = data.size();
     T result_data(shape);
-    tipl::par_for<sequential>(uint32_t(tipl::max_value(data))+1,[&](uint32_t index)
+    tipl::par_for<sequential>(uint32_t(max_v)+1,[&](uint32_t index)
     {
         if(!index)
             return;
