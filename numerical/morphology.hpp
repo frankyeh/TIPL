@@ -1303,6 +1303,8 @@ pseudo-count:        0.1
 Only labels found in the 6-connected neighbors are considered candidates.
 The remaining 20 neighbors only adjust the prior of existing candidates.
 */
+
+
 template<typename label_image_type,typename ref_image_type>
 size_t refine_label(label_image_type& label,const ref_image_type& ref,float final_weight = 8.0f)
 {
@@ -1313,7 +1315,7 @@ size_t refine_label(label_image_type& label,const ref_image_type& ref,float fina
     if(label.plane_size() <= 256*256)
         spatial_weight = 2.0f,width = 2;  // ~1 mm
     if(label.plane_size() <= 128*128)
-        spatial_weight = 1.0f,width = 1; // ~2 mm
+        spatial_weight = 1.0f,width = 1;  // ~2 mm
 
     using label_type = typename label_image_type::value_type;
     auto shape = label.shape();
@@ -1330,13 +1332,13 @@ size_t refine_label(label_image_type& label,const ref_image_type& ref,float fina
 
         size_t n = 0;
         for(size_t i = 0;i < label.size();++i)
-            n += edge_mask[i] && label[i];
+            n += edge_mask[i];
         if(!n)
             break;
 
         std::vector<size_t> edge_voxels(n);
         for(size_t i = 0,pos = 0;i < label.size();++i)
-            if(edge_mask[i] && label[i])
+            if(edge_mask[i])
                 edge_voxels[pos++] = i;
 
         std::vector<label_type> next(n);
@@ -1352,8 +1354,6 @@ size_t refine_label(label_image_type& label,const ref_image_type& ref,float fina
                           tipl::for_each_connected_neighbors(pos,shape,[&](const auto& n_pos)
                                                              {
                                                                  label_type v = label[n_pos.index()];
-                                                                 if(!v)
-                                                                     return;
                                                                  auto p = std::find(cand,cand+cand_count,v);
                                                                  if(p == cand+cand_count)
                                                                      cand[cand_count] = v,pc[cand_count] = sw,p = cand+cand_count++;
@@ -1372,7 +1372,7 @@ size_t refine_label(label_image_type& label,const ref_image_type& ref,float fina
                                                            return;
                                                        label_type v = label[n_pos.index()];
                                                        auto p = std::find(cand,cand+cand_count,v);
-                                                       if(v && p != cand+cand_count)
+                                                       if(p != cand+cand_count)
                                                            pc[p-cand] += dw;
                                                    });
 
@@ -1422,6 +1422,7 @@ size_t refine_label(label_image_type& label,const ref_image_type& ref,float fina
     }
     return total;
 }
+
 
 }
 }
