@@ -1346,13 +1346,13 @@ size_t refine_label(label_image_type& label,const ref_image_type& ref,float fina
 
         size_t n = 0;
         for(size_t i = 0;i < label.size();++i)
-            n += edge_mask[i];
+            n += edge_mask[i] && label[i];
         if(!n)
             break;
 
         std::vector<size_t> edge_voxels(n);
         for(size_t i = 0,pos = 0;i < label.size();++i)
-            if(edge_mask[i])
+            if(edge_mask[i] && label[i])
                 edge_voxels[pos++] = i;
 
         std::vector<label_type> next(n);
@@ -1368,6 +1368,8 @@ size_t refine_label(label_image_type& label,const ref_image_type& ref,float fina
                           tipl::for_each_connected_neighbors(pos,shape,[&](const auto& n_pos)
                                                              {
                                                                  label_type v = label[n_pos.index()];
+                                                                 if(!v)
+                                                                     return;
                                                                  auto p = std::find(cand,cand+cand_count,v);
                                                                  if(p == cand+cand_count)
                                                                      cand[cand_count] = v,pc[cand_count] = sw,p = cand+cand_count++;
@@ -1386,7 +1388,7 @@ size_t refine_label(label_image_type& label,const ref_image_type& ref,float fina
                                                            return;
                                                        label_type v = label[n_pos.index()];
                                                        auto p = std::find(cand,cand+cand_count,v);
-                                                       if(p != cand+cand_count)
+                                                       if(v && p != cand+cand_count)
                                                            pc[p-cand] += dw;
                                                    });
 
