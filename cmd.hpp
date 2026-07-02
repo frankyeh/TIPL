@@ -52,6 +52,16 @@ bool command(image_type& data,std::string cmd,std::string param1)
         tipl::morphology::for_each_label(data,[](tipl::image<3,char>& mask){tipl::morphology::erosion(mask);});
         return true;
     }
+    if(cmd == "morphology_opening")
+    {
+        tipl::morphology::for_each_label(data,[](tipl::image<3,char>& mask){tipl::morphology::opening(mask);});
+        return true;
+    }
+    if(cmd == "morphology_closing")
+    {
+        tipl::morphology::for_each_label(data,[](tipl::image<3,char>& mask){tipl::morphology::closing(mask);});
+        return true;
+    }
     if(cmd == "morphology_edge")
     {
         tipl::morphology::for_each_label(data,[](tipl::image<3,char>& mask){tipl::morphology::edge(mask);});
