@@ -609,34 +609,42 @@ public:
 
 class filename_filter_proxy : public QSortFilterProxyModel
 {
-    QStringList keys;
+    QStringList groups;
 public:
     using QSortFilterProxyModel::QSortFilterProxyModel;
 
     void set_filter(QString text)
     {
-        keys = text.split(' ',Qt::SkipEmptyParts);
+        groups = text.split('|',Qt::SkipEmptyParts);
         invalidateFilter();
     }
 
 protected:
     bool filterAcceptsRow(int row,const QModelIndex& parent) const override
     {
-        if(keys.empty() || !sourceModel())
+        if(groups.empty() || !sourceModel())
             return true;
 
         auto index = sourceModel()->index(row,0,parent);
-        QString name = qobject_cast<QFileSystemModel*>(sourceModel()) ?
-                           qobject_cast<QFileSystemModel*>(sourceModel())->fileName(index) :
-                           sourceModel()->data(index).toString();
-
-        if(auto* fs = qobject_cast<QFileSystemModel*>(sourceModel());fs && fs->isDir(index))
+        auto* fs = qobject_cast<QFileSystemModel*>(sourceModel());
+        if(fs && fs->isDir(index))
             return true;
 
-        for(const auto& key : keys)
-            if(!name.contains(key,Qt::CaseInsensitive))
-                return false;
-        return true;
+        QString name = fs ? fs->fileName(index) : sourceModel()->data(index).toString();
+
+        for(const auto& group : groups)
+        {
+            bool ok = true;
+            for(const auto& key : group.split(' ',Qt::SkipEmptyParts))
+                if(!name.contains(key,Qt::CaseInsensitive))
+                {
+                    ok = false;
+                    break;
+                }
+            if(ok)
+                return true;
+        }
+        return false;
     }
 };
 
