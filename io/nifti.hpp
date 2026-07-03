@@ -934,21 +934,35 @@ public:
         tipl::matrix<4,4> J_T;
         *this >> J_T;
 
-        if(I.shape() == J.shape() && I_T == J_T)
+        auto T = tipl::from_space(I_T).to(J_T);
+        const float tol = 1.0e-3f;
+        auto near_identity = [&]()
+        {
+            if(I_T == J_T)
+                return true;
+            for(size_t i = 0;i < 16;++i)
+            {
+                float v = i%5 ? 0.0f : 1.0f;
+                if(std::fabs(T[i]-v) > tol)
+                    return false;
+            }
+            return true;
+        };
+
+        if(I.shape() == J.shape() && near_identity())
             I.swap(J);
         else
         {
             if constexpr(itype == tipl::interpolation::check)
             {
                 if(is_label_image(J))
-                    tipl::resample<tipl::interpolation::majority>(J,I,tipl::from_space(I_T).to(J_T));
+                    tipl::resample<tipl::interpolation::majority>(J,I,T);
                 else
-                    tipl::resample<tipl::interpolation::linear>(J,I,tipl::from_space(I_T).to(J_T));
+                    tipl::resample<tipl::interpolation::linear>(J,I,T);
             }
             else
-                tipl::resample<itype>(J,I,tipl::from_space(I_T).to(J_T));
+                tipl::resample<itype>(J,I,T);
         }
-
         return *this;
     }
 private:
