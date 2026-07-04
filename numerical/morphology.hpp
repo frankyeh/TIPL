@@ -1352,69 +1352,78 @@ size_t refine_label(label_image_type& label,const ref_image_type& ref,float fina
 
         std::vector<label_type> next(n);
         tipl::par_for(n,[&](size_t j)
-                      {
-                          tipl::pixel_index<3> pos(edge_voxels[j],shape);
-                          size_t index = pos.index();
-                          label_type cur = label[index],cand[7] = {cur},best_label = cur;
-                          double pc[7] = {};
-                          pc[0] = cw;
-                          size_t cand_count = 1;
+        {
+            tipl::pixel_index<3> pos(edge_voxels[j],shape);
+            size_t index = pos.index();
+            label_type cur = label[index],cand[7] = {cur},best_label = cur,v0 = 0;
+            double pc[7] = {};
+            pc[0] = cw;
+            size_t cand_count = 1,n6 = 0;
+            bool same6 = true;
 
-                          tipl::for_each_connected_neighbors(pos,shape,[&](const auto& n_pos)
-                                                             {
-                                                                 label_type v = label[n_pos.index()];
-                                                                 if(!v)
-                                                                     return;
-                                                                 auto p = std::find(cand,cand+cand_count,v);
-                                                                 if(p == cand+cand_count)
-                                                                     cand[cand_count] = v,pc[cand_count] = sw,p = cand+cand_count++;
-                                                                 pc[p-cand] += fw;
-                                                             });
+            tipl::for_each_connected_neighbors(pos,shape,[&](const auto& n_pos)
+            {
+                label_type v = label[n_pos.index()];
+                if(!n6)
+                    v0 = v;
+                else
+                    same6 &= v == v0;
+                ++n6;
 
-                          if(cand_count < 2)
-                              return next[j] = cur,void();
+                if(!v)
+                    return;
+                auto p = std::find(cand,cand+cand_count,v);
+                if(p == cand+cand_count)
+                    cand[cand_count] = v,pc[cand_count] = sw,p = cand+cand_count++;
+                pc[p-cand] += fw;
+            });
+            if(n6 == 6 && same6)
+                return next[j] = v0,void();
 
-                          tipl::for_each_neighbors(pos,shape,[&](const auto& n_pos)
-                                                   {
-                                                       int d = std::abs(int(n_pos[0])-int(pos[0]))+
-                                                               std::abs(int(n_pos[1])-int(pos[1]))+
-                                                               std::abs(int(n_pos[2])-int(pos[2]));
-                                                       if(d <= 1)
-                                                           return;
-                                                       label_type v = label[n_pos.index()];
-                                                       auto p = std::find(cand,cand+cand_count,v);
-                                                       if(v && p != cand+cand_count)
-                                                           pc[p-cand] += dw;
-                                                   });
+            if(cand_count < 2)
+                return next[j] = cur,void();
 
-                          auto lw = tipl::get_window(pos,label,width);
-                          auto rw = tipl::get_window(pos,ref,width);
-                          double x = ref[index],sum_pc = std::accumulate(pc,pc+cand_count,0.0);
-                          double best = -std::numeric_limits<double>::infinity();
+            tipl::for_each_neighbors(pos,shape,[&](const auto& n_pos)
+            {
+                int d = std::abs(int(n_pos[0])-int(pos[0]))+
+                        std::abs(int(n_pos[1])-int(pos[1]))+
+                        std::abs(int(n_pos[2])-int(pos[2]));
+                if(d <= 1)
+                    return;
+                label_type v = label[n_pos.index()];
+                auto p = std::find(cand,cand+cand_count,v);
+                if(v && p != cand+cand_count)
+                    pc[p-cand] += dw;
+            });
 
-                          for(size_t c = 0;c < cand_count;++c)
-                          {
-                              double s = 0.0,s2 = 0.0,nv = 0.0;
-                              for(size_t i = 0;i < rw.size();++i)
-                                  if(lw[i] == cand[c])
-                                  {
-                                      double v = rw[i];
-                                      s += v;
-                                      s2 += v*v;
-                                      ++nv;
-                                  }
-                              if(nv < 2.0)
-                                  continue;
+            auto lw = tipl::get_window(pos,label,width);
+            auto rw = tipl::get_window(pos,ref,width);
+            double x = ref[index],sum_pc = std::accumulate(pc,pc+cand_count,0.0);
+            double best = -std::numeric_limits<double>::infinity();
 
-                              double mean = s/nv,var = std::max(s2/nv-mean*mean,eps);
-                              double score = spatial_weight*std::log(pc[c]/sum_pc)
-                                             - 0.5*std::log(var)
-                                             - 0.5*(x-mean)*(x-mean)/var;
-                              if(score > best)
-                                  best = score,best_label = cand[c];
-                          }
-                          next[j] = best_label;
-                      });
+            for(size_t c = 0;c < cand_count;++c)
+            {
+                double s = 0.0,s2 = 0.0,nv = 0.0;
+                for(size_t i = 0;i < rw.size();++i)
+                    if(lw[i] == cand[c])
+                    {
+                        double v = rw[i];
+                        s += v;
+                        s2 += v*v;
+                        ++nv;
+                    }
+                if(nv < 2.0)
+                    continue;
+
+                double mean = s/nv,var = std::max(s2/nv-mean*mean,eps);
+                double score = spatial_weight*std::log(pc[c]/sum_pc)
+                               - 0.5*std::log(var)
+                               - 0.5*(x-mean)*(x-mean)/var;
+                if(score > best)
+                    best = score,best_label = cand[c];
+            }
+            next[j] = best_label;
+        });
 
         size_t changed = 0;
         for(size_t j = 0;j < n;++j)
