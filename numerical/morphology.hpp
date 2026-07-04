@@ -1319,11 +1319,11 @@ size_t refine_label(label_image_type& label,const ref_image_type& ref,float fina
     if(label.shape() != ref.shape())
         return 0;
     float spatial_weight = 4.0f;
-    unsigned int width = 4;        // ~0.5 mm
+    unsigned int width = 4;
     if(label.plane_size() <= 256*256)
-        spatial_weight = 2.0f,width = 2;  // ~1 mm
+        spatial_weight = 2.0f,width = 2;
     if(label.plane_size() <= 128*128)
-        spatial_weight = 1.0f,width = 1;  // ~2 mm
+        spatial_weight = 1.0f,width = 1;
 
     using label_type = typename label_image_type::value_type;
     auto shape = label.shape();
@@ -1355,33 +1355,23 @@ size_t refine_label(label_image_type& label,const ref_image_type& ref,float fina
         {
             tipl::pixel_index<3> pos(edge_voxels[j],shape);
             size_t index = pos.index();
-            label_type cur = label[index],cand[7] = {cur},best_label = cur,v0 = 0;
-            double pc[7] = {};
-            pc[0] = cw;
-            size_t cand_count = 1,n6 = 0;
-            bool same6 = true;
+            label_type cur = label[index],cand[6] = {},best_label = cur;
+            double pc[6] = {};
+            size_t cand_count = 0;
 
             tipl::for_each_connected_neighbors(pos,shape,[&](const auto& n_pos)
             {
                 label_type v = label[n_pos.index()];
-                if(!n6)
-                    v0 = v;
-                else
-                    same6 &= v == v0;
-                ++n6;
-
                 if(!v)
                     return;
                 auto p = std::find(cand,cand+cand_count,v);
                 if(p == cand+cand_count)
-                    cand[cand_count] = v,pc[cand_count] = sw,p = cand+cand_count++;
+                    cand[cand_count] = v,pc[cand_count] = v == cur ? cw : sw,p = cand+cand_count++;
                 pc[p-cand] += fw;
             });
-            if(n6 == 6 && same6)
-                return next[j] = v0,void();
 
             if(cand_count < 2)
-                return next[j] = cur,void();
+                return next[j] = cand_count ? cand[0] : cur,void();
 
             tipl::for_each_neighbors(pos,shape,[&](const auto& n_pos)
             {
