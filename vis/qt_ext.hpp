@@ -387,7 +387,11 @@ inline QImage create_mosaic(const std::vector<QImage>& images,int col_size)
 #include <QSlider>
 #include <QPushButton>
 #include <QHBoxLayout>
+#include <QCheckBox>
+#include <QDoubleSpinBox>
 #include <QDir>
+#include <QWheelEvent>
+#include <QMouseEvent>
 #include <atomic>
 #include <thread>
 #include <sstream>
@@ -407,75 +411,138 @@ inline QList<QUrl> working_dirs;
 namespace details
 {
 
-inline bool read_preview_image(QString file,tipl::image<3,float>& I,tipl::vector<3>& vs,std::string& report)
+inline bool read_preview_image(QString file,tipl::image<3,float>& I,
+                              tipl::image<3,unsigned char>& dseg,
+                              std::string& report)
 {
+    tipl::vector<3> vs;
+    tipl::matrix<4,4> T;
+    auto fn = file.toUtf8();
+    auto finish = [&]()
+    {
+        std::ostringstream out;
+        out << "image size: [" << I.width() << "," << I.height() << "," << I.depth()
+            << "] x (" << vs[0] << " mm," << vs[1] << " mm," << vs[2] << " mm)\n"
+            << "srow:\n" << std::fixed << std::setprecision(4);
+        for(int r = 0;r < 3;++r)
+            out << std::setw(10) << T[r*4] << " " << std::setw(10) << T[r*4+1] << " "
+                << std::setw(10) << T[r*4+2] << " " << std::setw(10) << T[r*4+3] << "\n";
+        report = out.str() + report;
+        return !I.empty();
+    };
+
     if(file.endsWith("nii.gz") || file.endsWith("nii"))
     {
         std::scoped_lock<std::mutex> lock(tipl::io::nifti_do_not_show_process);
-        if(tipl::io::gz_nifti in(file.toUtf8().constData(),std::ios::in);in >> I >> vs)
+        if(tipl::io::gz_nifti in(fn.constData(),std::ios::in);in >> I >> vs >> T)
         {
             std::ostringstream out;
             out << in;
-            report = "\n" + out.str();
-            return true;
-        }
-    }
-    else
-    if(file.endsWith("2dseq"))
-    {
-        tipl::io::bruker_2dseq seq;
-        if(seq.load_from_file(file.toUtf8().constData()))
-        {
-            seq.get_image().swap(I);
-            seq.get_voxel_size(vs);
-            return true;
-        }
-    }
-    else
-    if(file.endsWith(".dcm"))
-    {
-        tipl::io::dicom dicom;
-        if(dicom.load_from_file(file.toUtf8().constData()))
-        {
-            dicom >> std::tie(I,vs,report);
-            return true;
-        }
-    }
-    else
-    if(file.endsWith("z"))
-    {
-        tipl::shape<3> dim;
-        if(tipl::io::gz_mat_read in;
-            in.load_from_file(file.toUtf8().constData()) &&
-            in.read_pointer("dimension",dim) &&
-            in.read_pointer("voxel_size",vs))
-        {
-            if(const unsigned char* mask_ptr = nullptr;in.read("mask",mask_ptr))
+            report = out.str();
+
+            QFileInfo info(file);
+            auto name = info.fileName();
+            if(name.startsWith("sub-") && name.endsWith(".nii.gz") && !name.endsWith("_dseg.nii.gz"))
             {
-                in.si2vi = tipl::get_sparse_index(tipl::make_image(mask_ptr,dim));
-                in.mask_cols = dim.plane_size();
-                in.mask_rows = dim.depth();
-            }
-
-            for(auto each : {"iso","image0","subject0"})
-                if(in.has(each))
+                name.chop(7);
+                int p = name.lastIndexOf('_');
+                if(p != -1)
                 {
-                    I.resize(dim);
-                    in.read(each,I);
-                    break;
+                    tipl::image<3,unsigned char> D;
+                    tipl::vector<3> dvs;
+                    tipl::matrix<4,4> DT;
+                    tipl::shape<3> Ddim;
+                    auto dseg_file = info.absolutePath() + "/" + name.left(p) + "_dseg.nii.gz";
+                    auto dseg_fn = dseg_file.toUtf8();
+                    if(tipl::io::gz_nifti din(dseg_fn.constData(),std::ios::in);
+                       din >> Ddim >> dvs >> DT && Ddim == I.shape() && dvs == vs && DT == T)
+                        {
+                            din >> D;
+                            dseg.swap(D);
+                        }
                 }
-
-            report = in.read<std::string>("report");
-            return !I.empty();
+            }
+            return finish();
         }
     }
-    return false;
+    else
+        if(file.endsWith("2dseq"))
+        {
+            tipl::io::bruker_2dseq seq;
+            if(seq.load_from_file(fn.constData()))
+                seq.get_image().swap(I),seq.get_voxel_size(vs);
+        }
+        else
+            if(file.endsWith(".dcm"))
+            {
+                tipl::io::dicom dicom;
+                if(dicom.load_from_file(fn.constData()))
+                    dicom >> std::tie(I,vs,report);
+            }
+            else
+                if(file.endsWith("z"))
+                {
+                    tipl::shape<3> dim;
+                    if(tipl::io::gz_mat_read in;in.load_from_file(fn.constData()) &&
+                       in.read_pointer("dimension",dim) && in.read_pointer("voxel_size",vs))
+                    {
+                        in.read_pointer("trans",T);
+                        if(const unsigned char* mask = nullptr;in.read("mask",mask))
+                            in.si2vi = tipl::get_sparse_index(tipl::make_image(mask,dim)),
+                                in.mask_cols = dim.plane_size(),in.mask_rows = dim.depth();
+
+                        for(auto each : {"iso","image0","subject0"})
+                            if(in.has(each))
+                            {
+                                I.resize(dim);
+                                in.read(each,I);
+                                break;
+                            }
+                        report = in.read<std::string>("report");
+                    }
+                }
+    return finish();
 }
 
 template<typename T>
 void add_preview(T& dlg)
 {
-    auto* preview = new QLabel("preview");
+    struct preview_label : QLabel{
+        QDoubleSpinBox* zoom = nullptr;
+        QSlider* slider = nullptr;
+        QCheckBox* edge = nullptr;
+        std::function<void()> redraw;
+        int x = 0,y = 0;
+        float wl = 0.0f,ww = 1.0f;
+        bool fixed_wl = false;
+        using QLabel::QLabel;
+        void mouseDoubleClickEvent(QMouseEvent*) override    {edge->setChecked(!edge->isChecked());redraw();}
+        void wheelEvent(QWheelEvent* e) override             {zoom->setValue(zoom->value() + (e->angleDelta().y() > 0 ? zoom->singleStep() : -zoom->singleStep()));}
+        void mousePressEvent(QMouseEvent* e) override
+        {
+            x = int(e->position().x());
+            y = int(e->position().y());
+        }
+        void mouseMoveEvent(QMouseEvent* e) override
+        {
+            int x2 = int(e->position().x()),y2 = int(e->position().y());
+
+            if(e->buttons() & Qt::LeftButton)
+            {
+                if(int d = (y-y2)/4)
+                    slider->setValue(slider->value()+d),y -= d*4;
+                x = x2;
+                return;
+            }
+
+            int dx = x2-x,dy = y2-y;
+            if(e->buttons() & Qt::RightButton)
+                fixed_wl = true,ww = std::max(1.0f,ww+dx),wl -= dy,redraw();
+            x = x2;
+            y = y2;
+        }
+    };
+    auto* preview = new preview_label("preview");
     auto* report = new QTextEdit;
     auto* panel = new QWidget;
     auto* box = new QVBoxLayout(panel);
@@ -484,6 +551,18 @@ void add_preview(T& dlg)
     auto* sag = new QPushButton("Sag");
     auto* cor = new QPushButton("Cor");
     auto* axi = new QPushButton("Axi");
+    auto* edge = new QCheckBox("dseg");
+    auto* zoom = new QDoubleSpinBox;
+
+    zoom->setRange(0.5,8.0);
+    zoom->setSingleStep(0.5);
+    zoom->setValue(2.0);
+
+    preview->zoom = zoom;
+    preview->slider = slider;
+    preview->edge = edge;
+
+    edge->setChecked(true);
 
     preview->setFixedSize(512,512);
     preview->setAlignment(Qt::AlignCenter);
@@ -492,15 +571,19 @@ void add_preview(T& dlg)
     report->setMinimumHeight(120);
     report->setStyleSheet("QTextEdit{background:#222;color:white;}");
 
+    ctrl->addWidget(edge);
+    ctrl->addWidget(zoom);
     for(auto* b : {sag,cor,axi})
     {
         b->setCheckable(true);
         ctrl->addWidget(b);
     }
     axi->setChecked(true);
-    ctrl->insertWidget(0,slider,1);
+
     slider->setRange(0,2);
     slider->setValue(1);
+
+    ctrl->insertWidget(0,slider,1);
 
     box->setContentsMargins(0,0,0,0);
     box->addWidget(preview);
@@ -512,6 +595,7 @@ void add_preview(T& dlg)
 
     auto id = std::make_shared<std::atomic<size_t>>(0);
     auto I = std::make_shared<tipl::image<3,float>>();
+    auto dseg = std::make_shared<tipl::image<3,unsigned char>>();
     auto dim = std::make_shared<int>(2);
     QPointer<QFileDialog> dlg_ptr(&dlg);
 
@@ -520,22 +604,63 @@ void add_preview(T& dlg)
         if(I->empty())
             return;
 
-        slider->setMaximum(std::max<int>(0,int(I->shape()[*dim])-1));
-        auto slice = tipl::volume2slice(*I,*dim,size_t(slider->value()));
+        auto slice = tipl::volume2slice_scaled(*I,*dim,size_t(slider->value()),float(zoom->value()));
         if(*dim != 2)
             tipl::flip_y(slice);
         auto [mn,mx] = std::minmax_element(slice.begin(),slice.end());
-        float scale = 255.0f/std::max<float>(*mx-*mn,1.0f);
+        if(!preview->fixed_wl)
+            preview->wl = (*mn+*mx)*0.5f,preview->ww = std::max<float>(*mx-*mn,1.0f);
+        float low = preview->wl-preview->ww*0.5f,scale = 255.0f/preview->ww;
 
-        QImage out(slice.width(),slice.height(),QImage::Format_Grayscale8);
-        for(int y = 0;y < out.height();++y)
+        const int w = slice.width(),h = slice.height();
+        QImage out(w,h,QImage::Format_RGB32);
+        for(int y = 0;y < h;++y)
         {
-            auto* p = out.scanLine(y);
-            for(int x = 0;x < out.width();++x)
-                p[x] = uchar(std::clamp<int>((slice[size_t(y)*slice.width()+x]-*mn)*scale,0,255));
+            auto* dst = reinterpret_cast<QRgb*>(out.scanLine(y));
+            auto* src = slice.data() + size_t(y)*w;
+            for(int x = 0;x < w;++x,++src)
+            {
+                auto v = uchar(std::clamp<int>((*src-low)*scale,0,255));
+                dst[x] = qRgb(v,v,v);
+            }
         }
-        preview->setPixmap(QPixmap::fromImage(out.scaled(512,512,Qt::KeepAspectRatio,Qt::SmoothTransformation)));
+
+        if(edge->isChecked() && !dseg->empty())
+        {
+            auto label = tipl::volume2slice(*dseg,*dim,size_t(slider->value()));
+            if(*dim != 2)
+                tipl::flip_y(label);
+
+            std::array<int,256> id;
+            id.fill(-1);
+            std::vector<tipl::image<2,uint8_t>> masks;
+            std::vector<tipl::rgb> colors;
+
+            for(size_t j = 0;j < label.size();++j)
+                if(label[j])
+                {
+                    auto& cur = id[label[j]];
+                    if(cur == -1)
+                    {
+                        cur = int(masks.size());
+                        masks.emplace_back(label.shape());
+                        colors.push_back(tipl::rgb::generate_hue(label[j]));
+                        colors.back().a = 255;
+                    }
+                    masks[cur][j] = 1;
+                }
+
+            if(!masks.empty())
+            {
+                QPainter painter(&out);
+                painter.setCompositionMode(QPainter::CompositionMode_SourceAtop);
+                painter.drawImage(0,0,tipl::qt::draw_regions(masks,colors,1,1,-1,float(zoom->value())));
+            }
+        }
+        preview->setPixmap(QPixmap::fromImage(out));
     };
+
+    preview->redraw = redraw;
 
     auto set_dim = [=](int d)
     {
@@ -556,46 +681,43 @@ void add_preview(T& dlg)
     };
 
     QObject::connect(slider,&QSlider::valueChanged,redraw);
+    QObject::connect(edge,&QCheckBox::clicked,redraw);
+    QObject::connect(zoom,qOverload<double>(&QDoubleSpinBox::valueChanged),redraw);
     QObject::connect(sag,&QPushButton::clicked,[=]{set_dim(0);});
     QObject::connect(cor,&QPushButton::clicked,[=]{set_dim(1);});
     QObject::connect(axi,&QPushButton::clicked,[=]{set_dim(2);});
 
     QObject::connect(&dlg,&QFileDialog::currentChanged,[=](const QString& file)
-                     {
-                         size_t cur_id = ++(*id);
-                         preview->setText("loading...");
-                         preview->setPixmap({});
-                         report->clear();
+    {
+        size_t cur_id = ++(*id);
+        preview->setText("loading...");
+        preview->setPixmap({});
+        report->clear();
 
-                         std::thread([=]
-                                     {
-                                         auto new_I = std::make_shared<tipl::image<3,float>>();
-                                         tipl::vector<3> vs;
-                                         std::string r;
-                                         read_preview_image(file,*new_I,vs,r);
+        std::thread([=]
+        {
+            auto new_I = std::make_shared<tipl::image<3,float>>();
+            auto new_dseg = std::make_shared<tipl::image<3,unsigned char>>();
+            std::string r;
+            read_preview_image(file,*new_I,*new_dseg,r);
+            QMetaObject::invokeMethod(dlg_ptr,[=]
+            {
+                if(cur_id != *id)
+                    return;
+                if(new_I->empty())
+                {
+                    preview->setText("no preview");
+                    return;
+                }
 
-                                         if(!dlg_ptr)
-                                             return;
-
-                                         QMetaObject::invokeMethod(dlg_ptr,[=]
-                                             {
-                                                 if(cur_id != *id)
-                                                     return;
-                                                 if(new_I->empty())
-                                                 {
-                                                     preview->setText("no preview");
-                                                     return;
-                                                 }
-
-                                                 I->swap(*new_I);
-                                                 report->setPlainText(QString("image size: [%1,%2,%3] x (%4 mm,%5 mm,%6 mm)\n%7")
-                                                                          .arg(I->width()).arg(I->height()).arg(I->depth())
-                                                                          .arg(vs[0]).arg(vs[1]).arg(vs[2])
-                                                                          .arg(QString::fromStdString(r.empty() ? "" : "report:" + r)));
-                                                 set_dim(*dim);
-                                             },Qt::QueuedConnection);
-                                     }).detach();
-                     });
+                I->swap(*new_I);
+                dseg->swap(*new_dseg);
+                report->setPlainText(QString::fromStdString(r));
+                preview->fixed_wl = false;
+                set_dim(*dim);
+            },Qt::QueuedConnection);
+        }).detach();
+    });
 }
 
 class simple_icon_provider : public QFileIconProvider
