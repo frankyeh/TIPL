@@ -496,35 +496,6 @@ public:
         tipl::io::initial_nifti_srow(untouched_srow,image_dim,image_vs);
         return true;
     }
-    template<typename io_type>
-    bool save_to_file(const std::filesystem::path& file_name)
-    {
-        io_type out;
-        if(!out.open(file_name,std::ios::out))
-            return error_msg = out.error_msg,false;
-        out << untouched_srow << image_vs;
-        out.flip_swap_seq = flip_swap;
-        if(tipl::is_label_image(label_prob))
-        {
-            tipl::image<3,unsigned char> label(label_prob);
-            out.apply_flip_swap_seq(label,true);
-            if(label_prob.depth() == image_dim[2])
-                out << label;
-            else
-                out << label.alias(0,tipl::shape<4>(image_dim.expand(label_prob.depth()/image_dim[2])));
-        }
-        else
-        {
-            tipl::image<3> prob(label_prob);
-            out.apply_flip_swap_seq(prob,true);
-            if(label_prob.depth() == image_dim[2])
-                out << prob;
-            else
-                out << prob.alias(0,tipl::shape<4>(image_dim.expand(label_prob.depth()/image_dim[2])));
-        }
-        return true;
-
-    }
 };
 
 
