@@ -525,10 +525,14 @@ private:
     }
 public:
     template<typename ImageType,typename ValueType>
-    march_cube(ImageType& source_image,ValueType isolevel):
+    march_cube(ImageType& source_image,ValueType isolevel,const std::atomic_bool* terminated = nullptr):
         w(source_image.shape()[0]),
         wh(uint32_t(source_image.shape().plane_size()))
     {
+        auto stop = [&]{return terminated && terminated->load();};
+        auto shape = source_image.shape();
+        if(shape[0] < 2 || shape[1] < 2 || shape[2] < 2)
+            return;
         offset[0] = 1;
         offset[1] = 1+w;
         offset[2] = w;
@@ -537,19 +541,25 @@ public:
         offset[5] = 1+w+wh;
         offset[6] = w+wh;
 
-        // get all the edge cubes
-        size_t image_size = source_image.size()-offset[5]; // make sure the image index will not out of bound
-        for (size_t index = 0;index < image_size;++index)
+        tipl::shape<3> cube_shape(shape[0]-1,shape[1]-1,shape[2]-1);
+        for(tipl::pixel_index<3> p(cube_shape);p < cube_shape.size();++p)
         {
-            bool greater = source_image[index] <= isolevel;
-            for (auto shift : offset)
-                if(greater ^ (source_image[index+shift] <= isolevel))
+            tipl::pixel_index<3> index(p[0],p[1],p[2],shape);
+            bool greater = source_image[index.index()] <= isolevel;
+            for(auto shift : offset)
+                if(greater ^ (source_image[index.index()+shift] <= isolevel))
                 {
-                    addCube(source_image,tipl::pixel_index<3>(index,source_image.shape()),isolevel);
+                    addCube(source_image,index,isolevel);
                     break;
                 }
+            if(stop())
+                return;
         }
+        if(stop() || tri_list.empty())
+            return;
         get_normal();
+        if(stop())
+            return;
         get_sorted_indices();
     }
 };
