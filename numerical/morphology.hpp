@@ -1295,15 +1295,12 @@ current_weight controls how hard it is to flip the existing center label:
     4.0f   aggressive
     8.0f   default
     12.0f  conservative
-    16.0f  very conservative
-
-
 
 Internal spatial weights:
 
 spatial_weight controls spatial prior relative to signal likelihood:
 
-current label:       current_weight
+current label:       from 12 decreased to 4
 6-neighbor support:  2.0
 20-neighbor support: 0.5
 pseudo-count:        0.1
@@ -1314,7 +1311,7 @@ The remaining 20 neighbors only adjust the prior of existing candidates.
 
 
 template<typename label_image_type,typename ref_image_type>
-size_t refine_label(label_image_type& label,const ref_image_type& ref,float final_weight = 8.0f)
+size_t refine_label(label_image_type& label,const ref_image_type& ref,float final_weight = 4.0f)
 {
     if(label.shape() != ref.shape())
         return 0;
