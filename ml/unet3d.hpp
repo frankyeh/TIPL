@@ -71,17 +71,27 @@ public:
             cmds = std::vector<std::string>(cmds.rbegin(),cmds.rend());
         auto dim = model_io.front().shape().divide(tipl::shape<3>::z,reversed ? out_count:in_count);
         auto new_dim = dim;
+        for(const auto& each : cmds)
+        {
+            if(each == "swap_xy")
+                new_dim = tipl::shape<3>(new_dim[1],new_dim[0],new_dim[2]);
+            else if(each == "swap_xz")
+                new_dim = tipl::shape<3>(new_dim[2],new_dim[1],new_dim[0]);
+            else if(each == "swap_yz")
+                new_dim = tipl::shape<3>(new_dim[0],new_dim[2],new_dim[1]);
+        }
+
         tipl::par_for(tipl::shape<2>(reversed ? out_count:in_count,model_io.size()),[&](auto index)
         {
             auto I = tipl::make_image(model_io[index.y()].data() + index.x()*dim.size(),dim);
             for(const auto& each : cmds)
             {
                 if(each == "swap_xy")
-                    new_dim = tipl::swap_xy(I).shape();
+                    tipl::swap_xy(I);
                 if(each == "swap_xz")
-                    new_dim = tipl::swap_xz(I).shape();
+                    tipl::swap_xz(I);
                 if(each == "swap_yz")
-                    new_dim = tipl::swap_yz(I).shape();
+                    tipl::swap_yz(I);
                 if(each == "flip_xy")
                     tipl::flip_xy(I);
                 if(each == "flip_x")
@@ -97,19 +107,56 @@ public:
                 each.resize(new_dim.multiply(tipl::shape<3>::z,reversed ? out_count:in_count));
         return true;
     }
-    bool handle_fov_pre(const std::string& fov_strategy)
+    bool run_preproc(const std::string& cmd)
     {
-        tipl::progress prog("handle fov");
-
+        progress prog("pre-processing");
         if(source_image.empty())
             return error_msg = "no source image",false;
 
+        // universal preprocessing applied
         tipl::par_for(in_count,[&](int c)
         {
             auto I = source_image.alias(c*image_dim.size(),image_dim);
             tipl::segmentation::normalize_otsu_median(I);
         });
 
+        auto cmds = tipl::split(cmd,'+');
+        for(size_t i = 0;prog(i,cmds.size());++i)
+        {
+            param = tipl::split(cmds[i],',');
+            progress prog(param[0]);
+            if(param[0] == "zscore_nonzero")
+            {
+                tipl::par_for(in_count,[&](int c)
+                {
+                    auto I = source_image.alias(c*image_dim.size(),image_dim);
+                    double sum = 0.0, sum2 = 0.0;
+                    size_t n = 0;
+                    for(float v : I)
+                        if(v != 0.0f)
+                            sum += v, sum2 += double(v)*double(v), ++n;
+                    if(n)
+                    {
+                        double mean = sum / double(n);
+                        double var = sum2 / double(n) - mean*mean; // population variance
+                        double sd = std::sqrt(std::max(0.0,var));
+                        if(sd == 0.0)
+                            sd = 1.0;
+
+                        for(float& v : I)
+                            if(v != 0.0f)
+                                v = float((double(v) - mean) / sd);
+                    }
+                });
+                continue;
+            }
+        }
+        return !prog.aborted();
+    }
+
+    bool handle_fov_pre(const std::string& fov_strategy)
+    {
+        tipl::progress prog("handle fov");
         if(mask.empty())
         {
             tipl::threshold(source_image.alias(0,image_dim),mask,0.0f);
@@ -252,9 +299,9 @@ public:
         return true;
     }
     std::vector<std::string> param;
-    bool command(const std::string& cmd)
+    bool run_postproc(const std::string& cmd)
     {
-        progress prog("postprocessing");
+        progress prog("post-processing");
         auto cmds = tipl::split(cmd,'+');
         for(size_t i = 0;prog(i,cmds.size());++i)
         {
@@ -350,7 +397,6 @@ public:
             label_prob = 0.0f;
             tipl::image<3,float> weight_map(image_dim);
 
-            std::atomic<int> p = 0;
             tipl::par_for(out_count+1,[&](int c)
             {
                 for(int t=0;t < model_io.size();++t)
@@ -371,7 +417,6 @@ public:
             for(size_t i=0;i<weight_map.size();++i)
                 if(weight_map[i] > 1e-6)
                     weight_map[i] = 1.0f/weight_map[i];
-            p = 0;
             tipl::par_for(out_count,[&](int c)
             {
                 label_prob.alias(image_dim.size()*c,image_dim) *= weight_map;
@@ -517,7 +562,6 @@ public:
         tipl::progress prog("loading unet model");
         reader in;
         std::vector<int> channels({1,1});
-        tipl::shape<3> dim;
         if(!in.load_from_file(file_name))
             return error_msg = "cannot open file: " + file_name.u8string(),false;
         if(in.has("feature_string"))
@@ -576,7 +620,7 @@ public:
     bool forward(void)
     {
         tipl::progress prog("unet segmentation");
-        if(!eval.handle_fov_pre(fov_strategy) || !eval.handle_orientation(orientation))
+        if(!eval.run_preproc(preproc) || !eval.handle_fov_pre(fov_strategy) || !eval.handle_orientation(orientation))
             return false;
 
         {
@@ -604,7 +648,7 @@ public:
                 return false;
         }
 
-        if(!eval.handle_orientation(orientation,true) || !eval.handle_fov_post() || !eval.command(postproc))
+        if(!eval.handle_orientation(orientation,true) || !eval.handle_fov_post() || !eval.run_postproc(postproc))
             return error_msg = eval.error_msg,false;
         prog(4,4);
         return !prog.aborted();
