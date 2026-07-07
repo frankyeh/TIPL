@@ -46,6 +46,7 @@ public:
     std::string error_msg;
     std::vector<tipl::transformation_matrix<float>> trans;
     tipl::image<3,unsigned char> mask,label;
+    std::vector<unsigned int> single_component_label;
     image_type& label_prob;
     image_type fg_prob;
 public:
@@ -499,10 +500,50 @@ public:
     {
         if(label_prob.empty())
             return error_msg = "no label probability",false;
-        if(fg_prob.empty())
-            label = tipl::argmax<0>(label_prob.alias(0,mask.shape().multiply(tipl::shape<3>::z,cur_count)),mask.shape(),mask.data());
-        else
-            label = tipl::argmax<1>(label_prob.alias(mask.size(),mask.shape().multiply(tipl::shape<3>::z,cur_count-1)),mask.shape(),mask.data());
+        if(fg_prob.empty() && !create_mask())
+            return false;
+
+        const size_t image_size = mask.size();
+        auto prob = label_prob.alias(image_size,mask.shape().multiply(tipl::shape<3>::z,cur_count-1));
+        label = tipl::argmax<1>(prob,mask.shape(),mask.data());
+
+        if(single_component_label.empty())
+            return true;
+
+        for(size_t iter = 0;iter < 5;++iter)
+        {
+            std::vector<std::pair<unsigned int,size_t> > result;
+            for(auto c : single_component_label)
+            {
+                if(c == 0 || c >= cur_count)
+                    return error_msg = "invalid single component label of " + std::to_string(c),false;
+
+                size_t changed = 0;
+                tipl::image<3,unsigned char> m(mask.shape()), kept;
+                for(size_t i = 0;i < image_size;++i)
+                    m[i] = label[i] == c;
+
+                kept = m;
+                tipl::morphology::defragment(kept);
+
+                auto p = label_prob.alias(image_size*c,mask.shape());
+                for(size_t i = 0;i < image_size;++i)
+                    if(m[i] && !kept[i])
+                        p[i] = 0.0f,++changed;
+
+                if(changed)
+                    result.push_back({c,changed});
+            }
+
+            if(result.empty())
+                return true;
+            label = tipl::argmax<1>(prob,mask.shape(),mask.data());
+            std::stringstream out;
+            out << "apply single component: ";
+            for(auto& each : result)
+                out << "label " << each.first << " removed " << each.second << " voxel(s) ";
+            tipl::out() << out.str();
+        }
         return true;
     }
     template<typename io_type>
@@ -583,11 +624,29 @@ public:
            !in.read_pointer("dimension",eval.model_dim) ||
            !in.read_pointer("voxel_size",eval.model_vs))
             return error_msg = "invalid model format: " + in.error_msg,false;
-        in.read("fov_strategy",fov_strategy);
-        in.read("postproc",postproc);
-        in.read("orientation",orientation);
-        in.read("preproc",preproc);
+        if(in.read("fov_strategy",fov_strategy))
+            tipl::out() << "fov_strategy: " << fov_strategy;
+        if(in.read("postproc",postproc))
+            tipl::out() << "postproc: " << postproc;
+        if(in.read("orientation",orientation))
+            tipl::out() << "orientation: " << orientation;
+        if(in.read("preproc",preproc))
+            tipl::out() << "preproc: " << preproc;
         labels = tipl::split(in.template read<std::string>("labels"),'\n');
+
+        if(!(eval.single_component_label = in.template read_as_vector<unsigned int>("single_component_label")).empty())
+        {
+            std::string out;
+            for(auto each : eval.single_component_label)
+            {
+                if(!out.empty())
+                    out += ", ";
+                if(each == 0 || each-1 >= labels.size())
+                    return error_msg = "invalid single component label: " + std::to_string(each), false;
+                out += labels[each-1];
+            }
+            tipl::out() << "single_component_label: " << out;
+        }
         tipl::out() << "dim: " << eval.model_dim << " vs: " << eval.model_vs;
         tipl::out() << "in: " << channels[0] << " out:" << channels[1];
         tipl::out() << "loading unet: " << arch;
