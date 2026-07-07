@@ -455,8 +455,12 @@ inline bool read_preview_image(QString file,tipl::image<3,float>& I,
                     auto dseg_file = info.absolutePath() + "/" + name.left(p) + "_dseg.nii.gz";
                     auto dseg_fn = dseg_file.toUtf8();
                     if(tipl::io::gz_nifti din(dseg_fn.constData(),std::ios::in);
-                       din >> Ddim >> dvs >> DT && Ddim == I.shape() && dvs == vs && DT == T)
+                       din >> Ddim >> dvs >> DT && Ddim == I.shape())
                         {
+                            constexpr double eps = 1.0e-4;
+                            for(int i = 0;i < 12;++i)
+                                if(std::fabs(DT[i]-T[i]) > eps)
+                                    return finish();
                             din >> D;
                             dseg.swap(D);
                         }
