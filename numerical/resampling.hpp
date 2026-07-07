@@ -1235,42 +1235,31 @@ template<tipl::interpolation itype = linear,
          typename std::enable_if<memory_location<T>::at != CUDA && !std::is_same_v<std::decay_t<U>,shape<T::dimension> >,bool>::type = true>
 void resample(const T& from,U&& to,const tipl::transformation_matrix<V,T::dimension>& trans)
 {
-    bool is_simple_crop = true;
+    constexpr double eps = 1.0e-4;
+    tipl::vector<T::dimension,int> from_pos,to_pos;
+
     for(int i = 0;i < T::dimension;++i)
     {
-        if(trans.shift[i] != std::floor(trans.shift[i]))
-        {
-            is_simple_crop = false;
-            break;
-        }
+        auto s = std::lround(trans.shift[i]);
+        if(std::fabs(trans.shift[i]-s) > eps)
+            goto do_resample;
+
+        from_pos[i] = int(s);
+        to_pos[i] = from_pos[i] + int(to.shape()[i]);
+
         for(int j = 0;j < T::dimension;++j)
-        {
-            if(trans.sr[i*T::dimension+j] != (i == j ? 1 : 0))
-            {
-                is_simple_crop = false;
-                break;
-            }
-        }
-        if(!is_simple_crop)
-            break;
+            if(std::fabs(trans.sr[i*T::dimension+j]-(i == j)) > eps)
+                goto do_resample;
     }
 
-    if(is_simple_crop)
-    {
-        tipl::vector<T::dimension,int> from_pos,to_pos;
-        for(int i = 0;i < T::dimension;++i)
-        {
-            from_pos[i] = int(trans.shift[i]);
-            to_pos[i] = from_pos[i] + int(to.shape()[i]);
-        }
-        crop(from,to,from_pos,to_pos);
-        return;
-    }
+    crop(from,to,from_pos,to_pos);
+    return;
 
+    do_resample:
     tipl::par_for(to.shape(),[&](const auto& index)
-    {
-        estimate<itype>(from,trans(index),to[index.index()]);
-    });
+                  {
+                      estimate<itype>(from,trans(index),to[index.index()]);
+                  });
 }
 
 template<tipl::interpolation itype = linear,
