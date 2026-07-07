@@ -185,6 +185,12 @@ public:
             arg.translocation[2] = shift[2];
 
             t = tipl::transformation_matrix<float,3>(arg,model_dim,model_vs,image_dim,image_vs);
+            if(model_vs == image_vs)
+            {
+                t.shift[0] = std::round(t.shift[0]);
+                t.shift[1] = std::round(t.shift[1]);
+                t.shift[2] = std::round(t.shift[2]);
+            }
             image_type target_image(model_dim.multiply(tipl::shape<3>::z,in_count));
 
             for(int c=0;c<in_count;++c)
@@ -269,7 +275,12 @@ public:
         end:
         source_image.clear();
         for(auto& each : trans)
+            tipl::out() << "trans:" << each;
+        for(auto& each : trans)
+        {
             each.inverse();
+            tipl::out() << "inv trans:" << each;
+        }
         return !prog.aborted();
     }
     bool flip_xy(void)
