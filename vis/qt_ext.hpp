@@ -604,7 +604,7 @@ void add_preview(T& dlg)
         if(I->empty())
             return;
 
-        auto slice = tipl::volume2slice_scaled(*I,*dim,size_t(slider->value()),float(zoom->value()));
+        auto slice = tipl::volume2slice(*I,*dim,size_t(slider->value()));
         if(*dim != 2)
             tipl::flip_y(slice);
         auto [mn,mx] = std::minmax_element(slice.begin(),slice.end());
@@ -624,6 +624,7 @@ void add_preview(T& dlg)
                 dst[x] = qRgb(v,v,v);
             }
         }
+        out = out.scaled(int(w*zoom->value()),int(h*zoom->value()));
 
         if(edge->isChecked() && !dseg->empty())
         {
