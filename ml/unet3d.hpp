@@ -472,10 +472,12 @@ public:
         tipl::masking_by_value(mask,fg_prob,prob_threshold);
 
         tipl::morphology::defragment(mask);
-        tipl::morphology::smoothing(mask);
         tipl::morphology::negate(mask);
         tipl::morphology::defragment(mask);
         tipl::morphology::negate(mask);
+        tipl::morphology::closing(mask);
+        tipl::morphology::opening(mask);
+
         fg_prob = mask;
         tipl::filter::gaussian(fg_prob);
         tipl::filter::gaussian(fg_prob);
