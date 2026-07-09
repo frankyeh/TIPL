@@ -55,79 +55,64 @@ void for_each_label(T& data,F&& fun)
 }
 
 template<typename ImageType>
-void erosion(ImageType& I,const std::vector<int64_t>& index_shift)
-{
-    size_t sz = I.size();
-    std::vector<typename ImageType::value_type> act(sz);
-    for (int64_t shift : index_shift)
-    {
-        if (shift > 0)
-        {
-            auto iter1 = act.data() + shift;
-            auto iter2 = I.data();
-            auto end = act.data() + sz;
-            for (;iter1 < end;++iter1,++iter2)
-                if (*iter2 == 0)
-                    *iter1 = 1;
-        }
-        else if (shift < 0)
-        {
-            auto iter1 = act.data();
-            auto iter2 = I.data() - shift;
-            auto end = I.data() + sz;
-            for (;iter2 < end;++iter1,++iter2)
-                if (*iter2 == 0)
-                    *iter1 = 1;
-        }
-    }
-
-    for (size_t index = 0; index < sz; ++index)
-        if (act[index])
-            I[index] = 0;
-}
-
-template<typename ImageType>
 void erosion(ImageType& I)
 {
-    neighbor_index_shift_narrow<ImageType::dimension> neighborhood(I.shape());
-    erosion(I,neighborhood.index_shift);
+    auto s = I.shape();
+    std::vector<size_t> rm;
+    if constexpr(ImageType::dimension == 2) rm.reserve(I.width()); else rm.reserve(I.plane_size());
+    for(tipl::pixel_index<ImageType::dimension> p(s);p < I.size();++p)
+        if(!I[p.index()])
+            tipl::for_each_connected_neighbors(p,s,[&](const auto& q)
+                {rm.push_back(q.index());});
+    for(auto i : rm)
+        I[i] = 0;
+}
+
+template<typename ImageType,typename RefType,typename threshold_type>
+void erosion_by_threshold(ImageType& I,const RefType& V,threshold_type t)
+{
+    auto s = I.shape();
+    auto pass = [&](auto v){return t < 0 ? v < -t : v > t;};
+    std::vector<size_t> rm;
+    if constexpr(ImageType::dimension == 2) rm.reserve(I.width()); else rm.reserve(I.plane_size());
+    for(tipl::pixel_index<ImageType::dimension> p(s);p < I.size();++p)
+        if(auto i = p.index(); !I[i] && pass(V[i]))
+            tipl::for_each_connected_neighbors(p,s,[&](const auto& q)
+                {if(pass(V[q.index()])) rm.push_back(q.index());});
+    for(auto i : rm)
+        I[i] = 0;
 }
 
 template<typename ImageType>
-void dilation(ImageType& I,const std::vector<int64_t>& index_shift)
+void dilation(ImageType& I)
 {
-    size_t sz = I.size();
-    std::vector<typename ImageType::value_type> act(sz);
-    tipl::par_for<sequential>(index_shift.size(),[&](unsigned int index)
-    {
-        int64_t shift = index_shift[index];
-        if (shift > 0)
-        {
-            auto iter1 = act.data() + shift;
-            auto iter2 = I.data();
-            auto end = act.data() + sz;
-            for (;iter1 < end;++iter1,++iter2)
-                *iter1 |= *iter2;
-        }
-        else if (shift < 0)
-        {
-            auto iter1 = act.data();
-            auto iter2 = I.data() - shift;
-            auto end = I.data() + sz;
-            for (;iter2 < end;++iter1,++iter2)
-                *iter1 |= *iter2;
-        }
-    });
-    for (size_t index = 0; index < sz; ++index)
-        I[index] |= act[index];
+    auto s = I.shape();
+    std::vector<std::pair<size_t,typename ImageType::value_type> > add;
+    if constexpr(ImageType::dimension == 2) add.reserve(I.width()); else add.reserve(I.plane_size());
+    for(tipl::pixel_index<ImageType::dimension> p(s);p < I.size();++p)
+        if(auto x = I[p.index()])
+            tipl::for_each_connected_neighbors(p,s,[&](const auto& q)
+                {add.push_back({q.index(),x});});
+    for(auto [i,x] : add)
+        I[i] |= x;
 }
 
-template<typename T>
-void dilation(T&& I)
+template<typename ImageType,typename RefType,typename threshold_type>
+void dilation_by_threshold(ImageType& I,const RefType& V,threshold_type t)
 {
-    neighbor_index_shift_narrow<std::remove_reference_t<T>::dimension> neighborhood(I.shape());
-    dilation(I,neighborhood.index_shift);
+    auto s = I.shape();
+    auto pass = [&](auto v){return t < 0 ? v < -t : v > t;};
+    std::vector<std::pair<size_t,typename ImageType::value_type> > add;
+    if constexpr(ImageType::dimension == 2) add.reserve(I.width()); else add.reserve(I.plane_size());
+    for(tipl::pixel_index<ImageType::dimension> p(s);p < I.size();++p)
+        if(auto i = p.index(); I[i] && pass(V[i]))
+            tipl::for_each_connected_neighbors(p,s,[&](const auto& q)
+                {if(pass(V[q.index()])) add.push_back({q.index(),I[i]});});
+    for(auto [i,x] : add)
+        I[i] |= x;
 }
+
+
 
 template<bool dilate,typename ImageType>
 void morphology_by_radius(ImageType& I,unsigned int radius)
@@ -478,26 +463,6 @@ bool is_edge(ImageType& I,tipl::pixel_index<ImageType::dimension> index)
 }
 
 template<typename ImageType>
-auto get_neighbor_count(ImageType& I)
-{
-    size_t sz = I.size();
-    std::vector<char> region_count(sz);
-    neighbor_index_shift<ImageType::dimension> neighborhood(I.shape());
-    tipl::par_for<sequential>(sz,[&](int64_t index)
-    {
-        for(int64_t pos : neighborhood.index_shift)
-        {
-            pos += index;
-            if(pos < 0 || pos >= static_cast<int64_t>(sz))
-                continue;
-            if(I[pos])
-                ++region_count[index];
-        }
-    });
-    return region_count;
-}
-
-template<typename ImageType>
 auto get_neighbor_count_multiple_region(const ImageType& I)
 {
     size_t sz = I.size();
@@ -517,37 +482,84 @@ auto get_neighbor_count_multiple_region(const ImageType& I)
 }
 
 template<typename ImageType>
+auto get_neighbor_count(const ImageType& I)
+{
+    auto shape = I.shape();
+    std::vector<char> count(I.size());
+    tipl::par_for<sequential>(shape,[&](const auto& p)
+    {
+        char n = I[p.index()];
+        tipl::for_each_neighbors(p,shape,[&](const auto& q){n += I[q.index()] != 0;});
+        count[p.index()] = n;
+    });
+    return count;
+}
+
+template<bool close,typename ImageType>
+size_t opening_closing(ImageType& I,char threshold_shift = 0)
+{
+    auto shape = I.shape();
+    auto act = get_neighbor_count(I);
+    const char threshold = (((ImageType::dimension == 2) ? 9 : 27) >> 1) + threshold_shift;
+    using index_type = tipl::pixel_index<ImageType::dimension>;
+    std::vector<index_type> cur,next,test;
+    std::vector<char> queued(I.size());
+    size_t total = 0;
+
+    auto hit = [&](size_t i)
+    {
+        if constexpr(close) return !I[i] && act[i] > threshold;
+        else                return  I[i] && act[i] < threshold;
+    };
+
+    for(index_type p(shape);p < I.size();++p)
+        if(hit(p.index()))
+            cur.push_back(p);
+
+    while(!cur.empty())
+    {
+        for(const auto& p : cur)
+            I[p.index()] = close;
+        total += cur.size();
+
+        test.clear();
+        for(const auto& p : cur)
+            tipl::for_each_neighbors(p,shape,[&](const auto& q)
+            {
+                size_t i = q.index();
+                if constexpr(close)
+                {
+                    if(I[i]) return;
+                    ++act[i];
+                }
+                else
+                {
+                    if(!I[i]) return;
+                    --act[i];
+                }
+                if(!queued[i])
+                    queued[i] = 1,test.push_back(q);
+            });
+
+        next.clear();
+        for(const auto& p : test)
+            if(queued[p.index()] = 0; hit(p.index()))
+                next.push_back(p);
+        cur.swap(next);
+    }
+    return total;
+}
+
+template<typename ImageType>
 size_t closing(ImageType& I,char threshold_shift = 0)
 {
-    auto act = get_neighbor_count(I);
-    char threshold = ((ImageType::dimension == 2) ? 9 : 27) >> 1;
-    threshold += threshold_shift;
-    size_t count = 0;
-    size_t sz = I.size();
-    for (size_t index = 0; index < sz; ++index)
-        if (!I[index] && act[index] > threshold)
-        {
-            I[index] = 1;
-            ++count;
-        }
-    return count;
+    return opening_closing<true>(I,threshold_shift);
 }
 
 template<typename ImageType>
 size_t opening(ImageType& I,char threshold_shift = 0)
 {
-    auto act = get_neighbor_count(I);
-    char threshold = ((ImageType::dimension == 2) ? 9 : 27) >> 1;
-    threshold += threshold_shift;
-    size_t count = 0;
-    size_t sz = I.size();
-    for (size_t index = 0; index < sz; ++index)
-        if (I[index] && act[index] < threshold)
-        {
-            I[index] = 0;
-            ++count;
-        }
-    return count;
+    return opening_closing<false>(I,threshold_shift);
 }
 
 template<typename ImageType>
