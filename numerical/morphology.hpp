@@ -55,7 +55,7 @@ void for_each_label(T& data,F&& fun)
 }
 
 template<typename ImageType>
-void erosion(ImageType& I)
+ImageType& erosion(ImageType& I)
 {
     auto s = I.shape();
     std::vector<size_t> rm;
@@ -66,6 +66,7 @@ void erosion(ImageType& I)
                 {rm.push_back(q.index());});
     for(auto i : rm)
         I[i] = 0;
+    return I;
 }
 
 template<typename ImageType,typename RefType,typename threshold_type>
@@ -84,7 +85,7 @@ void erosion_by_threshold(ImageType& I,const RefType& V,threshold_type t)
 }
 
 template<typename ImageType>
-void dilation(ImageType& I)
+ImageType& dilation(ImageType& I)
 {
     auto s = I.shape();
     std::vector<std::pair<size_t,typename ImageType::value_type> > add;
@@ -95,6 +96,7 @@ void dilation(ImageType& I)
                 {add.push_back({q.index(),x});});
     for(auto [i,x] : add)
         I[i] |= x;
+    return I;
 }
 
 template<typename ImageType,typename RefType,typename threshold_type>
@@ -115,10 +117,10 @@ void dilation_by_threshold(ImageType& I,const RefType& V,threshold_type t)
 
 
 template<bool dilate,typename ImageType>
-void morphology_by_radius(ImageType& I,unsigned int radius)
+ImageType& morphology_by_radius(ImageType& I,unsigned int radius)
 {
     if(radius == 0 || I.empty())
-        return;
+        return I;
 
     using value_type = typename ImageType::value_type;
     ImageType src(I);
@@ -136,7 +138,7 @@ void morphology_by_radius(ImageType& I,unsigned int radius)
         }
 
     if(x1 < 0)
-        return;
+        return I;
 
     struct span_type{int dz,dy,dx,off;};
     std::vector<span_type> span;
@@ -205,18 +207,19 @@ void morphology_by_radius(ImageType& I,unsigned int radius)
             }
         }
     });
+    return I;
 }
 
 template<typename ImageType>
-void dilation_by_radius(ImageType& I,unsigned int radius)
+ImageType& dilation_by_radius(ImageType& I,unsigned int radius)
 {
-    morphology_by_radius<true>(I,radius);
+    return morphology_by_radius<true>(I,radius);
 }
 
 template<typename ImageType>
-void erosion_by_radius(ImageType& I,unsigned int radius)
+ImageType& erosion_by_radius(ImageType& I,unsigned int radius)
 {
-    morphology_by_radius<false>(I,radius);
+    return morphology_by_radius<false>(I,radius);
 }
 
 
@@ -488,7 +491,7 @@ auto get_neighbor_count(const ImageType& I)
     std::vector<char> count(I.size());
     tipl::par_for<sequential>(shape,[&](const auto& p)
     {
-        char n = I[p.index()];
+        char n = (I[p.index()] != 0);
         tipl::for_each_neighbors(p,shape,[&](const auto& q){n += I[q.index()] != 0;});
         count[p.index()] = n;
     });
@@ -496,7 +499,7 @@ auto get_neighbor_count(const ImageType& I)
 }
 
 template<bool close,typename ImageType>
-size_t opening_closing(ImageType& I,char threshold_shift = 0)
+size_t opening_closing(ImageType& I,char threshold_shift)
 {
     auto shape = I.shape();
     auto act = get_neighbor_count(I);
@@ -551,27 +554,34 @@ size_t opening_closing(ImageType& I,char threshold_shift = 0)
 }
 
 template<typename ImageType>
-size_t closing(ImageType& I,char threshold_shift = 0)
+ImageType& closing(ImageType& I)
 {
-    return opening_closing<true>(I,threshold_shift);
+    for(char t = ((ImageType::dimension == 2) ? 4 : 8);t >= 0;--t)
+        if(size_t c = opening_closing<true>(I,t))
+            return I;
+    return I;
 }
 
 template<typename ImageType>
-size_t opening(ImageType& I,char threshold_shift = 0)
+ImageType& opening(ImageType& I)
 {
-    return opening_closing<false>(I,threshold_shift);
+    for(char t = ((ImageType::dimension == 2) ? 4 : 8);t >= 0;--t)
+        if(size_t c = opening_closing<false>(I,-t))
+            return I;
+    return I;
 }
 
 template<typename ImageType>
-void negate(ImageType& I)
+ImageType& negate(ImageType& I)
 {
     size_t sz = I.size();
     for (size_t index = 0; index < sz; ++index)
         I[index] = I[index] ? 0:1;
+    return I;
 }
 
 template<typename ImageType>
-void smoothing(ImageType& I)
+ImageType& smoothing(ImageType& I)
 {
     auto act = get_neighbor_count(I);
     constexpr char threshold = ((ImageType::dimension == 2) ? 9 : 27) >> 1;
@@ -583,6 +593,7 @@ void smoothing(ImageType& I)
         if (act[index] < threshold)
             I[index] = 0;
     }
+    return I;
 }
 
 template<typename ImageType>
@@ -943,6 +954,15 @@ void connected_component_labeling(const T1& I,T2& labels,std::vector<std::vector
     connected_component_labeling_pass(I,labels,regions,I.plane_size());
 }
 
+template<typename T1,typename std::enable_if<T1::dimension==3,bool>::type = true>
+auto connected_component_labeling(const T1& I)
+{
+    tipl::image<3,unsigned short> labels;
+    std::vector<std::vector<size_t> > regions;
+    connected_component_labeling(I,labels,regions);
+    return regions;
+}
+
 template<typename LabelImageType>
 void get_region_bounding_box(const LabelImageType& labels,
                              const std::vector<std::vector<size_t> >& regions,
@@ -1014,11 +1034,11 @@ void get_region_center(const LabelImageType& labels,
 }
 
 template<typename ImageType>
-void defragment(ImageType& I)
+ImageType& defragment(ImageType& I)
 {
     size_t sz = I.size();
     if(sz == 0)
-        return;
+        return I;
     tipl::image<ImageType::dimension,unsigned int> labels(I.shape());
     std::vector<std::vector<size_t> > regions;
 
@@ -1039,6 +1059,7 @@ void defragment(ImageType& I)
     for (size_t index = 0; index < sz; ++index)
         if (I[index] && labels[index] != max_size_group_id)
             I[index] = 0;
+    return I;
 }
 template<typename ImageType>
 void defragment_slice(ImageType& I)
@@ -1323,50 +1344,47 @@ The remaining 20 neighbors only adjust the prior of existing candidates.
 
 
 template<typename label_image_type,typename ref_image_type>
-size_t refine_label(label_image_type& label,const ref_image_type& ref,float final_weight = 4.0f)
+size_t refine_label(label_image_type& label,const ref_image_type& ref,float final_weight = 5.0f)
 {
     if(label.shape() != ref.shape())
         return 0;
+
     float spatial_weight = 4.0f;
     unsigned int width = 4;
-    if(label.plane_size() <= 256*256)
-        spatial_weight = 2.0f,width = 2;
-    if(label.plane_size() <= 128*128)
-        spatial_weight = 1.0f,width = 1;
+    if(label.plane_size() <= 256*256) spatial_weight = 2.0f,width = 2;
+    if(label.plane_size() <= 128*128) spatial_weight = 1.0f,width = 1;
 
     using label_type = typename label_image_type::value_type;
     auto shape = label.shape();
-    constexpr double eps = 1.0e-6,fw = 2.0,dw = 0.5,sw = 0.1;
+    constexpr double eps = 1.0e-6,fw = 1.5,dw = 0.5,sw = 0.1;
     tipl::neighbor_index_shift_narrow<3> shift(shape);
+    tipl::image<3,unsigned char> edge_mask(shape);
+    std::vector<size_t> edge_voxels;
+    std::vector<label_type> next;
     size_t total = 0;
-    constexpr unsigned int max_iteration = 100;
     float current_weight = 12.0f;
 
-    for(unsigned int iter = 0;iter < max_iteration;)
+    for(unsigned int iter = 0;iter < 100;)
     {
-        double cw = std::max<double>(current_weight,sw);
-        tipl::image<3,unsigned char> edge_mask;
+        edge_mask = 0;
         tipl::morphology::edge(label,edge_mask,shift.index_shift);
 
-        size_t n = 0;
+        edge_voxels.clear();
         for(size_t i = 0;i < label.size();++i)
-            n += edge_mask[i] && label[i];
-        if(!n)
+            if(edge_mask[i] && label[i])
+                edge_voxels.push_back(i);
+        if(edge_voxels.empty())
             break;
 
-        std::vector<size_t> edge_voxels(n);
-        for(size_t i = 0,pos = 0;i < label.size();++i)
-            if(edge_mask[i] && label[i])
-                edge_voxels[pos++] = i;
+        double cw = std::max<double>(current_weight,sw);
+        next.resize(edge_voxels.size());
 
-        std::vector<label_type> next(n);
-        tipl::par_for(n,[&](size_t j)
+        tipl::par_for(edge_voxels.size(),[&](size_t j)
         {
             tipl::pixel_index<3> pos(edge_voxels[j],shape);
-            size_t index = pos.index();
+            size_t index = pos.index(),cand_count = 0;
             label_type cur = label[index],cand[6] = {},best_label = cur;
             double pc[6] = {};
-            size_t cand_count = 0;
 
             tipl::for_each_connected_neighbors(pos,shape,[&](const auto& n_pos)
             {
@@ -1384,37 +1402,37 @@ size_t refine_label(label_image_type& label,const ref_image_type& ref,float fina
 
             tipl::for_each_neighbors(pos,shape,[&](const auto& n_pos)
             {
-                int d = std::abs(int(n_pos[0])-int(pos[0]))+
-                        std::abs(int(n_pos[1])-int(pos[1]))+
-                        std::abs(int(n_pos[2])-int(pos[2]));
-                if(d <= 1)
-                    return;
                 label_type v = label[n_pos.index()];
+                if(!v)
+                    return;
                 auto p = std::find(cand,cand+cand_count,v);
-                if(v && p != cand+cand_count)
+                if(p != cand+cand_count)
                     pc[p-cand] += dw;
             });
 
             auto lw = tipl::get_window(pos,label,width);
             auto rw = tipl::get_window(pos,ref,width);
+            double s[6] = {},s2[6] = {},nv[6] = {};
+            for(size_t i = 0;i < rw.size();++i)
+            {
+                auto p = std::find(cand,cand+cand_count,lw[i]);
+                if(p == cand+cand_count)
+                    continue;
+                double v = rw[i];
+                size_t c = p-cand;
+                s[c] += v;
+                s2[c] += v*v;
+                ++nv[c];
+            }
+
             double x = ref[index],sum_pc = std::accumulate(pc,pc+cand_count,0.0);
             double best = -std::numeric_limits<double>::infinity();
 
             for(size_t c = 0;c < cand_count;++c)
             {
-                double s = 0.0,s2 = 0.0,nv = 0.0;
-                for(size_t i = 0;i < rw.size();++i)
-                    if(lw[i] == cand[c])
-                    {
-                        double v = rw[i];
-                        s += v;
-                        s2 += v*v;
-                        ++nv;
-                    }
-                if(nv < 2.0)
+                if(nv[c] < 2.0)
                     continue;
-
-                double mean = s/nv,var = std::max(s2/nv-mean*mean,eps);
+                double mean = s[c]/nv[c],var = std::max(s2[c]/nv[c]-mean*mean,eps);
                 double score = spatial_weight*std::log(pc[c]/sum_pc)
                                - 0.5*std::log(var)
                                - 0.5*(x-mean)*(x-mean)/var;
@@ -1425,7 +1443,7 @@ size_t refine_label(label_image_type& label,const ref_image_type& ref,float fina
         });
 
         size_t changed = 0;
-        for(size_t j = 0;j < n;++j)
+        for(size_t j = 0;j < edge_voxels.size();++j)
             if(next[j] != label[edge_voxels[j]])
                 label[edge_voxels[j]] = next[j],++changed;
 
@@ -1442,6 +1460,41 @@ size_t refine_label(label_image_type& label,const ref_image_type& ref,float fina
     return total;
 }
 
+template<typename ImageType>
+std::enable_if_t<!std::is_lvalue_reference_v<ImageType>,ImageType&&>
+defragment(ImageType&& I){defragment(static_cast<ImageType&>(I));return std::move(I);}
+
+template<typename ImageType>
+std::enable_if_t<!std::is_lvalue_reference_v<ImageType>,ImageType&&>
+smoothing(ImageType&& I){smoothing(static_cast<ImageType&>(I));return std::move(I);}
+
+template<typename ImageType>
+std::enable_if_t<!std::is_lvalue_reference_v<ImageType>,ImageType&&>
+dilation(ImageType&& I){dilation(static_cast<ImageType&>(I));return std::move(I);}
+
+template<typename ImageType>
+std::enable_if_t<!std::is_lvalue_reference_v<ImageType>,ImageType&&>
+erosion(ImageType&& I){erosion(static_cast<ImageType&>(I));return std::move(I);}
+
+template<typename ImageType>
+std::enable_if_t<!std::is_lvalue_reference_v<ImageType>,ImageType&&>
+opening(ImageType&& I){opening(static_cast<ImageType&>(I));return std::move(I);}
+
+template<typename ImageType>
+std::enable_if_t<!std::is_lvalue_reference_v<ImageType>,ImageType&&>
+closing(ImageType&& I){closing(static_cast<ImageType&>(I));return std::move(I);}
+
+template<typename ImageType>
+std::enable_if_t<!std::is_lvalue_reference_v<ImageType>,ImageType&&>
+negate(ImageType&& I){tipl::morphology::negate(static_cast<ImageType&>(I));return std::move(I);}
+
+template<typename ImageType>
+std::enable_if_t<!std::is_lvalue_reference_v<ImageType>,ImageType&&>
+dilation_by_radius(ImageType&& I,unsigned int r){tipl::morphology::dilation_by_radius(static_cast<ImageType&>(I),r);return std::move(I);}
+
+template<typename ImageType>
+std::enable_if_t<!std::is_lvalue_reference_v<ImageType>,ImageType&&>
+erosion_by_radius(ImageType&& I,unsigned int r){tipl::morphology::erosion_by_radius(static_cast<ImageType&>(I),r);return std::move(I);}
 
 }
 }
