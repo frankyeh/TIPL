@@ -161,7 +161,10 @@ public:
         if(mask.empty())
         {
             tipl::threshold(source_image.alias(0,image_dim),mask,0.0f);
-            tipl::morphology::defragment(mask);
+            tipl::morphology::negate(
+                tipl::morphology::defragment(
+                    tipl::morphology::negate(
+                        tipl::morphology::defragment(mask))));
         }
 
         tipl::vector<3> from,to;
