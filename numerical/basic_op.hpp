@@ -1203,21 +1203,21 @@ ImageType& flip(ImageType&& I,unsigned char dim)
 }
 
 template<typename iterator_type,typename value_type>
-void negate(iterator_type iter,iterator_type end,value_type maximum)
+void invert(iterator_type iter,iterator_type end,value_type maximum)
 {
     for (; iter != end; ++iter) *iter = maximum - *iter;
 }
 
 template<typename ImageType,typename value_type>
-ImageType& negate(ImageType& I,value_type maximum)
+ImageType& invert(ImageType& I,value_type maximum)
 {
     return apply(I,[&](auto v){return maximum - v;});
 }
 
 template<typename ImageType>
-ImageType& negate(ImageType& I)
+ImageType& invert(ImageType& I)
 {
-    negate(I,*std::max_element(I.begin(),I.end()));
+    invert(I,*std::max_element(I.begin(),I.end()));
     return I;
 }
 
