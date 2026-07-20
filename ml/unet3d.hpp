@@ -159,13 +159,7 @@ public:
     {
         tipl::progress prog("handle fov");
         if(mask.empty())
-        {
-            tipl::threshold(source_image.alias(0,image_dim),mask,0.0f);
-            tipl::morphology::negate(
-                tipl::morphology::defragment(
-                    tipl::morphology::negate(
-                        tipl::morphology::defragment(mask))));
-        }
+            tipl::morphology::dndnco(tipl::threshold(source_image.alias(0,image_dim),mask,0.0f));
 
         tipl::vector<3> from,to;
         if(!tipl::bounding_box(mask,from,to))
@@ -475,21 +469,16 @@ public:
             prob_threshold = std::stof(param[1]);
         if(label_prob.empty())
             return error_msg = "no label probability",false;
+
+        // not yet foreground, this is currently background
         fg_prob = label_prob.alias(0,mask.shape());
         tipl::filter::gaussian(fg_prob);
         tipl::filter::gaussian(fg_prob);
 
         // refine current mask based on model output
-        tipl::masking_by_value(mask,fg_prob,prob_threshold);
+        tipl::threshold(fg_prob,mask,1.0f-prob_threshold,0,1);
 
-        tipl::morphology::defragment(mask);
-        tipl::morphology::negate(mask);
-        tipl::morphology::defragment(mask);
-        tipl::morphology::negate(mask);
-        tipl::morphology::closing(mask);
-        tipl::morphology::opening(mask);
-
-        fg_prob = mask;
+        fg_prob = tipl::morphology::dndnco(mask);
         tipl::filter::gaussian(fg_prob);
         tipl::filter::gaussian(fg_prob);
 
