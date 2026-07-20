@@ -42,12 +42,12 @@ public:
     std::vector<image_type> model_io;
     tipl::vector<3,int> round_up_multiple;
 public:
-    evalution_set(void):label_prob(source_image){}
+    evalution_set(void){}
     std::string error_msg;
     std::vector<tipl::transformation_matrix<float>> trans;
     tipl::image<3,unsigned char> mask,label;
     std::vector<unsigned int> single_component_label;
-    image_type& label_prob;
+    image_type label_prob;
     image_type fg_prob;
 public:
     tipl::shape<3> image_dim,model_dim;
@@ -613,7 +613,13 @@ private:
 public:
     std::shared_ptr<unet3d> unet;
 public:
-    evalution_set<tipl::image<3>> eval;
+    int32_t in_count,out_count;
+    tipl::vector<3> vs = {1.0f,1.0f,1.0f};
+    tipl::shape<3> dim = {192,224,192};
+public:
+    std::vector<float> testing_errors,training_errors;
+public:
+    evalution_set<tipl::image<3>> data;
     std::string error_msg;
     std::string preproc,postproc,orientation,fov_strategy,arch;
     std::vector<std::string> labels;
@@ -631,8 +637,8 @@ public:
 
         if(!in.read("channels",channels) ||
            !in.read("architecture",arch) ||
-           !in.read_pointer("dimension",eval.model_dim) ||
-           !in.read_pointer("voxel_size",eval.model_vs))
+           !in.read_pointer("dimension",dim) ||
+           !in.read_pointer("voxel_size",vs))
             return error_msg = "invalid model format: " + in.error_msg,false;
         if(in.read("fov_strategy",fov_strategy))
             tipl::out() << "fov_strategy: " << fov_strategy;
@@ -644,10 +650,10 @@ public:
             tipl::out() << "preproc: " << preproc;
         labels = tipl::split(in.template read<std::string>("labels"),'\n');
 
-        if(!(eval.single_component_label = in.template read_as_vector<unsigned int>("single_component_label")).empty())
+        if(!(data.single_component_label = in.template read_as_vector<unsigned int>("single_component_label")).empty())
         {
             std::string out;
-            for(auto each : eval.single_component_label)
+            for(auto each : data.single_component_label)
             {
                 if(!out.empty())
                     out += ", ";
@@ -657,13 +663,15 @@ public:
             }
             tipl::out() << "single_component_label: " << out;
         }
-        tipl::out() << "dim: " << eval.model_dim << " vs: " << eval.model_vs;
-        tipl::out() << "in: " << channels[0] << " out:" << channels[1];
+        tipl::out() << "dim: " << dim << " vs: " << vs;
+        tipl::out() << "in: " << (in_count = channels[0]) << " out:" << (out_count = channels[1]);
         tipl::out() << "loading unet: " << arch;
+        testing_errors = in.template read_as_vector<float>("testing_errors");
+        training_errors = in.template read_as_vector<float>("training_errors");
 
         try{
             unet.reset(new unet3d(arch,channels[0],channels[1]));
-            eval.round_up_multiple = unet->round_up_multiple;
+            data.round_up_multiple = unet->round_up_multiple;
         }
         catch(std::runtime_error& e)
         {
@@ -692,57 +700,59 @@ public:
             if(tipl::has_gpu)
                 unet->to_gpu();
 
-        eval.in_count = channels[0];
-        eval.out_count = channels[1];
+        data.in_count = in_count;
+        data.out_count = out_count;
+        data.model_dim = dim;
+        data.model_vs = vs;
         return true;
     }
 
     bool forward(void)
     {
         tipl::progress prog("unet segmentation");
-        if(!eval.run_preproc(preproc) || !eval.handle_fov_pre(fov_strategy) || !eval.handle_orientation(orientation))
+        if(!data.run_preproc(preproc) || !data.handle_fov_pre(fov_strategy) || !data.handle_orientation(orientation))
             return false;
 
         {
-            for(size_t i = 0;prog(i,eval.model_io.size());++i)
+            for(size_t i = 0;prog(i,data.model_io.size());++i)
             {
                 tipl::progress prog2("forwarding");
                 unet->prog = [&](int cur,int total)
                 {
                     return prog2(cur,total);
                 };
-                unet->forward(eval.model_io[i]);
-                auto out_shape = eval.model_io[i].shape().multiply(tipl::shape<3>::z,eval.out_count/eval.in_count);
+                unet->forward(data.model_io[i]);
+                auto out_shape = data.model_io[i].shape().multiply(tipl::shape<3>::z,data.out_count/data.in_count);
                 if constexpr(tipl::use_cuda)
                     if(unet->is_gpu)
                     {
                         tipl::image<3> out(out_shape);
                         cu_copy_d2h<float,float>(out.data(),
                                              unet->layers.back()->out,out_shape.size());
-                        eval.model_io[i] = std::move(out);
+                        data.model_io[i] = std::move(out);
                         continue;
                     }
-                eval.model_io[i] = tipl::make_image(unet->layers.back()->out,out_shape);
+                data.model_io[i] = tipl::make_image(unet->layers.back()->out,out_shape);
             }
             if(prog.aborted())
                 return false;
         }
 
-        if(!eval.handle_orientation(orientation,true) || !eval.handle_fov_post() || !eval.run_postproc(postproc))
-            return error_msg = eval.error_msg,false;
+        if(!data.handle_orientation(orientation,true) || !data.handle_fov_post() || !data.run_postproc(postproc))
+            return error_msg = data.error_msg,false;
         prog(4,4);
         return !prog.aborted();
     }
     template<typename image_type>
     bool forward(const image_type& I,tipl::vector<3>& vs)
     {
-        eval.load_from_image(I,vs);
+        data.load_from_image(I,vs);
         return forward();
     }
     template<typename image_type>
     bool forward(image_type&& I,tipl::vector<3>& vs)
     {
-        eval.load_from_image(std::forward<image_type>(I),vs);
+        data.load_from_image(std::forward<image_type>(I),vs);
         return forward();
     }
 
