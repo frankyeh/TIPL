@@ -1061,6 +1061,12 @@ ImageType& defragment(ImageType& I)
             I[index] = 0;
     return I;
 }
+
+template<typename ImageType>
+inline ImageType& dndnco(ImageType& mask)
+{
+    return opening(closing(negate(defragment(negate(defragment(mask))))));
+}
 template<typename ImageType>
 void defragment_slice(ImageType& I)
 {
@@ -1486,7 +1492,7 @@ closing(ImageType&& I){closing(static_cast<ImageType&>(I));return std::move(I);}
 
 template<typename ImageType>
 std::enable_if_t<!std::is_lvalue_reference_v<ImageType>,ImageType&&>
-negate(ImageType&& I){tipl::morphology::negate(static_cast<ImageType&>(I));return std::move(I);}
+negate(ImageType&& I){negate(static_cast<ImageType&>(I));return std::move(I);}
 
 template<typename ImageType>
 std::enable_if_t<!std::is_lvalue_reference_v<ImageType>,ImageType&&>
