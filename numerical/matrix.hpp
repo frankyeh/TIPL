@@ -153,7 +153,7 @@ dot(lhs_type v1,lhs_type v1_end,rhs_type v2)
 perform x <- -x
 */
 template<typename lhs_type>
-void negate(lhs_type x_begin,lhs_type x_end)
+void neg(lhs_type x_begin,lhs_type x_end)
 {
     for (;x_begin != x_end;++x_begin)
         (*x_begin) = -(*x_begin);
@@ -2569,7 +2569,7 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
                             Arowj_k += m;
                         }
                     }
-                    tipl::vec::negate(Arowk_k,Arowk_end);
+                    tipl::vec::neg(Arowk_k,Arowk_end);
                     *Arowk_k += 1.0;
                     std::fill(Arowk,Arowk_k,value_type(0));
                 }
@@ -2734,7 +2734,7 @@ void svd(input_iterator A,output_iterator1 U,output_iterator2 s,dym_type dimensi
             if (*s_iter < value_type(0))
             {
                 *s_iter = -*s_iter;
-                tipl::vec::negate(Urowk,Urowk+n);
+                tipl::vec::neg(Urowk,Urowk+n);
             }
             if (++s_iter == s_end)
                 break;
