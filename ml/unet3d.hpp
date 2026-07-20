@@ -331,6 +331,8 @@ public:
                 continue;
             if(param[0] == "smoothing" && smoothing())
                 continue;
+            if(param[0] == "zero" && param.size() == 2 && zero(std::stoi(param[1])))
+                continue;
             if(error_msg.empty())
                 error_msg = "invalid command: " + cmds[i];
             return false;
@@ -455,6 +457,12 @@ public:
                 label_prob[pos] = 0.0f;
         });
         ++cur_count;
+        return true;
+    }
+    bool zero(size_t ch)
+    {
+        size_t pos = ch * mask.size();
+        std::fill(label_prob.data() + pos,label_prob.data() + pos + mask.size(),0.0f);
         return true;
     }
     bool create_mask(void)
