@@ -609,7 +609,12 @@ public:
         auto ptr = read_as_type<T>(name,rows,cols);
         return ptr ? std::vector<T>(ptr,ptr+size_t(rows)*size_t(cols)) : std::vector<T>();
     }
-
+    template<typename T>
+    bool read_as_vector(const std::string& name,std::vector<T>& data) const
+    {
+        data = read_as_vector<T>(name);
+        return !data.empty();
+    }
     template<typename T,typename std::enable_if<std::is_arithmetic<T>::value,bool>::type = true>
     auto read(unsigned int index,unsigned int& rows,unsigned int& cols,const T*& out) const
     {
