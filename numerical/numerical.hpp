@@ -10,24 +10,6 @@
 namespace tipl
 {
 
-template<typename T,typename F>
-inline void serial_or_parallel(T&& I,F&& f)
-{
-    if(I.size() < 1024*1024 || max_thread_count < 2)
-        for(size_t index = 0,sz = I.size(); index < sz; ++index)
-            f(index);
-    else
-        tipl::par_for<sequential>(I.size(),std::forward<F>(f),std::min<size_t>(tipl::max_thread_count,8));
-}
-template<typename T,typename F>
-inline void serial_or_ranged_size(T&& I,F&& f)
-{
-    if(I.size() < 1024*1024 || max_thread_count < 2)
-        f(size_t(0),I.size());
-    else
-        tipl::par_for<ranged>(I.size(),std::forward<F>(f),std::min<size_t>(tipl::max_thread_count,8));
-}
-
 template<typename iterator,typename F>
 __INLINE__ void apply_range(iterator from,iterator to,F&& f)
 {
