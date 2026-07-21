@@ -42,6 +42,11 @@ bool command(image_type& data,std::string cmd,std::string param1)
         tipl::morphology::fill_holes(data);
         return true;
     }
+    if(cmd == "morphology_fill_holes_by_slice")
+    {
+        tipl::morphology::fill_holes_by_slice(data);
+        return true;
+    }
     if(cmd == "morphology_defragment_by_size")
     {
         tipl::morphology::defragment_by_size_ratio(data,param1.empty() ? 0.05f : std::stof(param1));
