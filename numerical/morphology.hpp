@@ -1,6 +1,6 @@
 //---------------------------------------------------------------------------
-#ifndef HPP
-#define HPP
+#ifndef MORPHOLOGY_HPP_INCLUDED
+#define MORPHOLOGY_HPP_INCLUDED
 #include <map>
 #include <list>
 #include <set>
@@ -856,112 +856,6 @@ void convex_y(ImageType& I)
     }
 }
 
-template<typename ImageType,typename LabelImageType>
-void connected_component_labeling_pass(const ImageType& I,
-                                       LabelImageType& labels,
-                                       std::vector<std::vector<size_t> >& regions,
-                                       size_t shift)
-{
-    size_t sz = I.size();
-    if(sz == 0)
-        return;
-    typedef typename std::vector<size_t>::const_iterator region_iterator;
-    if (shift == 1)
-    {
-        regions.clear();
-        labels.resize(I.shape());
-        std::mutex add_lock;
-
-        size_t width = I.width();
-        tipl::par_for(sz/width,[&,width](size_t y)
-        {
-            size_t index = size_t(y)*width;
-            size_t end_index = index+width;
-            while (index < end_index)
-            {
-                if (I[index] == 0)
-                {
-                    labels[index] = 0;
-                    ++index;
-                    continue;
-                }
-                size_t start_index = index;
-                do{
-                    ++index;
-                }while(index < end_index && I[index] != 0);
-                std::vector<size_t> voxel_pos(index-start_index);
-                std::iota(voxel_pos.begin(),voxel_pos.end(),start_index);
-                unsigned int group_id;
-                {
-                    std::lock_guard<std::mutex> lock(add_lock);
-                    regions.push_back(std::move(voxel_pos));
-                    group_id = regions.size();
-                }
-                std::fill(labels.begin()+start_index,labels.begin()+index,group_id);
-            }
-        });
-    }
-    else
-    {
-        for (size_t x = 0;x < shift;++x)
-        {
-            unsigned int group_id = 0;
-            for (size_t index = x;index < sz;index += shift)
-            {
-                if (group_id && labels[index] != 0 && group_id != labels[index])
-                {
-                    unsigned int from_id = group_id-1;
-                    unsigned int to_id = labels[index]-1;
-                    if (regions[from_id].size() > regions[to_id].size())
-                        std::swap(from_id,to_id);
-
-                    {
-                        region_iterator end = regions[from_id].end();
-                        unsigned int new_id = to_id +1;
-                        for (region_iterator iter = regions[from_id].begin();iter != end;++iter)
-                            labels[*iter] = new_id;
-                    }
-                    {
-                        regions[to_id].insert(regions[to_id].end(),regions[from_id].begin(),regions[from_id].end());
-                        regions[from_id] = std::vector<size_t>();
-                    }
-                }
-                group_id = labels[index];
-            }
-        }
-    }
-}
-
-template<typename T1,typename T2,typename std::enable_if<T1::dimension==1,bool>::type = true>
-void connected_component_labeling(const T1& I,T2& labels,std::vector<std::vector<size_t> >& regions)
-{
-    connected_component_labeling_pass(I,labels,regions,1);
-}
-
-template<typename T1,typename T2,typename std::enable_if<T1::dimension==2,bool>::type = true>
-void connected_component_labeling(const T1& I,T2& labels,std::vector<std::vector<size_t> >& regions)
-{
-    connected_component_labeling_pass(I,labels,regions,1);
-    connected_component_labeling_pass(I,labels,regions,I.width());
-}
-
-
-template<typename T1,typename T2,typename std::enable_if<T1::dimension==3,bool>::type = true>
-void connected_component_labeling(const T1& I,T2& labels,std::vector<std::vector<size_t> >& regions)
-{
-    connected_component_labeling_pass(I,labels,regions,1);
-    connected_component_labeling_pass(I,labels,regions,I.width());
-    connected_component_labeling_pass(I,labels,regions,I.plane_size());
-}
-
-template<typename T1,typename std::enable_if<T1::dimension==3,bool>::type = true>
-auto connected_component_labeling(const T1& I)
-{
-    tipl::image<3,unsigned short> labels;
-    std::vector<std::vector<size_t> > regions;
-    connected_component_labeling(I,labels,regions);
-    return regions;
-}
 
 template<typename LabelImageType>
 void get_region_bounding_box(const LabelImageType& labels,
@@ -1033,115 +927,356 @@ void get_region_center(const LabelImageType& labels,
             center_of_mass[index] /= regions[index].size();
 }
 
-template<typename ImageType>
-ImageType& defragment(ImageType& I)
+namespace detail
 {
-    size_t sz = I.size();
-    if(sz == 0)
-        return I;
-    tipl::image<ImageType::dimension,unsigned int> labels(I.shape());
-    std::vector<std::vector<size_t> > regions;
 
-    connected_component_labeling(I,labels,regions);
+struct component_run
+{
+    size_t first,last,parent,size;
+};
 
-    unsigned int max_size_group_id = 1;
-    if (!regions.empty())
+struct component_data
+{
+    std::vector<component_run> runs;
+    std::vector<size_t> roots;
+};
+
+template<typename F>
+void component_for(size_t voxel_count,size_t count,F&& f)
+{
+    if(voxel_count < 1024*1024 || max_thread_count < 2)
+        for(size_t i = 0;i < count;++i)
+            f(i);
+    else
+        tipl::par_for<sequential>(
+            count,std::forward<F>(f),
+            std::min<size_t>(max_thread_count,8));
+}
+
+template<bool zero = false,typename ImageType>
+component_data connected_component_runs(const ImageType& I)
+{
+    component_data data;
+    if(I.empty())
+        return data;
+
+    auto active = [&](size_t i)
     {
-        unsigned int max_size = regions[0].size();
-        for (unsigned int index = 1;index < regions.size();++index)
-            if (regions[index].size() > max_size)
-            {
-                max_size = regions[index].size();
-                max_size_group_id = index+1;
-            }
+        if constexpr(zero)
+            return !I[i];
+        else
+            return bool(I[i]);
+    };
+
+    const size_t w = I.width(),line_count = I.size()/w;
+    size_t h = 1,d = 1;
+    if constexpr(ImageType::dimension >= 2) h = I.height();
+    if constexpr(ImageType::dimension >= 3) d = I.depth();
+
+    std::vector<size_t> line_pos(line_count+1),run_pos(line_count+1);
+    for(size_t line = 0;line < line_count;++line)
+        line_pos[line+1] = line_pos[line]+w;
+
+    component_for(I.size(),line_count,[&](size_t line)
+    {
+        size_t p = line_pos[line],end = line_pos[line+1],count = 0;
+        while(p < end)
+        {
+            while(p < end && !active(p))
+                ++p;
+            if(p == end)
+                break;
+            ++count;
+            while(p < end && active(p))
+                ++p;
+        }
+        run_pos[line+1] = count;
+    });
+
+    for(size_t line = 0;line < line_count;++line)
+        run_pos[line+1] += run_pos[line];
+
+    data.runs.resize(run_pos.back());
+    component_for(I.size(),line_count,[&](size_t line)
+    {
+        size_t p = line_pos[line],end = line_pos[line+1];
+        size_t run = run_pos[line];
+
+        while(p < end)
+        {
+            while(p < end && !active(p))
+                ++p;
+            if(p == end)
+                break;
+
+            size_t first = p;
+            while(p < end && active(p))
+                ++p;
+
+            data.runs[run] = {first,p,run,p-first};
+            ++run;
+        }
+    });
+
+    auto root = [&](size_t i)
+    {
+        while(data.runs[i].parent != i)
+        {
+            data.runs[i].parent =
+                data.runs[data.runs[i].parent].parent;
+            i = data.runs[i].parent;
+        }
+        return i;
+    };
+
+    auto join = [&](size_t a,size_t b)
+    {
+        a = root(a);
+        b = root(b);
+        if(a == b)
+            return;
+
+        if(data.runs[a].size < data.runs[b].size)
+            std::swap(a,b);
+
+        data.runs[b].parent = a;
+        data.runs[a].size += data.runs[b].size;
+    };
+
+    auto join_lines = [&](size_t line1,size_t line2)
+    {
+        size_t i = run_pos[line1],i_end = run_pos[line1+1];
+        size_t j = run_pos[line2],j_end = run_pos[line2+1];
+        const size_t base1 = line_pos[line1],base2 = line_pos[line2];
+
+        while(i < i_end && j < j_end)
+        {
+            size_t a0 = data.runs[i].first-base1;
+            size_t a1 = data.runs[i].last-base1;
+            size_t b0 = data.runs[j].first-base2;
+            size_t b1 = data.runs[j].last-base2;
+
+            if(a0 < b1 && b0 < a1)
+                join(i,j);
+
+            if(a1 <= b1)
+                ++i;
+            if(b1 <= a1)
+                ++j;
+        }
+    };
+
+    if constexpr(ImageType::dimension >= 2)
+    {
+        size_t slice = 0;
+        for(size_t z = 0;z < d;++z,slice += h)
+            for(size_t line = slice+1,end = slice+h;line < end;++line)
+                join_lines(line,line-1);
     }
 
-    for (size_t index = 0; index < sz; ++index)
-        if (I[index] && labels[index] != max_size_group_id)
-            I[index] = 0;
+    if constexpr(ImageType::dimension >= 3)
+        for(size_t line = h;line < line_count;++line)
+            join_lines(line,line-h);
+
+    for(size_t i = 0;i < data.runs.size();++i)
+        data.runs[i].parent = root(i);
+
+    for(size_t i = 0;i < data.runs.size();++i)
+        if(data.runs[i].parent == i)
+            data.roots.push_back(i);
+
+    return data;
+}
+
+template<typename ImageType>
+auto component_regions(const ImageType& I,const component_data& data)
+{
+    std::vector<std::vector<size_t> > regions(data.roots.size());
+    if(data.roots.empty())
+        return regions;
+
+    constexpr size_t invalid = size_t(-1);
+    std::vector<size_t> id(data.runs.size(),invalid),
+        offset(data.runs.size()),
+        used(data.roots.size());
+
+    for(size_t i = 0;i < data.roots.size();++i)
+    {
+        size_t root = data.roots[i];
+        id[root] = i;
+        regions[i].resize(data.runs[root].size);
+    }
+
+    for(size_t i = 0;i < data.runs.size();++i)
+    {
+        size_t region = id[data.runs[i].parent];
+        offset[i] = used[region];
+        used[region] += data.runs[i].last-data.runs[i].first;
+    }
+
+    component_for(I.size(),data.runs.size(),[&](size_t i)
+                  {
+                      const auto& run = data.runs[i];
+                      auto& region = regions[id[run.parent]];
+                      std::iota(region.begin()+offset[i],
+                                region.begin()+offset[i]+run.last-run.first,
+                                run.first);
+                  });
+    return regions;
+}
+
+} // namespace detail
+
+template<typename ImageType,typename LabelImageType>
+void connected_component_labeling(
+    const ImageType& I,
+    LabelImageType& labels,
+    std::vector<std::vector<size_t> >& regions)
+{
+    auto data = detail::connected_component_runs(I);
+    regions = detail::component_regions(I,data);
+
+    labels.resize(I.shape());
+    labels = 0;
+
+    using label_type = typename LabelImageType::value_type;
+    std::vector<size_t> id(data.runs.size(),size_t(-1));
+
+    for(size_t i = 0;i < data.roots.size();++i)
+        id[data.roots[i]] = i;
+
+    detail::component_for(I.size(),data.runs.size(),[&](size_t i)
+    {
+        const auto& run = data.runs[i];
+        std::fill(labels.begin()+run.first,labels.begin()+run.last,label_type(id[run.parent]+1));
+    });
+}
+
+template<typename ImageType>
+auto connected_component_labeling(const ImageType& I)
+{
+    auto data = detail::connected_component_runs(I);
+    return detail::component_regions(I,data);
+}
+
+namespace detail
+{
+
+template<bool zero,typename ImageType>
+void keep_largest(ImageType& I,const component_data& data)
+{
+    if(data.roots.size() < 2)
+        return;
+
+    size_t keep = data.roots[0];
+    for(size_t root : data.roots)
+        if(data.runs[root].size > data.runs[keep].size)
+            keep = root;
+
+    component_for(I.size(),data.runs.size(),[&](size_t i)
+    {
+        const auto& run = data.runs[i];
+        if(run.parent != keep)
+            std::fill(I.begin()+run.first,I.begin()+run.last,typename ImageType::value_type(zero));
+    });
+}
+
+template<bool zero,typename ImageType>
+ImageType& defragment_impl(ImageType& I)
+{
+    keep_largest<zero>(I,connected_component_runs<zero>(I));
+    return I;
+}
+
+}
+
+template<typename ImageType>
+inline ImageType& defragment(ImageType& I)
+{
+    return detail::defragment_impl<false>(I);
+}
+
+template<typename ImageType>
+inline ImageType& fill_holes(ImageType& I)
+{
+    return detail::defragment_impl<true>(I);
+}
+
+template<typename ImageType>
+ImageType& defragment_and_fill_holes(ImageType& I)
+{
+    if(I.empty())
+        return I;
+
+    detail::component_data foreground,background;
+
+    if(I.size() < 1024*1024 || max_thread_count < 2)
+    {
+        foreground = detail::connected_component_runs(I);
+        background = detail::connected_component_runs<true>(I);
+        detail::keep_largest<false>(I,foreground);
+        detail::keep_largest<true>(I,background);
+        return I;
+    }
+
+    auto threads = max_thread_count;
+    max_thread_count = std::max<size_t>(1,threads >> 1);
+
+    std::thread worker([&]{foreground = detail::connected_component_runs(I);});
+    background = detail::connected_component_runs<true>(I);
+    worker.join();
+
+    worker = std::thread([&]{detail::keep_largest<false>(I,foreground);});
+    detail::keep_largest<true>(I,background);
+    worker.join();
+
+    max_thread_count = threads;
     return I;
 }
 
 template<typename ImageType>
 inline ImageType& dndnco(ImageType& mask)
 {
-    return opening(closing(negate(defragment(negate(defragment(mask))))));
+    return opening(closing(defragment_and_fill_holes(mask)));
 }
 template<typename ImageType>
-void defragment_slice(ImageType& I)
+void fill_holes_slice(ImageType& I)
 {
-    tipl::morphology::negate(I);
-    size_t d = I.depth();
-    tipl::par_for(d,[&](size_t z)
+    tipl::par_for(I.depth(),[&](size_t z)
     {
         auto slice = I.slice_at(z);
-        std::vector<std::vector<size_t> > regions;
-        tipl::image<2,size_t> labels;
-        connected_component_labeling(slice,labels,regions);
-        size_t sz = labels.size();
-        for(size_t i = 0; i < sz; ++i)
-            if(labels[i] != labels[0])
-                slice[i] = 1;
-            else
-                slice[i] = 0;
+        auto data = detail::connected_component_runs<true>(slice);
+        std::vector<unsigned char> outside(data.runs.size());
+
+        const size_t w = slice.width(),sz = slice.size();
+        for(const auto& run : data.runs)
+            if(run.first < w || run.first >= sz-w ||
+                run.first%w == 0 || run.last%w == 0)
+                outside[run.parent] = 1;
+
+        for(const auto& run : data.runs)
+            if(!outside[run.parent])
+                std::fill(slice.begin()+run.first,slice.begin()+run.last,
+                          typename ImageType::value_type(1));
     });
 }
 
 template<typename ImageType>
-void defragment_by_size_ratio(ImageType& I,float area_ratio = 0.05f)
+ImageType& defragment_by_size_ratio(ImageType& I,float ratio = 0.05f)
 {
-    tipl::image<ImageType::dimension,unsigned int> labels(I.shape());
-    std::vector<std::vector<size_t> > regions;
+    auto data = detail::connected_component_runs(I);
+    size_t max_size = 0;
+    for(size_t root : data.roots)
+        max_size = std::max(max_size,data.runs[root].size);
 
-    connected_component_labeling(I,labels,regions);
-
-    if(regions.empty())
-        return;
-
-    unsigned int max_size = regions[0].size();
-    for (unsigned int index = 1;index < regions.size();++index)
-        if (regions[index].size() > max_size)
-            max_size = regions[index].size();
-    size_t size_threshold = size_t(float(max_size)*area_ratio);
-
-    std::vector<unsigned char> region_filter(regions.size()+1);
-
-    for (unsigned int index = 0;index < regions.size();++index)
-        region_filter[index+1] = regions[index].size() > size_threshold;
-
-    size_t sz = I.size();
-    for (size_t index = 0; index < sz; ++index)
-        if (I[index] && !region_filter[labels[index]])
-            I[index] = 0;
-}
-
-template<typename ImageType>
-void defragment_by_radius(ImageType& I,int radius = 3)
-{
-    tipl::image<ImageType::dimension,unsigned char> mask(I.shape()),mask2;
-    size_t sz = I.size();
-    for (size_t index = 0; index < sz; ++index)
-        mask[index] = I[index] > 0 ? 1 : 0;
-    erosion2(mask,radius);
-    mask2 = mask;
-    defragment(mask);
-    for (size_t index = 0; index < sz; ++index)
-        if (mask2[index] && !mask[index])
-            mask2[index] = 1;
-        else
-            mask2[index] = 0;
-    dilation2(mask2,radius);
-
-    for (size_t index = 0; index < sz; ++index)
-        if (I[index] && mask2[index])
-            I[index] = 0;
-}
-template<typename ImageType>
-void defragment_by_threshold(ImageType& I,typename ImageType::value_type threshold)
-{
-    tipl::image<3,char> mask = I > threshold;
-    tipl::morphology::defragment(mask);
-    tipl::preserve(I.begin(),I.end(),mask.begin());
+    const size_t threshold = size_t(double(max_size)*ratio);
+    detail::component_for(I.size(),data.runs.size(),[&](size_t i)
+    {
+        const auto& run = data.runs[i];
+        if(data.runs[run.parent].size <= threshold)
+            std::fill(I.begin()+run.first,I.begin()+run.last,typename ImageType::value_type());
+    });
+    return I;
 }
 
 template<typename ImageType,typename PixelIndexType,typename ValueType>
@@ -1469,6 +1604,14 @@ size_t refine_label(label_image_type& label,const ref_image_type& ref,float fina
 template<typename ImageType>
 std::enable_if_t<!std::is_lvalue_reference_v<ImageType>,ImageType&&>
 defragment(ImageType&& I){defragment(static_cast<ImageType&>(I));return std::move(I);}
+
+template<typename ImageType>
+std::enable_if_t<!std::is_lvalue_reference_v<ImageType>,ImageType&&>
+fill_holes(ImageType&& I){fill_holes(static_cast<ImageType&>(I));return std::move(I);}
+
+template<typename ImageType>
+std::enable_if_t<!std::is_lvalue_reference_v<ImageType>,ImageType&&>
+defragment_and_fill_holes(ImageType&& I){defragment_and_fill_holes(static_cast<ImageType&>(I));return std::move(I);}
 
 template<typename ImageType>
 std::enable_if_t<!std::is_lvalue_reference_v<ImageType>,ImageType&&>
