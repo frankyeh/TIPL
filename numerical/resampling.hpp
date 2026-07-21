@@ -555,7 +555,7 @@ IteratorType downsampling_z_with_padding(IteratorType from,IteratorType to,Outpu
 
 
 template<typename ImageType1,typename ImageType2>
-__INLINE__ void downsampling(const ImageType1& in,ImageType2& out)
+__INLINE__ ImageType2& downsampling(const ImageType1& in,ImageType2& out)
 {
     out.resize(in.shape());
     shape<ImageType1::dimension> new_geo(in.shape());
@@ -569,6 +569,7 @@ __INLINE__ void downsampling(const ImageType1& in,ImageType2& out)
         plane_size *= new_geo[dim];
     }
     out.resize(new_geo);
+    return out;
 }
 
 template<typename T,typename U,typename V>
@@ -602,7 +603,7 @@ __INLINE__ void downsample_with_padding_imp(const pixel_index<T::dimension>& pos
 }
 
 template<typename T,typename U, std::enable_if_t<memory_location<T>::at != CUDA, int> = 0>
-void downsample_with_padding(const T& in,U& out)
+U& downsample_with_padding(const T& in,U& out)
 {
     shape<T::dimension> out_shape(((v(in.shape())+1)/2).begin());
     if(out.size() < out_shape.size())
@@ -627,6 +628,7 @@ void downsample_with_padding(const T& in,U& out)
     });
 
     out.resize(out_shape);
+    return out;
 }
 
 #ifdef __CUDACC__
@@ -672,17 +674,18 @@ void downsample_with_padding(const T& in,U& out)
 
 
 template<typename ImageType>
-void downsampling(ImageType& in)
+ImageType& downsampling(ImageType& in)
 {
-    downsampling(in,in);
+    return downsampling(in,in);
 }
 
 template<typename ImageType>
-void downsample_with_padding(ImageType& in)
+ImageType& downsample_with_padding(ImageType& in)
 {
     ImageType out;
     downsample_with_padding(in,out);
     in.swap(out);
+    return in;
 }
 
 template<typename T, typename U, typename V>
@@ -844,7 +847,7 @@ void downsample_label(ImageType& in)
 }
 
 template<interpolation type = linear,typename T, std::enable_if_t<memory_location<T>::at != CUDA, int> = 0>
-void upsample_with_padding(const T& in,T& out)
+T& upsample_with_padding(const T& in,T& out)
 {
     par_for(out.shape(),[&](const pixel_index<T::dimension>& pos)
     {
@@ -852,6 +855,7 @@ void upsample_with_padding(const T& in,T& out)
         v *= 0.5f;
         estimate<type>(in,v,out[pos.index()]);
     });
+    return out;
 }
 
 #ifdef __CUDACC__
@@ -868,20 +872,22 @@ __global__ void upsample_with_padding_cuda_kernel(T1 from,T2 to)
 }
 
 template<interpolation type = linear,typename T, std::enable_if_t<memory_location<T>::at == CUDA, int> = 0>
-void upsample_with_padding(const T& in,T& out)
+T& upsample_with_padding(const T& in,T& out)
 {
     TIPL_RUN(upsample_with_padding_cuda_kernel<type>,out.size())
             (tipl::make_shared(in),tipl::make_shared(out));
+    return out;
 }
 #endif // __CUDACC__
 
 
 template<interpolation type = linear,typename T>
-void upsample_with_padding(T& in,const shape<T::dimension>& geo)
+T& upsample_with_padding(T& in,const shape<T::dimension>& geo)
 {
     T new_d(geo);
     upsample_with_padding<type>(in,new_d);
     new_d.swap(in);
+    return in;
 }
 
 template<typename IteratorType, typename OutputIterator>
