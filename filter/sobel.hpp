@@ -1,175 +1,144 @@
 //---------------------------------------------------------------------------
 #ifndef SOBEL_FILTER_HPP
 #define SOBEL_FILTER_HPP
+
+#include <type_traits>
+#include <utility>
+#include <vector>
 #include "filter_model.hpp"
 //---------------------------------------------------------------------------
 namespace tipl
 {
-
 namespace filter
 {
-
-template<typename value_type>
-struct sobel_filter_abs_sum;
-
-template<typename value_type>
-struct sobel_filter_abs_sum{
-
-    typedef typename pixel_manip<value_type>::type manip_type;
-    value_type operator()(const manip_type& a,const manip_type& b)
-    {
-        manip_type d(0);
-        d = a > 0 ? a:-a;
-        d += b > 0 ? b: -b;
-        return d;
-    }
-    value_type operator()(const manip_type& a,const manip_type& b,const manip_type& c)
-    {
-        manip_type d(0);
-        d = a > 0 ? a:-a;
-        d += b > 0 ? b: -b;
-        d += c > 0 ? c: -c;
-        return d;
-    }
-};
-
-template<>
-struct sobel_filter_abs_sum<tipl::rgb>{
-
-    typedef pixel_manip<tipl::rgb>::type manip_type;
-    tipl::rgb operator()(const manip_type& a,const manip_type& b)
-    {
-        manip_type d;
-        d.r = a.r > 0 ? a.r:-a.r;
-        d.g = a.g > 0 ? a.g:-a.g;
-        d.b = a.b > 0 ? a.b:-a.b;
-
-        d.r += b.r > 0 ? b.r: -b.r;
-        d.g += b.g > 0 ? b.g: -b.g;
-        d.b += b.b > 0 ? b.b: -b.b;
-        return d.to_rgb();
-    }
-    tipl::rgb operator()(const manip_type& a,const manip_type& b,const manip_type& c)
-    {
-        manip_type d;
-        d.r = a.r > 0 ? a.r:-a.r;
-        d.g = a.g > 0 ? a.g:-a.g;
-        d.b = a.b > 0 ? a.b:-a.b;
-
-        d.r += b.r > 0 ? b.r: -b.r;
-        d.g += b.g > 0 ? b.g: -b.g;
-        d.b += b.b > 0 ? b.b: -b.b;
-
-        d.r += c.r > 0 ? c.r: -c.r;
-        d.g += c.g > 0 ? c.g: -c.g;
-        d.b += c.b > 0 ? c.b: -c.b;
-        return d.to_rgb();
-    }
-};
-
-
-template<typename value_type,size_t dimension>
-struct sobel_filter_imp;
-
-template<typename value_type>
-struct sobel_filter_imp<value_type,2>
+namespace detail
 {
-    typedef typename pixel_manip<value_type>::type manip_type;
-public:
-    template<typename image_type>
-    void operator()(image_type& src)
-    {
-        std::vector<manip_type> gx(src.size());
-        int w = src.width();
 
-		add_weight<2>(gx,src,1);
-        add_weight<1>(gx,src,1-w);
-        add_weight<1>(gx,src,1+w);
-        minus_weight<2>(gx,src,-1);
-        minus_weight<1>(gx,src,-1-w);
-        minus_weight<1>(gx,src,-1+w);
-
-        std::vector<manip_type> gy(src.size());
-
-		add_weight<2>(gy,src,w);
-        add_weight<1>(gy,src,w-1);
-        add_weight<1>(gy,src,w+1);
-        minus_weight<2>(gy,src,-w);
-        minus_weight<1>(gy,src,-w-1);
-        minus_weight<1>(gy,src,-w+1);
-        sobel_filter_abs_sum<value_type> sum;
-        for(size_t index = 0,sz = src.size();index < sz;++index)
-            src[index] = sum(gx[index],gy[index]);
-    }
-};
-
-
-template<typename value_type>
-struct sobel_filter_imp<value_type,3>
+template<typename image_type>
+void sobel_impl(image_type& src)
 {
-    typedef typename pixel_manip<value_type>::type manip_type;
-public:
-    template<typename image_type>
-    void operator()(image_type& src)
+    using out_type = typename image_type::value_type;
+    using work_type = typename pixel_manip<out_type>::type;
+
+    static_assert(image_type::dimension == 2 || image_type::dimension == 3);
+    static_assert(std::is_arithmetic_v<out_type> ||
+                  std::is_same_v<out_type,tipl::rgb>);
+
+    if(src.empty())
+        return;
+
+    std::vector<work_type> input(src.size()),a(src.size()),
+        b(src.size()),magnitude(src.size());
+
+    tipl::serial_or_parallel(src,[&](size_t i)
     {
-        int w = src.width();
-        int64_t wh = src.plane_size();
+        input[i] = pixel_manip<out_type>::to_work(src[i]);
+    });
 
-		std::vector<manip_type> gx(src.size());
+    const size_t w = src.width(),h = src.height(),wh = src.plane_size();
 
-		add_weight<2>(gx,src,1);
-        add_weight<1>(gx,src,1-w);
-        add_weight<1>(gx,src,1+w);
-        add_weight<1>(gx,src,1-wh);
-        add_weight<1>(gx,src,1+wh);
-        minus_weight<2>(gx,src,-1);
-        minus_weight<1>(gx,src,-1-w);
-        minus_weight<1>(gx,src,-1+w);
-		minus_weight<1>(gx,src,-1-wh);
-        minus_weight<1>(gx,src,-1+wh);
+    // [1 2 1]
+    auto smooth = [&](const auto& in,auto& out,size_t step,size_t length)
+    {
+        tipl::serial_or_parallel(src,[&](size_t i)
+        {
+            size_t p = (i/step)%length;
+            auto center = in[i];
+            center += center;
+            out[i] = in[p ? i-step : i]+center+
+                     in[p+1 < length ? i+step : i];
+        });
+    };
 
-        std::vector<manip_type> gy(src.size());
+    // [-1 0 1]
+    auto derivative = [&](const auto& in,auto& out,size_t step,size_t length)
+    {
+        tipl::serial_or_parallel(src,[&](size_t i)
+        {
+            size_t p = (i/step)%length;
+            out[i] = in[p+1 < length ? i+step : i]-
+                     in[p ? i-step : i];
+        });
+    };
 
-		add_weight<2>(gy,src,w);
-        add_weight<1>(gy,src,w-1);
-        add_weight<1>(gy,src,w+1);
-        add_weight<1>(gy,src,w+wh);
-        add_weight<1>(gy,src,w-wh);
-        minus_weight<2>(gy,src,-w);
-        minus_weight<1>(gy,src,-w-1);
-        minus_weight<1>(gy,src,-w+1);
-		minus_weight<1>(gy,src,-w-wh);
-        minus_weight<1>(gy,src,-w+wh);
+    auto absolute = [](work_type v)
+    {
+        if constexpr(std::is_same_v<out_type,tipl::rgb>)
+        {
+            for(size_t j = 0;j < 3;++j)
+                if(v[j] < 0)
+                    v[j] = -v[j];
+        }
+        else if(v < 0)
+            v = -v;
+        return v;
+    };
 
-        std::vector<manip_type> gz(src.size());
+    auto set_abs = [&](const auto& g)
+    {
+        tipl::serial_or_parallel(src,[&](size_t i)
+        {
+            magnitude[i] = absolute(g[i]);
+        });
+    };
 
-		add_weight<2>(gy,src,wh);
-        add_weight<1>(gy,src,wh-1);
-        add_weight<1>(gy,src,wh+1);
-        add_weight<1>(gy,src,wh+w);
-        add_weight<1>(gy,src,wh-w);
-        minus_weight<2>(gy,src,-wh);
-        minus_weight<1>(gy,src,-wh-1);
-        minus_weight<1>(gy,src,-wh+1);
-		minus_weight<1>(gy,src,-wh-w);
-        minus_weight<1>(gy,src,-wh+w);
-        sobel_filter_abs_sum<value_type> sum;
-        for(size_t index = 0,sz = src.size();index < sz;++index)
-            src[index] = sum(gx[index],gy[index],gz[index]);
+    auto add_abs = [&](const auto& g)
+    {
+        tipl::serial_or_parallel(src,[&](size_t i)
+        {
+            magnitude[i] += absolute(g[i]);
+        });
+    };
+
+    // Gx = D(x)S(y)[S(z)]
+    derivative(input,a,1,w);
+    smooth(a,b,w,h);
+    if constexpr(image_type::dimension == 3)
+        smooth(b,magnitude,wh,src.depth());
+    else
+        magnitude.swap(b);
+    set_abs(magnitude);
+
+    // Gy = S(x)D(y)[S(z)]
+    derivative(input,a,w,h);
+    smooth(a,b,1,w);
+    if constexpr(image_type::dimension == 3)
+        smooth(b,a,wh,src.depth()),add_abs(a);
+    else
+        add_abs(b);
+
+    // Gz = S(x)S(y)D(z)
+    if constexpr(image_type::dimension == 3)
+    {
+        derivative(input,a,wh,src.depth());
+        smooth(a,b,1,w);
+        smooth(b,a,w,h);
+        add_abs(a);
     }
-};
+
+    tipl::serial_or_parallel(src,[&](size_t i)
+    {
+        src[i] = pixel_manip<out_type>::to_pixel(magnitude[i]);
+    });
+}
+
+}
 
 template<typename image_type>
 image_type& sobel(image_type& src)
 {
-    sobel_filter_imp<typename image_type::value_type,image_type::dimension>()(src);
+    detail::sobel_impl(src);
     return src;
 }
 
-
-
-
+template<typename image_type,
+         std::enable_if_t<!std::is_lvalue_reference_v<image_type>,int> = 0>
+image_type&& sobel(image_type&& src)
+{
+    detail::sobel_impl(src);
+    return std::move(src);
 }
 
+}
 }
 #endif
