@@ -114,6 +114,9 @@ public:
         if(source_image.empty())
             return error_msg = "no source image",false;
 
+        if(mask.empty())
+            tipl::morphology::dndnco(tipl::threshold(source_image.alias(0,image_dim),mask,0.0f));
+
         // universal preprocessing applied
         tipl::par_for(in_count,[&](int c)
         {
@@ -159,7 +162,7 @@ public:
     {
         tipl::progress prog("handle fov");
         if(mask.empty())
-            tipl::morphology::dndnco(tipl::threshold(source_image.alias(0,image_dim),mask,0.0f));
+            return error_msg = "empty FOV mask",false;
 
         tipl::vector<3> from,to;
         if(!tipl::bounding_box(mask,from,to))
@@ -458,8 +461,9 @@ public:
     }
     bool zero(size_t ch)
     {
-        size_t pos = ch * mask.size();
-        std::fill(label_prob.data() + pos,label_prob.data() + pos + mask.size(),0.0f);
+        if(ch >= cur_count || label_prob.size() != mask.size()*cur_count)
+            return error_msg = "invalid probability channel",false;
+        std::fill_n(label_prob.data()+ch*mask.size(),mask.size(),0.0f);
         return true;
     }
     bool create_mask(void)
@@ -528,7 +532,7 @@ public:
 
                 auto p = label_prob.alias(image_size*c,mask.shape());
                 for(size_t i = 0;i < image_size;++i)
-                    if(m[i] && !kept[i])
+                    if(m[i] && !kept[i] && p[i] != 0.0f)
                         p[i] = 0.0f,++changed;
 
                 if(changed)
@@ -712,7 +716,9 @@ public:
                     return prog2(cur,total);
                 };
                 unet->forward(data.model_io[i]);
-                auto out_shape = data.model_io[i].shape().multiply(tipl::shape<3>::z,data.out_count/data.in_count);
+                auto out_shape = data.model_io[i].shape().multiply(tipl::shape<3>::z,data.out_count);
+                if(data.in_count != 1)
+                    out_shape = out_shape.divide(tipl::shape<3>::z,data.in_count);
                 if constexpr(tipl::use_cuda)
                     if(unet->is_gpu)
                     {
