@@ -1240,7 +1240,7 @@ inline ImageType& dndnco(ImageType& mask)
     return opening(closing(defragment_and_fill_holes(mask)));
 }
 template<typename ImageType>
-void fill_holes_slice(ImageType& I)
+void fill_holes_by_slice(ImageType& I)
 {
     tipl::par_for(I.depth(),[&](size_t z)
     {
