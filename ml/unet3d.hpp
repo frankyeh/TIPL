@@ -472,15 +472,13 @@ public:
 
         // not yet foreground, this is currently background
         fg_prob = label_prob.alias(0,mask.shape());
-        tipl::filter::gaussian(fg_prob);
-        tipl::filter::gaussian(fg_prob);
+        tipl::filter::gaussian(fg_prob,2);
 
         // refine current mask based on model output
         tipl::threshold(fg_prob,mask,1.0f-prob_threshold,0,1);
 
         fg_prob = tipl::morphology::dndnco(mask);
-        tipl::filter::gaussian(fg_prob);
-        tipl::filter::gaussian(fg_prob);
+        tipl::filter::gaussian(fg_prob,2);
 
         size_t image_size = mask.size();
         size_t total_size = label_prob.size();
