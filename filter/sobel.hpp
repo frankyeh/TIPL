@@ -30,7 +30,7 @@ void sobel_impl(image_type& src)
     std::vector<work_type> input(src.size()),a(src.size()),
         b(src.size()),magnitude(src.size());
 
-    tipl::serial_or_parallel(src,[&](size_t i)
+    tipl::serial_or_parallel(src.size(),[&](size_t i)
     {
         input[i] = pixel_manip<out_type>::to_work(src[i]);
     });
@@ -40,7 +40,7 @@ void sobel_impl(image_type& src)
     // [1 2 1]
     auto smooth = [&](const auto& in,auto& out,size_t step,size_t length)
     {
-        tipl::serial_or_parallel(src,[&](size_t i)
+        tipl::serial_or_parallel(src.size(),[&](size_t i)
         {
             size_t p = (i/step)%length;
             auto center = in[i];
@@ -53,7 +53,7 @@ void sobel_impl(image_type& src)
     // [-1 0 1]
     auto derivative = [&](const auto& in,auto& out,size_t step,size_t length)
     {
-        tipl::serial_or_parallel(src,[&](size_t i)
+        tipl::serial_or_parallel(src.size(),[&](size_t i)
         {
             size_t p = (i/step)%length;
             out[i] = in[p+1 < length ? i+step : i]-
@@ -76,7 +76,7 @@ void sobel_impl(image_type& src)
 
     auto set_abs = [&](const auto& g)
     {
-        tipl::serial_or_parallel(src,[&](size_t i)
+        tipl::serial_or_parallel(src.size(),[&](size_t i)
         {
             magnitude[i] = absolute(g[i]);
         });
@@ -84,7 +84,7 @@ void sobel_impl(image_type& src)
 
     auto add_abs = [&](const auto& g)
     {
-        tipl::serial_or_parallel(src,[&](size_t i)
+        tipl::serial_or_parallel(src.size(),[&](size_t i)
         {
             magnitude[i] += absolute(g[i]);
         });
@@ -116,7 +116,7 @@ void sobel_impl(image_type& src)
         add_abs(a);
     }
 
-    tipl::serial_or_parallel(src,[&](size_t i)
+    tipl::serial_or_parallel(src.size(),[&](size_t i)
     {
         src[i] = pixel_manip<out_type>::to_pixel(magnitude[i]);
     });

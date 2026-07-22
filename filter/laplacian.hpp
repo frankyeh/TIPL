@@ -26,14 +26,14 @@ void laplacian_impl(image_type& src)
         return;
 
     std::vector<work_type> in(src.size()),out(src.size());
-    tipl::serial_or_parallel(src,[&](size_t i)
+    tipl::serial_or_parallel(src.size(),[&](size_t i)
     {
         in[i] = pixel_manip<out_type>::to_work(src[i]);
     });
 
     const size_t w = src.width(),wh = src.plane_size();
 
-    tipl::serial_or_parallel(src,[&](size_t i)
+    tipl::serial_or_parallel(src.size(),[&](size_t i)
     {
         size_t x = i%w;
         auto center = in[i],v = in[x ? i-1 : i];
@@ -59,7 +59,7 @@ void laplacian_impl(image_type& src)
         out[i] = v;
     });
 
-    tipl::serial_or_parallel(src,[&](size_t i)
+    tipl::serial_or_parallel(src.size(),[&](size_t i)
     {
         auto v = out[i];
 

@@ -33,7 +33,7 @@ void canny_edge_impl(image_type& src)
     std::vector<work_type> mag(src.size()),tmp(src.size()),
         gx(src.size()),gy(src.size()),gz;
 
-    tipl::serial_or_parallel(src,[&](size_t i)
+    tipl::serial_or_parallel(src.size(),[&](size_t i)
     {
         mag[i] = pixel_manip<out_type>::to_work(src[i]);
     });
@@ -44,7 +44,7 @@ void canny_edge_impl(image_type& src)
     // [1 2 1]
     auto smooth = [&](const auto& in,auto& out,size_t step,size_t length)
     {
-        tipl::serial_or_parallel(src,[&](size_t i)
+        tipl::serial_or_parallel(src.size(),[&](size_t i)
         {
             size_t p = (i/step)%length;
             auto center = in[i];
@@ -57,7 +57,7 @@ void canny_edge_impl(image_type& src)
     // [-1 0 1]
     auto derivative = [&](const auto& in,auto& out,size_t step,size_t length)
     {
-        tipl::serial_or_parallel(src,[&](size_t i)
+        tipl::serial_or_parallel(src.size(),[&](size_t i)
         {
             size_t p = (i/step)%length;
             out[i] = in[p+1 < length ? i+step : i]-
@@ -87,7 +87,7 @@ void canny_edge_impl(image_type& src)
     }
 
     // Reuse mag for gradient magnitude.
-    tipl::serial_or_parallel(src,[&](size_t i)
+    tipl::serial_or_parallel(src.size(),[&](size_t i)
     {
         if constexpr(image_type::dimension == 2)
             mag[i] = std::sqrt(gx[i]*gx[i]+gy[i]*gy[i]);
@@ -104,7 +104,7 @@ void canny_edge_impl(image_type& src)
     {
         constexpr work_type tan67 = work_type(2.414213562373095);
 
-        tipl::serial_or_parallel(src,[&](size_t i)
+        tipl::serial_or_parallel(src.size(),[&](size_t i)
         {
             work_type m = mag[i];
             if(m == 0)
@@ -141,7 +141,7 @@ void canny_edge_impl(image_type& src)
             work_type(0.5773502691896258);
         const size_t d = src.depth();
 
-        tipl::serial_or_parallel(src,[&](size_t i)
+        tipl::serial_or_parallel(src.size(),[&](size_t i)
         {
             work_type m = mag[i];
             if(m == 0)

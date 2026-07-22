@@ -278,7 +278,7 @@ __INLINE__ void divide(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 template<typename image_type1,typename image_type2>
 inline void divide(image_type1&& I,const image_type2& I2)
 {
-    serial_or_parallel(I,[&](size_t index){I[index] /= I2[index];});
+    serial_or_parallel(I.size(),[&](size_t index){I[index] /= I2[index];});
 }
 
 template<typename iterator1,typename iterator2>
@@ -290,7 +290,7 @@ __INLINE__ void greater(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 template<typename image_type1,typename image_type2>
 void greater(image_type1&& I,const image_type2& I2)
 {
-    serial_or_parallel(I,[&](size_t index){I[index] = (I[index] > I2[index] ? 1 : 0);});
+    serial_or_parallel(I.size(),[&](size_t index){I[index] = (I[index] > I2[index] ? 1 : 0);});
 }
 
 template<typename iterator1,typename iterator2>
@@ -302,7 +302,7 @@ __INLINE__ void lesser(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 template<typename image_type1,typename image_type2>
 inline void lesser(image_type1&& I,const image_type2& I2)
 {
-    serial_or_parallel(I,[&](size_t index){I[index] = (I[index] < I2[index] ? 1 : 0);});
+    serial_or_parallel(I.size(),[&](size_t index){I[index] = (I[index] < I2[index] ? 1 : 0);});
 }
 
 template<typename iterator1,typename iterator2>
@@ -314,7 +314,7 @@ __INLINE__ void equal(iterator1 lhs_from,iterator1 lhs_to,iterator2 rhs_from)
 template<typename image_type1,typename image_type2>
 inline void equal(image_type1&& I,const image_type2& I2)
 {
-    serial_or_parallel(I,[&](size_t index){I[index] = (I[index] == I2[index] ? 1 : 0);});
+    serial_or_parallel(I.size(),[&](size_t index){I[index] = (I[index] == I2[index] ? 1 : 0);});
 }
 
 template<typename iterator1,typename value_type>
@@ -332,7 +332,7 @@ __INLINE__ void mod_constant(iterator1 lhs_from,iterator1 lhs_to,value_type valu
 template<typename image_type,typename value_type>
 inline void mod_constant(image_type&& I,value_type value)
 {
-    serial_or_parallel(I,[&](size_t index){I[index] %= value;});
+    serial_or_parallel(I.size(),[&](size_t index){I[index] %= value;});
 }
 
 template<typename iterator1,typename value_type>
@@ -368,7 +368,7 @@ inline void divide_by_constant(iterator1 lhs_from,iterator1 lhs_to,value_type va
 template<typename image_type1,typename image_type2>
 inline void minus(image_type1&& I,const image_type2& I2)
 {
-    serial_or_parallel(I,[&](size_t index){I[index] -= I2[index];});
+    serial_or_parallel(I.size(),[&](size_t index){I[index] -= I2[index];});
 }
 
 
@@ -708,56 +708,56 @@ template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 add(T& I,const U& I2)
 {
-    serial_or_parallel(I,[&](size_t index){I[index] += I2[index];});
+    serial_or_parallel(I.size(),[&](size_t index){I[index] += I2[index];});
 }
 
 template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 add_constant(T& I,U v)
 {
-    serial_or_parallel(I,[&](size_t index){I[index] += v;});
+    serial_or_parallel(I.size(),[&](size_t index){I[index] += v;});
 }
 
 template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 minus_constant(T&& I,U value)
 {
-    serial_or_parallel(I,[&](size_t index){I[index] -= value;});
+    serial_or_parallel(I.size(),[&](size_t index){I[index] -= value;});
 }
 
 template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 minus_by_constant(T&& I,U value)
 {
-    serial_or_parallel(I,[&](size_t index){I[index] = value - I[index];});
+    serial_or_parallel(I.size(),[&](size_t index){I[index] = value - I[index];});
 }
 
 template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 divide_constant(T&& I,U value)
 {
-    serial_or_parallel(I,[&](size_t index){I[index] /= value;});
+    serial_or_parallel(I.size(),[&](size_t index){I[index] /= value;});
 }
 
 template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 divide_by_constant(T&& I,U value)
 {
-    serial_or_parallel(I,[&](size_t index){I[index] = value/I[index];});
+    serial_or_parallel(I.size(),[&](size_t index){I[index] = value/I[index];});
 }
 
 
 template<typename image_type1,typename image_type2>
 inline void multiply(image_type1&& I,const image_type2& I2)
 {
-    serial_or_parallel(I,[&](size_t index){I[index] *= I2[index];});
+    serial_or_parallel(I.size(),[&](size_t index){I[index] *= I2[index];});
 }
 
 template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 multiply_constant(T& I,U value)
 {
-    serial_or_parallel(I,[&](size_t index){I[index] *= value;});
+    serial_or_parallel(I.size(),[&](size_t index){I[index] *= value;});
 }
 
 
@@ -765,21 +765,21 @@ template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 greater_constant(T&& I,U value)
 {
-    serial_or_parallel(I,[&](size_t index){I[index] = (I[index] > value ? 1 : 0);});
+    serial_or_parallel(I.size(),[&](size_t index){I[index] = (I[index] > value ? 1 : 0);});
 }
 
 template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 lesser_constant(T&& I,U value)
 {
-    serial_or_parallel(I,[&](size_t index){I[index] = (I[index] < value ? 1 : 0);});
+    serial_or_parallel(I.size(),[&](size_t index){I[index] = (I[index] < value ? 1 : 0);});
 }
 
 template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 equal_constant(T&& I,U value)
 {
-    serial_or_parallel(I,[&](size_t index){I[index] = (I[index] == value ? 1 : 0);});
+    serial_or_parallel(I.size(),[&](size_t index){I[index] = (I[index] == value ? 1 : 0);});
 }
 
 
@@ -854,7 +854,7 @@ template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 masking(T&& I,const U& I2)
 {
-    serial_or_ranged_size(I,[&](size_t from,size_t to)
+    serial_or_ranged_size(I.size(),[&](size_t from,size_t to)
                           {masking(I.begin()+from,I.begin()+to,I2.begin()+from);});
 }
 
@@ -862,7 +862,7 @@ template<typename T,typename U,typename V>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 masking_by_value(T&& I,const U& I2,V value)
 {
-    serial_or_ranged_size(I,[&](size_t from,size_t to)
+    serial_or_ranged_size(I.size(),[&](size_t from,size_t to)
                           {masking_by_value(I.begin()+from,I.begin()+to,I2.begin()+from,value);});
 }
 
@@ -870,7 +870,7 @@ template<typename T,typename U>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 preserve(T&& I,const U& I2)
 {
-    serial_or_ranged_size(I,[&](size_t from,size_t to)
+    serial_or_ranged_size(I.size(),[&](size_t from,size_t to)
                           {preserve(I.begin()+from,I.begin()+to,I2.begin()+from);});
 }
 
@@ -878,7 +878,7 @@ template<typename T,typename U,typename V>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 preserve_by_value(T&& I,const U& I2,V value)
 {
-    serial_or_ranged_size(I,[&](size_t from,size_t to)
+    serial_or_ranged_size(I.size(),[&](size_t from,size_t to)
                           {preserve_by_value(I.begin()+from,I.begin()+to,I2.begin()+from,value);});
 }
 
@@ -886,7 +886,7 @@ template<typename T,typename V>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 upper_threshold(T& I,V value)
 {
-    serial_or_ranged_size(I,[&](size_t from,size_t to)
+    serial_or_ranged_size(I.size(),[&](size_t from,size_t to)
                           {upper_threshold(I.begin()+from,I.begin()+to,value);});
 }
 
@@ -894,7 +894,7 @@ template<typename T,typename V>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 lower_threshold(T& I,V value)
 {
-    serial_or_ranged_size(I,[&](size_t from,size_t to)
+    serial_or_ranged_size(I.size(),[&](size_t from,size_t to)
                           {lower_threshold(I.begin()+from,I.begin()+to,value);});
 }
 
@@ -902,7 +902,7 @@ template<typename T>
 inline std::enable_if_t<memory_location<T>::at != CUDA, void>
 upper_lower_threshold(T& I,typename T::value_type lower,typename T::value_type upper)
 {
-    serial_or_ranged_size(I,[&](size_t from,size_t to)
+    serial_or_ranged_size(I.size(),[&](size_t from,size_t to)
                           {upper_lower_threshold(I.begin()+from,I.begin()+to,lower,upper);});
 }
 

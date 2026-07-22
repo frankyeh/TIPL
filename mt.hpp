@@ -221,22 +221,30 @@ inline void par_for(T size, Func&& f, int tc = max_thread_count) {
     par_for<type>(T(0), size, std::forward<Func>(f), tc);
 }
 
-template<typename T,typename F>
-inline void serial_or_parallel(T&& I,F&& f)
+template<typename F>
+inline void serial_or_parallel(size_t work_size,size_t count,F&& f)
 {
-    if(I.size() < 1024*1024 || max_thread_count < 2)
-        for(size_t index = 0,sz = I.size(); index < sz; ++index)
-            f(index);
+    if(work_size < 1024*1024 || max_thread_count < 2)
+        for(size_t i = 0;i < count;++i)
+            f(i);
     else
-        tipl::par_for<sequential>(I.size(),std::forward<F>(f),std::min<size_t>(tipl::max_thread_count,8));
+        tipl::par_for<sequential>(
+            count,std::forward<F>(f),
+            std::min<size_t>(max_thread_count,8));
 }
-template<typename T,typename F>
-inline void serial_or_ranged_size(T&& I,F&& f)
+template<typename F>
+inline void serial_or_parallel(size_t count,F&& f)
 {
-    if(I.size() < 1024*1024 || max_thread_count < 2)
-        f(size_t(0),I.size());
+    serial_or_parallel(count,count,std::forward<F>(f));
+}
+
+template<typename F>
+inline void serial_or_ranged_size(size_t count,F&& f)
+{
+    if(count < 1024*1024 || max_thread_count < 2)
+        f(size_t(0),count);
     else
-        tipl::par_for<ranged>(I.size(),std::forward<F>(f),std::min<size_t>(tipl::max_thread_count,8));
+        tipl::par_for<ranged>(count,std::forward<F>(f),std::min<size_t>(tipl::max_thread_count,8));
 }
 
 template <typename T>

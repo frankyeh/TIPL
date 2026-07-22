@@ -941,18 +941,6 @@ struct component_data
     std::vector<size_t> roots;
 };
 
-template<typename F>
-void component_for(size_t voxel_count,size_t count,F&& f)
-{
-    if(voxel_count < 1024*1024 || max_thread_count < 2)
-        for(size_t i = 0;i < count;++i)
-            f(i);
-    else
-        tipl::par_for<sequential>(
-            count,std::forward<F>(f),
-            std::min<size_t>(max_thread_count,8));
-}
-
 template<bool zero = false,typename ImageType>
 component_data connected_component_runs(const ImageType& I)
 {
@@ -977,7 +965,7 @@ component_data connected_component_runs(const ImageType& I)
     for(size_t line = 0;line < line_count;++line)
         line_pos[line+1] = line_pos[line]+w;
 
-    component_for(I.size(),line_count,[&](size_t line)
+    serial_or_parallel(I.size(),line_count,[&](size_t line)
     {
         size_t p = line_pos[line],end = line_pos[line+1],count = 0;
         while(p < end)
@@ -997,7 +985,7 @@ component_data connected_component_runs(const ImageType& I)
         run_pos[line+1] += run_pos[line];
 
     data.runs.resize(run_pos.back());
-    component_for(I.size(),line_count,[&](size_t line)
+    serial_or_parallel(I.size(),line_count,[&](size_t line)
     {
         size_t p = line_pos[line],end = line_pos[line+1];
         size_t run = run_pos[line];
@@ -1114,7 +1102,7 @@ auto component_regions(const ImageType& I,const component_data& data)
         used[region] += data.runs[i].last-data.runs[i].first;
     }
 
-    component_for(I.size(),data.runs.size(),[&](size_t i)
+    serial_or_parallel(I.size(),data.runs.size(),[&](size_t i)
                   {
                       const auto& run = data.runs[i];
                       auto& region = regions[id[run.parent]];
@@ -1145,7 +1133,7 @@ void connected_component_labeling(
     for(size_t i = 0;i < data.roots.size();++i)
         id[data.roots[i]] = i;
 
-    detail::component_for(I.size(),data.runs.size(),[&](size_t i)
+    tipl::serial_or_parallel(I.size(),data.runs.size(),[&](size_t i)
     {
         const auto& run = data.runs[i];
         std::fill(labels.begin()+run.first,labels.begin()+run.last,label_type(id[run.parent]+1));
@@ -1173,7 +1161,7 @@ void keep_largest(ImageType& I,const component_data& data)
         if(data.runs[root].size > data.runs[keep].size)
             keep = root;
 
-    component_for(I.size(),data.runs.size(),[&](size_t i)
+    serial_or_parallel(I.size(),data.runs.size(),[&](size_t i)
     {
         const auto& run = data.runs[i];
         if(run.parent != keep)
@@ -1270,7 +1258,7 @@ ImageType& defragment_by_size_ratio(ImageType& I,float ratio = 0.05f)
         max_size = std::max(max_size,data.runs[root].size);
 
     const size_t threshold = size_t(double(max_size)*ratio);
-    detail::component_for(I.size(),data.runs.size(),[&](size_t i)
+    tipl::serial_or_parallel(I.size(),data.runs.size(),[&](size_t i)
     {
         const auto& run = data.runs[i];
         if(data.runs[run.parent].size <= threshold)

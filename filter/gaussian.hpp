@@ -27,7 +27,7 @@ void gaussian_impl(image_type& src,unsigned int bandwidth)
         return;
 
     std::vector<work_type> a(src.size()),b(src.size());
-    tipl::serial_or_parallel(src,[&](size_t i)
+    tipl::serial_or_parallel(src.size(),[&](size_t i)
     {
         a[i] = pixel_manip<out_type>::to_work(src[i]);
     });
@@ -39,7 +39,7 @@ void gaussian_impl(image_type& src,unsigned int bandwidth)
     // bandwidth 2 -> effective [1 4 6 4 1]
     for(unsigned int k = 0;k < bandwidth;++k)
     {
-        tipl::serial_or_parallel(src,[&](size_t i)
+        tipl::serial_or_parallel(src.size(),[&](size_t i)
         {
             size_t x = i%w;
             auto center = a[i];
@@ -52,7 +52,7 @@ void gaussian_impl(image_type& src,unsigned int bandwidth)
         if constexpr(image_type::dimension >= 2)
         {
             const size_t h = src.height();
-            tipl::serial_or_parallel(src,[&](size_t i)
+            tipl::serial_or_parallel(src.size(),[&](size_t i)
             {
                 size_t y = (i/w)%h;
                 auto center = a[i];
@@ -66,7 +66,7 @@ void gaussian_impl(image_type& src,unsigned int bandwidth)
         if constexpr(image_type::dimension >= 3)
         {
             const size_t d = src.depth();
-            tipl::serial_or_parallel(src,[&](size_t i)
+            tipl::serial_or_parallel(src.size(),[&](size_t i)
             {
                 size_t z = i/wh;
                 auto center = a[i];
@@ -81,7 +81,7 @@ void gaussian_impl(image_type& src,unsigned int bandwidth)
     const double scale = std::ldexp(
         1.0,-int(2*size_t(bandwidth)*image_type::dimension));
 
-    tipl::serial_or_parallel(src,[&](size_t i)
+    tipl::serial_or_parallel(src.size(),[&](size_t i)
     {
         src[i] = pixel_manip<out_type>::to_pixel(a[i]*scale);
     });

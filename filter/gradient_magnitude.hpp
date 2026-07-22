@@ -29,14 +29,14 @@ void gradient_magnitude_impl(image_type& src)
         return;
 
     std::vector<work_type> in(src.size());
-    tipl::serial_or_parallel(src,[&](size_t i)
+    tipl::serial_or_parallel(src.size(),[&](size_t i)
     {
         in[i] = pixel_manip<out_type>::to_work(src[i]);
     });
 
     const size_t w = src.width(),wh = src.plane_size();
 
-    tipl::serial_or_parallel(src,[&](size_t i)
+    tipl::serial_or_parallel(src.size(),[&](size_t i)
     {
         size_t x = i%w;
         work_type gx = in[x+1 < w ? i+1 : i]-in[x ? i-1 : i];
