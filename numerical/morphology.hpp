@@ -1603,6 +1603,10 @@ defragment_and_fill_holes(ImageType&& I){defragment_and_fill_holes(static_cast<I
 
 template<typename ImageType>
 std::enable_if_t<!std::is_lvalue_reference_v<ImageType>,ImageType&&>
+dndnco(ImageType&& I){dndnco(static_cast<ImageType&>(I));return std::move(I);}
+
+template<typename ImageType>
+std::enable_if_t<!std::is_lvalue_reference_v<ImageType>,ImageType&&>
 smoothing(ImageType&& I){smoothing(static_cast<ImageType&>(I));return std::move(I);}
 
 template<typename ImageType>
