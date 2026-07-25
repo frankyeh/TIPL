@@ -262,20 +262,25 @@ ImageType& threshold(ImageType& I,typename ImageType::value_type threshold_value
 }
 
 
-template <int dim,typename vtype,template <typename...> typename stype>
-inline auto operator>(const image<dim,vtype,stype>& I,vtype prob_threshold)
+template <int dim,typename vtype,template <typename...> typename stype,typename fun_type>
+inline auto compare(const image<dim,vtype,stype>& I,
+                    typename image<dim,vtype,stype>::value_type threshold,fun_type compare)
 {
-    tipl::image<dim,unsigned char,stype> mask;
-    tipl::threshold(I,mask,prob_threshold);
+    image<dim,unsigned char> mask;
+    binary(I,mask,[&](auto value){return compare(value,threshold);});
     return mask;
 }
-template <int dim,typename vtype,template <typename...> typename stype>
-inline auto operator<(const image<dim,vtype,stype>& I,vtype prob_threshold)
-{
-    tipl::image<dim,unsigned char,stype> mask;
-    tipl::threshold(I,mask,prob_threshold,0,1);
-    return mask;
-}
+
+#define TIPL_COMPARE(op) \
+template <int dim,typename vtype,template <typename...> typename stype> \
+    inline auto operator op(const image<dim,vtype,stype>& I,typename image<dim,vtype,stype>::value_type threshold) \
+{return compare(I,threshold,[](auto value,auto threshold){return value op threshold;});}
+
+TIPL_COMPARE(>)
+TIPL_COMPARE(<)
+TIPL_COMPARE(>=)
+TIPL_COMPARE(<=)
+#undef TIPL_COMPARE
 
 
 
