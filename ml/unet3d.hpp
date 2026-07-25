@@ -474,28 +474,35 @@ public:
         if(label_prob.empty())
             return error_msg = "no label probability",false;
 
-        // not yet foreground, this is currently background
+        // Channel 0 is background probability.
         fg_prob = label_prob.alias(0,mask.shape());
         tipl::filter::gaussian(fg_prob,2);
 
-        // refine current mask based on model output
-        tipl::threshold(fg_prob,mask,1.0f-prob_threshold,0,1);
+        // Refine the existing FOV mask instead of replacing it.
+        tipl::masking_by_value(mask,fg_prob,1.0f-prob_threshold);
 
         fg_prob = tipl::morphology::dndnco(mask);
         tipl::filter::gaussian(fg_prob,2);
 
-        size_t image_size = mask.size();
-        size_t total_size = label_prob.size();
+        const size_t image_size = mask.size();
+        const size_t total_size = label_prob.size();
 
-        // renormalize
-        tipl::par_for<sequential>(image_size, [&](size_t pos)
+        tipl::par_for<sequential>(image_size,[&](size_t pos)
         {
-            double sum(0);
-            for(size_t offset = pos + image_size; offset < total_size; offset += image_size)
+            double sum = 0.0;
+            for(size_t offset = pos+image_size;
+                 offset < total_size;
+                 offset += image_size)
                 sum += label_prob[offset];
-            label_prob[pos] = 1.0-fg_prob[pos];
-            float scale = (sum == 0.0 ? 0.0f : float(fg_prob[pos]/sum));
-            for(size_t offset = pos + image_size; offset < total_size; offset += image_size)
+
+            label_prob[pos] = 1.0f-fg_prob[pos];
+
+            const float scale =
+                sum == 0.0 ? 0.0f : float(fg_prob[pos]/sum);
+
+            for(size_t offset = pos+image_size;
+                 offset < total_size;
+                 offset += image_size)
                 label_prob[offset] *= scale;
         });
         return true;
