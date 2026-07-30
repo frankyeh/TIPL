@@ -109,6 +109,19 @@ auto merge(const std::vector<T>& tokens, typename T::value_type delimiter)
     return result;
 }
 
+template<typename T,std::enable_if_t<std::is_arithmetic_v<T>,int> = 0>
+std::string merge(const std::vector<T>& values,char delimiter)
+{
+    std::ostringstream out;
+    if(!values.empty())
+    {
+        out << values[0];
+        for(size_t i = 1;i < values.size();++i)
+            out << delimiter << values[i];
+    }
+    return out.str();
+}
+
 template<typename T>
 bool contains(const T& vs,const typename T::value_type& v)
 {
@@ -548,14 +561,78 @@ inline std::string complete_suffix(const std::string& file_name)
     std::string ext = p.extension().u8string();
     return (ext == ".gz") ? p.stem().extension().u8string() + ext : ext;
 }
-inline auto read_text_file(const std::filesystem::path& file_name)
+
+template<typename error_output_type = std::nullptr_t>
+inline auto read_text_file(
+    const std::filesystem::path& file_name,
+    error_output_type&& error_output = nullptr)
 {
-    std::ifstream file(file_name);
+    constexpr bool report_error =
+        !std::is_same_v<
+            std::decay_t<error_output_type>,
+            std::nullptr_t>;
+
     std::vector<std::string> lines;
-    std::string line;
-    while (std::getline(file, line))
-        lines.push_back(line);
+
+    if(!std::filesystem::exists(file_name))
+    {
+        if constexpr(report_error)
+            error_output << "file does not exist: " << file_name;
+        return lines;
+    }
+
+    std::ifstream file(file_name);
+    if(!file)
+    {
+        if constexpr(report_error)
+            error_output << "cannot open: " << file_name;
+        return lines;
+    }
+
+    for(std::string line;std::getline(file,line);)
+        lines.push_back(std::move(line));
+
+    if(!file.eof())
+    {
+        if constexpr(report_error)
+            error_output << "cannot read from: " << file_name;
+        lines.clear();
+    }
+
     return lines;
+}
+
+template<typename content_type,
+         typename error_output_type = std::nullptr_t>
+bool write_text_file(const std::filesystem::path& file_name,const content_type& content,error_output_type&& error_output = nullptr)
+{
+    static_assert(
+        std::is_same_v<std::decay_t<content_type>,std::string> ||
+            std::is_same_v<std::decay_t<content_type>,
+                           std::vector<std::string>>,
+        "content must be std::string or std::vector<std::string>");
+    constexpr bool report_error =
+        !std::is_same_v<
+            std::decay_t<error_output_type>,
+            std::nullptr_t>;
+
+    std::ofstream out(file_name);
+    if(out)
+    {
+        if constexpr(report_error)
+            out << content;
+        else
+            for(const auto& line : content)
+                out << line << '\n';
+
+        if(out)
+            return true;
+    }
+
+    if constexpr(report_error)
+        error_output << "cannot write to " << file_name;
+
+    return false;
 }
 
 template<typename out = default_output>
