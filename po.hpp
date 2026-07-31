@@ -616,10 +616,11 @@ bool write_text_file(const std::filesystem::path& file_name,const content_type& 
             std::decay_t<error_output_type>,
             std::nullptr_t>;
 
+
     std::ofstream out(file_name);
     if(out)
     {
-        if constexpr(report_error)
+        if constexpr(std::is_same_v<std::decay_t<content_type>,std::string>)
             out << content;
         else
             for(const auto& line : content)
