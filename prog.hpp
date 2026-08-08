@@ -89,7 +89,9 @@ struct progress_dialog : public QDialog{
     QPoint drag_pos;
     bool dragging = false;
 
-    progress_dialog()
+    // parenting to the active modal dialog (e.g. AtlasDialog running its own exec() loop)
+    // lets this dialog join that modal session instead of being blocked/hidden behind it
+    progress_dialog(QWidget* parent = QApplication::activeModalWidget()):QDialog(parent)
     {
         setAttribute(Qt::WA_TranslucentBackground);
         setWindowFlags(windowFlags() | Qt::FramelessWindowHint);
