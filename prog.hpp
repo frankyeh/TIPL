@@ -154,7 +154,6 @@ struct progress_dialog : public QDialog{
 
     void refresh()
     {
-        activate_if_needed();
         QStringList lines;
         QFontMetrics fm(text.font());
         rings.active = 0;
@@ -225,6 +224,7 @@ private:
         {
             progressDialog.reset(new progress_dialog);
             progressDialog->show();
+            progressDialog->activate_if_needed();
         }
         progressDialog->refresh();
         check_reentrant = true;
