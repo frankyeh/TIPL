@@ -33,6 +33,7 @@ struct prog_status{
 inline std::vector<prog_status> status_list;
 inline std::atomic_int status_count = 0;
 inline bool prog_aborted = false,show_prog = false;
+inline bool check_reentrant = false;
 
 inline std::mutex print_mutex,msg_mutex;
 inline std::string last_msg;
@@ -190,7 +191,7 @@ private:
     {
         if(prog_aborted)
             return false;
-        if(!show_prog || !tipl::is_main_thread() || !status_count)
+        if(!show_prog || !tipl::is_main_thread() || !status_count || check_reentrant)
             return now < total;
         auto& cur_status = status_list.back();
         auto now_time = std::chrono::high_resolution_clock::now();
@@ -213,7 +214,9 @@ private:
             progressDialog->show();
         }
         progressDialog->refresh();
+        check_reentrant = true;
         QApplication::processEvents();
+        check_reentrant = false;
 #endif
         if(prog_aborted)
             return progress::print("operation aborted",false,false,1),false;
@@ -298,7 +301,7 @@ public:
     bool run(size_t total,fun_type&& fun)
     {
         unsigned int dummy = 0;
-        if (!show_prog || !tipl::is_main_thread() || status_list.empty())
+        if (!show_prog || !tipl::is_main_thread() || status_list.empty() || check_reentrant)
             return fun(dummy);
 
         status_list.back().total = total;
@@ -318,7 +321,9 @@ public:
                 status_list.back().next_update_time = std::chrono::high_resolution_clock::now()+std::chrono::milliseconds(200);
                 if(progressDialog)
                     progressDialog->refresh();
+                check_reentrant = true;
                 QApplication::processEvents();
+                check_reentrant = false;
             }
         }
         #endif
