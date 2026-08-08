@@ -141,8 +141,20 @@ struct progress_dialog : public QDialog{
         return false;
     }
 
+    // only steal focus while DSI Studio itself is the active application;
+    // if the user is attending to another app, stay out of the way
+    void activate_if_needed()
+    {
+        if(QApplication::applicationState() == Qt::ApplicationActive && !isActiveWindow())
+        {
+            raise();
+            activateWindow();
+        }
+    }
+
     void refresh()
     {
+        activate_if_needed();
         QStringList lines;
         QFontMetrics fm(text.font());
         rings.active = 0;
@@ -183,6 +195,7 @@ private:
         {
             progressDialog.reset(new progress_dialog);
             progressDialog->show();
+            progressDialog->activate_if_needed();
         }
 
 #endif
