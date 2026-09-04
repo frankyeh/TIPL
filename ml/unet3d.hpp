@@ -1,7 +1,7 @@
 #ifndef UNET3D_HPP
 #define UNET3D_HPP
 
-#include <algorithm> // added for std::copy
+#include <algorithm>
 #include "cnn3d.hpp"
 #include "../po.hpp"
 #include "../prog.hpp"
@@ -610,28 +610,6 @@ public:
 class tissue_seg{
 private:
     std::vector<float> cpu_params;
-    bool switch_to_cpu(void)
-    {
-        try
-        {
-            auto cpu = std::make_shared<unet3d>(arch,in_count,out_count);
-            auto params = cpu->parameters();
-            size_t pos = 0;
-            for(auto& p : params)
-            {
-                std::copy_n(cpu_params.data()+pos,p.second,p.first);
-                pos += p.second;
-            }
-            unet = std::move(cpu);
-            data.round_up_multiple = unet->round_up_multiple;
-            std::vector<float>().swap(cpu_params);
-            return true;
-        }
-        catch(const std::runtime_error& e)
-        {
-            return error_msg = e.what(),false;
-        }
-    }
 
 public:
     std::shared_ptr<unet3d> unet;
@@ -736,8 +714,7 @@ public:
                 catch(const std::runtime_error& e)
                 {
                     tipl::warning() << "GPU initialization failed (" << e.what() << "), using CPU";
-                    if(!switch_to_cpu())
-                        return false;
+                    std::vector<float>().swap(cpu_params);
                 }
             }
 
@@ -786,11 +763,18 @@ public:
                 {
                     if(!unet->is_gpu)
                         return error_msg = e.what(),false;
+
                     tipl::warning() << "GPU inference failed (" << e.what() << "), switching to CPU";
-                    if(!switch_to_cpu())
-                        return false;
                     try
                     {
+                        unet = std::make_shared<unet3d>(arch,in_count,out_count);
+                        size_t pos = 0;
+                        for(auto& p : unet->parameters())
+                        {
+                            std::copy_n(cpu_params.data()+pos,p.second,p.first);
+                            pos += p.second;
+                        }
+                        std::vector<float>().swap(cpu_params);
                         run_forward();
                     }
                     catch(const std::runtime_error& e)
