@@ -177,7 +177,6 @@ public:
         patch_phys.elem_mul(model_vs);
         bb_phys.elem_mul(image_vs);
         mask_top_phys.elem_mul(image_vs);
-
         auto add_view = [&](const tipl::vector<3>& shift,auto& input,auto &t)
         {
             tipl::affine_param<float> arg;
@@ -610,6 +609,29 @@ public:
 
 class tissue_seg{
 private:
+    std::vector<float> cpu_params;
+    bool switch_to_cpu(void)
+    {
+        try
+        {
+            auto cpu = std::make_shared<unet3d>(arch,in_count,out_count);
+            auto params = cpu->parameters();
+            size_t pos = 0;
+            for(auto& p : params)
+            {
+                std::copy_n(cpu_params.data()+pos,p.second,p.first);
+                pos += p.second;
+            }
+            unet = std::move(cpu);
+            data.round_up_multiple = unet->round_up_multiple;
+            std::vector<float>().swap(cpu_params);
+            return true;
+        }
+        catch(const std::runtime_error& e)
+        {
+            return error_msg = e.what(),false;
+        }
+    }
 
 public:
     std::shared_ptr<unet3d> unet;
@@ -699,7 +721,25 @@ public:
 
         if constexpr(tipl::use_cuda)
             if(tipl::has_gpu)
-                unet->to_gpu();
+            {
+                cpu_params.resize(unet->param_size());
+                size_t pos = 0;
+                for(const auto& p : params)
+                {
+                    std::copy_n(p.first,p.second,cpu_params.data()+pos);
+                    pos += p.second;
+                }
+                try
+                {
+                    unet->to_gpu();
+                }
+                catch(const std::runtime_error& e)
+                {
+                    tipl::warning() << "GPU initialization failed (" << e.what() << "), using CPU";
+                    if(!switch_to_cpu())
+                        return false;
+                }
+            }
 
         data.in_count = in_count;
         data.out_count = out_count;
@@ -722,20 +762,42 @@ public:
                 {
                     return prog2(cur,total);
                 };
-                unet->forward(data.model_io[i]);
-                auto out_shape = data.model_io[i].shape().multiply(tipl::shape<3>::z,data.out_count);
-                if(data.in_count != 1)
-                    out_shape = out_shape.divide(tipl::shape<3>::z,data.in_count);
-                if constexpr(tipl::use_cuda)
-                    if(unet->is_gpu)
+                auto run_forward = [&]()
+                {
+                    unet->forward(data.model_io[i]);
+                    auto out_shape = data.model_io[i].shape().multiply(tipl::shape<3>::z,data.out_count);
+                    if(data.in_count != 1)
+                        out_shape = out_shape.divide(tipl::shape<3>::z,data.in_count);
+                    if constexpr(tipl::use_cuda)
+                        if(unet->is_gpu)
+                        {
+                            tipl::image<3> out(out_shape);
+                            cu_copy_d2h<float,float>(out.data(),unet->layers.back()->out,out_shape.size());
+                            data.model_io[i] = std::move(out);
+                            return;
+                        }
+                    data.model_io[i] = tipl::make_image(unet->layers.back()->out,out_shape);
+                };
+                try
+                {
+                    run_forward();
+                }
+                catch(const std::runtime_error& e)
+                {
+                    if(!unet->is_gpu)
+                        return error_msg = e.what(),false;
+                    tipl::warning() << "GPU inference failed (" << e.what() << "), switching to CPU";
+                    if(!switch_to_cpu())
+                        return false;
+                    try
                     {
-                        tipl::image<3> out(out_shape);
-                        cu_copy_d2h<float,float>(out.data(),
-                                             unet->layers.back()->out,out_shape.size());
-                        data.model_io[i] = std::move(out);
-                        continue;
+                        run_forward();
                     }
-                data.model_io[i] = tipl::make_image(unet->layers.back()->out,out_shape);
+                    catch(const std::runtime_error& e)
+                    {
+                        return error_msg = e.what(),false;
+                    }
+                }
             }
             if(prog.aborted())
                 return false;
