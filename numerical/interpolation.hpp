@@ -381,6 +381,24 @@ struct linear<3>
         ratio[7] = p0p1 * p2;
         return true;
     }
+    //---------------------------------------------------------------------------
+    // trilinear weights modulated by reference similarity: w_i *= exp(-var*(ref_value-ref_in_source_i)^2), then normalized
+    template<typename RefImageType,typename VTorType>
+    bool get_location_with_ref(const shape<3>& geo,const RefImageType& ref_in_source,float ref_value,const VTorType& location,float var)
+    {
+        if(!get_location(geo,location))
+            return false;
+        float sum = 0.0f;
+        for(unsigned int i = 0;i < ref_count;++i)
+        {
+            float dis = ref_value-float(ref_in_source[dindex[i]]);
+            sum += (ratio[i] *= std::exp(-var*dis*dis));
+        }
+        if(sum != 0.0f)
+            for(unsigned int i = 0;i < ref_count;++i)
+                ratio[i] /= sum;
+        return true;
+    }
 
     //---------------------------------------------------------------------------
     template<typename ImageType,typename VTorType,typename PixelType>
