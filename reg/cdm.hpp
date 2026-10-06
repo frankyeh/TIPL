@@ -43,7 +43,7 @@ struct cdm_param{
     std::vector<std::pair<tipl::vector<3>,tipl::vector<3> > > anchor;
 };
 
-template<typename T,typename U,typename V,typename W>
+template<char gradient_type,typename T,typename U,typename V,typename W>
 __INLINE__ void cdm_get_gradient_r_imp(const pixel_index<T::dimension>& index,
                                      const T& Js,const U& It,V& new_d,W& cost_map)
 {
@@ -60,6 +60,12 @@ __INLINE__ void cdm_get_gradient_r_imp(const pixel_index<T::dimension>& index,
     {
         auto g = gradient_at(Js,index);
         g *= r2*(Js[pos]*a+b-It[pos]);
+        if constexpr(gradient_type == 'x')
+            g[1] = g[2] = 0.0f;
+        else if constexpr(gradient_type == 'y')
+            g[0] = g[2] = 0.0f;
+        else if constexpr(gradient_type == 'z')
+            g[0] = g[1] = 0.0f;
         new_d[pos] += g;
         cost_map[pos] = -r2;
     }
@@ -92,7 +98,25 @@ cdm_get_gradient(const image_type1& Js,const image_type2& It,dis_type& new_d,uns
     case 'r':
         tipl::par_for<sequential>(Js.shape(),[&](auto index)
         {
-            cdm_get_gradient_r_imp(index,Js,It,new_d,cost_map);
+            cdm_get_gradient_r_imp<'r'>(index,Js,It,new_d,cost_map);
+        });
+        break;
+    case 'x':
+        tipl::par_for<sequential>(Js.shape(),[&](auto index)
+        {
+            cdm_get_gradient_r_imp<'x'>(index,Js,It,new_d,cost_map);
+        });
+        break;
+    case 'y':
+        tipl::par_for<sequential>(Js.shape(),[&](auto index)
+        {
+            cdm_get_gradient_r_imp<'y'>(index,Js,It,new_d,cost_map);
+        });
+        break;
+    case 'z':
+        tipl::par_for<sequential>(Js.shape(),[&](auto index)
+        {
+            cdm_get_gradient_r_imp<'z'>(index,Js,It,new_d,cost_map);
         });
         break;
     case 'd':
@@ -106,12 +130,12 @@ cdm_get_gradient(const image_type1& Js,const image_type2& It,dis_type& new_d,uns
 }
 
 #ifdef __CUDACC__
-template<typename T1,typename T2,typename T3,typename T4>
+template<char gradient_type,typename T1,typename T2,typename T3,typename T4>
 __global__ void cdm_get_gradient_r_cuda_kernel(T1 Js,T2 It,T3 new_d,T4 cost_map)
 {
     TIPL_FOR(index,Js.size())
     {
-        cdm_get_gradient_r_imp(tipl::pixel_index<T1::dimension>(index,Js.shape()),Js,It,new_d,cost_map);
+        cdm_get_gradient_r_imp<gradient_type>(tipl::pixel_index<T1::dimension>(index,Js.shape()),Js,It,new_d,cost_map);
     }
 }
 
@@ -133,7 +157,28 @@ cdm_get_gradient(const image_type1& Js,const image_type2& It,dis_type& new_d,uns
     switch(gradient_type)
     {
     case 'r':
-        TIPL_RUN(cdm_get_gradient_r_cuda_kernel,Js.size())
+        TIPL_RUN(cdm_get_gradient_r_cuda_kernel<'r'>,Js.size())
+                (tipl::make_shared(Js),
+                 tipl::make_shared(It),
+                 tipl::make_shared(new_d),
+                 tipl::make_shared(cost_map));
+        break;
+    case 'x':
+        TIPL_RUN(cdm_get_gradient_r_cuda_kernel<'x'>,Js.size())
+                (tipl::make_shared(Js),
+                 tipl::make_shared(It),
+                 tipl::make_shared(new_d),
+                 tipl::make_shared(cost_map));
+        break;
+    case 'y':
+        TIPL_RUN(cdm_get_gradient_r_cuda_kernel<'y'>,Js.size())
+                (tipl::make_shared(Js),
+                 tipl::make_shared(It),
+                 tipl::make_shared(new_d),
+                 tipl::make_shared(cost_map));
+        break;
+    case 'z':
+        TIPL_RUN(cdm_get_gradient_r_cuda_kernel<'z'>,Js.size())
                 (tipl::make_shared(Js),
                  tipl::make_shared(It),
                  tipl::make_shared(new_d),
