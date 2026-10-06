@@ -396,32 +396,6 @@ inline auto jacobian_determinant(const tipl::image<dim, VectorType>& src)
     return J;
 }
 
-template<typename VectorType>
-double jacobian_determinant_dis_at(const tipl::image<3,VectorType>& displacement,const tipl::pixel_index<3>& index)
-{
-    auto w = displacement.width();
-    auto wh = displacement.plane_size();
-
-    const auto& v1_0 = displacement[index.index()+1];
-    const auto& v1_1 = displacement[index.index()-1];
-    const auto& v2_0 = displacement[index.index()+w];
-    const auto& v2_1 = displacement[index.index()-w];
-    const auto& v3_0 = displacement[index.index()+wh];
-    const auto& v3_1 = displacement[index.index()-wh];
-
-    auto d2_0 = v2_0[0] - v2_1[0];
-    auto d2_1 = v2_0[1] - v2_1[1] + 1.0;
-    auto d2_2 = v2_0[2] - v2_1[2];
-
-    auto d3_0 = v3_0[0] - v3_1[0];
-    auto d3_1 = v3_0[1] - v3_1[1];
-    auto d3_2 = v3_0[2] - v3_1[2] + 1.0;
-
-    return (v1_0[0] - v1_1[0] + 1.0) * (d2_1*d3_2 - d2_2*d3_1) +
-           (v1_0[1] - v1_1[1])       * (d2_2*d3_0 - d2_0*d3_2) +
-           (v1_0[2] - v1_1[2])       * (d2_0*d3_1 - d2_1*d3_0);
-}
-
 template<typename VectorType,typename out_type>
 void jacobian_dis_at(const tipl::image<3,VectorType>& displacement,const tipl::pixel_index<3>& index,out_type* J)
 {
@@ -446,6 +420,14 @@ void jacobian_dis_at(const tipl::image<3,VectorType>& displacement,const tipl::p
     J[6] = vz[0] * 0.5f;
     J[7] = vz[1] * 0.5f;
     J[8] = vz[2] * 0.5f + 1.0f;
+}
+
+template<typename VectorType>
+double jacobian_determinant_dis_at(const tipl::image<3,VectorType>& displacement,const tipl::pixel_index<3>& index)
+{
+    double J[9];
+    jacobian_dis_at(displacement,index,J);
+    return J[0]*(J[4]*J[8]-J[5]*J[7]) + J[1]*(J[5]*J[6]-J[3]*J[8]) + J[2]*(J[3]*J[7]-J[4]*J[6]);
 }
 
 template<typename VectorType,typename PixelType>
