@@ -954,12 +954,10 @@ __global__ void upsample_label_cuda_kernel(T1 from, T2 to)
     const size_t sz = to.size();
     TIPL_FOR(index, sz)
     {
-        tipl::pixel_index<T1::dimension> pos_to(index, to.shape());
-        tipl::pixel_index<T1::dimension> pos_from;
-        for(int i = 0; i < T1::dimension; ++i)
-            pos_from[i] = pos_to[i] >> 1; // 相當於 floor(pos/2)
-
-        to[index] = from[pos_from.index()];
+        tipl::vector<T1::dimension,int> pos_from(tipl::pixel_index<T1::dimension>(index,to.shape()));
+        for(int i = 0;i < T1::dimension;++i)
+            pos_from[i] >>= 1; // 相當於 floor(pos/2)
+        to[index] = from[tipl::pixel_index<T1::dimension>(pos_from.begin(),from.shape()).index()];
     }
 }
 
@@ -967,7 +965,8 @@ template<typename T, std::enable_if_t<memory_location<T>::at == CUDA, int> = 0>
 void upsample_label(const T& in, T& out)
 {
     shape<T::dimension> new_geo(in.shape());
-    for(int i = 0; i < T::dimension; ++i) new_geo[i] <<= 1;
+    for(int i = 0;i < T::dimension;++i)
+        new_geo.set_dim(i,new_geo[i] << 1);
     out.resize(new_geo);
 
     TIPL_RUN(upsample_label_cuda_kernel, out.size())
