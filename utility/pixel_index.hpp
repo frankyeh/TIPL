@@ -45,6 +45,7 @@ public:
     __INLINE__ pixel_index():x_(0),y_(0),index_(0),w(0){}
     __INLINE__ pixel_index(const shape<2>& geo):x_(0),y_(0),index_(0),w(geo.width()){}
 
+    // caller guarantees coordinate/index consistency
     template<typename vtype>
     __INLINE__ pixel_index(vtype x,vtype y,vtype index,const shape<2>& geo):
             x_(int(x)),y_(int(y)),index_(index),w(geo.width()){}
@@ -58,25 +59,15 @@ public:
     __INLINE__ pixel_index(vtype y,const shape<2>& geo):
             x_(y % geo.width()),y_(y / geo.width()),index_(y),w(geo.width()){}
 
-    template<typename rhs_type>
-    __INLINE__ const pixel_index<2>& operator=(const rhs_type& rhs)
-    {
-        x_ = rhs[0]; y_ = rhs[1]; return *this;
-    }
-
 public:
     __INLINE__ int x() const { return x_; }
     __INLINE__ int y() const { return y_; }
     __INLINE__ int index() const { return index_; }
-    __INLINE__ int& index() { return index_; }
 
     __INLINE__ const int* begin() const { return offset_; }
     __INLINE__ const int* end() const { return offset_+2; }
-    __INLINE__ int* begin() { return offset_; }
-    __INLINE__ int* end() { return offset_+2; }
 
     __INLINE__ int operator[](unsigned int index) const { return offset_[index]; }
-    __INLINE__ int& operator[](unsigned int index) { return offset_[index]; }
 
 public:
     __INLINE__ bool operator<(const pixel_index& rhs) const { return index_ < rhs.index_; }
@@ -118,12 +109,6 @@ public:
         return *this;
     }
 
-    template<typename stream_type>
-    friend stream_type& operator>>(stream_type& in,pixel_index& rhs)
-    {
-        in >> rhs.x_ >> rhs.y_; return in;
-    }
-
 public:
     operator size_t() const { return index_; }
 };
@@ -145,6 +130,7 @@ public:
     __INLINE__ pixel_index():x_(0),y_(0),z_(0),index_(0),w(0),h(0){}
     __INLINE__ pixel_index(const shape<3>& geo):x_(0),y_(0),z_(0),index_(0),w(int(geo.width())),h(int(geo.height())){}
 
+    // caller guarantees coordinate/index consistency
     template<typename vtype>
     __INLINE__ pixel_index(vtype x,vtype y,vtype z,size_t i,const shape<3>& geo):x_(int(x)),y_(int(y)),z_(int(z)),index_(i),w(int(geo.width())),h(int(geo.height())){}
     template<typename vtype>
@@ -162,26 +148,16 @@ public:
         y_ = int(index % geo.height());
         z_ = int(index / geo.height());
     }
-
-    template<typename rhs_type>
-    __INLINE__ const pixel_index<3>& operator=(const rhs_type& rhs)
-    {
-        x_ = rhs[0]; y_ = rhs[1]; z_ = rhs[2]; return *this;
-    }
 public:
     __INLINE__ int x() const { return x_; }
     __INLINE__ int y() const { return y_; }
     __INLINE__ int z() const { return z_; }
     __INLINE__ size_t index() const { return index_; }
-    __INLINE__ size_t& index() { return index_; }
 
     __INLINE__ const int* begin() const { return offset_; }
     __INLINE__ const int* end() const { return offset_+3; }
-    __INLINE__ int* begin() { return offset_; }
-    __INLINE__ int* end() { return offset_+3; }
 
     __INLINE__ int operator[](unsigned int index) const { return offset_[index]; }
-    __INLINE__ int& operator[](unsigned int index) { return offset_[index]; }
 
 public:
     __INLINE__ bool operator<(const pixel_index& rhs) const { return index_ < rhs.index_; }
@@ -227,16 +203,6 @@ public:
     {
         return int64_t(index_)-int64_t(rhs.index_);
     }
-    __INLINE__ pixel_index<3> operator++(int)
-    {
-        auto old = *this; operator++(); return old;
-    }
-
-    template<typename stream_type>
-    friend stream_type& operator>>(stream_type& in,pixel_index& rhs)
-    {
-        in >> rhs.x_ >> rhs.y_ >> rhs.z_; return in;
-    }
 
 public:
     operator size_t() const { return index_; }
@@ -264,10 +230,6 @@ public:
     template<typename rhs_type,typename std::enable_if<std::is_fundamental<rhs_type>::value,bool>::type = true>
     __INLINE__ vector(const rhs_type* rhs):x_(rhs[0]),y_(rhs[1]){}
 
-    vector(std::initializer_list<data_type> rhs)
-    {
-        auto it = rhs.begin(); x_ = *it++; y_ = *it++;
-    }
 
     template<typename rhs_type,typename std::enable_if<std::is_fundamental<rhs_type>::value,bool>::type = true>
     __INLINE__ vector& operator=(const rhs_type* rhs)
@@ -278,10 +240,6 @@ public:
     __INLINE__ vector<2,data_type>& operator=(const rhs_type& rhs)
     {
         x_ = rhs[0]; y_ = rhs[1]; return *this;
-    }
-    vector& operator=(std::initializer_list<data_type> rhs)
-    {
-        auto it = rhs.begin(); x_ = *it++; y_ = *it++; return *this;
     }
 
 public:
@@ -348,8 +306,8 @@ public:
     }
 
 public:
-    __INLINE__ double project_length(const vector<2,data_type>& rhs) { return *this*rhs/length(); }
-    __INLINE__ vector<2,data_type> project(const vector<2,data_type>& rhs) { return *this*(*this*rhs/length2()); }
+    __INLINE__ double project_length(const vector<2,data_type>& rhs) const { return *this*rhs/length(); }
+    __INLINE__ vector<2,data_type> project(const vector<2,data_type>& rhs) const { return *this*(*this*rhs/length2()); }
 
     template<typename tran_type>
     __INLINE__ void to(const tran_type& m)
@@ -428,10 +386,6 @@ public:
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
     __INLINE__ vector(const T* rhs):x_(data_type(rhs[0])),y_(data_type(rhs[1])),z_(data_type(rhs[2])){}
 
-    vector(std::initializer_list<data_type>  rhs)
-    {
-        auto it = rhs.begin(); x_ = *it++; y_ = *it++; z_ = *it++;
-    }
 
     template<typename T,typename std::enable_if<std::is_fundamental<T>::value,bool>::type = true>
     __INLINE__ vector& operator=(T rhs)
@@ -447,10 +401,6 @@ public:
     __INLINE__ vector& operator=(const T& rhs)
     {
         x_=rhs[0]; y_=rhs[1]; z_=rhs[2]; return *this;
-    }
-    vector& operator=(std::initializer_list<data_type> rhs)
-    {
-        auto it = rhs.begin(); x_ = *it++; y_ = *it++; z_ = *it++; return *this;
     }
 
 public:
@@ -566,7 +516,7 @@ public:
     }
 
 public:
-    __INLINE__ data_type distance2(const vector<3,data_type>& rhs)
+    __INLINE__ data_type distance2(const vector<3,data_type>& rhs) const
     {
         data_type sum = 0, t = x_-rhs.x_; sum += t*t;
         t = y_-rhs.y_; sum += t*t;
@@ -574,7 +524,7 @@ public:
         return sum;
     }
     template<typename pointer_type>
-    __INLINE__ data_type distance2(const pointer_type* rhs)
+    __INLINE__ data_type distance2(const pointer_type* rhs) const
     {
         data_type sum = 0, t = x_-rhs[0]; sum += t*t;
         t = y_-rhs[1]; sum += t*t;
@@ -582,9 +532,9 @@ public:
         return sum;
     }
 
-    __INLINE__ double distance(const vector<3,data_type>& rhs) { return std::sqrt(distance2(rhs)); }
+    __INLINE__ double distance(const vector<3,data_type>& rhs) const { return std::sqrt(distance2(rhs)); }
     template<typename pointer_type>
-    __INLINE__ double distance(const pointer_type* rhs) { return std::sqrt(distance2(rhs)); }
+    __INLINE__ double distance(const pointer_type* rhs) const { return std::sqrt(distance2(rhs)); }
 
     template<typename tran_type>
     __INLINE__ auto& to(const tran_type& m)
