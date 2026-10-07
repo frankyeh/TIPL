@@ -1,5 +1,5 @@
-#ifndef PIXEL_VALUE_HPP
-#define PIXEL_VALUE_HPP
+#ifndef RGB_IMAGE_HPP
+#define RGB_IMAGE_HPP
 
 #include <cmath>
 #include <algorithm>
@@ -26,6 +26,7 @@ struct rgb
     };
 
     constexpr rgb() : color(0) {}
+    // int/uint32_t are packed 0xAARRGGBB (e.g. rgb(0x00F04040)); other arithmetic types are grayscale
     constexpr rgb(uint32_t color_) : color(color_) {}
     constexpr rgb(int color_) : color(static_cast<uint32_t>(color_)) {}
 
@@ -213,4 +214,4 @@ using grayscale_image = image<2, uint8_t>;
 
 } // namespace tipl
 
-#endif // PIXEL_VALUE_HPP
+#endif // RGB_IMAGE_HPP
