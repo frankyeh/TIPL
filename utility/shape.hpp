@@ -12,10 +12,13 @@ namespace tipl
 {
 
 template<int d_>
-class shape
+class shape;
+
+template<>
+class shape<4>
 {
 public:
-    static constexpr int dimension = d_;
+    static constexpr int dimension = 4;
     unsigned int dim[dimension];
 private:
     size_t precomputed_size = 0;
@@ -86,10 +89,6 @@ public:
     {
         return dim+dimension;
     }
-    __INLINE__ unsigned int operator[](int index) const
-    {
-        return dim[index];
-    }
     template<typename rhs_type>
     __INLINE__ shape operator*(rhs_type value) const
     {
@@ -97,14 +96,6 @@ public:
         for(unsigned int i = 0;i < dimension;++i)
             new_shape.dim[i] *= value;
         return new_shape.update(),new_shape;
-    }
-    __INLINE__ const unsigned int* begin(void)
-    {
-        return dim;
-    }
-    __INLINE__ const unsigned int* end(void)
-    {
-        return dim+dimension;
     }
     template<typename index_type>
     __INLINE__ unsigned int operator[](index_type index) const
@@ -223,18 +214,6 @@ public:
     {
         return dim+1;
     }
-    __INLINE__ unsigned int operator[](int index) const
-    {
-        return dim[index];
-    }
-    __INLINE__ const unsigned int* begin(void)
-    {
-        return dim;
-    }
-    __INLINE__ const unsigned int* end(void)
-    {
-        return dim+1;
-    }
     template<typename index_type>
     __INLINE__ unsigned int operator[](index_type index) const
     {
@@ -307,11 +286,6 @@ public:
     {
         update();
     }
-    template<typename T>
-    __INLINE__ shape(std::initializer_list<T> arg):w(*arg.begin()),h(*(arg.begin()+1))
-    {
-        update();
-    }
 
     template<typename pointer_type>
     __INLINE__ explicit shape(const pointer_type* rhs)
@@ -355,18 +329,6 @@ public:
         return dim;
     }
     __INLINE__ const unsigned int* end(void) const
-    {
-        return dim+2;
-    }
-    __INLINE__ unsigned int operator[](int index) const
-    {
-        return dim[index];
-    }
-    __INLINE__ const unsigned int* begin(void)
-    {
-        return dim;
-    }
-    __INLINE__ const unsigned int* end(void)
     {
         return dim+2;
     }
@@ -460,11 +422,6 @@ private:
     }
 public:
     __INLINE__ shape(void):w(0),h(0),d(0) {}
-    template<typename T>
-    __INLINE__ shape(std::initializer_list<T> arg):w(*arg.begin()),h(*(arg.begin()+1)),d(*(arg.begin()+2))
-    {
-        update();
-    }
     __INLINE__ shape(unsigned int w_,unsigned int h_,unsigned int d_):w(w_),h(h_),d(d_)
     {
         update();
@@ -541,10 +498,6 @@ public:
     {
         return dim+3;
     }
-    __INLINE__ unsigned int operator[](int index) const
-    {
-        return dim[index];
-    }
     template<typename rhs_type>
     __INLINE__ shape operator*(rhs_type value) const
     {
@@ -552,14 +505,6 @@ public:
         return new_shape;
     }
 
-    __INLINE__ const unsigned int* begin(void)
-    {
-        return dim;
-    }
-    __INLINE__ const unsigned int* end(void)
-    {
-        return dim+3;
-    }
     template<typename index_type>
     __INLINE__ unsigned int operator[](index_type index) const
     {
