@@ -767,10 +767,9 @@ void convex_xy(ImageType& I)
 
             bool has_first = false;
             fill_buf.clear();
-            for(pixel_index<ImageType::dimension> index2(index);
-                index2.is_valid(shape);)
+            tipl::vector<ImageType::dimension,int> pos(index);
+            for(size_t idx2 = index.index();shape.is_valid(pos);idx2 += shift)
             {
-                size_t idx2 = index2.index();
                 label[idx2] = 1; // FIX: Mark trace as visited to prevent redundant work
                 if(I[idx2])
                 {
@@ -788,11 +787,10 @@ void convex_xy(ImageType& I)
                     if(has_first)
                         fill_buf.push_back(idx2);
                 }
-                index2[0] += dirs[i][0];
-                index2[1] += dirs[i][1];
-                index2.index() += shift;
-                if(index2[0] < range_min[0] || index2[0] >= range_max[0] ||
-                   index2[1] < range_min[1] || index2[1] >= range_max[1])
+                pos[0] += dirs[i][0];
+                pos[1] += dirs[i][1];
+                if(pos[0] < range_min[0] || pos[0] >= range_max[0] ||
+                   pos[1] < range_min[1] || pos[1] >= range_max[1])
                     break;
             }
         }
