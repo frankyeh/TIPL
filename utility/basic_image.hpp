@@ -631,7 +631,7 @@ public:
 public:
     pointer_image(void) {}
     pointer_image(const pointer_image& rhs):base_type(){operator=(rhs);}
-    template<typename T>
+    template<typename T,std::enable_if_t<T::dimension == dimension,bool> = true>
     pointer_image(T& rhs):base_type(rhs.data(),rhs.shape()) {}
     pointer_image(vtype* pointer,const tipl::shape<dim>& sp_):base_type(pointer,sp_) {}
 public:
@@ -665,7 +665,7 @@ public:
 public:
     const_pointer_image(void) {}
     const_pointer_image(const const_pointer_image& rhs):base_type(){operator=(rhs);}
-    template<typename T>
+    template<typename T,std::enable_if_t<T::dimension == dimension,bool> = true>
     const_pointer_image(const T& rhs):base_type(rhs.data(),rhs.shape()) {}
     const_pointer_image(const vtype* pointer,const tipl::shape<dim>& sp_):base_type(pointer,sp_){}
 public:
@@ -708,8 +708,7 @@ public:
     __INLINE__ device_pointer_container& operator=(any_container_type& rhs)
     {
         sz = rhs.size();
-        if (sz)
-            bg = rhs.data();
+        bg = sz ? rhs.data() : nullptr;
         return *this;
     }
 public:
@@ -777,8 +776,7 @@ public:
     __INLINE__ const_device_pointer_container& operator=(const any_container_type& rhs)
     {
         sz = rhs.size();
-        if (sz)
-            bg = rhs.data();
+        bg = sz ? rhs.data() : nullptr;
         return *this;
     }
 public:
@@ -792,11 +790,11 @@ public:
         return *this;
     }
 public:
-    const_device_pointer_container(const device_pointer_container<value_type>& rhs):bg(rhs.begin()),sz(rhs.sz){}
+    const_device_pointer_container(const device_pointer_container<value_type>& rhs):bg(rhs.data()),sz(rhs.size()){}
     __INLINE__ const_device_pointer_container& operator=(const device_pointer_container<value_type>& rhs)
     {
-        bg = rhs.begin();
-        sz = rhs.sz;
+        bg = rhs.data();
+        sz = rhs.size();
         return *this;
     }
 public:
