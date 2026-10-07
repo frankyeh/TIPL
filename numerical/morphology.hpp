@@ -224,41 +224,45 @@ ImageType& erosion_by_radius(ImageType& I,unsigned int radius)
 
 
 
-template<typename ImageType,typename LabelType,typename ShiftType>
-void edge(const ImageType& I,LabelType& act,const ShiftType& shift_list)
+// calls fun(I[p],I[p+d],act[p],act[p+d]) for every voxel p whose neighbor p+d=(x+dx,y+dy,z+dz) is inside the image
+template<typename ImageType,typename LabelType,typename fun_type>
+void for_each_neighbor_pair(const ImageType& I,LabelType& act,int dx,int dy,int dz,fun_type&& fun)
 {
     auto shape = I.shape();
-    size_t sz = I.size();
-    act.resize(shape);
-    for (int64_t shift : shift_list)
-    {
-        if (shift > 0)
+    int w = int(shape.width()),h = int(shape.height()),d = int(shape.depth());
+    int x0 = dx < 0 ? -dx : 0,x1 = dx > 0 ? w-dx : w;
+    int y0 = dy < 0 ? -dy : 0,y1 = dy > 0 ? h-dy : h;
+    int z0 = dz < 0 ? -dz : 0,z1 = dz > 0 ? d-dz : d;
+    if(x0 >= x1 || y0 >= y1 || z0 >= z1)
+        return;
+    int64_t offset = dx+int64_t(dy)*w+int64_t(dz)*w*h;
+    for(int z = z0;z < z1;++z)
+        for(int y = y0;y < y1;++y)
         {
-            auto iter1 = act.data() + shift;
-            auto iter2 = I.data();
-            auto iter3 = I.data()+shift;
-            auto end = act.data() + sz;
-            for (;iter1 < end;++iter1,++iter2,++iter3)
-                if (*iter2 != *iter3)
-                    *iter1 = 1;
+            int64_t pos = (int64_t(z)*h+y)*w+x0;
+            auto src = I.data()+pos;
+            auto dst = src+offset;
+            auto act_src = act.data()+pos;
+            auto act_dst = act_src+offset;
+            for(auto end = src+(x1-x0);src != end;++src,++dst,++act_src,++act_dst)
+                fun(*src,*dst,*act_src,*act_dst);
         }
-        else if (shift < 0)
-        {
-            auto iter1 = act.data();
-            auto iter2 = I.data() - shift;
-            auto iter3 = I.data();
-            auto end = I.data() + sz;
-            for (;iter2 < end;++iter1,++iter2,++iter3)
-                if (*iter2 != *iter3)
-                    *iter1 = 1;
-        }
-    }
 }
+// half neighborhood: each symmetric neighbor pair is visited once
+constexpr int half_dir2[4][2] = {{-1,-1},{0,-1},{1,-1},{-1,0}};
+constexpr int half_dir3[13][3] = {{-1,-1,-1},{0,-1,-1},{1,-1,-1},{-1,0,-1},{0,0,-1},{1,0,-1},{-1,1,-1},{0,1,-1},{1,1,-1},
+                                  {-1,-1,0},{0,-1,0},{1,-1,0},{-1,0,0}};
 template<typename ImageType,typename LabelType>
 void edge(const ImageType& I,LabelType& act)
 {
-    neighbor_index_shift<ImageType::dimension> neighborhood(I.shape());
-    edge(I,act,neighborhood.index_shift);
+    act.resize(I.shape());
+    auto mark = [](auto a,auto b,auto& act_a,auto& act_b){if(a != b) act_a = act_b = 1;};
+    if constexpr(ImageType::dimension == 2)
+        for(const auto& d : half_dir2)
+            for_each_neighbor_pair(I,act,d[0],d[1],0,mark);
+    else
+        for(const auto& d : half_dir3)
+            for_each_neighbor_pair(I,act,d[0],d[1],d[2],mark);
 }
 template<typename ImageType>
 void edge(ImageType& I)
@@ -271,75 +275,61 @@ void edge(ImageType& I)
 template<typename ImageType>
 void edge_thin(ImageType& I)
 {
-    ImageType out;
-    neighbor_index_shift_narrow<ImageType::dimension> neighborhood(I.shape());
-    neighborhood.index_shift.resize(neighborhood.index_shift.size()/2);
-    edge(I,out,neighborhood.index_shift);
+    ImageType out(I.shape());
+    auto mark = [](auto a,auto b,auto&,auto& act_b){if(a != b) act_b = 1;};
+    if constexpr(ImageType::dimension == 3)
+        for_each_neighbor_pair(I,out,0,0,-1,mark);
+    for_each_neighbor_pair(I,out,0,-1,0,mark);
+    for_each_neighbor_pair(I,out,-1,0,0,mark);
     I = out;
 }
 template<typename ImageType>
 void edge_xy(ImageType& I)
 {
-    ImageType out;
-    std::vector<int64_t> index_shift;
-    index_shift.push_back(-1);
-    index_shift.push_back(-int64_t(I.width()));
-    edge(I,out,index_shift);
+    ImageType out(I.shape());
+    auto mark = [](auto a,auto b,auto&,auto& act_b){if(a != b) act_b = 1;};
+    for_each_neighbor_pair(I,out,-1,0,0,mark);
+    for_each_neighbor_pair(I,out,0,-1,0,mark);
     I = out;
 }
 
 template<typename ImageType>
 void edge_yz(ImageType& I)
 {
-    ImageType out;
-    std::vector<int64_t> index_shift;
-    index_shift.push_back(-int64_t(I.width()));
-    index_shift.push_back(-int64_t(I.plane_size()));
-    edge(I,out,index_shift);
+    ImageType out(I.shape());
+    auto mark = [](auto a,auto b,auto&,auto& act_b){if(a != b) act_b = 1;};
+    for_each_neighbor_pair(I,out,0,-1,0,mark);
+    for_each_neighbor_pair(I,out,0,0,-1,mark);
     I = out;
 }
 
 template<typename ImageType>
 void edge_xz(ImageType& I)
 {
-    ImageType out;
-    std::vector<int64_t> index_shift;
-    index_shift.push_back(-1);
-    index_shift.push_back(-int64_t(I.plane_size()));
-    edge(I,out,index_shift);
+    ImageType out(I.shape());
+    auto mark = [](auto a,auto b,auto&,auto& act_b){if(a != b) act_b = 1;};
+    for_each_neighbor_pair(I,out,-1,0,0,mark);
+    for_each_neighbor_pair(I,out,0,0,-1,mark);
     I = out;
 }
 
 template<typename ImageType,typename LabelType>
 void inner_edge(const ImageType& I,LabelType& act)
 {
-    auto shape = I.shape();
-    size_t sz = I.size();
-    act.resize(shape);
-    neighbor_index_shift<ImageType::dimension> neighborhood(shape);
-    for (int64_t shift : neighborhood.index_shift)
+    act.resize(I.shape());
+    auto mark = [](auto a,auto b,auto& act_a,auto& act_b)
     {
-        if (shift > 0)
-        {
-            auto iter1 = act.data() + shift;
-            auto iter2 = I.data();
-            auto iter3 = I.data()+shift;
-            auto end = act.data() + sz;
-            for (;iter1 < end;++iter1,++iter2,++iter3)
-                if (*iter2 < *iter3)
-                    *iter1 = 1;
-        }
-        else if (shift < 0)
-        {
-            auto iter1 = act.data();
-            auto iter2 = I.data() - shift;
-            auto iter3 = I.data();
-            auto end = I.data() + sz;
-            for (;iter2 < end;++iter1,++iter2,++iter3)
-                if (*iter2 < *iter3)
-                    *iter1 = 1;
-        }
-    }
+        if(a < b)
+            act_b = 1;
+        else if(b < a)
+            act_a = 1;
+    };
+    if constexpr(ImageType::dimension == 2)
+        for(const auto& d : half_dir2)
+            for_each_neighbor_pair(I,act,d[0],d[1],0,mark);
+    else
+        for(const auto& d : half_dir3)
+            for_each_neighbor_pair(I,act,d[0],d[1],d[2],mark);
 }
 
 template<typename ImageType>
@@ -468,18 +458,13 @@ bool is_edge(ImageType& I,tipl::pixel_index<ImageType::dimension> index)
 template<typename ImageType>
 auto get_neighbor_count_multiple_region(const ImageType& I)
 {
-    size_t sz = I.size();
-    std::vector<std::unordered_map<int, char>> region_count(sz);
-    neighbor_index_shift<ImageType::dimension> neighborhood(I.shape());
-    tipl::par_for<sequential>(sz,[&](int64_t index)
+    auto shape = I.shape();
+    std::vector<std::unordered_map<int, char>> region_count(I.size());
+    tipl::par_for<sequential>(shape,[&](const auto& p)
     {
-        for(int64_t pos : neighborhood.index_shift)
-        {
-            pos += index;
-            if(pos < 0 || pos >= static_cast<int64_t>(sz))
-                continue;
-            ++region_count[index][I[pos]];
-        }
+        auto& count = region_count[p.index()];
+        ++count[I[p.index()]];
+        tipl::for_each_neighbors(p,shape,[&](const auto& q){++count[I[q.index()]];});
     });
     return region_count;
 }
@@ -1484,7 +1469,6 @@ size_t refine_label(label_image_type& label,const ref_image_type& ref,float fina
     using label_type = typename label_image_type::value_type;
     auto shape = label.shape();
     constexpr double eps = 1.0e-6,fw = 1.5,dw = 0.5,sw = 0.1;
-    tipl::neighbor_index_shift_narrow<3> shift(shape);
     tipl::image<3,unsigned char> edge_mask(shape);
     std::vector<size_t> edge_voxels;
     std::vector<label_type> next;
@@ -1494,7 +1478,12 @@ size_t refine_label(label_image_type& label,const ref_image_type& ref,float fina
     for(unsigned int iter = 0;iter < 100;)
     {
         edge_mask = 0;
-        tipl::morphology::edge(label,edge_mask,shift.index_shift);
+        {
+            auto mark = [](auto a,auto b,auto& act_a,auto& act_b){if(a != b) act_a = act_b = 1;};
+            for_each_neighbor_pair(label,edge_mask,0,0,-1,mark);
+            for_each_neighbor_pair(label,edge_mask,0,-1,0,mark);
+            for_each_neighbor_pair(label,edge_mask,-1,0,0,mark);
+        }
 
         edge_voxels.clear();
         for(size_t i = 0;i < label.size();++i)
