@@ -70,6 +70,7 @@ public:
     {
         buffer.swap(rhs.buffer);
         update_beg();
+        rhs.update_beg();
         return *this;
     }
     buffer_container& operator=(std::vector<unsigned char>&& buffer_)
@@ -496,8 +497,7 @@ public:
     __INLINE__ pointer_container& operator=(any_container_type& rhs)
     {
         sz = rhs.size();
-        if (sz)
-            bg = rhs.data();
+        bg = sz ? rhs.data() : nullptr;
         return *this;
     }
 public:
@@ -566,8 +566,7 @@ public:
     __INLINE__ const_pointer_container& operator=(const any_container_type& rhs)
     {
         sz = rhs.size();
-        if (sz)
-            bg = rhs.data();
+        bg = sz ? rhs.data() : nullptr;
         return *this;
     }
 public:
@@ -581,11 +580,11 @@ public:
         return *this;
     }
 public:
-    const_pointer_container(const pointer_container<value_type>& rhs):bg(rhs.begin()),sz(rhs.sz){}
+    const_pointer_container(const pointer_container<value_type>& rhs):bg(rhs.data()),sz(rhs.size()){}
     __INLINE__ const_pointer_container& operator=(const pointer_container<value_type>& rhs)
     {
-        bg = rhs.begin();
-        sz = rhs.sz;
+        bg = rhs.data();
+        sz = rhs.size();
         return *this;
     }
 public:
