@@ -45,6 +45,7 @@ class device_vector{
         using iterator          = value_type*;
         using const_iterator    = const value_type*;
         using reference         = value_type;
+        using const_reference   = value_type;
     private:
         value_type* buf = nullptr;
         size_t buf_size = 0;
