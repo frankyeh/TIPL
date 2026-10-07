@@ -67,8 +67,9 @@ __INLINE__ void for_each_connected_neighbors(const pixel_index<3>& index,const s
 template<typename T>
 __INLINE__ void for_each_neighbors(const pixel_index<2>& index,const shape<2>& geo,T&& fun)
 {
+    int w = int(geo.width());
     bool has_left = index.x() >= 1;
-    bool has_right = index.x()+1 < geo.width();
+    bool has_right = index.x()+1 < w;
     int x_left(0),x_right(0);
     if(has_left)
         x_left = index.x()-1;
@@ -77,7 +78,7 @@ __INLINE__ void for_each_neighbors(const pixel_index<2>& index,const shape<2>& g
     if (index.y() >= 1)
     {
         int y_top = index.y()-1;
-        int base_index = index.index()-geo.width();
+        int base_index = index.index()-w;
         if (has_left)
             fun(pixel_index<2>(x_left,y_top,base_index-1,geo));
 
@@ -96,7 +97,7 @@ __INLINE__ void for_each_neighbors(const pixel_index<2>& index,const shape<2>& g
     if (index.y()+1 < geo.height())
     {
         int y_bottom = index.y()+1;
-        int base_index = index.index()+geo.width();
+        int base_index = index.index()+w;
         if (has_left)
             fun(pixel_index<2>(x_left,y_bottom,base_index-1,geo));
 
@@ -242,18 +243,18 @@ __INLINE__ void for_each_neighbors(const pixel_index<2>& index,const shape<2>& g
     int fy = (index.y() > range) ? index.y() - range:0;
     int tx = std::min<int>(index.x() + range,int(geo.width())-1);
     int ty = std::min<int>(index.y() + range,int(geo.height())-1);
-    int y_index = fy*int(geo.width())+fx;
-    int radius2 = range*range;
-    for (int y = fy;y <= ty;++y,y_index += geo.width())
+    int w = int(geo.width());
+    int y_index = fy*w+fx;
+    int64_t radius2 = int64_t(range)*range;
+    for (int y = fy;y <= ty;++y,y_index += w)
     {
         int x_index = y_index;
-        int dy = int(index.y())-y;
-        int dy2 = dy*dy;
+        int64_t dy = int64_t(index.y())-y;
+        int64_t dy2 = dy*dy;
         for (int x = fx;x <= tx;++x,++x_index)
         {
-            int dx = int(index.x())-x;
-            int dx2 = dx*dx;
-            if(dx2+dy2 <= radius2)
+            int64_t dx = int64_t(index.x())-x;
+            if(dx*dx+dy2 <= radius2)
                 fun(pixel_index<2>(x,y,x_index,geo));
         }
     }
@@ -270,7 +271,7 @@ __INLINE__ void for_each_neighbors(const pixel_index<3>& index,const shape<3>& g
     int ty = std::min<int>(index.y() + range,int(geo.height())-1);
     int tz = std::min<int>(index.z() + range,int(geo.depth())-1);
     int64_t z_index = int64_t((fz*int64_t(geo.height())+fy)*int64_t(geo.width())+fx);
-    int64_t radius2 = range*range;
+    int64_t radius2 = int64_t(range)*range;
     for (int z = fz;z <= tz;++z,z_index += wh)
     {
         int64_t y_index = z_index;
@@ -313,11 +314,12 @@ public:
     neighbor_index_shift(const shape<2>& geo,int radius)
     {
         int64_t w = int64_t(geo.width());
+        int64_t radius2 = int64_t(radius)*radius;
             for (int64_t y = -radius;y <= radius; ++y)
             {
                 int64_t yw = y*w;
                 for (int64_t x = -radius;x <= radius; ++x)
-                    if(x*x + y*y <= radius*radius)
+                    if(x*x + y*y <= radius2)
                         index_shift.push_back(x + yw);
             }
     }
@@ -349,6 +351,7 @@ public:
     {
         int64_t wh = int64_t(geo.plane_size());
         int64_t w = int64_t(geo.width());
+        int64_t radius2 = int64_t(radius)*radius;
         for (int64_t z = -radius;z <= radius; ++z)
         {
             int64_t zwh = z*wh;
@@ -356,7 +359,7 @@ public:
             {
                 int64_t yw = y*w;
                 for (int64_t x = -radius;x <= radius; ++x)
-                    if(x*x + y*y + z*z <= radius*radius)
+                    if(x*x + y*y + z*z <= radius2)
                         index_shift.push_back(x + yw + zwh);
             }
         }
