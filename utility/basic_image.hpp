@@ -177,8 +177,6 @@ public:
     image(const image& rhs)          {operator=(rhs);}
     image(image&& rhs) noexcept      {operator=(std::move(rhs));}
 public:
-    template<typename T>
-    image(std::initializer_list<T> rhs):sp(rhs)      {alloc.resize(sp.size());}
     image(const shape_type& sp_):alloc(sp_.size()),sp(sp_){}
     image(const shape_type& sp_,value_type v):alloc(sp_.size(),v),sp(sp_){}
 public:
