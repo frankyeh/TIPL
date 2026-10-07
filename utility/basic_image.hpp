@@ -102,6 +102,7 @@ public:
     {
         buffer.swap(rhs.buffer);
         update_beg();
+        rhs.update_beg();
     }
     void swap(std::vector<unsigned char>& buffer_)
     {
@@ -142,6 +143,7 @@ public:
     using iterator          = typename storage_type::iterator;
     using const_iterator    = typename storage_type::const_iterator ;
     using reference         = typename storage_type::reference ;
+    using const_reference   = typename storage_type::const_reference;
     using shape_type        = tipl::shape<dim>;
     using buffer_type       = image<dim,vtype,stype>;
     static constexpr int dimension = dim;
@@ -155,16 +157,16 @@ public:
     __INLINE__ int depth(void)                  const   {return sp.depth();}
     __INLINE__ size_t plane_size(void)          const   {return sp.plane_size();}
 public:
-    value_type at(unsigned int x,unsigned int y) const   {return alloc[size_t(y)*sp[0]+x];}
+    const_reference at(unsigned int x,unsigned int y) const   {return alloc[size_t(y)*sp[0]+x];}
     reference at(unsigned int x,unsigned int y)          {return alloc[size_t(y)*sp[0]+x];}
-    value_type at(unsigned int x,unsigned int y,unsigned int z) const    {return alloc[size_t(z*sp[1]+y)*sp[0]+x];}
+    const_reference at(unsigned int x,unsigned int y,unsigned int z) const    {return alloc[size_t(z*sp[1]+y)*sp[0]+x];}
     reference at(unsigned int x,unsigned int y,unsigned int z)           {return alloc[size_t(z*sp[1]+y)*sp[0]+x];}
     template<typename T,typename std::enable_if<T::dimension==2,bool>::type = true>
-    value_type at(const T& pos) const    {return alloc[size_t(pos[1])*sp[0]+size_t(pos[0])];}
+    const_reference at(const T& pos) const    {return alloc[size_t(pos[1])*sp[0]+size_t(pos[0])];}
     template<typename T,typename std::enable_if<T::dimension==2,bool>::type = true>
     reference at(const T& pos)           {return alloc[size_t(pos[1])*sp[0]+size_t(pos[0])];}
     template<typename T,typename std::enable_if<T::dimension==3,bool>::type = true>
-    value_type at(const T& pos) const    {return alloc[size_t(size_t(pos[2])*sp[1]+size_t(pos[1]))*sp[0]+size_t(pos[0])];}
+    const_reference at(const T& pos) const    {return alloc[size_t(size_t(pos[2])*sp[1]+size_t(pos[1]))*sp[0]+size_t(pos[0])];}
     template<typename T,typename std::enable_if<T::dimension==3,bool>::type = true>
     reference at(const T& pos)           {return alloc[size_t(size_t(pos[2])*sp[1]+size_t(pos[1]))*sp[0]+size_t(pos[0])];}
 public:
@@ -239,7 +241,7 @@ public:
     bool empty(void)     const   {return alloc.empty();}
 
     template<typename index_type,typename std::enable_if<std::is_integral<index_type>::value,bool>::type = true>
-    __INLINE__ const value_type& operator[](index_type index)   const   {return alloc[index];}
+    __INLINE__ const_reference operator[](index_type index)   const   {return alloc[index];}
     __INLINE__ auto begin(void)                    const   {return alloc.begin();}
     __INLINE__ auto end(void)                      const   {return alloc.end();}
 
@@ -471,13 +473,6 @@ public:
 };
 
 
-template<typename V,typename T>
-inline V extract_pointer(T* p){return V(p);}
-template<typename V,typename T>
-inline V extract_pointer(T p){return V(&*p);}
-
-
-
 template<typename vtype>
 class pointer_container
 {
@@ -638,7 +633,7 @@ public:
     pointer_image(void) {}
     pointer_image(const pointer_image& rhs):base_type(){operator=(rhs);}
     template<typename T>
-    pointer_image(T& rhs):base_type(extract_pointer<vtype*>(rhs.begin()),rhs.shape()) {}
+    pointer_image(T& rhs):base_type(rhs.data(),rhs.shape()) {}
     pointer_image(vtype* pointer,const tipl::shape<dim>& sp_):base_type(pointer,sp_) {}
 public:
     pointer_image& operator=(const pointer_image& rhs)
@@ -657,12 +652,6 @@ public:
 template<int dim,typename vtype>
 struct memory_location<pointer_image<dim,vtype>> {static constexpr memory_location_type at = CPU;};
 
-
-template<typename V,typename T>
-inline V extract_const_pointer(const T* p){return V(p);}
-template<typename V,typename T>
-inline V extract_const_pointer(T p){return V(&*p);}
-
 template<int dim,typename vtype = float>
 class const_pointer_image : public image<dim,vtype,const_pointer_container>
 {
@@ -677,8 +666,8 @@ public:
 public:
     const_pointer_image(void) {}
     const_pointer_image(const const_pointer_image& rhs):base_type(){operator=(rhs);}
-    template<typename T,typename std::enable_if<T::dimension==dimension && !std::is_same<storage_type,typename T::storage_type>::value,bool>::type = true>
-    const_pointer_image(const T& rhs):base_type(extract_const_pointer<const vtype*>(rhs.begin()),rhs.shape()) {}
+    template<typename T>
+    const_pointer_image(const T& rhs):base_type(rhs.data(),rhs.shape()) {}
     const_pointer_image(const vtype* pointer,const tipl::shape<dim>& sp_):base_type(pointer,sp_){}
 public:
     const_pointer_image& operator=(const const_pointer_image& rhs)
