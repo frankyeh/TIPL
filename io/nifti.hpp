@@ -1050,9 +1050,11 @@ public:
             return false;
         }
         const size_t byte_per_pixel = nif_header.bitpix/8;
-        if(byte_per_pixel == 0)
+        const auto d = nif_header.datatype; // bitpix sizes the read: it must equal the datatype's storage size
+        if(!byte_per_pixel || byte_per_pixel != size_t(d == 2 || d == 256 ? 1 : d == 4 || d == 512 ? 2 : d == 8 || d == 16 || d == 768 ? 4 :
+                                                       d == 32 || d == 64 || d == 1024 || d == 1280 ? 8 : d == 128 ? 3 : 0))
         {
-            error_msg = "invalid bitpix value: " + std::to_string(nif_header.bitpix);
+            error_msg = "invalid bitpix " + std::to_string(nif_header.bitpix) + " for datatype " + std::to_string(d);
             return false;
         }
         if(pixel_count == 0)
