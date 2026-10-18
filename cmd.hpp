@@ -254,15 +254,13 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     }
     if(cmd == "downsampling")
     {
-        if constexpr(itype != nearest && itype != majority)
-            tipl::downsample_with_padding(data);
-        else
-            tipl::downsample_label(data);
+        tipl::downsample_with_padding<itype>(data);
+        constexpr float shift = (itype == nearest ? 0.0f : 0.5f); // a block average or vote centers between its two source voxels
         vs *= 2.0f;
-        T = T*tipl::matrix<4,4>({2,0,0,0,
-                                 0,2,0,0,
-                                 0,0,2,0,
-                                 0,0,0,1});
+        T = T*tipl::matrix<4,4>({2.0f,0.0f,0.0f,shift,
+                                 0.0f,2.0f,0.0f,shift,
+                                 0.0f,0.0f,2.0f,shift,
+                                 0.0f,0.0f,0.0f,1.0f});
         return true;
     }
     if(cmd == "header_flip_x")
