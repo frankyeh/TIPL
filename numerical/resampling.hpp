@@ -572,13 +572,20 @@ __INLINE__ ImageType2& downsampling(const ImageType1& in,ImageType2& out)
     return out;
 }
 
-template<typename T,typename U,typename V>
+template<interpolation itype,typename T,typename U,typename V>
 __INLINE__ void downsample_with_padding_imp(const pixel_index<T::dimension>& pos1,
                                             T& in,U& out,V& shift)
 {
     constexpr int buf_count = (T::dimension == 3 ? 8 : 4);
     using value_type = typename T::value_type;
     pixel_index<T::dimension> pos2((v(pos1)*2).begin(),in.shape());
+    if constexpr(itype == nearest) // the source voxel at the same corner
+    {
+        out[pos1.index()] = in[pos2.index()];
+        return;
+    }
+
+    // the 2x2x2 block, repeating the last voxel along an axis that has none left
     char has = 0;
     if(pos2[0]+1 < in.width())
         has += 1;
@@ -590,19 +597,44 @@ __INLINE__ void downsample_with_padding_imp(const pixel_index<T::dimension>& pos
             has += 4;
     }
     value_type buf[buf_count];
-    typename add_type<value_type>::type out_value = buf[0] = in[pos2.index()];
-    for(int i = 1 ;i < buf_count;++i)
+    buf[0] = in[pos2.index()];
+    for(int i = 1;i < buf_count;++i)
     {
         auto h = has & i;
-        out_value += (buf[i] = ((h == i) ? in[pos2.index()+shift[i]] : buf[h]));
+        buf[i] = ((h == i) ? in[pos2.index()+shift[i]] : buf[h]);
     }
-    if constexpr(std::is_integral<decltype(out_value)>::value)
-        out[pos1.index()] = out_value >> (T::dimension);
+
+    if constexpr(itype == majority) // the most frequent value, ties to the earliest
+    {
+        value_type winner = buf[0];
+        for(int i = 0,max_c = 0;i < buf_count && max_c < buf_count-i;++i)
+        {
+            int c = 1;
+            for(int j = i+1;j < buf_count;++j)
+                if(buf[i] == buf[j])
+                    ++c;
+            if(c > max_c)
+            {
+                max_c = c;
+                winner = buf[i];
+            }
+        }
+        out[pos1.index()] = winner;
+    }
     else
-        out[pos1.index()] = out_value/buf_count;
+    {
+        typename add_type<value_type>::type out_value = buf[0];
+        for(int i = 1;i < buf_count;++i)
+            out_value += buf[i];
+        if constexpr(std::is_integral<decltype(out_value)>::value)
+            out[pos1.index()] = out_value >> (T::dimension);
+        else
+            out[pos1.index()] = out_value/buf_count;
+    }
 }
 
-template<typename T,typename U, std::enable_if_t<memory_location<T>::at != CUDA, int> = 0>
+// itype: linear (or higher order) averages each block, majority votes (labels), nearest takes the block's first voxel
+template<interpolation itype = linear,typename T,typename U, std::enable_if_t<memory_location<T>::at != CUDA, int> = 0>
 U& downsample_with_padding(const T& in,U& out)
 {
     shape<T::dimension> out_shape(((v(in.shape())+1)/2).begin());
@@ -624,7 +656,7 @@ U& downsample_with_padding(const T& in,U& out)
 
     par_for(out_shape,[&](const auto& pos1)
     {
-        downsample_with_padding_imp(pos1,in,out,shift);
+        downsample_with_padding_imp<itype>(pos1,in,out,shift);
     });
 
     out.resize(out_shape);
@@ -633,17 +665,17 @@ U& downsample_with_padding(const T& in,U& out)
 
 #ifdef __CUDACC__
 
-template<typename T,typename U,typename V>
+template<interpolation itype,typename T,typename U,typename V>
 __global__ void downsample_with_padding_cuda_kernel(T in,U out,V shift)
 {
     const size_t sz = out.size();
     TIPL_FOR(index,sz)
     {
-        downsample_with_padding_imp(pixel_index<T::dimension>(index,out.shape()),in,out,shift);
+        downsample_with_padding_imp<itype>(pixel_index<T::dimension>(index,out.shape()),in,out,shift);
     }
 }
 
-template<typename T,typename U, std::enable_if_t<memory_location<T>::at == CUDA, int> = 0>
+template<interpolation itype = linear,typename T,typename U, std::enable_if_t<memory_location<T>::at == CUDA, int> = 0>
 void downsample_with_padding(const T& in,U& out)
 {
     shape<T::dimension> out_shape(((v(in.shape())+1)/2).begin());
@@ -664,7 +696,7 @@ void downsample_with_padding(const T& in,U& out)
     }
 
     device_vector<size_t> shift_(shift.begin(),shift.end());
-    TIPL_RUN(downsample_with_padding_cuda_kernel,out.size())
+    TIPL_RUN(downsample_with_padding_cuda_kernel<itype>,out.size())
             (tipl::make_shared(in),tipl::make_shared(out),tipl::make_shared(shift_));
 
     out.resize(out_shape);
@@ -679,171 +711,13 @@ ImageType& downsampling(ImageType& in)
     return downsampling(in,in);
 }
 
-template<typename ImageType>
+template<interpolation itype = linear,typename ImageType>
 ImageType& downsample_with_padding(ImageType& in)
 {
     ImageType out;
-    downsample_with_padding(in,out);
+    downsample_with_padding<itype>(in,out);
     in.swap(out);
     return in;
-}
-
-template<typename T, typename U, typename V>
-void downsample_label_imp(const pixel_index<T::dimension>& pos1,
-                          T& in, U& out, V& shift)
-{
-    constexpr int buf_count = (T::dimension == 3 ? 8 : 4);
-    using value_type = typename T::value_type;
-    pixel_index<T::dimension> pos2((v(pos1)*2).begin(), in.shape());
-
-    char has = 0;
-    if(pos2[0]+1 < in.width()) has += 1;
-    if(pos2[1]+1 < in.height()) has += 2;
-    if constexpr(T::dimension == 3)
-        if(pos2[2]+1 < in.depth()) has += 4;
-
-    value_type b[8];
-    for(int i = 0; i < buf_count; ++i)
-    {
-        auto h = has & i;
-        b[i] = (h == i) ? in[pos2.index() + shift[i]] : in[pos2.index()];
-    }
-
-    value_type winner = b[0];
-    int max_c = 0;
-    for(int i = 0; i < buf_count; ++i)
-    {
-        if (max_c > (buf_count - i)) break;
-
-        int c = 1;
-        for(int j = i + 1; j < buf_count; ++j)
-            if(b[i] == b[j]) ++c;
-
-        if(c > max_c) {
-            max_c = c;
-            winner = b[i];
-        }
-    }
-    out[pos1.index()] = winner;
-}
-
-template<typename T, typename U, std::enable_if_t<memory_location<T>::at != CUDA, int> = 0>
-void downsample_label(const T& in, U& out)
-{
-    shape<T::dimension> out_shape(((v(in.shape())+1)/2).begin());
-    if(out.size() < out_shape.size())
-        out.resize(out_shape);
-
-    size_t shift_data[8];
-    shift_data[0] = 0;
-    shift_data[1] = 1;
-    shift_data[2] = in.width();
-    shift_data[3] = 1 + in.width();
-    if constexpr(T::dimension == 3)
-    {
-        shift_data[4] = in.plane_size();
-        shift_data[5] = in.plane_size() + 1;
-        shift_data[6] = in.plane_size() + in.width();
-        shift_data[7] = in.plane_size() + 1 + in.width();
-    }
-
-    par_for(out_shape,[&](const auto& pos1)
-    {
-        downsample_label_imp(pos1, in, out, shift_data);
-    });
-
-    out.resize(out_shape);
-}
-
-#ifdef __CUDACC__
-template<typename T, typename U, typename V>
-__global__ void downsample_label_cuda_kernel(T in, U out, V shift)
-{
-    const size_t sz = out.size();
-    TIPL_FOR(index, sz)
-    {
-        using value_type = typename T::value_type;
-        tipl::pixel_index<T::dimension> pos1(index, out.shape());
-        constexpr int buf_count = (T::dimension == 3 ? 8 : 4);
-
-        tipl::pixel_index<T::dimension> pos2((v(pos1)*2).begin(), in.shape());
-        char has = 0;
-        if(pos2[0]+1 < in.width()) has += 1;
-        if(pos2[1]+1 < in.height()) has += 2;
-        if constexpr(T::dimension == 3)
-            if(pos2[2]+1 < in.depth()) has += 4;
-
-        value_type labels[buf_count];
-        int counts[buf_count] = {0};
-        int unique_count = 0;
-
-        for(int i = 0; i < buf_count; ++i)
-        {
-            auto h = has & i;
-            value_type label = (h == i) ? in[pos2.index() + shift[i]] : in[pos2.index()];
-
-            int j = 0;
-            for(; j < unique_count; ++j)
-                if(labels[j] == label)
-                {
-                    counts[j]++;
-                    break;
-                }
-            if(j == unique_count)
-            {
-                labels[unique_count] = label;
-                counts[unique_count] = 1;
-                ++unique_count;
-            }
-        }
-
-        int max_idx = 0;
-        for(int i = 1; i < unique_count; ++i)
-            if(counts[i] > counts[max_idx])
-                max_idx = i;
-
-        out[pos1.index()] = labels[max_idx];
-    }
-}
-
-template<typename T, typename U, std::enable_if_t<memory_location<T>::at == CUDA, int> = 0>
-void downsample_label(const T& in, U& out)
-{
-    shape<T::dimension> out_shape(((v(in.shape())+1)/2).begin());
-    if(out.size() < out_shape.size())
-        out.resize(out_shape);
-
-    size_t shift_data[8];
-    shift_data[0] = 0;
-    shift_data[1] = 1;
-    shift_data[2] = in.width();
-    shift_data[3] = 1 + in.width();
-    if constexpr(T::dimension == 3)
-    {
-        shift_data[4] = in.plane_size();
-        shift_data[5] = in.plane_size() + 1;
-        shift_data[6] = in.plane_size() + in.width();
-        shift_data[7] = in.plane_size() + 1 + in.width();
-    }
-
-    tipl::device_vector<size_t> d_shift(T::dimension == 3 ? 8 : 4);
-    std::copy(shift_data, shift_data + (T::dimension == 3 ? 8 : 4), d_shift.begin());
-
-    TIPL_RUN(downsample_label_cuda_kernel, out.size())
-            (tipl::make_shared(in), tipl::make_shared(out), tipl::make_shared(d_shift));
-
-    out.resize(out_shape);
-}
-
-#endif // __CUDACC__
-
-
-template<typename ImageType>
-void downsample_label(ImageType& in)
-{
-    ImageType out;
-    downsample_label(in, out);
-    in.swap(out);
 }
 
 template<interpolation type = linear,typename T, std::enable_if_t<memory_location<T>::at != CUDA, int> = 0>
