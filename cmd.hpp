@@ -204,9 +204,9 @@ bool command(image_type& data,std::string cmd,std::string param1)
 template<typename out = void,typename image_type>
 bool equation(image_type& x,std::string eq,std::string& error_msg);
 
-template<typename out = void,typename image_loader,typename image_type>
+template<typename out = void,interpolation itype,typename image_loader,typename image_type> // itype: nearest, majority (labels), or linear
 bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_mni,
-             std::string cmd,std::string param1,bool interpolation,std::string& error_msg)
+             std::string cmd,std::string param1,std::string& error_msg)
 {
     if constexpr(!std::is_void_v<out>)out() << std::string(param1.empty() ? cmd : cmd+":"+param1);
 
@@ -240,7 +240,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     }
     if(cmd == "upsampling")
     {
-        if(interpolation)
+        if constexpr(itype != nearest && itype != majority) // linear or higher order
             tipl::upsampling(data);
         else
             tipl::upsample_label(data);
@@ -254,7 +254,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     }
     if(cmd == "downsampling")
     {
-        if(interpolation)
+        if constexpr(itype != nearest && itype != majority)
             tipl::downsample_with_padding(data);
         else
             tipl::downsample_label(data);
@@ -412,10 +412,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
            T[9] != 0.0f || U[9] != 0.0f)
         {
             image_type new_data(data.shape());
-            if(interpolation)
-                tipl::resample<tipl::interpolation::linear>(data,new_data,tipl::transformation_matrix<float>(tipl::from_space(U).to(T)));
-            else
-                tipl::resample<tipl::interpolation::majority>(data,new_data,tipl::transformation_matrix<float>(tipl::from_space(U).to(T)));
+            tipl::resample<itype>(data,new_data,tipl::transformation_matrix<float>(tipl::from_space(U).to(T)));
             new_data.swap(data);
             vs = tipl::io::get_vs(U);
             return true;
@@ -423,34 +420,34 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         // flip in x y z
         if(T[0]*U[0] < 0)
         {
-            command<out,image_loader>(data,vs,T,is_mni,"header_flip_x","",interpolation,error_msg);
-            command<out,image_loader>(data,vs,T,is_mni,"flip_x","",interpolation,error_msg);
-            return command<out,image_loader>(data,vs,T,is_mni,cmd,param1,interpolation,error_msg);
+            command<out,itype,image_loader>(data,vs,T,is_mni,"header_flip_x","",error_msg);
+            command<out,itype,image_loader>(data,vs,T,is_mni,"flip_x","",error_msg);
+            return command<out,itype,image_loader>(data,vs,T,is_mni,cmd,param1,error_msg);
         }
         if(T[5]*U[5] < 0)
         {
-            command<out,image_loader>(data,vs,T,is_mni,"header_flip_y","",interpolation,error_msg);
-            command<out,image_loader>(data,vs,T,is_mni,"flip_y","",interpolation,error_msg);
-            return command<out,image_loader>(data,vs,T,is_mni,cmd,param1,interpolation,error_msg);
+            command<out,itype,image_loader>(data,vs,T,is_mni,"header_flip_y","",error_msg);
+            command<out,itype,image_loader>(data,vs,T,is_mni,"flip_y","",error_msg);
+            return command<out,itype,image_loader>(data,vs,T,is_mni,cmd,param1,error_msg);
         }
         if(T[10]*U[10] < 0)
         {
-            command<out,image_loader>(data,vs,T,is_mni,"header_flip_z","",interpolation,error_msg);
-            command<out,image_loader>(data,vs,T,is_mni,"flip_z","",interpolation,error_msg);
-            return command<out,image_loader>(data,vs,T,is_mni,cmd,param1,interpolation,error_msg);
+            command<out,itype,image_loader>(data,vs,T,is_mni,"header_flip_z","",error_msg);
+            command<out,itype,image_loader>(data,vs,T,is_mni,"flip_z","",error_msg);
+            return command<out,itype,image_loader>(data,vs,T,is_mni,cmd,param1,error_msg);
         }
         // consider voxel size
         if(T[0] != U[0] || T[5] != U[5] || T[10] != U[10])
         {
             auto new_vs = tipl::io::get_vs(U);
-            if(!command<out,image_loader>(data,vs,T,is_mni,"regrid",std::to_string(new_vs[0])+" "+std::to_string(new_vs[1])+" "+std::to_string(new_vs[2]),interpolation,error_msg))
+            if(!command<out,itype,image_loader>(data,vs,T,is_mni,"regrid",std::to_string(new_vs[0])+" "+std::to_string(new_vs[1])+" "+std::to_string(new_vs[2]),error_msg))
 
                 return false;
             T[0] = U[0];
             T[5] = U[5];
             T[10] = U[10];
             vs = tipl::io::get_vs(U);
-            return command<out,image_loader>(data,vs,T,is_mni,cmd,param1,interpolation,error_msg);
+            return command<out,itype,image_loader>(data,vs,T,is_mni,cmd,param1,error_msg);
         }
         // now translocation
         cmd = "translocate";
@@ -481,10 +478,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
             m.shift[0] = -m.shift[0];
             m.shift[1] = -m.shift[1];
             m.shift[2] = -m.shift[2];
-            if(interpolation)
-                tipl::resample<tipl::interpolation::linear>(data,new_data,m);
-            else
-                tipl::resample<tipl::interpolation::majority>(data,new_data,m);
+            tipl::resample<itype>(data,new_data,m);
         }
         else
         {
@@ -573,10 +567,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         nT[0] = T1.sr[0] = new_vs[0]/vs[0];
         nT[5] = T1.sr[4] = new_vs[1]/vs[1];
         nT[10] = T1.sr[8] = new_vs[2]/vs[2];
-        if(interpolation)
-            tipl::resample<tipl::interpolation::linear>(data,J,T1);
-        else
-            tipl::resample<tipl::interpolation::majority>(data,J,T1);
+        tipl::resample<itype>(data,J,T1);
         data.swap(J);
         vs = new_vs;
         T = T*nT;
@@ -605,10 +596,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
             return error_msg = "file not exist :" + param1,false;
         tipl::image<3,typename image_type::value_type> rhs(data.shape());
         image_loader loader(param1,std::ios::in);
-        if(interpolation)
-            loader.template to_space<tipl::interpolation::linear>(rhs,T);
-        else
-            loader.template to_space<tipl::interpolation::majority>(rhs,T);
+        loader.template to_space<itype>(rhs,T);
 
         if(!loader)
             return error_msg = loader.error_msg + ": " + param1,false;
