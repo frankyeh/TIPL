@@ -436,13 +436,20 @@ private:
 private:
     void copy(const mat_read_base& rhs)
     {
-        for(auto each : dataset)
+        dataset.clear();
+        for(auto each : rhs.dataset)
         {
-            each->flush(in,true);
+            each->flush(rhs.in,true);
             std::shared_ptr<mat_matrix> matrix(new mat_matrix);
             *(matrix.get()) = *(each.get());
             dataset.push_back(matrix);
         }
+        name_table = rhs.name_table;
+        in = rhs.in;
+        delay_read = rhs.delay_read;
+        mask_rows = rhs.mask_rows;
+        mask_cols = rhs.mask_cols;
+        si2vi = rhs.si2vi;
     }
 public:
     unsigned int mask_rows = 0;
@@ -514,6 +521,9 @@ public:
         name_table.swap(rhs.name_table);
         in.swap(rhs.in);
         std::swap(delay_read,rhs.delay_read);
+        std::swap(mask_rows,rhs.mask_rows);
+        std::swap(mask_cols,rhs.mask_cols);
+        si2vi.swap(rhs.si2vi);
     }
     bool has(const std::string& name) const
     {
