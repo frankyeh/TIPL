@@ -853,7 +853,9 @@ auto open_image_file(T* parent,QString path,QString filter)
 template<typename T>
 auto save_image_file(T* parent,QString default_name,QString filter)
 {
-    auto files = tipl::qt::details::image_dialog(parent,default_name,filter,QFileDialog::AcceptSave,QFileDialog::AnyFile,filter);
+    // default suffix: first pattern of the first filter, e.g. "NIFTI files (*nii.gz *.nii)" -> "nii.gz"
+    auto files = tipl::qt::details::image_dialog(parent,default_name,filter,QFileDialog::AcceptSave,QFileDialog::AnyFile,
+                                                 filter.section("(*",1,1).section(' ',0,0).section(')',0,0));
     return files.isEmpty() ? QString() : files.front();
 }
 
