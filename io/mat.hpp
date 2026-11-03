@@ -6,6 +6,7 @@
 #include <sstream>
 #include <filesystem>
 #include <map>
+#include <set>
 #include "interface.hpp"
 #include "../mt.hpp"
 #include "../prog.hpp"
@@ -800,16 +801,19 @@ public:
     unsigned int mask_rows = 0;
     unsigned int mask_cols = 0;
     std::vector<size_t> si2vi;
+    std::set<std::string> names; // names of the written matrices
 public:
     mat_write_base(const std::filesystem::path& file_name)
     {
         out.open(file_name);
     }
+    bool has(const std::string& name) const{return names.count(name);}
 public:
 
     template<storage_type stype = regular,typename T>
     bool write(mat_matrix& mat,const T* ptr)
     {
+        names.insert(mat.name);
         if constexpr(stype == sloped || stype == masked_sloped)
         {
             if(apply_slope && mat.size() > min_size_for_mask_slope && mat.sub_data.empty())
