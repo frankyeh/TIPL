@@ -673,7 +673,6 @@ float linear(std::vector<tipl::const_pointer_image<dim, unsigned char> > from,
             {
                 while (!end)
                 {
-                    std::this_thread::yield();
                     std::this_thread::sleep_for(std::chrono::milliseconds(500));
                     arg = tipl::transformation_matrix<float, dim>(surrogate_arg, from[0], from_vs, to[0], new_to_vs).to_affine_param(from[0], from_vs, to[0], to_vs);
                 }
