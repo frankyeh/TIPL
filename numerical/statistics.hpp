@@ -329,7 +329,9 @@ __INLINE__ auto median(input_iterator begin, input_iterator end)
 {
     auto size = (end-begin) / 2;
     std::nth_element(begin, begin + size, end);
-    return *(begin + size);
+    if((end-begin) % 2) // odd: the middle one; even: the average of the two middle ones
+        return *(begin + size);
+    return value_type((*(begin + size) + *std::max_element(begin, begin + size)) / 2);
 }
 template <typename input_iterator,
           typename value_type = typename std::iterator_traits<input_iterator>::value_type>
