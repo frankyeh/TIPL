@@ -327,6 +327,8 @@ template <typename input_iterator,
 __INLINE__ auto median(input_iterator begin, input_iterator end)
     -> typename std::enable_if<!std::is_const<typename std::remove_reference<decltype(*begin)>::type>::value,typename std::iterator_traits<input_iterator>::value_type>::type
 {
+    if(begin == end)
+        return value_type();
     auto size = (end-begin) / 2;
     std::nth_element(begin, begin + size, end);
     if((end-begin) % 2) // odd: the middle one; even: the average of the two middle ones
