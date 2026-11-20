@@ -95,13 +95,15 @@ float otsu_threshold_sharpening(const ImageType& src)
 template<typename image_type>
 float otsu_median(const image_type& I)
 {
-    float ot = otsu_threshold(I);
-    std::vector<float> buf;
-    size_t sz = I.size();
-    buf.reserve(sz);
-    for(size_t i = 0; i < sz; ++i)
-        if(I[i] > ot)
-            buf.push_back(I[i]);
+    // cap extremely high values at 8x the median of nonzero voxels so that they do not compress the otsu histogram
+    std::vector<float> capped(I.begin(),I.end()),buf;
+    std::copy_if(capped.begin(),capped.end(),std::back_inserter(buf),[](float v){return v != 0.0f;});
+    float cap = 8.0f*tipl::median(buf.begin(),buf.end());
+    for(auto& v : capped)
+        v = std::min(v,cap);
+    float ot = otsu_threshold(capped);
+    buf.clear();
+    std::copy_if(capped.begin(),capped.end(),std::back_inserter(buf),[ot](float v){return v > ot;});
     if(buf.empty())
         return ot;
     return tipl::median(buf);
