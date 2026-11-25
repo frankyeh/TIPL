@@ -296,28 +296,28 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
     }
     if(cmd == "header_swap_xy")
     {
-        T = tipl::matrix<4,4>({0,1,0,0,
+        T = T*tipl::matrix<4,4>({0,1,0,0,
                                1,0,0,0,
                                0,0,1,0,
-                               0,0,0,1})*T;
+                               0,0,0,1});
         std::swap(vs[0],vs[1]);
         return true;
     }
     if(cmd == "header_swap_xz")
     {
-        T = tipl::matrix<4,4>({0,0,1,0,
+        T = T*tipl::matrix<4,4>({0,0,1,0,
                                0,1,0,0,
                                1,0,0,0,
-                               0,0,0,1})*T;
+                               0,0,0,1});
         std::swap(vs[0],vs[2]);
         return true;
     }
     if(cmd == "header_swap_yz")
     {
-        T = tipl::matrix<4,4>({1,0,0,0,
+        T = T*tipl::matrix<4,4>({1,0,0,0,
                                0,0,1,0,
                                0,1,0,0,
-                               0,0,0,1})*T;
+                               0,0,0,1});
         std::swap(vs[1],vs[2]);
         return true;
     }
@@ -354,7 +354,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
             tipl::image<3,unsigned char> label;
             tipl::threshold(data,label,0);
             tipl::morphology::defragment(label);
-            tipl::bounding_box(label,from,to,data[0]);
+            tipl::bounding_box(label,from,to,0);
         }
         tipl::vector<3,int> margin(0,0,0);
         std::istringstream in(param1);
@@ -392,14 +392,11 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         tipl::matrix<4,4> U((tipl::identity_matrix()));
         std::istringstream in(param1);
         for(int i = 0;i < 12;++i)
-        {
-            if(!in)
+            if(!(in >> U[i]))
             {
                 error_msg = "invalid transformation matrix";
                 return false;
             }
-            in >> U[i];
-        }
 
         // main axis not in diagonal, just use transformation
         if(T[1] != 0.0f || U[1] != 0.0f ||
@@ -412,6 +409,7 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
             image_type new_data(data.shape());
             tipl::resample<itype>(data,new_data,tipl::transformation_matrix<float>(tipl::from_space(U).to(T)));
             new_data.swap(data);
+            T = U;
             vs = tipl::io::get_vs(U);
             return true;
         }
@@ -469,9 +467,6 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
             m.shift[0] = shift[0];
             m.shift[1] = shift[1];
             m.shift[2] = shift[2];
-            T[3] -= T[0]*m.shift[0];
-            T[7] -= T[5]*m.shift[1];
-            T[11] -= T[10]*m.shift[2];
             // invert m
             m.shift[0] = -m.shift[0];
             m.shift[1] = -m.shift[1];
@@ -479,12 +474,10 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
             tipl::resample<itype>(data,new_data,m);
         }
         else
-        {
             tipl::draw(data,new_data,tipl::vector<3,int>(shift));
-            T[3] -= T[0]*shift[0];
-            T[7] -= T[5]*shift[1];
-            T[11] -= T[10]*shift[2];
-        }
+        T[3] -= T[0]*shift[0] + T[1]*shift[1] + T[2]*shift[2];
+        T[7] -= T[4]*shift[0] + T[5]*shift[1] + T[6]*shift[2];
+        T[11] -= T[8]*shift[0] + T[9]*shift[1] + T[10]*shift[2];
         data.swap(new_data);
         return true;
     }
