@@ -335,9 +335,8 @@ public:
                 sum_x2 += value * value;
             }
             sum_x /= ((double)sample_size);
-            X_std[index] = std::sqrt(sum_x2 / ((double)sample_size) - sum_x * sum_x);
-            if(X_std[index] == 0)
-                X_std[index] = 1.0;
+            double var = sum_x2 / ((double)sample_size) - sum_x * sum_x;
+            X_std[index] = var > 0.0 ? std::sqrt(var) : 1.0;
         }
         for(size_t j = 0; j < attribute_dimension; ++j)
         {
@@ -369,9 +368,8 @@ public:
                 sum_x2 += value * value;
             }
             sum_x /= ((double)sample_size);
-            X_std[0] = std::sqrt(sum_x2 / ((double)sample_size) - sum_x * sum_x);
-            if(X_std[0] == 0)
-                X_std[0] = 1.0;
+            double var = sum_x2 / ((double)sample_size) - sum_x * sum_x;
+            X_std[0] = var > 0.0 ? std::sqrt(var) : 1.0;
         }
         for(size_t j = 0; j < attributes[0].size(); ++j)
         {
