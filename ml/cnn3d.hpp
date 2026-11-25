@@ -858,8 +858,11 @@ public:
     void to_gpu(void)
     {
         if constexpr(tipl::use_cuda)
-            allocate_param((gpu_memory = memory).data(),is_gpu = true);
-        memory = std::vector<float>();
+        {
+            gpu_memory = memory;
+            allocate_param(gpu_memory.data(),true);
+            memory = std::vector<float>();
+        }
     }
 
     float* allocate_param(float* ptr,bool is_gpu_mem) override  {return layer_sequence::allocate_param(ptr,is_gpu = is_gpu_mem);}
@@ -935,7 +938,7 @@ public:
             for(size_t t = 1; t < tokens.size(); ++t)
             {
                 auto l = create_layer(tokens[t]);
-                if(tokens[t] == dec_tokens.back().back()) break;
+                if(level == 0 && t + 1 == tokens.size()) break;
                 decoding[0].push_back(l);
             }
         }
@@ -1017,8 +1020,9 @@ public:
     }
     void forward(tipl::image<3>& in)
     {
-        if(dim != in.shape())
-            init_image(in.shape());
+        auto in_dim = in_channels_ > 1 ? in.shape().divide(tipl::shape<3>::z,in_channels_) : in.shape();
+        if(dim != in_dim)
+            init_image(in_dim);
         if constexpr(tipl::use_cuda)
             if(is_gpu) return forward(tipl::device_image<3,float>(in).data(),nullptr),void();
         forward(in.data(),nullptr);
