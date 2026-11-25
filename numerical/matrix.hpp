@@ -2109,7 +2109,7 @@ void eigenvalue(input_iterator A,output_iterator d,const dym_type& dimension)
                 e[i+1] = r = hypot(f,p);
                 if (r+f == f && r+p == p)
                 {
-                    d[i-1] -= g;
+                    d[i+1] -= g;
                     e[m] = value_type(0);
                     break;
                 }
@@ -2319,7 +2319,7 @@ void eigen_decomposition_sym(input_iterator A,
                 e[i+1] = r = hypot(f,p);
                 if (r+f == f && r+p == p)
                 {
-                    d[i-1] -= g;
+                    d[i+1] -= g;
                     e[m] = value_type(0);
                     break;
                 }
