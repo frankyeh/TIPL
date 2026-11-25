@@ -64,12 +64,14 @@ void laplacian_impl(image_type& src)
         auto v = out[i];
 
         if constexpr(std::is_same_v<out_type,tipl::rgb>)
+        {
             for(unsigned int j = 0;j < 3;++j)
                 if(v[j] < 0)
                     v[j] = -v[j];
-                else if constexpr(std::is_unsigned_v<out_type>)
-                    if(v < 0)
-                        v = -v;
+        }
+        else if constexpr(std::is_unsigned_v<out_type>)
+            if(v < 0)
+                v = -v;
 
         src[i] = pixel_manip<out_type>::to_pixel(v);
     });
