@@ -516,7 +516,7 @@ inline bool search_filesystem(const std::filesystem::path& pat,
         if((want_file ? std::filesystem::is_regular_file(pat,ec) :
                  std::filesystem::is_directory(pat,ec)) && !ec)
             out.push_back(std::filesystem::weakly_canonical(pat,ec));
-        return !out.empty();
+        return out.size() != old_size;
     }
 
     if(base.empty())
@@ -779,7 +779,8 @@ public:
                     while(in)
                     {
                         std::string other_str;
-                        in >> other_str;
+                        if(!(in >> other_str))
+                            break;
                         str += " ";
                         str += other_str;
                         if(other_str.back() == '"')
@@ -976,9 +977,9 @@ public:
 
         std::string resolved_sel = sel;
 
-        if(sel[0] >= '0' && sel[0] <= '9')
+        if(sel.find_first_not_of("0123456789") == std::string::npos)
         {
-            size_t idx = size_t(sel[0]-'0');
+            size_t idx = std::stoul(sel);
             if(idx < selections.size())
                 resolved_sel = selections[idx];
         }
