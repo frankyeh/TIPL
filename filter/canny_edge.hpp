@@ -2,6 +2,7 @@
 #ifndef CANNY_EDGE_HPP_INCLUDED
 #define CANNY_EDGE_HPP_INCLUDED
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <type_traits>
@@ -137,8 +138,6 @@ void canny_edge_impl(image_type& src)
     }
     else
     {
-        constexpr work_type inv_sqrt3 =
-            work_type(0.5773502691896258);
         const size_t d = src.depth();
 
         tipl::serial_or_parallel(src.size(),[&](size_t i)
@@ -147,7 +146,7 @@ void canny_edge_impl(image_type& src)
             if(m == 0)
                 return assign(i,0);
 
-            work_type threshold = m*inv_sqrt3;
+            work_type threshold = std::max({std::abs(gx[i]),std::abs(gy[i]),std::abs(gz[i])})*work_type(0.4142135623730951);
             int dx = gx[i] >= threshold ? 1 :
                          gx[i] <= -threshold ? -1 : 0;
             int dy = gy[i] >= threshold ? 1 :
