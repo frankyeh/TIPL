@@ -61,9 +61,17 @@ __INLINE__ void cdm_get_gradient_r_imp(const pixel_index<T::dimension>& index,
         auto g = gradient_at(Js,index);
         g *= r2*(Js[pos]*a+b-It[pos]);
         if constexpr(gradient_type == 'x')
-            g[1] = g[2] = 0.0f;
+        {
+            g[1] = 0.0f;
+            if constexpr(T::dimension == 3)
+                g[2] = 0.0f;
+        }
         else if constexpr(gradient_type == 'y')
-            g[0] = g[2] = 0.0f;
+        {
+            g[0] = 0.0f;
+            if constexpr(T::dimension == 3)
+                g[2] = 0.0f;
+        }
         else if constexpr(gradient_type == 'z')
             g[0] = g[1] = 0.0f;
         new_d[pos] += g;
@@ -289,8 +297,8 @@ cdm_solve_poisson(T& new_d,terminated_type& terminated)
                     tipl::make_shared(new_d),
                     tipl::make_shared(solve_d),
                     tipl::make_shared(new_solve_d));
-        if (cudaGetLastError() != cudaSuccess)
-            throw std::runtime_error(cudaGetErrorName(cudaGetLastError()));
+        if (auto err = cudaGetLastError(); err != cudaSuccess)
+            throw std::runtime_error(cudaGetErrorName(err));
 
         solve_d.swap(new_solve_d);
     }
@@ -315,7 +323,7 @@ template<typename dist_type>
 inline std::enable_if_t<memory_location<dist_type>::at != CUDA, float>
 cdm_max_displacement_length(dist_type& new_d)
 {
-    unsigned int tc = std::thread::hardware_concurrency();
+    unsigned int tc = std::max(1u, std::thread::hardware_concurrency());
     std::vector<float> theta(tc,0.0f);
 
     par_for<sequential_with_id>(new_d.size(),[&](int i,size_t id)
