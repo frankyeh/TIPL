@@ -391,7 +391,6 @@ void line_search(iter_type1 x_beg, iter_type1 x_end,
                     double cost = fun(temp);
                     all_sample_costs[linear_idx] = cost;
 
-                    if(cost < optimal_value)
                     {
                         std::lock_guard<std::mutex> lock(update_mtx);
                         if(cost < optimal_value)
@@ -485,7 +484,6 @@ void line_search(iter_type1 x_beg, iter_type1 x_end,
 
                             double cost = fun(temp);
 
-                            if(cost < optimal_value)
                             {
                                 std::lock_guard<std::mutex> lock(update_mtx);
                                 if(cost < optimal_value)
