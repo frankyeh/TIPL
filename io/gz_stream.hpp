@@ -168,7 +168,7 @@ private:
     std::vector<std::thread> inflate_threads;
 private:
     std::vector<std::vector<unsigned char> > file_buf;
-    std::vector<bool> file_buf_ready;
+    std::vector<uint8_t> file_buf_ready;
     std::vector<unsigned char> file_buf_ref;
 
 private:
@@ -354,8 +354,10 @@ public:
         {
             if(!good())
                 return false;
-            in.read(reinterpret_cast<char*>(buf),uint32_t(len));
-            return true;
+            in.read(reinterpret_cast<char*>(buf),std::streamsize(len));
+            cur_uncompressed += size_t(in.gcount());
+            cur_compressed += size_t(in.gcount());
+            return size_t(in.gcount()) == len;
         }
 
         size_t max_readsize = WINSIZE << 10; // 32 MB
@@ -474,14 +476,16 @@ public:
     }
     bool seek(size_t offset)
     {
-        if(offset == cur_uncompressed)
-            return true;
-
         if(!is_gz)
         {
-            in.seekg(int64_t(offset),std::ios::beg);
-            return !!in;
+            in.clear();
+            if(!in.seekg(int64_t(offset),std::ios::beg))
+                return false;
+            cur_uncompressed = cur_compressed = offset;
+            return true;
         }
+        if(offset == cur_uncompressed)
+            return true;
 
         auto result = points.lower_bound(offset);
         if(result == points.end())
@@ -504,7 +508,7 @@ public:
             }
         }
         std::vector<unsigned char> discard(offset-cur_uncompressed);
-        return read(&discard[0],discard.size());
+        return read(discard.data(),discard.size());
     }
     void flush(void)
     {
@@ -522,7 +526,7 @@ public:
             terminate_readfile_thread();
         }
     }
-    void clear(void)            {;}
+    void clear(void)            {if(!is_gz) in.clear();}
     size_t tell(void) const     {return cur_uncompressed;}
     size_t cur_size(void) const {return cur_compressed;}
     size_t size(void) const     {return file_size;}
@@ -589,7 +593,7 @@ public:
         handle = nullptr;
     }
 
-    bool good(void) const   {return !gzeof(handle);}
+    bool good(void) const   {return handle && !gzeof(handle);}
     operator bool() const	{return good();}
     bool operator!() const	{return !good();}
 

@@ -204,9 +204,9 @@ public:
     bool is_scaled(void) const
     {
         for(auto each1 : sub_data)
-            if(each1->name == ".slope")
+            if(each1->name == name + ".slope")
                 for(auto each2 : sub_data)
-                    if(each2->name == ".inter")
+                    if(each2->name == name + ".inter")
                         return true;
         return false;
     }
@@ -409,7 +409,7 @@ public:
         auto out_count = size();
         out << name << " (" <<
             std::vector<std::string>({"double","float","unsigned int",
-                                  "short","unsigned short","unsigned char"})[type/10]
+                                  "short","unsigned short","unsigned char","uint64"})[type/10]
             << "," << rows << "," << cols << ")=";
 
         if(!out_count)

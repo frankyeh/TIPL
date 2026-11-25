@@ -1013,8 +1013,7 @@ private:
         {
             output_stream.reset();
             std::filesystem::remove(tmp_file_name);
-            if(error_msg.empty())
-                return error_msg = "aborted",false;
+            return false;
         }
         output_stream.reset();
         std::filesystem::remove(file_name);
