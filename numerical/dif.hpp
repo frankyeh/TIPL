@@ -378,9 +378,9 @@ void jacobian_determinant(const tipl::image<dim, VectorType>& src, tipl::image<d
         if constexpr (dim == 3)
         {
             auto dv_dz = src[index.index() + wh] - src[index.index() - wh];
-            dest[index.index()] = dv_dx[0] * (dv_dy[1] * dv_dz[2] - dv_dy[2] * dv_dz[1]) +
-                                  dv_dx[1] * (dv_dy[2] * dv_dz[0] - dv_dy[0] * dv_dz[2]) +
-                                  dv_dx[2] * (dv_dy[0] * dv_dz[1] - dv_dy[1] * dv_dz[0]) * 0.125f;
+            dest[index.index()] = (dv_dx[0] * (dv_dy[1] * dv_dz[2] - dv_dy[2] * dv_dz[1]) +
+                                   dv_dx[1] * (dv_dy[2] * dv_dz[0] - dv_dy[0] * dv_dz[2]) +
+                                   dv_dx[2] * (dv_dy[0] * dv_dz[1] - dv_dy[1] * dv_dz[0])) * 0.125f;
         }
         else // D == 2
             dest[index.index()] = (dv_dx[0] * dv_dy[1] - dv_dx[1] * dv_dy[0]) * 0.25f;
