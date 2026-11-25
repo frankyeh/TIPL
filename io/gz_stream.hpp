@@ -355,9 +355,10 @@ public:
             if(!good())
                 return false;
             in.read(reinterpret_cast<char*>(buf),std::streamsize(len));
-            cur_uncompressed += size_t(in.gcount());
-            cur_compressed += size_t(in.gcount());
-            return size_t(in.gcount()) == len;
+            const auto count = size_t(in.gcount());
+            cur_uncompressed += count;
+            cur_compressed += count;
+            return count == len;
         }
 
         size_t max_readsize = WINSIZE << 10; // 32 MB
