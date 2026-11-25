@@ -189,7 +189,10 @@ private:
         prog_aborted = false;
         status_list.push_back({t,t,status,{}});
         ++status_count;
-        last_msg.clear();
+        {
+            std::scoped_lock<std::mutex> lock(msg_mutex);
+            last_msg.clear();
+        }
 #if defined(TIPL_USE_QT) && !defined(__CUDACC__)
 
         if(show_prog && show_now && !progressDialog)
@@ -340,6 +343,7 @@ public:
                 QApplication::processEvents();
                 check_reentrant = false;
             }
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
         #endif
         if (worker_thread.joinable())
