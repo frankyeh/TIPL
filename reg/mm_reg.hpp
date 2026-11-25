@@ -199,9 +199,9 @@ public:
             }
             out_type() << "IR:" << IR;
             Is = I[0].shape();
-            IR[3] += range_min[0]*IR[0];
-            IR[7] += range_min[1]*IR[5];
-            IR[11] += range_min[2]*IR[10];
+            IR[3] += range_min[0]*IR[0] + range_min[1]*IR[1] + range_min[2]*IR[2];
+            IR[7] += range_min[0]*IR[4] + range_min[1]*IR[5] + range_min[2]*IR[6];
+            IR[11] += range_min[0]*IR[8] + range_min[1]*IR[9] + range_min[2]*IR[10];
             out_type() << "new IR:" << IR;
         }
 
@@ -565,7 +565,8 @@ public:
     {
         auto new_ItR = ItR;
         for(int i = 0;i < dimension;++i)
-            new_ItR[3+i*4] -= new_ItR[i*5]*(float(new_Its[i])-float(Its[i]))*0.5f;
+            for(int j = 0;j < dimension;++j)
+                new_ItR[3+i*4] -= new_ItR[i*4+j]*(float(new_Its[j])-float(Its[j]))*0.5f;
         to_It_space(new_Its,new_ItR);
     }
 
@@ -573,7 +574,8 @@ public:
     {
         auto new_IR = IR;
         for(int i = 0;i < dimension;++i)
-            new_IR[3+i*4] -= new_IR[i*5]*(float(new_Is[i])-float(Is[i]))*0.5f;
+            for(int j = 0;j < dimension;++j)
+                new_IR[3+i*4] -= new_IR[i*4+j]*(float(new_Is[j])-float(Is[j]))*0.5f;
         to_I_space(new_Is,new_IR);
     }
 };
