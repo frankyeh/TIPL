@@ -729,7 +729,7 @@ public:
     {
         tipl::progress prog("unet segmentation");
         if(!data.run_preproc(preproc) || !data.handle_fov_pre(fov_strategy) || !data.handle_orientation(orientation))
-            return false;
+            return error_msg = data.error_msg,false;
 
         {
             for(size_t i = 0;prog(i,data.model_io.size());++i)
