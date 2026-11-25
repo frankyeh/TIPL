@@ -1,5 +1,6 @@
 #ifndef IMAGE_REG_HPP
 #define IMAGE_REG_HPP
+#include <atomic>
 #include <thread>
 #include <future>
 #include "../numerical/interpolation.hpp"
@@ -300,7 +301,8 @@ public:
     transform_type arg_upper,arg_lower;
     transform_type& arg_min;
 public:
-    unsigned int count = 0,prog = 0,max_prog = 0,search_count = 16;
+    std::atomic<unsigned int> count{0};
+    unsigned int prog = 0,max_prog = 0,search_count = 16;
     double precision = 0.001;
     size_t max_iterations = 128;
     std::vector<reg_type> reg_list = {translocation,translocation_scaling,rigid_scaling,affine};
@@ -326,7 +328,7 @@ public:
     linear_reg_runner(const linear_reg_runner& rhs):
         from(rhs.from),to(rhs.to),from_vs(rhs.from_vs),to_vs(rhs.to_vs),
         arg_upper(rhs.arg_upper),arg_lower(rhs.arg_lower),arg_min(rhs.arg_min),
-        count(rhs.count),max_prog(rhs.max_prog),search_count(rhs.search_count),
+        count(rhs.count.load()),max_prog(rhs.max_prog),search_count(rhs.search_count),
         precision(rhs.precision),
         max_iterations(rhs.max_iterations),reg_list(rhs.reg_list)
     {
@@ -477,7 +479,7 @@ public:
                     return is_terminated();
                 };
 
-                bool search_ended = false;
+                std::atomic<bool> search_ended(false);
                 std::thread thread([&](void)
                     {
                         tipl::optimization::line_search(
@@ -636,10 +638,12 @@ float linear(std::vector<tipl::const_pointer_image<dim, unsigned char> > from,
         reg->to_vs = t_vs;
         reg->set(param);
 
-        float result = (param.cuda && tipl::use_cuda && tipl::has_gpu) ?
-                       linear_reg_imp<out_type, mr>(std::true_type{}, reg, param.cost_type, terminated):
-                       linear_reg_imp<out_type, mr>(std::false_type{}, reg, param.cost_type, terminated);
-        return result;
+        if constexpr (tipl::use_cuda)
+        {
+            if (param.cuda && tipl::has_gpu)
+                return linear_reg_imp<out_type, mr>(std::true_type{}, reg, param.cost_type, terminated);
+        }
+        return linear_reg_imp<out_type, mr>(std::false_type{}, reg, param.cost_type, terminated);
     };
 
     if (param.bound == tipl::reg::narrow_bound)
