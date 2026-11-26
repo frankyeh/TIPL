@@ -292,7 +292,7 @@ public:
     __INLINE__ void abs() { x_ = std::abs(x_); y_ = std::abs(y_); }
 
     template<typename rhs_type>
-    __INLINE__ data_type operator*(const vector<2,rhs_type>& rhs) const { return x_*rhs.x_+y_*rhs.y_; }
+    __INLINE__ data_type operator*(const vector<2,rhs_type>& rhs) const { return x_*rhs[0]+y_*rhs[1]; }
 
     __INLINE__ data_type length2() const { return x_*x_+y_*y_; }
     __INLINE__ double length() const { return std::sqrt(x_*x_+y_*y_); }
@@ -605,6 +605,8 @@ public:
 
 template <par_for_type type = dynamic, int dim, typename Func>
 inline void par_for(const shape<dim>& s, Func&& f, int tc = max_thread_count) {
+    if (!s.size())
+        return;
     par_for<type>(pixel_index<dim>(s),pixel_index<dim>(s.size(),s), std::forward<Func>(f), tc);
 }
 
