@@ -315,34 +315,63 @@ inline image_type get_bounding_box(image_type p,int margin = 5)
 {
     const int w = p.width();
     const int h = p.height();
-    int l = w, r = 0, t = h, b = 0;
+    if(w <= 0 || h <= 0)
+        return image_type();
+    int l = w,r = -1,t = h,b = -1;
 
-    auto first_pixel = p.pixel(0,0);
-    for (int y = 0; y < h; ++y) {
-        auto row = reinterpret_cast<decltype(&first_pixel)>(p.scanLine(y));
-        bool rowFilled = false;
-        for (int x = 0; x < w; ++x)
-        {
-            if (row[x] != first_pixel)
+    auto scan_row = [&](int y,auto&& pixel_diff)
+    {
+        bool row_filled = false;
+        for(int x = 0;x < w;++x)
+            if(pixel_diff(x))
             {
-                rowFilled = true;
-                r = std::max(r, x);
-                if (l > x) {
+                row_filled = true;
+                r = std::max(r,x);
+                if(l > x)
+                {
                     l = x;
                     x = r; // shortcut to only search for new right bound from here
                 }
             }
-        }
-        if (rowFilled) {
-            t = std::min(t, y);
+        if(row_filled)
+        {
+            t = std::min(t,y);
             b = y;
         }
+    };
+
+    bool use_scanline32 = false;
+    if constexpr (std::is_same_v<image_type,QImage>)
+        use_scanline32 = (p.format() == QImage::Format_RGB32 ||
+                          p.format() == QImage::Format_ARGB32 ||
+                          p.format() == QImage::Format_ARGB32_Premultiplied);
+
+    if(use_scanline32)
+    {
+        if constexpr (std::is_same_v<image_type,QImage>)
+        {
+            const QRgb first_pixel = reinterpret_cast<const QRgb*>(p.constScanLine(0))[0];
+            for(int y = 0;y < h;++y)
+            {
+                const QRgb* row = reinterpret_cast<const QRgb*>(p.constScanLine(y));
+                scan_row(y,[&](int x){return row[x] != first_pixel;});
+            }
+        }
     }
+    else
+    {
+        auto first_pixel = p.pixel(0,0);
+        for(int y = 0;y < h;++y)
+            scan_row(y,[&](int x){return p.pixel(x,y) != first_pixel;});
+    }
+
+    if(r < l || b < t)
+        return image_type();
     l = std::max(0,l-margin);
     r = std::min(w-1,r+margin);
     t = std::max(0,t-margin);
     b = std::min(h-1,b+margin);
-    return p.copy(QRect(l,t,r-l,b-t));
+    return p.copy(QRect(l,t,r-l+1,b-t+1));
 }
 
 inline QImage create_mosaic(const std::vector<QImage>& images,int col_size)
