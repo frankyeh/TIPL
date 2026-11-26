@@ -859,8 +859,7 @@ public:
     {
         if constexpr(tipl::use_cuda)
         {
-            gpu_memory = memory;
-            allocate_param(gpu_memory.data(),true);
+            allocate_param((gpu_memory = memory).data(),true);
             memory = std::vector<float>();
         }
     }
