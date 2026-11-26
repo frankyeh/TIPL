@@ -79,12 +79,14 @@ public:
     {
         if(r == 0.0f)
             return color.front();
-        return color[std::min<int>(255,(std::max<int>(int((v-min)*255.99f/r),0)))];
+        int sz = int(color.size());
+        return color[std::min<int>(sz-1,std::max<int>(int((v-min)*(float(sz)-0.01f)/r),0))];
     }
     tipl::vector<3,float> min_color(void)const{return color.front();}
     tipl::vector<3,float> max_color(void)const{return color.back();}
     void two_color(tipl::rgb from_color,tipl::rgb to_color)
     {
+        color.resize(256);
         for(size_t index = 0,sz = color.size();index < sz;++index)
         {
             float findex = float(index)/255.0f;
@@ -94,6 +96,7 @@ public:
     }
     void spectrum(void)
     {
+        color.resize(256);
         for(size_t index = 0,sz = color.size();index < sz;++index)
         {
             color[index][0] = float(tipl::color_spectrum_value(128+64,uint8_t(index)))/255.0f;
@@ -129,12 +132,14 @@ public:
     {
         if(r == 0.0f)
             return color.front();
-        return color[std::min<int>(255,(std::max<int>(int((v-min)*255.99f/r),0)))];
+        int sz = int(color.size());
+        return color[std::min<int>(sz-1,std::max<int>(int((v-min)*(float(sz)-0.01f)/r),0))];
     }
     tipl::rgb min_color(void)const{return color.front();}
     tipl::rgb max_color(void)const{return color.back();}
     void two_color(tipl::rgb from_color,tipl::rgb to_color)
     {
+        color.resize(256);
         for(unsigned int index = 0;index < 256;++index)
         {
             for(unsigned char rgb_index = 0;rgb_index < 4;++rgb_index)
@@ -144,6 +149,7 @@ public:
     }
     void spectrum(void)
     {
+        color.resize(256);
         for(unsigned int index = 0;index < 256;++index)
         {
             color[index][2] = tipl::color_spectrum_value(128+64,uint8_t(index));
@@ -159,11 +165,13 @@ public:
         std::vector<float> values;
         std::copy(std::istream_iterator<float>(in),
                   std::istream_iterator<float>(),std::back_inserter(values));
-        float max_value = *std::max_element(values.begin(),values.end());
-        for(size_t i = 0,sz = values.size();i < sz;++i)
-            values[i] = float(std::max<int>(0,std::min<int>(255,int(std::floor(values[i]*256.0f/max_value)))));
         if(values.size() < 3)
             return false;
+        float max_value = *std::max_element(values.begin(),values.end());
+        if(!(max_value > 0.0f))
+            return false;
+        for(size_t i = 0,sz = values.size();i < sz;++i)
+            values[i] = float(std::max<int>(0,std::min<int>(255,int(std::floor(values[i]*256.0f/max_value)))));
         color.clear();
         for(size_t i = 0,sz = values.size();i+2 < sz;i += 3)
             color.push_back(tipl::rgb(uint8_t(values[i]),uint8_t(values[i+1]),uint8_t(values[i+2])));
