@@ -756,7 +756,7 @@ public:
     const char* get_descrip(void) const{return nif_header.descrip;}
     void set_descrip(const char* des)
     {
-        std::copy_n(des,80,nif_header.descrip);
+        std::strncpy(nif_header.descrip,des,80);
     }
     unsigned short width(void) const
     {
