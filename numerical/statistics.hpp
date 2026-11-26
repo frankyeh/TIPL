@@ -411,14 +411,12 @@ __INLINE__ double root_mean_suqare_error(input_iterator from,input_iterator to,i
 template<typename input_iterator>
 __INLINE__ double variance(input_iterator from,input_iterator to,double mean)
 {
-    double var = mean_square(from,to)-mean*mean;
-    return var > 0.0 ? var : 0.0;
+    return std::max(0.0,mean_square(from,to)-mean*mean);
 }
 template<typename T>
 inline double variance(const T& data,double m)
 {
-    double var = mean_square(data)-m*m;
-    return var > 0.0 ? var : 0.0;
+    return std::max(0.0,mean_square(data)-m*m);
 }
 template<typename T>
 inline double variance(const T& data)
