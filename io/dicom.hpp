@@ -1119,19 +1119,22 @@ public:
             // detect transfer syntax at 0x0002,0x0010
             if (ge.group == 0x0002 && ge.element == 0x0010)
             {
-                if(std::string((char*)&*ge.data.begin()) == std::string("1.2.840.10008.1.2"))
+                std::string uid(reinterpret_cast<const char*>(ge.data.data()),ge.data.size());
+                while(!uid.empty() && (uid.back() == '\0' || uid.back() == ' '))
+                    uid.pop_back();
+                if(uid == "1.2.840.10008.1.2")
                     transfer_syntax = lei;//Little Endian Implicit
                 else
-                if(std::string((char*)&*ge.data.begin()) == std::string("1.2.840.10008.1.2.1"))
+                if(uid == "1.2.840.10008.1.2.1")
                     transfer_syntax = lee;//Little Endian Explicit
                 else
-                if(std::string((char*)&*ge.data.begin()) == std::string("1.2.840.10008.1.2.2"))
+                if(uid == "1.2.840.10008.1.2.2")
                     transfer_syntax = bee;//Big Endian Explicit
                 else
+                if(!uid.empty())
                 {
                     is_compressed = true;
-                    encoding.resize(ge.data.size());
-                    std::copy(ge.data.begin(),ge.data.end(),encoding.begin());
+                    encoding = uid;
                     /*
                     1.2.840.10008.1.2.1.99 (Deflated Explicit VR Little Endian)
                     1.2.840.10008.1.2.4.50 (JPEG Baseline (Process 1) Lossy JPEG 8-bit)
