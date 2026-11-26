@@ -638,11 +638,9 @@ float linear(std::vector<tipl::const_pointer_image<dim, unsigned char> > from,
         reg->to_vs = t_vs;
         reg->set(param);
 
-        if constexpr (tipl::use_cuda)
-        {
-            if (param.cuda && tipl::has_gpu)
+        if constexpr(tipl::use_cuda)
+            if(param.cuda && tipl::has_gpu)
                 return linear_reg_imp<out_type, mr>(std::true_type{}, reg, param.cost_type, terminated);
-        }
         return linear_reg_imp<out_type, mr>(std::false_type{}, reg, param.cost_type, terminated);
     };
 
