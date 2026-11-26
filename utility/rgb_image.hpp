@@ -182,10 +182,7 @@ struct rgb
         rgb color;
         double h = std::fmod(color_gen * GOLDEN_RATIO_CONJ, 2.0) * PI;
         double s = 0.85 + (((color_gen / 13) % 2) ? -0.1 : 0.1);
-        int idx = (color_gen / 13) % 8;
-        if (idx < 0)
-            idx += 8;
-        double l = 0.7 + var2[idx];
+        double l = 0.7 + var2[unsigned(color_gen / 13) % 8];
         color.from_hsl(h, s, l);
         return color;
     }
