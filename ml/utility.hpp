@@ -340,8 +340,6 @@ public:
         }
         for(size_t j = 0; j < attribute_dimension; ++j)
         {
-            if(X_std[j] == 0.0)
-                continue;
             double x_std = X_std[j];
             for(size_t i = 0; i < sample_size; ++i)
                 attributes[i][j] /= x_std;
@@ -373,8 +371,6 @@ public:
         }
         for(size_t j = 0; j < attributes[0].size(); ++j)
         {
-            if(X_std[j] == 0.0)
-                continue;
             double x_std = X_std[j];
             for(size_t i = 0; i < sample_size; ++i)
                 attributes[i][j] /= x_std;
