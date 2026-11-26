@@ -464,13 +464,9 @@ bool command(image_type& data,tipl::vector<3>& vs,tipl::matrix<4,4>& T,bool& is_
         {
             tipl::transformation_matrix<float> m;
             m.sr[0] = m.sr[4] = m.sr[8] = 1.0f;
-            m.shift[0] = shift[0];
-            m.shift[1] = shift[1];
-            m.shift[2] = shift[2];
-            // invert m
-            m.shift[0] = -m.shift[0];
-            m.shift[1] = -m.shift[1];
-            m.shift[2] = -m.shift[2];
+            m.shift[0] = -shift[0];
+            m.shift[1] = -shift[1];
+            m.shift[2] = -shift[2];
             tipl::resample<itype>(data,new_data,m);
         }
         else
