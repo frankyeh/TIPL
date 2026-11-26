@@ -60,20 +60,10 @@ __INLINE__ void cdm_get_gradient_r_imp(const pixel_index<T::dimension>& index,
     {
         auto g = gradient_at(Js,index);
         g *= r2*(Js[pos]*a+b-It[pos]);
-        if constexpr(gradient_type == 'x')
-        {
-            g[1] = 0.0f;
-            if constexpr(T::dimension == 3)
-                g[2] = 0.0f;
-        }
-        else if constexpr(gradient_type == 'y')
-        {
-            g[0] = 0.0f;
-            if constexpr(T::dimension == 3)
-                g[2] = 0.0f;
-        }
-        else if constexpr(gradient_type == 'z')
-            g[0] = g[1] = 0.0f;
+        if constexpr(gradient_type != 'r') // keep only the gradient along x, y, or z
+            for(int i = 0;i < int(T::dimension);++i)
+                if(i != gradient_type-'x')
+                    g[i] = 0.0f;
         new_d[pos] += g;
         cost_map[pos] = -r2;
     }
