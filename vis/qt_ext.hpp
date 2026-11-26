@@ -239,12 +239,11 @@ QImage draw_regions(const std::vector<image_type>& region_masks,
     tipl::color_image slice_image_with_region(dim);  //original slices for adding regions pixels
     // draw regions and also derive where the edges are
     std::vector<std::vector<tipl::vector<2,int> > > edge_x(rm_size), edge_y(rm_size);
+    if(draw_edge)
     {
         tipl::par_for(rm_size,[&](uint32_t roi_index)
         {
             auto& region_mask = region_masks[roi_index];
-            auto color = colors[roi_index];
-            bool draw_roi = (!draw_edge && color.a >= 128);
             // detect edge
             auto& cur_edge_x = edge_x[roi_index];
             auto& cur_edge_y = edge_y[roi_index];
@@ -256,8 +255,6 @@ QImage draw_regions(const std::vector<image_type>& region_masks,
                 {
                     auto x = index[0];
                     auto y = index[1];
-                    if(draw_roi)
-                        slice_image_with_region[idx] = color;
                     if(y > 0 && !region_mask[idx-w])
                         cur_edge_x.push_back(tipl::vector<2,int>(x,y));
                     if(y+1 < h && !region_mask[idx+w])
@@ -269,6 +266,19 @@ QImage draw_regions(const std::vector<image_type>& region_masks,
                 }
             }
         });
+    }
+    else
+    {
+        for(uint32_t roi_index = 0; roi_index < rm_size; ++roi_index)
+        {
+            auto& region_mask = region_masks[roi_index];
+            auto color = colors[roi_index];
+            if(color.a < 128)
+                continue;
+            for(size_t idx = 0; idx < dim_size; ++idx)
+                if(region_mask[idx])
+                    slice_image_with_region[idx] = color;
+        }
     }
 
     // now apply image scaling to the slice image
@@ -350,7 +360,7 @@ inline QImage create_mosaic(const std::vector<QImage>& images,int col_size)
     height += 5;
 
     QImage I(num_images >= static_cast<size_t>(col_size) ? width*col_size : width*int(num_images),
-             height*int(1+num_images/col_size),QImage::Format_RGB32);
+             height*int((num_images-1)/static_cast<size_t>(col_size)+1),QImage::Format_RGB32);
     I.fill(images[0].pixel(0,0));
 
     QPainter painter(&I);
@@ -793,6 +803,7 @@ auto image_dialog(T* parent,QString path,QString filter,QFileDialog::AcceptMode 
         }
     }
 
+    simple_icon_provider icon_provider;
     QFileDialog dlg(parent,accept == QFileDialog::AcceptSave ? "Save Image" : "Open Image");
     dlg.setOption(QFileDialog::DontUseNativeDialog,true);
     dlg.setOption(QFileDialog::DontUseCustomDirectoryIcons,true);
@@ -802,7 +813,7 @@ auto image_dialog(T* parent,QString path,QString filter,QFileDialog::AcceptMode 
     dlg.setNameFilter(filter);
     dlg.setSidebarUrls(tipl::qt::working_dirs);
     dlg.setDirectory(dir);
-    dlg.setIconProvider(new simple_icon_provider);
+    dlg.setIconProvider(&icon_provider);
 
     if(accept == QFileDialog::AcceptOpen)
     {
