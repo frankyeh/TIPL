@@ -225,7 +225,7 @@ public:
         if (info["RECO_wordtype"] == std::string("_8BIT_SGN_INT"))
             std::copy_n(buffer.begin(), data.size(), data.begin());
         else if (info["RECO_wordtype"] == std::string("_8BIT_USGN_INT"))
-            std::copy_n(buffer.begin(), data.size(), data.begin());
+            std::copy_n(reinterpret_cast<const uint8_t*>(buffer.data()),data.size(),data.begin());
         else if (info["RECO_wordtype"] == std::string("_16BIT_SGN_INT"))
             std::copy_n(reinterpret_cast<const int16_t*>(buffer.data()),data.size(), data.begin());
         else if (info["RECO_wordtype"] == std::string("_16BIT_USGN_INT"))
