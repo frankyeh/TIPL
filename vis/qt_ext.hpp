@@ -313,17 +313,21 @@ QImage draw_regions(const std::vector<image_type>& region_masks,
 template<typename image_type>
 inline image_type get_bounding_box(image_type p,int margin = 5)
 {
+    if(p.isNull())
+        return image_type();
+    if(p.depth() != 32)
+        p = p.convertToFormat(QImage::Format_ARGB32);
     const int w = p.width();
     const int h = p.height();
-    if(w <= 0 || h <= 0)
-        return image_type();
     int l = w,r = -1,t = h,b = -1;
 
-    auto scan_row = [&](int y,auto&& pixel_diff)
+    const QRgb first_pixel = reinterpret_cast<const QRgb*>(p.constScanLine(0))[0];
+    for(int y = 0;y < h;++y)
     {
+        auto row = reinterpret_cast<const QRgb*>(p.constScanLine(y));
         bool row_filled = false;
         for(int x = 0;x < w;++x)
-            if(pixel_diff(x))
+            if(row[x] != first_pixel)
             {
                 row_filled = true;
                 r = std::max(r,x);
@@ -338,34 +342,9 @@ inline image_type get_bounding_box(image_type p,int margin = 5)
             t = std::min(t,y);
             b = y;
         }
-    };
-
-    bool use_scanline32 = false;
-    if constexpr (std::is_same_v<image_type,QImage>)
-        use_scanline32 = (p.format() == QImage::Format_RGB32 ||
-                          p.format() == QImage::Format_ARGB32 ||
-                          p.format() == QImage::Format_ARGB32_Premultiplied);
-
-    if(use_scanline32)
-    {
-        if constexpr (std::is_same_v<image_type,QImage>)
-        {
-            const QRgb first_pixel = reinterpret_cast<const QRgb*>(p.constScanLine(0))[0];
-            for(int y = 0;y < h;++y)
-            {
-                const QRgb* row = reinterpret_cast<const QRgb*>(p.constScanLine(y));
-                scan_row(y,[&](int x){return row[x] != first_pixel;});
-            }
-        }
-    }
-    else
-    {
-        auto first_pixel = p.pixel(0,0);
-        for(int y = 0;y < h;++y)
-            scan_row(y,[&](int x){return p.pixel(x,y) != first_pixel;});
     }
 
-    if(r < l || b < t)
+    if(r < l)
         return image_type();
     l = std::max(0,l-margin);
     r = std::min(w-1,r+margin);
