@@ -391,13 +391,11 @@ void line_search(iter_type1 x_beg, iter_type1 x_end,
                     double cost = fun(temp);
                     all_sample_costs[linear_idx] = cost;
 
+                    std::lock_guard<std::mutex> lock(update_mtx);
+                    if(cost < optimal_value)
                     {
-                        std::lock_guard<std::mutex> lock(update_mtx);
-                        if(cost < optimal_value)
-                        {
-                            optimal_value = cost;
-                            std::copy(temp.begin(), temp.end(), x_beg);
-                        }
+                        optimal_value = cost;
+                        std::copy(temp.begin(), temp.end(), x_beg);
                     }
                 }
             });
@@ -484,13 +482,11 @@ void line_search(iter_type1 x_beg, iter_type1 x_end,
 
                             double cost = fun(temp);
 
+                            std::lock_guard<std::mutex> lock(update_mtx);
+                            if(cost < optimal_value)
                             {
-                                std::lock_guard<std::mutex> lock(update_mtx);
-                                if(cost < optimal_value)
-                                {
-                                    optimal_value = cost;
-                                    std::copy(temp.begin(), temp.end(), x_beg);
-                                }
+                                optimal_value = cost;
+                                std::copy(temp.begin(), temp.end(), x_beg);
                             }
                         }
                     });
