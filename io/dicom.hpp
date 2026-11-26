@@ -1120,8 +1120,7 @@ public:
             if (ge.group == 0x0002 && ge.element == 0x0010)
             {
                 std::string uid(reinterpret_cast<const char*>(ge.data.data()),ge.data.size());
-                while(!uid.empty() && (uid.back() == '\0' || uid.back() == ' '))
-                    uid.pop_back();
+                uid.erase(uid.find_last_not_of(std::string("\0 ",2))+1); // trailing null or space padding
                 if(uid == "1.2.840.10008.1.2")
                     transfer_syntax = lei;//Little Endian Implicit
                 else
